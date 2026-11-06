@@ -126,7 +126,7 @@ describe('offline archive transport', () => {
       name: 'p',
       state: 'closed',
       window: 5,
-      entries: 1,
+      held: 1,
       writes: 1,
       closed_at: '2026-11-05T10:00:00Z',
     };

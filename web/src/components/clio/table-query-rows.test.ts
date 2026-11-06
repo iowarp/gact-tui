@@ -119,7 +119,7 @@ describe('stream notes', () => {
       ...extra,
     });
     const content = {
-      stream: { stream_id: 's', name: 'n', state: 'open', window: 5, entries: 4, writes: 4 },
+      stream: { stream_id: 's', name: 'n', state: 'open', window: 5, held: 4, writes: 4 },
       entries: [
         entry(1, { value: { t: 1, c: 20 } }),
         entry(2, { media_type: 'text/plain', text: 'note' }),

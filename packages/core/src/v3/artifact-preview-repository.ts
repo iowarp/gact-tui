@@ -218,7 +218,7 @@ const streamDescriptionSchema = z
     state: z.string(),
     media_type: z.string().optional(),
     window: z.number(),
-    entries: z.number(),
+    held: z.number(),
     writes: z.number(),
     opened_at: z.string().optional(),
     updated_at: z.string().optional(),

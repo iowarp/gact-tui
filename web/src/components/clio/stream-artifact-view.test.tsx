@@ -38,7 +38,7 @@ function content(state: string, entries: ReturnType<typeof entry>[], extra = {})
       name: 'sensor',
       state,
       window: 60,
-      entries: entries.length,
+      held: entries.length,
       writes: entries.length,
       updated_at: '2026-11-06T10:00:00Z',
       ...extra,

@@ -177,7 +177,7 @@ it.each([
           };
         else if (request.path === content_path)
           value = {
-            stream: { stream_id: 'stream_p', name: 'printer', state, window: 3, entries: 3, writes: 7 },
+            stream: { stream_id: 'stream_p', name: 'printer', state, window: 3, held: 3, writes: 7 },
             entries: [10, 55, 100].map((progress, index) => ({
               seq: index + 5,
               at: '2026-11-05T10:00:00Z',
