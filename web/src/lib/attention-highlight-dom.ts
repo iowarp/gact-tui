@@ -1,11 +1,12 @@
 import type { AttentionAvailable, AttentionRun } from '@clio/core/v3';
 import { bucketIntensity, findRunInRenderedText, projectText } from './attention-text';
 import {
-  type AttentionLineReduction,
-  LINE_HEAT_LEVELS,
+  type AttentionHeatReduction,
+  SEGMENT_HEAT_LEVELS,
   lineHeat,
-  lineLevel,
-} from './attention-line-heat';
+  segmentLevel,
+  wordHeat,
+} from './attention-segment-heat';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
 import { transcriptSourceStart } from './transcript-content-selection';
 
@@ -164,27 +165,38 @@ function paintBlock(
 }
 
 /**
- * Line mode: one band per source line, valued like SPOTTER's text map. Each
- * line combines its measured tokens (`reduction`), and every line is scaled to
- * the hottest line across the shown blocks on levels 0..9. Level 0 is left
- * unpainted. A rendered paragraph made of several source lines carries one
- * band per line; the line break between them stays unpainted, so neighbouring
- * bands keep a visible edge.
+ * Line or word mode, valued like SPOTTER's text maps. A segment is a source
+ * line (`render_heatmap.py`) or a first-level word (`render_pretoken_heatmap.py`);
+ * each combines its measured tokens (`reduction`), and every segment is scaled
+ * to the hottest one across the shown blocks on levels 0..9. Level 0 and
+ * whitespace-only segments are left unpainted, so neighbouring bands keep a
+ * visible edge: a rendered paragraph written over several source lines carries
+ * one band per line.
  */
-export function buildLineHighlightRanges(
+export function buildSegmentHighlightRanges(
   container: ParentNode,
   resolved: readonly ResolvedAttentionBlock[],
-  reduction: AttentionLineReduction,
+  unit: 'line' | 'word',
+  reduction: AttentionHeatReduction,
 ): AttentionHighlightRanges {
+  const heatOf = unit === 'line' ? lineHeat : wordHeat;
   const blocks = resolved.map((entry) => ({
     ...entry,
-    lines: lineHeat(entry.sourceText, entry.block.runs, reduction),
+    segments: heatOf(entry.sourceText, entry.block.runs, reduction),
   }));
-  const max = Math.max(0, ...blocks.flatMap(({ lines }) => lines.map((line) => line.value)));
-  const heat: Range[][] = Array.from({ length: LINE_HEAT_LEVELS }, () => []);
-  for (const { block, sourceText, lines } of blocks) {
-    const spans = lines
-      .map((line) => ({ lo: line.lo, hi: line.hi, bucket: lineLevel(line.value, max) }))
+  const max = Math.max(
+    0,
+    ...blocks.flatMap(({ segments }) => segments.map((segment) => segment.value)),
+  );
+  const heat: Range[][] = Array.from({ length: SEGMENT_HEAT_LEVELS }, () => []);
+  for (const { block, sourceText, segments } of blocks) {
+    const spans = segments
+      .filter((segment) => segment.visible)
+      .map((segment) => ({
+        lo: segment.lo,
+        hi: segment.hi,
+        bucket: segmentLevel(segment.value, max),
+      }))
       .filter((span) => span.bucket > 0 && span.hi > span.lo);
     paintBlock(container, block, sourceText, spans, heat);
   }

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-line-heat';
+import { DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-segment-heat';
 import { AttentionHeatViewControls } from './attention-heat-view-controls';
 
 afterEach(cleanup);
@@ -28,6 +28,15 @@ it('switches to tokens and hides the line value choice there', () => {
   cleanup();
   renderControls({ unit: 'token', reduction: 'max' });
   expect(screen.queryByRole('radio', { name: 'Mean' })).not.toBeInTheDocument();
+});
+
+it('offers words, with the same max or mean value', () => {
+  const onChange = renderControls();
+  fireEvent.click(screen.getByRole('radio', { name: 'Words' }));
+  expect(onChange).toHaveBeenCalledWith({ unit: 'word', reduction: 'max' });
+  cleanup();
+  renderControls({ unit: 'word', reduction: 'max' });
+  expect(screen.getByRole('radio', { name: 'Mean' })).toBeInTheDocument();
 });
 
 it('switches the line value to the mean', () => {

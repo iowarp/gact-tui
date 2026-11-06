@@ -8,7 +8,7 @@ import type { AttentionModeState } from '@/hooks/use-attention-mode';
 import { attentionDomainColor } from '@/lib/attention-domain-colors';
 import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
-import type { AttentionHeatView } from '@/lib/attention-line-heat';
+import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
 import { AttentionHeatViewControls } from './attention-heat-view-controls';

@@ -14,7 +14,7 @@ import { useSelectionAction } from './use-selection-action';
 import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
 import { attentionSelectionBody } from '@/lib/attention-selection-body';
-import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-line-heat';
+import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-segment-heat';
 
 export type AttentionModeState =
   | { status: 'idle' }

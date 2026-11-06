@@ -565,35 +565,36 @@
   background-color: color-mix(in oklch, var(--chart-5) 72%, transparent);
   color: var(--foreground);
 }
-/* Line mode: SPOTTER's text-map levels 1..9 (render_heatmap.py), one band per
-   source line, on the same warm hue. Level 0 is not painted. */
-::highlight(clio-attn-line-1) {
+/* Line and word modes: SPOTTER's text-map levels 1..9 (render_heatmap.py,
+   render_pretoken_heatmap.py), one band per source line or first-level word,
+   on the same warm hue. Level 0 is not painted. */
+::highlight(clio-attn-level-1) {
   background-color: color-mix(in oklch, var(--chart-5) 8%, transparent);
 }
-::highlight(clio-attn-line-2) {
+::highlight(clio-attn-level-2) {
   background-color: color-mix(in oklch, var(--chart-5) 16%, transparent);
 }
-::highlight(clio-attn-line-3) {
+::highlight(clio-attn-level-3) {
   background-color: color-mix(in oklch, var(--chart-5) 24%, transparent);
 }
-::highlight(clio-attn-line-4) {
+::highlight(clio-attn-level-4) {
   background-color: color-mix(in oklch, var(--chart-5) 32%, transparent);
 }
-::highlight(clio-attn-line-5) {
+::highlight(clio-attn-level-5) {
   background-color: color-mix(in oklch, var(--chart-5) 40%, transparent);
 }
-::highlight(clio-attn-line-6) {
+::highlight(clio-attn-level-6) {
   background-color: color-mix(in oklch, var(--chart-5) 48%, transparent);
 }
-::highlight(clio-attn-line-7) {
+::highlight(clio-attn-level-7) {
   background-color: color-mix(in oklch, var(--chart-5) 56%, transparent);
   color: var(--foreground);
 }
-::highlight(clio-attn-line-8) {
+::highlight(clio-attn-level-8) {
   background-color: color-mix(in oklch, var(--chart-5) 64%, transparent);
   color: var(--foreground);
 }
-::highlight(clio-attn-line-9) {
+::highlight(clio-attn-level-9) {
   background-color: color-mix(in oklch, var(--chart-5) 72%, transparent);
   color: var(--foreground);
 }

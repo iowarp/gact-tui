@@ -1,4 +1,4 @@
-import type { AttentionHeatView } from '@/lib/attention-line-heat';
+import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import type {
   ActionCardAction,
   Artifact,
