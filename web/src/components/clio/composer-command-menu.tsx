@@ -107,28 +107,27 @@ export function ClioComposerCommandMenu({
                     value={`${command.id} ${command.qualified_id} ${command.title} ${command.aliases.join(' ')}`}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 font-medium">
-                        <span className="font-mono">{command.id}</span>
+                      <span className="flex min-w-0 items-baseline gap-x-2 font-medium">
+                        <span className="min-w-0 break-all font-mono">{command.id}</span>
                         {command.title && command.title !== command.id ? (
-                          <span className="truncate font-normal text-muted-foreground">
+                          <span className="hidden min-w-0 truncate font-normal text-muted-foreground sm:inline">
                             {command.title}
                           </span>
                         ) : null}
-                        {source ? (
-                          <span className="text-xs font-normal text-muted-foreground">
-                            {source}
-                          </span>
-                        ) : null}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {command.enabled
-                          ? [command.argument_hint, command.description]
-                              .filter(Boolean)
-                              .join(' — ') || 'Run this command'
-                          : command.disabled_detail || command.disabled_reason || 'Unavailable'}
+                      {/* Its state, where it comes from and what it does, on one line. */}
+                      <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                        <CommandStatus command={command} />
+                        {source ? <span className="shrink-0">{source}</span> : null}
+                        <span className="min-w-0 truncate">
+                          {command.enabled
+                            ? [command.argument_hint, command.description]
+                                .filter(Boolean)
+                                .join(' — ') || 'Run this command'
+                            : command.disabled_detail || command.disabled_reason || 'Unavailable'}
+                        </span>
                       </span>
                     </span>
-                    <CommandStatus command={command} />
                   </PromptInputCommandItem>
                 );
               })}
