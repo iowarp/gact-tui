@@ -153,6 +153,31 @@ export function summonReferences(targets?: SummonTargets): WorkspaceReference[] 
   ];
 }
 
+/**
+ * The summon rows a typed `@query` offers, best first: a name that starts with
+ * the query, then a name that contains it, then a description that mentions it.
+ * Enter picks the first row, so `@rev` must offer `review` before an agent whose
+ * description merely says "review".
+ */
+export function matchingSummons(
+  rows: readonly WorkspaceReference[],
+  query: string,
+): WorkspaceReference[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return [...rows];
+  const rank = (row: WorkspaceReference): number => {
+    const name = row.label.toLocaleLowerCase();
+    if (name.startsWith(needle)) return 0;
+    if (name.includes(needle)) return 1;
+    return row.detail.toLocaleLowerCase().includes(needle) ? 2 : -1;
+  };
+  return rows
+    .map((row, index) => ({ row, index, rank: rank(row) }))
+    .filter((entry) => entry.rank >= 0)
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map((entry) => entry.row);
+}
+
 const TYPED_MENTION = /(?:^|(?<=[\s([{"'“]))@([\w-]+)(?=$|[\s,;:!?)\]}"'”]|\.(?:\s|$))/gu;
 
 /**

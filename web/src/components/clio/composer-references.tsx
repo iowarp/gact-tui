@@ -23,7 +23,7 @@ import {
   SEARCH_DEBOUNCE_MS,
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
-import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
+import { matchingSummons, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { referenceKindIcon } from './composer-reference-presentation';
 
@@ -152,13 +152,7 @@ export function ClioComposerReferenceMenu({
     // React Query retains the collapsed inventory in its cache after the user
     // starts typing. Do not mix those stale unfiltered files into live search
     // results; a query must reflect only the bounded server search.
-    const needle = query.trim().toLocaleLowerCase();
-    const summoned = summons.filter(
-      (row) =>
-        !needle ||
-        row.label.toLocaleLowerCase().includes(needle) ||
-        row.detail.toLocaleLowerCase().includes(needle),
-    );
+    const summoned = matchingSummons(summons, query);
     const combined = [
       ...summoned,
       ...(references.data ?? []),

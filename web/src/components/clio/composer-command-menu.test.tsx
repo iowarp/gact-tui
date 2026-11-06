@@ -1,7 +1,7 @@
 import type { CommandDefinition, SummonTargets } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { summonReferences, typedSummons } from '@/lib/composer-reference-domain';
+import { matchingSummons, summonReferences, typedSummons } from '@/lib/composer-reference-domain';
 import { commandForName, commandGroups } from '@/lib/command-table';
 import { CommandStatus } from './composer-command-menu';
 import { ConversationSummonedWork } from './conversation-summoned-work';
@@ -91,6 +91,24 @@ describe('the @ popover', () => {
       ['server', 'fixture_docs', 'Docs. — tools load when used'],
       ['server', 'hdf5', 'HDF5. — 14 tools'],
     ]);
+  });
+
+  it('offers a name that matches before a description that mentions the query', () => {
+    const rows = summonReferences({
+      subagents: [
+        { id: 'explore', plugin: 'delegation', description: 'Finds things; no review.' },
+        { id: 'review', plugin: 'delegation', description: 'Checks work.' },
+        { id: 'peer-review', plugin: 'delegation', description: 'A second reader.' },
+      ],
+      servers: [],
+    });
+    expect(matchingSummons(rows, 'rev').map((row) => row.id)).toEqual([
+      'review',
+      'peer-review',
+      'explore',
+    ]);
+    expect(matchingSummons(rows, 'zzz')).toEqual([]);
+    expect(matchingSummons(rows, '')).toHaveLength(3);
   });
 
   it('turns an exact @name typed in full into a summons and leaves prose alone', () => {
