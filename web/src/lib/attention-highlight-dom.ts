@@ -1,5 +1,11 @@
 import type { AttentionAvailable, AttentionRun } from '@clio/core/v3';
 import { bucketIntensity, findRunInRenderedText, projectText } from './attention-text';
+import {
+  type AttentionLineReduction,
+  LINE_HEAT_LEVELS,
+  lineHeat,
+  lineLevel,
+} from './attention-line-heat';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
 import { transcriptSourceStart } from './transcript-content-selection';
 
@@ -130,18 +136,57 @@ export function buildAttentionHighlightRanges(
 ): AttentionHighlightRanges {
   const heat: Range[][] = Array.from({ length: levels }, () => []);
   for (const { block, sourceText } of resolved) {
-    const element = findPartElement(container, block.message_id, block.part_id, block.field);
-    if (!element) continue;
-    const domProjection = projectText(element.textContent ?? '', { source: false });
-    if (!domProjection.text) continue;
-    let searchFrom = 0;
-    for (const run of mergeRunsByBucket(block.runs, maxValue, levels)) {
-      const found = findRenderedRun(element, sourceText, run.lo, run.hi, domProjection, searchFrom);
-      if (!found) continue;
-      searchFrom = found.projectedEnd;
-      const range = rangeFromTextOffsets(element, found.domLo, found.domHi);
-      if (range) heat[run.bucket]?.push(range);
-    }
+    paintBlock(container, block, sourceText, mergeRunsByBucket(block.runs, maxValue, levels), heat);
+  }
+  return { heat };
+}
+
+/** Adds one `Range` per span of a mounted block to `heat[span.bucket]`. */
+function paintBlock(
+  container: ParentNode,
+  block: ResolvedAttentionBlock['block'],
+  sourceText: string,
+  spans: readonly BucketedRun[],
+  heat: Range[][],
+) {
+  const element = findPartElement(container, block.message_id, block.part_id, block.field);
+  if (!element) return;
+  const domProjection = projectText(element.textContent ?? '', { source: false });
+  if (!domProjection.text) return;
+  let searchFrom = 0;
+  for (const span of spans) {
+    const found = findRenderedRun(element, sourceText, span.lo, span.hi, domProjection, searchFrom);
+    if (!found) continue;
+    searchFrom = found.projectedEnd;
+    const range = rangeFromTextOffsets(element, found.domLo, found.domHi);
+    if (range) heat[span.bucket]?.push(range);
+  }
+}
+
+/**
+ * Line mode: one band per source line, valued like SPOTTER's text map. Each
+ * line combines its measured tokens (`reduction`), and every line is scaled to
+ * the hottest line across the shown blocks on levels 0..9. Level 0 is left
+ * unpainted. A rendered paragraph made of several source lines carries one
+ * band per line; the line break between them stays unpainted, so neighbouring
+ * bands keep a visible edge.
+ */
+export function buildLineHighlightRanges(
+  container: ParentNode,
+  resolved: readonly ResolvedAttentionBlock[],
+  reduction: AttentionLineReduction,
+): AttentionHighlightRanges {
+  const blocks = resolved.map((entry) => ({
+    ...entry,
+    lines: lineHeat(entry.sourceText, entry.block.runs, reduction),
+  }));
+  const max = Math.max(0, ...blocks.flatMap(({ lines }) => lines.map((line) => line.value)));
+  const heat: Range[][] = Array.from({ length: LINE_HEAT_LEVELS }, () => []);
+  for (const { block, sourceText, lines } of blocks) {
+    const spans = lines
+      .map((line) => ({ lo: line.lo, hi: line.hi, bucket: lineLevel(line.value, max) }))
+      .filter((span) => span.bucket > 0 && span.hi > span.lo);
+    paintBlock(container, block, sourceText, spans, heat);
   }
   return { heat };
 }

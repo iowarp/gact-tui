@@ -1,6 +1,15 @@
 import type { AttentionAvailable, Message as DomainMessage, ToolInvocation } from '@clio/core/v3';
 import { type RefObject, useLayoutEffect } from 'react';
-import { buildAttentionHighlightRanges, buildSelectedRange } from '@/lib/attention-highlight-dom';
+import {
+  buildAttentionHighlightRanges,
+  buildLineHighlightRanges,
+  buildSelectedRange,
+} from '@/lib/attention-highlight-dom';
+import {
+  type AttentionHeatView,
+  DEFAULT_ATTENTION_HEAT_VIEW,
+  LINE_HEAT_LEVELS,
+} from '@/lib/attention-line-heat';
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
 import { maxRunValue } from '@/lib/attention-text';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -11,18 +20,25 @@ const HEAT_HIGHLIGHT_NAMES = Array.from(
   { length: HEAT_LEVELS },
   (_, level) => `clio-attn-heat-${level}`,
 );
+/** Line mode paints levels 1..9 of SPOTTER's ramp; level 0 stays unpainted. */
+const LINE_HIGHLIGHT_NAMES = Array.from(
+  { length: LINE_HEAT_LEVELS },
+  (_, level) => `clio-attn-line-${level}`,
+);
 const SELECTED_HIGHLIGHT_NAME = 'clio-attn-selected';
 
 function clearHighlights() {
   if (typeof CSS === 'undefined' || !CSS.highlights) return;
-  for (const name of HEAT_HIGHLIGHT_NAMES) CSS.highlights.delete(name);
+  for (const name of [...HEAT_HIGHLIGHT_NAMES, ...LINE_HIGHLIGHT_NAMES])
+    CSS.highlights.delete(name);
   CSS.highlights.delete(SELECTED_HIGHLIGHT_NAME);
 }
 
 /**
  * Paints "Understand attention" heat over the live transcript DOM using the
  * CSS Custom Highlight API, so the markdown renderer never has to re-render
- * for it. Re-applies on every transcript mutation (streaming text,
+ * for it. `view.unit` chooses one band per source line (SPOTTER's text map,
+ * the default) or one highlight per token. Re-applies on every transcript mutation (streaming text,
  * virtualized rows mounting as the reader scrolls) while a result is shown;
  * clears every highlight when dismissed, when the container unmounts, or when
  * the browser has no Custom Highlight API support (Highlight is left `undefined`
@@ -34,6 +50,7 @@ export function useAttentionHighlights(
   data: AttentionAvailable | undefined,
   messages: readonly DomainMessage[],
   tools: Record<string, ToolInvocation>,
+  view: AttentionHeatView = DEFAULT_ATTENTION_HEAT_VIEW,
 ) {
   useLayoutEffect(() => {
     if (!data) return undefined;
@@ -57,9 +74,16 @@ export function useAttentionHighlights(
 
     let frame = 0;
     const apply = () => {
-      const { heat } = buildAttentionHighlightRanges(container, resolved, maxValue, HEAT_LEVELS);
+      const lines = view.unit === 'line';
+      const names = lines ? LINE_HIGHLIGHT_NAMES : HEAT_HIGHLIGHT_NAMES;
+      const { heat } = lines
+        ? buildLineHighlightRanges(container, resolved, view.reduction)
+        : buildAttentionHighlightRanges(container, resolved, maxValue, HEAT_LEVELS);
+      for (const name of lines ? HEAT_HIGHLIGHT_NAMES : LINE_HIGHLIGHT_NAMES) {
+        CSS.highlights.delete(name);
+      }
       heat.forEach((ranges, level) => {
-        CSS.highlights.set(HEAT_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
+        CSS.highlights.set(names[level] as string, new Highlight(...ranges));
       });
       const selectedRanges = data.selected_references?.flatMap((reference) => {
         if (reference.field !== 'text') return [];
@@ -111,5 +135,5 @@ export function useAttentionHighlights(
       observer.disconnect();
       clearHighlights();
     };
-  }, [containerRef, data, messages, tools]);
+  }, [containerRef, data, messages, tools, view]);
 }
