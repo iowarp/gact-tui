@@ -39,7 +39,7 @@ export function devicesLabel(value: string | undefined): string {
   return tokens.length === 1 ? `GPU ${tokens[0]}` : `GPUs ${tokens.join(',')}`;
 }
 
-/** "GPU 1 · A100-SXM4-40GB · 40 GB". */
+/** "GPU 1, A100-SXM4-40GB, 40 GB". */
 export function gpuLabel(gpu: GpuFact): string {
   return [
     `GPU ${gpu.index}`,
@@ -47,7 +47,7 @@ export function gpuLabel(gpu: GpuFact): string {
     gpu.memory_total_mib ? `${Math.round(gpu.memory_total_mib / 1024)} GB` : '',
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
 }
 
 const DEVICE_VENDORS: [prefix: string, vendor: NonNullable<GpuFact['vendor']>][] = [
@@ -80,7 +80,8 @@ export function deploymentDevices(
     return devicesLabel(service.configuration[chosen]);
   }
   const effective = service.effective_parameters.find((row) => isDeviceParameter(row));
-  if (effective) return devicesLabel(/^\d+(\s*,\s*\d+)*$/u.test(effective.value) ? effective.value : '');
+  if (effective)
+    return devicesLabel(/^\d+(\s*,\s*\d+)*$/u.test(effective.value) ? effective.value : '');
   const installed = service.state === 'running' || service.state === 'stopped';
   if (
     installed &&
@@ -98,18 +99,15 @@ export function engineId(service: { id: string; instance_of?: string }): string 
 }
 
 /** The instance name of a row (`spotter` for `vllm@spotter`), when it is one. */
-export function instanceName(service: {
-  id: string;
-  instance_name?: string;
-}): string | undefined {
+export function instanceName(service: { id: string; instance_name?: string }): string | undefined {
   return service.instance_name || service.id.split('@')[1] || undefined;
 }
 
-/** "vLLM · spotter" for an instance row; the plain label otherwise. */
+/** "vLLM (spotter)" for an instance row; the plain label otherwise. */
 export function withInstanceLabel(service: ManagedServiceDefinition): ManagedServiceDefinition {
   const name = instanceName(service);
   if (!name || service.label.includes(name)) return service;
-  return { ...service, label: `${service.label} · ${name}` };
+  return { ...service, label: `${service.label} (${name})` };
 }
 
 /**

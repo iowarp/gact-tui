@@ -97,13 +97,13 @@ describe('GPU device picker', () => {
     const all = within(picker()).getByRole('checkbox', { name: 'All GPUs' });
     expect(all).toBeChecked();
     expect(
-      within(picker()).getByRole('checkbox', { name: 'GPU 1 · A100-SXM4-40GB · 40 GB' }),
+      within(picker()).getByRole('checkbox', { name: 'GPU 1, A100-SXM4-40GB, 40 GB' }),
     ).not.toBeChecked();
     // The device parameter is a choice, not a text field, when GPUs are known.
     expect(screen.queryByLabelText('vLLM NVIDIA GPU devices', { selector: 'input' })).toBeNull();
 
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 3 ·/u }));
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 3,/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2,/u }));
     expect(onChange).toHaveBeenCalledWith('param.cuda_devices', '2,3');
     expect(all).not.toBeChecked();
 
@@ -126,9 +126,9 @@ describe('GPU device picker', () => {
     const user = userEvent.setup();
     const { onChange, picker } = mount({ parameters: vllmParameters, hostGpus: gpus });
 
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2,/u }));
     expect(onChange).toHaveBeenLastCalledWith('param.tensor_parallel_size', '1');
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 3 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 3,/u }));
     expect(onChange).toHaveBeenLastCalledWith('param.tensor_parallel_size', '2');
     expect(screen.queryByRole('status')).toBeNull();
 
@@ -138,7 +138,7 @@ describe('GPU device picker', () => {
     await user.clear(tp);
     await user.type(tp, '4');
     onChange.mockClear();
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 1 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 1,/u }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('param.cuda_devices', '1,2,3');
     expect(tp).toHaveValue(4);
@@ -155,7 +155,7 @@ describe('GPU device picker', () => {
       initial: { 'param.tensor_parallel_size': '2', 'param.pipeline_parallel_size': '2' },
     });
 
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 0 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 0,/u }));
     expect(onChange).not.toHaveBeenCalledWith('param.tensor_parallel_size', expect.anything());
     expect(screen.getByRole('status')).toHaveTextContent('2 × 2 = 4, but 1 GPU is selected');
   });
@@ -167,12 +167,12 @@ describe('GPU device picker', () => {
     await user.click(screen.getByText('Server parameters'));
     expect(screen.getByLabelText('vLLM Tensor split')).toBeInTheDocument();
 
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 1 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 1,/u }));
     expect(screen.queryByLabelText('vLLM Tensor split')).toBeNull();
     expect(screen.queryByLabelText('vLLM Main GPU')).toBeNull();
     expect(screen.queryByLabelText('vLLM Split mode')).toBeNull();
 
-    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2 ·/u }));
+    await user.click(within(picker()).getByRole('checkbox', { name: /^GPU 2,/u }));
     expect(screen.getByLabelText('vLLM Tensor split')).toBeInTheDocument();
   });
 });

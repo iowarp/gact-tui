@@ -119,7 +119,9 @@ it('preserves the same full passage and source identity as streaming completes',
     'true',
   );
   const trigger = screen.getByRole('button', { name: /^Thinking:/ });
-  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  // Open while it streams; the reader keeps it open by choosing so before it completes.
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(trigger);
   fireEvent.click(trigger);
   view.rerender(<ConversationTurn iterations={[iteration]} mode="full" subagents={{}} />);
   const passage = screen.getByRole('region', { name: 'Thinking details' });

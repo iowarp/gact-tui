@@ -175,12 +175,12 @@ describe('named model-service instances', () => {
   it('labels instance rows and shows each deployment’s GPUs', async () => {
     renderServices();
 
-    expect(await screen.findByRole('button', { name: 'vLLM · spotter' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'vLLM (spotter)' })).toBeInTheDocument();
     expect(screen.getByText('GPU 0')).toBeInTheDocument();
     expect(screen.getByText('GPU 1')).toBeInTheDocument();
     // Only the engine offers further instances; an instance row does not.
     expect(screen.getByRole('button', { name: 'Add vLLM instance' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add vLLM · spotter instance' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add vLLM (spotter) instance' })).toBeNull();
   });
 
   it('names a new instance, then installs it on the chosen GPUs as <engine>@<name>', async () => {
@@ -206,13 +206,13 @@ describe('named model-service instances', () => {
     expect(within(form).getByText('Deploys as vllm@judge')).toBeInTheDocument();
     await user.click(within(form).getByRole('button', { name: 'Continue' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Set up vLLM · judge' });
-    await user.type(within(dialog).getByLabelText('vLLM · judge Model'), 'Qwen/Qwen3-8B');
+    const dialog = await screen.findByRole('dialog', { name: 'Set up vLLM (judge)' });
+    await user.type(within(dialog).getByLabelText('vLLM (judge) Model'), 'Qwen/Qwen3-8B');
     await user.click(within(dialog).getByText('Advanced settings'));
-    const gpus = within(dialog).getByRole('group', { name: 'vLLM · judge NVIDIA GPU devices' });
+    const gpus = within(dialog).getByRole('group', { name: 'vLLM (judge) NVIDIA GPU devices' });
     expect(within(gpus).getByRole('checkbox', { name: 'All GPUs' })).toBeChecked();
-    await user.click(within(gpus).getByRole('checkbox', { name: /^GPU 2 ·/u }));
-    await user.click(within(gpus).getByRole('checkbox', { name: /^GPU 3 ·/u }));
+    await user.click(within(gpus).getByRole('checkbox', { name: /^GPU 2,/u }));
+    await user.click(within(gpus).getByRole('checkbox', { name: /^GPU 3,/u }));
     await user.click(within(dialog).getByRole('button', { name: 'Install' }));
 
     await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
@@ -241,8 +241,8 @@ describe('named model-service instances', () => {
     await user.click(await screen.findByRole('button', { name: 'Add vLLM instance' }));
     await user.type(screen.getByLabelText('Instance name'), 'judge');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Set up vLLM · judge' });
-    await user.type(within(dialog).getByLabelText('vLLM · judge Model'), 'Qwen/Qwen3-8B');
+    const dialog = await screen.findByRole('dialog', { name: 'Set up vLLM (judge)' });
+    await user.type(within(dialog).getByLabelText('vLLM (judge) Model'), 'Qwen/Qwen3-8B');
     await user.click(within(dialog).getByRole('button', { name: 'Install' }));
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
