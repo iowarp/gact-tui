@@ -1,9 +1,11 @@
 import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
+import { CommentTextLayer } from './comment-text-layer';
 import { SvgElementLayer } from './svg-element-layer';
 import { textQuoteFromSelection } from './text-anchor';
 
@@ -79,9 +81,25 @@ export function CommentCapture({
   const shown = session?.open
     ? session.marks.flatMap((mark) => (mark.view ? [{ label: mark.label, rect: mark.view }] : []))
     : [];
+  // Text marks are drawn on the viewer they were made on: the one showing their file.
+  const open = Boolean(session?.open);
+  const marks = session?.marks;
+  const quoted = useMemo(
+    () =>
+      open && marks
+        ? marks.filter(
+            (mark) =>
+              mark.mode === 'text' &&
+              mark.anchor.exact &&
+              (mark.anchor.source_path ?? '') === (sourcePath ?? ''),
+          )
+        : [],
+    [open, marks, sourcePath],
+  );
   return (
     <div
-      className={className ?? 'relative h-full min-h-0 min-w-0'}
+      // The marks' layers are positioned against this element, whatever its size classes.
+      className={cn('relative', className ?? 'h-full min-h-0 min-w-0')}
       data-comment-capture={session?.active ? session.mode : undefined}
       onKeyUp={(event) => {
         if (event.shiftKey) captureText();
@@ -104,6 +122,9 @@ export function CommentCapture({
             })
           }
         />
+      ) : null}
+      {quoted.length && hostElement ? (
+        <CommentTextLayer host={hostElement} marks={quoted} onOpenMark={session?.setEditing} />
       ) : null}
       {regionMode || shown.length ? (
         <CommentRegionLayer

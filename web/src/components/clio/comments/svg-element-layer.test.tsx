@@ -18,7 +18,9 @@ describe('element marks on an SVG image', () => {
     expect(svgSelector(baseline, root)).toBe('#legend > text:nth-of-type(2)');
     const first = root.querySelector('text')!;
     expect(svgSelector(first, root)).toBe('svg > g:nth-of-type(1) > text');
-    expect(root.querySelectorAll(svgSelector(first, root).replace(/^svg > /u, ':scope > '))).toHaveLength(1);
+    expect(
+      root.querySelectorAll(svgSelector(first, root).replace(/^svg > /u, ':scope > ')),
+    ).toHaveLength(1);
   });
 
   it('picks the clicked element from an inert copy laid over the image', () => {

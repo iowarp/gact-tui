@@ -163,7 +163,9 @@ export function CommentSessionProvider({
     [floor, marks],
   );
   const updateMark = useCallback((label: string, patch: Partial<DraftMark>) => {
-    setMarks((current) => current.map((mark) => (mark.label === label ? { ...mark, ...patch } : mark)));
+    setMarks((current) =>
+      current.map((mark) => (mark.label === label ? { ...mark, ...patch } : mark)),
+    );
   }, []);
   const removeMark = useCallback((label: string) => {
     setMarks((current) => current.filter((mark) => mark.label !== label));
@@ -183,7 +185,9 @@ export function CommentSessionProvider({
           send_to_agent: mark.sendToAgent,
         })),
       });
-      await queryClient.invalidateQueries({ queryKey: commentThreadsKey(settings.endpoint, artifactId) });
+      await queryClient.invalidateQueries({
+        queryKey: commentThreadsKey(settings.endpoint, artifactId),
+      });
     },
     [artifactId, destination, queryClient, repository, settings.endpoint],
   );
@@ -223,7 +227,9 @@ export function CommentSessionProvider({
         });
         const failed = sent.threads.find((row) => row.status === 'failed');
         if (failed) throw new Error(failed.error || 'The comments could not be sent.');
-        await queryClient.invalidateQueries({ queryKey: commentThreadsKey(settings.endpoint, artifactId) });
+        await queryClient.invalidateQueries({
+          queryKey: commentThreadsKey(settings.endpoint, artifactId),
+        });
         toast.success(
           sent.message_id
             ? `${marks.length} ${marks.length === 1 ? 'comment' : 'comments'} sent to the agent.`
@@ -233,7 +239,11 @@ export function CommentSessionProvider({
         attachCommentSession({
           kind: destination.surface,
           title: surface.title,
-          marks: marks.map((mark) => ({ label: mark.label, anchor: mark.anchor, comment: mark.comment })),
+          marks: marks.map((mark) => ({
+            label: mark.label,
+            anchor: mark.anchor,
+            comment: mark.comment,
+          })),
           images: prepareImages ? await prepareImages(marks) : undefined,
         });
       }
@@ -247,7 +257,18 @@ export function CommentSessionProvider({
     } finally {
       setSending(false);
     }
-  }, [artifactId, destination, marks, onSent, prepareImages, queryClient, repository, sending, settings.endpoint, surface.title]);
+  }, [
+    artifactId,
+    destination,
+    marks,
+    onSent,
+    prepareImages,
+    queryClient,
+    repository,
+    sending,
+    settings.endpoint,
+    surface.title,
+  ]);
 
   const value = useMemo<CommentSessionValue>(
     () => ({
@@ -360,7 +381,8 @@ function CommentSessionControls({ session }: { session: CommentSessionValue }) {
             artifact
               ? {
                   checked: editing.sendToAgent,
-                  onChange: (checked) => session.updateMark(editing.label, { sendToAgent: checked }),
+                  onChange: (checked) =>
+                    session.updateMark(editing.label, { sendToAgent: checked }),
                 }
               : undefined
           }

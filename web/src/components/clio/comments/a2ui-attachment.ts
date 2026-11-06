@@ -7,7 +7,11 @@ import {
   type Region,
 } from '../a2ui-region-evidence';
 
-type LabelledPng = (target: HTMLElement, regions: readonly Region[], pixelRatio?: number) => Promise<Blob>;
+type LabelledPng = (
+  target: HTMLElement,
+  regions: readonly Region[],
+  pixelRatio?: number,
+) => Promise<Blob>;
 
 function blobDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -21,7 +25,8 @@ function blobDataUrl(blob: Blob): Promise<string> {
 function canvasDataUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) =>
     canvas.toBlob(
-      (blob) => (blob ? resolve(blobDataUrl(blob)) : reject(new Error('The crop returned no PNG data.'))),
+      (blob) =>
+        blob ? resolve(blobDataUrl(blob)) : reject(new Error('The crop returned no PNG data.')),
       'image/png',
     ),
   );

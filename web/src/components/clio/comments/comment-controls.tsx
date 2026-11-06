@@ -101,8 +101,16 @@ export function CommentControls({
           onPointerMove={(event) => {
             if (drag.current)
               setPosition({
-                x: clamp(drag.current.left + event.clientX - drag.current.x, 0, window.innerWidth - 250),
-                y: clamp(drag.current.top + event.clientY - drag.current.y, 0, window.innerHeight - 60),
+                x: clamp(
+                  drag.current.left + event.clientX - drag.current.x,
+                  0,
+                  window.innerWidth - 250,
+                ),
+                y: clamp(
+                  drag.current.top + event.clientY - drag.current.y,
+                  0,
+                  window.innerHeight - 60,
+                ),
               });
           }}
           onPointerUp={() => {

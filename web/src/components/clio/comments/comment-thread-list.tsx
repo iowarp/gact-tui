@@ -1,6 +1,7 @@
 import type { ArtifactReview } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
+import { MessageResponse } from '@/components/ai-elements/message';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -32,13 +33,23 @@ function threadStatus(thread: ArtifactReview): { value: StatusValue; label: stri
 
 function anchorState(thread: ArtifactReview, headVersion: number): string {
   if (thread.artifact_version === headVersion) return '';
-  if (thread.anchor.profile === 'region') return `Made on version ${thread.artifact_version}; shown beside the newest`;
+  if (thread.anchor.profile === 'region')
+    return `Made on version ${thread.artifact_version}; shown beside the newest`;
   if (thread.anchor_state === 'moved') return `Moved to version ${headVersion}`;
-  if (thread.anchor_state === 'outdated') return `Outdated: version ${headVersion} changed this part`;
+  if (thread.anchor_state === 'outdated')
+    return `Outdated: version ${headVersion} changed this part`;
   return `Made on version ${thread.artifact_version}`;
 }
 
-function Crop({ threadId, side, label }: { threadId: string; side: 'before' | 'after'; label: string }) {
+function Crop({
+  threadId,
+  side,
+  label,
+}: {
+  threadId: string;
+  side: 'before' | 'after';
+  label: string;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const crop = useQuery({
@@ -57,7 +68,9 @@ function Crop({ threadId, side, label }: { threadId: string; side: 'before' | 'a
   if (crop.isError) return <p className="text-xs text-muted-foreground">{label}: no crop</p>;
   return (
     <figure className="min-w-0 flex-1">
-      {url ? <img alt={label} className="max-h-40 w-full rounded border object-contain" src={url} /> : null}
+      {url ? (
+        <img alt={label} className="max-h-40 w-full rounded border object-contain" src={url} />
+      ) : null}
       <figcaption className="text-xs text-muted-foreground">{label}</figcaption>
     </figure>
   );
@@ -68,7 +81,13 @@ function Crop({ threadId, side, label }: { threadId: string; side: 'before' | 'a
  * label, where it points, the comment, the agent's reply and the version it made, its
  * re-anchoring state, and for a region on an older version, before and after.
  */
-export function CommentThreadList({ artifactId, sessionId }: { artifactId: string; sessionId: string }) {
+export function CommentThreadList({
+  artifactId,
+  sessionId,
+}: {
+  artifactId: string;
+  sessionId: string;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const threads = useQuery({
@@ -79,7 +98,8 @@ export function CommentThreadList({ artifactId, sessionId }: { artifactId: strin
         ? 3_000
         : false,
   });
-  if (threads.isPending) return <p className="p-3 text-sm text-muted-foreground">Loading comments…</p>;
+  if (threads.isPending)
+    return <p className="p-3 text-sm text-muted-foreground">Loading comments…</p>;
   if (threads.isError)
     return (
       <p className="p-3 text-sm text-destructive" role="alert">
@@ -91,7 +111,8 @@ export function CommentThreadList({ artifactId, sessionId }: { artifactId: strin
   if (!rows.length)
     return (
       <p className="p-3 text-sm text-muted-foreground">
-        No comments yet. Use Comment to mark text, a region or an element and tell the agent what to change.
+        No comments yet. Use Comment to mark text, a region or an element and tell the agent what to
+        change.
       </p>
     );
   return (
@@ -101,22 +122,39 @@ export function CommentThreadList({ artifactId, sessionId }: { artifactId: strin
         const state = anchorState(thread, head.version);
         const older = thread.artifact_version !== head.version;
         return (
-          <li className="rounded-md border p-3 text-sm" data-thread-label={thread.label} key={thread.id}>
+          <li
+            className="rounded-md border p-3 text-sm"
+            data-thread-label={thread.label}
+            key={thread.id}
+          >
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="rounded bg-primary px-1.5 py-0.5 text-xs font-bold text-primary-foreground">
                 {thread.label || '•'}
               </span>
-              <ClioStatus compact detail={thread.reply_error || thread.error} label={status.label} value={status.value} />
-              <span className="text-xs text-muted-foreground">Version {thread.artifact_version}</span>
+              <ClioStatus
+                compact
+                detail={thread.reply_error || thread.error}
+                label={status.label}
+                value={status.value}
+              />
+              <span className="text-xs text-muted-foreground">
+                Version {thread.artifact_version}
+              </span>
             </div>
-            <p className="truncate text-xs text-muted-foreground" title={anchorPreview(thread.anchor)}>
+            <p
+              className="truncate text-xs text-muted-foreground"
+              title={anchorPreview(thread.anchor)}
+            >
               {anchorPreview(thread.anchor)}
             </p>
             <p className="mt-1 whitespace-pre-wrap">{thread.text || '(no comment)'}</p>
             {state ? <p className="mt-1 text-xs text-muted-foreground">{state}</p> : null}
             {thread.reply_text ? (
-              <blockquote className="mt-2 border-l-2 pl-2 whitespace-pre-wrap text-muted-foreground">
-                {thread.reply_text}
+              <blockquote
+                className="mt-2 border-l-2 pl-2 text-muted-foreground"
+                data-slot="comment-reply"
+              >
+                <MessageResponse className="text-sm leading-6">{thread.reply_text}</MessageResponse>
               </blockquote>
             ) : null}
             {thread.reply_version_artifact_id ? (
@@ -124,7 +162,11 @@ export function CommentThreadList({ artifactId, sessionId }: { artifactId: strin
             ) : null}
             {older && (thread.anchor.profile === 'region' || thread.anchor.profile === 'dom') ? (
               <div className="mt-2 flex gap-2" data-slot="comment-compare">
-                <Crop label={`Before, version ${thread.artifact_version}`} side="before" threadId={thread.id} />
+                <Crop
+                  label={`Before, version ${thread.artifact_version}`}
+                  side="before"
+                  threadId={thread.id}
+                />
                 <Crop label={`After, version ${head.version}`} side="after" threadId={thread.id} />
               </div>
             ) : null}

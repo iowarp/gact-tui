@@ -83,8 +83,10 @@ export function anchorMode(anchor: DocumentAnchor): CommentMode {
 /** A short line for the list: the selected text, the element, or the box. */
 export function anchorPreview(anchor: DocumentAnchor): string {
   if (anchor.exact) return `“${anchor.exact.slice(0, 80)}”`;
-  if (anchor.profile === 'dom' && anchor.tag === 'zone' && anchor.text_excerpt) return anchor.text_excerpt;
-  if (anchor.profile === 'dom') return `<${anchor.tag || 'element'}> ${anchor.selector ?? ''}`.trim();
+  if (anchor.profile === 'dom' && anchor.tag === 'zone' && anchor.text_excerpt)
+    return anchor.text_excerpt;
+  if (anchor.profile === 'dom')
+    return `<${anchor.tag || 'element'}> ${anchor.selector ?? ''}`.trim();
   if (anchor.rect?.length === 4) {
     const [x, y, w, h] = anchor.rect;
     const page = anchor.page_index !== undefined ? `page ${anchor.page_index + 1}, ` : '';
