@@ -501,6 +501,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                         ),
                       )}
                     <VariantRunsForMessage message={message} />
+                    <ConversationSummonedWork metadata={message.metadata} />
                   </>
                 ) : (
                   <>
@@ -514,9 +515,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       compactReferences={message.role === 'user'}
                       {...entities}
                     />
-                    {message.role === 'user' ? (
-                      <ConversationSummonedWork metadata={message.metadata} />
-                    ) : null}
+                    <ConversationSummonedWork metadata={message.metadata} />
                   </>
                 )}
                 {messageCompactions?.map((compaction) => (

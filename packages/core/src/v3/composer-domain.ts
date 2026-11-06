@@ -75,8 +75,8 @@ export type ContextReferenceKind =
  */
 export type WorkspaceReferenceKind = ContextReferenceKind | 'resource' | SummonTargetKind | 'unknown';
 
-/** What a person can name with `@` to handle a message: a subagent or an MCP server. */
-export type SummonTargetKind = 'subagent' | 'server';
+/** What a person can name with `@` to handle a message: a subagent, a declared workflow, a flow or an MCP server. */
+export type SummonTargetKind = 'subagent' | 'workflow' | 'flow' | 'server';
 
 /**
  * The person named what handles this message. The service acts only on these parts,

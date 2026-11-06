@@ -518,6 +518,27 @@ export const summonTargetsSchema = z.object({
       }),
     )
     .default([]),
+  workflows: z
+    .array(
+      z.object({
+        id: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+        inputs: z
+          .array(
+            z.object({
+              name: z.string(),
+              description: z.string().default(''),
+              required: z.boolean().default(true),
+            }),
+          )
+          .default([]),
+      }),
+    )
+    .default([]),
+  flows: z
+    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .default([]),
 });
 
 export const contextStateSchema = z.object({

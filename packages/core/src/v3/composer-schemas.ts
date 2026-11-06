@@ -71,7 +71,7 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('summon'),
-    target_kind: z.enum(['subagent', 'server']),
+    target_kind: z.enum(['subagent', 'workflow', 'flow', 'server']),
     target: z.string(),
   }),
 ]);

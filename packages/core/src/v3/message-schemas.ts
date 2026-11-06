@@ -116,7 +116,7 @@ const summonMessageBlockSchema = additivelyTolerant(
     .object({
       id: z.string(),
       type: z.literal('summon'),
-      target_kind: forwardCompatibleEnum(['subagent', 'server']),
+      target_kind: forwardCompatibleEnum(['subagent', 'workflow', 'flow', 'server']),
       target: z.string(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),

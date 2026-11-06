@@ -68,6 +68,8 @@ export interface CommandDefinition {
   aliases: string[];
   /** The subagent a command file summons. */
   agent?: string;
+  /** The declared workflow a command file summons. */
+  workflow?: string;
   argument_hint?: string;
   arguments: unknown[];
   metadata: Record<string, unknown>;
@@ -83,4 +85,12 @@ export interface SummonTargets {
     deferred: boolean;
     tools: number | null;
   }[];
+  /** Declared workflows (`ai.iowarp.clio/workflows/*.json`) and the inputs they take. */
+  workflows?: {
+    id: string;
+    plugin: string;
+    description: string;
+    inputs: { name: string; description: string; required: boolean }[];
+  }[];
+  flows?: { id: string; plugin: string; description: string }[];
 }

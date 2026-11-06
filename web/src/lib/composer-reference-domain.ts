@@ -34,9 +34,13 @@ export function referenceLabel(part: ReferencePart): string {
   return part.type === 'resource_ref' ? part.name : part.label;
 }
 
-/** A subagent or MCP server the person can `@`-summon, as the popover lists it. */
-export function isSummonReference(reference: { kind: string }): boolean {
-  return reference.kind === 'subagent' || reference.kind === 'server';
+const SUMMON_KINDS: ReadonlySet<string> = new Set(['subagent', 'workflow', 'flow', 'server']);
+
+/** A subagent, workflow, flow or MCP server the person can `@`-summon, as the popover lists it. */
+export function isSummonReference<T extends { kind: string }>(
+  reference: T,
+): reference is T & { kind: SummonPart['target_kind'] } {
+  return SUMMON_KINDS.has(reference.kind);
 }
 
 /**
@@ -100,7 +104,12 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     // refusal instead of an invalid ref_kind on the wire.
     throw new Error('This version cannot send a reference of an unrecognized kind.');
   }
-  if (reference.kind === 'subagent' || reference.kind === 'server') {
+  if (
+    reference.kind === 'subagent' ||
+    reference.kind === 'workflow' ||
+    reference.kind === 'flow' ||
+    reference.kind === 'server'
+  ) {
     return { type: 'summon', target_kind: reference.kind, target: reference.id };
   }
   if (reference.kind === 'resource') {
@@ -120,10 +129,13 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
   };
 }
 
-/** The session's summon targets as popover rows: Agents (subagents) and Tools (servers). */
+/**
+ * The session's summon targets as popover rows: Agents (subagents), Workflows,
+ * Flows and Tools (servers).
+ */
 export function summonReferences(targets?: SummonTargets): WorkspaceReference[] {
   if (!targets) return [];
-  const row = (kind: 'subagent' | 'server', id: string, detail: string): WorkspaceReference => ({
+  const row = (kind: SummonPart['target_kind'], id: string, detail: string): WorkspaceReference => ({
     kind,
     id,
     label: id,
@@ -134,6 +146,21 @@ export function summonReferences(targets?: SummonTargets): WorkspaceReference[] 
   });
   return [
     ...targets.subagents.map((agent) => row('subagent', agent.id, agent.description)),
+    ...(targets.workflows ?? []).map((workflow) =>
+      row(
+        'workflow',
+        workflow.id,
+        [
+          workflow.description,
+          workflow.inputs.length
+            ? `takes ${workflow.inputs.map((input) => input.name).join(', ')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      ),
+    ),
+    ...(targets.flows ?? []).map((flow) => row('flow', flow.id, flow.description)),
     ...targets.servers.map((server) =>
       row(
         'server',
@@ -182,7 +209,7 @@ const TYPED_MENTION = /(?:^|(?<=[\s([{"'“]))@([\w-]+)(?=$|[\s,;:!?)\]}"'”]|\
 
 /**
  * Summon parts for each `@name` the person typed in full, as its own word, that
- * exactly names one of the conversation's subagents or servers. Anything else
+ * exactly names one of the conversation's summon targets. Anything else
  * stays prose: `bob@example.org` is an address, `@explorer` names nobody.
  */
 export function typedSummons(
@@ -193,6 +220,8 @@ export function typedSummons(
   if (!targets) return [];
   const kinds = new Map<string, SummonPart['target_kind']>([
     ...targets.servers.map((server) => [server.name, 'server'] as const),
+    ...(targets.flows ?? []).map((flow) => [flow.id, 'flow'] as const),
+    ...(targets.workflows ?? []).map((workflow) => [workflow.id, 'workflow'] as const),
     ...targets.subagents.map((agent) => [agent.id, 'subagent'] as const),
   ]);
   const seen = new Set(

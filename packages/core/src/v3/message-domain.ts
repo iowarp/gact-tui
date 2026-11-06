@@ -97,10 +97,10 @@ export type MessageBlock = MessageBlockContext &
         delivery?: ResourceDeliveryDecision;
       }
     | {
-        /** A subagent or MCP server the person named to handle their message. */
+        /** A subagent, workflow, flow or MCP server the person named to handle their message. */
         id: string;
         type: 'summon';
-        target_kind: 'subagent' | 'server' | 'unknown';
+        target_kind: 'subagent' | 'workflow' | 'flow' | 'server' | 'unknown';
         target: string;
       }
     | {

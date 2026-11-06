@@ -648,17 +648,23 @@ counterpart:
 | block `type` | Emitter                                                | Notes                                                                                                                                      |
 | ------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `resource`   | `gact/protocol/v3/message.py:167` (`part_to_v3_block`) | The 0.3 projection of a `resource_ref` part — a **workspace resource** (§6 attachment custody) attached to a message, not an MCP resource. |
-| `summon`     | `gact/protocol/v3/message.py` (`part_to_v3_block`)     | The 0.3 projection of a `summon` part: `target_kind` (`subagent` or `server`) and `target`, the name the person picked with `@`.          |
+| `summon`     | `gact/protocol/v3/message.py` (`part_to_v3_block`)     | The 0.3 projection of a `summon` part: `target_kind` (`subagent`, `workflow`, `flow` or `server`) and `target`, the name picked with `@`. |
 
 **Summon parts.** A person's message may carry `{"type": "summon", "target_kind":
-"subagent" | "server", "target": "<name>"}` parts beside its text (direct
-summoning plan). The service acts only on these parts, never on an `@` typed in
-prose. A name the session's agent lacks is refused with `summon_unknown_target`
-(422) and a deny rule on `spawn_agent_task` with `summon_denied` (403); no turn
-starts. `GET /v1/sessions/{sid}/summon-targets` lists the names a client may
-offer (`subagents[]`, `servers[]` with `tools` once listed). A summoned message's
-public metadata carries `summons` (`subagents`, `servers`, `failed`), and a
-skill command's `loaded_skill`, and an MCP prompt command's `mcp_prompt`.
+"subagent" | "workflow" | "flow" | "server", "target": "<name>"}` parts beside its
+text (direct summoning plan). The service acts only on these parts, never on an `@`
+typed in prose. A name the session's agent lacks is refused with
+`summon_unknown_target` (422), and a deny rule on the call a summons asks for
+(`spawn_agent_task`, `run_workflow`, `run_flow`) with `summon_denied` (403); no turn
+starts. Nothing starts before the turn: the turn's agent is told what the person
+asked for and makes the call itself, and a call naming a summoned target records
+the person as its starter. `GET /v1/sessions/{sid}/summon-targets` lists the names a
+client may offer (`subagents[]`, `servers[]` with `tools` once listed,
+`workflows[]` with their `inputs`, `flows[]`). A summoned message's public metadata
+carries `summons` (`subagents`, `servers`, `workflows`, `flows`); the turn's answer
+carries `summons_outcome` (`started[]` and `not_started[]` with a `reason`, each a
+`kind` and `target`). A skill command's message carries `loaded_skill`, and an MCP
+prompt command's `mcp_prompt`.
 
 > **Name collision, deliberate.** The `resource` _Part_ at §4.5.4 is the
 > Embedded MCP resource (`server_id` + `uri` + `mime_type`). The `resource` > _block_ here is the workspace-attachment projection and shares none of those

@@ -23,7 +23,11 @@ import {
   SEARCH_DEBOUNCE_MS,
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
-import { matchingSummons, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
+import {
+  isSummonReference,
+  matchingSummons,
+  workspaceReferenceIdentity,
+} from '@/lib/composer-reference-domain';
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { referenceKindIcon } from './composer-reference-presentation';
 
@@ -34,6 +38,8 @@ const groups: Array<{
 }> = [
   // What the person can summon to handle the message: first, since naming one is a decision.
   { defaultOpen: true, kinds: ['subagent'], label: 'Agents' },
+  { defaultOpen: true, kinds: ['workflow'], label: 'Workflows' },
+  { defaultOpen: true, kinds: ['flow'], label: 'Flows' },
   { defaultOpen: true, kinds: ['server'], label: 'Tools' },
   { defaultOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
@@ -50,7 +56,7 @@ const groups: Array<{
 /** Kinds the workspace reference search serves (summon targets come from the session). */
 const nonFileKinds = groups
   .flatMap((group) => group.kinds)
-  .filter((kind) => kind !== 'workspace_file' && kind !== 'subagent' && kind !== 'server');
+  .filter((kind) => kind !== 'workspace_file' && !isSummonReference({ kind }));
 
 function useDebouncedValue(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);

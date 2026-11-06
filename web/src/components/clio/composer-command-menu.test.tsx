@@ -34,6 +34,15 @@ const targets: SummonTargets = {
     { name: 'fixture_docs', plugin: 'docs', description: 'Docs.', deferred: true, tools: null },
     { name: 'hdf5', plugin: 'data', description: 'HDF5.', deferred: false, tools: 14 },
   ],
+  workflows: [
+    {
+      id: 'draft-review',
+      plugin: 'wtfp',
+      description: 'Draft a section, then review it.',
+      inputs: [{ name: 'section', description: 'The section', required: true }],
+    },
+  ],
+  flows: [{ id: 'council', plugin: 'flows', description: 'Several models answer; one synthesizes.' }],
 };
 
 describe('the / menu', () => {
@@ -84,10 +93,12 @@ describe('the / menu', () => {
 });
 
 describe('the @ popover', () => {
-  it('offers the session’s subagents and servers as Agents and Tools rows', () => {
+  it('offers the session’s subagents, workflows, flows and servers', () => {
     const rows = summonReferences(targets);
     expect(rows.map((reference) => [reference.kind, reference.id, reference.detail])).toEqual([
       ['subagent', 'explore', 'Finds where things are.'],
+      ['workflow', 'draft-review', 'Draft a section, then review it. — takes section'],
+      ['flow', 'council', 'Several models answer; one synthesizes.'],
       ['server', 'fixture_docs', 'Docs. — tools load when used'],
       ['server', 'hdf5', 'HDF5. — 14 tools'],
     ]);
@@ -118,6 +129,10 @@ describe('the @ popover', () => {
     expect(typedSummons('ask @explorer and @hdf5.', targets, [])).toEqual([
       { type: 'summon', target_kind: 'server', target: 'hdf5' },
     ]);
+    expect(typedSummons('run @draft-review, then @council', targets, [])).toEqual([
+      { type: 'summon', target_kind: 'workflow', target: 'draft-review' },
+      { type: 'summon', target_kind: 'flow', target: 'council' },
+    ]);
     // A chip the person picked is not sent twice.
     expect(
       typedSummons('@explore again', targets, [
@@ -133,18 +148,41 @@ describe('the transcript', () => {
       <ConversationSummonedWork
         metadata={{
           summons: {
-            subagents: ['explore', 'review'],
+            subagents: ['explore'],
+            workflows: ['draft-review'],
+            flows: [],
             servers: ['hdf5'],
-            failed: [{ role: 'review', error: 'denied' }],
+            failed: [],
           },
           loaded_skill: 'run-a-study',
         }}
       />,
     );
-    expect(screen.getByText('You started explore on this message')).toBeVisible();
-    expect(screen.getByText('review did not start: denied')).toBeVisible();
+    expect(screen.getByText('You asked for explore on this message')).toBeVisible();
+    expect(screen.getByText('You asked for the workflow draft-review on this message')).toBeVisible();
     expect(screen.getByText('You pointed this message at the hdf5 tools')).toBeVisible();
     expect(screen.getByText('Loaded skill run-a-study')).toBeVisible();
+  });
+
+  it('says on the answer which summoned targets started and which did not', () => {
+    render(
+      <ConversationSummonedWork
+        metadata={{
+          summons_outcome: {
+            started: [{ kind: 'subagent', target: 'explore' }],
+            not_started: [
+              { kind: 'workflow', target: 'draft-review', reason: 'not_called' },
+              { kind: 'flow', target: 'council', reason: 'flow_not_resolved' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Started explore as you asked')).toBeVisible();
+    expect(
+      screen.getByText('The workflow draft-review was not started: the agent did not start it'),
+    ).toBeVisible();
+    expect(screen.getByText('The flow council was not started: flow_not_resolved')).toBeVisible();
   });
 
   it('names the tools a server summons loaded', () => {
