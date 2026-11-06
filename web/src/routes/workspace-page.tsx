@@ -77,8 +77,7 @@ export function WorkspacePage() {
   useReferenceThisSelectionAction(composerDraft, focusComposerForAnswer);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
-  // Whether the Files tab is mounted: gates workspaceFiles' poll (use-workspace-data.ts)
-  // to when someone could see a stale listing, not every open session.
+  // Files tab mounted: gates workspaceFiles' poll to when someone could see the listing.
   const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
@@ -630,6 +629,7 @@ export function WorkspacePage() {
               sessionView={
                 <WorkspaceLiveObservabilityView
                   {...familyObservability}
+                  workspaceFolders={activeWorkspace?.source_folders}
                   requestedView={requestedView}
                   artifacts={artifactEvidence}
                   artifactProvenanceProvider={executionProvenance.providers.data?.artifact}

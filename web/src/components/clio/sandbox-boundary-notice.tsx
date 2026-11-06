@@ -1,10 +1,21 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { ShieldAlertIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationNavigation } from './presentation-navigation';
 import { setFolderGrant, useFolderGrants } from './sandbox-boundary-grants';
+import { useWorkspaceFolders } from './workspace-folders';
 import type { SandboxBoundary } from './sandbox-boundary';
 
 const folderName = (path: string) => path.split(/[\\/]/u).filter(Boolean).at(-1) || path;
@@ -63,7 +74,13 @@ export function SandboxBoundaryNotice({
   const navigation = useContext(PresentationNavigation);
   const repository = useRepository();
   const workspaceId = navigation?.workspaceId;
-  const state = useFolderGrants(workspaceId, boundary.request_roots);
+  const acted = useFolderGrants(workspaceId, boundary.request_roots);
+  const folders = useWorkspaceFolders(workspaceId);
+  // Allowed on this page, or already among the workspace's folders (after a reload too).
+  const state = Object.fromEntries(
+    boundary.request_roots.map((root) => [root, folders.isAllowed(root) ? 'granted' : acted[root]]),
+  ) as Record<string, string | undefined>;
+  const [asking, setAsking] = useState<string>();
   const grantable =
     boundary.kind === 'write_denied' && boundary.confidence === 'confirmed' && Boolean(workspaceId);
   const grant = async (root: string) => {
@@ -71,6 +88,7 @@ export function SandboxBoundaryNotice({
     try {
       await repository.grantWorkspaceFolder(workspaceId!, root);
       setFolderGrant(workspaceId!, root, 'granted');
+      void folders.refresh();
     } catch (reason) {
       setFolderGrant(workspaceId!, root, reason instanceof Error ? reason.message : String(reason));
     }
@@ -112,7 +130,7 @@ export function SandboxBoundaryNotice({
                   className="h-7"
                   title={root}
                   disabled={state[root] === 'pending'}
-                  onClick={() => void grant(root)}
+                  onClick={() => setAsking(root)}
                 >
                   {`Allow ${folderName(root)}`}
                 </Button>
@@ -125,6 +143,49 @@ export function SandboxBoundaryNotice({
             ),
           )
         : null}
+      <AlertDialog open={Boolean(asking)} onOpenChange={(open) => !open && setAsking(undefined)}>
+        <AlertDialogContent data-dialog="allow-folder">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{`Allow writing to ${folderName(asking ?? '')}?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              The sandbox stopped a command from writing outside the folders this workspace may
+              change.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <dl className="grid gap-2 text-sm">
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">Folder</dt>
+              <dd className="font-mono text-xs [overflow-wrap:anywhere]">{asking}</dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">What you allow</dt>
+              <dd>
+                Commands and scripts in every conversation of this workspace may create, change and
+                delete files in this folder and its subfolders.
+              </dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">How long</dt>
+              <dd>Until you remove it in Settings, Permissions.</dd>
+            </div>
+            <div className="grid gap-0.5">
+              <dt className="text-xs text-muted-foreground">What happens next</dt>
+              <dd>The blocked command is not run again. Ask the agent to try again.</dd>
+            </div>
+          </dl>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (asking) void grant(asking);
+                setAsking(undefined);
+              }}
+            >
+              Allow folder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

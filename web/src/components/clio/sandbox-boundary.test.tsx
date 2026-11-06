@@ -1,4 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sandboxBoundary } from './sandbox-boundary';
@@ -9,8 +11,24 @@ import {
 } from './sandbox-boundary-notice';
 import { PresentationNavigation } from './presentation-navigation';
 
-const repository = vi.hoisted(() => ({ grantWorkspaceFolder: vi.fn(async () => ({})) }));
+const repository = vi.hoisted(() => ({
+  grantWorkspaceFolder: vi.fn(async () => ({})),
+  workspaces: vi.fn(async () => [] as unknown[]),
+}));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://test' } }),
+}));
+
+/** Each render gets its own query cache (the workspace folders are a query). */
+const render = (ui: ReactElement) =>
+  rtlRender(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
 
 afterEach(cleanup);
 
@@ -47,6 +65,14 @@ describe('SandboxBoundaryNotice', () => {
     );
     expect(screen.getByText('Blocked by the sandbox: Desktop')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Allow Desktop' }));
+    // The person first reads exactly what they allow.
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Allow writing to Desktop?');
+    expect(dialog).toHaveTextContent('/home/ada/Desktop');
+    expect(dialog).toHaveTextContent('every conversation of this workspace');
+    expect(dialog).toHaveTextContent('Until you remove it in Settings, Permissions.');
+    expect(repository.grantWorkspaceFolder).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Allow folder' }));
     expect(repository.grantWorkspaceFolder).toHaveBeenCalledWith('ws_1', '/home/ada/Desktop');
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Allowed Desktop for this workspace',
@@ -86,6 +112,7 @@ describe('TurnSandboxNotices', () => {
     expect(onMessage).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Allow Desktop' })).toHaveLength(2);
     await userEvent.click(screen.getAllByRole('button', { name: 'Allow Desktop' })[0]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Allow folder' }));
     expect(await screen.findAllByText('Allowed Desktop for this workspace')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Allow Desktop' })).toBeNull();
   });
@@ -93,5 +120,28 @@ describe('TurnSandboxNotices', () => {
   it('shows nothing for a turn with no blocked call', () => {
     const { container } = render(<TurnSandboxNotices boundaries={[]} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('a folder the workspace already allows', () => {
+  it('reads as allowed after a reload, with no button', async () => {
+    repository.workspaces.mockResolvedValueOnce([
+      {
+        id: 'ws_reload',
+        source_folders: [
+          { path: '/work', name: 'work', primary: true },
+          { path: '/home/ada/Desktop', name: 'Desktop', primary: false },
+        ],
+      },
+    ]);
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, workspaceId: 'ws_reload' }}
+      >
+        <SandboxBoundaryNotice boundary={sandboxBoundary({ boundary: denied })!} />
+      </PresentationNavigation.Provider>,
+    );
+    expect(await screen.findByText('Allowed Desktop for this workspace')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Allow Desktop' })).toBeNull();
   });
 });

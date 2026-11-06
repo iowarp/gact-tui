@@ -21,6 +21,7 @@ import type {
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
   WorkspaceResource,
+  WorkspaceSourceFolder,
 } from '@clio/core/v3';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
@@ -63,6 +64,8 @@ export interface ClioObservabilityDockProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
+  /** The workspace's folders (its own and those the person allowed), for Evidence. */
+  workspaceFolders?: readonly WorkspaceSourceFolder[];
   processes: readonly AsyncProcess[];
   workPages?: TaskPageControls;
   onCancelTask?: (task: AsyncProcess) => Promise<void>;

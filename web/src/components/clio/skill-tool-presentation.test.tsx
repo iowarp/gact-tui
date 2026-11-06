@@ -145,7 +145,14 @@ describe('skill observations at three levels', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Show result for Run' }));
-    expect(screen.getByText('Working directory: D:/workspace')).toBeVisible();
+    // Where it ran is a folder control in the command's header, not a line of its own.
+    expect(screen.queryByText('Working directory: D:/workspace')).toBeNull();
+    const folder = screen.getByRole('button', {
+      name: 'Ran in D:/workspace. Copy the folder path',
+    });
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    await user.click(folder);
+    expect(write).toHaveBeenCalledWith('D:/workspace');
     expect(screen.getByText('No stdout or stderr was recorded.')).toBeVisible();
     expect(screen.getByText('Process exited with code 0.')).toBeVisible();
   });
