@@ -139,6 +139,48 @@ describe('LaTeX workspace', () => {
     expect(eval_[0]!.querySelector('[data-line="2"]')?.className).toContain('bg-primary/10');
   });
 
+  it('lists the venue checks and opens the place a failed one names', async () => {
+    // Scenario L2: the double-blind check names the section where an author's name appears.
+    repository.latexReport.mockResolvedValue({
+      ...report,
+      build: {
+        ...report.build,
+        venue: {
+          venue: 'acm-sigconf',
+          status: 'failed',
+          checks: [
+            {
+              rule: 'Page limit',
+              status: 'passed',
+              message: '2 pages; the limit is 12.',
+              file: '',
+              line: 0,
+            },
+            {
+              rule: 'Double-blind: author names',
+              status: 'failed',
+              message: "The author name 'Grace Hopper' appears outside the title block.",
+              file: 'sections/eval.tex',
+              line: 3,
+            },
+          ],
+        },
+      },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <LatexWorkspace artifactId="art_src" sessionId="sess_1" />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /1 venue check failed/u }));
+    const problems = await screen.findByRole('list', { name: 'Build problems' });
+    expect(within(problems).getByText(/sections\/eval\.tex:3/u)).toBeTruthy();
+    fireEvent.click(within(problems).getByText('Double-blind: author names'));
+    const eval_ = await screen.findAllByRole('region', { name: 'Source of sections/eval.tex' });
+    expect(eval_[0]!.querySelector('[data-line="3"]')?.className).toContain('bg-primary/10');
+  });
+
   it('clicks a source line through to its box on the PDF, and a PDF point back to its line', async () => {
     repository.latexLocate.mockImplementation(async (_id: string, _session: string, at: object) =>
       'file' in at

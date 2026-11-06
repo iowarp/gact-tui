@@ -141,19 +141,34 @@ function BuildSummary({ report, onGo }: { report: LatexReport; onGo: (place: Pla
             </li>
           ))}
           {build.venue?.checks.map((check, index) => (
-            <li className="px-1" key={`venue-${index}`}>
-              <ClioStatus
-                compact
-                value={
-                  check.status === 'failed'
-                    ? 'failed'
-                    : check.status === 'passed'
-                      ? 'completed'
-                      : 'degraded'
-                }
-              />{' '}
-              <span className="font-medium">{check.rule}</span>
-              <span className="block text-xs text-muted-foreground">{check.message}</span>
+            <li key={`venue-${index}`}>
+              {/* A check that names a place (an author's name in a section) opens it, as a problem does. */}
+              <button
+                className="w-full rounded px-1 py-0.5 text-left hover:bg-muted disabled:cursor-default"
+                disabled={!check.file}
+                onClick={() => onGo({ file: check.file, line: check.line || undefined })}
+                type="button"
+              >
+                <ClioStatus
+                  compact
+                  value={
+                    check.status === 'failed'
+                      ? 'failed'
+                      : check.status === 'passed'
+                        ? 'completed'
+                        : 'degraded'
+                  }
+                />{' '}
+                <span className="font-medium">{check.rule}</span>
+                {check.file ? (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {' '}
+                    {check.file}
+                    {check.line ? `:${check.line}` : ''}
+                  </span>
+                ) : null}
+                <span className="block text-xs text-muted-foreground">{check.message}</span>
+              </button>
             </li>
           ))}
           {!build.diagnostics.length && !build.venue ? (
@@ -366,7 +381,10 @@ export function LatexWorkspace({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <span aria-hidden="true" className="mx-0.5 hidden h-5 w-px bg-border @[720px]/latex:block" />
+        <span
+          aria-hidden="true"
+          className="mx-0.5 hidden h-5 w-px bg-border @[720px]/latex:block"
+        />
         <BuildSummary
           onGo={(place) => {
             goToSource(place);
