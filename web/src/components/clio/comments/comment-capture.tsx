@@ -67,6 +67,10 @@ export function CommentCapture({
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);
   const captureText = () => {
     if (!textMode || !host.current) return;
+    // A viewer that makes its own text marks (the PDF viewer's pdf-quad) owns its selections.
+    const anchorNode = window.getSelection()?.anchorNode;
+    const at = anchorNode instanceof Element ? anchorNode : anchorNode?.parentElement;
+    if (at && host.current.contains(at) && at.closest('[data-comment-text="own"]')) return;
     const anchor = textQuoteFromSelection(host.current);
     if (!anchor) return;
     const range = window.getSelection()?.rangeCount

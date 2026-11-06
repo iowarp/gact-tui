@@ -88,4 +88,41 @@ describe('CommentCapture', () => {
     ).not.toBeNull();
     expect(pane('source').querySelector('[data-slot="comment-text-layer"]')).toBeNull();
   });
+
+  it('leaves a selection inside a viewer that makes its own text marks to that viewer', () => {
+    // The PDF viewer sends a pdf-quad itself; a source-less text-quote from the pane
+    // around it, on a touch or keyboard selection, was resolved against the wrong file.
+    const marks: DocumentAnchor[] = [];
+    const { getByTestId } = render(
+      <Session.Provider
+        value={{
+          open: true,
+          active: true,
+          mode: 'text',
+          marks: [],
+          setEditing: () => undefined,
+          addMark: (anchor: DocumentAnchor) => {
+            marks.push(anchor);
+            return 'S1';
+          },
+        }}
+      >
+        <CommentCapture>
+          <div data-comment-text="own">
+            <p data-testid="pdf-text">The drain no longer competes with checkpoint writes.</p>
+          </div>
+        </CommentCapture>
+      </Session.Provider>,
+    );
+    const words = getByTestId('pdf-text').firstChild!;
+    const range = document.createRange();
+    range.setStart(words, 4);
+    range.setEnd(words, 9);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    fireEvent.touchEnd(getByTestId('pdf-text'));
+    fireEvent.keyUp(getByTestId('pdf-text'), { shiftKey: true });
+    fireEvent.mouseUp(getByTestId('pdf-text'));
+    expect(marks).toEqual([]);
+  });
 });
