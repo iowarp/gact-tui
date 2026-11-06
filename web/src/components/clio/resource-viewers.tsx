@@ -53,7 +53,7 @@ import { FileViewerShell } from './file-viewer-shell';
 
 import { ImageResourceView } from './image-resource-view';
 import { StreamArtifactView } from './stream-artifact-view';
-import { isStreamArtifact } from './table-query-rows';
+import { isStreamArtifact } from './stream-artifact';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
 

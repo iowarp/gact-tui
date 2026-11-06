@@ -62,6 +62,30 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
+  it('names a stream as a stream and offers no file to download', () => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ClioArtifactCard
+          artifact={{
+            id: 'artifact_feed',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'sensor_readings',
+            media_type: 'application/vnd.clio.stream+json',
+            uri: 'artifact://workspace_1/sensor_readings@v1',
+            producer: { designation: 'stream', stream_id: 'stream_1' },
+          }}
+          onOpen={vi.fn()}
+          preview={false}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Stream')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Download/u })).toBeNull();
+  });
+
   it.each([undefined, '0'.repeat(64), 'matching'])(
     'verifies mutable workspace recovery before showing a saved preview (%s)',
     async (checksum) => {

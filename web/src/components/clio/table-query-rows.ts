@@ -1,12 +1,11 @@
 import {
   TransportError,
-  type Artifact,
   type ArtifactTableQueryRequest,
   type ArtifactTableQueryResult,
   type StreamContent,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
@@ -179,11 +178,6 @@ export function streamRowsQueryPrefix(endpoint: string, streamId: string) {
 export const STREAM_LEASE_RENEW_MS = 15_000;
 
 /** What a stream's state says: live with its last write, closed, or captured. */
-/** Whether an artifact is a stream (its content lives in clio-core, not in a file). */
-export function isStreamArtifact(artifact: Pick<Artifact, 'producer'>): boolean {
-  return artifact.producer?.['designation'] === 'stream';
-}
-
 export function describeStream(stream: unknown): string {
   if (!isJsonObject(stream)) return '';
   const at = (value: unknown) =>
@@ -217,19 +211,21 @@ export function useStreamLease(streamId: string | undefined, sessionId: string |
   const repository = useRepository();
   // Each view holds a lease of its own: one view going away leaves the others watching.
   const [leaseId] = useState(() => crypto.randomUUID());
+  // A view's lease requests go one after another, so a release sent as the view remounts
+  // (a tab switch, or React's development double mount) cannot land after the new lease.
+  const requests = useRef<Promise<unknown>>(Promise.resolve());
   useEffect(() => {
     if (!streamId || !sessionId) return undefined;
-    const renew = () =>
-      void repository
-        .watchStream(streamId, sessionId, false, undefined, leaseId)
+    const send = (release: boolean) => {
+      requests.current = requests.current
+        .then(() => repository.watchStream(streamId, sessionId, release, undefined, leaseId))
         .catch(() => undefined);
-    renew();
-    const timer = window.setInterval(renew, STREAM_LEASE_RENEW_MS);
+    };
+    send(false);
+    const timer = window.setInterval(() => send(false), STREAM_LEASE_RENEW_MS);
     return () => {
       window.clearInterval(timer);
-      void repository
-        .watchStream(streamId, sessionId, true, undefined, leaseId)
-        .catch(() => undefined);
+      send(true);
     };
   }, [repository, streamId, sessionId, leaseId]);
 }

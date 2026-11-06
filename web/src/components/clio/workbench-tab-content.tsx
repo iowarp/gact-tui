@@ -173,6 +173,7 @@ export function WorkbenchTabContent({
           artifactsTruncated={artifactsTruncated}
           defaultSplit={maximized}
           files={files}
+          sessionId={sessionId}
           onReplaceArtifact={(artifact) =>
             onReplaceTab(tab.id, {
               id: `artifact:${artifact.id}`,

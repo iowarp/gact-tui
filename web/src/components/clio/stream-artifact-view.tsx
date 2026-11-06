@@ -37,7 +37,7 @@ function EntryLine({ entry }: { entry: StreamEntry }) {
 /**
  * A stream artifact in the side panel: its newest entries, read from clio-core, live while
  * the stream is open (the panel holds a watch lease, so each write refreshes it) and shown
- * as closed once it is. Records are a table, text and other entries a list, newest last.
+ * as closed once it is. Records are a table, text and other entries a list, newest first.
  */
 export function StreamArtifactView({
   artifact,
@@ -61,7 +61,8 @@ export function StreamArtifactView({
     placeholderData: (previous) => previous,
     staleTime: 0,
   });
-  const entries = useMemo(() => content.data?.entries ?? [], [content.data]);
+  // The route answers oldest first; the panel leads with the newest entry.
+  const entries = useMemo(() => [...(content.data?.entries ?? [])].reverse(), [content.data]);
   const records = useMemo(
     () => entries.filter((entry) => isRecord(entry.value)).map((entry) => entry.value as Record<string, unknown>),
     [entries],

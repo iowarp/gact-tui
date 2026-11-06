@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StreamArtifactView } from './stream-artifact-view';
-import { isStreamArtifact } from './table-query-rows';
+import { isStreamArtifact } from './stream-artifact';
 
 const repository = vi.hoisted(() => ({
   streamContent: vi.fn(),
@@ -78,6 +78,8 @@ describe('StreamArtifactView', () => {
       'status',
     ]);
     expect(within(table).getByText('21.6')).toBeTruthy();
+    // Newest first: the latest reading is the first row.
+    expect(within(table).getAllByRole('row')[1]!.textContent).toContain('21.6');
     expect(screen.getByText(/^Live, last update .+ 2 writes; keeps the newest 60\.$/u)).toBeTruthy();
     expect(repository.streamContent).toHaveBeenCalledWith(
       '/v1/streams/stream_1/content?limit=200',

@@ -70,6 +70,8 @@ interface ArtifactBrowserProps {
   artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
   defaultSplit?: boolean;
   onReplaceArtifact: (artifact: Artifact) => void;
+  /** The conversation the canvas belongs to (a stream's view watches it for this session). */
+  sessionId?: string;
 }
 
 /** Keeps the workspace tree and the selected rendered file in one navigable canvas. */
@@ -309,6 +311,7 @@ export function ArtifactBrowser({
   artifactsTruncated,
   defaultSplit = false,
   onReplaceArtifact,
+  sessionId,
 }: ArtifactBrowserProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
@@ -387,6 +390,7 @@ export function ArtifactBrowser({
                 <ArtifactView
                   artifact={splitArtifact}
                   files={files}
+                  sessionId={sessionId}
                   onOpenArtifact={(artifact) => setSelectedId(artifact.id)}
                   workspaceId={splitArtifact.workspace_id ?? workspaceId}
                 />
