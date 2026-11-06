@@ -42,8 +42,6 @@ export function TranscriptReasoningPassage({
     : id
       ? `thinking:${id}`
       : undefined;
-  // Open while the thought streams and closed once it settles, unless the reader chose.
-  const [open, setOpen] = useTranscriptDisclosure(key, streaming);
   const title = text.match(
     /^\s*(?:#{1,6}[^\S\r\n]+[^\r\n]+|\*\*[^\r\n]+\*\*|__[^\r\n]+__)[^\S\r\n]*(?:\r?\n|$)/u,
   );
@@ -51,6 +49,9 @@ export function TranscriptReasoningPassage({
   const trimmed = text.trim();
   const firstLine = trimmed.split('\n', 1)[0];
   const hasDetails = trimmed.slice(firstLine.length).trim().length > 0;
+  // A passage with more to read is open while it streams and folds once it settles,
+  // unless the reader chose. A one-line thought has nothing more to open.
+  const [open, setOpen] = useTranscriptDisclosure(key, streaming && hasDetails);
   const heading = firstLine
     .replace(/^\s{0,3}#{1,6}\s+/u, '')
     .replace(/\*\*\*\*|____/gu, ' ')
