@@ -51,7 +51,9 @@ export function LatexSourcePane({
     if (!activeLine) return;
     scroller.current
       ?.querySelector<HTMLElement>(`[data-line="${activeLine}"]`)
-      ?.scrollIntoView({ block: 'center', behavior: 'auto' });
+      ?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    // A line is read from its start: a long line elsewhere may have scrolled the source sideways.
+    if (scroller.current) scroller.current.scrollLeft = 0;
   }, [activeLine, file]);
 
   return (
@@ -115,35 +117,41 @@ export function LatexSourcePane({
                       onLine(number);
                     }}
                   >
+                    {/* The gutter stays in view when a long line scrolls the source sideways. */}
                     <span
-                      className="flex w-5 shrink-0 select-none justify-center pt-0.5"
+                      className="sticky left-0 z-[1] flex shrink-0 bg-background"
                       data-comment-skip=""
                     >
-                      {problems.length ? (
-                        failing ? (
-                          <CircleAlertIcon
-                            aria-label={detail}
-                            className="size-3.5 text-destructive"
-                            role="img"
-                          >
-                            <title>{detail}</title>
-                          </CircleAlertIcon>
-                        ) : (
-                          <TriangleAlertIcon
-                            aria-label={detail}
-                            className="size-3.5 text-warning"
-                            role="img"
-                          >
-                            <title>{detail}</title>
-                          </TriangleAlertIcon>
-                        )
-                      ) : null}
-                    </span>
-                    <span
-                      className="w-10 shrink-0 select-none pr-3 text-right text-muted-foreground"
-                      data-comment-skip=""
-                    >
-                      {number}
+                      <span
+                        className="flex w-5 shrink-0 select-none justify-center pt-0.5"
+                        data-comment-skip=""
+                      >
+                        {problems.length ? (
+                          failing ? (
+                            <CircleAlertIcon
+                              aria-label={detail}
+                              className="size-3.5 text-destructive"
+                              role="img"
+                            >
+                              <title>{detail}</title>
+                            </CircleAlertIcon>
+                          ) : (
+                            <TriangleAlertIcon
+                              aria-label={detail}
+                              className="size-3.5 text-warning"
+                              role="img"
+                            >
+                              <title>{detail}</title>
+                            </TriangleAlertIcon>
+                          )
+                        ) : null}
+                      </span>
+                      <span
+                        className="w-10 shrink-0 select-none pr-3 text-right text-muted-foreground"
+                        data-comment-skip=""
+                      >
+                        {number}
+                      </span>
                     </span>
                     <span className="whitespace-pre pr-4">{content || ' '}</span>
                   </li>
