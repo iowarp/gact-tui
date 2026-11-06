@@ -117,7 +117,7 @@ describe('ClioDocumentWorkspace', () => {
     const copy = screen.getByRole('button', { name: 'Copy evidence.md' });
     expect(copy.closest('[data-slot="document-controls"]')).not.toBeNull();
     await user.click(copy);
-    await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.\n'));
     vi.mocked(copyText).mockClear();
     await user.click(screen.getByRole('tab', { name: 'Source' }));
     const raw = screen.getByRole('region', { name: 'Raw Markdown for evidence.md' });
