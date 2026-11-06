@@ -57,6 +57,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReferenceOrToast } from '@/lib/composer-reference-navigation';
 import { canForkSession, isManagedChildSession } from '@/lib/session-state';
+import { sessionSpotterModel } from '@/lib/spotter-model-ref';
+import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -274,6 +276,7 @@ export function WorkspacePage() {
     interactionRootSessionId,
     supportsUnifiedInteractions,
   });
+  const hold = useSpotterQuarantine(session, actionCard.mutateAsync);
   const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel } =
     useWorkspaceQuestions({
       interactions,
@@ -357,6 +360,17 @@ export function WorkspacePage() {
       />
     );
   }
+  // Sending from the welcome screen starts the conversation; a failed first send returns to it.
+  const leaveWelcomeWhile = async (send: () => Promise<unknown>) => {
+    const startedFromWelcome = showConversationWelcome;
+    if (startedFromWelcome) setConversationStarted(true);
+    try {
+      await send();
+    } catch (error) {
+      if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+      throw error;
+    }
+  };
   if (!session) {
     return (
       <WorkspaceUnavailable
@@ -405,7 +419,7 @@ export function WorkspacePage() {
           )}
           commands={commands}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
-          disabled={!session || send.isPending || cancel.isPending || isPending}
+          disabled={!session || send.isPending || cancel.isPending || isPending || hold.active}
           effort={activeEffort}
           configuredEffort={configuredEffort}
           executionMode={
@@ -425,34 +439,20 @@ export function WorkspacePage() {
           model={activeModel}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
-          pendingInteractions={pendingInteractionsPanel}
-          onCommand={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await run(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
+          pendingInteractions={hold.withCard(pendingInteractionsPanel)}
+          onCommand={(value) => leaveWelcomeWhile(() => run(value))}
           onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
+          spotterModel={sessionSpotterModel(session.metadata)}
+          onSpotterModelChange={async (ref) => {
+            await updateSessionBehavior.mutateAsync({ spotter_model: ref });
+          }}
           onPrepareFiles={prepareFiles}
           onDiscardFiles={discardFiles}
           onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-          onSubmit={async (value) => {
-            const startedFromWelcome = showConversationWelcome;
-            if (startedFromWelcome) setConversationStarted(true);
-            try {
-              await questionAnswering.submit(value);
-            } catch (error) {
-              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-              throw error;
-            }
-          }}
+          onSubmit={(value) => leaveWelcomeWhile(() => questionAnswering.submit(value))}
           onStop={() => cancel.mutate()}
           onOpenResource={openWorkspaceResource}
           onOpenReference={(reference) => void openComposerReference(reference)}

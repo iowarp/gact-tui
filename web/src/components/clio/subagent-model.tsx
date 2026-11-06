@@ -6,8 +6,8 @@ import { providerLogoId } from '@/lib/provider-presentation';
 
 /**
  * The model a child runs on, with its provider's logo; hovering names why it
- * runs there (named for the call, a preference, or the caller's model) and any
- * step down from a preferred model.
+ * runs there (named for the call, a preference, the caller's model, or the
+ * person's own pick) and any step down from a preferred model.
  */
 export function SubagentModel({ choice }: { choice: ModelChoice }) {
   const provider = choice.ran.provider_id ?? '';

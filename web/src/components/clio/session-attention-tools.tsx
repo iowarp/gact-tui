@@ -19,6 +19,7 @@ export function SessionAttentionTools({
         onDismiss={attention.dismiss}
         state={attention.state}
         onProfileChange={attention.changeProfile}
+        onFocusItem={attention.focusItem}
       />
       <AttentionLookupPanel sessionId={sessionId} onHeatChange={attention.showLookupHeat} />
     </>

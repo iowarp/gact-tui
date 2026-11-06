@@ -67,6 +67,8 @@ export interface SessionSendInput {
   answersQuestionTask?: boolean;
   /** Turn long-term memory off for the conversation this send creates. */
   memoryOff?: boolean;
+  /** SPOTTER review's fleet model (`<account>/<model>`) for the conversation this send creates. */
+  spotterModel?: string;
 }
 
 function sessionModeForExecution(
@@ -268,6 +270,7 @@ export function useSessionMutations({
             mode: sessionModeForExecution(value.behavior.execution_mode),
             routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
             approval_mode: value.behavior.confirmation_policy,
+            ...(value.spotterModel ? { spotter_model: value.spotterModel } : {}),
             ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
             ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
               ? { agent_delta: draftAgentDelta }

@@ -97,6 +97,34 @@ describe('useAttentionMode', () => {
     });
   });
 
+  it('repaints with one answer item and returns to the whole selection', async () => {
+    const itemHeat: AttentionResult = { ...available, residual: 0.4 };
+    mocks.getAttention.mockResolvedValueOnce(available).mockResolvedValueOnce(itemHeat);
+    const { result } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        return { attention, registry: useSelectionActionRegistry() };
+      },
+      { wrapper },
+    );
+    await offered(result);
+    act(() => result.current.registry.actionsFor(selection)[0]?.run(selection));
+    await waitFor(() => expect(result.current.attention.state.status).toBe('shown'));
+    const span = { text: 'columns', part_id: 'p', field: 'text', start: 10, end: 17 };
+    act(() => result.current.attention.focusItem({ index: 1, span }));
+    await waitFor(() => expect(mocks.getAttention).toHaveBeenCalledTimes(2));
+    // Only the item's own span is scored, so its heat is that item's alone.
+    expect(mocks.getAttention.mock.calls[1]?.[2]).toEqual(span);
+    await waitFor(() => expect(result.current.attention.heat).toEqual(itemHeat));
+    const shown = result.current.attention.state;
+    expect(shown.status === 'shown' && shown.focus?.index).toBe(1);
+    expect(shown.status === 'shown' && shown.selection.text).toBe(selection.text);
+    mocks.getAttention.mockResolvedValueOnce(available);
+    act(() => result.current.attention.focusItem(undefined));
+    await waitFor(() => expect(mocks.getAttention).toHaveBeenCalledTimes(3));
+    expect(mocks.getAttention.mock.calls[2]?.[2]).toEqual({ text: selection.text });
+  });
+
   it('cannot apply an old host response after switching to the same session ID on another host', async () => {
     let resolve: (value: AttentionResult) => void = () => undefined;
     mocks.getAttention.mockReturnValue(

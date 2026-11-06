@@ -1,4 +1,5 @@
 import type {
+  GpuFact,
   InfrastructureOperation,
   ManagedServiceDefinition,
   ServiceActionInput,
@@ -32,6 +33,7 @@ import {
   VerificationState,
 } from './managed-service-identity';
 import { managedServiceStatus } from '@/lib/managed-service-status';
+import { engineId } from './managed-service-gpus';
 
 export type ServiceAction = ServiceActionInput['action'];
 export type ServiceActionFeedback = {
@@ -67,6 +69,7 @@ export function ManagedServiceCard({
   targetId,
   hostLabel = 'this execution host',
   setup = false,
+  gpus,
 }: {
   activeAction?: ServiceAction;
   connectionAction?: {
@@ -95,6 +98,8 @@ export function ManagedServiceCard({
   targetId?: string;
   hostLabel?: string;
   setup?: boolean;
+  /** The host's GPUs (facts.gpus); absent or empty keeps the plain device fields. */
+  gpus?: GpuFact[];
 }) {
   const [localTab, setLocalTab] = useState('status');
   const [confirmation, setConfirmation] = useState<ServiceAction>();
@@ -111,7 +116,8 @@ export function ManagedServiceCard({
     (row) => row.id === variant && row.install_type === 'native_uv',
   );
   const monitoring = service.category === 'monitoring';
-  const llama = service.id === 'llama_cpp' || service.id.startsWith('llama_cpp@');
+  const engine = engineId(service);
+  const llama = engine === 'llama_cpp';
   const retainsData = native || monitoring;
   const installed =
     Boolean(service.observation?.installed) ||
@@ -139,7 +145,7 @@ export function ManagedServiceCard({
       configuration.database_mode === 'site' &&
       !configuration.database_settings_path?.trim()) ||
     Boolean(modelProblem);
-  const modelPackageOnly = llama || (native && service.id === 'ollama');
+  const modelPackageOnly = llama || (native && engine === 'ollama');
   const missingInstallation = modelPackageOnly
     ? fields.some(
         (field) =>
@@ -219,6 +225,7 @@ export function ManagedServiceCard({
       installationOnly={modelPackageOnly && editing}
       showIntroduction={!llama || editing}
       showMethod={!editing}
+      gpus={gpus}
     />
   );
   return (
