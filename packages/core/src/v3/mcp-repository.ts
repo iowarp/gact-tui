@@ -272,7 +272,7 @@ export class McpRepository extends LatexRepository {
 
   public mcpServerInventory(
     serverId: string,
-    kind: 'tools' | 'resources' | 'prompts',
+    kind: 'tools' | 'resources',
     signal?: AbortSignal,
   ): Promise<Array<Record<string, unknown>>> {
     return this.transport.request({

@@ -147,12 +147,6 @@ export function ToolsSettings({
     queryFn: ({ signal }) =>
       repository.mcpServerInventory(detailServer?.id ?? '', 'resources', signal),
   });
-  const promptInventory = useQuery({
-    enabled: liveDetail,
-    queryKey: queryKeys.key('mcp-server-inventory', settings.endpoint, detailServer?.id, 'prompts'),
-    queryFn: ({ signal }) =>
-      repository.mcpServerInventory(detailServer?.id ?? '', 'prompts', signal),
-  });
   const serverTools = useMemo(() => {
     if (!detailServer) return [];
     return (tools.data ?? []).filter(
@@ -401,15 +395,11 @@ export function ToolsSettings({
               />
             </TabsContent>
             <TabsContent className="mt-3" value="prompts">
-              <InventoryList
-                empty={
-                  liveDetail
-                    ? 'This provider reported no reusable prompts.'
-                    : 'No live prompt inventory is available here.'
-                }
-                icon={ScrollTextIcon}
-                rows={promptInventory.data}
-              />
+              {/* A server's prompts are commands over the conversation's own connection. */}
+              <p className="text-sm text-muted-foreground">
+                This service’s prompts are commands. In a conversation that uses it, type / and look
+                under its prompts, or see them on the Prompts settings page.
+              </p>
             </TabsContent>
             <TabsContent className="mt-3 max-h-[52dvh] overflow-y-auto" value="connection">
               {detail.data || detailServer ? (
@@ -417,21 +407,11 @@ export function ToolsSettings({
               ) : null}
             </TabsContent>
           </Tabs>
-          {detail.error ||
-          toolInventory.error ||
-          resourceInventory.error ||
-          promptInventory.error ? (
+          {detail.error || toolInventory.error || resourceInventory.error ? (
             <Alert variant="destructive">
               <AlertTitle>Some provider contents are unavailable</AlertTitle>
               <AlertDescription>
-                {
-                  (
-                    detail.error ??
-                    toolInventory.error ??
-                    resourceInventory.error ??
-                    promptInventory.error
-                  )?.message
-                }
+                {(detail.error ?? toolInventory.error ?? resourceInventory.error)?.message}
               </AlertDescription>
             </Alert>
           ) : null}

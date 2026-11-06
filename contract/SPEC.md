@@ -1282,7 +1282,6 @@ Implemented in clio:
 | DELETE | `/v1/mcp/servers/{id}`           | —                                   | `204` (clio: uninstall)                                                                     |
 | GET    | `/v1/mcp/servers/{id}/tools`     | —                                   | `{tools: Tool[]}`                                                                           |
 | GET    | `/v1/mcp/servers/{id}/resources` | —                                   | `{resources: McpResource[]}`                                                                |
-| GET    | `/v1/mcp/servers/{id}/prompts`   | —                                   | `{prompts: McpPrompt[]}`                                                                    |
 | POST   | `/v1/mcp/servers/{id}/call`      | `{tool, arguments}`                 | tool result (clio: direct external-tool call)                                               |
 
 The `/v1/mcp/handshake` response is live health, not a durable registry:
@@ -1290,7 +1289,7 @@ stdio MCP servers are mounted per active workspace and `cwd` is the
 workspace root. One unreachable server is reported independently and does
 not imply that other servers or their tools are unavailable.
 
-`McpServer` includes lifecycle metadata (status, declared capabilities, instructions). `McpResource`/`McpPrompt` mirror the MCP spec shapes.
+`McpServer` includes lifecycle metadata (status, declared capabilities, instructions). `McpResource` mirrors the MCP spec shape. A server's prompts are not listed here: each is a `/mcp__<server>__<prompt>` row of `GET /v1/commands`, fetched over the conversation's own connection when run.
 
 The TUI uses `/mcp/servers/{id}/prompts` to populate slash-command palettes.
 
