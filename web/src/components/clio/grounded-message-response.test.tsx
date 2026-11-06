@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { artifactSchema, type WorkspaceResource } from '@clio/core/v3';
 // These assertions exercise routed sources, after the real Markdown renderer loads.
 import '@/components/ai-elements/markdown';
+import { projectText } from '@/lib/attention-text';
 import { groundedMessageSegments } from '@/lib/grounded-message-sources';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { PresentationNavigation } from './presentation-navigation';
@@ -11,6 +12,23 @@ import { PresentationNavigation } from './presentation-navigation';
 afterEach(cleanup);
 
 describe('GroundedMessageResponse', () => {
+  it('keeps paragraph and list boundaries in its DOM text so selections map to the source', async () => {
+    // The Chain B round 5 answer: paragraphs and a list must not run together
+    // ("MATCHESExplanation"), or no selection inside it can be placed exactly.
+    const source =
+      '\nANSWER: 73; MATCHES\n\n**Explanation (not part of answer):**  \n' +
+      '- Round 1 identified peak at dose 100.\n- Round 2 identified MAGIC 75.';
+    const { container } = render(
+      <PresentationNavigation.Provider value={{ artifacts: {}, subagents: {} }}>
+        <GroundedMessageResponse>{source}</GroundedMessageResponse>
+      </PresentationNavigation.Provider>,
+    );
+    expect(await screen.findAllByRole('listitem')).toHaveLength(2);
+    expect(projectText(container.textContent ?? '', { source: false }).text).toBe(
+      projectText(source, { source: true }).text,
+    );
+  });
+
   it('renders a numbered mixed-source bibliography using routed Source objects', async () => {
     const openFile = vi.fn();
     render(
