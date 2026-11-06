@@ -9,7 +9,7 @@ import {
   getToolInterruptionDetail,
   getToolFailureDetail,
 } from './tool-presentation';
-import { withTaskWaitPresentation } from './task-wait-presentation';
+import { withTaskWaitInterruption } from './task-wait-presentation';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import type { ConversationIteration } from './conversation-turn-model';
 
@@ -93,7 +93,7 @@ it.each([
 it('projects the exact retained cancellation marker without claiming mail or user attribution', () => {
   const tool = legacy();
   const before = JSON.stringify(tool);
-  const shown = withTaskWaitPresentation(tool);
+  const shown = withTaskWaitInterruption(tool);
   expect(getToolStatus(tool)).toBe('interrupted');
   expect(getToolInterruptionDetail(shown)).toBe('Interrupted by session cancellation');
   expect(shown.presentation?.blocks.some((block) => block.id === 'execution-error')).toBe(false);
@@ -138,7 +138,7 @@ it('keeps an independent wait error failed even if its partial snapshot also men
   expect(getToolStatus(tool)).toBe('failed');
   expect(getToolFailureDetail(tool)).toBe('Task history is unavailable.');
   const view = render(<ClioToolInvocation compact tool={tool} />);
-  expect(screen.getByText('failed', { exact: true })).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
   expect(view.container.querySelector('[data-slot="tool-interrupted-mark"]')).toBeNull();
   await userEvent.hover(screen.getByRole('button', { name: /^Show result for Wait/ }));
   expect(await screen.findByRole('tooltip')).toHaveTextContent('Task history is unavailable.');

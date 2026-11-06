@@ -1,11 +1,14 @@
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 import { ClioToolInvocation } from './tool-invocation';
+
+// A returned result's reader can page a retained answer; no page is read here.
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));
 
 afterEach(cleanup);
 
@@ -91,7 +94,12 @@ describe('report tabs', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: /Show result for/ }));
-    expect(screen.getByRole('tablist', { name: 'Reports' })).toBeInTheDocument();
+    // The shared returned-result reader: one tab per child, named; an unsuccessful child
+    // says its status in words, a completed one stays quiet.
+    expect(screen.getByRole('tablist', { name: 'Returned task results' })).toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getByRole('tab', { name: 'explore arc' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /explore plugins.*Failed/ })).toBeInTheDocument();
+    expect(screen.getByText('Ran on claude-haiku-5-5')).toBeInTheDocument();
   });
 });

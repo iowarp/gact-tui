@@ -17,6 +17,7 @@ export default defineConfig({
   testDir: './e2e',
   testIgnore: [
     '**/tool-result-presentation.spec.ts',
+    '**/tool-operations.spec.ts',
     '**/dialog-layout.spec.ts',
     '**/fs-file-tools.spec.ts',
   ],

@@ -762,6 +762,21 @@ export class ClioRepository extends BrowserRepository {
     });
   }
 
+  /** Continue an authorized immutable task-result cursor; never substitute the latest transcript. */
+  public taskResultPage(
+    sessionId: string,
+    handle: string,
+    cursor: string,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/${encodeURIComponent(handle)}/result?${new URLSearchParams({ cursor })}`,
+      decode: (value) => z.record(z.unknown()).parse(value),
+      signal,
+    });
+  }
+
   public stream(
     scope: StreamScope,
     cursor?: string,

@@ -80,8 +80,10 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'evidence.txt' }));
     expect(openFile).toHaveBeenCalledWith(path);
     expect(screen.queryByText(path)).not.toBeInTheDocument();
-    expect(screen.getByText('12 bytes').closest('[data-slot="activity-metadata"]')).not.toBeNull();
-    expect(screen.getByText('12 bytes').closest('[data-slot="tool-human-result"]')).toBeNull();
+    expect(
+      screen.getByText('(12 bytes)').closest('[data-slot="activity-metadata"]'),
+    ).not.toBeNull();
+    expect(screen.getByText('(12 bytes)').closest('[data-slot="tool-human-result"]')).toBeNull();
     expect(document.querySelector('[data-slot="tool-action-label"]')).toHaveClass('w-full');
   });
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
@@ -98,7 +100,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByText('Succeeded')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
     expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 
@@ -116,7 +118,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByText('Succeeded')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
     expect(screen.queryByText('Staged')).not.toBeInTheDocument();
   });
 
@@ -134,11 +136,11 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByText('Cancelled')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Cancelled' })).toBeVisible();
     expect(screen.queryByText(/CancellationError/u)).not.toBeInTheDocument();
   });
 
-  it('keeps tool arguments available under the approved heading', () => {
+  it('keeps tool arguments available under the approved heading', async () => {
     render(
       <ClioToolInvocation
         defaultOpen
@@ -154,11 +156,15 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Create widget' }),
+    );
     expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Result' })).toBeVisible();
   });
 
-  it('renders an empty argument map when a persisted no-argument call decodes as null', () => {
+  it('renders an empty argument map when a persisted no-argument call decodes as null', async () => {
     render(
       <ClioToolInvocation
         defaultOpen
@@ -174,6 +180,9 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Agent Guarded Input' }),
+    );
     expect(screen.getByText('{}')).toBeVisible();
     expect(screen.queryByText('null')).not.toBeInTheDocument();
   });
@@ -253,12 +262,10 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
 
     expect(screen.getByText('src/example.py')).toBeVisible();
     expect(screen.getByText('+new')).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Technical details for fs_edit_file' }),
-    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Technical details for Edit' })).toBeVisible();
   });
 
-  it('shows live terminal output and preserves the technical disclosure', () => {
+  it('shows live terminal output and preserves the technical disclosure', async () => {
     render(
       <ClioToolInvocation
         defaultOpen
@@ -287,6 +294,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(screen.getByLabelText('Command')).toHaveTextContent('run checks');
     expect(screen.getByText(/collecting tests/u)).toBeVisible();
     expect(screen.getByText(/42 passed/u)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Technical details for Run' }));
     expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
   });
 

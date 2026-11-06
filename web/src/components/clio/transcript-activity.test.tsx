@@ -84,8 +84,10 @@ it('keeps updates visible, expands readable results and retains technical detail
   expect(view.container.querySelector('[data-slot="transcript-activity-timeline"]')).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Expand activity/ })).not.toBeInTheDocument();
   const detail = screen.getByRole('button', { name: 'Show result for Read' });
-  expect(detail).toHaveTextContent('notes.md');
-  expect(detail).toHaveTextContent('61 lines');
+  // The row names its file as a separate link beside the action, with its count.
+  const row = view.container.querySelector('[data-slot="tool-action-label"]')!;
+  expect(row).toHaveTextContent('notes.md');
+  expect(row).toHaveTextContent('61 lines');
   fireEvent.click(detail);
   expect(await screen.findByRole('region', { name: 'Read: Result' })).toHaveTextContent(
     'Complete recorded file contents.',

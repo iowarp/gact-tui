@@ -17,6 +17,7 @@ export function BoundedResult({
   fullContent,
   separateViewer = false,
   unit = 'lines',
+  inlineExpansion = false,
 }: {
   children: ReactNode;
   lines: number;
@@ -27,6 +28,8 @@ export function BoundedResult({
   fullContent?: ReactNode;
   separateViewer?: boolean;
   unit?: 'lines' | 'items';
+  /** Chat operations reveal retained content in place rather than nesting a viewer. */
+  inlineExpansion?: boolean;
 }) {
   const id = useId();
   const body = useRef<HTMLDivElement>(null);
@@ -68,7 +71,9 @@ export function BoundedResult({
   }, [children, running, unit, expanded, lines]);
   const hidden = bottoms.length > lines || hasMore;
   const separate =
-    separateViewer || hasMore || bottoms.length > Math.max(unit === 'items' ? 10 : 30, lines * 2);
+    separateViewer ||
+    hasMore ||
+    (!inlineExpansion && bottoms.length > Math.max(unit === 'items' ? 10 : 30, lines * 2));
   // Keep the first paint bounded too, including when a hidden activity panel
   // has not yet supplied measurable text rows. Short results still shrink.
   const height = running

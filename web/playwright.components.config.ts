@@ -11,6 +11,7 @@ export default defineConfig({
   testIgnore: [],
   testMatch: [
     '**/tool-result-presentation.spec.ts',
+    '**/tool-operations.spec.ts',
     '**/dialog-layout.spec.ts',
     '**/fs-file-tools.spec.ts',
   ],

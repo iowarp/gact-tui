@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryToolResult } from './memory-tool-result';
+import userEvent from '@testing-library/user-event';
 import { ClioToolInvocation } from './tool-invocation';
 const memoryProposals = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({ memoryProposals }) }));
@@ -20,7 +21,7 @@ const tool = (name: string, output: unknown): ToolInvocation => ({
 });
 
 describe('memory results visible in the conversation', () => {
-  it('shows the actual red to blue correction by default in a compact activity row', () => {
+  it('shows the actual red to blue correction when the operation is expanded', async () => {
     const { container } = render(
       <ClioToolInvocation
         compact
@@ -31,6 +32,7 @@ describe('memory results visible in the conversation', () => {
         })}
       />,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Show result for Correct' }));
     expect(screen.getByRole('list', { name: 'Memory facts' })).toBeVisible();
     expect(container.querySelector('del')).toHaveTextContent('red');
     expect(container.querySelector('ins')).toHaveTextContent('blue');

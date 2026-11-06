@@ -65,7 +65,17 @@ export function ClioSubagentLifecycleLine({
         input: { assignment, child_session_id: subagent?.child_session_id },
         output: terminal ? result : undefined,
         presentation: {
-          action: started ? 'Delegate' : continued ? 'Continue subagent' : 'Subagent result',
+          // The shared row shows no status recap, so a return says in its action what
+          // happened: a turn that ended is not a claim that the assignment succeeded.
+          action: started
+            ? 'Delegate'
+            : continued
+              ? 'Continue subagent'
+              : failed
+                ? 'Subagent failed'
+                : cancelled
+                  ? 'Subagent cancelled'
+                  : 'Subagent turn ended',
           subject: 'child',
           summary: started
             ? 'Accepted'

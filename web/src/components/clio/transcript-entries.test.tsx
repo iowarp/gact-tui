@@ -105,10 +105,10 @@ it('alternates visible text entries and independently collapsed tool groups', as
   expect(screen.queryByRole('button', { name: /^Reasoning:/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getAllByRole('button', { name: /^Activity:/ })[0]);
   expect(await screen.findByText('Private recorded one reasoning.')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Technical details for Read one' })).toBeVisible();
-  expect(
-    screen.queryByRole('button', { name: 'Technical details for Read two' }),
-  ).not.toBeInTheDocument();
+  // The shared row reads `Read one.md`; only the opened group's call is mounted.
+  expect(screen.getByRole('button', { name: 'Technical details for Read' })).toBeVisible();
+  expect(screen.getByText('one.md')).toBeVisible();
+  expect(screen.queryByText('two.md')).not.toBeInTheDocument();
 });
 
 it.each(['codex', 'claude_code', 'vllm'])(
@@ -180,9 +180,9 @@ it('keeps reasoning-only continuations and their tools in one ordered activity b
   ).map((node) => node.getAttribute('aria-label') ?? node.textContent);
   expect(ordered).toEqual([
     'Thinking: Private recorded one reasoning.',
-    'Technical details for Read one',
+    'Technical details for Read',
     'Thinking: Private recorded two reasoning.',
-    'Technical details for Read two',
+    'Technical details for Read',
   ]);
 });
 
@@ -235,18 +235,16 @@ it('opens complete tool arguments and result from the keyboard and restores focu
   const user = userEvent.setup();
   render(<ConversationTurn iterations={[iteration('one', 0)]} mode="chain" subagents={{}} />);
   await user.click(screen.getByRole('button', { name: /^Activity:/ }));
-  const trigger = screen.getByRole('button', { name: 'Technical details for Read one' });
+  const trigger = screen.getByRole('button', { name: 'Technical details for Read' });
   trigger.focus();
   await user.keyboard('{Enter}');
-  expect(
-    await screen.findByRole('dialog', { name: 'Read one: Technical details' }),
-  ).toHaveTextContent('one.md');
+  expect(await screen.findByRole('dialog', { name: 'Read: Technical details' })).toHaveTextContent(
+    'one.md',
+  );
   await waitFor(() => expect(screen.getByText('Complete one result.')).toBeVisible());
   await user.keyboard('{Escape}');
   expect(trigger).toHaveFocus();
-  expect(
-    screen.queryByRole('dialog', { name: 'Read one: Technical details' }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: 'Read: Technical details' })).not.toBeInTheDocument();
 });
 
 it('preserves canonical text and artifact boundaries instead of moving them after tools', () => {
@@ -274,7 +272,7 @@ it('keeps unavailable invocations at their recorded place', () => {
 
 it('retains explicit false and zero results in technical details', async () => {
   const view = render(<ClioToolInvocation compact tool={{ ...call('one'), output: false }} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read one' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read' }));
   expect(await screen.findByText('false', { exact: true })).toBeVisible();
   view.rerender(<ClioToolInvocation compact tool={{ ...call('one'), output: 0 }} />);
   expect(await screen.findByText('0', { exact: true })).toBeVisible();

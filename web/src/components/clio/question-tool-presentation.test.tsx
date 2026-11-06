@@ -38,7 +38,7 @@ const question: ToolInvocation = {
 it('shows the actual bundle instead of a generic inspection and protocol state', async () => {
   const user = userEvent.setup();
   render(<ClioToolInvocation compact tool={question} />);
-  expect(screen.getByText('2 questions')).toBeVisible();
+  expect(screen.getByText('(2 questions)')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Show result for Ask you' }));
   expect(screen.getByText('What should govern the workshop?')).toBeVisible();
   expect(screen.getByText('Answer requested at this step')).toBeVisible();

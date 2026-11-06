@@ -26,6 +26,7 @@ import {
 } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { ClioToolInvocation } from './tool-invocation';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -239,6 +240,7 @@ export function ConversationTurn({
           {iterations.map((iteration) => (
             <IterationDetail
               iteration={iteration}
+              flowCards={flowCards}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
               showTasks
@@ -311,6 +313,7 @@ export function ConversationTurn({
                       <IterationReasoningText iteration={item} />
                       <IterationDetail
                         compact
+                        flowCards={flowCards}
                         showText={false}
                         iteration={item}
                         onOpenSubagent={onOpenSubagent}
@@ -385,6 +388,7 @@ function IterationDetail({
   showQuestionInteractions = true,
   showText = true,
   compact = false,
+  flowCards = true,
   activeMcpAppId,
   hiddenMcpAppIds,
   mcpAppRepository,
@@ -403,6 +407,7 @@ function IterationDetail({
   showQuestionInteractions?: boolean;
   showText?: boolean;
   compact?: boolean;
+  flowCards?: boolean;
   activeMcpAppId?: string;
   hiddenMcpAppIds?: readonly string[];
   mcpAppRepository?: ClioRepository;
@@ -436,15 +441,16 @@ function IterationDetail({
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation
                   compact={compact}
+                  flowResult={flowCards}
                   attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                   attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
                   sessionId={messageSessionId}
                   tool={entry.tool}
                 />
-                {!compact && messageSessionId && startedFlow(entry.tool) ? (
-                  <FlowRunCard flow={startedFlow(entry.tool)!} sessionId={messageSessionId} />
-                ) : null}
-                {subagentsForTool(entry.tool, subagents)
+                {(TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
+                  ? []
+                  : subagentsForTool(entry.tool, subagents)
+                )
                   .filter((subagent) => !explicitSubagentIds.has(subagent.id))
                   .map((subagent) => (
                     <ClioSubagentLifecycleLine

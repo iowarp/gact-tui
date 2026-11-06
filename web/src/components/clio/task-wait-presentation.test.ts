@@ -1,34 +1,34 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { withTaskWaitPresentation } from './task-wait-presentation';
+import { withTaskWaitInterruption } from './task-wait-presentation';
+import { toolOperation } from './tool-operation';
+import { withOperationOutcome } from './tool-operation-outcome';
 
-describe('retained task wait receipts', () => {
-  const result = { pending: ['child'], results: [], errors: [], timed_out: true };
-  const tool: ToolInvocation = {
-    id: 'wait',
-    session_id: 'parent',
-    name: 'wait_tasks',
-    state: 'succeeded',
-    input: { tasks: 'child', return_when: 'all', timeout_s: 0 },
-    presentation: { summary: '0 task outcomes', blocks: [] },
-    output: result,
-  };
-
-  it.each([result, [{ type: 'text', text: JSON.stringify(result) }]])(
-    'explains pending native and legacy text receipts',
+const tool: ToolInvocation = {
+  id: 'wait',
+  session_id: 'parent',
+  name: 'wait_tasks',
+  state: 'succeeded',
+  input: { tasks: 'child', timeout_s: 0 },
+  presentation: { summary: '0 task outcomes', blocks: [] },
+};
+const pending = { pending: ['child'], results: [], errors: [], timed_out: true };
+describe('retained wait receipts through the shared operation reader', () => {
+  it.each([pending, [{ type: 'text', text: JSON.stringify(pending) }]])(
+    'keeps pending waits closed without mutating the receipt',
     (output) => {
-      const shown = withTaskWaitPresentation({ ...tool, output });
-      expect(shown.presentation?.action).toBe('Check all tasks');
-      expect(shown.presentation?.summary).toBe('1 pending, 0 results collected');
-      expect(shown.presentation?.blocks[0]).toMatchObject({ text: 'child' });
-      expect(shown.presentation?.blocks[2]).toMatchObject({
-        result_kind: 'snapshot',
-        status: 'pending',
+      const recorded = { ...tool, output };
+      const shown = withTaskWaitInterruption(recorded);
+      expect(shown).toBe(recorded);
+      expect(toolOperation(shown)).toMatchObject({
+        action: 'Check',
+        metadata: '0 returned, 1 running',
+        expandable: false,
+        tasks: [],
       });
       expect(shown.output).toBe(output);
     },
   );
-
   it("shows a child agent's answer as its report, not its run's JSON", () => {
     const run = {
       selected_expert: 'explore',
@@ -36,7 +36,7 @@ describe('retained task wait receipts', () => {
       answer: 'The folder holds one file, notes.txt.',
       tools_called: [{ name: 'fs_list_directory', ok: true }],
     };
-    const shown = withTaskWaitPresentation({
+    const shown = toolOperation({
       ...tool,
       input: { tasks: ['child'] },
       output: {
@@ -45,20 +45,20 @@ describe('retained task wait receipts', () => {
         errors: [],
       },
     });
-    expect(shown.presentation?.blocks[2]?.text).toBe('The folder holds one file, notes.txt.');
+    expect(shown.tasks?.map((task) => task.value)).toEqual([
+      'The folder holds one file, notes.txt.',
+    ]);
   });
 
-  it('does not replace an unreadable result with a fabricated outcome', () => {
-    const unreadable = { ...tool, output: [{ type: 'text', text: 'truncated' }] };
-    const shown = withTaskWaitPresentation(unreadable);
-    expect(shown.output).toBe(unreadable.output);
-    expect(shown.presentation?.blocks.some((block) => block.result_kind === 'completion')).toBe(
-      false,
-    );
+  it('never fabricates an answer from an unreadable receipt', () => {
+    const recorded = { ...tool, output: [{ type: 'text', text: 'truncated' }] };
+    const shown = toolOperation(recorded);
+    expect(shown.tasks).toEqual([]);
+    expect(shown.expandable).toBe(false);
+    expect(recorded.output[0].text).toBe('truncated');
   });
-
-  it('preserves current server-authored presentation', () => {
-    const current = {
+  it('preserves server-authored fields and exact input/output', () => {
+    const recorded = {
       ...tool,
       presentation: {
         action: 'Wait for all tasks',
@@ -67,136 +67,87 @@ describe('retained task wait receipts', () => {
         blocks: [],
       },
     };
-    expect(withTaskWaitPresentation(current)).toBe(current);
+    expect(withTaskWaitInterruption(recorded)).toBe(recorded);
   });
-
-  it('shows any policy, selected handles, collected output and pending snapshots', () => {
-    const shown = withTaskWaitPresentation({
+  it('shows collected content only, while identifying selected and pending tasks', () => {
+    const shown = toolOperation({
       ...tool,
       input: { tasks: ['ready', 'child'], return_when: 'any' },
       output: {
         pending: ['child'],
         results: [
-          {
-            handle: 'ready',
-            kind: 'Subagent',
-            status: 'completed',
-            result: { output: 'Audit incomplete.' },
-          },
+          { handle: 'ready', status: 'completed', result: { output: 'Audit incomplete.' } },
         ],
       },
     });
-    expect(shown.presentation?.action).toBe('Wait for any task');
-    expect(shown.presentation?.blocks[0].text).toBe('ready, child');
-    expect(shown.presentation?.blocks[1].text).toContain('No deadline');
-    expect(shown.presentation?.blocks[2]).toMatchObject({
-      label: 'ready: Turn ended',
-      text: 'Audit incomplete.',
-    });
-    expect(shown.presentation?.blocks[3].status).toBe('pending');
+    expect(shown.subjects.map((row) => row.label)).toEqual(['ready', 'child']);
+    expect(shown.metadata).toBe('1 returned, 1 running');
+    expect(shown.tasks).toHaveLength(1);
+    expect(shown.tasks?.[0].value).toBe('Audit incomplete.');
   });
-
-  it('names an in-flight selection without fabricating completed results', () => {
-    const shown = withTaskWaitPresentation({
+  it('names an in-flight selection without mounting an empty result', () => {
+    const shown = toolOperation({
       ...tool,
       state: 'running',
-      output: undefined,
       input: { tasks: ['worker_a', 'worker_b'] },
     });
-    expect(shown.presentation?.action).toBe('Wait for all tasks');
-    expect(shown.presentation?.summary).toBe('0 task outcomes');
-    expect(shown.presentation?.blocks.some((block) => block.result_kind)).toBe(false);
+    expect(shown.subjects.map((row) => row.label)).toEqual(['worker_a', 'worker_b']);
+    expect(shown.expandable).toBe(false);
+    expect(shown.tasks).toEqual([]);
   });
-
-  it('uses the authorized active wait label without changing handles or inventing answers', () => {
+  it('retains an active answer-wait label while immediate checks stay distinct', () => {
     const waiting = {
       ...tool,
       state: 'running' as const,
-      output: undefined,
       input: { tasks: 'question_handle' },
       presentation: { summary: 'Waiting for your answer', blocks: [] },
     };
-    const shown = withTaskWaitPresentation(waiting);
-    expect(shown.presentation?.action).toBe('Waiting for your answer');
-    expect(shown.presentation?.summary).toBe('Waiting for your answer');
-    expect(shown.presentation?.blocks[0].text).toBe('question_handle');
-    expect(shown.presentation?.blocks.some((block) => block.result_kind)).toBe(false);
-    expect(shown.input).toBe(waiting.input);
-    expect(shown.output).toBeUndefined();
-    expect(
-      withTaskWaitPresentation({ ...waiting, input: { tasks: 'question_handle', timeout_s: 0 } })
-        .presentation?.action,
-    ).toBe('Check all tasks');
+    expect(toolOperation(waiting).action).toBe('Waiting for your answer');
+    expect(toolOperation(waiting).tasks).toEqual([]);
+    expect(toolOperation({ ...waiting, input: { ...waiting.input, timeout_s: 0 } }).action).toBe(
+      'Check',
+    );
   });
-
-  it('exposes failed work and handle errors', () => {
-    const shown = withTaskWaitPresentation({
+  it('exposes both failed returned work and unavailable handles', () => {
+    const recorded = {
       ...tool,
       output: {
         pending: [],
         results: [{ handle: 'child', status: 'failed', result: { output: 'Bad input' } }],
         errors: [{ handle: 'missing', error: 'Unknown task handle' }],
       },
-    });
-    expect(shown.presentation?.status).toBe('degraded');
-    expect(shown.presentation?.summary).toBe('1 result collected, 1 unsuccessful, 1 error');
-    expect(shown.presentation?.blocks.at(-1)).toMatchObject({
-      severity: 'error',
-      text: 'Unknown task handle',
-    });
+    };
+    const shown = toolOperation(recorded);
+    expect(withOperationOutcome(recorded).presentation?.status).toBe('degraded');
+    expect(shown.metadata).toBe('1 returned, 1 unsuccessful, 1 unavailable');
+    expect(shown.tasks?.[0]).toMatchObject({ value: 'Bad input', error: 'Task failed' });
+    expect(shown.tasks?.[1].error).toBe('Unknown task handle');
   });
-
   const canonical = {
     pending: ['uncertain', 'running'],
     outcomes: [
-      {
-        handle: 'ready',
-        kind: 'Subagent',
-        status: 'completed',
-        pending: false,
-        result: 'Finished',
-      },
+      { handle: 'ready', status: 'completed', result: 'Finished' },
       { handle: 'uncertain', status: 'task_state_uncertain', reason: 'Cleanup is unconfirmed' },
       { handle: 'missing', error: 'Task unavailable' },
     ],
-    timed_out: false,
   };
-
   it.each([
     canonical,
     [{ type: 'text', text: JSON.stringify(canonical) }],
     { structuredContent: canonical },
-  ])('distinguishes canonical collection, attention, member errors and pending work', (output) => {
-    const shown = withTaskWaitPresentation({
+  ])('keeps uncertainty separate from completed content and handle failures', (output) => {
+    const recorded = {
       ...tool,
-      input: { tasks: ['ready', 'uncertain', 'missing', 'running'], return_when: 'any' },
+      input: { tasks: ['ready', 'uncertain', 'missing', 'running'] },
       output,
-    });
-    expect(shown.output).toBe(output);
-    expect(shown.presentation?.summary).toBe(
-      '2 pending, 1 result collected, 1 task needs attention, 1 error',
-    );
-    expect(shown.presentation?.status).toBe('degraded');
-    expect(shown.presentation?.blocks[2]).toMatchObject({
-      label: 'ready: Completed',
-      result_kind: 'completion',
-      text: 'Finished',
-    });
-    expect(shown.presentation?.blocks[3]).toMatchObject({
-      label: 'uncertain: Needs attention',
-      result_kind: 'snapshot',
-      severity: 'warning',
-      text: 'Cleanup is unconfirmed',
-      status: 'task_state_uncertain',
-    });
-    expect(shown.presentation?.blocks[4]).toMatchObject({
-      label: 'missing: Could not collect',
-      severity: 'error',
-      text: 'Task unavailable',
-    });
-    expect(shown.presentation?.blocks[5]).toMatchObject({
-      result_kind: 'snapshot',
-      status: 'pending',
-    });
+    };
+    const shown = toolOperation(recorded);
+    expect(recorded.output).toBe(output);
+    expect(withOperationOutcome(recorded).presentation?.status).toBe('degraded');
+    expect(shown.metadata).toBe('1 returned, 1 running, 1 needs attention, 1 unavailable');
+    expect(shown.tasks).toHaveLength(2);
+    expect(shown.tasks?.[0].value).toBe('Finished');
+    expect(shown.tasks?.[1].error).toBe('Task unavailable');
+    expect(shown.tasks?.some((row) => row.key === 'uncertain')).toBe(false);
   });
 });

@@ -38,19 +38,31 @@ function recordedSkill(file = ''): ToolInvocation {
 }
 
 describe('skill observations at three levels', () => {
-  it('distinguishes the main procedure and the exact reference on the compact rows', () => {
+  it('distinguishes the main procedure and the exact reference on the compact rows', async () => {
     render(
       <>
         <ClioToolInvocation compact tool={recordedSkill()} />
         <ClioToolInvocation compact tool={recordedSkill('references/discovery-and-analysis.md')} />
       </>,
     );
-    expect(screen.getByRole('button', { name: 'Show result for Load skill' })).toHaveTextContent(
-      'Work with NDP',
-    );
-    const reference = screen.getByRole('button', { name: 'Show result for Read skill reference' });
+    expect(
+      screen
+        .getByRole('button', { name: 'Show result for Load skill' })
+        .closest('[data-slot=activity-row]'),
+    ).toHaveTextContent('Work with NDP');
+    const reference = screen
+      .getByRole('button', { name: 'Show result for Read skill reference' })
+      .closest('[data-slot=activity-row]');
     expect(reference).toHaveTextContent('references/discovery-and-analysis.md');
-    expect(reference).toHaveTextContent('Discover scientific collections');
+    expect(
+      screen.queryByRole('heading', { name: 'Discover scientific collections' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show result for Read skill reference' }),
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Discover scientific collections' }),
+    ).toBeVisible();
   });
 
   it('keeps source and purpose readable, with exact arguments and raw output in technical details', async () => {

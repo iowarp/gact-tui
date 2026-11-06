@@ -443,13 +443,14 @@ describe('exported subagent tree without subagent records', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: /^Activity:/ }));
-    // Collapsed, each call offers its child; expanded, the child's name links to it.
-    await user.click(screen.getByRole('button', { name: 'Open level 1~1' }));
-    expect(onOpenSession).toHaveBeenLastCalledWith('sess_fork');
-    await user.click(screen.getByRole('button', { name: 'Show result for fork' }));
+    // Each call's row names its child as a link, collapsed and expanded alike.
     await user.click(screen.getByRole('button', { name: 'level 1~1' }));
     expect(onOpenSession).toHaveBeenLastCalledWith('sess_fork');
-    await user.click(screen.getByRole('button', { name: 'Open Subagent' }));
+    await user.click(screen.getByRole('button', { name: 'Show result for fork' }));
+    onOpenSession.mockClear();
+    await user.click(screen.getByRole('button', { name: 'level 1~1' }));
+    expect(onOpenSession).toHaveBeenLastCalledWith('sess_fork');
+    await user.click(screen.getByRole('button', { name: 'Subagent' }));
     expect(onOpenSession).toHaveBeenLastCalledWith('sess_explore');
     // The approval follows the fork call, before the next call.
     const question = screen.getByText("Fork 'level 1' as 'level 1~1'? Allow?");

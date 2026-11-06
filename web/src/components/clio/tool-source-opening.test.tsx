@@ -39,10 +39,9 @@ it('opens a declared file directly from a collapsed activity row without nested 
   );
   const disclosure = screen.getByRole('button', { name: 'Show result for Read' });
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  expect(disclosure).toBeDisabled();
   await user.tab();
-  expect(disclosure).toHaveFocus();
-  await user.tab();
-  expect(screen.getByRole('button', { name: 'Open stations.csv' })).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'stations.csv' })).toHaveFocus();
   await user.keyboard('{Enter}');
   expect(openFile).toHaveBeenCalledWith('D:/data/stations.csv');
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
@@ -105,7 +104,7 @@ it('opens the registered linked resource by identity directly from the collapsed
       />
     </PresentationNavigation.Provider>,
   );
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Open snow.csv' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'snow.csv' }));
   expect(openResource).toHaveBeenCalledWith(resource);
 });
 
@@ -135,5 +134,5 @@ it('does not offer an open action for an unavailable reference', () => {
       }}
     />,
   );
-  expect(screen.queryByRole('button', { name: 'Open missing.csv' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'missing.csv' })).not.toBeInTheDocument();
 });

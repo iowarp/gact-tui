@@ -182,6 +182,7 @@ export function PresentationLink({
 
 /** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
 function memoryLinkParams(uri: string): URLSearchParams {
+  if (uri.startsWith('scope:')) return new URLSearchParams({ scope: uri.slice(6) });
   const [doc = uri, fact] = uri.split('#', 2);
   return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

@@ -3,6 +3,27 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
 describe('ClioRepository interaction contracts', () => {
+  it('continues a pinned result through the authorized route with an abort signal', async () => {
+    const response = {
+      result_reference: { sha256: 'original' },
+      result: { preview: 'tail' },
+      offset: 12,
+      next_offset: 16,
+      next_cursor: null,
+    };
+    const transport = new RecordingTransport([response]);
+    const repository = new ClioRepository(transport);
+    const controller = new AbortController();
+    await expect(
+      repository.taskResultPage('session one', 'task/a', 'opaque+cursor=', controller.signal),
+    ).resolves.toEqual(response);
+    expect(transport.requests[0]).toMatchObject({
+      method: 'GET',
+      path: '/v1/sessions/session%20one/tasks/task%2Fa/result?cursor=opaque%2Bcursor%3D',
+      signal: controller.signal,
+    });
+    expect(transport.requests).toHaveLength(1);
+  });
   it('accepts the null server id used by built-in catalog tools', async () => {
     const transport = new RecordingTransport([
       {

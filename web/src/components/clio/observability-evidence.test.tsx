@@ -49,12 +49,14 @@ it('lets Evidence disclose the formatted tool result and preserves semantic fail
     />,
   );
   await userEvent.click(screen.getByRole('button', { name: 'Tool calls, 2 recorded' }));
-  // Tool-call rows carry no task-kind glyph; a failure is named in text, success is not.
+  // Tool-call rows carry no task-kind glyph; each mark names its outcome, and a failure
+  // is also named in text while success stays quiet.
   expect(document.querySelector('[data-slot="work-kind-status"]')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Show result for Read' })).not.toHaveTextContent(
-    'failed',
-  );
-  expect(screen.getByRole('button', { name: 'Show result for Fetch' })).toHaveTextContent('failed');
+  expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+  const row = (id: string) => document.getElementById(`evidence-tool-${id}`)!;
+  expect(row('read')).not.toHaveTextContent('failed');
+  expect(row('fetch').querySelector('[data-slot="tool-outcome"]')).toHaveTextContent('failed');
   expect(screen.queryByText('Succeeded')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Show result for Fetch' }));
   expect(screen.getByRole('region', { name: 'Fetch: Result' })).toHaveTextContent(

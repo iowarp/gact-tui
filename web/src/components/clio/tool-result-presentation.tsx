@@ -188,9 +188,16 @@ function ToolResultBody({
     );
   }
   const resourceListBlocks =
-    tool.name === 'workspace_resource_list'
-      ? blocks.filter((block) => block.type === 'link' && block.target === 'resource')
+    contentBlocks.length &&
+    contentBlocks.every(
+      (block) =>
+        block.type === 'link' && ['resource', 'file', 'artifact'].includes(block.target ?? ''),
+    )
+      ? contentBlocks
       : [];
+  const linkListTitle = resourceListBlocks.every((block) => block.target === 'resource')
+    ? 'Workspace resources'
+    : 'Files';
   if (resourceListBlocks.length) {
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
@@ -203,8 +210,8 @@ function ToolResultBody({
           className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
           data-slot="tool-result-panel"
         >
-          <BoundedResult lines={3} unit="items" title="Workspace resources">
-            <ul aria-label="Workspace resources" className="divide-y">
+          <BoundedResult lines={3} unit="items" title={linkListTitle} inlineExpansion>
+            <ul aria-label={linkListTitle} className="divide-y">
               {resourceListBlocks.map((resource) => (
                 <li className="flex min-w-0 items-center gap-2 px-2 py-1.5" key={resource.id}>
                   <FileIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
@@ -270,7 +277,7 @@ function ToolResultBody({
       ) : null}
       {blocks.map((block, index) => {
         const collectedChildOutput =
-          (tool.name === 'get_agent_task_output' || tool.presentation?.action === 'Collect') &&
+          (tool.name === 'get_task_result' || tool.presentation?.action === 'Collect') &&
           block.type === 'markdown';
         const budget = collectedChildOutput ? Math.min(lines, 2) : lines;
         const running = block.type === 'terminal' && tool.state === 'running';

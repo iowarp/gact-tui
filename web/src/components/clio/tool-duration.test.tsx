@@ -8,7 +8,7 @@ const call: ToolInvocation = {
   id: 'environment',
   session_id: 'session',
   name: 'prepare_execution_runtime',
-  title: 'Get execution environment',
+  title: 'Inspect execution environment',
   state: 'succeeded',
   duration_ms: 12_540,
 };
@@ -23,11 +23,11 @@ it.each(['succeeded', 'failed', 'cancelled'] as const)(
   (state) => {
     render(<ClioToolInvocation compact tool={{ ...call, state }} />);
     const row = screen.getByRole('button', {
-      name: 'Show result for Get execution environment',
+      name: 'Show result for Inspect execution environment',
     });
-    expect(row).toHaveTextContent('12.5 s');
+    expect(row.closest('[data-slot=activity-row]')).toHaveTextContent('12.5 s');
     fireEvent.click(
-      screen.getByRole('button', { name: 'Technical details for Get execution environment' }),
+      screen.getByRole('button', { name: 'Technical details for Inspect execution environment' }),
     );
     expect(screen.getByText('Execution time: 12.5 s')).toBeVisible();
   },
@@ -122,10 +122,10 @@ it('stops elapsed timing when a historical call has no recorded completion', () 
       }}
     />,
   );
-  expect(screen.getByText('Unknown')).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Unknown' })).toBeVisible();
   expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
   act(() => vi.advanceTimersByTime(60_000));
-  expect(screen.getByText('Unknown')).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Unknown' })).toBeVisible();
   expect(view.container.querySelector('[data-slot="tool-duration"]')).toBeNull();
 });

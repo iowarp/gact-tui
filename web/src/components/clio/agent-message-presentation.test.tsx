@@ -109,9 +109,7 @@ it('presents native outgoing calls with the recipient name and body while keepin
     </PresentationNavigation.Provider>,
   );
   expect(screen.queryByText('Inspect the original measurements.')).toBeNull();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Show result for Sent message to Evidence reviewer' }),
-  );
+  await userEvent.click(screen.getByRole('button', { name: 'Show result for Send message to' }));
   expect(await screen.findByText('Inspect the original measurements.')).toBeVisible();
   expect(
     withAgentMessagePresentation(

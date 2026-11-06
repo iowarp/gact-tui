@@ -20,7 +20,7 @@ test('compact runtime results are readable before JSON at desktop and phone widt
     id: 'runtime',
     session_id: 's',
     name: 'prepare_execution_runtime',
-    title: 'Get execution environment',
+    title: 'Inspect execution environment',
     state: 'succeeded',
     duration_ms: 42700,
     input: { kwargs: { required_imports: ['PIL'] } },
@@ -36,14 +36,14 @@ test('compact runtime results are readable before JSON at desktop and phone widt
   });
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const row = page.getByRole('button', { name: 'Show result for Get execution environment' });
+    const row = page.getByRole('button', { name: 'Show result for Inspect execution environment' });
     expect(
       await page
         .locator('[data-slot="tool-activity"]')
         .evaluate((node) => node.scrollWidth <= node.clientWidth),
     ).toBe(true);
     await row.click();
-    const result = page.getByRole('region', { name: 'Get execution environment: Result' });
+    const result = page.getByRole('region', { name: 'Inspect execution environment: Result' });
     await expect(result).toContainText('Python version: 3.13.16');
     await expect(result).not.toContainText('Arguments');
     await expect(result).not.toContainText('required_imports');
@@ -51,7 +51,7 @@ test('compact runtime results are readable before JSON at desktop and phone widt
     expect(await result.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
     await page.screenshot({ path: test.info().outputPath(`runtime-readable-${width}.png`) });
     const info = page.getByRole('button', {
-      name: 'Technical details for Get execution environment',
+      name: 'Technical details for Inspect execution environment',
     });
     await info.click();
     await expect(page.getByRole('dialog')).toContainText('required_imports');
@@ -96,10 +96,7 @@ test('compact shell failures expose the recorded reason before a long command', 
     },
   });
   const row = page.getByRole('button', { name: 'Show result for Run' });
-  await row
-    .locator('span')
-    .filter({ hasText: /^failed$/ })
-    .hover();
+  await page.getByRole('status', { name: 'Failed' }).hover();
   await expect(page.getByRole('tooltip')).toHaveText(failure);
   await row.click();
   const result = page.getByRole('region', { name: 'Run: Result' });
@@ -112,7 +109,7 @@ test('compact shell failures expose the recorded reason before a long command', 
   await page.screenshot({ path: test.info().outputPath('shell-failure-readable.png') });
   await page.getByRole('button', { name: 'Technical details for Run' }).focus();
   await page.keyboard.press('Shift+Tab');
-  await expect(row).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Collapse Run' })).toBeFocused();
   await expect(page.getByRole('tooltip')).toHaveText(failure);
   await page.getByRole('button', { name: 'Technical details for Run' }).click();
   await expect(page.getByRole('dialog')).toContainText('"cwd": null');
@@ -136,7 +133,7 @@ test('compact widget rejection retains its semantic error when transport succeed
       blocks: [{ id: 'error', type: 'text', severity: 'error', text: reason }],
     },
   });
-  const row = page.getByRole('button', { name: 'Show result for Generate widget' });
+  const row = page.getByRole('button', { name: 'Show result for Create widget' });
   await row.hover();
   await expect(page.getByRole('tooltip')).toHaveText(reason);
   await row.click();
@@ -150,6 +147,8 @@ async function openFixture(page: Page, type: string, content?: string) {
   expect(response.ok()).toBe(true);
   const data = await response.json();
   const tool = data.tools[0];
+  tool.name = type === 'diff' ? 'fs_write_file' : 'synthetic_presentation';
+  tool.title = type === 'diff' ? 'Write' : 'Recorded tool result';
   tool.presentation = {
     summary: '',
     blocks: [
@@ -192,21 +191,23 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
   const activity = page.locator('[data-slot="tool-activity"]').first();
   const row = activity.locator('[data-slot="activity-row"]');
-  const subject = row.locator('[data-slot="tool-action-label"]').getByRole('button');
+  const subject = row.getByRole('button', {
+    name: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
+    exact: true,
+  });
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
   const titleBounds = await row.locator('[data-slot="tool-action-label"]').boundingBox();
-  // The status moved from an inline text Badge to a compact trailing icon
-  // (feat/4fc5d22c "refine tool presentation qualification"): activity-row.tsx
-  // always renders ClioStatus with compact, which drops data-slot="badge" for
-  // a role="status" icon.
   const statusBounds = await row.getByRole('status').boundingBox();
   expect(titleBounds).not.toBeNull();
   expect(statusBounds).not.toBeNull();
   expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);
   const subjectBounds = await subject.boundingBox();
   expect(subjectBounds).not.toBeNull();
-  expect(subjectBounds!.x + subjectBounds!.width).toBeLessThan(statusBounds!.x);
+  expect(statusBounds!.x).toBeLessThan(subjectBounds!.x);
+  expect(subjectBounds!.x + subjectBounds!.width).toBeLessThanOrEqual(
+    (await row.boundingBox())!.x + (await row.boundingBox())!.width,
+  );
   await expect(activity.locator('[data-slot="tool-human-result"]').getByRole('link')).toHaveCount(
     0,
   );
@@ -411,7 +412,7 @@ test('missing historical completion stays unknown and preserves captured output'
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 800 });
     const row = page.getByRole('button', { name: 'Show result for Run', exact: true });
-    await expect(row).toContainText('Unknown');
+    await expect(page.getByRole('status', { name: 'Unknown' })).toBeVisible();
     await expect(row.locator('.animate-spin')).toHaveCount(0);
     await expect(row.locator('[data-slot="tool-duration"]')).toHaveCount(0);
     await row.hover();
@@ -423,5 +424,6 @@ test('missing historical completion stays unknown and preserves captured output'
     await expect(result).not.toContainText('Process exited with code');
     await page.screenshot({ path: test.info().outputPath(`unknown-history-${width}.png`) });
     await row.click();
+    await page.mouse.move(0, 0);
   }
 });
