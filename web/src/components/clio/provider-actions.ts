@@ -201,8 +201,12 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       setAuthFlow(result);
       setAuthLaunchError('');
       setStage('Waiting for you to log in…');
-      if (result.browser) {
-        openExternalUrl(result.browser.authorization_url).catch((error: unknown) =>
+      // Open the page the person must act on: the authorization page, or for a
+      // device-code-only flow (GitHub Copilot) the page where the code is
+      // entered. The code stays on screen; the panel's link reopens the page.
+      const signInPage = result.browser?.authorization_url ?? result.device?.verification_url;
+      if (signInPage) {
+        openExternalUrl(signInPage).catch((error: unknown) =>
           setAuthLaunchError(
             error instanceof Error ? error.message : 'Could not open the sign-in page.',
           ),
