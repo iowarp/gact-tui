@@ -256,6 +256,38 @@ describe('ProvidersSettings', () => {
     expect(await within(dialog).findByLabelText('OpenRouter key')).toBeVisible();
   });
 
+  it("another model of the active provider keeps that provider's options", async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration,
+      provider_options: { show_diffusion: 'on' },
+    });
+    repository.providerCatalog.mockResolvedValue(
+      catalog(
+        catalogEntry('codex', [{ model_id: 'gpt-5.5' }, { model_id: 'gpt-5.4' }], {
+          name: 'Codex',
+        }),
+      ),
+    );
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(configuration);
+    const user = userEvent.setup();
+    renderPage();
+    const cloud = await screen.findByRole('region', { name: 'Cloud and subscription providers' });
+
+    await user.click(within(cloud).getByRole('button', { name: /Codex/u }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(await within(dialog).findByRole('option', { name: /5\.4/u }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_id: 'codex',
+          model: 'gpt-5.4',
+          provider_options: { show_diffusion: 'on' },
+        }),
+      ),
+    );
+  });
+
   it('saves an edited address on the service, which checks it at once', async () => {
     const saved = {
       id: 'lm_studio',

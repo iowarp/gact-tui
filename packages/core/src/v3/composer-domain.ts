@@ -363,6 +363,11 @@ export interface ProviderCatalogModel {
     source?: string;
   };
   native_tool_calling: boolean;
+  /**
+   * How the model streams: `append` (deltas) or `snapshot` (a diffusion model's
+   * whole current text per step). Absent when no source states it.
+   */
+  stream_shape?: 'append' | 'snapshot';
   context_window?: number;
   loaded_context_window?: number;
   /** The model's own context ceiling, whatever the server serves. */

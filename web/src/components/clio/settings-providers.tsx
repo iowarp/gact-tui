@@ -79,15 +79,17 @@ export function ProvidersSettings() {
   function chooseModel(choice: ClioModelOption) {
     const preset = presets.find((item) => item.id === choice.providerId);
     if (!preset) return;
+    const staying = preset.id === active?.id;
     apply.mutate({
       requiresKey: preset.requires_api_key,
       update: {
         provider_id: preset.provider_id || preset.id,
         provider: preset.provider,
-        api_base:
-          preset.id === active?.id ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
+        api_base: staying ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
         model: choice.id,
-        provider_options: {},
+        // Another model of the same provider keeps that provider's options
+        // (e.g. Show diffusion); a different provider starts from none.
+        provider_options: staying ? (configuration.data?.provider_options ?? {}) : {},
       },
     });
   }
