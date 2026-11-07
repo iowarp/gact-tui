@@ -82,6 +82,9 @@ describe('model picker catalog preparation', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(skeleton()).toBeVisible();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(screen.getByText('OpenRouter', { exact: true })).toBeVisible();
     expect(tags).not.toHaveBeenCalled();
@@ -96,6 +99,9 @@ describe('model picker catalog preparation', () => {
     await user.keyboard('{Escape}');
     tags.mockClear();
     await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(skeleton()).toBeVisible();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(screen.queryByRole('status', { name: 'Loading available models' })).toBeNull();
     expect(tags).not.toHaveBeenCalled();
@@ -115,6 +121,14 @@ describe('model picker catalog preparation', () => {
     expect(tags).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Models' }));
     expect(screen.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
+    expect(skeleton()).toBeVisible();
+    expect(screen.getByText('Loading AmSC Model Access Gateway models…')).toBeVisible();
+    // The dialog paints its skeleton before the catalog itself mounts.
+    expect(
+      screen.queryByRole('combobox', { name: 'Search providers and models' }),
+    ).not.toBeInTheDocument();
+    await paintFrame();
+    await paintFrame();
     expect(search()).toBeVisible();
     expect(skeleton()).toBeVisible();
     expect(screen.getByText('Loading AmSC Model Access Gateway models…')).toBeVisible();
@@ -220,6 +234,8 @@ describe('model picker catalog preparation', () => {
     renderPicker(<ReplacedPicker />);
     await user.click(screen.getByRole('button', { name: 'Models' }));
     await paintFrame();
+    await paintFrame();
+    await paintFrame();
     act(() => screen.getByText('Replace catalog', { selector: 'button' }).click());
     await paintFrame();
     expect(skeleton()).toBeVisible();
@@ -227,6 +243,45 @@ describe('model picker catalog preparation', () => {
     await paintFrame();
     expect(new Set(tags.mock.calls.map(([choice]) => choice))).toEqual(new Set(replacement));
     expect(search()).toBeVisible();
+  });
+
+  it('reopens a prepared large provider windowed, never mounting every row first', async () => {
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        options={large}
+        provider="amsc_mag"
+        onChange={vi.fn()}
+        trigger={<Button>Models</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    for (let frame = 0; frame < 4; frame += 1) await paintFrame();
+    expect(screen.getByRole('option', { name: /model-0/u })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    // Rows mounted for one commit and discarded leave records as removed nodes.
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((batch) => records.push(...batch));
+    observer.observe(document.body, { childList: true, subtree: true });
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    await paintFrame();
+    await paintFrame();
+    records.push(...observer.takeRecords());
+    observer.disconnect();
+    const optionsIn = (nodes: NodeList[]) =>
+      new Set(
+        nodes
+          .flatMap((list) => [...list])
+          .flatMap((node) =>
+            node instanceof Element ? [node, ...node.querySelectorAll('[role="option"]')] : [],
+          )
+          .filter((element) => element.matches('[role="option"]')),
+      );
+    const discarded = optionsIn(records.map((record) => record.removedNodes));
+    expect(screen.getByRole('option', { name: /model-0/u })).toBeVisible();
+    expect(screen.getAllByRole('option').length).toBeLessThan(large.length / 4);
+    expect(discarded.size).toBeLessThan(large.length / 4);
   });
 
   it('prepares generic large repositories too, while small catalogs open directly', async () => {

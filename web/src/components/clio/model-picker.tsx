@@ -15,6 +15,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelPickerCatalog } from './model-picker-catalog';
+import { LARGE_MODEL_CATALOG } from './use-progressive-model-catalog';
 import { RefreshButton } from './refresh-button';
 
 interface ClioModelPickerProps {
@@ -40,6 +41,9 @@ export function ClioModelPicker({
   trigger,
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
+  // Decided at open: a large catalog mounts only after the dialog and its
+  // skeleton have painted, so the click answers at once.
+  const [shellPainted, setShellPainted] = useState(true);
   const [facetsOpen, setFacetsOpen] = useState(false);
   const closingForSettings = useRef(false);
   const catalogContent = useRef<HTMLDivElement>(null);
@@ -60,7 +64,18 @@ export function ClioModelPicker({
       : undefined;
   const loading = catalogStatus === 'loading';
   useEffect(() => {
-    if (!open || catalogStatus !== 'ready') return;
+    if (!open || shellPainted) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setShellPainted(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [open, shellPainted]);
+  useEffect(() => {
+    if (!open || !shellPainted || catalogStatus !== 'ready') return;
     const frame = requestAnimationFrame(() => {
       const input = catalogContent.current?.querySelector<HTMLInputElement>(
         '[data-slot="cascader-input"]',
@@ -70,7 +85,7 @@ export function ClioModelPicker({
       input?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [open, catalogStatus, options]);
+  }, [open, shellPainted, catalogStatus, options]);
   const loadingLabel = provider
     ? `Loading ${providerDisplayName(
         presets.find((preset) => preset.id === provider),
@@ -85,9 +100,10 @@ export function ClioModelPicker({
       if (nextOpen) {
         closingForSettings.current = false;
         setActiveProvider(provider);
+        setShellPainted(options.length < LARGE_MODEL_CATALOG);
       }
     },
-    [provider],
+    [provider, options.length],
   );
   const close = useCallback(() => handleOpenChange(false), [handleOpenChange]);
   const openSettings = useCallback(() => {
@@ -114,10 +130,10 @@ export function ClioModelPicker({
       >
         {open && catalogStatus === 'error' ? (
           <ModelCatalogError onRetry={() => onRetryCatalog?.(activeProvider)} />
-        ) : open && loading && !catalogOptions ? (
+        ) : open && ((loading && !catalogOptions) || (catalogOptions && !shellPainted)) ? (
           <ModelCatalogSkeleton columns={showColumns} label={loadingLabel} />
         ) : null}
-        {open && catalogOptions ? (
+        {open && catalogOptions && shellPainted ? (
           <div ref={catalogContent} className="contents">
             <ModelPickerCatalog
               model={model}
