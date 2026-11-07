@@ -9,7 +9,7 @@ import type { MessageCanvas } from '@clio/core/v3';
 export function DiffusionCanvas({ canvas }: { canvas: MessageCanvas }) {
   return (
     <div aria-busy="true" className="flex flex-col gap-1" data-testid="diffusion-canvas">
-      <span className="text-xs text-muted-foreground">Diffusing · step {canvas.step}</span>
+      <span className="text-xs text-muted-foreground">Diffusing: step {canvas.step}</span>
       <p aria-live="off" className="whitespace-pre-wrap break-words text-foreground/80">
         {canvas.text}
       </p>

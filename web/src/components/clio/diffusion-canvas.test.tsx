@@ -40,7 +40,7 @@ const live: Message = {
 it('shows the live diffusion canvas in place of an empty response', () => {
   const view = renderRow({ ...live, canvas: { text: 'The quick br%wn fox', step: 3 } });
   expect(screen.getByTestId('diffusion-canvas')).toHaveTextContent('The quick br%wn fox');
-  expect(screen.getByText('Diffusing · step 3')).toBeInTheDocument();
+  expect(screen.getByText('Diffusing: step 3')).toBeInTheDocument();
   expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
 
   view.rerender(
