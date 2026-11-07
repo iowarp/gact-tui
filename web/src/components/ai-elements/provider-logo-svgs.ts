@@ -15,6 +15,7 @@ const PROVIDER_LOGO_IDS = [
   'azure',
   'deepseek',
   GENERIC_PROVIDER_LOGO_ID,
+  'github-copilot',
   'google',
   'groq',
   'huggingface',

@@ -35,6 +35,7 @@ Copied without path changes from the simple-icons `master` release at commit
 | `vllm.svg` | `icons/vllm.svg` |
 | `nvidia.svg` | `icons/nvidia.svg` |
 | `openrouter.svg` | `icons/openrouter.svg` |
+| `github-copilot.svg` | `icons/githubcopilot.svg` (used for the `copilot` provider id) |
 
 simple-icons is distributed under [CC0](https://github.com/simple-icons/simple-icons/blob/f5070fa7439aa9aa7ba6a05dd86b74b2bdc9cc1e/LICENSE.md)
 (the icon *redrawings* are public domain; the marks themselves remain
