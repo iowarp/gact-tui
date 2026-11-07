@@ -44,3 +44,18 @@ it('switches the line value to the mean', () => {
   fireEvent.click(screen.getByRole('radio', { name: 'Mean' }));
   expect(onChange).toHaveBeenCalledWith({ unit: 'line', reduction: 'mean' });
 });
+
+it('turns Mean off, with the reason, when the result does not list every token', () => {
+  render(
+    <TooltipProvider>
+      <AttentionHeatViewControls
+        meanAvailable={false}
+        onChange={vi.fn()}
+        view={DEFAULT_ATTENTION_HEAT_VIEW}
+      />
+    </TooltipProvider>,
+  );
+  const mean = screen.getByRole('radio', { name: 'Mean' });
+  expect(mean).toBeDisabled();
+  expect(mean).toHaveAttribute('title', expect.stringContaining('does not list every token'));
+});

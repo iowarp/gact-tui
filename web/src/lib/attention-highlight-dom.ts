@@ -1,47 +1,22 @@
-import type { AttentionAvailable, AttentionRun } from '@clio/core/v3';
-import { bucketIntensity, findRunInRenderedText, projectText } from './attention-text';
+import type { AttentionAvailable } from '@clio/core/v3';
+import { findRunInRenderedText, projectText } from './attention-text';
 import {
   type AttentionHeatReduction,
+  type AttentionHeatUnit,
   SEGMENT_HEAT_LEVELS,
   lineHeat,
   segmentLevel,
+  tokenHeat,
   wordHeat,
 } from './attention-segment-heat';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
 import { transcriptSourceStart } from './transcript-content-selection';
 
-/** One heat run reduced to its intensity bucket, before merging adjacents. */
-interface BucketedRun {
+/** A stretch of source text and the heat level it is painted at. */
+interface LeveledSpan {
   lo: number;
   hi: number;
   bucket: number;
-}
-
-/**
- * Buckets every run's value, then merges adjacent (touching or overlapping)
- * runs that land in the same bucket into one. A tool result can carry
- * thousands of small runs; merging first keeps the number of `Range` objects
- * (and the highlight paint cost) proportional to visible heat regions, not to
- * raw run count.
- */
-export function mergeRunsByBucket(
-  runs: readonly AttentionRun[],
-  maxValue: number,
-  levels = 4,
-): BucketedRun[] {
-  const bucketed = runs
-    .map(([lo, hi, value]) => ({ lo, hi, bucket: bucketIntensity(value, maxValue, levels) }))
-    .sort((left, right) => left.lo - right.lo || left.hi - right.hi);
-  const merged: BucketedRun[] = [];
-  for (const run of bucketed) {
-    const last = merged.at(-1);
-    if (last && last.bucket === run.bucket && run.lo <= last.hi) {
-      last.hi = Math.max(last.hi, run.hi);
-    } else {
-      merged.push({ ...run });
-    }
-  }
-  return merged;
 }
 
 function cssEscape(value: string): string {
@@ -100,7 +75,7 @@ export function rangeFromTextOffsets(element: Node, lo: number, hi: number): Ran
 }
 
 export interface AttentionHighlightRanges {
-  /** Ranges per intensity bucket, index 0 (lowest) through `levels - 1`. */
+  /** Ranges per level, index 0 (never painted) through 9. */
   heat: Range[][];
 }
 
@@ -124,30 +99,16 @@ function findRenderedRun(
 }
 
 /**
- * Builds the `Range`s for every resolved attention block currently mounted in
- * `container`. A block whose element is not in the DOM (virtualized away, or
- * not yet streamed in) is silently skipped for this pass; a later pass over
- * the same data picks it up once it mounts.
+ * Adds one `Range` per span of a mounted block to `heat[span.bucket]`. A block
+ * whose element is not in the DOM (virtualized away, or not yet streamed in)
+ * is skipped for this pass; a later pass over the same data picks it up once
+ * it mounts.
  */
-export function buildAttentionHighlightRanges(
-  container: ParentNode,
-  resolved: readonly ResolvedAttentionBlock[],
-  maxValue: number,
-  levels = 4,
-): AttentionHighlightRanges {
-  const heat: Range[][] = Array.from({ length: levels }, () => []);
-  for (const { block, sourceText } of resolved) {
-    paintBlock(container, block, sourceText, mergeRunsByBucket(block.runs, maxValue, levels), heat);
-  }
-  return { heat };
-}
-
-/** Adds one `Range` per span of a mounted block to `heat[span.bucket]`. */
 function paintBlock(
   container: ParentNode,
   block: ResolvedAttentionBlock['block'],
   sourceText: string,
-  spans: readonly BucketedRun[],
+  spans: readonly LeveledSpan[],
   heat: Range[][],
 ) {
   const element = findPartElement(container, block.message_id, block.part_id, block.field);
@@ -165,10 +126,11 @@ function paintBlock(
 }
 
 /**
- * Line or word mode, valued like SPOTTER's text maps. A segment is a source
- * line (`render_heatmap.py`) or a first-level word (`render_pretoken_heatmap.py`);
- * each combines its measured tokens (`reduction`), and every segment is scaled
- * to the hottest one across the shown blocks on levels 0..9. Level 0 and
+ * Heat valued like SPOTTER's text maps. A segment is a source line
+ * (`render_heatmap.py`), a first-level word (`render_pretoken_heatmap.py`) or
+ * one kept model token; lines and words combine their tokens (`reduction`),
+ * and every segment is scaled to the hottest one across the shown blocks on
+ * the same levels 0..9, whatever the unit. Level 0 and
  * whitespace-only segments are left unpainted, so neighbouring bands keep a
  * visible edge: a rendered paragraph written over several source lines carries
  * one band per line.
@@ -176,14 +138,22 @@ function paintBlock(
 export function buildSegmentHighlightRanges(
   container: ParentNode,
   resolved: readonly ResolvedAttentionBlock[],
-  unit: 'line' | 'word',
+  unit: AttentionHeatUnit,
   reduction: AttentionHeatReduction,
 ): AttentionHighlightRanges {
-  const heatOf = unit === 'line' ? lineHeat : wordHeat;
-  const blocks = resolved.map((entry) => ({
-    ...entry,
-    segments: heatOf(entry.sourceText, entry.block.runs, reduction),
-  }));
+  const blocks = resolved.map((entry) => {
+    const { sourceText, block } = entry;
+    const segments =
+      unit === 'token'
+        ? tokenHeat(sourceText, block.runs)
+        : (unit === 'line' ? lineHeat : wordHeat)(
+            sourceText,
+            block.runs,
+            reduction,
+            block.token_starts,
+          );
+    return { ...entry, segments };
+  });
   const max = Math.max(
     0,
     ...blocks.flatMap(({ segments }) => segments.map((segment) => segment.value)),

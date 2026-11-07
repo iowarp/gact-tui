@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { lineHeat, preTokens, segmentLevel, sourceLines, wordHeat } from './attention-segment-heat';
+import {
+  lineHeat,
+  preTokens,
+  segmentLevel,
+  sourceLines,
+  tokenHeat,
+  wordHeat,
+} from './attention-segment-heat';
 
 /** Round 5 of exp32-chain-0020-hard: one rendered paragraph, three source lines. */
 const QUESTION =
@@ -46,17 +53,24 @@ describe('lineHeat', () => {
     ]);
   });
 
-  it('averages measured tokens in mean mode', () => {
+  it('averages every token of the line in mean mode, the ones not kept as zero', () => {
     const heat = lineHeat(
       QUESTION,
       [
         [0, 3, 0.2],
-        [8, 18, 0.6],
+        [7, 17, 0.6],
       ],
       'mean',
+      // "For", " the", " accession", " identified": two kept, two not.
+      [0, 3, 7, 17],
     );
     expect(heat).toHaveLength(1);
-    expect(heat[0]?.value).toBeCloseTo(0.4);
+    expect(heat[0]?.value).toBeCloseTo(0.2);
+    expect(heat[0]?.measured).toBe(2);
+  });
+
+  it('gives no mean without the list of every token', () => {
+    expect(lineHeat(QUESTION, [[0, 3, 0.2]], 'mean')).toEqual([]);
   });
 
   it('leaves out lines without a measured token', () => {
@@ -180,7 +194,7 @@ describe('wordHeat', () => {
     ]);
   });
 
-  it("averages a word's measured tokens in mean mode and marks whitespace as not visible", () => {
+  it("averages all of a word's tokens in mean mode and marks whitespace as not visible", () => {
     const text = 'word\n\nnext';
     const heat = wordHeat(
       text,
@@ -190,8 +204,23 @@ describe('wordHeat', () => {
         [4, 6, 0.9],
       ],
       'mean',
+      [0, 2, 4, 6],
     );
     expect(heat[0]?.value).toBeCloseTo(0.4);
     expect(heat[1]).toMatchObject({ value: 0.9, visible: false });
+    // "next" has a token but none kept: left out, not painted as zero.
+    expect(heat).toHaveLength(2);
+  });
+});
+
+describe('tokenHeat', () => {
+  it('keeps one value per kept token and paints from its first visible character', () => {
+    const text = 'For the accession';
+    expect(
+      tokenHeat(text, [
+        [3, 7, 0.5],
+        [7, 17, 0],
+      ]),
+    ).toEqual([{ lo: 4, hi: 7, value: 0.5, measured: 1, visible: true }]);
   });
 });

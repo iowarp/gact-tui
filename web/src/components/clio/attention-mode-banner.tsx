@@ -78,7 +78,11 @@ export function AttentionModeBanner({
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
         {state.status === 'shown' && view && onViewChange ? (
-          <AttentionHeatViewControls view={view} onChange={onViewChange} />
+          <AttentionHeatViewControls
+            meanAvailable={state.data.blocks.every((block) => block.token_starts !== undefined)}
+            onChange={onViewChange}
+            view={view}
+          />
         ) : null}
         {state.status === 'shown' && state.data.profile && onProfileChange ? (
           <div className="flex flex-wrap items-center gap-2">

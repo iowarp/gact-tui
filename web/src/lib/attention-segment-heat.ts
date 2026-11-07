@@ -6,7 +6,10 @@ import type { AttentionRun } from '@clio/core/v3';
  * or a single model token.
  */
 export type AttentionHeatUnit = 'line' | 'word' | 'token';
-/** How a segment's measured tokens combine into its value. */
+/**
+ * How a segment's tokens combine into its value: its hottest kept token, or
+ * the mean over all its tokens with the ones the capture did not keep as zero.
+ */
 export type AttentionHeatReduction = 'max' | 'mean';
 
 export interface AttentionHeatView {
@@ -87,14 +90,25 @@ export function preTokens(text: string): Segment[] {
   return out;
 }
 
+/**
+ * Each token's `[lo, hi)` from the start of every token in a block, kept or
+ * not: a token runs up to the next one's start, the last to the text's end.
+ */
+function tokenSpans(starts: readonly number[], length: number): Segment[] {
+  return starts.map((lo, index) => ({ lo, hi: starts[index + 1] ?? length }));
+}
+
 function combine(
   text: readonly string[],
   runs: readonly AttentionRun[],
   segments: readonly Segment[],
   reduction: AttentionHeatReduction,
   owner: (lo: number, hi: number) => number,
+  tokenStarts: readonly number[] | undefined,
 ): SegmentHeat[] {
-  const totals = segments.map(() => ({ max: 0, sum: 0, measured: 0 }));
+  // A mean over a segment needs all of its tokens, not only the kept ones.
+  if (reduction === 'mean' && !tokenStarts) return [];
+  const totals = segments.map(() => ({ max: 0, sum: 0, measured: 0, tokens: 0 }));
   for (const [lo, hi, value] of runs) {
     if (!Number.isFinite(value)) continue;
     const total = totals[owner(lo, hi)];
@@ -102,6 +116,10 @@ function combine(
     total.max = Math.max(total.max, value);
     total.sum += value;
     total.measured += 1;
+  }
+  for (const token of tokenStarts ? tokenSpans(tokenStarts, text.length) : []) {
+    const total = totals[owner(token.lo, token.hi)];
+    if (total) total.tokens += 1;
   }
   const heat: SegmentHeat[] = [];
   segments.forEach((segment, index) => {
@@ -112,7 +130,10 @@ function combine(
     heat.push({
       lo,
       hi: segment.hi,
-      value: reduction === 'max' ? total.max : total.sum / total.measured,
+      // Tokens the capture did not keep count as zero in the mean: each sits
+      // below its segment's top-N% cut, so this is a lower bound.
+      value:
+        reduction === 'max' ? total.max : total.sum / Math.max(total.tokens, total.measured),
       measured: total.measured,
       visible: lo < segment.hi,
     });
@@ -141,11 +162,19 @@ export function lineHeat(
   text: string,
   runs: readonly AttentionRun[],
   reduction: AttentionHeatReduction,
+  tokenStarts?: readonly number[],
 ): SegmentHeat[] {
   const lines = sourceLines(text);
   // A line's range stops before its break; the break itself belongs to it.
   const owners = lines.map((line, index) => ({ lo: line.lo, hi: lines[index + 1]?.lo ?? line.hi }));
-  return combine([...text], runs, lines, reduction, (lo) => segmentAt(owners, lo));
+  return combine(
+    [...text],
+    runs,
+    lines,
+    reduction,
+    (lo) => segmentAt(owners, lo),
+    tokenStarts,
+  );
 }
 
 /**
@@ -157,6 +186,7 @@ export function wordHeat(
   text: string,
   runs: readonly AttentionRun[],
   reduction: AttentionHeatReduction,
+  tokenStarts?: readonly number[],
 ): SegmentHeat[] {
   const points = [...text];
   const words = preTokens(text);
@@ -180,7 +210,22 @@ export function wordHeat(
     }
     return best;
   };
-  return combine(points, runs, words, reduction, owner);
+  return combine(points, runs, words, reduction, owner, tokenStarts);
+}
+
+/**
+ * One value per kept model token, on the same 0..9 levels as lines and words,
+ * so a token below half a level stays as blank as it would inside a word.
+ */
+export function tokenHeat(text: string, runs: readonly AttentionRun[]): SegmentHeat[] {
+  const points = [...text];
+  return runs
+    .filter(([lo, hi, value]) => Number.isFinite(value) && value > 0 && hi > lo)
+    .map(([lo, hi, value]) => {
+      let start = lo;
+      while (start < hi && /\s/u.test(points[start] ?? '')) start += 1;
+      return { lo: start, hi, value, measured: 1, visible: start < hi };
+    });
 }
 
 /** SPOTTER's level: `round(9 * value / max)`, clamped to 0..9. */

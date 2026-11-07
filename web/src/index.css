@@ -549,25 +549,10 @@
 
 /* "Understand attention" heat, applied through the CSS Custom Highlight API
    (CSS.highlights) rather than re-rendering markdown: a Highlight's ranges
-   can only be styled through a global ::highlight() rule, never inline. Four
-   intensity buckets over the warm "signal" chart hue, plus one for the
-   selection itself. */
-::highlight(clio-attn-heat-0) {
-  background-color: color-mix(in oklch, var(--chart-5) 14%, transparent);
-}
-::highlight(clio-attn-heat-1) {
-  background-color: color-mix(in oklch, var(--chart-5) 30%, transparent);
-}
-::highlight(clio-attn-heat-2) {
-  background-color: color-mix(in oklch, var(--chart-5) 50%, transparent);
-}
-::highlight(clio-attn-heat-3) {
-  background-color: color-mix(in oklch, var(--chart-5) 72%, transparent);
-  color: var(--foreground);
-}
-/* Line and word modes: SPOTTER's text-map levels 1..9 (render_heatmap.py,
-   render_pretoken_heatmap.py), one band per source line or first-level word,
-   on the same warm hue. Level 0 is not painted. */
+   can only be styled through a global ::highlight() rule, never inline.
+   SPOTTER's text-map levels 1..9 (render_heatmap.py,
+   render_pretoken_heatmap.py) over the warm "signal" chart hue, the same for
+   lines, words and tokens. Level 0 is not painted. */
 ::highlight(clio-attn-level-1) {
   background-color: color-mix(in oklch, var(--chart-5) 8%, transparent);
 }

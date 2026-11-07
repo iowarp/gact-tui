@@ -1,26 +1,16 @@
 import type { AttentionAvailable, Message as DomainMessage, ToolInvocation } from '@clio/core/v3';
 import { type RefObject, useLayoutEffect } from 'react';
-import {
-  buildAttentionHighlightRanges,
-  buildSegmentHighlightRanges,
-  buildSelectedRange,
-} from '@/lib/attention-highlight-dom';
+import { buildSegmentHighlightRanges, buildSelectedRange } from '@/lib/attention-highlight-dom';
 import {
   type AttentionHeatView,
   DEFAULT_ATTENTION_HEAT_VIEW,
   SEGMENT_HEAT_LEVELS,
 } from '@/lib/attention-segment-heat';
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
-import { maxRunValue } from '@/lib/attention-text';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 
-const HEAT_LEVELS = 4;
-const HEAT_HIGHLIGHT_NAMES = Array.from(
-  { length: HEAT_LEVELS },
-  (_, level) => `clio-attn-heat-${level}`,
-);
-/** Line and word modes paint levels 1..9 of SPOTTER's ramp; level 0 stays unpainted. */
+/** Every unit paints levels 1..9 of SPOTTER's ramp; level 0 stays unpainted. */
 const SEGMENT_HIGHLIGHT_NAMES = Array.from(
   { length: SEGMENT_HEAT_LEVELS },
   (_, level) => `clio-attn-level-${level}`,
@@ -29,8 +19,7 @@ const SELECTED_HIGHLIGHT_NAME = 'clio-attn-selected';
 
 function clearHighlights() {
   if (typeof CSS === 'undefined' || !CSS.highlights) return;
-  for (const name of [...HEAT_HIGHLIGHT_NAMES, ...SEGMENT_HIGHLIGHT_NAMES])
-    CSS.highlights.delete(name);
+  for (const name of SEGMENT_HIGHLIGHT_NAMES) CSS.highlights.delete(name);
   CSS.highlights.delete(SELECTED_HIGHLIGHT_NAME);
 }
 
@@ -38,7 +27,8 @@ function clearHighlights() {
  * Paints "Understand attention" heat over the live transcript DOM using the
  * CSS Custom Highlight API, so the markdown renderer never has to re-render
  * for it. `view.unit` chooses one band per source line (SPOTTER's text map,
- * the default), per first-level word, or one highlight per token. Re-applies on every transcript mutation (streaming text,
+ * the default), per first-level word, or per kept token, all on the same
+ * levels. Re-applies on every transcript mutation (streaming text,
  * virtualized rows mounting as the reader scrolls) while a result is shown;
  * clears every highlight when dismissed, when the container unmounts, or when
  * the browser has no Custom Highlight API support (Highlight is left `undefined`
@@ -67,25 +57,15 @@ export function useAttentionHighlights(
         }
       : data;
     const resolved = resolveAttentionSources(heatData, messages, tools);
-    const maxValue = data.profile ? 1 : maxRunValue(data.blocks);
     const selectedSource = data.selection.part_id
       ? findTextPartSource(messages, data.message_id, data.selection.part_id)
       : undefined;
 
     let frame = 0;
     const apply = () => {
-      const unit = view.unit;
-      const segments = unit !== 'token';
-      const names = segments ? SEGMENT_HIGHLIGHT_NAMES : HEAT_HIGHLIGHT_NAMES;
-      const { heat } =
-        unit === 'token'
-          ? buildAttentionHighlightRanges(container, resolved, maxValue, HEAT_LEVELS)
-          : buildSegmentHighlightRanges(container, resolved, unit, view.reduction);
-      for (const name of segments ? HEAT_HIGHLIGHT_NAMES : SEGMENT_HIGHLIGHT_NAMES) {
-        CSS.highlights.delete(name);
-      }
+      const { heat } = buildSegmentHighlightRanges(container, resolved, view.unit, view.reduction);
       heat.forEach((ranges, level) => {
-        CSS.highlights.set(names[level] as string, new Highlight(...ranges));
+        CSS.highlights.set(SEGMENT_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
       });
       const selectedRanges = data.selected_references?.flatMap((reference) => {
         if (reference.field !== 'text') return [];
