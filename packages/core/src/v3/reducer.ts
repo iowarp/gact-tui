@@ -377,12 +377,16 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       const payload = envelope.payload as {
         message_id?: unknown;
         step?: unknown;
+        shape?: unknown;
         text?: unknown;
       };
+      // An older server sends no shape: its frames are diffusion steps.
+      const shape = payload.shape ?? 'snapshot';
       if (
         typeof payload.message_id !== 'string' ||
         typeof payload.text !== 'string' ||
-        typeof payload.step !== 'number'
+        typeof payload.step !== 'number' ||
+        (shape !== 'snapshot' && shape !== 'append')
       ) {
         throw new Error('Invalid message.canvas payload');
       }
@@ -402,7 +406,10 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         revisions,
         messages: {
           ...base.messages,
-          [message.id]: { ...message, canvas: { text: payload.text, step: payload.step } },
+          [message.id]: {
+            ...message,
+            canvas: { text: payload.text, step: payload.step, shape },
+          },
         },
       };
     }

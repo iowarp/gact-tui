@@ -633,6 +633,11 @@ export interface Message {
 export interface MessageCanvas {
   text: string;
   step: number;
+  /**
+   * `snapshot`: one diffusion step's whole answer. `append`: the route answered
+   * with appended deltas, so `text` is the answer accumulated so far.
+   */
+  shape: 'snapshot' | 'append';
 }
 
 export interface A2UISurface {

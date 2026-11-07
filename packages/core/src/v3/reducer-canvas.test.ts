@@ -48,7 +48,11 @@ describe('GACT 0.3 reducer diffusion canvas', () => {
       reduceTransportFrame,
       createEntityState(),
     );
-    expect(state.messages.msg_d?.canvas).toEqual({ text: 'The quick brown', step: 2 });
+    expect(state.messages.msg_d?.canvas).toEqual({
+      text: 'The quick brown',
+      step: 2,
+      shape: 'snapshot',
+    });
     expect(state.messages.msg_d?.blocks).toEqual([]);
     expect(state.processed_cursors).toEqual(['1']);
 
@@ -73,11 +77,38 @@ describe('GACT 0.3 reducer diffusion canvas', () => {
     expect(state.messages.msg_d?.canvas).toBeUndefined();
   });
 
+  it('keeps the shape of a route that streamed appended deltas', () => {
+    const created = frame('1', 'message.upserted', {
+      id: 'msg_a',
+      session_id: 'sess_1',
+      role: 'assistant',
+      created_at: '2026-08-22T12:00:00Z',
+      blocks: [],
+    });
+    const state = [
+      created,
+      frame('', 'message.canvas', { message_id: 'msg_a', step: 1, shape: 'snapshot', text: 'Once' }),
+      frame('', 'message.canvas', {
+        message_id: 'msg_a',
+        step: 2,
+        shape: 'append',
+        text: 'Once upon',
+      }),
+    ].reduce(reduceTransportFrame, createEntityState());
+    expect(state.messages.msg_a?.canvas).toEqual({ text: 'Once upon', step: 2, shape: 'append' });
+  });
+
   it('rejects a malformed canvas and records one for a message it does not hold', () => {
     expect(() =>
       reduceTransportFrame(
         createEntityState(),
         frame('', 'message.canvas', { message_id: 'm', text: 'x' }),
+      ),
+    ).toThrow('Invalid message.canvas payload');
+    expect(() =>
+      reduceTransportFrame(
+        createEntityState(),
+        frame('', 'message.canvas', { message_id: 'm', step: 1, shape: 'blend', text: 'x' }),
       ),
     ).toThrow('Invalid message.canvas payload');
     const state = reduceTransportFrame(
