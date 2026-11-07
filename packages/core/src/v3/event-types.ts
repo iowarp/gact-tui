@@ -19,6 +19,7 @@ export const GACT_V3_EVENT_TYPES = [
   'message.block.upserted',
   'message.accepted',
   'message.cancelled',
+  'message.canvas',
   'message.completed',
   'message.upserted',
   'pending_steer.cancelled',

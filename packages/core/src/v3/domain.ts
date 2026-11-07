@@ -622,6 +622,17 @@ export interface Message {
   cost_usd?: number;
   stop_reason?: string;
   error_info?: Record<string, unknown>;
+  /**
+   * Latest whole-answer snapshot from a diffusion model (`message.canvas`).
+   * Live only: each frame replaces the last, and the first block, delta or
+   * completion for this message clears it. Never persisted.
+   */
+  canvas?: MessageCanvas;
+}
+
+export interface MessageCanvas {
+  text: string;
+  step: number;
 }
 
 export interface A2UISurface {

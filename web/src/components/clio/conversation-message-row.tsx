@@ -54,6 +54,7 @@ import { canGroupUserMessages, feedbackMessage } from './conversation-user-group
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
 import { ConversationSummonedWork } from './conversation-summoned-work';
+import { DiffusionCanvas } from './diffusion-canvas';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -388,6 +389,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               >
                 {message.blocks.length === 0 &&
                 message.role === 'assistant' &&
+                !message.canvas &&
                 !injectionMessages?.length ? (
                   <Alert
                     className={cn(emptyResponseWasClientCancelled && 'w-fit')}
@@ -518,6 +520,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     <ConversationSummonedWork metadata={message.metadata} />
                   </>
                 )}
+                {message.role === 'assistant' && message.canvas ? (
+                  <DiffusionCanvas canvas={message.canvas} />
+                ) : null}
                 {messageCompactions?.map((compaction) => (
                   <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
                 ))}

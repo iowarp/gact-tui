@@ -35,20 +35,43 @@ export function SettingsProviderOptions({
     >
       <h3 className="text-sm font-medium">Provider options</h3>
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-        {fields.map((field) => (
-          <div className="flex min-w-0 flex-col gap-1.5" key={field.id}>
-            <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
-            <Input
-              aria-label={field.label}
-              className="h-7"
-              onChange={(event) => onEdit(field.id, event.target.value)}
-              placeholder={field.placeholder}
-              required={field.required}
-              title={field.description}
-              value={values[field.id] ?? ''}
-            />
-          </div>
-        ))}
+        {fields.map((field) => {
+          const choices = field.options ?? [];
+          return (
+            <div className="flex min-w-0 flex-col gap-1.5" key={field.id}>
+              <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+              {choices.length > 0 ? (
+                <select
+                  aria-label={field.label}
+                  className="h-7 rounded-md border bg-background px-2 text-sm"
+                  onChange={(event) => onEdit(field.id, event.target.value)}
+                  title={field.description}
+                  // An unset choice is the provider's declared default (its placeholder).
+                  value={values[field.id] || field.placeholder || choices[0]}
+                >
+                  {choices.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  aria-label={field.label}
+                  className="h-7"
+                  onChange={(event) => onEdit(field.id, event.target.value)}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  title={field.description}
+                  value={values[field.id] ?? ''}
+                />
+              )}
+              {choices.length > 0 && field.description ? (
+                <span className="text-xs text-muted-foreground">{field.description}</span>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <div className="flex justify-end">
         <Button disabled={!edited || saving} onClick={onSave} size="sm" type="button">

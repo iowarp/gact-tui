@@ -64,7 +64,6 @@ export interface ProviderHandshake {
   generated_at: string;
 }
 
-
 export interface LanguageModelPreset {
   id: string;
   provider_id?: string;
@@ -89,6 +88,8 @@ export interface LanguageModelPreset {
     description?: string;
     placeholder?: string;
     required: boolean;
+    /** A closed choice such as `["off", "on"]`; absent or empty means free text. */
+    options?: string[];
   }>;
   supports_runtime_sizing?: boolean;
   managed_service_id?: string;
