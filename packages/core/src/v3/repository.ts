@@ -4,7 +4,6 @@ import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadat
 import { agentTaskRecordSchema } from './agent-task-domain.js';
 import type { AgentDelta } from './plugin-domain.js';
 import type {
-  A2UISurface,
   Artifact,
   ArtifactDetail,
   ArtifactLineage,
@@ -25,7 +24,6 @@ import type {
   UserQuestion,
 } from './domain.js';
 import {
-  a2uiSurfaceSchema,
   sessionSchema,
   turnAttemptSchema,
   workspaceSchema,
@@ -213,6 +211,8 @@ export class ClioRepository extends BrowserRepository {
       mode?: 'plan' | 'edit' | 'architect';
       routing_mode?: 'auto' | 'chat' | 'experts' | 'reasoning_only';
       approval_mode?: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
+      /** The fleet model (`<account>/<model>`) SPOTTER review runs on; omitted uses the conversation's. */
+      spotter_model?: string;
     },
     signal?: AbortSignal,
   ): Promise<Session> {
@@ -225,13 +225,17 @@ export class ClioRepository extends BrowserRepository {
         ...(input.provider_id || input.model_id
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
-        ...(input.pinned === undefined && !input.agent_ref && !input.agent_delta
+        ...(input.pinned === undefined &&
+        !input.agent_ref &&
+        !input.agent_delta &&
+        !input.spotter_model
           ? {}
           : {
               metadata: {
                 ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
                 ...(input.agent_ref ? { agent_ref: input.agent_ref } : {}),
                 ...(input.agent_delta ? { agent_delta: input.agent_delta } : {}),
+                ...(input.spotter_model ? { spotter_model: input.spotter_model } : {}),
               },
             }),
         ...(input.mode ? { mode: input.mode } : {}),
@@ -709,17 +713,6 @@ export class ClioRepository extends BrowserRepository {
     return decodeTranscript(value, signal);
   }
 
-  /** Every surface of a conversation, folded from all its parts (reconnect catch-up). */
-  public async surfaces(sessionId: string, signal?: AbortSignal): Promise<A2UISurface[]> {
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/surfaces`,
-      decode: (value) =>
-        z.object({ surfaces: z.array(a2uiSurfaceSchema) }).passthrough().parse(value).surfaces,
-      signal,
-    });
-  }
-
   public retryTurn(
     sessionId: string,
     messageId: string,
@@ -745,6 +738,16 @@ export class ClioRepository extends BrowserRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/cancel`,
+      decode: () => undefined,
+      signal,
+    });
+  }
+
+  /** Lift the quarantine a SPOTTER danger alert put on a session (the person's decision). */
+  public liftSpotterQuarantine(sessionId: string, signal?: AbortSignal): Promise<void> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/spotter/quarantine/lift`,
       decode: () => undefined,
       signal,
     });

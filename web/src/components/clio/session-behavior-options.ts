@@ -13,7 +13,10 @@ import { HelpIcon } from '@/lib/icon-vocabulary';
 
 export type SessionBehaviorPatch = Partial<
   Pick<Session, 'mode' | 'edit_mode' | 'routing_mode' | 'approval_mode'>
->;
+> & {
+  /** SPOTTER review's fleet model (`<account>/<model>`); empty uses the conversation's. */
+  spotter_model?: string;
+};
 
 export interface SessionBehaviorOption<T extends string> {
   value: T;

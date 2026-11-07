@@ -38,6 +38,11 @@ interface ClioComposerBehaviorControlsProps {
   unrecognizedEffort?: string;
   /** What the service reports about arming SPOTTER review here (undefined: unknown). */
   spotterAvailability?: SpotterAvailability;
+  /**
+   * The SPOTTER model choice. Shown only while SPOTTER review is the policy and
+   * the service reports it can be armed here.
+   */
+  spotterModelControl?: ReactNode;
 }
 
 /** ReUI Button Group composition for per-message behavior controls. */
@@ -50,6 +55,7 @@ export function ClioComposerBehaviorControls({
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
   spotterAvailability,
+  spotterModelControl,
 }: ClioComposerBehaviorControlsProps) {
   const approvalOptions = approvalOptionViews(SESSION_APPROVAL_OPTIONS, spotterAvailability);
   // Once an effort is chosen here the reported value is answered, so the
@@ -199,6 +205,11 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {spotterModelControl &&
+      behavior.confirmation_policy === 'spotter-ai' &&
+      spotterAvailability?.available
+        ? spotterModelControl
+        : null}
     </ButtonGroup>
   );
 }

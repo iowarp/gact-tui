@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
+import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { brand } from '@brand';
 import {
   PromptInput,
@@ -31,17 +32,14 @@ import { ClioModelPicker } from './model-picker';
 import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
+import { useSpotterModelSelection } from '@/hooks/use-spotter-model-selection';
 import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
-import {
-  defaultReasoningLabel,
-  effectiveReasoningEffort,
-  knownReasoningEffort,
-  type ModelReasoningLevels,
-} from '@/lib/reasoning-levels';
+import { ComposerSpotterModel } from './composer-spotter-model';
+import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type {
   ResourceUploadProgress,
   UploadableFilePart,
@@ -121,8 +119,13 @@ export interface ClioComposerProps extends ComposerQueueControls {
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
+    /** The fleet model (`<account>/<model>`) SPOTTER review runs on in a new conversation. */
+    spotterModel?: string;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
+  spotterModel?: string;
+  /** Stores the session's SPOTTER model (empty: conversation model); else the draft keeps it. */
+  onSpotterModelChange?: (ref: string) => Promise<void>;
   onDiscardFiles?: (files: readonly UploadableFilePart[]) => Promise<void>;
   onPrepareFiles?: (
     files: readonly UploadableFilePart[],
@@ -177,6 +180,8 @@ export function ClioComposer({
   summonTargets: summonTargetsProp,
   onSubmit,
   onBehaviorChange,
+  spotterModel = '',
+  onSpotterModelChange,
   onPrepareFiles,
   onDiscardFiles,
   onStop,
@@ -210,75 +215,14 @@ export function ClioComposer({
   useEffect(() => {
     setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
   }, [selectedOption?.modalities]);
-  const [behaviorSelection, setBehaviorSelection] = useState<{
-    behavior: MessageBehavior;
-    authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
-    authoritativeExecutionMode: MessageBehavior['execution_mode'];
-    authoritativeEffort: string | undefined;
-    /** The person picked a level in this mount; a late session value never overrides it. */
-    effortPicked: boolean;
-  }>(() => ({
-    behavior: {
-      confirmation_policy: confirmationPolicy,
-      execution_mode: executionMode,
-      // The person's explicit choice only; the model's own default fills in below.
-      reasoning_effort: knownReasoningEffort(effort),
-    },
-    authoritativeConfirmationPolicy: confirmationPolicy,
-    authoritativeExecutionMode: executionMode,
-    authoritativeEffort: effort,
-    effortPicked: false,
-  }));
-  const behavior: MessageBehavior = {
-    ...behaviorSelection.behavior,
-    confirmation_policy:
-      behaviorSelection.authoritativeConfirmationPolicy === confirmationPolicy
-        ? behaviorSelection.behavior.confirmation_policy
-        : confirmationPolicy,
-    execution_mode:
-      behaviorSelection.authoritativeExecutionMode === executionMode
-        ? behaviorSelection.behavior.execution_mode
-        : executionMode,
-    reasoning_effort:
-      behaviorSelection.effortPicked || behaviorSelection.authoritativeEffort === effort
-        ? behaviorSelection.behavior.reasoning_effort
-        : // A changed session effort is the person's own (the service projects
-          // only user-sourced levels); absent means nothing is picked.
-          knownReasoningEffort(effort),
-  };
-  const setBehavior = (next: MessageBehavior, effortPicked = behaviorSelection.effortPicked) => {
-    const previous = behavior;
-    setBehaviorSelection({
-      behavior: next,
-      authoritativeConfirmationPolicy: confirmationPolicy,
-      authoritativeExecutionMode: executionMode,
-      authoritativeEffort: effort,
-      effortPicked,
-    });
-    if (
-      !onBehaviorChange ||
-      (next.execution_mode === previous.execution_mode &&
-        next.confirmation_policy === previous.confirmation_policy)
-    ) {
-      return;
-    }
-    void onBehaviorChange(next).catch((error: unknown) => {
-      setBehaviorSelection({
-        behavior: previous,
-        authoritativeConfirmationPolicy: confirmationPolicy,
-        authoritativeExecutionMode: executionMode,
-        authoritativeEffort: effort,
-        effortPicked: behaviorSelection.effortPicked,
-      });
-      toast.error('Session behavior was not changed', {
-        description: error instanceof Error ? error.message : 'The service rejected the change.',
-      });
-    });
-  };
-  // Kept apart from `behavior`, which must always carry a value the message
-  // contract accepts. The control names this rather than showing the default as
-  // though the service had asked for it.
-  const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
+  const { messageBehavior, unrecognizedEffort, choose, keepOfferedEffort } = useComposerBehavior({
+    confirmationPolicy,
+    executionMode,
+    effort,
+    reasoning: selectedOption?.reasoning,
+    onBehaviorChange,
+  });
+  const spotter = useSpotterModelSelection(spotterModel, onSpotterModelChange);
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
   const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
@@ -377,14 +321,6 @@ export function ClioComposer({
     sessionId,
   );
   const popoverOpen = showCommands || showReferences;
-  // Send an explicit supported pick; the service applies configured defaults.
-  const messageBehavior: MessageBehavior = {
-    ...behavior,
-    reasoning_effort: effectiveReasoningEffort(
-      behavior.reasoning_effort,
-      selectedOption?.reasoning,
-    ),
-  };
 
   useEffect(() => {
     const previousKey = handledFocusRequestKeyRef.current;
@@ -570,6 +506,11 @@ export function ClioComposer({
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
                 },
+                ...(variant === 'welcome' &&
+                spotter.value &&
+                messageBehavior.confirmation_policy === 'spotter-ai'
+                  ? { spotterModel: spotter.value }
+                  : {}),
               });
             } catch (error) {
               setUploadProgress(undefined);
@@ -670,6 +611,16 @@ export function ClioComposer({
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
               spotterAvailability={spotterAvailability}
+              spotterModelControl={
+                <ComposerSpotterModel
+                  catalogStatus={modelCatalogStatus}
+                  disabled={disabled}
+                  onChange={spotter.set}
+                  onRetryCatalog={onRetryModelCatalog}
+                  options={modelOptions}
+                  value={spotter.value}
+                />
+              }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
@@ -682,17 +633,7 @@ export function ClioComposer({
                   model={selectedOption?.id}
                   onChange={(option) => {
                     selectModel(option);
-                    // Drop a pick the new model does not offer (its default is shown).
-                    const pick = behavior.reasoning_effort;
-                    if (pick && !option.reasoning?.levels.includes(pick)) {
-                      setBehaviorSelection({
-                        behavior: { ...behavior, reasoning_effort: undefined },
-                        authoritativeConfirmationPolicy: confirmationPolicy,
-                        authoritativeExecutionMode: executionMode,
-                        authoritativeEffort: effort,
-                        effortPicked: false,
-                      });
-                    }
+                    keepOfferedEffort(option.reasoning);
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
@@ -709,18 +650,7 @@ export function ClioComposer({
                   }
                 />
               }
-              onChange={(next) => {
-                // Keep only an effort the person picked: a mode or approval
-                // change must not freeze the displayed default as a choice.
-                const picked = next.reasoning_effort !== messageBehavior.reasoning_effort;
-                setBehavior(
-                  {
-                    ...next,
-                    reasoning_effort: picked ? next.reasoning_effort : behavior.reasoning_effort,
-                  },
-                  picked || behaviorSelection.effortPicked,
-                );
-              }}
+              onChange={choose}
               unrecognizedEffort={unrecognizedEffort}
             />
           </PromptInputTools>

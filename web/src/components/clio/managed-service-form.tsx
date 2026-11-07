@@ -1,4 +1,4 @@
-import type { ManagedServiceDefinition } from '@clio/core/v3';
+import type { GpuFact, ManagedServiceDefinition } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ export function ManagedServiceForm({
   installationOnly = false,
   showIntroduction = true,
   showMethod = true,
+  gpus,
 }: {
   service: ManagedServiceDefinition;
   configuration: Record<string, string>;
@@ -44,6 +45,8 @@ export function ManagedServiceForm({
   installationOnly?: boolean;
   showIntroduction?: boolean;
   showMethod?: boolean;
+  /** The host's GPUs, for the `*_devices` parameters' GPU choice. */
+  gpus?: GpuFact[];
 }) {
   const fields = service.configuration_fields.filter(
     (field) =>
@@ -238,6 +241,7 @@ export function ManagedServiceForm({
               ) : null}
               {!installationOnly ? (
                 <ServerParametersForm
+                  gpus={gpus}
                   onChange={onConfiguration}
                   parameters={service.parameters ?? []}
                   serviceLabel={service.label}

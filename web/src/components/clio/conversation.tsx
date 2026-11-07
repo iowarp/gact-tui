@@ -398,7 +398,13 @@ function ConversationBody({
     [disengage, markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
-  useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+  useAttentionHighlights(
+    scrollRef,
+    entities.attentionData,
+    messages,
+    entities.tools,
+    entities.attentionView,
+  );
   useSurfaceQuestionNavigation({
     messages,
     sessionId: entities.sessionId,

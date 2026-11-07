@@ -304,6 +304,7 @@ describe('ClioRepository interaction contracts', () => {
       undefined,
       session,
       session,
+      session,
       undefined,
     ]);
     const repository = new ClioRepository(transport);
@@ -324,8 +325,10 @@ describe('ClioRepository interaction contracts', () => {
       mode: 'plan',
       routing_mode: 'experts',
       approval_mode: 'spotter-ai',
+      spotter_model: 'server-vllm-spotter/qwen3',
     });
     await repository.updateSession('sess 1', { title: 'Reviewed evidence', archived: true });
+    await repository.updateSession('sess 1', { spotter_model: '' });
     await repository.deleteSession('sess 1');
 
     expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
@@ -350,6 +353,7 @@ describe('ClioRepository interaction contracts', () => {
             pinned: true,
             agent_ref: 'user/research',
             agent_delta: { add: ['clio-kit/clio-hdf5'], remove: ['xlsx'] },
+            spotter_model: 'server-vllm-spotter/qwen3',
           },
           mode: 'plan',
           routing_mode: 'experts',
@@ -360,6 +364,11 @@ describe('ClioRepository interaction contracts', () => {
         method: 'PATCH',
         path: '/v1/sessions/sess%201',
         body: { title: 'Reviewed evidence', archived: true },
+      },
+      {
+        method: 'PATCH',
+        path: '/v1/sessions/sess%201',
+        body: { metadata: { spotter_model: '' } },
       },
       { method: 'DELETE', path: '/v1/sessions/sess%201', body: undefined },
     ]);

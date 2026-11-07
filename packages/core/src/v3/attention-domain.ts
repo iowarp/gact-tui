@@ -78,6 +78,11 @@ export interface AttentionBlock {
   tokens?: number;
   runs: readonly AttentionRun[];
   display_runs?: readonly AttentionRun[];
+  /**
+   * Where every prompt token of this text starts, kept by the capture or not,
+   * in run coordinates. A mean over a line or word needs all of its tokens.
+   */
+  token_starts?: readonly number[];
   score?: number;
   intensity?: number;
   retained_tokens?: number;

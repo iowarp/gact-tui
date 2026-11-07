@@ -8,9 +8,10 @@ import type { AttentionModeState } from '@/hooks/use-attention-mode';
 import { attentionDomainColor } from '@/lib/attention-domain-colors';
 import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
+import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
-import { AttentionPromptMap } from './attention-prompt-map';
+import { AttentionHeatViewControls } from './attention-heat-view-controls';
 import { InfoTip } from './info-tip';
 import type { AttentionProfile } from '@clio/core/v3';
 
@@ -30,10 +31,14 @@ export function AttentionModeBanner({
   onDismiss,
   state,
   onProfileChange,
+  view,
+  onViewChange,
 }: {
   onDismiss: () => void;
   state: AttentionModeState;
   onProfileChange?: (profile: AttentionProfile) => void;
+  view?: AttentionHeatView;
+  onViewChange?: (view: AttentionHeatView) => void;
 }) {
   if (state.status === 'idle') return null;
   return (
@@ -72,12 +77,16 @@ export function AttentionModeBanner({
           </p>
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
-        {state.status === 'shown' ? (
+        {state.status === 'shown' && view && onViewChange ? (
+          <AttentionHeatViewControls
+            meanAvailable={state.data.blocks.every((block) => block.token_starts !== undefined)}
+            onChange={onViewChange}
+            view={view}
+          />
+        ) : null}
+        {state.status === 'shown' && state.data.profile && onProfileChange ? (
           <div className="flex flex-wrap items-center gap-2">
-            {state.data.profile && onProfileChange ? (
-              <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
-            ) : null}
-            <AttentionPromptMap selection={state.selection} profile={state.data.profile} />
+            <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
           </div>
         ) : null}
       </div>

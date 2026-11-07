@@ -32,8 +32,9 @@ it('renders exact Unicode heat and retains selection identity inside a portal fi
   const { container } = render(<ToolAttentionField block={block} tool={tool} sessionId="s" />);
   const pre = container.querySelector('pre')!;
   expect(pre.textContent).toBe(source);
-  expect(pre.querySelector('[class*="bg-primary"]')).toHaveTextContent('🦉');
-  const owl = pre.querySelector('[class*="bg-primary"]')!.firstChild!;
+  // 0.8 of the hottest kept token: level round(9 * 0.8) = 7 on the conversation's ramp.
+  expect(pre.querySelector('[data-heat-level="7"]')).toHaveTextContent('🦉');
+  const owl = pre.querySelector('[data-heat-level]')!.firstChild!;
   const range = document.createRange();
   range.setStart(owl, 0);
   range.setEnd(owl, 2);

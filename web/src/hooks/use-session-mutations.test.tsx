@@ -192,6 +192,22 @@ describe('presentation-only conversation', () => {
     );
   });
 
+  it('creates a SPOTTER conversation on the model chosen before sending', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderDraft();
+    await result.current.send.mutateAsync({
+      ...draft,
+      behavior: { ...draft.behavior, confirmation_policy: 'spotter-ai' },
+      spotterModel: 'server-vllm-spotter/qwen3',
+    });
+    expect(mocks.repository.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approval_mode: 'spotter-ai',
+        spotter_model: 'server-vllm-spotter/qwen3',
+      }),
+    );
+  });
+
   it('sends no plugin changes when the draft made none', async () => {
     mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
     const { result } = renderDraft({ draftAgentDelta: { add: [], remove: [] } });

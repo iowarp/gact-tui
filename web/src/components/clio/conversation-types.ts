@@ -1,3 +1,4 @@
+import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import type {
   ActionCardAction,
   Artifact,
@@ -112,6 +113,8 @@ export interface ClioConversationProps {
   ) => Promise<void>;
   /** "Understand attention" result currently shown, if any (`useAttentionMode`, status `shown`). */
   attentionData?: AttentionAvailable;
+  /** How that heat is painted: per source line (default) or per token. */
+  attentionView?: AttentionHeatView;
 }
 
 export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
