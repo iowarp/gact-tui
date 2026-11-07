@@ -1,9 +1,30 @@
 import type { AttentionBlock, ToolInvocation } from '@clio/core/v3';
-import { bucketIntensity, maxRunValue } from '@/lib/attention-text';
+import { segmentLevel } from '@/lib/attention-segment-heat';
+import { maxRunValue } from '@/lib/attention-text';
 import { bindTranscriptText } from '@/lib/transcript-content-selection';
 import { verifiedToolField } from '@/lib/verified-tool-field';
 
-/** Exact raw fields keep Unicode-point heat coordinates valid inside the details dialog. */
+/**
+ * The conversation's heat ramp (SPOTTER levels 1..9 on the signal hue), as utility
+ * classes for plain spans. Level 0 is not painted.
+ */
+const LEVEL_CLASSES = [
+  '',
+  'bg-chart-5/8',
+  'bg-chart-5/16',
+  'bg-chart-5/24',
+  'bg-chart-5/32',
+  'bg-chart-5/40',
+  'bg-chart-5/48',
+  'bg-chart-5/56 text-foreground',
+  'bg-chart-5/64 text-foreground',
+  'bg-chart-5/72 text-foreground',
+];
+
+/**
+ * Exact raw fields keep Unicode-point heat coordinates valid inside the details dialog.
+ * Each kept token is painted on the same levels as the conversation's token heat.
+ */
 export function ToolAttentionField({
   block,
   tool,
@@ -28,7 +49,6 @@ export function ToolAttentionField({
     (a, b) => a - b,
   );
   const maximum = block.display_runs ? 1 : maxRunValue([block]);
-  const colors = ['bg-primary/10', 'bg-primary/20', 'bg-primary/30', 'bg-primary/45'];
   const changes = new Map<number, [number, number][]>();
   for (const [lo, hi, value] of runs) {
     changes.set(lo, [...(changes.get(lo) ?? []), [value, 1]]);
@@ -64,11 +84,12 @@ export function ToolAttentionField({
             if (count) active.set(value, count);
             else active.delete(value);
           }
-          const value = Math.max(0, ...active.keys());
+          const level = segmentLevel(Math.max(0, ...active.keys()), maximum);
           return (
             <span
+              className={LEVEL_CLASSES[level] || undefined}
+              data-heat-level={level || undefined}
               key={lo}
-              className={value > 0 ? colors[bucketIntensity(value, maximum)] : undefined}
             >
               {points.slice(lo, hi).join('')}
             </span>
