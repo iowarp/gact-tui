@@ -49,6 +49,7 @@ const attentionBlockSchema = z
     tokens: z.number().optional(),
     runs: z.array(attentionRunSchema).default([]),
     display_runs: z.array(attentionRunSchema).optional(),
+    token_starts: z.array(z.number().int().nonnegative()).optional(),
     score: z.number().optional(),
     intensity: z.number().optional(),
     retained_tokens: z.number().optional(),

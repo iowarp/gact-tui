@@ -61,7 +61,6 @@ export * from './attention-domain.js';
 export * from './attention-lookup-contract.js';
 export * from './provenance-connections.js';
 export * from './attention-repository.js';
-export * from './attention-items.js';
 export * from './plugin-repository.js';
 export * from './reducer.js';
 export * from './variant-domain.js';

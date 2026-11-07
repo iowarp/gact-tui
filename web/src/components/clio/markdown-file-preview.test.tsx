@@ -15,7 +15,7 @@ it('copies the current view from one control outside the source block', async ()
   render(<MarkdownFilePreview name="agenda.md" content={source} />);
   await screen.findByRole('heading', { name: 'Agenda' });
   await user.click(screen.getByRole('button', { name: 'Copy agenda.md' }));
-  await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.'));
+  await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.\n'));
   vi.mocked(copyText).mockClear();
   await user.click(screen.getByRole('tab', { name: 'Source' }));
   expect(screen.getAllByRole('button', { name: 'Copy agenda.md' })).toHaveLength(1);

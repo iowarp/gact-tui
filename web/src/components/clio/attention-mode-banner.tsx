@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { AttentionItemFocus, AttentionModeState } from '@/hooks/use-attention-mode';
+import type { AttentionModeState } from '@/hooks/use-attention-mode';
 import { attentionDomainColor } from '@/lib/attention-domain-colors';
 import { formatSharePercent as pct } from '@/lib/attention-text';
 import { truncate } from '@/lib/format';
+import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { AttentionProfileEditor } from './attention-profile-editor';
-import { AttentionItemChips } from './attention-item-chips';
+import { AttentionHeatViewControls } from './attention-heat-view-controls';
 import { InfoTip } from './info-tip';
 import type { AttentionProfile } from '@clio/core/v3';
 
@@ -30,12 +31,14 @@ export function AttentionModeBanner({
   onDismiss,
   state,
   onProfileChange,
-  onFocusItem,
+  view,
+  onViewChange,
 }: {
   onDismiss: () => void;
   state: AttentionModeState;
   onProfileChange?: (profile: AttentionProfile) => void;
-  onFocusItem?: (focus: AttentionItemFocus | undefined) => void;
+  view?: AttentionHeatView;
+  onViewChange?: (view: AttentionHeatView) => void;
 }) {
   if (state.status === 'idle') return null;
   return (
@@ -53,14 +56,9 @@ export function AttentionModeBanner({
             </div>
             <p
               className="mt-0.5 truncate text-xs text-muted-foreground"
-              title={state.focus ? state.focus.span.text : state.selection.text}
+              title={state.selection.text}
             >
-              {state.focus ? `Item ${state.focus.index + 1}: ` : null}“
-              {truncate(
-                state.focus ? state.focus.span.text : state.selection.text,
-                QUOTE_TRUNCATE_CHARS,
-              )}
-              ”
+              “{truncate(state.selection.text, QUOTE_TRUNCATE_CHARS)}”
             </p>
           </div>
           <Button
@@ -79,18 +77,14 @@ export function AttentionModeBanner({
           </p>
         ) : null}
         {state.status === 'shown' ? <AttentionBreakdown data={state.data} /> : null}
-        {onFocusItem ? (
-          <AttentionItemChips
-            focus={state.focus}
-            onFocus={onFocusItem}
-            profile={state.status === 'shown' ? state.data.profile : undefined}
-            selection={state.selection}
-          >
-            {state.status === 'shown' && state.data.profile && onProfileChange ? (
-              <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
-            ) : null}
-          </AttentionItemChips>
-        ) : state.status === 'shown' && state.data.profile && onProfileChange ? (
+        {state.status === 'shown' && view && onViewChange ? (
+          <AttentionHeatViewControls
+            meanAvailable={state.data.blocks.every((block) => block.token_starts !== undefined)}
+            onChange={onViewChange}
+            view={view}
+          />
+        ) : null}
+        {state.status === 'shown' && state.data.profile && onProfileChange ? (
           <div className="flex flex-wrap items-center gap-2">
             <AttentionProfileEditor profile={state.data.profile} onApply={onProfileChange} />
           </div>

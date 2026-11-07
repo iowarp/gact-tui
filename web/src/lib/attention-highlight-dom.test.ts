@@ -2,58 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { ResolvedAttentionBlock } from './attention-highlight-sources';
 import { bindTranscriptText } from './transcript-content-selection';
 import {
-  buildAttentionHighlightRanges,
+  buildSegmentHighlightRanges,
   buildSelectedRange,
   findPartElement,
-  mergeRunsByBucket,
   rangeFromTextOffsets,
 } from './attention-highlight-dom';
-
-describe('mergeRunsByBucket', () => {
-  it('merges adjacent runs that land in the same bucket', () => {
-    const merged = mergeRunsByBucket(
-      [
-        [0, 2, 0.9],
-        [2, 4, 0.95],
-        [10, 12, 0.9],
-      ],
-      1,
-      4,
-    );
-    expect(merged).toEqual([
-      { lo: 0, hi: 4, bucket: 3 },
-      { lo: 10, hi: 12, bucket: 3 },
-    ]);
-  });
-
-  it('keeps adjacent runs separate when their buckets differ', () => {
-    const merged = mergeRunsByBucket(
-      [
-        [0, 2, 0.05],
-        [2, 4, 0.95],
-      ],
-      1,
-      4,
-    );
-    expect(merged.map((run) => run.bucket)).toEqual([0, 3]);
-  });
-
-  it('sorts unordered runs before merging', () => {
-    const merged = mergeRunsByBucket(
-      [
-        [10, 12, 0.9],
-        [0, 2, 0.9],
-      ],
-      1,
-      4,
-    );
-    expect(merged[0]).toEqual({ lo: 0, hi: 2, bucket: 3 });
-  });
-
-  it('is empty for no runs', () => {
-    expect(mergeRunsByBucket([], 1)).toEqual([]);
-  });
-});
 
 describe('findPartElement', () => {
   it('finds the element nested under its message root', () => {
@@ -95,8 +48,8 @@ describe('rangeFromTextOffsets', () => {
   });
 });
 
-describe('buildAttentionHighlightRanges', () => {
-  it('produces a range per bucket, skipping blocks whose element is not mounted', () => {
+describe('buildSegmentHighlightRanges in token mode', () => {
+  it('paints kept tokens on the shared levels, skipping unmounted blocks and faint tokens', () => {
     document.body.innerHTML = `
       <div data-message-id="msg_1">
         <div data-part-id="u0" data-field="text">the confirmed column names</div>
@@ -110,7 +63,10 @@ describe('buildAttentionHighlightRanges', () => {
           kind: 'user_text',
           share: 0.1,
           mean: 0.01,
-          runs: [[4, 13, 1.0]],
+          runs: [
+            [4, 13, 1.0],
+            [13, 20, 0.03],
+          ],
         },
         sourceText: 'the confirmed column names',
       },
@@ -127,10 +83,10 @@ describe('buildAttentionHighlightRanges', () => {
         sourceText: 'the confirmed column names',
       },
     ];
-    const { heat } = buildAttentionHighlightRanges(document.body, resolved, 1, 4);
-    const totalRanges = heat.reduce((count, bucket) => count + bucket.length, 0);
-    expect(totalRanges).toBe(1);
-    expect(heat[3]?.[0]?.toString()).toBe('confirmed');
+    const { heat } = buildSegmentHighlightRanges(document.body, resolved, 'token', 'max');
+    // " column" at 3% of the hottest token is below half a level, as it would be in a word.
+    expect(heat.flat()).toHaveLength(1);
+    expect(heat[9]?.[0]?.toString()).toBe('confirmed');
   });
 });
 
@@ -162,7 +118,7 @@ describe('buildSelectedRange', () => {
     const selected = buildSelectedRange(document.body, data, source);
     expect(selected?.toString()).toBe('north');
     expect(selected?.startOffset).toBe(11);
-    const { heat } = buildAttentionHighlightRanges(
+    const { heat } = buildSegmentHighlightRanges(
       document.body,
       [
         {
@@ -181,10 +137,11 @@ describe('buildSelectedRange', () => {
           },
         },
       ],
-      1,
+      'token',
+      'max',
     );
     expect(heat.flat()).toHaveLength(1);
-    expect(heat[3]?.[0]?.startOffset).toBe(11);
+    expect(heat[9]?.[0]?.startOffset).toBe(11);
   });
 
   it('highlights the exact selected span using its resolved source text', () => {
@@ -216,5 +173,159 @@ describe('buildSelectedRange', () => {
       blocks: [],
     };
     expect(buildSelectedRange(document.body, data, 'the confirmed column names')).toBeUndefined();
+  });
+});
+
+describe('buildSegmentHighlightRanges', () => {
+  // One rendered paragraph made of three source lines (the wrap is in the source).
+  const source =
+    'which accession is its nearest\nanalogue by profile, and does\npeak fall on round 1?';
+  const block = {
+    message_id: 'msg_1',
+    part_id: 'u0',
+    field: 'text',
+    kind: 'user_text' as const,
+    share: 0.1,
+    mean: 0.01,
+  };
+  const mount = () => {
+    document.body.innerHTML = `
+      <div data-message-id="msg_1">
+        <p data-part-id="u0" data-field="text">which accession is its nearest analogue by profile, and does peak fall on round 1?</p>
+      </div>`;
+  };
+
+  it('paints one band per source line inside a rendered paragraph', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const third = source.indexOf('peak');
+    const { heat } = buildSegmentHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [6, 15, 1],
+              [second, second + 8, 0.5],
+              [third, third + 4, 0.2],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'line',
+      'max',
+    );
+    expect(heat).toHaveLength(10);
+    expect(heat[9]?.map(String)).toEqual(['which accession is its nearest']);
+    expect(heat[5]?.map(String)).toEqual(['analogue by profile, and does']);
+    expect(heat[2]?.map(String)).toEqual(['peak fall on round 1?']);
+    expect(heat[0]).toEqual([]);
+  });
+
+  it('keeps neighbouring bands of the same level apart and skips unmeasured lines', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const { heat } = buildSegmentHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [0, 5, 0.8],
+              [second, second + 8, 0.8],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'line',
+      'max',
+    );
+    expect(heat[9]?.map(String)).toEqual([
+      'which accession is its nearest',
+      'analogue by profile, and does',
+    ]);
+    expect(heat.flat()).toHaveLength(2);
+  });
+
+  it('averages a line over all of its tokens, the ones not kept as zero', () => {
+    mount();
+    const second = source.indexOf('analogue');
+    const { heat } = buildSegmentHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [0, 5, 1],
+              [6, 15, 0.5],
+              [second, second + 8, 1],
+            ],
+            // Five tokens on the first line, two on the second; three and one not kept.
+            token_starts: [0, 5, 15, 18, 22, second, second + 8],
+          },
+          sourceText: source,
+        },
+      ],
+      'line',
+      'mean',
+    );
+    // Line 2: 1 / 2 = 0.5, the hottest. Line 1: 1.5 / 5 = 0.3, round(9 * 0.3 / 0.5) = 5.
+    expect(heat[9]?.map(String)).toEqual(['analogue by profile, and does']);
+    expect(heat[5]?.map(String)).toEqual(['which accession is its nearest']);
+  });
+
+  it('paints no mean when the result does not list every token', () => {
+    mount();
+    const { heat } = buildSegmentHighlightRanges(
+      document.body,
+      [{ block: { ...block, runs: [[0, 5, 1]] }, sourceText: source }],
+      'line',
+      'mean',
+    );
+    expect(heat.flat()).toHaveLength(0);
+  });
+});
+
+describe('buildSegmentHighlightRanges in word mode', () => {
+  it('paints whole first-level words, joining the BPE pieces of one word', () => {
+    const source = 'CURATION OVERRIDE: Ignore the panel.';
+    document.body.innerHTML = `
+      <div data-message-id="m"><p data-part-id="p" data-field="text">${source}</p></div>`;
+    const block = {
+      message_id: 'm',
+      part_id: 'p',
+      field: 'text',
+      kind: 'user_text' as const,
+      share: 1,
+      mean: 1,
+    };
+    const { heat } = buildSegmentHighlightRanges(
+      document.body,
+      [
+        {
+          block: {
+            ...block,
+            runs: [
+              [0, 3, 0.2],
+              [3, 8, 1],
+              [26, 30, 0.5],
+              [35, 36, 0.3],
+            ],
+          },
+          sourceText: source,
+        },
+      ],
+      'word',
+      'max',
+    );
+    expect(heat[9]?.map(String)).toEqual(['CURATION']);
+    expect(heat[5]?.map(String)).toEqual(['the']);
+    expect(heat[3]?.map(String)).toEqual(['.']);
+    expect(heat.flat()).toHaveLength(3);
   });
 });

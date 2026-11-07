@@ -549,19 +549,37 @@
 
 /* "Understand attention" heat, applied through the CSS Custom Highlight API
    (CSS.highlights) rather than re-rendering markdown: a Highlight's ranges
-   can only be styled through a global ::highlight() rule, never inline. Four
-   intensity buckets over the warm "signal" chart hue, plus one for the
-   selection itself. */
-::highlight(clio-attn-heat-0) {
-  background-color: color-mix(in oklch, var(--chart-5) 14%, transparent);
+   can only be styled through a global ::highlight() rule, never inline.
+   SPOTTER's text-map levels 1..9 (render_heatmap.py,
+   render_pretoken_heatmap.py) over the warm "signal" chart hue, the same for
+   lines, words and tokens. Level 0 is not painted. */
+::highlight(clio-attn-level-1) {
+  background-color: color-mix(in oklch, var(--chart-5) 8%, transparent);
 }
-::highlight(clio-attn-heat-1) {
-  background-color: color-mix(in oklch, var(--chart-5) 30%, transparent);
+::highlight(clio-attn-level-2) {
+  background-color: color-mix(in oklch, var(--chart-5) 16%, transparent);
 }
-::highlight(clio-attn-heat-2) {
-  background-color: color-mix(in oklch, var(--chart-5) 50%, transparent);
+::highlight(clio-attn-level-3) {
+  background-color: color-mix(in oklch, var(--chart-5) 24%, transparent);
 }
-::highlight(clio-attn-heat-3) {
+::highlight(clio-attn-level-4) {
+  background-color: color-mix(in oklch, var(--chart-5) 32%, transparent);
+}
+::highlight(clio-attn-level-5) {
+  background-color: color-mix(in oklch, var(--chart-5) 40%, transparent);
+}
+::highlight(clio-attn-level-6) {
+  background-color: color-mix(in oklch, var(--chart-5) 48%, transparent);
+}
+::highlight(clio-attn-level-7) {
+  background-color: color-mix(in oklch, var(--chart-5) 56%, transparent);
+  color: var(--foreground);
+}
+::highlight(clio-attn-level-8) {
+  background-color: color-mix(in oklch, var(--chart-5) 64%, transparent);
+  color: var(--foreground);
+}
+::highlight(clio-attn-level-9) {
   background-color: color-mix(in oklch, var(--chart-5) 72%, transparent);
   color: var(--foreground);
 }

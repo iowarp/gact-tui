@@ -1,6 +1,5 @@
 import type {
   AttentionAvailable,
-  AttentionItemSpan,
   AttentionProfile,
   AttentionSessionAvailability,
 } from '@clio/core/v3';
@@ -15,33 +14,13 @@ import { useSelectionAction } from './use-selection-action';
 import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
 import { attentionSelectionBody } from '@/lib/attention-selection-body';
-
-/**
- * One answer item of the selection (SPOTTER, `attn_analytics.py`): the
- * selection cut at a delimiter, with the exact span the service resolved for
- * it. Showing an item scores only its own decode steps, so the transcript and
- * the heat scroller show where that item looked.
- */
-export interface AttentionItemFocus {
-  index: number;
-  span: AttentionItemSpan & { text: string };
-}
+import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-segment-heat';
 
 export type AttentionModeState =
   | { status: 'idle' }
-  | { status: 'loading'; selection: AgentAnswerTextSelection; focus?: AttentionItemFocus }
-  | {
-      status: 'shown';
-      selection: AgentAnswerTextSelection;
-      focus?: AttentionItemFocus;
-      data: AttentionAvailable;
-    }
-  | {
-      status: 'unavailable';
-      selection: AgentAnswerTextSelection;
-      focus?: AttentionItemFocus;
-      message: string;
-    };
+  | { status: 'loading'; selection: AgentAnswerTextSelection }
+  | { status: 'shown'; selection: AgentAnswerTextSelection; data: AttentionAvailable }
+  | { status: 'unavailable'; selection: AgentAnswerTextSelection; message: string };
 
 /**
  * "Understand attention": select a passage of an agent answer, and see which
@@ -64,8 +43,9 @@ export function useAttentionMode(
   state: AttentionModeState;
   dismiss: () => void;
   changeProfile: (profile: AttentionProfile) => void;
-  /** Show one answer item's heat, or the whole selection again with `undefined`. */
-  focusItem: (focus: AttentionItemFocus | undefined) => void;
+  /** How the conversation paints heat: per source line (default) or per token. */
+  view: AttentionHeatView;
+  changeView: (view: AttentionHeatView) => void;
   heat: AttentionAvailable | undefined;
   showLookupHeat: (data: AttentionAvailable | undefined) => void;
   availability: AttentionSessionAvailability | undefined;
@@ -75,6 +55,7 @@ export function useAttentionMode(
   const scope = `${connectionScope(settings)}\0${sessionId}`;
   const [lookupHeat, setLookupHeat] = useState<{ scope: string; data?: AttentionAvailable }>();
   const [profile, setProfile] = useState<AttentionProfile>();
+  const [view, setView] = useState<AttentionHeatView>(DEFAULT_ATTENTION_HEAT_VIEW);
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
@@ -119,31 +100,27 @@ export function useAttentionMode(
   );
 
   const request = useCallback(
-    async (
-      target: AgentAnswerTextSelection,
-      selectedProfile = profile,
-      focus?: AttentionItemFocus,
-    ) => {
+    async (target: AgentAnswerTextSelection, selectedProfile = profile) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       requestTokenRef.current += 1;
       const token = requestTokenRef.current;
-      setState({ status: 'loading', selection: target, focus });
+      setState({ status: 'loading', selection: target });
       setLookupHeat(undefined);
       try {
         const result = await repository.getAttention(
           target.sessionId,
           target.messageId,
           {
-            ...(focus ? focus.span : attentionSelectionBody(target)),
+            ...attentionSelectionBody(target),
             ...(selectedProfile ? { profile: selectedProfile } : {}),
           },
           controller.signal,
         );
         if (requestTokenRef.current !== token) return; // superseded by a newer selection
-        if (result.available) setState({ status: 'shown', selection: target, focus, data: result });
-        else setState({ status: 'unavailable', selection: target, focus, message: result.message });
+        if (result.available) setState({ status: 'shown', selection: target, data: result });
+        else setState({ status: 'unavailable', selection: target, message: result.message });
       } catch (error) {
         if (controller.signal.aborted || requestTokenRef.current !== token) return;
         setState({ status: 'idle' });
@@ -197,25 +174,24 @@ export function useAttentionMode(
     [scope, setState],
   );
 
+  const heat = !canInspect
+    ? undefined
+    : lookupHeat?.scope === scope && lookupHeat.data
+      ? lookupHeat.data
+      : current.status === 'shown'
+        ? current.data
+        : undefined;
   return {
     availability: capability,
     state: canInspect ? current : { status: 'idle' },
     dismiss,
     showLookupHeat,
-    heat: !canInspect
-      ? undefined
-      : lookupHeat?.scope === scope && lookupHeat.data
-        ? lookupHeat.data
-        : current.status === 'shown'
-          ? current.data
-          : undefined,
+    heat,
     changeProfile: (next) => {
       setProfile(next);
-      if (canInspect && current.status !== 'idle')
-        void request(current.selection, next, current.focus);
+      if (canInspect && current.status !== 'idle') void request(current.selection, next);
     },
-    focusItem: (focus) => {
-      if (canInspect && current.status !== 'idle') void request(current.selection, profile, focus);
-    },
+    view,
+    changeView: setView,
   };
 }
