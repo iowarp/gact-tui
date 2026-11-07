@@ -55,7 +55,6 @@ describe('MCP server repository', () => {
       server,
       { tools: [{ name: 'catalog_search', description: 'Search the catalog.' }] },
       { resources: [{ name: 'Dataset guide', uri: 'resource://guide' }] },
-      { prompts: [{ name: 'review-dataset', description: 'Review a dataset.' }] },
       undefined,
     ]);
     const repository = new ClioRepository(transport);
@@ -73,7 +72,6 @@ describe('MCP server repository', () => {
     await repository.reconnectMcpServer('science/tools');
     await repository.mcpServerInventory('science/tools', 'tools');
     await repository.mcpServerInventory('science/tools', 'resources');
-    await repository.mcpServerInventory('science/tools', 'prompts');
     await repository.deleteMcpServer('science/tools');
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
@@ -89,7 +87,6 @@ describe('MCP server repository', () => {
       { method: 'POST', path: '/v1/mcp/servers/science%2Ftools/reconnect' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/tools' },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/resources' },
-      { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/prompts' },
       { method: 'DELETE', path: '/v1/mcp/servers/science%2Ftools' },
     ]);
     expect(transport.requests[1]?.body).toEqual({

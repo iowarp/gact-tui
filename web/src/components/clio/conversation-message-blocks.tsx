@@ -36,7 +36,8 @@ import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ContextReferenceLink } from './context-reference-link';
-import { inlinedReferenceIds, type ContextReferenceBlock } from '@/lib/sent-inline-references';
+import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inline-references';
+import { SummonChip } from './summon-chip';
 import { sentDataReferences } from '@/lib/sent-data-references';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
@@ -157,7 +158,7 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   reasoningDefaultOpen?: boolean;
   compactReferences?: boolean;
   /** Reference blocks a sent message can show at their `@mention` in its text. */
-  inlineReferences?: readonly ContextReferenceBlock[];
+  inlineReferences?: readonly InlineReferenceBlock[];
 };
 
 function MessageBlockView({
@@ -379,6 +380,8 @@ function MessageBlockView({
       );
     case 'context_reference':
       return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
+    case 'summon':
+      return <SummonChip block={block} />;
     case 'unknown':
       return (
         <Alert>
@@ -395,7 +398,8 @@ function MessageBlockView({
 
 function sentInlineReferences(blocks: readonly MessageBlock[]) {
   const references = blocks.filter(
-    (block): block is ContextReferenceBlock => block.type === 'context_reference',
+    (block): block is InlineReferenceBlock =>
+      block.type === 'context_reference' || block.type === 'summon',
   );
   const texts = blocks.flatMap((block) =>
     block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
@@ -473,7 +477,10 @@ export function MessageBlockSequence({
       continue;
     }
 
-    if (block.type === 'context_reference' && inline?.shown.has(block.id)) {
+    if (
+      (block.type === 'context_reference' || block.type === 'summon') &&
+      inline?.shown.has(block.id)
+    ) {
       index += 1;
       continue;
     }

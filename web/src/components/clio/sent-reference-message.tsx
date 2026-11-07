@@ -2,7 +2,8 @@ import type { WorkspaceReference } from '@clio/core/v3';
 import { ContextReferenceLink } from './context-reference-link';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { sentDataReferences } from '@/lib/sent-data-references';
-import { inlineReferenceSegments, type ContextReferenceBlock } from '@/lib/sent-inline-references';
+import { inlineReferenceSegments, type InlineReferenceBlock } from '@/lib/sent-inline-references';
+import { SummonChip } from './summon-chip';
 
 /**
  * The person's own words, with each `@reference` a link where they typed it, the
@@ -15,7 +16,7 @@ function SentTextWithReferences({
   onOpenReference,
 }: {
   text: string;
-  references: readonly ContextReferenceBlock[];
+  references: readonly InlineReferenceBlock[];
   onOpenReference?: (reference: WorkspaceReference) => void;
 }) {
   const segments = inlineReferenceSegments(text, references);
@@ -27,6 +28,12 @@ function SentTextWithReferences({
       {segments.map((segment, index) =>
         segment.kind === 'text' ? (
           segment.text
+        ) : segment.block.type === 'summon' ? (
+          <SummonChip
+            block={segment.block}
+            className="align-baseline"
+            key={`${segment.block.id}-${index}`}
+          />
         ) : (
           <ContextReferenceLink
             block={segment.block}
@@ -47,7 +54,7 @@ export function SentReferenceMessage({
   onOpenReference,
 }: {
   text: string;
-  inlineReferences?: readonly ContextReferenceBlock[];
+  inlineReferences?: readonly InlineReferenceBlock[];
   onOpenReference?: (reference: WorkspaceReference) => void;
 }) {
   const projected = sentDataReferences(text);

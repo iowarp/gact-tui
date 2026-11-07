@@ -194,13 +194,19 @@ export function ClioDocumentPdfViewer({
     const host = hostRef.current;
     if (!selection || selection.isCollapsed || !selection.rangeCount || !host) return;
     const range = selection.getRangeAt(0);
-    const page = range.commonAncestorContainer.parentElement?.closest<HTMLElement>('[data-page]');
+    // The page the selection starts on: a selection across pages is placed on its first.
+    const start =
+      range.startContainer instanceof Element
+        ? range.startContainer
+        : range.startContainer.parentElement;
+    const page = start?.closest<HTMLElement>('[data-page]');
     if (!page || !host.contains(page)) return;
     const exact = selection.toString().trim();
     const pageRect = page.getBoundingClientRect();
     if (!exact || !pageRect.width || !pageRect.height) return;
     const quads = Array.from(range.getClientRects())
       .filter((rect) => rect.width > 0 && rect.height > 0)
+      .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom)
       .map((rect) => {
         const left = bounded((rect.left - pageRect.left) / pageRect.width);
         const right = bounded((rect.right - pageRect.left) / pageRect.width);
@@ -219,7 +225,17 @@ export function ClioDocumentPdfViewer({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" ref={hostRef}>
+    <div
+      className="flex h-full min-h-0 flex-col"
+      // The viewer makes its own text marks (pdf-quad), so a surrounding CommentCapture
+      // leaves selections in here alone; a mouse, touch or keyboard selection all reach it.
+      data-comment-text="own"
+      onKeyUp={(event) => {
+        if (event.shiftKey) captureSelection();
+      }}
+      onTouchEnd={captureSelection}
+      ref={hostRef}
+    >
       <ViewerZoomControls
         percent={scale * 100}
         onIn={zoomIn}

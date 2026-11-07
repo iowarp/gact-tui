@@ -23,20 +23,37 @@ import {
   SEARCH_DEBOUNCE_MS,
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
-import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
+import {
+  isSummonReference,
+  matchingSummons,
+  workspaceReferenceIdentity,
+} from '@/lib/composer-reference-domain';
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { referenceKindIcon } from './composer-reference-presentation';
 
 const groups: Array<{
   defaultOpen: boolean;
+  browseOpen?: boolean;
   kinds: WorkspaceReference['kind'][];
   label: string;
 }> = [
-  { defaultOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
+  // An @ mention starts with only local files open (`defaultOpen`); typing shows each
+  // category's matches. The "Reference existing context" picker is for browsing, so it
+  // opens the common categories (`browseOpen`). What can be summoned comes first.
+  { defaultOpen: false, browseOpen: true, kinds: ['subagent'], label: 'Agents' },
+  { defaultOpen: false, browseOpen: true, kinds: ['workflow'], label: 'Workflows' },
+  { defaultOpen: false, browseOpen: true, kinds: ['flow'], label: 'Flows' },
+  { defaultOpen: false, browseOpen: true, kinds: ['server'], label: 'Tools' },
+  { defaultOpen: true, browseOpen: true, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
-  { defaultOpen: true, kinds: ['resource', 'evidence_source'], label: 'Sources' },
-  { defaultOpen: true, kinds: ['artifact'], label: 'Artifacts' },
+  {
+    defaultOpen: false,
+    browseOpen: true,
+    kinds: ['resource', 'evidence_source'],
+    label: 'Sources',
+  },
+  { defaultOpen: false, browseOpen: true, kinds: ['artifact'], label: 'Artifacts' },
   { defaultOpen: false, kinds: ['session'], label: 'Conversations' },
   { defaultOpen: false, kinds: ['agent_run'], label: 'Agents and runs' },
   { defaultOpen: false, kinds: ['context_frame'], label: 'Context records' },
@@ -44,9 +61,10 @@ const groups: Array<{
   { defaultOpen: false, kinds: ['plan'], label: 'Plans' },
 ];
 
+/** Kinds the workspace reference search serves (summon targets come from the session). */
 const nonFileKinds = groups
   .flatMap((group) => group.kinds)
-  .filter((kind) => kind !== 'workspace_file');
+  .filter((kind) => kind !== 'workspace_file' && !isSummonReference({ kind }));
 
 function useDebouncedValue(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -75,6 +93,7 @@ export function ClioComposerReferenceMenu({
   onQueryChange,
   query,
   searchInput,
+  summons = [],
   workspaceId,
 }: {
   activeReferenceId?: string;
@@ -90,6 +109,8 @@ export function ClioComposerReferenceMenu({
   onQueryChange: (query: string) => void;
   query: string;
   searchInput: boolean;
+  /** The conversation's subagents and MCP servers, as summonable rows. */
+  summons?: readonly WorkspaceReference[];
   workspaceId: string;
 }) {
   const repository = useRepository();
@@ -98,7 +119,12 @@ export function ClioComposerReferenceMenu({
   const searchRef = useRef<HTMLInputElement>(null);
   const optionElements = useRef(new Map<string, HTMLElement>());
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((group) => [group.label, group.defaultOpen])),
+    Object.fromEntries(
+      groups.map((group) => [
+        group.label,
+        searchInput ? (group.browseOpen ?? group.defaultOpen) : group.defaultOpen,
+      ]),
+    ),
   );
   /**
    * Whichever control drives this surface keeps the keyboard: its own search
@@ -145,7 +171,12 @@ export function ClioComposerReferenceMenu({
     // React Query retains the collapsed inventory in its cache after the user
     // starts typing. Do not mix those stale unfiltered files into live search
     // results; a query must reflect only the bounded server search.
-    const combined = [...(references.data ?? []), ...(!isSearching ? (localFiles.data ?? []) : [])];
+    const summoned = matchingSummons(summons, query);
+    const combined = [
+      ...summoned,
+      ...(references.data ?? []),
+      ...(!isSearching ? (localFiles.data ?? []) : []),
+    ];
     const identities = new Set<string>();
     const deduplicated = combined.filter((reference) => {
       const identity = workspaceReferenceIdentity(reference);
@@ -163,7 +194,7 @@ export function ClioComposerReferenceMenu({
       rows: supported.slice(0, REFERENCE_ROW_LIMIT),
       unsupported: deduplicated.length - supported.length,
     };
-  }, [isSearching, localFiles.data, references.data]);
+  }, [isSearching, localFiles.data, query, references.data, summons]);
   const rows = listing.rows;
 
   // Rows the contract refused are reported through the shared degradation

@@ -86,7 +86,6 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		"title": "Analyze",
 		"invocation": "agent",
 		"user_invocable": false,
-		"agent_invocable": true,
 		"planner_visible": true,
 		"agent_id": "analysis",
 		"command_source": "plugin",
@@ -98,7 +97,6 @@ func TestClioAgentAndCommandRuntimeFieldsDecode(t *testing.T) {
 		t.Fatalf("decode command: %v", err)
 	}
 	if cmd.UserInvocable == nil || *cmd.UserInvocable ||
-		cmd.AgentInvocable == nil || !*cmd.AgentInvocable ||
 		cmd.PlannerVisible == nil || !*cmd.PlannerVisible ||
 		cmd.CommandSource != "plugin" ||
 		cmd.CommandScope != "plugin" ||

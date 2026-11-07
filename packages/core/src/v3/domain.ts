@@ -720,6 +720,8 @@ export type { CompactionError, CompactionTrigger, PendingCompaction } from './co
 export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,
+  CommandKind,
+  SummonTargets,
   PromptDefinition,
   PromptProfileDefinition,
   ResolvedPromptDefinition,

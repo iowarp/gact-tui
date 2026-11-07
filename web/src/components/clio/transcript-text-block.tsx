@@ -6,7 +6,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 import { SentReferenceMessage } from './sent-reference-message';
 import { ClioStreamingText } from './streaming-text';
 import { bindTranscriptText } from '@/lib/transcript-content-selection';
-import type { ContextReferenceBlock } from '@/lib/sent-inline-references';
+import type { InlineReferenceBlock } from '@/lib/sent-inline-references';
 
 /** Bind selectable text to the exact source revision, without duplicating it in the DOM. */
 export function TranscriptTextBlock({
@@ -19,7 +19,7 @@ export function TranscriptTextBlock({
   block: Extract<MessageBlock, { type: 'text' }>;
   messageId?: string;
   compactReferences?: boolean;
-  inlineReferences?: readonly ContextReferenceBlock[];
+  inlineReferences?: readonly InlineReferenceBlock[];
   onOpenReference?: (reference: WorkspaceReference) => void;
 }) {
   const revision = useMemo(

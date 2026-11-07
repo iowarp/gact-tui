@@ -21,7 +21,6 @@ type Command struct {
 	Plugin         string           `json:"plugin,omitempty"`
 	Invocation     string           `json:"invocation,omitempty"`
 	UserInvocable  *bool            `json:"user_invocable,omitempty"`
-	AgentInvocable *bool            `json:"agent_invocable,omitempty"`
 	PlannerVisible *bool            `json:"planner_visible,omitempty"`
 	ArgumentHint   string           `json:"argument_hint,omitempty"`
 	PromptTemplate string           `json:"prompt_template,omitempty"`

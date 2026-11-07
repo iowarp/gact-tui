@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronLeftIcon, ChevronRightIcon, ListTreeIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, ListTreeIcon, ScrollTextIcon } from 'lucide-react';
 import type { LatexOutlineNode, LatexReport } from '@clio/core/v3';
 import { queryKeys } from '@/lib/query-keys';
+import { useContainerQuery } from '@/hooks/use-container-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -77,47 +78,68 @@ function entryFile(report: LatexReport): string {
   return report.entry.startsWith(prefix) ? report.entry.slice(prefix.length) : report.entry;
 }
 
-function summary(report: LatexReport): string {
+/** The build's errors (failing problems, failed venue checks) and warnings, counted. */
+function problemCounts(report: LatexReport): { errors: number; warnings: number } {
   const build = report.build;
-  const parts: string[] = [];
-  if (build.pdf) parts.push(`${build.page_count} ${build.page_count === 1 ? 'page' : 'pages'}`);
-  else parts.push('No PDF');
+  const checks = build.venue?.checks ?? [];
   const failing = build.diagnostics.filter((item) => !LATEX_WARNING_KINDS.has(item.kind)).length;
-  const warnings = build.diagnostics.length - failing;
-  if (failing) parts.push(`${failing} ${failing === 1 ? 'problem' : 'problems'}`);
-  if (warnings) parts.push(`${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`);
-  const venue = build.venue;
-  if (venue) {
-    const failed = venue.checks.filter((check) => check.status === 'failed').length;
-    parts.push(
-      failed
-        ? `${failed} venue ${failed === 1 ? 'check' : 'checks'} failed`
-        : 'venue checks passed',
-    );
-  }
-  return parts.join(', ');
+  return {
+    errors: failing + checks.filter((check) => check.status === 'failed').length,
+    warnings:
+      build.diagnostics.length -
+      failing +
+      checks.filter((check) => check.status !== 'failed' && check.status !== 'passed').length,
+  };
 }
 
-/** The build, its problems and venue checks, as one icon with words and a list on hover. */
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+/** A count in a small bubble: red for errors, yellow for warnings; the button says it in words. */
+function CountBubble({ count, tone }: { count: number; tone: 'error' | 'warning' }) {
+  if (!count) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className={
+        tone === 'error'
+          ? 'min-w-4 rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground tabular-nums'
+          : 'min-w-4 rounded-full bg-warning px-1 text-[10px] leading-4 font-medium text-warning-foreground tabular-nums'
+      }
+    >
+      {count}
+    </span>
+  );
+}
+
+/** The build log: one button with its error and warning counts; the list opens on click. */
 function BuildSummary({ report, onGo }: { report: LatexReport; onGo: (place: Place) => void }) {
   const build = report.build;
   const failed = build.status === 'failed';
+  const { errors, warnings } = problemCounts(report);
+  const label = `Build log: ${
+    errors || warnings
+      ? [errors ? plural(errors, 'error') : '', warnings ? plural(warnings, 'warning') : '']
+          .filter(Boolean)
+          .join(', ')
+      : 'no problems'
+  }`;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button className="min-w-0 gap-1.5 px-2" size="sm" variant="ghost">
-          <ClioStatus compact value={failed ? 'failed' : 'completed'} />
-          <span className="truncate text-xs">{summary(report)}</span>
+        <Button aria-label={label} className="gap-1 px-1.5" size="sm" title={label} variant="ghost">
+          <ScrollTextIcon aria-hidden="true" />
+          <CountBubble count={errors} tone="error" />
+          <CountBubble count={warnings} tone="warning" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 max-w-[90vw]">
         <PopoverHeader>
           <PopoverTitle>{failed ? 'The build has problems' : 'The paper built'}</PopoverTitle>
-          <PopoverDescription>
-            {build.network && !build.network.startsWith('bundle_hosts')
-              ? `Network: ${build.network}`
-              : 'Built with the pinned Tectonic and TeX bundle.'}
-          </PopoverDescription>
+          {build.network && !build.network.startsWith('bundle_hosts') ? (
+            <PopoverDescription>Network: {build.network}</PopoverDescription>
+          ) : null}
         </PopoverHeader>
         <ul className="mt-2 max-h-72 space-y-1 overflow-auto text-sm" aria-label="Build problems">
           {build.diagnostics.map((item, index) => (
@@ -260,6 +282,10 @@ export function LatexWorkspace({
   const [outlineOpen, setOutlineOpen] = useState(true);
   const [narrowTab, setNarrowTab] = useState('source');
   const [view, setView] = useState<PaneView>('both');
+  // The section mounts after loading; the width is observed once it exists.
+  const [section, setSection] = useState<HTMLElement | null>(null);
+  const sectionRef = useMemo(() => ({ current: section }), [section]);
+  const wide = useContainerQuery(sectionRef, 720);
   const data = report.data;
   const file = chosen?.file ?? (data ? entryFile(data) : '');
   const files = useMemo(
@@ -355,6 +381,7 @@ export function LatexWorkspace({
       aria-label="LaTeX workspace"
       className="@container/latex flex h-full min-h-0 min-w-0 flex-col"
       data-slot="latex-workspace"
+      ref={setSection}
     >
       {/* Right-aligned: the comment controls of a workspace file sit at the top left. */}
       <div className="flex min-h-11 shrink-0 items-center justify-end gap-1 border-b px-2 py-1">
@@ -429,10 +456,12 @@ export function LatexWorkspace({
             .join(' '),
         }}
       >
-        {outlineOpen ? <div className="min-h-0 border-r">{outline}</div> : null}
-        {view === 'pdf' ? null : <div className="min-h-0 min-w-0">{sourcePane}</div>}
+        {/* Only the layout that shows renders its panes: each viewer puts its own controls
+            (zoom) in the shared toolbar, and a hidden copy would add a second set. */}
+        {wide && outlineOpen ? <div className="min-h-0 border-r">{outline}</div> : null}
+        {wide && view !== 'pdf' ? <div className="min-h-0 min-w-0">{sourcePane}</div> : null}
         <PaneDivider onView={setView} view={view} />
-        {view === 'source' ? null : <div className="min-h-0 min-w-0">{pdfPane}</div>}
+        {wide && view !== 'source' ? <div className="min-h-0 min-w-0">{pdfPane}</div> : null}
       </div>
       <Tabs
         className="flex min-h-0 flex-1 flex-col @[720px]/latex:hidden"
@@ -445,13 +474,13 @@ export function LatexWorkspace({
           <TabsTrigger value="outline">Outline</TabsTrigger>
         </TabsList>
         <TabsContent className="m-0 min-h-0 flex-1" value="source">
-          {sourcePane}
+          {wide ? null : sourcePane}
         </TabsContent>
         <TabsContent className="m-0 min-h-0 flex-1" value="pdf">
-          {pdfPane}
+          {wide ? null : pdfPane}
         </TabsContent>
         <TabsContent className="m-0 min-h-0 flex-1" value="outline">
-          {outline}
+          {wide ? null : outline}
         </TabsContent>
       </Tabs>
     </section>

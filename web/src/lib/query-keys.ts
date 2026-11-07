@@ -20,6 +20,7 @@ export type ClioQueryNamespace =
   | 'artifact-text'
   | 'capabilities'
   | 'commands'
+  | 'summon-targets'
   | 'connection-availability'
   | 'document-content'
   | 'document-editor-health'
