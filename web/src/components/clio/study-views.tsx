@@ -91,6 +91,12 @@ function StudyViewPanel({
         <h3 className="text-sm font-medium">{view.title || 'Untitled view'}</h3>
         {view.purpose ? <p className="text-xs text-muted-foreground">{view.purpose}</p> : null}
         <p className="text-xs text-muted-foreground">Attached by {owner}</p>
+        {view.read_only ? (
+          <p className="text-xs text-muted-foreground">
+            Attached as a conversation view before study views were dashboards; shown as it
+            is.
+          </p>
+        ) : null}
       </header>
       {!view.surface ? (
         <p className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
@@ -98,7 +104,7 @@ function StudyViewPanel({
         </p>
       ) : parsed?.success ? (
         <div className="overflow-x-auto">
-          <ClioA2UISurface readOnly={readOnly} surface={parsed.data} />
+          <ClioA2UISurface readOnly={readOnly || view.read_only} surface={parsed.data} />
         </div>
       ) : (
         <p className="rounded-md border px-3 py-2 text-xs text-destructive" role="alert">

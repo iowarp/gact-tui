@@ -11,7 +11,6 @@ import {
   revealFileBytes,
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
-import { vocab } from '@/lib/brand-vocabulary';
 import { copyText } from '@/lib/clipboard';
 // Load the real lazy renderer during collection, outside the rendering test's timer.
 import '../ai-elements/markdown';
@@ -32,7 +31,6 @@ const manifest = {
   content_url: '/v1/artifacts/artifact_3/document/content',
   anchors: ['text-quote' as const],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   provenance: {},
 };
@@ -40,12 +38,24 @@ const manifest = {
 const repository = vi.hoisted(() => ({
   documentManifest: vi.fn(),
   documentContent: vi.fn(),
-  artifactReviews: vi.fn(),
-  documentEditorHealth: vi.fn(),
-  submitArtifactReview: vi.fn(),
+  commentThreads: vi.fn(async (artifactId: string) => ({
+    artifact_id: artifactId,
+    head: {
+      artifact_id: artifactId,
+      name: 'evidence.md',
+      workspace_id: 'ws',
+      version: 3,
+      sha256: 'a'.repeat(64),
+      path: '',
+      producer: {},
+    },
+    next_label: 'S1',
+    threads: [],
+  })),
+  saveCommentDrafts: vi.fn(async () => []),
+  sendCommentSession: vi.fn(),
   createDocumentRendition: vi.fn(),
   createDocumentWorkingCopy: vi.fn(),
-  createDocumentEditorSession: vi.fn(),
   closeDocumentWorkingCopy: vi.fn(),
   resolveDocumentConflict: vi.fn(),
 }));
@@ -110,7 +120,6 @@ describe('ClioDocumentWorkspace', () => {
     const source = '# Agenda\n\nPractice **first**.\n';
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
-    repository.artifactReviews.mockResolvedValue([]);
     const user = userEvent.setup();
     const { container } = renderWorkspace();
     await screen.findByRole('heading', { name: 'Agenda' });
@@ -143,7 +152,6 @@ describe('ClioDocumentWorkspace', () => {
 The stopping time is $\sigma_{\infty}(n)$.`,
       ),
     );
-    repository.artifactReviews.mockResolvedValue([]);
     const { container } = renderWorkspace();
     await waitFor(() => expect(container.querySelectorAll('.katex')).toHaveLength(2));
     expect(container.querySelector('h1 .katex')).not.toBeNull();
@@ -155,7 +163,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     async (profile) => {
       repository.documentManifest.mockResolvedValue({ ...manifest, profile });
       repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-1.7'));
-      repository.artifactReviews.mockResolvedValue([]);
       let finish!: (value: { artifact: DocumentManifest }) => void;
       repository.createDocumentRendition.mockImplementationOnce(
         () =>
@@ -181,7 +188,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   it('joins an in-flight preview after reopening the tab and when downloading PDF', async () => {
     repository.documentManifest.mockResolvedValue({ ...manifest, profile: 'ooxml-slides' });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
-    repository.artifactReviews.mockResolvedValue([]);
     let finish!: (value: { artifact: DocumentManifest }) => void;
     repository.createDocumentRendition.mockImplementationOnce(
       () =>
@@ -217,8 +223,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   it('refreshes an immutable preview without requesting another conversion', async () => {
     repository.documentManifest.mockResolvedValue({ ...manifest, profile: 'ooxml-slides' });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
-    repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth.mockResolvedValue({ providers: [] });
     renderWorkspace();
     expect(await screen.findByText('PDF preview')).toBeVisible();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
@@ -234,7 +238,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   it('shows a conversion error, keeps it across tab reopening, and retries explicitly', async () => {
     repository.documentManifest.mockResolvedValue({ ...manifest, profile: 'ooxml-slides' });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-retry'));
-    repository.artifactReviews.mockResolvedValue([]);
     repository.createDocumentRendition.mockRejectedValueOnce(new Error('Renderer access denied'));
     const first = renderWorkspace();
     expect(await screen.findByText('PDF preview failed')).toBeVisible();
@@ -257,7 +260,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent
       .mockRejectedValueOnce(new Error('PDF bytes unavailable'))
       .mockResolvedValue(new TextEncoder().encode('%PDF-restored'));
-    repository.artifactReviews.mockResolvedValue([]);
     renderWorkspace();
     expect(await screen.findByText('PDF bytes unavailable')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
@@ -270,7 +272,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockImplementation(async (id: string) =>
       new TextEncoder().encode(id === 'new_pdf' ? '%PDF-test' : '# Source stays here'),
     );
-    repository.artifactReviews.mockResolvedValue([]);
     repository.createDocumentRendition.mockResolvedValue({
       converter: 'test-converter',
       artifact: { ...manifest, artifact_id: 'new_pdf', profile: 'pdf', name: 'evidence.pdf' },
@@ -305,7 +306,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   it('opens a remote document as a desktop copy and closes its unused server copy', async () => {
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('Remote source'));
-    repository.artifactReviews.mockResolvedValue([]);
     repository.createDocumentWorkingCopy.mockResolvedValue({
       id: 'remote_copy',
       path: '/server/file.md',
@@ -337,7 +337,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       mime_type: 'text/html',
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
-    repository.artifactReviews.mockResolvedValue([]);
     const user = userEvent.setup();
     renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
@@ -363,7 +362,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       profile: 'html-static',
     });
     repository.documentContent.mockResolvedValue(bytes);
-    repository.artifactReviews.mockResolvedValue([]);
     const user = userEvent.setup();
     renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
@@ -375,7 +373,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   it('reports conversion failure without opening the original file in a PDF app', async () => {
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('Source'));
-    repository.artifactReviews.mockResolvedValue([]);
     repository.createDocumentRendition.mockRejectedValueOnce(new Error('Converter unavailable'));
     const user = userEvent.setup();
     renderWorkspace();
@@ -395,7 +392,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       repository.documentContent.mockResolvedValue(
         new TextEncoder().encode('Original source text'),
       );
-      repository.artifactReviews.mockResolvedValue([]);
       renderWorkspace({ name });
       await userEvent.click(await screen.findByRole('tab', { name: action }));
       expect(await screen.findByRole('region', { name: region })).toHaveTextContent(
@@ -405,7 +401,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     },
   );
 
-  it('renders HTML and switches between its source and preview without requesting a PDF', async () => {
+  it('shows an HTML artifact as its source, to open in the shared browser, without a PDF', async () => {
     const source = '<h1>Pedal!</h1><script>window.original = true;</script>';
     repository.documentManifest.mockResolvedValue({
       ...manifest,
@@ -414,22 +410,16 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       mime_type: 'text/html',
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
-    repository.artifactReviews.mockResolvedValue([]);
     const { container } = renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
-    const frame = await screen.findByTitle('HTML preview of cat.html');
-    expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
-    expect(frame).toHaveAttribute('src', 'http://127.0.0.1:8790/v1/html-renderer');
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: 'Source' }));
+    expect(await screen.findByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
       'window.original = true;',
     );
-    await user.click(screen.getByRole('tab', { name: 'HTML preview' }));
-    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(container.querySelector('iframe')).toBeNull();
     expect(repository.createDocumentRendition).not.toHaveBeenCalled();
   });
 
-  it('shows a native HTML launch failure while retaining its static preview', async () => {
+  it('shows a native HTML launch failure while keeping its source', async () => {
     repository.documentManifest.mockResolvedValue({
       ...manifest,
       name: 'cat.html',
@@ -437,7 +427,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       mime_type: 'text/html',
     });
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('<h1>Pedal!</h1>'));
-    repository.artifactReviews.mockResolvedValue([]);
     vi.mocked(openFileBytes).mockRejectedValueOnce(
       new Error('Open the selected app: access denied'),
     );
@@ -446,7 +435,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(await screen.findByRole('button', { name: 'Open in' }));
     await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
     expect(await screen.findByText('Open the selected app: access denied')).toBeVisible();
-    expect(screen.getByTitle('HTML preview of cat.html')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
 
@@ -459,7 +448,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
           : { ...manifest, profile, pdf_rendition_artifact_id: 'artifact_pdf' },
       );
       repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-1.7'));
-      repository.artifactReviews.mockResolvedValue([]);
       renderWorkspace();
 
       expect(await screen.findByText('PDF preview')).toBeVisible();
@@ -480,8 +468,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockResolvedValue(
       new TextEncoder().encode('# Evidence\n\nBounded claim from the source.'),
     );
-    repository.artifactReviews.mockResolvedValue([]);
-    repository.submitArtifactReview.mockResolvedValue({ id: 'review_1' });
+    repository.sendCommentSession.mockResolvedValue({
+      session_key: 'cs_1',
+      message_id: 'msg_1',
+      threads: [{ id: 'docreview_1', status: 'dispatched' }],
+    });
     renderWorkspace();
 
     expect(
@@ -499,6 +490,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(screen.getByRole('heading', { name: 'Document safety' })).toBeVisible();
     expect(screen.getByText('Immutable document boundary')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Read document' }));
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
     const claim = screen.getByText('Bounded claim from the source.');
     const range = document.createRange();
     range.selectNodeContents(claim);
@@ -506,25 +498,30 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     selection?.removeAllRanges();
     selection?.addRange(range);
     fireEvent.mouseUp(claim);
-    await user.click(screen.getByRole('button', { name: 'Review selection' }));
-    await user.type(screen.getByRole('textbox', { name: 'Review instruction' }), 'Verify this.');
-    await user.click(screen.getByRole('button', { name: 'Send review' }));
+    await user.type(screen.getByRole('textbox', { name: 'Comment for S1' }), 'Verify this.');
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Send 1 comment' }));
 
-    expect(repository.submitArtifactReview).toHaveBeenCalledWith(
+    expect(repository.sendCommentSession).toHaveBeenCalledWith(
       'sess_1',
       expect.objectContaining({
         artifact_id: 'artifact_3',
         expected_version: 3,
         expected_sha256: 'a'.repeat(64),
-        anchor: {
-          profile: 'text-quote',
-          exact: 'Bounded claim from the source.',
-          source_path: 'evidence.md',
-        },
-        text: 'Verify this.',
+        marks: [
+          expect.objectContaining({
+            label: 'S1',
+            comment: 'Verify this.',
+            send_to_agent: true,
+            anchor: expect.objectContaining({
+              profile: 'text-quote',
+              exact: 'Bounded claim from the source.',
+              source_path: 'evidence.md',
+            }),
+          }),
+        ],
       }),
     );
-    expect(await screen.findByText(/Review sent to the agent/)).toBeInTheDocument();
   });
 
   it('cleans converted bullet glyphs in preview while preserving the raw Markdown', async () => {
@@ -533,7 +530,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockResolvedValue(
       new TextEncoder().encode('## Contents\n\n- \uF0B7 Groups\n- Datasets'),
     );
-    repository.artifactReviews.mockResolvedValue([]);
     renderWorkspace();
 
     expect(await screen.findByText('Groups')).toBeVisible();
@@ -576,7 +572,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     const user = userEvent.setup();
     repository.documentManifest.mockResolvedValue(manifest);
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('Evidence'));
-    repository.artifactReviews.mockResolvedValue([]);
     repository.createDocumentWorkingCopy.mockResolvedValue({
       id: 'copy_1',
       session_id: 'sess_1',
@@ -603,7 +598,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
     expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
       session_id: 'sess_1',
-      provider: 'native',
       writable: true,
       auto_checkpoint: true,
     });
@@ -613,38 +607,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
   });
 
-  it('checks editor availability again before creating an editable copy', async () => {
-    repository.documentManifest.mockResolvedValue({
-      ...manifest,
-      name: 'evidence.docx',
-      profile: 'ooxml-word',
-      embedded_editors: ['onlyoffice'],
-    });
-    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
-    repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth
-      .mockResolvedValueOnce({
-        editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
-      })
-      .mockResolvedValue({
-        editors: [{ provider: 'onlyoffice', configured: true, healthy: false }],
-      });
-    renderWorkspace({ name: 'evidence.docx' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` }),
-    );
-    expect(await screen.findByText(/ONLYOFFICE is unavailable/)).toBeVisible();
-    expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
-    expect(repository.createDocumentEditorSession).not.toHaveBeenCalled();
-  });
-
-  it('closes a working copy when its editor cannot launch and keeps the preview readable', async () => {
+  it('shows an office file through its PDF rendition with no embedded editor', async () => {
     const wordManifest = {
       ...manifest,
       name: 'evidence.docx',
       profile: 'ooxml-word' as const,
-      embedded_editors: ['onlyoffice'],
       pdf_rendition_artifact_id: 'saved_pdf',
     };
     repository.documentManifest.mockImplementation(async (id: string) =>
@@ -652,28 +619,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
         ? { ...manifest, artifact_id: id, name: 'evidence.pdf', profile: 'pdf' }
         : wordManifest,
     );
-    repository.documentContent.mockResolvedValue(new TextEncoder().encode('# Evidence'));
-    repository.artifactReviews.mockResolvedValue([]);
-    repository.documentEditorHealth.mockResolvedValue({
-      editors: [{ provider: 'onlyoffice', configured: true, healthy: true }],
-    });
-    repository.createDocumentWorkingCopy.mockResolvedValue({
-      id: 'copy_failed',
-      path: 'confined.docx',
-    });
-    repository.createDocumentEditorSession.mockResolvedValue({
-      status: 'unavailable',
-      error: 'Editor connection refused',
-    });
-    repository.closeDocumentWorkingCopy.mockResolvedValue({ id: 'copy_failed', status: 'closed' });
+    repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
     renderWorkspace({ name: 'evidence.docx' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: `ONLYOFFICE (in ${vocab.agent})` }),
-    );
-    expect(await screen.findByText('Editor connection refused')).toBeVisible();
-    expect(repository.closeDocumentWorkingCopy).toHaveBeenCalledWith('copy_failed');
     expect(await screen.findByText('PDF preview')).toBeVisible();
-    expect(screen.queryByText('active')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+    expect(screen.queryByRole('menuitem', { name: /ONLYOFFICE|Collabora/u })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /Test Editor/u })).toBeVisible();
   });
 });

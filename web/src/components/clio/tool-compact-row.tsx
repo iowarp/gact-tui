@@ -5,7 +5,6 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  Clock3Icon,
   LoaderCircleIcon,
   OctagonIcon,
 } from 'lucide-react';
@@ -17,149 +16,181 @@ import { cn } from '@/lib/utils';
 import {
   getToolActionLabel,
   getToolFailureDetail,
-  getToolCompactMetadata,
   getToolStatus,
-  getToolSubject,
   getToolInterruptionDetail,
 } from './tool-presentation';
+import { PresentationLink } from './presentation-link';
+import type { ToolOperation } from './tool-operation';
+import { clioStatusLabel } from './status';
 
-/** One recorded call occupies one line; its disclosure owns the complete result. */
+/** One operation row with separately reachable entity links and disclosure controls. */
 export function ToolCompactRow({
   tool,
+  operation,
   attention,
   duration,
   expanded,
   surface = 'transcript',
+  onOpenFlow,
 }: {
   tool: ToolInvocation;
+  operation: ToolOperation;
   attention?: ReactNode;
   duration?: number;
   expanded: boolean;
   surface?: 'transcript' | 'evidence';
+  onOpenFlow?: () => void;
 }) {
   const status = getToolStatus(tool);
-  const evidence = surface === 'evidence';
   const active = status === 'pending' || status === 'running';
   const success = status === 'succeeded';
   const interrupted = status === 'interrupted';
-  const outcomeColor = status === 'unknown' || interrupted ? 'text-warning' : 'text-destructive';
-  const pendingSnapshot = tool.presentation?.blocks.some(
-    (block) => block.result_kind === 'snapshot' && block.status === 'pending',
-  );
-  const action = getToolActionLabel(tool);
-  const subject = getToolSubject(tool);
-  const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
-  const detail = subject?.label || subject?.text || terminal?.command;
-  const showDetail = !(expanded && subject);
-  const metadata = getToolCompactMetadata(tool);
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   const [tooltip, setTooltip] = useState({ failure, open: false });
-  // Keep the trigger mounted across lifecycle changes, but discard an old reason's open state.
   if (tooltip.failure !== failure) setTooltip({ failure, open: false });
+  const action = operation.action || getToolActionLabel(tool);
+  const statusIcon = interrupted ? (
+    <OctagonIcon
+      aria-hidden="true"
+      data-slot="tool-interrupted-mark"
+      className="size-3.5 shrink-0 text-warning"
+    />
+  ) : active ? (
+    <LoaderCircleIcon
+      aria-hidden="true"
+      className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+    />
+  ) : success ? (
+    <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+  ) : (
+    <CircleAlertIcon
+      aria-hidden="true"
+      className={cn(
+        'size-3.5 shrink-0',
+        status === 'unknown' || status === 'degraded' ? 'text-warning' : 'text-destructive',
+      )}
+    />
+  );
   const row = (
-    <CollapsibleTrigger asChild>
-      <Button
-        variant="ghost"
-        aria-label={`Show result for ${action}`}
-        title={failure ? undefined : [action, detail, metadata].filter(Boolean).join(', ')}
-        className={cn(
-          'group/tool-trigger h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-xs font-normal',
-          evidence && 'min-h-11 rounded-md px-2 py-2',
-        )}
+    <div
+      data-slot="activity-row"
+      className={cn(
+        'group/tool-trigger flex min-h-8 min-w-0 flex-1 items-start gap-2 rounded-sm px-1 py-1 text-sm max-sm:flex-wrap',
+        surface === 'evidence' && 'px-2 py-2',
+      )}
+    >
+      <span
+        className="mt-1 shrink-0"
+        role="status"
+        aria-label={interrupted ? failure || clioStatusLabel(status) : clioStatusLabel(status)}
+        title={failure || clioStatusLabel(status)}
       >
-        {interrupted ? (
-          <OctagonIcon
-            aria-hidden="true"
-            data-slot="tool-interrupted-mark"
-            className="size-3.5 shrink-0 text-warning"
-          />
-        ) : active ? (
-          <LoaderCircleIcon
-            aria-hidden="true"
-            className="size-3.5 shrink-0 animate-spin text-primary"
-          />
-        ) : pendingSnapshot ? (
-          <Clock3Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-        ) : success ? (
-          <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-success" />
-        ) : (
-          <CircleAlertIcon aria-hidden="true" className={cn('size-3.5 shrink-0', outcomeColor)} />
-        )}
-        {evidence ? (
-          <span className="grid min-w-0 flex-1 gap-0.5 text-left @min-[640px]/evidence-tools:flex @min-[640px]/evidence-tools:items-center @min-[640px]/evidence-tools:gap-4">
-            <span className="truncate text-sm font-medium @min-[640px]/evidence-tools:max-w-[45%] @min-[640px]/evidence-tools:shrink-0">
-              {action}
-            </span>
-            {(detail && showDetail) || metadata ? (
-              <span className="flex min-w-0 gap-2 text-xs text-muted-foreground @min-[640px]/evidence-tools:flex-1">
-                {detail && showDetail ? (
-                  <span className="min-w-0 flex-1 truncate">{detail}</span>
-                ) : null}
-                {metadata ? (
-                  <span className={cn('truncate', detail && showDetail && 'max-w-[45%] shrink-0')}>
-                    {metadata}
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
-          </span>
-        ) : (
-          <>
-            <span className="min-w-0 max-w-[48%] shrink truncate font-medium max-sm:max-w-[40%]">
-              {action}
-            </span>
-            {detail && showDetail ? (
+        {statusIcon}
+      </span>
+      <div
+        data-slot="tool-action-label"
+        className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left"
+      >
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            disabled={!operation.expandable}
+            aria-label={`Show result for ${action}`}
+            data-slot="tool-action-text"
+            className="h-auto min-w-0 justify-start whitespace-normal p-0 text-left text-sm font-medium disabled:opacity-100 [overflow-wrap:anywhere]"
+          >
+            {action}
+          </Button>
+        </CollapsibleTrigger>
+        {operation.subjects.map((subject, index) => (
+          <span
+            className="inline-flex min-w-0 max-w-full items-center gap-1.5"
+            key={`${subject.id}-${index}`}
+          >
+            {index && index === operation.subjects.length - 1 ? <span>and</span> : null}
+            {onOpenFlow && index === 0 ? (
+              <Button
+                variant="link"
+                className="h-auto max-w-full truncate p-0 text-sm"
+                onClick={onOpenFlow}
+              >
+                {subject.label || subject.text}
+              </Button>
+            ) : subject.type === 'link' ? (
+              <PresentationLink block={subject} compact />
+            ) : (
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate text-left',
-                  (subject?.target === 'file' || terminal?.command) && 'font-mono',
+                  '[overflow-wrap:anywhere]',
+                  // A command reads as code, as it does in its terminal block.
+                  subject.id === 'operation-command' && 'font-mono text-[0.8125rem]',
                 )}
               >
-                {detail}
+                {subject.label || subject.text}
               </span>
-            ) : (
-              <span className="min-w-0 flex-1" />
             )}
-          </>
-        )}
-        {metadata && !evidence ? (
+            {/* A list's comma stays against its name, so a wrap never starts with one. */}
+            {index < operation.subjects.length - 2 ? <span className="-ml-1.5">,</span> : null}
+          </span>
+        ))}
+        {operation.qualifier ? (
+          <span className="[overflow-wrap:anywhere]">{operation.qualifier}</span>
+        ) : null}
+        {operation.metadata ? (
           <span
-            className={cn(
-              'min-w-0 text-muted-foreground',
-              // A phone keeps the call's subject readable; the outcome is in the result below.
-              pendingSnapshot
-                ? 'whitespace-normal text-right'
-                : 'max-w-[35%] truncate max-sm:hidden',
-            )}
+            data-slot="activity-metadata"
+            className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]"
           >
-            {metadata}
+            {/^(?:rejected|unavailable|denied)/iu.test(operation.metadata)
+              ? operation.metadata
+              : `(${operation.metadata})`}
           </span>
         ) : null}
-        {!active && !success && !interrupted ? (
-          <span className={cn('shrink-0', outcomeColor)}>
+      </div>
+      {/* On a phone the outcome and marks take their own line under the row, so a long
+          command keeps the row's width. */}
+      <span className="flex shrink-0 items-start gap-2 empty:hidden max-sm:order-last max-sm:basis-full max-sm:pl-5.5">
+        {/* A failure is named in words, not only by its mark's colour; success stays quiet and a
+            partial outcome is counted in words by the operation's own metadata. */}
+        {!active && !success && !interrupted && !(status === 'degraded' && operation.metadata) ? (
+          <span
+            data-slot="tool-outcome"
+            className={cn(
+              'mt-0.5 shrink-0 text-xs',
+              status === 'unknown' || status === 'degraded' ? 'text-warning' : 'text-destructive',
+            )}
+          >
             {status === 'unknown' ? 'Unknown' : status}
           </span>
         ) : null}
-        {duration !== undefined ? (
-          <span
-            className="shrink-0 tabular-nums text-muted-foreground"
-            data-slot="tool-duration"
-            title={active ? 'Elapsed time; updates while running' : 'Execution time'}
-          >
-            {formatDuration(duration, 'tenths')}
-          </span>
-        ) : null}
         {attention}
-        <ChevronRightIcon
-          aria-hidden="true"
-          className={cn(
-            'size-3 shrink-0 text-muted-foreground transition-transform',
-            expanded && 'rotate-90',
-          )}
-        />
-      </Button>
-    </CollapsibleTrigger>
+      </span>
+      {duration !== undefined ? (
+        <span
+          className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground max-sm:hidden"
+          data-slot="tool-duration"
+          title={active ? 'Elapsed time; updates while running' : 'Execution time'}
+        >
+          {formatDuration(duration, 'tenths')}
+        </span>
+      ) : null}
+      {operation.expandable ? (
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="size-5 shrink-0"
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${action}`}
+          >
+            <ChevronRightIcon
+              aria-hidden="true"
+              className={cn('size-3 text-muted-foreground', expanded && 'rotate-90')}
+            />
+          </Button>
+        </CollapsibleTrigger>
+      ) : null}
+    </div>
   );
   return (
     <TooltipProvider>

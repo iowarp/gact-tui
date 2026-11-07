@@ -57,7 +57,7 @@ beforeEach(() => {
   repository.tools.mockResolvedValue([]);
   repository.mcpServer.mockResolvedValue(builtIn);
   repository.mcpServerInventory.mockImplementation(
-    async (_serverId: string, kind: 'tools' | 'resources' | 'prompts') =>
+    async (_serverId: string, kind: 'tools' | 'resources') =>
       kind === 'tools'
         ? [{ name: 'fs_read_file', title: 'Read file', description: 'Read a workspace file.' }]
         : [],
@@ -240,6 +240,9 @@ describe('tool provider settings', () => {
     expect(screen.getByText('Read a workspace file.')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Resources' }));
     expect(screen.getByText('This provider reported no resources.')).toBeVisible();
+    // A server's prompts are commands; the tab says where to find them.
+    await user.click(screen.getByRole('tab', { name: 'Prompts' }));
+    expect(screen.getByText(/This service’s prompts are commands/)).toBeVisible();
   });
 
   it('connects a remote provider through the shared URL setup', async () => {

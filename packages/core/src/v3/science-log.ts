@@ -94,6 +94,11 @@ export const scienceViewSchema = z
       .nullish()
       .transform((value) => value ?? null),
     reason: z.string().nullish(),
+    /** `dashboard`: a published dashboard; `surface`: attached as a chat view before. */
+    kind: z.enum(['dashboard', 'surface']).catch('surface').default('surface'),
+    dashboard_id: z.string().nullish(),
+    artifact_id: z.string().nullish(),
+    read_only: z.boolean().catch(false).default(false),
   })
   .passthrough();
 

@@ -41,6 +41,22 @@ User-facing rules:
   appear once in More. Do not repeat visible controls in the menu. Menu-based views
   retain selected state, named panels and a clear way back to reading.
 
+## Adding or changing tools
+
+Read [the tool authoring steps](docs/tool-result-presentation.md#adding-or-changing-a-tool)
+before adding a tool, changing its inputs/results or changing its display.
+Presentation is part of the feature: one compact action/target row; expansion
+shows the actual request, returned content or change. Raw JSON stays in
+Technical details. Do not add repeated status prose or decorative dot/em-dash
+separators.
+
+Declare semantics once in `tool-operation-contract.ts` or the owning producer
+adapter and reuse the shared readers. Include representative large-data input
+and output showcases in the production-component review fixtures and browser
+checks. Inspect both chat and Evidence at desktop and phone widths. Verify
+applicable running, empty, partial, failed and interrupted outcomes. Synthetic
+presentation checks do not establish a native agent's semantic success.
+
 Primary gates:
 
 ```sh

@@ -1,93 +1,99 @@
+import type {
+  CommentAttachment,
+  CommentSurfaceKind,
+  ComposerMessagePart,
+  DocumentAnchor,
+} from '@clio/core/v3';
 import type { SelectionTarget } from './selection-actions';
 
 /**
- * Something the person pointed at and attached to their next message: a quoted
- * run of an agent answer, or a chart/map/table zone, today; a region of an
- * image or a range of a document later (one member per selection kind).
- *
- * Annotations travel as part of the message text, so the service needs no new
- * message part to receive them and the transcript shows exactly what was sent.
+ * What the person attaches to their next message: comment sessions on things that are not
+ * versioned artifacts (comments plan, "Stored threads or attachments"). A quoted run of an
+ * agent answer, a chart or map zone, and an A2UI region capture are all marks of a session,
+ * labelled `S1`, `S2` and onward, with the same anchor model as a comment on a document.
+ * They travel as one `comment_session` part each; the service renders what the agent reads.
  */
-export type ComposerAnnotation =
-  | TextQuoteAnnotation
-  | DataZoneQuoteAnnotation
-  | RegionCaptureAnnotation;
 
-export interface TextQuoteAnnotation {
-  id: string;
-  kind: 'text-quote';
-  /** The quoted text, verbatim. */
-  text: string;
-  /** Where it was selected (session and message), kept for navigation. */
-  sessionId: string;
-  messageId: string;
+const LABEL = /^S([1-9][0-9]{0,3})$/u;
+
+function nextLabel(session: CommentAttachment | undefined): string {
+  let highest = 0;
+  for (const mark of session?.marks ?? []) {
+    const match = LABEL.exec(mark.label);
+    if (match) highest = Math.max(highest, Number(match[1]));
+  }
+  return `S${highest + 1}`;
 }
 
-/** A "Reference this" attachment from a chart/map/table zone (#1533 item 5). */
-export interface DataZoneQuoteAnnotation {
-  id: string;
-  kind: 'data-zone-quote';
-  /** Short label for the card, e.g. "Depth vs. magnitude chart". */
+/**
+ * Add one mark to the session for its surface (the same answer, the same surface zone's
+ * title), starting a session when there is none.
+ */
+export function withMark(
+  sessions: readonly CommentAttachment[],
+  kind: CommentSurfaceKind,
+  title: string,
+  anchor: DocumentAnchor,
+  comment = '',
+): CommentAttachment[] {
+  const index = sessions.findIndex((session) => session.kind === kind && session.title === title);
+  const current = index >= 0 ? sessions[index] : undefined;
+  const mark = { label: nextLabel(current), anchor, comment };
+  const updated: CommentAttachment = current
+    ? { ...current, marks: [...current.marks, mark] }
+    : { kind, title, marks: [mark] };
+  return index >= 0
+    ? sessions.map((session, at) => (at === index ? updated : session))
+    : [...sessions, updated];
+}
+
+/** The mark "Add to chat" or "Reference this" makes from a selection. */
+export function markFromSelection(target: SelectionTarget): {
+  kind: CommentSurfaceKind;
   title: string;
-  /** One plain-language line for the card itself, e.g. "the whole view (500 rows)". */
-  summary: string;
-  /** The full reference block — see `data-zone-reference.ts`'s `buildZoneReference`. */
-  markdown: string;
-}
-
-/** A labelled surface screenshot with its structured context kept out of the editable draft. */
-export interface RegionCaptureAnnotation {
-  id: string;
-  kind: 'region-capture';
-  filename: string;
-  title: string;
-  summary: string;
-  markdown: string;
-}
-
-let sequence = 0;
-
-/** Turn a selection into the annotation "Add to chat" / "Reference this" attaches. */
-export function annotationFromSelection(target: SelectionTarget): ComposerAnnotation {
-  sequence += 1;
-  const id = `annotation-${Date.now().toString(36)}-${sequence}`;
+  anchor: DocumentAnchor;
+} {
   if (target.kind === 'data-surface-zone') {
     return {
-      id,
-      kind: 'data-zone-quote',
-      markdown: target.markdown,
-      summary: target.summary,
+      kind: 'a2ui-surface',
       title: target.title,
+      anchor: {
+        profile: 'dom',
+        tag: 'zone',
+        text_excerpt: target.summary,
+        source: {
+          zone: target.summary,
+          under: target.markdown.split(/\r?\n/u).filter((line) => line.trim()),
+        },
+      },
     };
   }
   const { messageId, sessionId } =
     target.kind === 'transcript-content'
       ? { messageId: target.reference.message_id, sessionId: target.reference.session_id }
       : target;
-  return { id, kind: 'text-quote', messageId, sessionId, text: target.text };
+  return {
+    kind: 'agent-answer',
+    title: messageId ? `answer ${messageId}` : 'an answer',
+    anchor: {
+      profile: 'text-quote',
+      exact: target.text,
+      source: { message_id: messageId, session_id: sessionId },
+    },
+  };
 }
 
-function quoted(text: string): string {
-  return text
-    .split(/\r?\n/u)
-    .map((line) => (line.trim() ? `> ${line}` : '>'))
-    .join('\n');
+/** The message parts that carry the attached sessions. */
+export function commentSessionParts(
+  sessions: readonly CommentAttachment[],
+): Extract<ComposerMessagePart, { type: 'comment_session' }>[] {
+  return sessions
+    .filter((session) => session.marks.length > 0)
+    .map((session) => ({ type: 'comment_session', metadata: { comment_session: session } }));
 }
 
-/** The Markdown a submission quotes for one annotation, whatever its kind. */
-function annotationBody(annotation: ComposerAnnotation): string {
-  return annotation.kind === 'text-quote' ? annotation.text : annotation.markdown;
-}
-
-/**
- * The message text a submission carries: every annotation as a Markdown
- * blockquote, in the order they were added, then what the person wrote.
- */
-export function messageTextWithAnnotations(
-  annotations: readonly ComposerAnnotation[],
-  text: string,
-): string {
-  if (!annotations.length) return text;
-  const quotes = annotations.map((annotation) => quoted(annotationBody(annotation))).join('\n\n');
-  return text ? `${quotes}\n\n${text}` : quotes;
+/** A short line for a session's chip: its target and its marks. */
+export function commentSessionSummary(session: CommentAttachment): string {
+  const marks = session.marks.map((mark) => mark.label).join(', ');
+  return `${session.title || session.kind}: ${marks}`;
 }

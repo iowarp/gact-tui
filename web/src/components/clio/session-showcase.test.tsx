@@ -202,6 +202,68 @@ describe('session showcase inventory', () => {
     expect(repository.connectedSources).toHaveBeenCalledWith('workspace', expect.any(AbortSignal));
     client.clear();
   });
+  it('shows the live session plan above todos and drops its earlier proposal from Plans', async () => {
+    repository.sessionWork.mockResolvedValueOnce({
+      todos: [{ content: 'Check the report', status: 'in_progress' }],
+      plan: {
+        path: 'D:/workspace/.clio/plans/plan.md',
+        status: 'approved',
+        text: '# Objective\n\nFind the regression.',
+      },
+    });
+    const proposal = (id: string, file: string, title: string): PendingInteraction => ({
+      id,
+      kind: 'question',
+      owner_session_id: 'session',
+      attended_session_id: 'session',
+      status: 'answered',
+      title: 'Review execution plan',
+      requires_human_response: true,
+      prompt: 'Approve the saved plan?',
+      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: id },
+      created_at: '2026-09-05T00:00:00Z',
+      payload: {
+        answer_metadata: {},
+        options: [],
+        plan_exit: {
+          plan_file: file,
+          plan_content: `# ${title}`,
+          plan_content_status: 'complete',
+          summary: title,
+        },
+      },
+      actions: [],
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <SessionRailContent
+          kind="work"
+          evidence={{
+            ...evidence,
+            contextFrames: [],
+            tools: [],
+            runs: [],
+            sessionId: 'session',
+            workspaceId: 'workspace',
+            interactions: [
+              proposal('a', 'd:\\workspace\\.clio\\plans\\plan.md', 'Same plan'),
+              proposal('b', 'D:/workspace/.clio/plans/older.md', 'Older plan'),
+            ],
+          }}
+          onOpenSource={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    const plan = await screen.findByRole('region', { name: 'Plan section' });
+    expect(await within(plan).findByText('Find the regression.')).toBeVisible();
+    const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(regions.indexOf('Plan section')).toBeLessThan(regions.indexOf('Todos section'));
+    const plans = screen.getByRole('region', { name: 'Plans section' });
+    expect(within(plans).queryByText('Same plan')).not.toBeInTheDocument();
+    expect(await within(plans).findByText('Older plan')).toBeInTheDocument();
+    client.clear();
+  });
   it('opens an artifact from one compact line with a direct download action', () => {
     const onOpenArtifact = vi.fn();
     const artifact = { ...evidence.artifacts[0]!, size: 158, created_at: '2026-10-08T12:00:00Z' };

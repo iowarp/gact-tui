@@ -144,31 +144,8 @@ func checkMcp(t Reporter, c *conformClient) {
 			}
 		}
 	}
-	pctx, pcancel := context.WithTimeout(context.Background(), c.http.Timeout)
-	defer pcancel()
-	pResp, pBody, perr := c.get(pctx, "/v1/mcp/servers/"+firstID+"/prompts")
-	if perr != nil {
-		t.Errorf("GET /v1/mcp/servers/%s/prompts: %v", firstID, perr)
-	} else if pResp.StatusCode == http.StatusNotImplemented {
-		t.Errorf("/v1/mcp/servers/{id}/prompts returned 501 — required by SPEC §6.7")
-	} else if pResp.StatusCode != 200 {
-		t.Errorf("/v1/mcp/servers/%s/prompts status %d body %s", firstID, pResp.StatusCode, pBody)
-	} else {
-		var praw struct {
-			Prompts []map[string]any `json:"prompts"`
-		}
-		if err := json.Unmarshal(pBody, &praw); err != nil {
-			t.Errorf("mcp/server/%s/prompts JSON decode: %v (body=%s)", firstID, err, pBody)
-		} else if praw.Prompts == nil {
-			t.Errorf("/v1/mcp/servers/%s/prompts missing `prompts` key: %s", firstID, pBody)
-		} else {
-			for i, pr := range praw.Prompts {
-				if name, _ := pr["name"].(string); name == "" {
-					t.Errorf("mcp prompt[%d] missing name: %v", i, pr)
-				}
-			}
-		}
-	}
+	// A server's prompts are /mcp__<server>__<prompt> commands (GET /v1/commands),
+	// not an MCP-servers route.
 }
 
 // TTTTT1 — checkProviders validates GET /v1/providers + per-provider

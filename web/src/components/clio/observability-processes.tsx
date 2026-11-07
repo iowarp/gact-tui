@@ -547,7 +547,7 @@ function provenanceToolLabel(span: ExecutionProvenanceSpan): string {
   const input = span.attributes.tool_input;
   const qualifier =
     input && typeof input === 'object'
-      ? ['filepath', 'path', 'uri', 'resource_id', 'task_id']
+      ? ['path', 'uri', 'resource_id', 'task_id']
           .map((key) => (input as Record<string, unknown>)[key])
           .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
       : undefined;

@@ -23,10 +23,9 @@ export function ToolDetailsContent({
         aria-label={title}
         className={cn(
           'my-1 min-w-0 space-y-3 py-1 text-sm [overflow-wrap:anywhere]',
-          bounded && 'max-h-80 overflow-auto overscroll-contain',
+          bounded && 'max-w-prose',
         )}
         data-slot="transcript-tool-details"
-        tabIndex={0}
       >
         {children}
       </div>

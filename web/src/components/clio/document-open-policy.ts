@@ -8,8 +8,3 @@ export function isDocumentSourceProfile(
 ): profile is DocumentSourceProfile {
   return ['markdown', 'html-static', 'latex'].includes(profile);
 }
-
-/** Browser office editors belong only to document, spreadsheet, and slide formats. */
-export function hasEmbeddedDocumentEditors(profile: DocumentProfile): boolean {
-  return profile.startsWith('ooxml-') || profile.startsWith('odf-');
-}

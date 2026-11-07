@@ -141,10 +141,19 @@ function ClioDataGridHeaderCell<TData extends object>({
             event.stopPropagation();
             resizeHandler(event);
           }}
-          onTouchStart={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            resizeHandler(event);
+          // React listens for touchstart passively, so a JSX `onTouchStart`
+          // cannot preventDefault (the browser logs an error instead). A native
+          // non-passive listener can, which keeps a tap's compatibility mouse
+          // events from starting a second, mouse-driven resize.
+          ref={(node) => {
+            if (!node) return;
+            const onTouchStart = (event: TouchEvent) => {
+              event.preventDefault();
+              event.stopPropagation();
+              resizeHandler(event);
+            };
+            node.addEventListener('touchstart', onTouchStart, { passive: false });
+            return () => node.removeEventListener('touchstart', onTouchStart);
           }}
           role="separator"
           tabIndex={-1}

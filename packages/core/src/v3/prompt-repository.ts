@@ -1,8 +1,17 @@
 import { z } from 'zod';
-import type { CommandDefinition, PromptDefinition, ResolvedPromptDefinition } from './domain.js';
+import type {
+  CommandDefinition,
+  PromptDefinition,
+  ResolvedPromptDefinition,
+  SummonTargets,
+} from './domain.js';
 import { FleetRepository } from './fleet-repository.js';
 import { commandListSchema, promptListSchema } from './repository-decoders.js';
-import { promptDefinitionSchema, resolvedPromptDefinitionSchema } from './schemas.js';
+import {
+  promptDefinitionSchema,
+  resolvedPromptDefinitionSchema,
+  summonTargetsSchema,
+} from './schemas.js';
 
 interface PromptContext {
   sessionId?: string;
@@ -170,6 +179,16 @@ export class PromptRepository extends FleetRepository {
       signal,
     });
     return result.commands as CommandDefinition[];
+  }
+
+  /** The subagents and MCP servers the person can `@`-summon in a conversation. */
+  public async summonTargets(sessionId: string, signal?: AbortSignal): Promise<SummonTargets> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/summon-targets`,
+      decode: (value) => summonTargetsSchema.parse(value),
+      signal,
+    });
   }
 
   public dispatchCommand(

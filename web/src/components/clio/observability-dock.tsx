@@ -38,6 +38,7 @@ import {
   ClioActivityTimeline,
   type ObservabilityActivityItem,
 } from './observability-activity';
+import { WorkspaceFoldersBar } from './workspace-folders';
 import { ClioEvidenceView } from './observability-evidence';
 import { ObservabilityWork } from './observability-work';
 import { ClioStatus } from './status';
@@ -58,6 +59,7 @@ import { ResourceLoading } from './resource-states';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
 
 export function ClioObservabilityView({
+  workspaceFolders,
   artifacts,
   contextFiles,
   contextFrames,
@@ -374,6 +376,7 @@ export function ClioObservabilityView({
               provider={provenanceProvider}
               providers={provenanceProviders}
             />
+            <WorkspaceFoldersBar folders={workspaceFolders} />
             <ClioEvidenceView
               onCancelTask={onCancelTask}
               onControlTask={onControlTask}

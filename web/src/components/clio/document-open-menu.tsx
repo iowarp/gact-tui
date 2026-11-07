@@ -1,5 +1,5 @@
-import type { Artifact, DocumentEditorHealth, DocumentManifest } from '@clio/core/v3';
-import { ChevronDownIcon, ExternalLinkIcon, FolderOpenIcon } from 'lucide-react';
+import type { Artifact, DocumentManifest } from '@clio/core/v3';
+import { ChevronDownIcon, FolderOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,15 +12,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { fileFormatLabel } from '@/lib/media-types';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { vocab } from '@/lib/brand-vocabulary';
 import type { DocumentApplication } from '@/tauri/documents';
 import { FileTypeIcon } from './file-type-icon';
-import { hasEmbeddedDocumentEditors } from './document-open-policy';
 import { AssociatedApplicationItems } from './associated-application-items';
 
-export type DocumentOpenTarget =
-  | { kind: 'native'; application: DocumentApplication; format: 'original' | 'pdf' }
-  | { kind: 'embedded'; provider: 'onlyoffice' | 'collabora' };
+export interface DocumentOpenTarget {
+  kind: 'native';
+  application: DocumentApplication;
+  format: 'original' | 'pdf';
+}
 
 /** Application launching stays separate from file downloading and format conversion. */
 export function DocumentOpenMenu({
@@ -32,7 +32,6 @@ export function DocumentOpenMenu({
   applicationsError,
   pdfApplicationsPending = false,
   pdfApplicationsError,
-  editorHealth,
   openPending,
   pdfPending,
   onOpen,
@@ -47,7 +46,6 @@ export function DocumentOpenMenu({
   applicationsError?: string;
   pdfApplicationsPending?: boolean;
   pdfApplicationsError?: string;
-  editorHealth?: DocumentEditorHealth;
   openPending: boolean;
   pdfPending: boolean;
   onOpen: (target: DocumentOpenTarget) => void;
@@ -59,14 +57,9 @@ export function DocumentOpenMenu({
     native &&
     manifest.profile !== 'pdf' &&
     (Boolean(manifest.pdf_rendition_artifact_id) || manifest.rendition_formats.includes('pdf'));
-  const providers = hasEmbeddedDocumentEditors(manifest.profile) ? manifest.embedded_editors : [];
-  const configuredProviders = providers.filter((provider) =>
-    editorHealth?.editors.some((editor) => editor.provider === provider && editor.configured),
-  );
   const label = 'Open in';
   const canReveal = native && Boolean(onReveal);
-  const hasOriginal =
-    (manifest.native_open && native) || configuredProviders.length > 0 || canReveal;
+  const hasOriginal = (manifest.native_open && native) || canReveal;
   const appItems = (
     apps: readonly DocumentApplication[],
     format: 'original' | 'pdf',
@@ -109,22 +102,6 @@ export function DocumentOpenMenu({
             {manifest.native_open && native
               ? appItems(applications, 'original', applicationsPending, applicationsError)
               : null}
-            {configuredProviders.map((provider) => {
-              const health = editorHealth?.editors.find((entry) => entry.provider === provider);
-              if (!health?.configured) return null;
-              return (
-                <DropdownMenuItem
-                  disabled={openPending || !health.healthy}
-                  key={provider}
-                  onSelect={() => onOpen({ kind: 'embedded', provider })}
-                  title={health.error}
-                >
-                  <ExternalLinkIcon aria-hidden="true" />
-                  {provider === 'onlyoffice' ? 'ONLYOFFICE' : 'Collabora'} (in {vocab.agent})
-                  {!health.healthy ? ' — unavailable' : ''}
-                </DropdownMenuItem>
-              );
-            })}
             {canReveal ? (
               <DropdownMenuItem disabled={openPending || revealPending} onSelect={onReveal}>
                 <FolderOpenIcon aria-hidden="true" />

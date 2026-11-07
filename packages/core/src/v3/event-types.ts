@@ -41,6 +41,7 @@ export const GACT_V3_EVENT_TYPES = [
   'resource.upload_progress',
   'run.upserted',
   'session.upserted',
+  'session.work.updated',
   'stream.gap',
   'stream.live',
   'subagent.upserted',

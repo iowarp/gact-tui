@@ -16,6 +16,7 @@ export function DocumentViewControls({
   markdown,
   html = false,
   latex = false,
+  paper = false,
   reviewCount,
   value,
   onChange,
@@ -23,22 +24,28 @@ export function DocumentViewControls({
   markdown: boolean;
   html?: boolean;
   latex?: boolean;
+  /** A paper: its sources are in the LaTeX workspace, so it has no separate source view. */
+  paper?: boolean;
   reviewCount: number;
   value: string;
   onChange: (view: string) => void;
 }) {
   const views = [
-    ...(!latex
-      ? [{ value: 'preview', label: html ? 'HTML preview' : 'Read document', icon: BookOpenIcon }]
+    {
+      value: 'preview',
+      label: latex ? 'Paper' : html ? 'HTML preview' : 'Read document',
+      icon: BookOpenIcon,
+    },
+    ...(markdown || html || (latex && !paper)
+      ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon }]
       : []),
-    ...(markdown || html || latex ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon }] : []),
   ];
   const registry = useContext(FileViewerActionRegistry);
   const secondary = useMemo(
     () => [
       {
         kind: 'view' as const,
-        label: `Reviews${reviewCount ? `, ${reviewCount}` : ''}`,
+        label: `Comments${reviewCount ? `, ${reviewCount}` : ''}`,
         icon: MessageSquareTextIcon,
         selected: value === 'reviews',
         onSelect: () => onChange('reviews'),

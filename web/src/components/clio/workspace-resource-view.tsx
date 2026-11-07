@@ -269,12 +269,10 @@ function ResourcePreview({
   bytes,
   error,
   resource,
-  htmlView,
 }: {
   bytes?: Uint8Array;
   error?: string;
   resource: WorkspaceResource;
-  htmlView?: 'preview' | 'source';
 }) {
   if (resource.state === 'uploading') {
     const progress = resource.declared_size
@@ -322,7 +320,6 @@ function ResourcePreview({
         error={error}
         path={resource.name}
         mediaType={resource.detected_mime}
-        htmlView={htmlView}
       />
     );
   }

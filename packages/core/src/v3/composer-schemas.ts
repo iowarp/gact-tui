@@ -1,3 +1,4 @@
+import type { CommentAttachment } from './comment-domain.js';
 import { acceptedParameterGeneratedSchema } from '../generated/clio-schemas/accepted-parameter.schema.js';
 import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/model-capability-tags.schema.js';
 import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts.schema.js';
@@ -47,6 +48,14 @@ export const messageBehaviorSchema = z.object({
 export const composerMessagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({
+    type: z.literal('comment_session'),
+    metadata: z.object({
+      comment_session: z.custom<CommentAttachment>(
+        (value) => typeof value === 'object' && value !== null,
+      ),
+    }),
+  }),
+  z.object({
     type: z.literal('context_ref'),
     ref_kind: contextReferenceKindSchema,
     ref_id: z.string(),
@@ -59,6 +68,11 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
     resource_revision: z.string(),
     name: z.string(),
     delivery_preference: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('summon'),
+    target_kind: z.enum(['subagent', 'workflow', 'flow', 'server']),
+    target: z.string(),
   }),
 ]);
 

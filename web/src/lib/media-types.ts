@@ -15,6 +15,9 @@ const TEXT_APPLICATION_TYPES = new Set([
   'application/json',
   'application/xml',
   'application/javascript',
+  // LaTeX source, as Windows' registry and some servers name it.
+  'application/x-tex',
+  'application/x-latex',
 ]);
 
 /** Whether an `application/*` media type carries readable text. */

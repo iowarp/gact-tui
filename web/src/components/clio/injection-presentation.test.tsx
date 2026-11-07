@@ -211,3 +211,48 @@ it('keeps unknown task envelopes in the normal info control, reachable before ex
   await user.keyboard('{Enter}');
   expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
 });
+
+it('reads a background script notify as a message from the script, grouped by script', () => {
+  const one = {
+    type: 'clio.code.notify',
+    tasks: [
+      {
+        handle: 'task_a',
+        label: 'Watch job 42',
+        notifies: [{ message: 'Job 42 finished at step 900', data: { step: 900 }, at: 't' }],
+      },
+    ],
+  };
+  expect(
+    injectionPresentation(
+      'attention',
+      `[CLIO; attention; Code task_a: running; notification mail_1]\n${JSON.stringify(one)}`,
+    ),
+  ).toEqual({
+    label: 'Message from Watch job 42',
+    text: '- Job 42 finished at step 900',
+    format: 'markdown',
+    tasks: [{ handle: 'task_a', label: 'Watch job 42' }],
+  });
+  const two = {
+    type: 'clio.code.notify',
+    tasks: [
+      { handle: 'task_a', label: 'Printer', notifies: [{ message: 'Nozzle at 231 °C' }] },
+      { handle: 'task_b', label: '', notifies: [{ message: 'Job done' }] },
+    ],
+  };
+  // Several scripts: no task in the header, which the task-result path cannot read.
+  const grouped = injectionPresentation(
+    'attention',
+    `[CLIO; attention; notification mail_2]\n${JSON.stringify(two)}`,
+  );
+  expect(grouped?.label).toBe('Messages from 2 background scripts');
+  expect(grouped?.text).toBe(
+    '**Printer**\n- Nozzle at 231 °C\n\n**a background script**\n- Job done',
+  );
+  // Each script is shown in Work by its own handle.
+  expect(grouped?.tasks).toEqual([
+    { handle: 'task_a', label: 'Printer' },
+    { handle: 'task_b', label: 'a background script' },
+  ]);
+});

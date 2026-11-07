@@ -36,7 +36,8 @@ import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ContextReferenceLink } from './context-reference-link';
-import { inlinedReferenceIds, type ContextReferenceBlock } from '@/lib/sent-inline-references';
+import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inline-references';
+import { SummonChip } from './summon-chip';
 import { sentDataReferences } from '@/lib/sent-data-references';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
@@ -157,7 +158,7 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   reasoningDefaultOpen?: boolean;
   compactReferences?: boolean;
   /** Reference blocks a sent message can show at their `@mention` in its text. */
-  inlineReferences?: readonly ContextReferenceBlock[];
+  inlineReferences?: readonly InlineReferenceBlock[];
 };
 
 function MessageBlockView({
@@ -305,7 +306,7 @@ function MessageBlockView({
     case 'diff':
       return (
         <BoundedResult lines={previewLines} title="File changes">
-          <CodeBlock code={block.unified_diff} language="diff" showLineNumbers>
+          <CodeBlock code={withoutFileHeaders(block.unified_diff)} language="diff" showLineNumbers>
             <CodeBlockHeader>
               <CodeBlockTitle>
                 <FileCode2Icon aria-hidden="true" className="size-3.5" />
@@ -322,7 +323,10 @@ function MessageBlockView({
                     <PanelsTopLeftIcon aria-hidden="true" />
                   </Button>
                 ) : null}
-                <CodeBlockCopyButton aria-label={`Copy diff for ${block.path}`} />
+                <CodeBlockCopyButton
+                  aria-label={`Copy diff for ${block.path}`}
+                  value={block.unified_diff}
+                />
               </CodeBlockActions>
             </CodeBlockHeader>
           </CodeBlock>
@@ -360,6 +364,8 @@ function MessageBlockView({
       );
     case 'context_reference':
       return <ContextReferenceLink block={block} onOpenReference={onOpenReference} />;
+    case 'summon':
+      return <SummonChip block={block} />;
     case 'unknown':
       return (
         <Alert>
@@ -376,7 +382,8 @@ function MessageBlockView({
 
 function sentInlineReferences(blocks: readonly MessageBlock[]) {
   const references = blocks.filter(
-    (block): block is ContextReferenceBlock => block.type === 'context_reference',
+    (block): block is InlineReferenceBlock =>
+      block.type === 'context_reference' || block.type === 'summon',
   );
   const texts = blocks.flatMap((block) =>
     block.type === 'text' && !block.streaming ? [sentDataReferences(block.text).text] : [],
@@ -454,7 +461,10 @@ export function MessageBlockSequence({
       continue;
     }
 
-    if (block.type === 'context_reference' && inline?.shown.has(block.id)) {
+    if (
+      (block.type === 'context_reference' || block.type === 'summon') &&
+      inline?.shown.has(block.id)
+    ) {
       index += 1;
       continue;
     }
@@ -517,4 +527,13 @@ export function MessageBlockSequence({
   }
 
   return rendered;
+}
+
+/** A diff's ``---``/``+++`` file lines repeat the path its header shows; the preview's
+ *  few lines go to the change itself (Copy keeps the whole diff). */
+function withoutFileHeaders(diff: string): string {
+  const lines = diff.split('\n');
+  let start = 0;
+  while (start < lines.length && /^(---|\+\+\+) /u.test(lines[start]!)) start += 1;
+  return start > 0 && start < lines.length ? lines.slice(start).join('\n') : diff;
 }

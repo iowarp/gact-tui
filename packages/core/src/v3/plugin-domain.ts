@@ -232,7 +232,13 @@ const contributionSchema = z
   .passthrough();
 
 export const resolvedToolSchema = z
-  .object({ name: z.string(), plugin: z.string().default(''), description: z.string().default('') })
+  .object({
+    name: z.string(),
+    plugin: z.string().default(''),
+    description: z.string().default(''),
+    /** Declared deferred: named in the prompt, its schema loaded with search_tools. */
+    defer: z.boolean().nullable().optional(),
+  })
   .passthrough();
 
 export const promptFragmentSchema = z.object({

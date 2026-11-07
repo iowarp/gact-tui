@@ -188,7 +188,9 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     await read.click();
     const details = message.getByRole('region', { name: 'Read: Result' });
-    await expect(details).toContainText('notes.md');
+    await expect(details).toHaveCount(1);
+    // A named (not linked) subject stays the row's target when the row is open.
+    await expect(read).toContainText('notes.md');
     await expect(details).not.toContainText('Arguments');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await read.focus();

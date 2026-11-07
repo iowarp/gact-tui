@@ -51,6 +51,7 @@ export function WorkspaceTranscript({
   composer,
   onSelectPrompt,
   onOpenReference,
+  onOpenTasks,
   onInteractionResponse,
 }: {
   surfaceRef: RefObject<HTMLElement | null>;
@@ -91,6 +92,8 @@ export function WorkspaceTranscript({
   composer: (variant: 'docked' | 'welcome') => ReactNode;
   onSelectPrompt: (prompt: string) => void;
   onOpenReference: (reference: WorkspaceReference) => void;
+  /** A background task's link opens the session's background tasks (Evidence). */
+  onOpenTasks: () => void;
   onInteractionResponse: ReturnType<typeof useWorkspaceQuestions>['handleInteractionResponse'];
 }) {
   const { transcript, transcriptError } = data;
@@ -143,6 +146,7 @@ export function WorkspaceTranscript({
                   navigation.revealWorkbench({ kind: 'resources', section: 'work' })
                 }
                 onOpenReference={onOpenReference}
+                onOpenTasks={onOpenTasks}
                 onInteractionResponse={onInteractionResponse}
                 forkingMessageId={
                   history.fork.isPending && history.fork.variables

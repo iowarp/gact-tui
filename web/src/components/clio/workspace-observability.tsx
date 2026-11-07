@@ -1,3 +1,4 @@
+import type { WorkspaceSourceFolder } from '@clio/core/v3';
 import type { RunState } from '@clio/core/v3';
 import type { RefObject } from 'react';
 import type { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -41,6 +42,7 @@ export type ObservabilityNavigation = Pick<
   | 'openSubagent'
   | 'openWorkspaceFile'
   | 'openWorkspaceResource'
+  | 'revealWorkbench'
 >;
 
 /** Props the toolbar dock and the session view take identically. */
@@ -111,6 +113,7 @@ export function WorkspaceObservabilityDock({
       diffs={observability.diffs.data ?? []}
       onOpenCanvas={onOpenCanvas}
       onOpenWork={onOpenWork}
+      onOpenBrowser={navigation.revealWorkbench}
       sessionState={sessionState}
     />
   );
@@ -124,6 +127,7 @@ export function WorkspaceObservabilityView({
   requestedView,
   contextTargetId,
   onContextTargetChange,
+  workspaceFolders,
 }: {
   data: ObservabilityData;
   navigation: ObservabilityNavigation;
@@ -131,6 +135,8 @@ export function WorkspaceObservabilityView({
   requestedView: ReturnType<typeof useObservabilityNavigation>['requestedView'];
   contextTargetId: string;
   onContextTargetChange: (targetId: string) => void;
+  /** Folders the session may write besides the workspace (Evidence lists them). */
+  workspaceFolders?: readonly WorkspaceSourceFolder[];
 }) {
   const { contextObservability, sessionContext, sessionObservability } = data;
   return (
@@ -157,6 +163,7 @@ export function WorkspaceObservabilityView({
       onContextTargetChange={onContextTargetChange}
       onUpdateContextPreferences={(input) => sessionContext.preferences.mutateAsync(input)}
       selectedContextTargetId={contextTargetId}
+      workspaceFolders={workspaceFolders}
     />
   );
 }

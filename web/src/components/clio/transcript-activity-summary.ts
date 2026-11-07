@@ -81,6 +81,7 @@ function injectionLabel(source: string): string {
   if (['task_completion', 'task_result', 'task_results', 'memory_search'].includes(source))
     return 'received results';
   if (source === 'memory') return 'received memory';
+  if (source === 'attention') return 'received a task notice';
   if (source === 'goal_judgment') return 'received goal judgment';
   if (source === 'loop_wake') return 'received loop wake';
   if (source === 'scheduled_wake') return 'received scheduled wake';

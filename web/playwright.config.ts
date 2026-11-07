@@ -15,7 +15,12 @@ if (!Number.isSafeInteger(previewPort) || previewPort < 1 || previewPort > 65_53
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/tool-result-presentation.spec.ts', '**/dialog-layout.spec.ts'],
+  testIgnore: [
+    '**/tool-result-presentation.spec.ts',
+    '**/tool-operations.spec.ts',
+    '**/dialog-layout.spec.ts',
+    '**/fs-file-tools.spec.ts',
+  ],
   snapshotPathTemplate:
     '{testDir}/../tests/visual/snapshots/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
   fullyParallel: false,

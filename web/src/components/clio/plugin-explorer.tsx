@@ -21,6 +21,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ScopedDocumentNavigation } from './scoped-document-navigation';
 import { FileViewerShell } from './file-viewer-shell';
 import { PluginSourceEditor } from './plugin-source-editor';
+import { PluginToolSettings } from './plugin-tool-settings';
 import { FileIcon } from 'lucide-react';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
@@ -127,6 +128,9 @@ export function PluginExplorer({
       setSaving(false);
     }
   }
+  const hasTools = Boolean(
+    plugin && !selected.skill && (plugin.tools.length || plugin.mcp_servers.length),
+  );
   const parts: [keyof PluginEntry, string][] = [
     ['tools', 'Tools'],
     ['skills', 'Skills'],
@@ -235,8 +239,20 @@ export function PluginExplorer({
           <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-3">
             <TabsList>
               <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+              {hasTools ? <TabsTrigger value="tools">Tools</TabsTrigger> : null}
               <TabsTrigger value="files">Files ({files.length})</TabsTrigger>
             </TabsList>
+            {hasTools ? (
+              <TabsContent value="tools" className="clio-scrollbar min-h-0 flex-1 overflow-y-auto">
+                {selected.pending ? (
+                  <p className="text-sm text-muted-foreground">
+                    Tool settings are available once this plugin is installed and trusted.
+                  </p>
+                ) : (
+                  <PluginToolSettings reference={selected.reference} />
+                )}
+              </TabsContent>
+            ) : null}
             <TabsContent
               value="capabilities"
               className="clio-scrollbar min-h-0 flex-1 overflow-y-auto"

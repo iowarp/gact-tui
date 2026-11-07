@@ -22,7 +22,27 @@ export const toolPresentationSchema = z.object({
       media_type: z.string().optional(),
       text: z.string().optional(),
       label: z.string().optional(),
+      title: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      model: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
       language: z.string().optional(),
+      start_line: z
+        .number()
+        .int()
+        .positive()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      line: z
+        .number()
+        .int()
+        .positive()
+        .nullish()
+        .transform((value) => value ?? undefined),
       // "workspace_file" only: the workspace-relative identity of a file the
       // agent inspected via view_image/view_pdf. Never carries bytes -- the
       // client fetches and previews the file itself, keyed by workspace_id +
@@ -51,6 +71,7 @@ export const toolPresentationSchema = z.object({
           'url',
           'file',
           'work',
+          'task',
           'surface',
           'connected_data',
           'memory',

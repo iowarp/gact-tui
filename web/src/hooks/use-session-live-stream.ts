@@ -8,6 +8,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
+import { LiveSourceRefresher } from '@/lib/streaming/live-source-updates';
 import { ScienceEntryMerger } from '@/lib/streaming/science-log-updates';
 import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -86,14 +87,18 @@ export function useSessionLiveStream({
     const invalidations = new QueryInvalidationBatcher(queryClient);
     // Science log entries merge into the study read once per display frame.
     const science = new ScienceEntryMerger(queryClient, settings.endpoint, sessionId);
+    const liveSources = new LiveSourceRefresher(queryClient, settings.endpoint, sessionId);
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     let resumeCursor = initialCursor;
     let reconcileBeforeConnect = false;
     const reconcileAfterDisconnect = async () => {
-      const [workspaces, sessions, transcript] = await Promise.all([
+      const [workspaces, sessions, transcript, surfaces] = await Promise.all([
         repository.workspaces(controller.signal),
         repository.sessionFamily(sessionId, controller.signal),
         repository.transcript(sessionId, controller.signal, { limit: TRANSCRIPT_PAGE_SIZE }),
+        // The surfaces route folds every part, so a surface whose creation is older than
+        // the transcript page, or that a background script feeds, is not lost on reconnect.
+        repository.surfaces(sessionId, controller.signal),
       ]);
       if (controller.signal.aborted) return;
       queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
@@ -107,7 +112,7 @@ export function useSessionLiveStream({
         tasks: recordById(transcript.tasks),
         subagents: recordById(transcript.subagents),
         artifacts: recordById(transcript.artifacts),
-        surfaces: recordById(transcript.surfaces),
+        surfaces: { ...recordById(transcript.surfaces), ...recordById(surfaces) },
         revisions: {},
       });
       resumeCursor = transcript.cursor ?? resumeCursor;
@@ -152,6 +157,7 @@ export function useSessionLiveStream({
             }
             batcher.push(frame);
             science.push(frame);
+            liveSources.push(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }
@@ -164,6 +170,7 @@ export function useSessionLiveStream({
                 workspaceId,
                 taskOwnerSessionId: taskUpdate?.owner_session_id,
                 taskInvocationId: taskUpdate?.invocation_id,
+                cursor: frame.cursor,
               }),
             );
             const notice = streamNoticeForFrame(frame);
@@ -195,6 +202,7 @@ export function useSessionLiveStream({
       batcher.stop({ flush: true });
       invalidations.stop({ flush: true });
       science.stop({ flush: true });
+      liveSources.stop({ flush: true });
     };
   }, [
     applyFrames,
@@ -364,6 +372,7 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
+  cursor?: string;
   taskOwnerSessionId?: string;
   taskInvocationId?: string;
   endpoint: string;
@@ -380,7 +389,11 @@ export function queryInvalidationKeysForEvent({
   workspaceId,
   taskOwnerSessionId,
   taskInvocationId,
+  cursor,
 }: QueryInvalidationEvent): QueryKey[] {
+  // A background script's live feed sends transient upserts (no cursor) every tick;
+  // they change a surface, never a pending interaction, so nothing is refetched.
+  if (eventName === 'a2ui.surface.upserted' && cursor === '') return [];
   const keys: QueryKey[] = [];
   if (eventName === 'task.updated' && taskOwnerSessionId === sessionId && taskInvocationId) {
     keys.push(queryKeys.transcript(endpoint, sessionId));
@@ -407,6 +420,14 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'semantic.event') {
     keys.push(queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'agent-iterations'));
     keys.push(['session-work', endpoint, sessionId]);
+  }
+  // The agent wrote its plan or todos: the Work rail refreshes now, not on its next poll.
+  if (eventName === 'session.work.updated') {
+    keys.push(['session-work', endpoint, sessionId]);
+  }
+  // A browser page opened, changed or closed: the Browser tabs and the Work rail refresh.
+  if (eventName.startsWith('browser.page.')) {
+    keys.push(['browser-pages', endpoint, sessionId]);
   }
   if (isModelConfigurationEvent(eventName)) {
     keys.push(

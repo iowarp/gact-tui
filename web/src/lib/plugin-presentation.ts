@@ -160,11 +160,16 @@ type Contribution = AgentResolution['skills'][number];
 export interface PluginMcpServer {
   name: string;
   type: string;
+  /** The plugin declares this server's tools deferred (loaded with search_tools). */
+  deferred: boolean;
 }
 
 /** Everything the resolution attributes to one plugin, plus the plugins that require it. */
 export interface PluginContributions {
+  /** Tools whose schemas are in every request. */
   tools: string[];
+  /** Tools named in the prompt whose schemas the agent loads when it needs them. */
+  deferredTools: string[];
   skills: Contribution[];
   fragments: PromptFragment[];
   mcpServers: PluginMcpServer[];
@@ -185,14 +190,20 @@ export function pluginContributions(
   const own = <T extends { plugin?: string | null }>(rows: readonly T[]) =>
     rows.filter((row) => row.plugin === pluginId);
   return {
-    tools: own(resolution.tools).map((tool) => tool.name),
+    tools: own(resolution.tools)
+      .filter((tool) => tool.defer !== true)
+      .map((tool) => tool.name),
+    deferredTools: own(resolution.tools)
+      .filter((tool) => tool.defer === true)
+      .map((tool) => tool.name),
     skills: own(resolution.skills),
     fragments: resolution.prompt.sections.flatMap((section) => own(section.fragments)),
     mcpServers: Object.entries(resolution.mcp_servers)
       .filter(([, server]) => server.plugin === pluginId)
       .map(([name, server]) => {
-        const spec = (server as { spec?: { type?: unknown } }).spec;
-        return { name, type: typeof spec?.type === 'string' ? spec.type : '' };
+        const row = server as { spec?: { type?: unknown }; defer?: unknown };
+        const type = typeof row.spec?.type === 'string' ? row.spec.type : '';
+        return { name, type, deferred: row.defer === true };
       }),
     flows: own(resolution.flows),
     subagents: own(resolution.subagents),
@@ -213,7 +224,7 @@ function counted(count: number, singular: string, plural = `${singular}s`): stri
 /** A one-line count of what a plugin adds, such as "6 tools, 2 skills, 3 prompt parts". */
 export function capabilitySummary(contributions: PluginContributions): string {
   const parts = [
-    [contributions.tools.length, 'tool'],
+    [contributions.tools.length + contributions.deferredTools.length, 'tool'],
     [contributions.skills.length, 'skill'],
     [contributions.fragments.length, 'prompt part'],
     [contributions.mcpServers.length, 'MCP server'],
@@ -278,9 +289,28 @@ export function pluginChangeSummary(text: string): { added: string[]; removed: s
   return { added, removed: removed.filter(Boolean) };
 }
 
-/** "Plugins changed: +shell, −document-runtime", or "Plugins changed". */
+/**
+ * The tools a plugin change made callable now, from the note's "New tools you can call
+ * now" section (one "- name(arguments): description" line each).
+ */
+export function pluginChangeTools(text: string): string[] {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => line.startsWith('New tools you can call now'));
+  if (start < 0) return [];
+  const tools: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = /^- ([A-Za-z0-9_.-]+)\(/u.exec(line.trim());
+    if (!match) break;
+    tools.push(match[1]!);
+  }
+  return tools;
+}
+
+/** "Plugins changed: +shell, −document-runtime (2 new tools)", or "Plugins changed". */
 export function pluginChangeLabel(text: string): string {
   const { added, removed } = pluginChangeSummary(text);
   const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
-  return items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed';
+  const tools = pluginChangeTools(text).length;
+  const reach = tools ? ` (${tools} new ${tools === 1 ? 'tool' : 'tools'})` : '';
+  return (items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed') + reach;
 }

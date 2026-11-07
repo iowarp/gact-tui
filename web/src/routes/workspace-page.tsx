@@ -357,6 +357,7 @@ export function WorkspacePage() {
               contextTargetId={contextTargetId}
               onContextTargetChange={setContextTargetId}
               onFilesViewActiveChange={setFilesViewActive}
+              workspaceFolders={activeWorkspace?.source_folders}
             />
           }
           workbenchRevealKey={workbench.activeRequest?.key}
@@ -397,6 +398,7 @@ export function WorkspacePage() {
               setComposerFocusKey((current) => current + 1);
             }}
             onOpenReference={(reference) => void openComposerReference(reference)}
+            onOpenTasks={() => openObservability('evidence')}
             onInteractionResponse={handleInteractionResponse}
           />
         </ClioAppShell>

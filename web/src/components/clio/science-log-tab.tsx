@@ -44,7 +44,7 @@ export function ScienceLogTab({
   onOpenFolder,
 }: ScienceLogTabProps) {
   // While a branch runs, the attached dashboards may change between entries.
-  const log = useScienceLog(sessionId, true, true);
+  const log = useScienceLog(sessionId);
   const openTask = useOpenTaskHandle(onOpenSubagent);
   const viewInTranscript = useTranscriptJump(sessionId, workspaceId);
   if (log.isPending) return <p className="p-4 text-sm text-muted-foreground">Loading the study…</p>;
@@ -91,6 +91,28 @@ export interface ScienceLogViewProps {
   views?: ReactNode;
 }
 
+type StudyMode = 'views' | 'list' | 'graph';
+/**
+ * Each study's chosen mode for this browser tab, so a remounted tab (maximizing the canvas)
+ * opens where the person left it. A per-viewer convenience: without storage it is 'list'.
+ */
+const studyModeKey = (study: string) => `clio.science-log.mode.${study}`;
+function chosenStudyMode(study: string): StudyMode | undefined {
+  try {
+    const mode = window.sessionStorage.getItem(studyModeKey(study));
+    return mode === 'views' || mode === 'list' || mode === 'graph' ? mode : undefined;
+  } catch {
+    return undefined; // storage blocked: the default mode
+  }
+}
+function chooseStudyMode(study: string, mode: StudyMode): void {
+  try {
+    window.sessionStorage.setItem(studyModeKey(study), mode);
+  } catch {
+    // storage blocked: the choice lasts until the tab remounts
+  }
+}
+
 /** List and graph views share entry selection, citations and the original record renderer. */
 export function ScienceLogView({
   study,
@@ -115,7 +137,14 @@ export function ScienceLogView({
     : tree.branch;
   const [selectedBranch, setSelectedBranch] = useState(initial);
   const [focusedEntry, setFocusedEntry] = useState<string>();
-  const [studyView, setStudyView] = useState<'views' | 'list' | 'graph'>('list');
+  // The chosen mode outlives a remount (maximizing the canvas remounts the tab).
+  const [studyView, setStudyViewState] = useState<StudyMode>(
+    () => chosenStudyMode(study.study) ?? 'list',
+  );
+  const setStudyView = (mode: StudyMode) => {
+    chooseStudyMode(study.study, mode);
+    setStudyViewState(mode);
+  };
   // Views, the list and the graph each get the whole tab rather than sharing it.
   const mode = studyView === 'views' && !views ? 'list' : studyView;
   const groups = useMemo(() => observationGroups(study), [study]);

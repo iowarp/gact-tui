@@ -79,14 +79,18 @@ beforeEach(() => {
   repository.commands.mockResolvedValue([
     {
       id: '/review',
+      kind: 'command',
+      name: '/review',
+      qualified_id: '/evidence:review',
       title: 'Review evidence',
       description: 'Review the selected evidence with the active specialist.',
       source: 'plugin',
+      plugin: 'evidence',
+      label: '',
       status: 'available',
       enabled: true,
+      unsupported_fields: ['model'],
       aliases: ['/inspect'],
-      user_invocable: true,
-      agent_invocable: true,
       argument_hint: '<artifact>',
       arguments: [],
       metadata: {},
@@ -173,7 +177,11 @@ describe('prompt and command settings', () => {
     await user.click(await screen.findByRole('button', { name: /Review evidence/ }));
     const commandDialog = screen.getByRole('dialog');
     expect(within(commandDialog).getByText('/review <artifact>')).toBeVisible();
-    expect(within(commandDialog).getByText('For agents')).toBeVisible();
+    // Commands are listed by kind and source; agents do not run commands.
+    expect(within(commandDialog).getByText('Command file')).toBeVisible();
+    expect(within(commandDialog).getByText('evidence')).toBeVisible();
+    expect(within(commandDialog).getByText('Some fields ignored')).toBeVisible();
+    expect(within(commandDialog).queryByText('For agents')).not.toBeInTheDocument();
     expect(within(commandDialog).getByText(/Also available as \/inspect/)).toBeVisible();
   });
 });

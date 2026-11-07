@@ -21,6 +21,17 @@ export class PresentationRepository extends McpAppRepository {
     });
   }
 
+  /** Save the person's edit of the session plan; the agent sees it at its next step. */
+  public saveSessionPlan(sessionId: string, content: string, signal?: AbortSignal): Promise<void> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/plan`,
+      body: { content },
+      decode: () => undefined,
+      signal,
+    });
+  }
+
   public toolPresentationContent(
     sessionId: string,
     callId: string,

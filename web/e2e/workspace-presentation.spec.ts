@@ -26,19 +26,25 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [1280, 1600]) {
-  test(`HTML uses one preview/source/action toolbar at ${width}px`, async ({ page }, testInfo) => {
+  test(`an HTML file opens in the shared browser by its path at ${width}px`, async ({
+    page,
+  }, testInfo) => {
     const name = 'report.html';
     const html = '<h1>Fixture report</h1><script>window.__htmlPreviewRan = true;</script>';
-    let reads = 0;
+    const opened: unknown[] = [];
     await page.setViewportSize({ width, height: 900 });
     await page.route('**/v1/workspaces/ws_flat_ndp/files?*', (route) =>
       route.fulfill({
         json: { entries: [{ path: name, type: 'file', size: html.length }], truncated: false },
       }),
     );
-    await page.route('**/v1/workspaces/ws_flat_ndp/files/read?*', (route) => {
-      reads += 1;
-      return route.fulfill({ contentType: 'text/html', body: html });
+    await page.route('**/v1/workspaces/ws_flat_ndp/files/read?*', (route) =>
+      route.fulfill({ contentType: 'text/html', body: html }),
+    );
+    await page.route('**/v1/sessions/sess_flat_ndp/browser/pages', (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      opened.push(route.request().postDataJSON());
+      return route.fulfill({ status: 422, json: { detail: 'browser not available in the fixture' } });
     });
     await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
     await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
@@ -46,54 +52,15 @@ for (const width of [1280, 1600]) {
     await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
     await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
     await page.getByRole('treeitem', { name, exact: true }).click();
+    await expect.poll(() => opened).toEqual([{ path: name }]);
     const viewer = page
       .getByRole('complementary', { name: 'Workspace canvas' })
       .locator('[data-slot="file-viewer"]');
     await expect(viewer).toHaveCount(1);
-    const toolbar = viewer.locator('[data-slot="viewer-toolbar"]');
-    await expect(toolbar).toHaveCount(1);
-    await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
-    await expect(viewer.getByText(/Static preview ·/)).toHaveCount(0);
-    const frame = viewer.getByTitle(`HTML preview of ${name}`);
-    await expect(frame).toBeVisible();
-    await expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
-    expect(await frame.getAttribute('srcdoc')).toContain('__htmlPreviewRan');
-    await expect
-      .poll(() =>
-        page
-          .frameLocator(`iframe[title="HTML preview of ${name}"]`)
-          .locator('body')
-          .evaluate(() => Reflect.get(window, '__htmlPreviewRan')),
-      )
-      .toBe(true);
-    await expect(toolbar.getByRole('button', { name: 'Stop', exact: true })).toBeVisible();
-    await expect(toolbar.getByRole('button', { name: 'Restart', exact: true })).toBeVisible();
-    await expect
-      .poll(() =>
-        frame.evaluate((element) => {
-          try {
-            return (element as HTMLIFrameElement).contentDocument === null;
-          } catch {
-            return true;
-          }
-        }),
-      )
-      .toBe(true);
-    await expect
-      .poll(async () => {
-        const frameBounds = await frame.boundingBox();
-        const toolbarBounds = await toolbar.boundingBox();
-        return frameBounds!.y - toolbarBounds!.y - toolbarBounds!.height;
-      })
-      .toBeLessThanOrEqual(1);
-    await selectFileView(page, viewer, 'Source');
-    await expect(viewer.locator('[data-language="html"]')).toContainText(
-      '__htmlPreviewRan = true;',
-    );
-    await selectFileView(page, viewer, 'HTML preview');
-    await expect(frame).toBeVisible();
-    expect(reads).toBe(1);
-    await page.screenshot({ path: testInfo.outputPath(`html-toolbar-${width}.png`) });
+    await expect(viewer.locator('iframe')).toHaveCount(0);
+    await expect(viewer.getByRole('button', { name: 'Open in browser', exact: true })).toBeVisible();
+    await expect(viewer.locator('[data-language="html"]')).toContainText('__htmlPreviewRan = true;');
+    await page.screenshot({ path: testInfo.outputPath(`html-in-browser-${width}.png`) });
   });
 }
 

@@ -185,7 +185,8 @@ describe('composer reference selection', () => {
     const { onSubmit } = renderComposer();
     const input = composerEditor();
 
-    await user.type(input, '@');
+    // Only local files are listed before a word is typed; a few letters bring the rest.
+    await user.type(input, '@Rev');
     await screen.findByRole('option', { name: /Review notes.md/ });
     await user.keyboard('{ArrowDown}{Enter}');
 

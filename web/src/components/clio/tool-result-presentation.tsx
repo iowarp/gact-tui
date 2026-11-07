@@ -6,6 +6,8 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { PresentationLink } from './presentation-link';
+import { sandboxBoundary } from './sandbox-boundary';
+import { SandboxBoundaryNotice } from './sandbox-boundary-notice';
 import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 import {
@@ -38,9 +40,28 @@ import {
 } from './tool-presentation';
 import { withQuestionPresentation } from './question-tool-presentation';
 import { useQuestionAnswer } from './question-answer-context';
+import { ReportTabs } from './report-tabs';
+import { childReports } from '@/lib/child-reports';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
-export function ToolResultPresentation({
+export function ToolResultPresentation(props: {
+  tool: ToolInvocation;
+  subjectId?: string;
+  summaryInHeader?: boolean;
+}) {
+  // A call that failed at the sandbox says so above its result (#1905).
+  const boundary = sandboxBoundary(props.tool.output);
+  const body = <ToolResultBody {...props} />;
+  if (!boundary) return body;
+  return (
+    <>
+      <SandboxBoundaryNotice boundary={boundary} />
+      {body}
+    </>
+  );
+}
+
+function ToolResultBody({
   tool: recordedTool,
   subjectId,
   summaryInHeader = false,
@@ -126,6 +147,25 @@ export function ToolResultPresentation({
       </div>
     );
   }
+  // A wait or a blocking spawn with several returned reports: one tab per child.
+  // While children are only pending, the named snapshots list them instead.
+  const reports = childReports(blocks);
+  if (reports.filter((report) => report.result_kind !== 'snapshot').length >= 2) {
+    const rest = blocks.filter((block) => !reports.includes(block));
+    return (
+      <div className="ml-7 flex min-w-0 flex-col gap-1" data-slot="tool-human-result">
+        {summary ? (
+          <p className="whitespace-pre-wrap pr-2 text-sm leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            {summary}
+          </p>
+        ) : null}
+        {rest.map((block) => (
+          <DefaultBlockPanel key={block.id} block={block} lines={lines} running={false} />
+        ))}
+        <ReportTabs reports={reports} />
+      </div>
+    );
+  }
   if (tool.name === 'workspace_resource_wait') {
     return (
       <div className="ml-7 min-w-0" data-slot="tool-human-result">
@@ -148,9 +188,16 @@ export function ToolResultPresentation({
     );
   }
   const resourceListBlocks =
-    tool.name === 'workspace_resource_list'
-      ? blocks.filter((block) => block.type === 'link' && block.target === 'resource')
+    contentBlocks.length &&
+    contentBlocks.every(
+      (block) =>
+        block.type === 'link' && ['resource', 'file', 'artifact'].includes(block.target ?? ''),
+    )
+      ? contentBlocks
       : [];
+  const linkListTitle = resourceListBlocks.every((block) => block.target === 'resource')
+    ? 'Workspace resources'
+    : 'Files';
   if (resourceListBlocks.length) {
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
@@ -163,8 +210,8 @@ export function ToolResultPresentation({
           className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
           data-slot="tool-result-panel"
         >
-          <BoundedResult lines={3} unit="items" title="Workspace resources">
-            <ul aria-label="Workspace resources" className="divide-y">
+          <BoundedResult lines={3} unit="items" title={linkListTitle} inlineExpansion>
+            <ul aria-label={linkListTitle} className="divide-y">
               {resourceListBlocks.map((resource) => (
                 <li className="flex min-w-0 items-center gap-2 px-2 py-1.5" key={resource.id}>
                   <FileIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
@@ -230,7 +277,7 @@ export function ToolResultPresentation({
       ) : null}
       {blocks.map((block, index) => {
         const collectedChildOutput =
-          (tool.name === 'get_agent_task_output' || tool.presentation?.action === 'Collect') &&
+          (tool.name === 'get_task_result' || tool.presentation?.action === 'Collect') &&
           block.type === 'markdown';
         const budget = collectedChildOutput ? Math.min(lines, 2) : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
@@ -376,7 +423,15 @@ export function ToolResultPresentation({
                   ) : undefined
                 }
               >
-                <BlockBody block={block} text={block.text ?? ''} />
+                {['code', 'diff', 'media'].includes(block.type) ? (
+                  <BlockBody block={block} text={block.text ?? ''} />
+                ) : (
+                  // Prose in a box keeps the box's inset on every side (the code, diff and
+                  // media bodies carry their own).
+                  <div className="px-2 pb-2 pt-1" data-slot="tool-result-panel-text">
+                    <BlockBody block={block} text={block.text ?? ''} />
+                  </div>
+                )}
               </BoundedResult>
             )}
           </div>

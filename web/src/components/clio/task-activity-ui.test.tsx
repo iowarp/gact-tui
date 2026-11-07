@@ -1,10 +1,11 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
 import { AsyncTaskList } from './async-task-list';
 import { asyncProcessDetail } from './observability-activity';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(cleanup);
 
@@ -430,4 +431,94 @@ it('distinguishes a flow from a subagent and links a no-op follow-up to the actu
     row.parentElement!.querySelector('[aria-label="More actions for Worker #1"]')!,
   );
   expect(screen.getByRole('menuitem', { name: 'Restart flow' })).toBeVisible();
+});
+
+it('says a running script state in words in the compact rail, with its progress', () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'watcher',
+    handle: 'task_watcher',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'printer-watch',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    progress: { message: '2 min 5 s, 40 calls, 35 MB' },
+    supported_actions: ['observe', 'cancel'],
+  };
+  render(<AsyncTaskList processes={[script]} compact />);
+  expect(screen.getByText(/^Script: Running/)).toBeVisible();
+  expect(screen.getByText(/40 calls/)).toBeVisible();
+});
+
+it('opens the row a link asked Work to show, once', async () => {
+  const script: AsyncProcess = {
+    ...task,
+    id: 'script',
+    handle: 'task_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'Printer watch',
+    description: 'Poll the printer every 5 s',
+    child_session_id: undefined,
+    effective_status: 'running',
+    live_state: 'running',
+    status: 'working',
+    raw_status: 'working',
+    supported_actions: ['cancel'],
+  };
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(<AsyncTaskList processes={[script]} />);
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
+  act(() => useWorkTaskFocus.getState().focus('task_script'));
+  expect(await screen.findByRole('region', { name: 'Assignment: Printer watch' })).toBeVisible();
+  expect(useWorkTaskFocus.getState().handle).toBeUndefined();
+  // The reader can still close it; the request does not reopen it.
+  await userEvent.click(screen.getByRole('button', { name: 'Task details: Printer watch' }));
+  expect(screen.queryByRole('region', { name: 'Assignment: Printer watch' })).toBeNull();
+});
+
+it('opens Completed work when a link asks for a task that has finished', () => {
+  const finished: AsyncProcess = {
+    ...task,
+    id: 'done-script',
+    handle: 'task_done_script',
+    kind: 'mcp-task',
+    task_kind: 'Code',
+    title: 'lister',
+    description: 'List the folder six times',
+    child_session_id: undefined,
+    effective_status: 'completed',
+    live_state: 'completed',
+    status: 'completed',
+    raw_status: 'completed',
+    supported_actions: [],
+  };
+  const toggle = vi.fn();
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(
+    <AsyncTaskList
+      processes={[]}
+      pagination={{
+        hasMore: false,
+        pending: false,
+        loadMore: async () => {},
+        history: {
+          visible: false,
+          toggle,
+          items: [finished],
+          hasMore: false,
+          pending: false,
+          loadMore: async () => {},
+          error: '',
+        },
+      }}
+    />,
+  );
+  expect(toggle).not.toHaveBeenCalled();
+  act(() => useWorkTaskFocus.getState().focus('task_done_script'));
+  expect(toggle).toHaveBeenCalledTimes(1);
 });

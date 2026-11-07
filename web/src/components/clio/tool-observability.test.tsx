@@ -53,7 +53,7 @@ describe('readable compact tool results', () => {
     },
     {
       name: 'prepare_execution_runtime',
-      action: 'Get execution environment',
+      action: 'Inspect execution environment',
       block: { id: 'python', type: 'text' as const, text: 'Python version: 3.13.16' },
       expected: 'Python version: 3.13.16',
     },
@@ -135,14 +135,10 @@ describe('readable compact tool results', () => {
         />
       </PresentationNavigation.Provider>,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Create Artifact' }));
-    const result = screen.getByRole('region');
-    expect(
-      screen.getByRole('button', { name: 'Show result for Create Artifact' }),
-    ).toHaveTextContent('Created version 1');
-    expect(result).toHaveTextContent('raccoon.svg');
-    expect(result).not.toHaveTextContent('RAW SVG DATA');
-    await user.click(within(result).getByRole('button', { name: 'raccoon.svg' }));
+    const link = screen.getByRole('button', { name: 'raccoon.svg' });
+    expect(screen.getAllByText('raccoon.svg')).toHaveLength(1);
+    expect(screen.queryByText('RAW SVG DATA')).not.toBeInTheDocument();
+    await user.click(link);
     expect(opened).toEqual(['D:/workspace/raccoon.svg']);
   });
 
@@ -191,7 +187,7 @@ describe('readable compact tool results', () => {
     render(<ClioToolInvocation compact tool={tool} />);
     await userEvent
       .setup()
-      .click(screen.getByRole('button', { name: 'Show result for Generate widget' }));
+      .click(screen.getByRole('button', { name: 'Show result for Create widget' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       'must contain exactly one id="root" component',
     );
@@ -244,7 +240,7 @@ describe('readable compact tool results', () => {
     render(<ClioToolInvocation compact tool={tool} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Show result for external_tool' }));
-    expect(screen.getByRole('region')).toHaveTextContent('No formatted result was recorded');
+    expect(screen.getByRole('region')).toHaveTextContent('payload data');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Technical details for external_tool' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('payload data');

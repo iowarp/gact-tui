@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { subagentOpenTarget, SUBAGENT_OPEN_HINT } from './subagent-navigation';
 import type {
   Artifact,
@@ -170,6 +172,13 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     'changes',
     'sources',
   ]);
+  // A link asked to show a background task: its section opens, then its row does.
+  const taskFocused = useWorkTaskFocus((state) => Boolean(state.handle));
+  const { value: openSections, onValueChange: setOpenSections } = sections;
+  useEffect(() => {
+    if (taskFocused && !openSections.includes('background'))
+      setOpenSections([...openSections, 'background']);
+  }, [taskFocused, openSections, setOpenSections]);
 
   if (props.compact)
     return (

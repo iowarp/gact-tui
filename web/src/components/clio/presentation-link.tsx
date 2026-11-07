@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { ConnectedDataSetupLink } from './connected-data-setup-link';
+import { ArtifactImagePreview } from './artifact-image-preview';
+import { showTaskInWork } from './work-task-focus';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
 
 /** Resolve declared result links through the conversation's existing workbench. */
@@ -80,7 +82,11 @@ export function PresentationLink({
   )
     open = () => navigation.onOpenSession?.(uri);
   else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
-  else if (block.target === 'surface' && navigation?.surfaces?.[uri])
+  else if (block.target === 'task' && uri && navigation?.onOpenTasks) {
+    // The background tasks open at the row of the task the link names.
+    const openTasks = navigation.onOpenTasks;
+    open = () => showTaskInWork(uri, openTasks);
+  } else if (block.target === 'surface' && navigation?.surfaces?.[uri])
     open = () => {
       const surface = document.getElementById(a2uiSurfaceDomId(uri));
       surface?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -89,9 +95,34 @@ export function PresentationLink({
   else if (
     (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
+    block.line !== undefined &&
+    navigation?.onOpenFileReference
+  )
+    // A link that names a line (a read range, a search hit) opens the file there.
+    open = () => navigation.onOpenFileReference?.(uri, { line: block.line });
+  else if (
+    (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
+    /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
     navigation?.onOpenFile
   )
     open = () => navigation.onOpenFile?.(uri);
+  if (
+    block.target === 'artifact' &&
+    artifact &&
+    /^image\//u.test(block.media_type ?? '') &&
+    !iconOnly
+  )
+    return (
+      <span className="flex flex-col items-start gap-1">
+        <ArtifactImagePreview
+          artifact={artifact}
+          mediaType={block.media_type ?? 'image/png'}
+          label={label}
+          onOpen={open ? () => open?.({ shiftKey: false }) : undefined}
+        />
+        <span className={className}>{label}</span>
+      </span>
+    );
   if (open)
     return withTooltip(
       <Button
@@ -151,6 +182,7 @@ export function PresentationLink({
 
 /** ``<document>#<fact id>`` opens the memory page on that fact; a bare name on the document. */
 function memoryLinkParams(uri: string): URLSearchParams {
+  if (uri.startsWith('scope:')) return new URLSearchParams({ scope: uri.slice(6) });
   const [doc = uri, fact] = uri.split('#', 2);
   return new URLSearchParams(fact ? { doc, fact } : { doc });
 }

@@ -76,6 +76,14 @@ export type WorkbenchTab =
       cwd: string;
       sessionId: string;
       workspaceId: string;
+    }
+  | {
+      id: string;
+      kind: 'browser';
+      label: string;
+      pageId: string;
+      sessionId: string;
+      workspaceId: string;
     };
 
 export function fileName(path: string): string {

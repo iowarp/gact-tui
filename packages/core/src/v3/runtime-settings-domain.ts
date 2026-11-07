@@ -14,7 +14,7 @@ export const runtimeSettingsSchema = z.object({
       group: z.string(),
       value: settingValue,
       default_value: settingValue,
-      kind: z.enum(['boolean', 'number', 'integer', 'choice']),
+      kind: z.enum(['boolean', 'number', 'integer', 'choice', 'text']),
       minimum: z.number().nullable(),
       maximum: z.number().nullable(),
       unit: z.string().nullable(),

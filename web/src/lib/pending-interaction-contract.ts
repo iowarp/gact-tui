@@ -8,13 +8,20 @@ import type {
 } from '@clio/core/v3';
 import { isUserBranch } from './session-state';
 
-export type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
+export type PermissionAction =
+  | 'allow'
+  | 'deny'
+  | 'allow_session'
+  | 'allow_workspace'
+  | 'allow_script';
 
+/** allow_script is valid only on a question that offers it (a run_code script's). */
 const PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>([
   'allow',
   'deny',
   'allow_session',
   'allow_workspace',
+  'allow_script',
 ]);
 
 type PlanExitPayload = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;

@@ -32,6 +32,7 @@ import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
 import { fileFormatLabel } from '@/lib/media-types';
 import { artifactDisplayName, isDashboardArtifact } from '@/lib/dashboard-presentation';
+import { isScientificDocument, paperLabels } from '@/lib/scientific-document';
 import {
   IMMUTABLE_QUERY,
   INLINE_PREVIEW_MAX_BYTES,
@@ -46,6 +47,7 @@ import {
   verifyArtifactRecovery,
 } from './artifact-custody';
 import { downloadBytes } from './surface-export';
+import { isStreamArtifact } from './stream-artifact';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ArtifactTypeIcon } from './artifact-type-icon';
@@ -125,6 +127,7 @@ function ArtifactCardContent({
   const repository = useRepository();
   const [downloading, setDownloading] = useState(false);
   const displayName = artifactDisplayName(artifact);
+  const paper = isScientificDocument(artifact) ? paperLabels(artifact) : undefined;
   const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
@@ -279,12 +282,25 @@ function ArtifactCardContent({
             className="flex gap-2 truncate text-xs"
             title={artifact.media_type || 'Media type unavailable'}
           >
-            <span>
-              {isDashboardArtifact(artifact)
-                ? 'Dashboard'
-                : fileFormatLabel(artifact.name, artifact.media_type)}
-            </span>
-            {artifact.size === undefined ? null : <span>{formatBytes(artifact.size)}</span>}
+            {paper ? (
+              // A paper reads as what it is: "Paper", "IEEE conference", "4 pages".
+              <>
+                <span>{paper.type}</span>
+                {paper.venue ? <span>{paper.venue}</span> : null}
+                {paper.pages ? <span>{paper.pages}</span> : null}
+              </>
+            ) : (
+              <>
+                <span>
+                  {isDashboardArtifact(artifact)
+                    ? 'Dashboard'
+                    : isStreamArtifact(artifact)
+                      ? 'Stream'
+                      : fileFormatLabel(artifact.name, artifact.media_type)}
+                </span>
+                {artifact.size === undefined ? null : <span>{formatBytes(artifact.size)}</span>}
+              </>
+            )}
             {artifact.version === undefined ? null : <span>v{artifact.version}</span>}
             {artifact.created_at ? (
               <ClioRelativeTime
@@ -326,16 +342,19 @@ function ArtifactCardContent({
               </PopoverContent>
             </Popover>
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Download ${displayName}`}
-            title="Download original file"
-            disabled={downloading}
-            onClick={() => void downloadOriginal()}
-          >
-            <DownloadIcon className="size-4" />
-          </Button>
+          {/* A stream has no original file to download; it is read in its view. */}
+          {isStreamArtifact(artifact) ? null : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Download ${displayName}`}
+              title="Download original file"
+              disabled={downloading}
+              onClick={() => void downloadOriginal()}
+            >
+              <DownloadIcon className="size-4" />
+            </Button>
+          )}
         </div>
       </ArtifactHeader>
       {preview && !isDashboardArtifact(artifact) ? (

@@ -8,6 +8,7 @@ import {
   CalendarClockIcon,
   CpuIcon,
   DatabaseIcon,
+  GlobeIcon,
   GaugeIcon,
   HeartPulseIcon,
   HistoryIcon,
@@ -124,6 +125,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     group: 'Agent',
     keywords:
       'configuration timeout retries transcript reasoning compaction defaults parallelism concurrency subagents nesting depth unlimited',
+  },
+  {
+    id: 'browser',
+    label: 'Browser',
+    icon: GlobeIcon,
+    group: 'Agent',
+    keywords: 'browser chrome edge chromium installed remote debugging sign-ins web pages',
   },
   {
     id: 'plugins',

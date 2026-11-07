@@ -1,7 +1,8 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
 import { ChevronRightIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { CloseIcon, MoreIcon, RetryIcon } from '@/lib/icon-vocabulary';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -92,6 +93,13 @@ export function AsyncTaskList({
   const [restart, setRestart] = useState<AsyncProcess>();
   const [controlling, setControlling] = useState<Record<string, string>>({});
   const history = pagination?.history;
+  // A link asked for a task that has finished: its row is under Completed work, so open it.
+  const focusedTask = useWorkTaskFocus((state) => state.handle);
+  useEffect(() => {
+    if (!focusedTask || !history || history.visible) return;
+    if (!processes.some((task) => (task.handle ?? task.handle_id ?? task.id) === focusedTask))
+      history.toggle();
+  }, [focusedTask, history, processes]);
   const activeHandles = new Set(processes.map((task) => task.handle ?? task.handle_id ?? task.id));
   const visibleProcesses = history?.visible
     ? [

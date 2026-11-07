@@ -1,40 +1,28 @@
 import { queryKeys } from '@/lib/query-keys';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
-import type {
-  Artifact,
-  DocumentAnchor,
-  DocumentEditorSession,
-  DocumentManifest,
-  DocumentWorkingCopy,
-} from '@clio/core/v3';
+import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlertIcon, MessageSquareTextIcon } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CircleAlertIcon } from 'lucide-react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { CodeBlock } from '@/components/ai-elements/code-block';
+import { CommentCapture, CommentToggle } from './comments/comment-capture';
+import type { CommentSurface } from './comments/comment-model';
 import {
-  Timeline,
-  TimelineContent,
-  TimelineDate,
-  TimelineHeader,
-  TimelineIndicator,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineTitle,
-} from '@/components/reui/timeline';
+  CommentSessionProvider,
+  commentThreadsKey,
+  useCommentSession,
+} from './comments/comment-session';
+import { CommentThreadList } from './comments/comment-thread-list';
+import { pdfRegionAnchor } from './comments/region-anchors';
+import { HtmlFileInBrowser } from './html-in-browser';
+import { LatexWorkspace } from './latex-workspace';
+import { isScientificDocument } from '@/lib/scientific-document';
+import { artifactDisplayName } from '@/lib/dashboard-presentation';
+import { CodeBlock } from '@/components/ai-elements/code-block';
 import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { DocumentViewControls } from './document-view-controls';
 import { ViewerToolbarContent } from './viewer-toolbar';
 import { FileViewerInformation } from './file-viewer-information';
@@ -53,16 +41,14 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { downloadBytes } from './surface-export';
 import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
 import { DocumentRefreshAction } from './document-refresh-action';
-import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioPdfPreview } from './pdf-preview';
-import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { FileReadView } from './file-text-view';
 import { DocumentSourceView } from './document-source-view';
 import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
-import { editorLabel, openDocumentTarget } from './document-launch';
+import { openDocumentTarget } from './document-launch';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { DocumentDownloadActions } from './document-download-actions';
 import { DocumentPolicy, WorkingCopyStatus } from './document-working-copy';
@@ -82,19 +68,9 @@ export function ClioDocumentWorkspace({
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
-  const htmlReader = useRef<(() => Promise<string>) | undefined>(undefined);
-  const [htmlReady, setHtmlReady] = useState(false);
-  const registerHtmlReader = useCallback((reader?: () => Promise<string>) => {
-    htmlReader.current = reader;
-    setHtmlReady(Boolean(reader));
-  }, []);
-  const [selection, setSelection] = useState<DocumentAnchor>();
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewText, setReviewText] = useState('');
   const [status, setStatus] = useState('');
   const [documentView, setDocumentView] = useState('preview');
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
-  const [editor, setEditor] = useState<DocumentEditorSession>();
   const manifest = useQuery({
     queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
@@ -120,20 +96,22 @@ export function ClioDocumentWorkspace({
     refetchOnReconnect: false,
   });
   const effectiveManifest = (needsPdfPreview ? pdfPreview.data : undefined) ?? manifest.data;
+  const commentSurface = useMemo<CommentSurface>(
+    () => documentCommentSurface(artifact, effectiveManifest, manifest.data),
+    [artifact, effectiveManifest, manifest.data],
+  );
+  const commentThreads = useQuery({
+    queryKey: commentThreadsKey(settings.endpoint, artifact.id),
+    queryFn: ({ signal }) => repository.commentThreads(artifact.id, artifact.session_id, signal),
+    enabled: Boolean(manifest.data),
+  });
+  const commentCount =
+    commentThreads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
+  const refreshComments = () => commentThreads.refetch();
   const content = useQuery({
     queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
     enabled: Boolean(effectiveManifest && directProfiles.has(effectiveManifest.profile)),
-  });
-  const reviews = useQuery({
-    queryKey: queryKeys.key('artifact-reviews', settings.endpoint, artifact.id),
-    queryFn: ({ signal }) => repository.artifactReviews(artifact.id, signal),
-    enabled: Boolean(manifest.data),
-  });
-  const editorHealth = useQuery({
-    queryKey: queryKeys.key('document-editor-health', settings.endpoint),
-    queryFn: ({ signal }) => repository.documentEditorHealth(signal),
-    enabled: Boolean(manifest.data?.embedded_editors.length),
   });
   const applications = useQuery({
     queryKey: ['document-applications', artifact.name, artifact.media_type],
@@ -153,32 +131,6 @@ export function ClioDocumentWorkspace({
     staleTime: 60_000,
   });
 
-  const submitReview = useMutation({
-    mutationFn: async () => {
-      if (!effectiveManifest || !selection || !reviewText.trim()) {
-        throw new Error('Select document text and write a review instruction first.');
-      }
-      return repository.submitArtifactReview(artifact.session_id, {
-        artifact_id: effectiveManifest.artifact_id,
-        expected_version: effectiveManifest.version,
-        expected_sha256: effectiveManifest.sha256,
-        anchor: selection,
-        text: reviewText.trim(),
-        idempotency_key: `ui-review-${crypto.randomUUID()}`,
-        allow_historical: effectiveManifest.artifact_id !== artifact.id,
-      });
-    },
-    onSuccess: async () => {
-      setReviewOpen(false);
-      setReviewText('');
-      setSelection(undefined);
-      window.getSelection()?.removeAllRanges();
-      setStatus('Review sent to the agent against this exact immutable revision.');
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.key('artifact-reviews', settings.endpoint, artifact.id),
-      });
-    },
-  });
   const preparePdf = () => queryClient.fetchQuery(pdfOptions);
   const rendition = useMutation({
     mutationFn: async () => {
@@ -192,28 +144,22 @@ export function ClioDocumentWorkspace({
     mutationFn: (target: DocumentOpenTarget) =>
       openDocumentTarget(repository, manifest.data, artifact.session_id, preparePdf, target),
     onSuccess: (result) => {
-      setWorkingCopy(result.kind === 'native' && result.desktopCopy ? undefined : result.copy);
-      if (result.kind === 'embedded') {
-        setEditor(result.launched);
-        setStatus(`${editorLabel(result.launched.provider)} editing session ready.`);
-      } else {
-        const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
-          result.desktopCopy
-            ? ' Opened a desktop copy; edits are local to this copy.'
-            : result.copy?.auto_checkpoint
-              ? ' Stable saves become immutable revisions.'
-              : ''
-        }`;
-        setStatus(message);
-        toast.success(message);
-      }
+      setWorkingCopy(result.desktopCopy ? undefined : result.copy);
+      const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
+        result.desktopCopy
+          ? ' Opened a desktop copy; edits are local to this copy.'
+          : result.copy?.auto_checkpoint
+            ? ' Stable saves become immutable revisions.'
+            : ''
+      }`;
+      setStatus(message);
+      toast.success(message);
     },
   });
   const closeWorkingCopy = useMutation({
     mutationFn: () => repository.closeDocumentWorkingCopy(workingCopy!.id),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      setEditor(undefined);
       setStatus('Working copy closed. The immutable artifact history remains available.');
     },
   });
@@ -252,8 +198,11 @@ export function ClioDocumentWorkspace({
     [content.data, effectiveManifest?.profile, fallbackSource],
   );
   const fileFormat = textFileFormat(artifact.name, artifact.media_type);
-  const sourceProfile =
-    effectiveManifest && isDocumentSourceProfile(effectiveManifest.profile)
+  // A paper is its project: it opens as the LaTeX workspace, whose source pane shows every file.
+  const paper = isScientificDocument(artifact);
+  const sourceProfile = paper
+    ? 'latex'
+    : effectiveManifest && isDocumentSourceProfile(effectiveManifest.profile)
       ? effectiveManifest.profile
       : fileFormat === 'markdown'
         ? 'markdown'
@@ -262,19 +211,10 @@ export function ClioDocumentWorkspace({
           : artifact.name.toLowerCase().endsWith('.tex')
             ? 'latex'
             : undefined;
-  const captureTextSelection = () => {
-    const current = window.getSelection();
-    const host = previewRef.current;
-    if (!current || current.isCollapsed || !current.rangeCount || !host) return;
-    const range = current.getRangeAt(0);
-    if (!host.contains(range.commonAncestorContainer)) return;
-    const exact = current.toString().trim();
-    if (!exact || !effectiveManifest?.anchors.includes('text-quote')) return;
-    setSelection({ profile: 'text-quote', exact, source_path: effectiveManifest.name });
-  };
-  const activeView = sourceProfile === 'latex' && documentView === 'preview' ? 'raw' : documentView;
+  const activeView = documentView;
 
-  return (
+  return withComments(
+    commentSurface,
     <section
       aria-label="Document workspace"
       className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
@@ -351,31 +291,23 @@ export function ClioDocumentWorkspace({
                 markdown={sourceProfile === 'markdown'}
                 html={sourceProfile === 'html-static'}
                 latex={sourceProfile === 'latex'}
-                reviewCount={reviews.data?.length ?? 0}
+                paper={paper}
+                reviewCount={commentCount}
                 onChange={setDocumentView}
               />
             </div>
             {sourceProfile && (activeView === 'raw' || activeView === 'preview') ? (
               <TextFileCopyAction
                 name={artifact.name}
-                disabled={
-                  textContent === undefined ||
-                  (activeView === 'preview' && sourceProfile === 'html-static' && !htmlReady)
-                }
+                disabled={textContent === undefined}
                 readText={() =>
-                  activeView === 'raw'
+                  activeView === 'raw' || sourceProfile === 'html-static'
                     ? textContent
-                    : sourceProfile === 'html-static'
-                      ? htmlReader.current?.()
-                      : renderedFileText(previewRef.current)
+                    : renderedFileText(previewRef.current)
                 }
               />
             ) : null}
-            {selection ? (
-              <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
-                <MessageSquareTextIcon aria-hidden="true" /> Review selection
-              </Button>
-            ) : null}
+            <CommentToggle />
             {manifest.data ? (
               <DocumentOpenMenu
                 artifact={artifact}
@@ -386,7 +318,6 @@ export function ClioDocumentWorkspace({
                 applicationsError={applications.error?.message}
                 pdfApplicationsPending={pdfApplications.isPending && inTauri()}
                 pdfApplicationsError={pdfApplications.error?.message}
-                editorHealth={editorHealth.data}
                 openPending={createWorkingCopy.isPending}
                 pdfPending={rendition.isPending}
                 onOpen={(target) => createWorkingCopy.mutate(target)}
@@ -409,14 +340,8 @@ export function ClioDocumentWorkspace({
               />
             ) : null}
             <DocumentRefreshAction
-              refreshing={
-                manifest.isFetching ||
-                pdfPreview.isFetching ||
-                content.isFetching ||
-                reviews.isFetching
-              }
-              onReviews={reviews.refetch}
-              onEditorHealth={editorHealth.refetch}
+              refreshing={manifest.isFetching || pdfPreview.isFetching || content.isFetching}
+              onReviews={refreshComments}
             />
           </div>
         </ViewerToolbarContent>
@@ -448,46 +373,51 @@ export function ClioDocumentWorkspace({
           aria-label="Document preview"
           aria-labelledby={undefined}
         >
-          <div
-            className="h-full min-h-0 min-w-0 overflow-hidden"
-            ref={previewRef}
-            onMouseUp={captureTextSelection}
-          >
-            <DocumentPreview
-              content={content.data}
-              editor={editor}
-              fallback={
-                sourceProfile === 'html-static' && textContent !== undefined ? (
-                  <FileReadView
-                    name={artifact.name}
-                    content={textContent}
-                    format="html"
-                    onHtmlTextReader={registerHtmlReader}
-                  />
-                ) : (
-                  fallbackPreview
-                )
-              }
-              fit="page"
-              manifest={effectiveManifest}
-              onPdfSelection={setSelection}
-              onHtmlTextReader={registerHtmlReader}
-              previewError={
-                (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
-                (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
-              }
-              previewPending={needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)}
-              previewLabel={
-                manifest.data?.pdf_rendition_artifact_id
-                  ? 'Loading PDF preview…'
-                  : 'Rendering PDF preview…'
-              }
-              onRetryPreview={() => {
-                if (pdfPreview.isError) void pdfPreview.refetch();
-                else void content.refetch();
-              }}
-              text={textContent}
-            />
+          <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
+            {sourceProfile === 'latex' ? (
+              // A paper: source and compiled PDF side by side, built by the server.
+              <LatexWorkspace artifactId={artifact.id} sessionId={artifact.session_id ?? ''} />
+            ) : (
+              <CommentCapture
+                regionAnchor={effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined}
+                sourcePath={effectiveManifest?.name}
+              >
+                <DocumentPreview
+                  content={content.data}
+                  fallback={
+                    sourceProfile === 'html-static' && textContent !== undefined ? (
+                      <HtmlFileInBrowser
+                        artifactId={artifact.id}
+                        content={textContent}
+                        name={artifact.name}
+                        openOnShow
+                      />
+                    ) : (
+                      fallbackPreview
+                    )
+                  }
+                  fit="page"
+                  manifest={effectiveManifest}
+                  previewError={
+                    (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
+                    (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
+                  }
+                  previewPending={
+                    needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)
+                  }
+                  previewLabel={
+                    manifest.data?.pdf_rendition_artifact_id
+                      ? 'Loading PDF preview…'
+                      : 'Rendering PDF preview…'
+                  }
+                  onRetryPreview={() => {
+                    if (pdfPreview.isError) void pdfPreview.refetch();
+                    else void content.refetch();
+                  }}
+                  text={textContent}
+                />
+              </CommentCapture>
+            )}
           </div>
         </TabsContent>
         {sourceProfile ? (
@@ -502,11 +432,11 @@ export function ClioDocumentWorkspace({
         <TabsContent
           className="m-0 min-h-0 min-w-0 overflow-auto p-3"
           value="reviews"
-          aria-label="Reviews"
+          aria-label="Comments"
           aria-labelledby={undefined}
         >
-          <h2 className="mb-3 text-base font-semibold">Reviews</h2>
-          <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
+          <h2 className="mb-3 text-base font-semibold">Comments</h2>
+          <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />
         </TabsContent>
         <TabsContent
           className="m-0 min-h-0 min-w-0 overflow-auto p-3"
@@ -515,57 +445,18 @@ export function ClioDocumentWorkspace({
           aria-labelledby={undefined}
         >
           <h2 className="mb-3 text-base font-semibold">Document safety</h2>
-          <DocumentPolicy editorHealth={editorHealth.data} workingCopy={workingCopy} />
+          <DocumentPolicy workingCopy={workingCopy} />
         </TabsContent>
       </Tabs>
-      <Dialog onOpenChange={setReviewOpen} open={reviewOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send selection to the agent</DialogTitle>
-            <DialogDescription>
-              This instruction is bound to version {effectiveManifest?.version ?? 'Unavailable'} and
-              its checksum. If the artifact changes, the service rejects a stale review.
-            </DialogDescription>
-          </DialogHeader>
-          <blockquote className="max-h-32 overflow-auto rounded-lg border bg-muted/40 p-3 text-xs">
-            {selection?.exact || selection?.cell_range || 'Selected document region'}
-          </blockquote>
-          <Textarea
-            aria-label="Review instruction"
-            autoFocus
-            onChange={(event) => setReviewText(event.target.value)}
-            placeholder="Tell the agent what to revise, verify, or explain…"
-            rows={5}
-            value={reviewText}
-          />
-          {submitReview.error ? (
-            <p className="text-sm text-destructive">{submitReview.error.message}</p>
-          ) : null}
-          <DialogFooter>
-            <Button onClick={() => setReviewOpen(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button
-              disabled={!reviewText.trim() || submitReview.isPending}
-              onClick={() => submitReview.mutate()}
-            >
-              {submitReview.isPending ? 'Sending…' : 'Send review'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
+    </section>,
   );
 }
 
 function DocumentPreview({
   content,
-  editor,
   fallback,
   fit,
   manifest,
-  onPdfSelection,
-  onHtmlTextReader,
   previewError,
   previewPending,
   previewLabel,
@@ -573,31 +464,16 @@ function DocumentPreview({
   text,
 }: {
   content?: Uint8Array;
-  editor?: DocumentEditorSession;
   fallback: ReactNode;
   fit: 'page' | 'width';
   manifest?: DocumentManifest;
-  onPdfSelection: (anchor: DocumentAnchor) => void;
-  onHtmlTextReader: (reader?: () => Promise<string>) => void;
   previewError?: string;
   previewPending: boolean;
   previewLabel: string;
   onRetryPreview: () => void;
   text?: string;
 }) {
-  if (editor?.status === 'ready' && editor.editor_url) {
-    return editor.provider === 'onlyoffice' ? (
-      <ClioOnlyOfficeEditor config={editor.config} editorUrl={editor.editor_url} />
-    ) : (
-      <iframe
-        className="h-full min-h-0 w-full border-0 bg-background"
-        referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-forms allow-same-origin allow-downloads allow-popups"
-        src={editor.editor_url}
-        title="Collabora document editor"
-      />
-    );
-  }
+  const session = useCommentSession();
   if (!manifest) return fallback;
   if (previewError && !previewPending) {
     return (
@@ -619,14 +495,15 @@ function DocumentPreview({
   if (manifest.profile === 'pdf') {
     return (
       // The viewer owns its own scroll region so it can mount only the pages in
-      // view, which needs a bounded box to scroll inside — the same one the
-      // editor branch above uses.
+      // view, which needs a bounded box to scroll inside.
       <div className="h-full min-h-0 w-full">
         <ClioPdfPreview
           bytes={content}
           fit={fit}
           name={manifest.name}
-          onSelection={onPdfSelection}
+          onSelection={(anchor) => {
+            if (session?.active && session.mode === 'text') session.addMark(anchor);
+          }}
         />
       </div>
     );
@@ -636,11 +513,11 @@ function DocumentPreview({
   }
   if (manifest.profile === 'html-static' && text !== undefined) {
     return (
-      <FileReadView
-        name={manifest.name}
+      <HtmlFileInBrowser
+        artifactId={manifest.artifact_id}
         content={text}
-        format="html"
-        onHtmlTextReader={onHtmlTextReader}
+        name={manifest.name}
+        openOnShow
       />
     );
   }
@@ -660,45 +537,6 @@ function DocumentPreview({
   return fallback;
 }
 
-function ReviewTimeline({
-  reviews,
-  error,
-}: {
-  reviews?: Awaited<ReturnType<ReturnType<typeof useRepository>['artifactReviews']>>;
-  error?: string;
-}) {
-  if (error) return <ClioStatus detail={error} label="Reviews unavailable" value="degraded" />;
-  if (!reviews) return <p className="text-sm text-muted-foreground">Loading reviews…</p>;
-  if (!reviews.length) {
-    return <p className="text-sm text-muted-foreground">No reviews on this artifact chain yet.</p>;
-  }
-  return (
-    <Timeline defaultValue={reviews.length}>
-      {reviews.map((review, index) => (
-        <TimelineItem key={review.id} step={index + 1}>
-          <TimelineIndicator />
-          <TimelineSeparator />
-          <TimelineDate dateTime={review.created_at}>
-            {new Date(review.created_at).toLocaleString()}
-          </TimelineDate>
-          <TimelineHeader className="flex flex-wrap items-center gap-2">
-            <TimelineTitle>{review.native ? 'Native comment' : 'Agent review'}</TimelineTitle>
-            <ClioStatus
-              label={review.status.replaceAll('_', ' ')}
-              value={reviewStatusValue(review.status)}
-            />
-          </TimelineHeader>
-          <TimelineContent>
-            <q>{review.anchor.exact || review.anchor.cell_range || 'Document selection'}</q>
-            <p className="mt-1 text-foreground">{review.text}</p>
-            <p className="mt-1 font-mono text-[0.625rem]">Revision {review.artifact_version}</p>
-          </TimelineContent>
-        </TimelineItem>
-      ))}
-    </Timeline>
-  );
-}
-
 function profileLabel(manifest?: DocumentManifest) {
   if (!manifest) return 'Document';
   const labels: Partial<Record<DocumentManifest['profile'], string>> = {
@@ -716,8 +554,55 @@ function profileLabel(manifest?: DocumentManifest) {
   return labels[manifest.profile] ?? 'Document';
 }
 
-function reviewStatusValue(status: 'queued' | 'dispatched' | 'human-note' | 'failed' | 'stale') {
-  if (status === 'queued') return 'queued' as const;
-  if (status === 'failed' || status === 'stale') return 'failed' as const;
-  return 'completed' as const;
+/**
+ * What the document workspace offers the shared comment session (comments plan, modes table).
+ * `manifest` is what is shown (an Office file's PDF rendition); `source` is the version the
+ * comments are about, which the server resolves on its rendition (comments plan, rule 3).
+ */
+function documentCommentSurface(
+  artifact: Artifact,
+  manifest?: DocumentManifest,
+  source: DocumentManifest | undefined = manifest,
+): CommentSurface {
+  if (!manifest || manifest.profile === 'html-static') {
+    // HTML takes its comments in the shared browser, where it runs. Until the version is known the session takes no marks (its toggle stays hidden), but
+    // it is rendered so the workspace keeps its place in the tree when the manifest loads.
+    return {
+      title: artifact.name,
+      modes: ['text'],
+      defaultMode: 'text',
+      destination: {
+        kind: 'artifact',
+        sessionId: artifact.session_id,
+        artifactId: '',
+        version: 0,
+        sha256: '',
+      },
+    };
+  }
+  const modes: CommentSurface['modes'][number][] = [];
+  if (manifest.anchors.includes('text-quote') || manifest.anchors.includes('pdf-quad'))
+    modes.push('text');
+  // A LaTeX paper's PDF pane takes regions, like a PDF.
+  if (
+    manifest.anchors.includes('region') &&
+    (manifest.profile === 'pdf' || manifest.profile === 'latex')
+  )
+    modes.push('region');
+  return {
+    title: artifactDisplayName(artifact),
+    modes: modes.length ? modes : ['text'],
+    defaultMode: modes[0] ?? 'text',
+    destination: {
+      kind: 'artifact',
+      sessionId: artifact.session_id,
+      artifactId: (source ?? manifest).artifact_id,
+      version: (source ?? manifest).version,
+      sha256: (source ?? manifest).sha256,
+    },
+  };
+}
+
+function withComments(surface: CommentSurface, node: ReactNode) {
+  return <CommentSessionProvider surface={surface}>{node}</CommentSessionProvider>;
 }

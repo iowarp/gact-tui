@@ -48,6 +48,11 @@ function patchFor(draft: Draft): UpdateRuntimeSettings | undefined {
       changes[key] = value;
       continue;
     }
+    if (setting.kind === 'text') {
+      // An emptied field removes the saved value, so the setting is unset again.
+      changes[key] = value.trim() ? value.trim() : null;
+      continue;
+    }
     if (!value.trim()) return;
     const parsed = Number(value) / (setting.unit === 'percent' ? 100 : 1);
     if (
@@ -169,7 +174,9 @@ export function RuntimeSettingsPanel({
                     ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
                     : group === 'Memory'
                       ? `Choose what ${vocab.agent} remembers about you and how it learns.`
-                      : 'Choose how context and response history are saved.'
+                      : group === 'Browser'
+                        ? `Choose the browser that shows the pages ${vocab.agent} opens. It runs on the computer ${vocab.agent} runs on.`
+                        : 'Choose how context and response history are saved.'
           }
         >
           <div className="[&_[data-slot=settings-row]]:py-2">
@@ -234,6 +241,19 @@ export function RuntimeSettingsPanel({
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : setting.kind === 'text' ? (
+                        <Input
+                          className="w-full max-w-80"
+                          id={id}
+                          aria-label={setting.title}
+                          type="text"
+                          spellCheck={false}
+                          autoComplete="off"
+                          placeholder="Not set"
+                          value={String(value)}
+                          disabled={disabled}
+                          onChange={(event) => update(setting, event.target.value)}
+                        />
                       ) : setting.kind === 'boolean' ? (
                         <Switch
                           id={id}

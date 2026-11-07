@@ -1,12 +1,17 @@
 import type { ConnectedSourceState } from '@clio/core/v3';
-import { CalendarClockIcon, DatabaseIcon } from 'lucide-react';
+import { CalendarClockIcon, DatabaseIcon, GlobeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { openHumanQuestions } from '@/lib/inline-question';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 import { ContextUsage } from './context-usage';
 import { sessionEvidenceItems } from './session-evidence-items';
-import { sessionFiles, sessionDiffs, sessionPlans } from './session-evidence-projection';
+import {
+  normalizedFilePath,
+  sessionFiles,
+  sessionDiffs,
+  sessionPlans,
+} from './session-evidence-projection';
 import { sessionSources } from './observability-evidence-sources';
 import { OpenQuestionList } from './open-question-list';
 import { useQuestionAnswer } from './question-answer-context';
@@ -15,7 +20,10 @@ import { railSectionIds, type RailKind, type SessionRailItem } from './session-r
 import { SessionSummaryRow } from './session-summary-row';
 import { useSessionConnectedSources, useSessionSchedules } from './session-inventory-queries';
 import { useSessionWork } from './use-session-work';
+import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { SessionWorkSummary } from './session-work';
+import { SessionPlanBody } from './session-plan-section';
+import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import { todoCurrentSummary } from './todo-list-summary';
 import type { ReactNode } from 'react';
@@ -37,6 +45,7 @@ export function SessionRailContent({
   const connected = useSessionConnectedSources(kind === 'work' ? '' : (evidence.workspaceId ?? ''));
   const work = useSessionWork(kind === 'session' ? '' : (evidence.sessionId ?? ''));
   const schedules = useSessionSchedules(kind === 'session' ? '' : (evidence.sessionId ?? ''));
+  const browserPages = useBrowserPages(kind === 'session' ? '' : (evidence.sessionId ?? ''));
   const answer = useQuestionAnswer();
   const questions = openHumanQuestions(evidence.interactions ?? answer?.interactions ?? []);
   const todos = work.data?.todos ?? [];
@@ -59,8 +68,15 @@ export function SessionRailContent({
       ? sessionFiles(evidence.contextFiles, evidence.tools, evidence.executionProvenance)
       : [],
     diffs: dataVisible ? sessionDiffs(evidence.diffs, evidence.tools) : [],
+    // The live session plan has its own section; earlier proposals of the same file
+    // would repeat it.
     plans: workVisible
-      ? sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts)
+      ? sessionPlans(evidence.messages, evidence.interactions ?? [], evidence.artifacts).filter(
+          (plan) =>
+            !plan.path ||
+            !work.data?.plan ||
+            normalizedFilePath(plan.path) !== normalizedFilePath(work.data.plan.path),
+        )
       : [],
     sources: dataVisible
       ? sessionSources(
@@ -133,6 +149,13 @@ export function SessionRailContent({
       count: questions.length,
       content: <OpenQuestionList questions={questions} />,
     });
+  if (work.data?.plan && evidence.sessionId)
+    inventory.push({
+      id: 'plan',
+      summary: planStatusLabel(work.data.plan.status),
+      defaultOpen: true,
+      content: <SessionPlanBody plan={work.data.plan} sessionId={evidence.sessionId} />,
+    });
   if (todos.length)
     inventory.push({
       id: 'todos',
@@ -179,6 +202,33 @@ export function SessionRailContent({
           />
         ))
       ),
+    });
+  const pages = browserPages.data ?? [];
+  if (pages.length)
+    inventory.push({
+      id: 'browser',
+      count: pages.length,
+      defaultOpen: true,
+      content: pages.map((page) => (
+        <SessionSummaryRow
+          key={page.id}
+          icon={<GlobeIcon />}
+          label={browserPageLabel(page)}
+          metadata={page.host || 'Blank page'}
+          title={page.url}
+          onOpen={
+            evidence.onOpenBrowser
+              ? () =>
+                  evidence.onOpenBrowser?.({
+                    kind: 'browser',
+                    pageId: page.id,
+                    sessionId: page.session_id,
+                    label: browserPageLabel(page),
+                  })
+              : undefined
+          }
+        />
+      )),
     });
   const sections = kind ? railSectionIds(kind) : undefined;
   return (

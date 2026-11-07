@@ -265,12 +265,13 @@ export function MemorySettings() {
   const needle = filter.trim().toLowerCase();
   const filtered = (documents.data ?? []).filter(
     (document) =>
-      !needle ||
-      [
-        document.slug,
-        document.description,
-        ...document.facts.filter((fact) => fact.live).map((fact) => fact.text),
-      ].some((text) => text.toLowerCase().includes(needle)),
+      (!params.get('scope') || document.scope === params.get('scope')) &&
+      (!needle ||
+        [
+          document.slug,
+          document.description,
+          ...document.facts.filter((fact) => fact.live).map((fact) => fact.text),
+        ].some((text) => text.toLowerCase().includes(needle))),
   );
   return (
     <div className="grid min-w-0 gap-4">

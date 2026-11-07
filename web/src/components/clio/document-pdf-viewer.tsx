@@ -23,12 +23,20 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.15;
 
+/** A box to show on one page: 0-based page, and x, y, width, height as fractions of it. */
+export interface PdfHighlight {
+  page: number;
+  rect: [number, number, number, number];
+}
+
 export function ClioDocumentPdfViewer({
   bytes,
   fit = 'page',
   initialPage,
   name,
   onSelection,
+  highlight,
+  onPagePoint,
 }: {
   bytes: Uint8Array;
   fit?: 'page' | 'width';
@@ -37,6 +45,10 @@ export function ClioDocumentPdfViewer({
   initialPage?: number;
   name: string;
   onSelection: (anchor: DocumentAnchor) => void;
+  /** Outlined on its page and scrolled into view when it changes (LaTeX click-through). */
+  highlight?: PdfHighlight;
+  /** A double-click on a page, as its 0-based index and the point as fractions of the page. */
+  onPagePoint?: (page: number, x: number, y: number) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -132,6 +144,26 @@ export function ClioDocumentPdfViewer({
     readScroll();
   }, [initialPage, measured, pageCount, readScroll]);
 
+  // A new highlight scrolls its page into view, then its box within the page.
+  useEffect(() => {
+    if (!highlight) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    // A mounted page gives its true place; otherwise its estimated place brings it in.
+    const page = container.querySelector<HTMLElement>(`[data-page="${highlight.page}"]`);
+    const pageHeight = page?.offsetHeight ?? measured?.height ?? container.clientHeight;
+    const pageTop = page
+      ? page.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop
+      : highlight.page * pageHeight;
+    container.scrollTop = Math.max(
+      0,
+      pageTop + highlight.rect[1] * pageHeight - container.clientHeight / 3,
+    );
+    readScroll();
+  }, [highlight, measured, readScroll]);
+
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
   // discarded rather than trusted at the new geometry.
@@ -162,13 +194,19 @@ export function ClioDocumentPdfViewer({
     const host = hostRef.current;
     if (!selection || selection.isCollapsed || !selection.rangeCount || !host) return;
     const range = selection.getRangeAt(0);
-    const page = range.commonAncestorContainer.parentElement?.closest<HTMLElement>('[data-page]');
+    // The page the selection starts on: a selection across pages is placed on its first.
+    const start =
+      range.startContainer instanceof Element
+        ? range.startContainer
+        : range.startContainer.parentElement;
+    const page = start?.closest<HTMLElement>('[data-page]');
     if (!page || !host.contains(page)) return;
     const exact = selection.toString().trim();
     const pageRect = page.getBoundingClientRect();
     if (!exact || !pageRect.width || !pageRect.height) return;
     const quads = Array.from(range.getClientRects())
       .filter((rect) => rect.width > 0 && rect.height > 0)
+      .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom)
       .map((rect) => {
         const left = bounded((rect.left - pageRect.left) / pageRect.width);
         const right = bounded((rect.right - pageRect.left) / pageRect.width);
@@ -187,7 +225,17 @@ export function ClioDocumentPdfViewer({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" ref={hostRef}>
+    <div
+      className="flex h-full min-h-0 flex-col"
+      // The viewer makes its own text marks (pdf-quad), so a surrounding CommentCapture
+      // leaves selections in here alone; a mouse, touch or keyboard selection all reach it.
+      data-comment-text="own"
+      onKeyUp={(event) => {
+        if (event.shiftKey) captureSelection();
+      }}
+      onTouchEnd={captureSelection}
+      ref={hostRef}
+    >
       <ViewerZoomControls
         percent={scale * 100}
         onIn={zoomIn}
@@ -238,6 +286,8 @@ export function ClioDocumentPdfViewer({
               <PdfPage
                 key={visiblePage}
                 fit={fitMode}
+                highlight={highlight?.page === visiblePage - 1 ? highlight.rect : undefined}
+                onPagePoint={onPagePoint}
                 onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
                 onMouseUp={captureSelection}
                 pageNumber={visiblePage}
@@ -266,16 +316,20 @@ export function ClioDocumentPdfViewer({
 
 function PdfPage({
   fit,
+  highlight,
   onMeasure,
   onMouseUp,
+  onPagePoint,
   pageNumber,
   scale,
   width,
   viewportHeight,
 }: {
   fit: 'page' | 'width';
+  highlight?: [number, number, number, number];
   onMeasure?: (element: HTMLDivElement | null) => void;
   onMouseUp: () => void;
+  onPagePoint?: (page: number, x: number, y: number) => void;
   pageNumber: number;
   scale: number;
   width: number;
@@ -288,8 +342,21 @@ function PdfPage({
 
   return (
     <div
-      className="mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
+      className="relative mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
+      onDoubleClick={
+        onPagePoint
+          ? (event) => {
+              const box = pageRef.current?.getBoundingClientRect();
+              if (!box?.width || !box.height) return;
+              onPagePoint(
+                pageNumber - 1,
+                bounded((event.clientX - box.left) / box.width),
+                bounded((event.clientY - box.top) / box.height),
+              );
+            }
+          : undefined
+      }
       onMouseUp={onMouseUp}
       ref={pageRef}
     >
@@ -310,6 +377,19 @@ function PdfPage({
         scale={scale}
         width={fittedWidth}
       />
+      {highlight ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute rounded-sm bg-primary/15 ring-2 ring-primary"
+          data-slot="pdf-highlight"
+          style={{
+            left: `${highlight[0] * 100}%`,
+            top: `${highlight[1] * 100}%`,
+            width: `${highlight[2] * 100}%`,
+            height: `${highlight[3] * 100}%`,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

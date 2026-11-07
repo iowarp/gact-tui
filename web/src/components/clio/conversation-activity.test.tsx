@@ -155,20 +155,21 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Activity: Read files' }));
     const activity = screen.getByRole('button', {
-      name: 'Show result for Read evidence file',
+      name: 'Show result for Read',
     });
     expect(activity).toBeInTheDocument();
-    expect(activity).toHaveTextContent('Read evidence.json');
+    // The shared row names the file beside its action: `Read evidence.json`.
+    expect(activity.closest('[data-slot="tool-action-label"]')).toHaveTextContent(
+      /Read\s*evidence\.json/,
+    );
     expect(screen.queryByRole('radio', { name: 'Full activity view' })).not.toBeInTheDocument();
     fireEvent.click(activity);
-    expect(
-      await screen.findByRole('region', { name: /Read evidence file: Result/ }),
-    ).toHaveTextContent('Three station records are available.');
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    expect(await screen.findByRole('region', { name: /Read: Result/ })).toHaveTextContent(
+      'Three station records are available.',
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Technical details for Read' }));
     expect(
-      await screen.findByRole('dialog', { name: /Read evidence file: Technical details/ }),
+      await screen.findByRole('dialog', { name: /Read: Technical details/ }),
     ).toHaveTextContent('large payload omitted from the collapsed summary');
   });
 
@@ -264,14 +265,12 @@ describe('ClioConversation activity and interactive surfaces', () => {
     fireEvent.click(activity);
     expect(activity).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Inspecting the evidence.')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Technical details for Read' })).toBeInTheDocument();
     expect(screen.getByText('The evidence is ready.')).toBeInTheDocument();
     fireEvent.click(activity);
     expect(activity).toHaveAttribute('aria-expanded', 'false');
     expect(
-      screen.queryByRole('button', { name: 'Technical details for Read evidence file' }),
+      screen.queryByRole('button', { name: 'Technical details for Read' }),
     ).not.toBeInTheDocument();
   });
 

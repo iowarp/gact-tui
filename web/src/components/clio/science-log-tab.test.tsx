@@ -19,6 +19,7 @@ vi.mock('@/providers/appearance-provider', () => ({
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 const hex = (n: number) => n.toString(16).padStart(12, '0');
@@ -210,6 +211,19 @@ describe('Science log tab', () => {
     await user.click(screen.getByRole('radio', { name: 'Views' }));
     expect(screen.getByText('Live boards')).toBeVisible();
     expect(screen.queryByRole('tree', { name: 'Study tree' })).toBeNull();
+  });
+
+  it('keeps the chosen mode when the tab remounts (maximizing the canvas)', async () => {
+    const user = userEvent.setup();
+    const own = { ...study, study: 'e_remount_study' };
+    const first = render(
+      <ScienceLogView sessionId="sess_root" study={own} views={<p>Boards</p>} />,
+    );
+    await user.click(screen.getByRole('radio', { name: 'Views' }));
+    first.unmount();
+    render(<ScienceLogView sessionId="sess_root" study={own} views={<p>Boards</p>} />);
+    expect(screen.getByText('Boards')).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Views' })).toBeChecked();
   });
 
   it('offers no Views choice when the study has none', () => {

@@ -45,7 +45,7 @@ export function withQuestionPresentation(
             ? [
                 option.label +
                   (typeof option.description === 'string' && option.description
-                    ? ` — ${option.description}`
+                    ? `: ${option.description}`
                     : ''),
               ]
             : [];

@@ -77,12 +77,12 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Document actions',
   ])
     expect(screen.queryByRole('button', { name })).toBeNull();
-  for (const name of ['Versions', 'Reviews, 2', 'Document safety'])
+  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
     expect(screen.queryByRole('tab', { name })).toBeNull();
   expect(screen.getByRole('tab', { name: 'Lineage' })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
-  for (const name of ['Versions', 'Reviews, 2', 'Document safety'])
+  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
     expect(screen.getAllByRole('menuitemcheckbox', { name })).toHaveLength(1);
   expect(screen.queryByRole('menuitemcheckbox', { name: 'Lineage' })).toBeNull();
   for (const name of [
@@ -92,10 +92,10 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Copy to another workspace',
   ])
     expect(screen.getAllByRole('menuitem', { name })).toHaveLength(1);
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Reviews, 2' }));
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' }));
   expect(screen.getByText('Recorded reviews')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
-  expect(screen.getByRole('menuitemcheckbox', { name: 'Reviews, 2' })).toBeChecked();
+  expect(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' })).toBeChecked();
 });
 
 it('opens secondary file views with accessible names and returns to the preview', async () => {

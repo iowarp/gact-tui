@@ -22,7 +22,6 @@ const manifest: DocumentManifest = {
   profile: 'html-static',
   content_url: '',
   native_open: true,
-  embedded_editors: [],
   anchors: [],
   provenance: {},
   rendition_formats: [],

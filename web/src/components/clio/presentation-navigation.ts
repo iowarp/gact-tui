@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { Artifact } from '@clio/core/v3';
 import type { ClioConversationProps } from './conversation-types';
 
 type Navigation = Pick<
@@ -12,6 +13,8 @@ type Navigation = Pick<
   | 'onOpenFolder'
   | 'onOpenFileReference'
   | 'onOpenWork'
+  | 'onOpenTasks'
+  | 'onOpenWebPage'
   | 'onOpenSubagent'
   | 'onOpenFlow'
 > &
@@ -41,5 +44,11 @@ type Navigation = Pick<
      */
     onOpenSession?: (sessionId: string) => void;
     sessionAvailable?: (sessionId: string) => boolean;
+    /**
+     * Where an artifact's bytes sit beside this page (an offline export carries them as
+     * files). An image with an address here is shown from it directly: a page opened
+     * from disk cannot read its own files through the transport.
+     */
+    artifactHref?: (artifact: Artifact) => string | undefined;
   };
 export const PresentationNavigation = createContext<Navigation | null>(null);

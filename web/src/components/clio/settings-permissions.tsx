@@ -93,7 +93,15 @@ const kindLabels: Record<PolicyKind, string> = {
   fs_root: 'File location',
   plan_acl: 'Planning mode action',
   hook: 'Tool lifecycle event',
+  browser_host: 'Website in the shared browser',
+  browser_certificate: 'Trusted certificate',
 };
+
+/** Rules the person makes from the shared browser itself: they can be removed, not edited. */
+const BROWSER_KINDS: ReadonlySet<PolicyKind> = new Set(['browser_host', 'browser_certificate']);
+const editableKinds = Object.entries(kindLabels).filter(
+  ([value]) => !BROWSER_KINDS.has(value as PolicyKind),
+);
 
 function inferredKind(policy: PermissionPolicy): PolicyKind {
   if (policy.kind) return policy.kind;
@@ -151,7 +159,14 @@ function policyFromDraft(draft: PolicyDraft): PermissionPolicy {
 }
 
 function PolicyIcon({ kind }: { kind: PolicyKind }) {
-  const Icon = kind === 'domain' ? Globe2Icon : kind === 'fs_root' ? FolderKeyIcon : WrenchIcon;
+  const Icon =
+    kind === 'browser_certificate'
+      ? ShieldCheckIcon
+      : kind === 'domain' || kind === 'browser_host'
+        ? Globe2Icon
+        : kind === 'fs_root'
+          ? FolderKeyIcon
+          : WrenchIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-4 text-primary" />;
 }
 
@@ -161,6 +176,10 @@ function isWildcardPattern(value?: string): boolean {
 
 function policySummary(policy: PermissionPolicy): string {
   const kind = inferredKind(policy);
+  if (kind === 'browser_host') return `Site ${policy.host_pattern ?? ''}`;
+  if (kind === 'browser_certificate') {
+    return `Certificate of ${policy.host_pattern ?? ''}, key sha256/${policy.fingerprint ?? ''}`;
+  }
   if (kind === 'domain') {
     return isWildcardPattern(policy.host_pattern)
       ? 'All internet domains'
@@ -274,10 +293,18 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
           const scopeWorkspace = policy.scope_id
             ? workspaces.data?.find((workspace) => workspace.id === policy.scope_id)
             : undefined;
-          const missingScopeId = policy.scope_id && !scopeWorkspace ? policy.scope_id : undefined;
-          const scopeName = policy.scope_id
-            ? scopeWorkspace?.display_name || `Unregistered ${vocab.workspace}`
-            : `Any ${policy.scope}`;
+          const missingScopeId =
+            policy.scope !== 'session' && policy.scope_id && !scopeWorkspace
+              ? policy.scope_id
+              : undefined;
+          const scopeName =
+            policy.scope === 'session'
+              ? policy.scope_id
+                ? 'One conversation'
+                : 'Any conversation'
+              : policy.scope_id
+                ? scopeWorkspace?.display_name || `Unregistered ${vocab.workspace}`
+                : `Any ${policy.scope}`;
           return (
             <div
               className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors hover:border-border hover:bg-accent/40"
@@ -333,14 +360,16 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
                   </p>
                 ) : null}
               </div>
-              <Button
-                aria-label={`Edit rule ${index + 1}`}
-                onClick={() => openEditor(policy, index)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <EditIcon />
-              </Button>
+              {BROWSER_KINDS.has(kind) ? null : (
+                <Button
+                  aria-label={`Edit rule ${index + 1}`}
+                  onClick={() => openEditor(policy, index)}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <EditIcon />
+                </Button>
+              )}
               <Button
                 aria-label={`Remove rule ${index + 1}`}
                 onClick={() => setRemoveIndex(index)}
@@ -394,7 +423,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(kindLabels).map(([value, label]) => (
+                    {editableKinds.map(([value, label]) => (
                       <SelectItem key={value} value={value}>
                         {label}
                       </SelectItem>

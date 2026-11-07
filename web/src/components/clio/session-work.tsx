@@ -36,6 +36,8 @@ import { TodoList, TodoStatusIcon } from './todo-list';
 import { todoCurrentSummary } from './todo-list-summary';
 import { OpenQuestionsSection } from './open-question-list';
 import { SessionAccess } from './session-access';
+import { SessionPlanBody } from './session-plan-section';
+import { planStatusLabel } from '@/lib/plan-status';
 
 /** Keep parked goals and future monitoring visible in the bottom work finder. */
 export function SessionWorkStatus({
@@ -437,6 +439,11 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
       aria-label="Session work"
     >
       <SessionAccess sessionId={sessionId} />
+      {data.plan ? (
+        <WorkSection title="Plan" summary={planStatusLabel(data.plan.status)} hasContent>
+          <SessionPlanBody plan={data.plan} sessionId={sessionId} />
+        </WorkSection>
+      ) : null}
       <WorkSection
         title="Todos"
         summary={

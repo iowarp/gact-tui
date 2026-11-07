@@ -134,7 +134,7 @@ describe('composer reference popover contract', () => {
     expect(editor).toHaveAttribute('aria-controls');
     expect(editor).not.toHaveAttribute('aria-activedescendant');
 
-    await user.type(editor, '@');
+    await user.type(editor, '@Disp');
     await screen.findByRole('option', { name: /Displacement plot/ });
 
     expect(editor).toHaveAttribute('aria-expanded', 'true');
@@ -264,6 +264,22 @@ describe('composer HDF5 references', () => {
 });
 
 describe('composer reference placement', () => {
+  it('starts an @ mention with only local files open and shows every match once a word is typed', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, '@');
+    expect(await screen.findByRole('button', { name: /Artifacts/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('option', { name: /Displacement plot/ })).not.toBeInTheDocument();
+    await user.type(editor, 'Disp');
+    expect(await screen.findByRole('option', { name: /Displacement plot/ })).toBeVisible();
+  });
+
   it('inserts a picked reference at the caret instead of at the end of the draft', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
     const user = userEvent.setup();

@@ -1,12 +1,13 @@
 import { TransportError } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { STUDY_VIEW_POLL_MS } from '@/lib/runtime-limits';
 import {
   TABLE_DATA_URI,
   artifactIdFromDataUri,
   columnarToRows,
   studySourceFromDataUri,
-  studySourceQueryOptions,
+  STUDY_SOURCE_QUERY,
+  describeStream,
+  streamRows,
   tableQueryErrorMessage,
 } from './table-query-rows';
 
@@ -42,17 +43,14 @@ describe('study sources', () => {
     expect(TABLE_DATA_URI.test('study://e_1/entries')).toBe(true);
     expect(TABLE_DATA_URI.test('study://e_1/records/readings')).toBe(true);
     expect(TABLE_DATA_URI.test('study://e_1/records/a/b')).toBe(false);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv@latest')).toBe(true);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv@v3')).toBe(false);
+    expect(TABLE_DATA_URI.test('artifact://ws_lab/status.csv')).toBe(false);
     expect(TABLE_DATA_URI.test('https://example.test/a.csv')).toBe(false);
   });
 
-  it('is never cached as immutable; plugin records also poll while shown', () => {
-    const measurements = studySourceQueryOptions({ study: 'e_1', source: 'measurements' });
-    expect(measurements.staleTime).toBe(0);
-    expect(measurements.refetchInterval).toBe(false);
-    const records = studySourceQueryOptions({ study: 'e_1', source: 'records/board' });
-    expect(records.staleTime).toBe(0);
-    expect(records.refetchInterval).toBe(STUDY_VIEW_POLL_MS);
-    expect(records.refetchIntervalInBackground).toBe(false);
+  it('is never cached as immutable and never polled: its change events re-read it', () => {
+    expect(STUDY_SOURCE_QUERY).toEqual({ staleTime: 0 });
   });
 
   it('says when the study is not on this server', () => {
@@ -93,5 +91,46 @@ describe('tableQueryErrorMessage', () => {
     });
     expect(tableQueryErrorMessage(error)).toContain('900000');
     expect(tableQueryErrorMessage(error)).toContain('50000');
+  });
+});
+
+describe('stream notes', () => {
+  it('says whether a stream is live or closed, in words', () => {
+    expect(describeStream({ state: 'open' })).toBe('Live, no entries yet.');
+    expect(describeStream({ state: 'open', updated_at: '2026-11-05T10:00:00Z' })).toMatch(
+      /^Live, last update .+\.$/u,
+    );
+    expect(describeStream({ state: 'closed', closed_at: '2026-11-05T10:05:00Z' })).toMatch(
+      /^Closed at .+; showing its last entries\.$/u,
+    );
+    // Exported while still written: what the archive shows, never "Live".
+    expect(describeStream({ state: 'captured', captured_at: '2026-11-05T10:06:00Z' })).toMatch(
+      /^Captured at .+ while live; showing the entries it had then\.$/u,
+    );
+    expect(describeStream(undefined)).toBe('');
+  });
+
+  it('gives a view the record entries as rows, leaving text and bytes out', () => {
+    const entry = (seq: number, extra: Record<string, unknown>) => ({
+      seq,
+      at: '2026-11-05T10:00:00Z',
+      media_type: 'application/json',
+      size_bytes: 10,
+      ...extra,
+    });
+    const content = {
+      stream: { stream_id: 's', name: 'n', state: 'open', window: 5, held: 4, writes: 4 },
+      entries: [
+        entry(1, { value: { t: 1, c: 20 } }),
+        entry(2, { media_type: 'text/plain', text: 'note' }),
+        entry(3, { media_type: 'image/png' }),
+        entry(4, { value: { t: 2, c: 21 } }),
+      ],
+    };
+    expect(streamRows(content)).toEqual([
+      { t: 1, c: 20 },
+      { t: 2, c: 21 },
+    ]);
+    expect(streamRows(undefined)).toBeUndefined();
   });
 });

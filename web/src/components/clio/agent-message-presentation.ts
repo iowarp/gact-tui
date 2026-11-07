@@ -23,7 +23,7 @@ export function agentMessageName(
 export function sentAgentMessage(
   tool: ToolInvocation | undefined,
 ): { target: string; message: string; sessionId?: string; accepted: boolean } | undefined {
-  if (!tool || !['send_agent_message', 'message_agent'].includes(tool.name)) return undefined;
+  if (!tool || tool.name !== 'send_agent_message') return undefined;
   const outer = record(tool.input);
   const input = record(outer?.kwargs) ?? outer;
   if (typeof input?.message !== 'string') return undefined;

@@ -23,6 +23,9 @@ import { FlowRunView } from './flow-run-view';
 import { ScienceLogTab } from './science-log-tab';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
+const BrowserSurface = lazy(() =>
+  import('./browser-surface').then((module) => ({ default: module.BrowserSurface })),
+);
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
@@ -170,6 +173,7 @@ export function WorkbenchTabContent({
           artifactsTruncated={artifactsTruncated}
           defaultSplit={maximized}
           files={files}
+          sessionId={sessionId}
           onReplaceArtifact={(artifact) =>
             onReplaceTab(tab.id, {
               id: `artifact:${artifact.id}`,
@@ -258,6 +262,7 @@ export function WorkbenchTabContent({
         <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
           <ArtifactView
             artifact={tab.artifact}
+            sessionId={sessionId}
             onOpenWorkspaceFile={(path) =>
               onOpenTab({
                 id: `workspace-file:${tab.workspaceId}:${path}`,
@@ -340,6 +345,17 @@ export function WorkbenchTabContent({
       );
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
+    case 'browser':
+      return (
+        <Suspense fallback={<CanvasLoading label="Opening the page" />}>
+          <BrowserSurface
+            key={tab.pageId}
+            label={tab.label}
+            pageId={tab.pageId}
+            sessionId={tab.sessionId}
+          />
+        </Suspense>
+      );
     default:
       return assertNever(tab);
   }

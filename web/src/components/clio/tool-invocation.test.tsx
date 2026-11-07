@@ -75,9 +75,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
       </PresentationNavigation.Provider>,
     );
     expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Show result for Check task status' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show result for Check' }));
     expect(screen.getAllByText('Deep Researcher', { exact: true })).toHaveLength(1);
     expect(screen.queryByText('Tasks', { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText('Investigate the storage decision.')).toBeVisible();
@@ -110,6 +108,12 @@ describe('ClioToolInvocation content and subject rendering', () => {
       screen.getByRole('button', { name: 'Show result for Read instructions' }),
     );
     expect(screen.getAllByText('Planning guide', { exact: true })).toHaveLength(1);
+    // A named (unlinked) subject is the row's target: it stays in the row when open.
+    expect(
+      within(document.querySelector<HTMLElement>('[data-slot="tool-action-label"]')!).getByText(
+        'Planning guide',
+      ),
+    ).toBeVisible();
     expect(screen.getByText('Read these instructions before planning.')).toBeVisible();
   });
   it('keeps task-kind glyphs out of both tool-call surfaces with distinct DOM identities', () => {
@@ -134,8 +138,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
     ).toBeNull();
     expect(view.container.querySelectorAll('[data-slot="work-kind-status"]')).toHaveLength(0);
   });
-  it('expands a pending wait into named snapshots without repeating header counts', async () => {
-    const user = userEvent.setup();
+  it('keeps an empty wait closed while naming the pending selection', () => {
     render(
       <ClioToolInvocation
         compact
@@ -144,18 +147,17 @@ describe('ClioToolInvocation content and subject rendering', () => {
           session_id: 's',
           name: 'wait_tasks',
           state: 'succeeded',
-          input: { tasks: ['worker_a', 'worker_b'], return_when: 'all', timeout_s: 0 },
-          output: { results: [], errors: [], pending: ['worker_a', 'worker_b'], timed_out: true },
+          input: { tasks: ['worker_a', 'worker_b'] },
+          output: { results: [], errors: [], pending: ['worker_a', 'worker_b'] },
         }}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Check all tasks' }));
-    expect(screen.getAllByText('2 pending, 0 results collected')).toHaveLength(1);
-    const result = screen.getByRole('region', { name: 'Check all tasks: Result' });
-    expect(within(result).getByText('worker_a')).toBeVisible();
-    expect(within(result).getByText('worker_b')).toBeVisible();
-    expect(within(result).getAllByText('Pending when this call returned.')).toHaveLength(2);
-    expect(within(result).queryByText('worker_a, worker_b')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show result for Wait for' })).toBeDisabled();
+    expect(screen.getByText('(0 returned, 2 running)')).toBeVisible();
+    expect(screen.getByText('worker_a')).toBeVisible();
+    expect(screen.getByText('worker_b')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Wait for: Result' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pending when this call returned.')).not.toBeInTheDocument();
   });
 
   it('keeps checklist updates labelled Todos in the header and expanded list', async () => {
@@ -176,8 +178,8 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Update Todos' }));
-    expect(screen.getAllByText('1 todo changed')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Show result for Update checklist' }));
+    expect(screen.getAllByText('(1 todo changed)')).toHaveLength(1);
     expect(screen.queryByText('Review evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Show completed 1' }));
     expect(screen.getByText('Review evidence')).toBeVisible();
@@ -199,7 +201,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    expect(screen.getByText('No schedules')).toBeVisible();
+    expect(screen.getByText('(No schedules)')).toBeVisible();
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
   });
   it('insets rendered Markdown and keeps table action chrome out of the preview', async () => {
@@ -326,6 +328,50 @@ describe('ClioToolInvocation content and subject rendering', () => {
     );
     expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
   });
+  it('numbers a read range from its first line and opens a search hit at its line', async () => {
+    const openReference = vi.fn();
+    const { container } = render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFileReference: openReference }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'read-range',
+            session_id: 's',
+            name: 'fs_read_file',
+            state: 'succeeded',
+            presentation: {
+              action: 'Read',
+              subject: 'file-link',
+              summary: 'Lines 120–121 of 400',
+              blocks: [
+                {
+                  id: 'file-link',
+                  type: 'link',
+                  target: 'file',
+                  uri: '/workspace/core.py',
+                  label: 'core.py',
+                  line: 120,
+                },
+                {
+                  id: 'file',
+                  type: 'code',
+                  language: 'python',
+                  text: 'def answer():\n    return 43',
+                  start_line: 120,
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    const code = container.querySelector('[data-language="python"] code') as HTMLElement;
+    expect(code.style.counterReset).toBe('line 119');
+    expect(screen.getByText(/Lines 120–121 of 400/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'core.py' }));
+    expect(openReference).toHaveBeenCalledWith('/workspace/core.py', { line: 120 });
+  });
   it('normalizes workspace resource reads into a bounded file preview', () => {
     const { container } = render(
       <ClioToolInvocation
@@ -352,7 +398,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    expect(screen.getByText('Read resource')).toBeVisible();
+    expect(screen.getByText('Read', { exact: true })).toBeVisible();
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeInTheDocument();
     expect(container.querySelector('[data-language="html"]')).toBeInTheDocument();
   });
@@ -393,7 +439,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         />
       </PresentationNavigation.Provider>,
     );
-    expect(screen.getByText('Search resource')).toBeVisible();
+    expect(screen.getByText('Search', { exact: true })).toBeVisible();
     expect(screen.getByText('Matches in brief.html')).toBeVisible();
     expect(screen.getByText('first match')).toBeVisible();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Line 13' }));
@@ -510,7 +556,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(2);
     expect(screen.getByText('Report body content unique-marker-xyz')).toBeVisible();
     expect(screen.getByText('One input file could not be resolved.')).toBeVisible();
-    expect(screen.getByText('Degraded')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Degraded' })).toBeVisible();
   });
   it('wraps qualifying result details instead of clipping them in a narrow pane', () => {
     const { container } = render(
@@ -529,9 +575,8 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    const metadata = container.querySelector('[data-slot="activity-row"]')?.children[1]
-      ?.firstElementChild;
-    expect(metadata).toHaveClass('items-center');
+    const metadata = container.querySelector('[data-slot="activity-metadata"]');
+    expect(metadata).toHaveTextContent('rejected: escapes_root');
     expect(screen.getByText('rejected: escapes_root')).toHaveClass(
       'whitespace-pre-wrap',
       '[overflow-wrap:anywhere]',
@@ -635,4 +680,26 @@ describe('ClioToolInvocation content and subject rendering', () => {
     expect(screen.getByRole('img', { name: 'In progress' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
   });
+});
+
+it('marks a call the sandbox blocked on its compact row (#1905)', () => {
+  const tool = {
+    id: 'blocked-copy',
+    session_id: 's',
+    name: 'shell_bash',
+    state: 'failed' as const,
+    output: {
+      exit_code: 1,
+      boundary: {
+        kind: 'write_denied',
+        confidence: 'confirmed',
+        paths: ['/home/ada/Desktop/notes.txt'],
+        request_roots: ['/home/ada/Desktop'],
+        message: "CLIO's sandbox blocked this write.",
+      },
+    },
+    presentation: { action: 'Run', summary: '', blocks: [] },
+  };
+  render(<ClioToolInvocation compact tool={tool} />);
+  expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
 });

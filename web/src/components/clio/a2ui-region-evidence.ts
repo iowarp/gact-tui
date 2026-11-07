@@ -246,65 +246,82 @@ function meshNodesUnderBox(target: HTMLElement, region: Region): Record<string, 
   });
 }
 
-export function captureText(
+function valueText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(valueText).filter(Boolean).join(', ');
+  if (typeof value === 'object')
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => `${key} ${valueText(item)}`)
+      .join(', ');
+  return '';
+}
+
+/** What lies under one box, as readable lines (addendum A, section 2): no JSON. */
+export function regionUnderLines(target: CaptureTarget, region: Region): string[] {
+  const shown = displayedRegion(target.element, region);
+  const lines: string[] = [];
+  const text = visibleTextUnderBox(target.element, shown);
+  if (text.length) lines.push(`Visible text: ${text.join('; ')}`);
+  const chart = chartRowsUnderBox(target.element, shown);
+  if (chart && chart.available === false) lines.push(`Chart rows: ${valueText(chart.reason)}`);
+  else if (chart) {
+    const rows = (chart.rows as Record<string, unknown>[] | undefined) ?? [];
+    lines.push(
+      `Chart rows: ${valueText(chart.count)} under the box${chart.rowsTruncated ? ` (first ${rows.length} listed)` : ''}`,
+    );
+    for (const row of rows) lines.push(`  ${valueText(row)}`);
+  }
+  const map = mapFeaturesUnderBox(target.element, shown);
+  if (map) {
+    const ids = (map.ids as string[] | undefined) ?? [];
+    lines.push(
+      `Map features: ${valueText(map.count)}${ids.length ? `: ${ids.join(', ')}` : ''}${map.idsTruncated ? ' (first 100)' : ''}`,
+    );
+  }
+  const mesh = meshNodesUnderBox(target.element, shown);
+  if (mesh) lines.push(`Mesh: ${valueText(mesh)}`);
+  return lines;
+}
+
+/**
+ * The surface context one A2UI comment session carries on each mark's anchor: the surface,
+ * its revision, the component and its data, the active filters and selection, and the
+ * readable lines under the box. The service writes them as the entry's lines.
+ */
+export function regionSource(
   surface: CaptureSurface,
   target: CaptureTarget,
-  regions: readonly Region[],
-): string {
+  region: Region,
+): Record<string, unknown> {
   const component = surfaceComponent(surface, target.componentId);
   const viewReference = target.reference?.();
   const activeQuery =
-    viewReference?.query &&
-    typeof viewReference.query === 'object' &&
-    !Array.isArray(viewReference.query)
+    viewReference?.query && typeof viewReference.query === 'object' && !Array.isArray(viewReference.query)
       ? (viewReference.query as Record<string, unknown>)
       : undefined;
   const activeDataQuery = activeQuery?.dataQuery as { filter?: unknown } | undefined;
-  const context = {
+  const filters =
+    activeDataQuery?.filter ??
+    (component?.dataQuery as { filter?: unknown } | undefined)?.filter ??
+    [];
+  return {
     surface: surface.id,
     revision: surface.revision,
-    component: component?.component ?? target.title,
-    componentId: target.componentId,
-    dataReference:
+    component: valueText(component?.component ?? target.title),
+    component_id: target.componentId,
+    data_reference: valueText(
       activeQuery?.dataUri ??
-      component?.dataUri ??
-      component?.geojsonUri ??
-      component?.meshUri ??
-      component?.imageUri ??
-      null,
-    filters:
-      activeDataQuery?.filter ??
-      (component?.dataQuery as { filter?: unknown } | undefined)?.filter ??
-      [],
-    selection: activeQuery?.selection ?? component?.selection ?? null,
-    currentView: viewReference?.summary ?? null,
-    regions: regions.map((region) => ({
-      label: region.id,
-      box: (() => {
-        const shown = displayedRegion(target.element, region);
-        return { x: shown.x, y: shown.y, width: shown.width, height: shown.height };
-      })(),
-      geographicBounds: region.geographicBounds ?? null,
-      comment: region.comment,
-      visibleDataUnderBox: visibleTextUnderBox(
-        target.element,
-        displayedRegion(target.element, region),
-      ),
-      chartRowsUnderBox: chartRowsUnderBox(target.element, displayedRegion(target.element, region)),
-      mapFeaturesUnderBox: mapFeaturesUnderBox(
-        target.element,
-        displayedRegion(target.element, region),
-      ),
-      meshNodesUnderBox: meshNodesUnderBox(target.element, displayedRegion(target.element, region)),
-    })),
+        component?.dataUri ??
+        component?.geojsonUri ??
+        component?.meshUri ??
+        component?.imageUri,
+    ),
+    filters: valueText(filters),
+    selection: valueText(activeQuery?.selection ?? component?.selection),
+    view: valueText(viewReference?.summary),
+    geographic_bounds: region.geographicBounds,
+    under: regionUnderLines(target, region),
   };
-  return [
-    `Region capture of ${target.title}. The attached image has labelled boxes.`,
-    ...regions.map((region) => `${region.id}: ${region.comment || '(no comment)'}`),
-    '```json',
-    // Keep the exact structured context while avoiding a hundreds-line code
-    // block in the sent conversation when a region covers many data points.
-    JSON.stringify(context),
-    '```',
-  ].join('\n');
 }

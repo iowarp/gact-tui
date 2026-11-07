@@ -145,6 +145,21 @@ afterEach(() => {
 });
 
 describe('memory page', () => {
+  it('opens a scope link on only the memories from that scope', async () => {
+    repository.memoryDocuments.mockResolvedValue([
+      document,
+      {
+        ...document,
+        name: 'project/workshop/preferences/colors',
+        scope: 'project/workshop',
+        description: 'Workshop colors',
+        slug: 'colors',
+      },
+    ]);
+    renderPage(<MemorySettings />, '/settings/memory?scope=user');
+    expect(await screen.findByText('Frontier allocation details')).toBeVisible();
+    expect(screen.queryByText('Workshop colors')).not.toBeInTheDocument();
+  });
   it('lists documents by scope and category with how often they were used', async () => {
     renderPage(<MemorySettings />);
     const account = await screen.findByRole('region', { name: 'Account' });

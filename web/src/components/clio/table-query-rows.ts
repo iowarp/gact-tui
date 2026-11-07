@@ -2,13 +2,17 @@ import {
   TransportError,
   type ArtifactTableQueryRequest,
   type ArtifactTableQueryResult,
+  type StreamContent,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
-import { IMMUTABLE_QUERY, STUDY_VIEW_POLL_MS, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
+import { useA2uiReferenceSession } from '@/lib/a2ui/reference-session';
+import { useA2uiReference } from '@/lib/a2ui/use-a2ui-reference';
+import { IMMUTABLE_QUERY, TABLE_QUERY_ROW_LIMIT } from '@/lib/runtime-limits';
+import { latestArtifactSource } from '@/lib/streaming/live-source-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /**
@@ -17,7 +21,10 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * `clio.data-table.v1`): one bounded `POST /v1/artifacts/{id}/table-query`,
  * reused rather than reimplemented per component (`a2ui-component-design`
  * skill, rule 1 and rule 5). A `study://` source reads a study's live record
- * through `POST /v1/studies/{study}/table-query` with the same request.
+ * through `POST /v1/studies/{study}/table-query` with the same request. A named
+ * artifact at `@latest` resolves to its current version, whose rows are cached like
+ * any fixed version; the resolution is re-read when a new version is recorded
+ * (`lib/streaming/live-source-updates.ts`).
  */
 
 /**
@@ -138,9 +145,12 @@ export interface StudySource {
 
 const STUDY_URI = /^study:\/\/([A-Za-z0-9_-]+)\/(measurements|entries|records\/[A-Za-z0-9_.-]+)$/u;
 
-/** A tabular `dataUri`: a registered artifact or a study source (clio-schemas `TABLE_DATA_URI_PATTERN`). */
+/**
+ * A tabular `dataUri`: a registered artifact, a named artifact at its latest version or
+ * a study source (clio-schemas `TABLE_DATA_URI_PATTERN`).
+ */
 export const TABLE_DATA_URI =
-  /^(artifact:\/\/artifact_[A-Za-z0-9_-]+|study:\/\/[A-Za-z0-9_-]+\/(measurements|entries|records\/[A-Za-z0-9_.-]+))$/u;
+  /^(artifact:\/\/artifact_[A-Za-z0-9_-]+|artifact:\/\/[A-Za-z0-9_-]+\/[^@\s?#]+@latest|study:\/\/[A-Za-z0-9_-]+\/(measurements|entries|records\/[A-Za-z0-9_.-]+))$/u;
 
 export function studySourceFromDataUri(uri: string | undefined): StudySource | undefined {
   const match = uri ? STUDY_URI.exec(uri) : null;
@@ -154,15 +164,70 @@ export function studySourceQueryPrefix(endpoint: string, study: string) {
 
 /**
  * How a study source is cached: never as immutable (a study grows), re-read when an
- * entry of the study merges (`ScienceEntryMerger`), and, for plugin records, which
- * arrive on tool results rather than as entries, polled while shown.
+ * entry of the study merges (`ScienceEntryMerger`) or, for plugin records, when a record
+ * row of its view lands (`science.record`, `LiveSourceRefresher`). Nothing polls.
  */
-export function studySourceQueryOptions(source: StudySource) {
-  return {
-    staleTime: 0,
-    refetchInterval: source.source.startsWith('records/') ? STUDY_VIEW_POLL_MS : false,
-    refetchIntervalInBackground: false,
-  } as const;
+export const STUDY_SOURCE_QUERY = { staleTime: 0 } as const;
+
+/** The cache key prefix of one stream's reads, which its `stream.updated` events refresh. */
+export function streamRowsQueryPrefix(endpoint: string, streamId: string) {
+  return queryKeys.key('stream-rows', endpoint, streamId);
+}
+
+/** How often a view on screen renews its lease on a stream (the lease lasts 30 s). */
+export const STREAM_LEASE_RENEW_MS = 15_000;
+
+/** What a stream's state says: live with its last write, closed, or captured. */
+export function describeStream(stream: unknown): string {
+  if (!isJsonObject(stream)) return '';
+  const at = (value: unknown) =>
+    typeof value === 'string' && value ? new Date(value).toLocaleTimeString() : '';
+  if (stream.state === 'captured') {
+    // An export taken while the stream was written: its entries as they stood then.
+    const when = at(stream.captured_at);
+    return when
+      ? `Captured at ${when} while live; showing the entries it had then.`
+      : 'Captured while live; showing the entries it had then.';
+  }
+  if (stream.state === 'closed') {
+    const when = at(stream.closed_at) || at(stream.updated_at);
+    return when ? `Closed at ${when}; showing its last entries.` : 'Closed; showing its last entries.';
+  }
+  const last = at(stream.updated_at);
+  return last ? `Live, last update ${last}.` : 'Live, no entries yet.';
+}
+
+/** A stream's JSON record entries as rows (text and binary entries are not rows). */
+export function streamRows(content: StreamContent | undefined): QueryRow[] | undefined {
+  if (!content) return undefined;
+  return content.entries.filter((entry) => isJsonObject(entry.value)).map((entry) => entry.value as QueryRow);
+}
+
+/**
+ * Holds this view's session's lease on a stream while the view is shown, so the stream
+ * announces its changes to this session; releases it when the view goes.
+ */
+export function useStreamLease(streamId: string | undefined, sessionId: string | undefined): void {
+  const repository = useRepository();
+  // Each view holds a lease of its own: one view going away leaves the others watching.
+  const [leaseId] = useState(() => crypto.randomUUID());
+  // A view's lease requests go one after another, so a release sent as the view remounts
+  // (a tab switch, or React's development double mount) cannot land after the new lease.
+  const requests = useRef<Promise<unknown>>(Promise.resolve());
+  useEffect(() => {
+    if (!streamId || !sessionId) return undefined;
+    const send = (release: boolean) => {
+      requests.current = requests.current
+        .then(() => repository.watchStream(streamId, sessionId, release, undefined, leaseId))
+        .catch(() => undefined);
+    };
+    send(false);
+    const timer = window.setInterval(() => send(false), STREAM_LEASE_RENEW_MS);
+    return () => {
+      window.clearInterval(timer);
+      send(true);
+    };
+  }, [repository, streamId, sessionId, leaseId]);
 }
 
 /** Columnar `{name: values[]}` to row objects (`count` rows). */
@@ -267,7 +332,12 @@ export function useTableQueryRows({
 }): TableQueryRows {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const artifactId = artifactIdFromDataUri(dataUri);
+  const live = !data && latestArtifactSource(dataUri) ? dataUri : undefined;
+  const liveReference = useA2uiReference(live ?? '', { readBytes: false, enabled: Boolean(live) });
+  const artifactId = artifactIdFromDataUri(dataUri) ?? liveReference.resolution?.artifact_id;
+  // A named artifact that is a stream: its entries are read as they are, from clio-core.
+  const liveStream = live ? liveReference.resolution?.stream : undefined;
+  useStreamLease(liveStream?.stream_id, useA2uiReferenceSession());
   const limit = Math.min(dataQuery?.limit ?? TABLE_QUERY_ROW_LIMIT, TABLE_QUERY_ROW_LIMIT);
   // The producer's query goes out as written (its shape is the server's); the
   // row budget is always filled in, and the projection only when the caller
@@ -277,7 +347,7 @@ export function useTableQueryRows({
     () => ({ ...dataQuery, ...(columns.length ? { columns } : {}), limit }),
     [columns, dataQuery, limit],
   );
-  const study = artifactId ? undefined : studySourceFromDataUri(dataUri);
+  const study = artifactId || live ? undefined : studySourceFromDataUri(dataUri);
   const studyQuery = useQuery({
     enabled: !data && Boolean(study),
     queryKey: [
@@ -293,15 +363,27 @@ export function useTableQueryRows({
       previousQuery?.queryKey[2] === study?.study && previousQuery?.queryKey[3] === study?.source
         ? previousData
         : undefined,
-    ...(study ? studySourceQueryOptions(study) : {}),
+    ...STUDY_SOURCE_QUERY,
   });
+  const streamQuery = useQuery({
+    enabled: !data && Boolean(liveStream),
+    queryKey: streamRowsQueryPrefix(settings.endpoint, liveStream?.stream_id ?? ''),
+    queryFn: ({ signal }) => repository.streamContent(liveStream!.content_path, signal),
+    retry: retryTableQuery,
+    // Each update keeps the previous entries on screen until the next ones arrive.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === liveStream?.stream_id ? previousData : undefined,
+    staleTime: 0,
+  });
+  const streamed = useMemo(() => streamRows(streamQuery.data), [streamQuery.data]);
   const artifactQuery = useQuery({
-    enabled: !data && Boolean(artifactId),
+    enabled: !data && Boolean(artifactId) && !liveStream,
     queryKey: queryKeys.key(
       'artifact-table-query',
       settings.endpoint,
       artifactId,
       JSON.stringify(request),
+      live ?? '',
     ),
     queryFn: ({ signal }) => repository.artifactTableQuery(artifactId!, request, signal),
     retry: retryTableQuery,
@@ -313,8 +395,11 @@ export function useTableQueryRows({
     // just-replaced artifact's own rows as "settled" placeholder data the
     // instant a producer points `dataUri` at a different one, rather than
     // the loading state a genuinely different dataset should show.
+    // A live source's next version keeps its previous version's rows on screen too.
     placeholderData: (previousData, previousQuery) =>
-      previousQuery?.queryKey[2] === artifactId ? previousData : undefined,
+      previousQuery?.queryKey[2] === artifactId || (live && previousQuery?.queryKey[4] === live)
+        ? previousData
+        : undefined,
     ...IMMUTABLE_QUERY,
   });
   const query = study ? studyQuery : artifactQuery;
@@ -342,6 +427,35 @@ export function useTableQueryRows({
       matchedRows: data.length,
       totalRows: data.length,
       returnedRows: data.length,
+      schema: undefined,
+      rowKey: undefined,
+    };
+  }
+  if (live && !artifactId) {
+    const failure = liveReference.failure;
+    return {
+      rows: undefined,
+      loading: !failure,
+      error: failure ? failure.message : '',
+      note: '',
+      matchedRows: undefined,
+      totalRows: undefined,
+      returnedRows: undefined,
+      schema: undefined,
+      rowKey: undefined,
+    };
+  }
+  if (liveStream) {
+    return {
+      rows: streamed,
+      loading: streamQuery.isPending,
+      refreshing: streamQuery.isFetching && !streamQuery.isPending,
+      retry: () => void streamQuery.refetch(),
+      error: streamQuery.isError ? tableQueryErrorMessage(streamQuery.error) : '',
+      note: streamQuery.data ? describeStream(streamQuery.data.stream) : '',
+      matchedRows: streamed?.length,
+      totalRows: streamed?.length,
+      returnedRows: streamed?.length,
       schema: undefined,
       rowKey: undefined,
     };
@@ -379,7 +493,13 @@ export function useTableQueryRows({
     refreshing: query.isFetching && !query.isPending,
     retry: () => void query.refetch(),
     error: '',
-    note: query.data ? describeResult(query.data, (dataQuery?.offset ?? 0) > 0) : '',
+    note: query.data
+      ? [
+          describeResult(query.data, (dataQuery?.offset ?? 0) > 0),
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : '',
     matchedRows: query.data ? (query.data.matchedRows ?? query.data.totalRows) : undefined,
     totalRows: query.data?.totalRows,
     returnedRows: query.data?.returnedRows,

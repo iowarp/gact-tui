@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
-import type { ComposerAnnotation } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 
 const SURFACE = new Uint8Array(
   readFileSync(resolve(process.cwd(), 'src/test-fixtures/mesh/surface.glb')),
@@ -39,15 +39,16 @@ function wrap(children: ReactNode) {
 
 /** `wrap`, plus the composer's own selection-action registry, for "Reference this" coverage (G0). */
 function ComposerHarness({ children }: { children: ReactNode }) {
-  const [annotations, setAnnotations] = useState<readonly ComposerAnnotation[]>([]);
+  const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   useReferenceThisSelectionAction({ annotations, onAnnotationsChange: setAnnotations }, () => {});
   return (
     <>
       {children}
       <ClioComposerAnnotations
         annotations={annotations}
-        onRemove={(gone) => setAnnotations(annotations.filter((item) => item !== gone))}
+        onChange={setAnnotations}
       />
+      <output data-testid="sent-comments" hidden>{JSON.stringify(annotations)}</output>
     </>
   );
 }
@@ -226,7 +227,7 @@ describe('ClioMeshViewport', () => {
 
       await user.click(await screen.findByRole('button', { name: 'Reference this' }));
 
-      const attached = screen.getByRole('list', { name: 'Attached selections' });
+      const attached = screen.getByRole('list', { name: 'Attached comments' });
       expect(attached).toHaveTextContent('Impeller');
       expect(attached).toHaveTextContent('the current view');
       expect(attached.textContent).not.toContain('artifact_surface');

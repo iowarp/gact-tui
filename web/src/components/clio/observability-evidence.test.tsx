@@ -1,8 +1,9 @@
 import type { Artifact, Message, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
+import { useWorkTaskFocus } from './work-task-focus';
 
 afterEach(() => {
   cleanup();
@@ -48,12 +49,14 @@ it('lets Evidence disclose the formatted tool result and preserves semantic fail
     />,
   );
   await userEvent.click(screen.getByRole('button', { name: 'Tool calls, 2 recorded' }));
-  // Tool-call rows carry no task-kind glyph; a failure is named in text, success is not.
+  // Tool-call rows carry no task-kind glyph; each mark names its outcome, and a failure
+  // is also named in text while success stays quiet.
   expect(document.querySelector('[data-slot="work-kind-status"]')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Show result for Read' })).not.toHaveTextContent(
-    'failed',
-  );
-  expect(screen.getByRole('button', { name: 'Show result for Fetch' })).toHaveTextContent('failed');
+  expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
+  expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+  const row = (id: string) => document.getElementById(`evidence-tool-${id}`)!;
+  expect(row('read')).not.toHaveTextContent('failed');
+  expect(row('fetch').querySelector('[data-slot="tool-outcome"]')).toHaveTextContent('failed');
   expect(screen.queryByText('Succeeded')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Show result for Fetch' }));
   expect(screen.getByRole('region', { name: 'Fetch: Result' })).toHaveTextContent(
@@ -525,7 +528,7 @@ describe('ClioEvidenceView session_lineage fallback', () => {
               attributes: {
                 tool_name: 'fs_read_file',
                 owner_session_id: 'session_gateway',
-                tool_input: { filepath: 'D:/workspace/triage/api_gateway.log' },
+                tool_input: { path: 'D:/workspace/triage/api_gateway.log' },
               },
             },
           ],
@@ -761,4 +764,34 @@ describe('ClioEvidenceView child agents', () => {
       'canvas',
     );
   });
+});
+
+it('opens Background tasks and the row a task link asked for', async () => {
+  window.localStorage.clear();
+  useWorkTaskFocus.setState({ handle: undefined });
+  render(
+    <ClioEvidenceView
+      artifacts={[]}
+      contextFiles={[]}
+      diffs={[]}
+      messages={[]}
+      processes={[
+        {
+          id: 'watch',
+          handle: 'task_watch',
+          kind: 'mcp-task',
+          task_kind: 'Code',
+          title: 'printer-watch',
+          description: 'Poll the printer',
+          live_state: 'running',
+          status: 'working',
+          effective_status: 'running',
+          metadata: {},
+        },
+      ]}
+    />,
+  );
+  expect(screen.queryByRole('region', { name: 'Assignment: printer-watch' })).toBeNull();
+  act(() => useWorkTaskFocus.getState().focus('task_watch'));
+  expect(await screen.findByRole('region', { name: 'Assignment: printer-watch' })).toBeVisible();
 });

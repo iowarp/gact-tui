@@ -7,7 +7,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { humanizeProtocolValue } from './presentation-labels';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { injectionPresentation } from './injection-presentation';
+import { injectionPresentation, summonServerLabel } from './injection-presentation';
 import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
@@ -15,6 +15,7 @@ import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
 import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
+import { PresentationLink } from './presentation-link';
 import { agentMessageName } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
@@ -28,13 +29,29 @@ const INJECTION_LABELS: Record<string, string> = {
   task_completion: 'Background task completion',
   earlier_turns: 'Recovered conversation context',
   todos: 'Todo list reminder',
-  plan_mode: 'Plan reminder',
+  plan_mode: 'Plan mode',
+  plan: 'Session plan',
+  plan_stale: 'Plan not updated lately',
+  plan_person_edit: 'Plan edited by you',
+  explore_nudge: 'Explore suggestion',
+  session_facts: 'Session facts',
+  child_report: 'Report instructions',
+  compaction_failed: 'Compaction failed',
+  compaction_skipped: 'Compaction skipped',
+  question_answer: 'Answer to a question',
+  plan_mode_short: 'Plan mode',
+  plan_truncated: 'Session plan (shortened)',
+  hook_defer: 'You chose to continue',
+  answer_hook: 'Hook answer',
+  mcp_elicitation: 'Question from a tool server',
   replan: 'Replanning suggestion',
   memory: 'Memory',
   task_results: 'Results from background tasks',
   task_result: 'Task result',
+  attention: 'Notice from a background task',
   peer: 'Received message from an agent',
   plugin_change: 'Plugins changed',
+  summon_server: 'Loaded tools you pointed this message at',
   path_hint: 'Path suggestion',
   circuit_breaker: 'Repeated-failure warning',
   result_spilled: 'Large result saved to a file',
@@ -79,11 +96,13 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
     navigation?.subagents,
     sessionTitle,
   );
-  const label = presentation?.senderSessionId
-    ? `Received message from ${sender || 'an agent'}`
-    : (presentation?.label ??
-      INJECTION_LABELS[block.source] ??
-      humanizeProtocolValue(block.source));
+  const label =
+    summonServerLabel(block) ??
+    (presentation?.senderSessionId
+      ? `Received message from ${sender || 'an agent'}`
+      : (presentation?.label ??
+        INJECTION_LABELS[block.source] ??
+        humanizeProtocolValue(block.source)));
   const Icon = presentation
     ? presentation.terminal
       ? TerminalIcon
@@ -183,6 +202,21 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
             {presentation?.notice ? (
               <p className="text-sm text-muted-foreground">{presentation.notice}</p>
             ) : null}
+            {presentation?.tasks?.map((task) => (
+              <PresentationLink
+                key={task.handle}
+                block={{
+                  id: `task-${task.handle}`,
+                  type: 'link',
+                  target: 'task',
+                  uri: task.handle,
+                  label:
+                    presentation.tasks!.length > 1
+                      ? `Show ${task.label} in Work`
+                      : 'Show the script in Work',
+                }}
+              />
+            ))}
           </div>
         ) : null}
         <ToolDetailsContent inline={false} title={`${label}: Technical details`}>

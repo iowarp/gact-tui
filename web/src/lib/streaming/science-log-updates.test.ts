@@ -58,3 +58,25 @@ describe('ScienceEntryMerger', () => {
     expect(merged?.in_study && merged.entries.map((entry) => entry.id)).toEqual(['e_9']);
   });
 });
+
+describe('ScienceEntryMerger and published dashboards', () => {
+  it('re-reads the science log when a study session publishes a dashboard', () => {
+    // SABOTAGE: drop the `science.view` branch in `push` and the log stays valid.
+    const client = new QueryClient();
+    const key = scienceLogQueryKey(ENDPOINT, 'sess_root');
+    client.setQueryData(key, { in_study: false });
+    const merger = new ScienceEntryMerger(client, ENDPOINT, 'sess_root');
+    merger.push({
+      eventName: 'science.view',
+      data: {
+        protocol_version: PROTOCOL_VERSION,
+        type: 'science.view',
+        occurred_at: '2026-11-05T10:00:00Z',
+        scope: { connection_id: 'conn_1', session_id: 'sess_root' },
+        payload: { study: 'e_1', dashboard_id: 'rep-1', session_id: 'sess_b' },
+      },
+    } as TransportFrame);
+    merger.stop({ flush: false });
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  });
+});

@@ -28,7 +28,8 @@ it('bounds a standalone transcript diff, keeps full copying, and opens all chang
   geometry(45);
   const user = userEvent.setup();
   const diff =
-    '@@ -0,0 +1,42 @@\n' + Array.from({ length: 42 }, (_, i) => `+line ${i + 1}`).join('\n');
+    '--- a/agenda.md\n+++ b/agenda.md\n@@ -0,0 +1,42 @@\n' +
+    Array.from({ length: 42 }, (_, i) => `+line ${i + 1}`).join('\n');
   const open = vi.fn();
   const { container } = render(
     <MessageBlockSequence
@@ -42,6 +43,10 @@ it('bounds a standalone transcript diff, keeps full copying, and opens all chang
     />,
   );
   expect(container.querySelector('[id]')).toHaveStyle({ maxHeight: '120px' });
+  // The file lines repeat the header's path: the preview starts at the change, and Copy
+  // still copies the whole diff.
+  expect(screen.queryByText('+++ b/agenda.md')).toBeNull();
+  expect(screen.getByText('@@ -0,0 +1,42 @@')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Copy diff for agenda.md' }));
   expect(copyText).toHaveBeenCalledWith(diff);
   await user.click(screen.getByRole('button', { name: 'Open agenda.md in workspace' }));

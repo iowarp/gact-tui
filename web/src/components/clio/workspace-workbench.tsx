@@ -1,3 +1,4 @@
+import type { WorkspaceSourceFolder } from '@clio/core/v3';
 import type { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import type { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import type { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
@@ -29,6 +30,7 @@ export function WorkspaceWorkbench({
   contextTargetId,
   onContextTargetChange,
   onFilesViewActiveChange,
+  workspaceFolders,
 }: {
   data: ObservabilityData & Pick<WorkspaceData, 'sessionArtifacts' | 'workspaceFiles'>;
   navigation: ObservabilityNavigation &
@@ -38,6 +40,8 @@ export function WorkspaceWorkbench({
   /** The connected service; a new one starts a fresh workbench. */
   endpoint: string;
   inStudy: boolean | undefined;
+  /** Folders the session may write besides the workspace (Evidence lists them). */
+  workspaceFolders?: readonly WorkspaceSourceFolder[];
   diffActions: ReturnType<typeof useSessionDiffActions>;
   terminalActions: ReturnType<typeof useWorkspaceTerminalActions>;
   requestedView: ReturnType<typeof useObservabilityNavigation>['requestedView'];
@@ -89,6 +93,7 @@ export function WorkspaceWorkbench({
           requestedView={requestedView}
           contextTargetId={contextTargetId}
           onContextTargetChange={onContextTargetChange}
+          workspaceFolders={workspaceFolders}
         />
       }
       workspaceId={workspaceId}

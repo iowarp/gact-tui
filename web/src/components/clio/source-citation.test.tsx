@@ -69,4 +69,27 @@ describe('SourceCitation', () => {
     expect(openFile).toHaveBeenCalledWith('/data/protocol.md');
     expect(mocks.openExternalUrl).not.toHaveBeenCalled();
   });
+
+  it('opens a tapped file chip without a passive-listener preventDefault', () => {
+    const openFile = vi.fn();
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
+        <MarkdownContentLink href="workspace-file:throughput.png">throughput.png</MarkdownContentLink>
+      </PresentationNavigation.Provider>,
+    );
+    const chip = screen.getByRole('link', { name: 'throughput.png' });
+    const preventDefault = vi.spyOn(Event.prototype, 'preventDefault');
+    try {
+      fireEvent.touchStart(chip, { touches: [{ clientX: 4, clientY: 4 }] });
+      fireEvent.touchEnd(chip);
+      // React's touchstart listener is passive: a preventDefault there only logs an error.
+      expect(preventDefault).not.toHaveBeenCalled();
+    } finally {
+      preventDefault.mockRestore();
+    }
+    fireEvent.click(chip);
+    expect(openFile).toHaveBeenCalledWith('throughput.png');
+  });
 });

@@ -10,6 +10,8 @@ export interface InjectionPresentation {
   notice?: string;
   attribution?: string;
   senderSessionId?: string;
+  /** Background scripts the message came from, each shown in Work by its handle. */
+  tasks?: { handle: string; label: string }[];
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -42,6 +44,9 @@ export function injectionPresentation(
       text: body.text,
       format: 'markdown',
     };
+
+  if (source === 'attention' && body?.type === 'clio.code.notify' && Array.isArray(body.tasks))
+    return backgroundNotices(body.tasks);
 
   const task = /^\[CLIO; [a-z_]+; ([A-Za-z]+) [^\s:]+: ([a-z_]+)/u.exec(text);
   if (!task) return null;
@@ -98,4 +103,52 @@ export function injectionPresentation(
   return typeof output === 'string'
     ? { label, text: output, format: 'markdown' }
     : { label, text: JSON.stringify(output, null, 2), format: 'json' };
+}
+
+/** A background script's notifies, grouped by script; their data stays in the exact text. */
+function backgroundNotices(tasks: unknown[]): InjectionPresentation {
+  const scripts = tasks.flatMap((item) => {
+    const task = record(item);
+    return task ? [task] : [];
+  });
+  const name = (task: Record<string, unknown>) =>
+    typeof task.label === 'string' && task.label.trim() ? task.label.trim() : 'a background script';
+  const lines = scripts.flatMap((task) => {
+    const notifies = (Array.isArray(task.notifies) ? task.notifies : []).flatMap((item) => {
+      const notify = record(item);
+      return notify && typeof notify.message === 'string' && notify.message.trim()
+        ? [`- ${notify.message.trim()}`]
+        : [];
+    });
+    return scripts.length > 1 ? [`**${name(task)}**`, ...notifies, ''] : notifies;
+  });
+  return {
+    label:
+      scripts.length === 1
+        ? `Message from ${name(scripts[0])}`
+        : `Messages from ${scripts.length} background scripts`,
+    text: lines.join('\n').trim() || 'The script sent no text.',
+    format: 'markdown',
+    tasks: scripts.flatMap((task) =>
+      typeof task.handle === 'string' && task.handle
+        ? [{ handle: task.handle, label: name(task) }]
+        : [],
+    ),
+  };
+}
+
+/**
+ * "Loaded 3 tools from hdf5" for a server the person summoned. The text is what
+ * `search_tools` returns, one `## <tool>  (<server>)` heading per loaded tool.
+ */
+export function summonServerLabel(block: { source: string; text: string }): string | undefined {
+  if (block.source !== 'summon_server') return undefined;
+  const server = /pointed this message at the (\S+) tools/u.exec(block.text)?.[1];
+  if (!server) return undefined;
+  const count = [...block.text.matchAll(/^## \S+ {2}\(([^)]+)\)$/gmu)].filter(
+    (match) => match[1] === server,
+  ).length;
+  return count
+    ? `Loaded ${count} tool${count === 1 ? '' : 's'} from ${server}`
+    : `You pointed this message at the ${server} tools`;
 }

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { MinusIcon, MousePointerSquareDashedIcon, ZoomInIcon } from 'lucide-react';
 import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import type { ArtifactRasterQueryResult } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
@@ -152,10 +152,17 @@ export function ClioRasterViewport({
       centerX + (right - centerX) * factor, centerY + (bottom - centerY) * factor]);
     setSelectedExtent(undefined);
   };
-  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey) return;
-    event.preventDefault();
-    zoom(event.deltaY > 0 ? 1.25 : 0.8);
+  // Native and non-passive: React listens for wheel passively, so a JSX
+  // `onWheel` cannot stop the browser zooming the page on ctrl+wheel or a pinch.
+  const wheelZoomRef = (node: HTMLDivElement | null) => {
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      zoom(event.deltaY > 0 ? 1.25 : 0.8);
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
   };
   const selectedBox = selectedExtent && activeExtent ? {
     x0: (selectedExtent[0] - activeExtent[0]) / (activeExtent[2] - activeExtent[0]),
@@ -219,7 +226,7 @@ export function ClioRasterViewport({
       <div className="relative" data-a2ui-component-id={componentId} data-slot="a2ui-raster-surface" ref={surfaceRef}>
         {sample.isError ? <p className="p-4 text-sm text-destructive">Raster unavailable: {sample.error instanceof Error ? sample.error.message : String(sample.error)}</p> : null}
         <div className={fullscreen ? 'relative h-[calc(100dvh-8rem)] min-h-64 cursor-grab overflow-hidden bg-muted/30' : height ? 'relative cursor-grab overflow-hidden bg-muted/30' : 'relative h-80 min-h-64 cursor-grab overflow-hidden bg-muted/30'}
-          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={() => setHover(undefined)} onWheel={onWheel}
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={() => setHover(undefined)} ref={wheelZoomRef}
           style={{ cursor: boxMode ? 'crosshair' : undefined, ...(!fullscreen && height ? { height } : {}) }}>
           <canvas aria-label={`${heading} raster image`} className="size-full" ref={canvasRef} role="img" style={{ imageRendering: 'pixelated' }} />
           {overlay ? <div className="pointer-events-none absolute border-2 border-primary bg-primary/10" style={overlay} /> : null}

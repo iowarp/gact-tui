@@ -351,7 +351,7 @@ describe('ClioConversation harness injection', () => {
         }}
       />,
     );
-    expect(screen.queryByText('Plan reminder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Plan mode')).not.toBeInTheDocument();
     expect(container.querySelector('[data-turn-activity="injection:reminder"]')).toBeNull();
     expect(screen.getByRole('button', { name: /^Activity:/u })).toHaveAttribute(
       'aria-expanded',
@@ -361,7 +361,7 @@ describe('ClioConversation harness injection', () => {
     const reminder = container.querySelector<HTMLElement>(
       '[data-turn-activity="injection:reminder"]',
     )!;
-    expect(within(reminder).getByText('Plan reminder')).toBeVisible();
+    expect(within(reminder).getByText('Plan mode')).toBeVisible();
     await user.click(within(reminder).getByRole('button', { name: /^Injection/u }));
     expect(within(reminder).getByText('Inspect before executing.')).toBeVisible();
   });

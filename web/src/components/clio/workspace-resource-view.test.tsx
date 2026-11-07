@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { WorkspaceResource } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -88,7 +88,7 @@ const resource: WorkspaceResource = {
 };
 
 describe('WorkspaceResourceView', () => {
-  it('renders an HTML upload by its detected MIME and preserves its source', async () => {
+  it('shows an HTML upload as its exact source and never runs it', async () => {
     const content = '<h1>Uploaded report</h1><script>originalSource()</script>';
     repository.resourcePreview.mockResolvedValueOnce(new TextEncoder().encode(content));
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -100,52 +100,14 @@ describe('WorkspaceResourceView', () => {
         />
       </QueryClientProvider>,
     );
-    const frame = await screen.findByTitle('HTML preview of report.txt');
-    expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
-    expect(frame.getAttribute('srcdoc')).toContain('originalSource');
+    await waitFor(() =>
+      expect(container.querySelector('[data-language="html"]')).toHaveTextContent(
+        'originalSource()',
+      ),
+    );
+    expect(container.querySelector('iframe')).toBeNull();
     expect(container.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
-    const toolbar = screen
-      .getByRole('tab', { name: 'Preview' })
-      .closest('[data-slot="viewer-toolbar"]');
-    expect(toolbar).not.toBeNull();
-    expect(toolbar).toContainElement(screen.getByRole('tab', { name: 'Source' }));
-    expect(screen.queryByText(/Static preview ·/)).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
-    expect(container.querySelector('[data-language="html"]')).toHaveTextContent('originalSource()');
-    await userEvent.click(screen.getByRole('tab', { name: 'HTML preview' }));
-    expect(screen.getByTitle('HTML preview of report.txt')).toBeVisible();
     expect(repository.resourcePreview).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns to Preview when an HTML source view changes to a non-HTML resource', async () => {
-    repository.resourcePreview.mockResolvedValueOnce(
-      new TextEncoder().encode('<h1>Uploaded report</h1>'),
-    );
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { rerender } = render(
-      <QueryClientProvider client={queryClient}>
-        <WorkspaceResourceView
-          resource={{ ...resource, name: 'report.html', detected_mime: 'text/html' }}
-          workspaceId="workspace_1"
-        />
-      </QueryClientProvider>,
-    );
-    await screen.findByTitle('HTML preview of report.html');
-    await userEvent.click(screen.getByRole('tab', { name: 'Source' }));
-    expect(screen.getByRole('tab', { name: 'Source' })).toHaveAttribute('aria-selected', 'true');
-
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <WorkspaceResourceView
-          resource={{ ...resource, id: 'resource_pdf' }}
-          workspaceId="workspace_1"
-        />
-      </QueryClientProvider>,
-    );
-
-    expect(await screen.findByText('Rendered PDF paper.pdf')).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.queryByRole('tab', { name: 'Source' })).not.toBeInTheDocument();
   });
 
   it('moves between related message resources without opening another canvas tab', async () => {

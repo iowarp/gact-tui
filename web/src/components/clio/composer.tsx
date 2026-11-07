@@ -5,6 +5,7 @@ import type {
   MessageDelivery,
   RunState,
   WorkspaceReference,
+  SummonTargets,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
@@ -22,11 +23,6 @@ import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { brand } from '@brand';
 import {
   PromptInput,
-  PromptInputCommand,
-  PromptInputCommandEmpty,
-  PromptInputCommandGroup,
-  PromptInputCommandItem,
-  PromptInputCommandList,
   PromptInputFooter,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input';
@@ -49,10 +45,14 @@ import type {
   UploadableFilePart,
   WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
+import { ClioComposerCommandMenu } from './composer-command-menu';
+import { commandForName } from '@/lib/command-table';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
 import {
+  summonReferences,
   toMessagePart,
+  typedSummons,
   withReferenceMentions,
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
@@ -60,10 +60,11 @@ import { ComposerInlineReferenceEditor } from './composer-inline-reference-edito
 import { focusEditorAtOffset as focusComposerEditor } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
-import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
+import { commentSessionParts } from '@/lib/composer-annotations';
+import type { CommentAttachment } from '@clio/core/v3';
 import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
-import { useRegionCaptureAnnotation } from './use-region-capture-annotation';
+import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
 import { ComposerAddContextButton } from './composer-add-context-button';
 import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
@@ -71,6 +72,7 @@ import {
   isSourceAttachment,
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
+import { useSummonTargets } from '@/hooks/use-summon-targets';
 
 export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
@@ -106,6 +108,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
   workspaceId?: string;
   sessionId?: string;
   commands?: CommandDefinition[];
+  /** The subagents and MCP servers the person can `@`-summon (fetched for the session if absent). */
+  summonTargets?: SummonTargets;
   onSubmit: (value: {
     text: string;
     files: UploadableFilePart[];
@@ -149,8 +153,9 @@ export interface ClioComposerProps extends ComposerQueueControls {
   references?: readonly InlineReferenceSelection[];
   onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
   /** Selections attached to the next message (sent as quotes ahead of the text). */
-  annotations?: readonly ComposerAnnotation[];
-  onAnnotationsChange?: (annotations: readonly ComposerAnnotation[]) => void;
+  /** Comment sessions attached to the next message (answers, A2UI views, pages). */
+  annotations?: readonly CommentAttachment[];
+  onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
 }
@@ -172,6 +177,7 @@ export function ClioComposer({
   workspaceId = '',
   sessionId,
   commands = [],
+  summonTargets: summonTargetsProp,
   onSubmit,
   onBehaviorChange,
   spotterModel = '',
@@ -274,7 +280,7 @@ export function ClioComposer({
       window.removeEventListener('clio:use-message-draft', useDraft);
     };
   }, [input, setInput]);
-  useRegionCaptureAnnotation(annotations, onAnnotationsChange);
+  useCommentSessionAttachment(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
@@ -283,16 +289,10 @@ export function ClioComposer({
     window.requestAnimationFrame(() => focusComposerEditor(inputRef.current, offset));
   }, []);
 
+  const fetchedTargets = useSummonTargets(summonTargetsProp ? '' : (sessionId ?? ''));
+  const summonTargets = summonTargetsProp ?? fetchedTargets;
+  const summonRows = useMemo(() => summonReferences(summonTargets), [summonTargets]);
   const commandQuery = input.trimStart();
-  const commandMatches = useMemo(() => {
-    if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
-    const query = commandQuery.toLocaleLowerCase();
-    return commands.filter((command) =>
-      [command.id, command.title, ...command.aliases].some((value) =>
-        value.toLocaleLowerCase().includes(query),
-      ),
-    );
-  }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
   const commandPopoverId = `${useId()}-composer-commands`;
   const sourceAttachments = useComposerSourceAttachments(
@@ -378,44 +378,15 @@ export function ClioComposer({
       ref={rootRef}
     >
       {showCommands ? (
-        <div
-          className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
-          id={commandPopoverId}
-        >
-          <PromptInputCommand className="rounded-xl border bg-popover text-popover-foreground shadow-xl">
-            <PromptInputCommandList className="max-h-64">
-              <PromptInputCommandEmpty>No service command matches.</PromptInputCommandEmpty>
-              <PromptInputCommandGroup heading="Service commands">
-                {commandMatches.map((command) => (
-                  <PromptInputCommandItem
-                    aria-label={`${command.title} ${command.id}`}
-                    disabled={!command.enabled}
-                    key={command.id}
-                    onSelect={() => {
-                      setInput(`${command.id} `);
-                      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
-                    }}
-                    value={`${command.id} ${command.title} ${command.aliases.join(' ')}`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2 font-medium">
-                        <span>{command.title}</span>
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {command.id}
-                        </span>
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {command.enabled
-                          ? command.argument_hint || command.description || 'Run this command'
-                          : command.disabled_reason || 'Unavailable'}
-                      </span>
-                    </span>
-                  </PromptInputCommandItem>
-                ))}
-              </PromptInputCommandGroup>
-            </PromptInputCommandList>
-          </PromptInputCommand>
-        </div>
+        <ClioComposerCommandMenu
+          commands={commands}
+          onPick={(command) => {
+            setInput(`${command.id} `);
+            window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
+          }}
+          popoverId={commandPopoverId}
+          query={commandQuery}
+        />
       ) : null}
       {showReferences && !showCommands ? (
         <div
@@ -433,6 +404,7 @@ export function ClioComposer({
             onQueryChange={composerReferences.onQueryChange}
             query={composerReferences.query}
             searchInput={composerReferences.pickerOpen}
+            summons={summonRows}
             workspaceId={workspaceId}
           />
         </div>
@@ -471,9 +443,13 @@ export function ClioComposer({
           if (trimmed || files.length > 0 || selectedReferences.length > 0 || annotations.length) {
             if (trimmed.startsWith('/')) {
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
-              const command = commands.find(
-                (candidate) => candidate.id === enteredId || candidate.aliases.includes(enteredId),
-              );
+              const { command, qualified } = commandForName(commands, enteredId);
+              if (qualified) {
+                toast.error(`${enteredId} names more than one command`, {
+                  description: `Use one of ${qualified.join(', ')}.`,
+                });
+                return;
+              }
               if (!command) {
                 toast.error('Unknown command', {
                   description: 'Choose a command reported by the connected service.',
@@ -482,7 +458,7 @@ export function ClioComposer({
               }
               if (!command.enabled) {
                 toast.error(`${command.title} is unavailable`, {
-                  description: command.disabled_reason,
+                  description: command.disabled_detail || command.disabled_reason,
                 });
                 return;
               }
@@ -506,6 +482,7 @@ export function ClioComposer({
               }
               return;
             }
+            const picked = selectedReferences.map(({ reference }) => toMessagePart(reference));
             restoreFocusAfterSubmitRef.current = true;
             setUploadFailure(undefined);
             uploadingFilenameRef.current = undefined;
@@ -514,13 +491,15 @@ export function ClioComposer({
                 behavior: messageBehavior,
                 delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
                 files,
-                references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
+                references: [
+                  ...picked,
+                  // An `@name` typed in full that exactly names a summon target is one too.
+                  ...typedSummons(text, summonTargets, picked),
+                  ...commentSessionParts(annotations),
+                ],
                 // Each typed reference stays where it was typed, as `@path` /
                 // `@label`; attached sources live in the tray, not the sentence.
-                text: messageTextWithAnnotations(
-                  annotations,
-                  withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
-                ),
+                text: withReferenceMentions(text, sourceAttachments.inlineReferences).trim(),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 onUploadProgress: (progress) => {
@@ -566,10 +545,6 @@ export function ClioComposer({
           onFolderFiles={connectedSources.drop}
         />
         <ClioComposerAttachments
-          annotations={annotations}
-          onRemoveCapture={(gone) =>
-            onAnnotationsChange?.(annotations.filter((item) => item !== gone))
-          }
           onPrepareFiles={onPrepareFiles}
           onDiscardFiles={onDiscardFiles}
           resources={resources}
@@ -594,8 +569,8 @@ export function ClioComposer({
           />
         ) : null}
         <ClioComposerAnnotations
-          annotations={annotations.filter((annotation) => annotation.kind !== 'region-capture')}
-          onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
+          annotations={annotations}
+          onChange={(next) => onAnnotationsChange?.(next)}
         />
         <ComposerInlineReferenceEditor
           attachmentsEnabled={attachments}

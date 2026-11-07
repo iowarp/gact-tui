@@ -1,5 +1,6 @@
 import { taskFlowState } from './task-flow-state';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useWorkTaskFocus } from './work-task-focus';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,14 @@ import { WorkKindStatus } from './work-kind-status';
 import { taskWorkKind } from './work-kind';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+
+/** The task kind as a reader names it (a background run_code task is a script). */
+function kindLabel(kind: string, active: boolean): string {
+  if (kind === 'MCP' || kind === 'Shell') return 'Tool';
+  if (kind === 'Session' && active) return 'Agent'; // a settled one keeps its kind's name
+  if (kind === 'Code') return 'Script';
+  return kind;
+}
 
 /** A quiet task summary with the original assignment and identity disclosed on demand. */
 export function TaskActivityRow({
@@ -59,8 +68,24 @@ export function TaskActivityRow({
           ? 'Waiting for your answer'
           : status.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase());
   const result = task?.result?.answer || task?.result?.answer_excerpt || subagent?.result;
+  const [open, setOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const focused = useWorkTaskFocus((state) => state.handle === entry.key);
+  // A link asked Work to show this task: its row opens, comes into view, and the
+  // request clears, so the reader can close the row again.
+  if (focused && !open) setOpen(true);
+  useEffect(() => {
+    if (!focused) return;
+    rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+    useWorkTaskFocus.getState().clear(entry.key);
+  }, [focused, entry.key]);
   return (
-    <Collapsible className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35">
+    <Collapsible
+      ref={rowRef}
+      open={open}
+      onOpenChange={setOpen}
+      className="group/task min-w-0 rounded-lg data-[state=open]:bg-muted/35"
+    >
       <div className="flex min-w-0 items-center gap-0.5">
         <CollapsibleTrigger asChild>
           <button
@@ -88,16 +113,11 @@ export function TaskActivityRow({
               <span
                 className={`block text-muted-foreground ${compact ? 'max-w-[40%] truncate text-xs' : 'line-clamp-2 text-xs [overflow-wrap:anywhere]'}`}
               >
+                {/* The state in words, never only the icon (also in the compact rail). */}
                 {flowState
                   ? `Flow: ${flowState.label}`
-                  : running || status === 'completed'
-                    ? kind === 'MCP' || kind === 'Shell'
-                      ? 'Tool'
-                      : kind === 'Session'
-                        ? 'Agent'
-                        : kind
-                    : `${kind === 'MCP' || kind === 'Shell' ? 'Tool' : kind}: ${label}`}
-                {!compact && progress && progress !== label ? ` — ${progress}` : ''}
+                  : `${kindLabel(kind, running || status === 'completed')}: ${label}`}
+                {(!compact || running) && progress && progress !== label ? ` — ${progress}` : ''}
               </span>
             </span>
             <ChevronRightIcon

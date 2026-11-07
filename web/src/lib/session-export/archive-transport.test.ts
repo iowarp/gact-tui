@@ -119,6 +119,29 @@ describe('offline archive transport', () => {
     });
     expect(aggregated.columns).toEqual({ plant: ['A', 'B', 'C'], area_mean: [3, 100, 80] });
   });
+
+  it('answers a stream view with the entries and the state it had at export', async () => {
+    const closed = {
+      stream_id: 'stream_p',
+      name: 'p',
+      state: 'closed',
+      window: 5,
+      held: 1,
+      writes: 1,
+      closed_at: '2026-11-05T10:00:00Z',
+    };
+    const entries = [
+      { seq: 1, at: '2026-11-05T09:59:00Z', media_type: 'application/json', size_bytes: 9, value: { a: 1 } },
+    ];
+    const path = '/v1/streams/stream_p/content';
+    const transport = new ArchiveTransport({
+      ...snapshot,
+      responses: { [`GET ${path}`]: { json: { stream: closed, entries } } },
+    });
+    const result = await new ClioRepository(transport).streamContent(path);
+    expect(result.stream.state).toBe('closed');
+    expect(result.entries[0]!.value).toEqual({ a: 1 });
+  });
 });
 
 it('casts choice values using column types and reports invalid casts', () => {

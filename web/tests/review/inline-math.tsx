@@ -43,7 +43,6 @@ const manifest: DocumentManifest = {
   content_url: '/v1/artifacts/collatz-report/document/content',
   anchors: ['text-quote'],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   provenance: {},
 };

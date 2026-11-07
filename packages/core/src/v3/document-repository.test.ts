@@ -32,7 +32,6 @@ const manifest = {
   content_url: '/v1/artifacts/artifact%2F3/document/content',
   anchors: ['text-quote'],
   native_open: true,
-  embedded_editors: [],
   rendition_formats: ['pdf'],
   pdf_rendition_artifact_id: 'artifact_pdf',
   provenance: { custody: 'managed' },
@@ -65,7 +64,6 @@ const workingCopy = {
   base_sha256: 'a'.repeat(64),
   last_sha256: 'a'.repeat(64),
   path: 'D:\\workspace\\.clio\\documents\\working-copies\\copy-one\\evidence.md',
-  provider: 'native',
   writable: true,
   auto_checkpoint: true,
   status: 'active',
@@ -80,8 +78,19 @@ describe('DocumentRepository', () => {
     const transport = new RecordingTransport([
       manifest,
       bytes,
-      { reviews: [review] },
-      review,
+      {
+        artifact_id: 'artifact/3',
+        head: {
+          artifact_id: 'artifact/3',
+          name: 'evidence.md',
+          workspace_id: 'workspace-1',
+          version: 3,
+          sha256: 'a'.repeat(64),
+        },
+        next_label: 'S2',
+        threads: [review],
+      },
+      { session_key: 'cs_1', message_id: 'msg_1', threads: [{ ...review, label: 'S2' }] },
       { source_artifact_id: 'artifact/3', converter: 'pandoc', artifact: manifest },
     ]);
     const repository = new ClioRepository(transport);
@@ -92,15 +101,25 @@ describe('DocumentRepository', () => {
       pdf_rendition_artifact_id: 'artifact_pdf',
     });
     await expect(repository.documentContent('artifact/3')).resolves.toEqual(bytes);
-    await expect(repository.artifactReviews('artifact/3')).resolves.toHaveLength(1);
-    await repository.submitArtifactReview('session/one', {
-      artifact_id: 'artifact/3',
-      expected_version: 3,
-      expected_sha256: 'a'.repeat(64),
-      anchor: { profile: 'text-quote', exact: 'bounded claim' },
-      text: 'State the evidence boundary.',
-      idempotency_key: 'review-once',
+    await expect(repository.commentThreads('artifact/3', 'session/one')).resolves.toMatchObject({
+      next_label: 'S2',
+      threads: [{ anchor_state: 'current', send_to_agent: true }],
     });
+    await expect(
+      repository.sendCommentSession('session/one', {
+        artifact_id: 'artifact/3',
+        expected_version: 3,
+        expected_sha256: 'a'.repeat(64),
+        marks: [
+          {
+            label: 'S2',
+            anchor: { profile: 'text-quote', exact: 'bounded claim' },
+            comment: 'State the evidence boundary.',
+          },
+        ],
+        idempotency_key: 'review-once',
+      }),
+    ).resolves.toMatchObject({ session_key: 'cs_1', threads: [{ label: 'S2' }] });
     await expect(
       repository.createDocumentRendition('artifact/3', 'session/one'),
     ).resolves.toMatchObject({ converter: 'pandoc', artifact: { artifact_id: 'artifact/3' } });
@@ -124,12 +143,12 @@ describe('DocumentRepository', () => {
       },
       {
         method: 'GET',
-        path: '/v1/artifacts/artifact%2F3/reviews',
+        path: '/v1/artifacts/artifact%2F3/threads?session_id=session%2Fone',
         responseType: undefined,
       },
       {
         method: 'POST',
-        path: '/v1/sessions/session%2Fone/artifact-reviews',
+        path: '/v1/sessions/session%2Fone/comment-sessions',
         responseType: undefined,
       },
       {
@@ -138,17 +157,16 @@ describe('DocumentRepository', () => {
         responseType: undefined,
       },
     ]);
-    expect(transport.requests[3]?.body).toEqual({
+    expect(transport.requests[3]?.body).toMatchObject({
       artifact_id: 'artifact/3',
       expected_version: 3,
       expected_sha256: 'a'.repeat(64),
-      anchor: { profile: 'text-quote', exact: 'bounded claim' },
-      text: 'State the evidence boundary.',
+      marks: [{ label: 'S2', comment: 'State the evidence boundary.' }],
       idempotency_key: 'review-once',
     });
   });
 
-  it('uses explicit working-copy, conflict, health, and editor-session routes', async () => {
+  it('uses explicit working-copy and conflict routes', async () => {
     const conflict = {
       ...workingCopy,
       status: 'conflict',
@@ -159,31 +177,11 @@ describe('DocumentRepository', () => {
       workingCopy,
       { ...workingCopy, status: 'closed' },
       conflict,
-      {
-        editors: [
-          {
-            provider: 'onlyoffice',
-            url: 'http://127.0.0.1:8080',
-            configured: true,
-            healthy: false,
-            error: 'connection refused',
-          },
-        ],
-      },
-      {
-        id: 'editor-1',
-        working_copy_id: 'copy/one',
-        provider: 'onlyoffice',
-        status: 'unavailable',
-        config: {},
-        error: 'connection refused',
-      },
     ]);
     const repository = new ClioRepository(transport);
 
     await repository.createDocumentWorkingCopy('artifact/3', {
       session_id: 'session/one',
-      provider: 'native',
       writable: true,
       auto_checkpoint: true,
     });
@@ -193,24 +191,25 @@ describe('DocumentRepository', () => {
       resolution: 'keep-current',
       expected_head_artifact_id: 'artifact/4',
     });
-    await expect(repository.documentEditorHealth()).resolves.toMatchObject({
-      editors: [{ healthy: false }],
-    });
-    await expect(
-      repository.createDocumentEditorSession('copy/one', 'onlyoffice'),
-    ).resolves.toMatchObject({ status: 'unavailable' });
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'POST', path: '/v1/artifacts/artifact%2F3/working-copies' },
       { method: 'GET', path: '/v1/document-working-copies/copy%2Fone' },
       { method: 'DELETE', path: '/v1/document-working-copies/copy%2Fone' },
       { method: 'POST', path: '/v1/document-working-copies/copy%2Fone/conflict' },
-      { method: 'GET', path: '/v1/document-editors/health' },
-      { method: 'POST', path: '/v1/document-working-copies/copy%2Fone/editor-sessions' },
     ]);
     expect(transport.requests[3]?.body).toEqual({
       resolution: 'keep-current',
       expected_head_artifact_id: 'artifact/4',
     });
+  });
+});
+
+describe('comment targets', () => {
+  it('reports a workspace file with no artifact as null, which query caches accept', async () => {
+    const transport = new RecordingTransport([{ artifact: null }]);
+    const repository = new ClioRepository(transport);
+    await expect(repository.commentTarget('ws 1', 'figs/plot.png')).resolves.toBeNull();
+    expect(transport.requests[0]?.path).toBe('/v1/workspaces/ws%201/comment-targets?path=figs%2Fplot.png');
   });
 });

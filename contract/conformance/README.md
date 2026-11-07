@@ -35,7 +35,7 @@ matching `Options.Skip*` flag.
 | `Hooks` | `hooks` | `GET /v1/hooks`, `POST /v1/hooks`, `DELETE /v1/hooks/{id}` | full create/list/delete cycle |
 | `Policies` | `permissions` | `GET /v1/policies`, `PUT /v1/policies` | round-trip a single allow rule |
 | `Tasks` | `session_tasks` | `POST /v1/sessions/{id}/tasks`, `GET`, `PATCH /v1/tasks/{id}`, `DELETE` | full create/list/patch/delete cycle; PATCH echoes status, status in `{pending\|running\|completed\|failed}` enum (TTTTTT1) |
-| `Mcp` | `mcp` | `GET /v1/mcp/servers` + `/{id}` + `/{id}/tools` + `/{id}/resources` + `/{id}/prompts` | list shape + per-server detail + tools/resources/prompts (BBBBB1, JJJJJJ1, LLLLLL1) |
+| `Mcp` | `mcp` | `GET /v1/mcp/servers` + `/{id}` + `/{id}/tools` + `/{id}/resources` | list shape + per-server detail + tools/resources (BBBBB1, JJJJJJ1); a server's prompts are `/mcp__<server>__<prompt>` commands |
 | `Providers` | `providers` | `GET /v1/providers` + `/{id}` + `/{id}/models` | list shape + per-provider detail + per-provider models (TTTTT1, KKKKKK1) |
 | `Files` | `files` | `GET /v1/workspaces/{id}/files` + `/files/read?path=` | list 200 + each entry has `{path, type}` with type in `{file\|dir}`; per-file body endpoint returns 200 + non-empty body for first `type=file` entry (UUUUU1, VVVVVV1) |
 | `Context_Files` | `files` | `GET /v1/sessions/{id}/context/files` | 200 + non-nil `files` array; per-entry `{path, mode}` with mode in `{edit\|read\|pin}` (UUUUUU1) |

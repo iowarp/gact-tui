@@ -425,3 +425,54 @@ it('makes the full configuration path available on hover and removes one-entry c
     else Reflect.deleteProperty(navigator, 'clipboard');
   }
 });
+
+it('saves a text setting trimmed and clears it back to unset', async () => {
+  const user = userEvent.setup();
+  const browser: RuntimeSettings = {
+    ...initial,
+    settings: [
+      {
+        ...initial.settings[0]!,
+        key: 'browser.cdp_url',
+        title: 'Running browser to connect to',
+        group: 'Browser',
+        kind: 'text',
+        value: '',
+        default_value: '',
+        minimum: null,
+        unit: null,
+        has_user_value: false,
+      },
+    ],
+  };
+  repository.runtimeSettings.mockResolvedValue(browser);
+  repository.updateRuntimeSettings.mockImplementation(async (request) => ({
+    ...browser,
+    revision: 'saved',
+    settings: browser.settings.map((row) => ({
+      ...row,
+      value: request.changes[row.key] ?? '',
+      has_user_value: request.changes[row.key] !== null,
+    })),
+  }));
+  showSettings();
+  const input = await screen.findByRole('textbox', { name: 'Running browser to connect to' });
+  expect(input).toHaveAttribute('placeholder', 'Not set');
+  await user.type(input, ' chrome ');
+  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({
+      revision: 'first',
+      changes: { 'browser.cdp_url': 'chrome' },
+    }),
+  );
+  await waitFor(() => expect(input).toHaveValue('chrome'));
+  await user.clear(input);
+  await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+  await waitFor(() =>
+    expect(repository.updateRuntimeSettings).toHaveBeenLastCalledWith({
+      revision: 'saved',
+      changes: { 'browser.cdp_url': null },
+    }),
+  );
+});

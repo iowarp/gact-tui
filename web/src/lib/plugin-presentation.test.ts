@@ -1,7 +1,9 @@
-import type { AgentEntry } from '@clio/core/v3';
+import { agentResolutionSchema, type AgentEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   agentDisplayName,
+  capabilitySummary,
+  pluginContributions,
   provenanceLabel,
   removalPreviewReason,
   removedPluginReason,
@@ -87,5 +89,29 @@ describe('plugin presentation', () => {
     );
     expect(removalPreviewReason({ reason: 'cascade', because: 'shell' })).toBe('requires shell');
     expect(removalPreviewReason({ reason: 'removed', because: '' })).toBe('leaves with it');
+  });
+
+  it('separates deferred tools and servers from listed ones, counting both', () => {
+    const resolution = agentResolutionSchema.parse({
+      agent: { ref: 'clio/standard', id: 'standard' },
+      tools: [
+        { name: 'create_a2ui_surface', plugin: 'visuals' },
+        { name: 'capture_a2ui_surface', plugin: 'visuals', defer: true },
+        { name: 'shell_bash', plugin: 'shell', defer: null },
+      ],
+      mcp_servers: {
+        home: { plugin: 'visuals', spec: { type: 'stdio' }, defer: true },
+        web: { plugin: 'visuals', spec: { type: 'stdio' } },
+      },
+    });
+    const visuals = pluginContributions(resolution, 'visuals');
+    expect(visuals.tools).toEqual(['create_a2ui_surface']);
+    expect(visuals.deferredTools).toEqual(['capture_a2ui_surface']);
+    expect(visuals.mcpServers).toEqual([
+      { name: 'home', type: 'stdio', deferred: true },
+      { name: 'web', type: 'stdio', deferred: false },
+    ]);
+    expect(capabilitySummary(visuals)).toBe('2 tools, 2 MCP servers');
+    expect(pluginContributions(resolution, 'shell').tools).toEqual(['shell_bash']);
   });
 });

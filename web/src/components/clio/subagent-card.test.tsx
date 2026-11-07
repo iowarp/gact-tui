@@ -163,7 +163,8 @@ describe('ClioSubagentLifecycleLine', () => {
   it('names the agent and keeps its assignment in the normal tool disclosure', () => {
     const onOpen = show('delegate.started');
     expect(screen.getByText('researcher')).toBeVisible();
-    expect(screen.getByText('Accepted')).toBeVisible();
+    // The accepted delegation's mark carries its outcome; the row repeats no status recap.
+    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
     expect(screen.queryByText(child.task)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show result for Delegate' }));
     expect(screen.getByText(child.task)).toBeVisible();
@@ -174,16 +175,16 @@ describe('ClioSubagentLifecycleLine', () => {
 
   it('shows a return as a turn ending without claiming the assignment succeeded', () => {
     show('delegate.completed');
-    expect(screen.getByText('Turn ended')).toBeVisible();
+    expect(screen.getByText('Subagent turn ended')).toBeVisible();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Subagent result' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show result for Subagent turn ended' }));
     expect(screen.getByText(child.result)).toBeVisible();
   });
 
   it('keeps continuations distinct from returned results', () => {
     show('delegate.superseded');
     expect(screen.getByRole('button', { name: 'Show result for Continue subagent' })).toBeVisible();
-    expect(screen.queryByText('Turn ended')).not.toBeInTheDocument();
+    expect(screen.queryByText(/turn ended/i)).not.toBeInTheDocument();
   });
 });
 

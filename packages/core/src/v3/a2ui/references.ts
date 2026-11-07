@@ -40,6 +40,14 @@ export const a2uiReferenceResolutionSchema = z
     version: z.number().optional(),
     custody: z.string().optional(),
     state: z.string().optional(),
+    /** Present when the artifact is a stream: its entries are read from `content_path`. */
+    stream: z
+      .object({
+        stream_id: z.string(),
+        content_path: z.string().startsWith('/v1/'),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 

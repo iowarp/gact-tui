@@ -55,7 +55,7 @@ import {
   type CursorPageOptions,
 } from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
-import { StructuredFileRepository } from './structured-file-repository.js';
+import { BrowserRepository } from './browser-repository.js';
 import { decodeCapabilities } from './capability-negotiation.js';
 import { decodeTranscript } from './transcript-decoder.js';
 
@@ -72,7 +72,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends StructuredFileRepository {
+export class ClioRepository extends BrowserRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }
@@ -580,7 +580,7 @@ export class ClioRepository extends StructuredFileRepository {
 
   public respondPermission(
     permissionId: string,
-    action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace',
+    action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace' | 'allow_script',
     signal?: AbortSignal,
   ): Promise<void> {
     return this.transport.request({
@@ -761,6 +761,21 @@ export class ClioRepository extends StructuredFileRepository {
       method: 'GET',
       path: `/v1/agent-tasks/${encodeURIComponent(taskId)}`,
       decode: (value) => agentTaskRecordSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Continue an authorized immutable task-result cursor; never substitute the latest transcript. */
+  public taskResultPage(
+    sessionId: string,
+    handle: string,
+    cursor: string,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/${encodeURIComponent(handle)}/result?${new URLSearchParams({ cursor })}`,
+      decode: (value) => z.record(z.unknown()).parse(value),
       signal,
     });
   }

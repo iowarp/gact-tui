@@ -48,14 +48,19 @@ export function mergeScienceEntries(
  */
 export class ScienceEntryMerger {
   private readonly batcher: FrameBatcher<ScienceEntry>;
+  private readonly key: ReturnType<typeof scienceLogQueryKey>;
 
   public constructor(
-    queryClient: Pick<QueryClient, 'getQueryData' | 'setQueryData' | 'invalidateQueries'>,
+    private readonly queryClient: Pick<
+      QueryClient,
+      'getQueryData' | 'setQueryData' | 'invalidateQueries'
+    >,
     endpoint: string,
     sessionId: string,
     clock?: FrameClock,
   ) {
     const key = scienceLogQueryKey(endpoint, sessionId);
+    this.key = key;
     this.batcher = new FrameBatcher<ScienceEntry>((entries) => {
       const merged = mergeScienceEntries(queryClient.getQueryData<ScienceLog>(key), entries);
       if (merged) queryClient.setQueryData(key, merged);
@@ -70,6 +75,10 @@ export class ScienceEntryMerger {
   public push(frame: TransportFrame): void {
     const entry = scienceEntryForFrame(frame);
     if (entry) this.batcher.push(entry);
+    // A study session published a dashboard, which may be one of the study's views:
+    // the log is re-read, so its views show the latest version with no polling.
+    else if (frame.eventName === 'science.view')
+      void this.queryClient.invalidateQueries({ queryKey: this.key });
   }
 
   public stop(options: { flush: boolean }): void {

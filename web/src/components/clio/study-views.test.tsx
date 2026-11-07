@@ -70,6 +70,26 @@ describe('Study views', () => {
     expect(screen.queryByText('surface surface_e_v1')).toBeNull();
   });
 
+  it('shows a view attached as a conversation view before as it is, read-only', () => {
+    render(
+      <StudyViews
+        study={study([view('e_v1', 'sess_root', { kind: 'surface', read_only: true })])}
+      />,
+    );
+    expect(screen.getByText(/before study views were dashboards/u)).toBeVisible();
+    expect(screen.getByText('surface surface_e_v1')).toHaveAttribute('data-read-only', 'true');
+  });
+
+  it('renders a dashboard view as interactive as its owner allows', () => {
+    render(
+      <StudyViews
+        study={study([view('e_v1', 'sess_root', { kind: 'dashboard', dashboard_id: 'rep' })])}
+      />,
+    );
+    expect(screen.queryByText(/before study views were dashboards/u)).toBeNull();
+    expect(screen.getByText('surface surface_e_v1')).toHaveAttribute('data-read-only', 'false');
+  });
+
   it('has no switcher for a single view', () => {
     render(<StudyViews study={study([view('e_v1', 'sess_root')])} />);
     expect(screen.queryByRole('radiogroup', { name: 'Study views' })).toBeNull();

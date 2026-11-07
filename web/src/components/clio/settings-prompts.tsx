@@ -52,8 +52,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
+import { reminderMeta } from '@/lib/reminder-meta';
+import { RemindersList } from './settings-reminders';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
+import { CommandStatus } from './composer-command-menu';
+import { commandGroups, commandSource } from '@/lib/command-table';
+
+const COMMAND_KIND_LABELS: Record<string, string> = {
+  builtin: 'Built-in',
+  command: 'Command file',
+  mcp_prompt: 'MCP prompt',
+  skill: 'Skill',
+};
 
 interface PromptDraft {
   id: string;
@@ -117,14 +128,18 @@ function CommandDetail({ command }: { command?: CommandDefinition }) {
               label={command.enabled ? 'Available' : 'Unavailable'}
               value={command.enabled ? 'healthy' : 'unavailable'}
             />
-            <Badge variant="outline">{command.source}</Badge>
-            {command.user_invocable !== false ? <Badge variant="outline">For you</Badge> : null}
-            {command.agent_invocable ? <Badge variant="outline">For agents</Badge> : null}
+            <Badge variant="outline">{COMMAND_KIND_LABELS[command.kind] ?? command.kind}</Badge>
+            {commandSource(command) ? (
+              <Badge variant="outline">{commandSource(command)}</Badge>
+            ) : null}
+            <CommandStatus command={command} />
           </div>
-          {command.disabled_reason ? (
+          {command.disabled_detail || command.disabled_reason ? (
             <Alert variant="destructive">
               <AlertTitle>Unavailable</AlertTitle>
-              <AlertDescription>{command.disabled_reason}</AlertDescription>
+              <AlertDescription>
+                {command.disabled_detail || command.disabled_reason}
+              </AlertDescription>
             </Alert>
           ) : null}
           {command.argument_hint ? (
@@ -296,8 +311,27 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       <Tabs defaultValue="prompts">
         <TabsList>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
+          <TabsTrigger value="reminders">Reminders</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
         </TabsList>
+        <TabsContent className="mt-4" value="reminders">
+          <Frame spacing="sm">
+            <FrameHeader>
+              <FrameTitle>Reminders</FrameTitle>
+              <FrameDescription>
+                Notes the agent receives during its work. Switch one off, or open it to edit its
+                text; a change saves a visible override.
+              </FrameDescription>
+            </FrameHeader>
+            <FramePanel className="p-2">
+              <RemindersList
+                prompts={prompts.data ?? []}
+                onEdit={(prompt) => openEditor(prompt)}
+                onChanged={() => void prompts.refetch()}
+              />
+            </FramePanel>
+          </Frame>
+        </TabsContent>
         <TabsContent className="mt-4" value="prompts">
           <Frame spacing="sm">
             <FrameHeader>
@@ -307,29 +341,31 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
               </FrameDescription>
             </FrameHeader>
             <FramePanel className="grid gap-1 p-2">
-              {prompts.data?.map((prompt) => (
-                <ClioInteractiveRow
-                  key={prompt.id}
-                  onClick={() => openEditor(prompt)}
-                  role="button"
-                >
-                  <div className="flex items-start gap-3">
-                    <FileTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{prompt.title || prompt.id}</p>
-                        <PromptStatus prompt={prompt} />
-                        <Badge variant="outline">{prompt.scope}</Badge>
+              {prompts.data
+                ?.filter((prompt) => !reminderMeta(prompt))
+                .map((prompt) => (
+                  <ClioInteractiveRow
+                    key={prompt.id}
+                    onClick={() => openEditor(prompt)}
+                    role="button"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{prompt.title || prompt.id}</p>
+                          <PromptStatus prompt={prompt} />
+                          <Badge variant="outline">{prompt.scope}</Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {Object.keys(prompt.profiles).length}{' '}
+                          {Object.keys(prompt.profiles).length === 1 ? 'profile' : 'profiles'},
+                          default {prompt.default_profile || 'Unavailable'}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {Object.keys(prompt.profiles).length}{' '}
-                        {Object.keys(prompt.profiles).length === 1 ? 'profile' : 'profiles'},
-                        default {prompt.default_profile || 'Unavailable'}
-                      </p>
                     </div>
-                  </div>
-                </ClioInteractiveRow>
-              ))}
+                  </ClioInteractiveRow>
+                ))}
               {!prompts.isPending && !prompts.data?.length ? (
                 <p className="p-5 text-sm text-muted-foreground">
                   No prompt families were reported for this view.
@@ -353,33 +389,43 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
               </FrameDescription>
             </FrameHeader>
             <FramePanel className="grid gap-1 p-2">
-              {commands.data?.map((command) => (
-                <ClioInteractiveRow
-                  disabled={!command.enabled}
-                  key={command.id}
-                  onClick={() => setSelectedCommand(command)}
-                  role="button"
+              {commandGroups(commands.data ?? []).flatMap((group) => [
+                <p
+                  className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground"
+                  key={`heading:${group.heading}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <ScrollTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{command.title}</p>
-                        <ClioStatus
-                          label={command.enabled ? 'Available' : 'Unavailable'}
-                          value={command.enabled ? 'healthy' : 'unavailable'}
-                        />
-                        <Badge variant="outline">{command.source}</Badge>
+                  {group.heading}
+                </p>,
+                ...group.rows.map((command) => (
+                  <ClioInteractiveRow
+                    disabled={!command.enabled}
+                    key={`${command.kind}:${command.qualified_id}:${command.source}`}
+                    onClick={() => setSelectedCommand(command)}
+                    role="button"
+                  >
+                    <div className="flex items-start gap-3">
+                      <ScrollTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{command.title}</p>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {command.id}
+                          </span>
+                          {commandSource(command) ? (
+                            <Badge variant="outline">{commandSource(command)}</Badge>
+                          ) : null}
+                          <CommandStatus command={command} />
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {command.disabled_detail ||
+                            command.description ||
+                            'No description provided.'}
+                        </p>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {command.disabled_reason ||
-                          command.description ||
-                          'No description provided.'}
-                      </p>
                     </div>
-                  </div>
-                </ClioInteractiveRow>
-              ))}
+                  </ClioInteractiveRow>
+                )),
+              ])}
               {!commands.isPending && !commands.data?.length ? (
                 <p className="p-5 text-sm text-muted-foreground">
                   No commands were reported for this view.

@@ -717,6 +717,12 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 0.875rem;
   line-height: 1.5rem;
 }
+/* A bounded preview measures its rendered lines to decide how much to show. A code
+   block's content-visibility skip (rendering deferred while clipped) left nothing to
+   measure, so a file change collapsed to its path; inside a preview it always renders. */
+.tool-presentation-body [data-language] {
+  content-visibility: visible !important;
+}
 [data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1rem;
   line-height: 1.5rem;
@@ -745,6 +751,14 @@ html[data-clio-motion='reduced'] *::after {
 }
 [data-slot='tool-human-result'] [data-language] pre {
   background: transparent !important;
+}
+/* The session plan sits in a rail section: its headings mark structure at body
+   size instead of opening a document. */
+[data-slot='session-plan'] :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
 }
 /* A long identifier in inline code (a task handle, a path) wraps instead of
    running past a phone-width message; inside a table it stays whole and the

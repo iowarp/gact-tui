@@ -152,6 +152,32 @@ export async function captureSessionReview(
         });
     };
     walk(response.surfaces);
+    // The dashboards this session published, newest version of each, with the data they
+    // read, so the review shows them as views and not only as files. A dashboard export
+    // (selected surfaces) carries its own report instead.
+    if (selectedSurfaces?.[sid] === undefined) {
+      try {
+        const saved = (await json(`${prefix}/dashboards`)) as { artifact_id?: string }[];
+        for (const row of saved)
+          if (row.artifact_id)
+            walk(
+              await json(`${prefix}/dashboards/${encodeURIComponent(row.artifact_id)}`).catch(
+                (error: unknown) => {
+                  snapshot.failures.push({
+                    path: `${prefix}/dashboards/${row.artifact_id}`,
+                    message: error instanceof Error ? error.message : String(error),
+                  });
+                  return undefined;
+                },
+              ),
+            );
+      } catch (error) {
+        snapshot.failures.push({
+          path: `${prefix}/dashboards`,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     for (const message of current?.messages ?? [])
       for (const part of message.parts ?? []) {
         if (part.type === 'text' && part.text)
@@ -162,6 +188,17 @@ export async function captureSessionReview(
     for (const uri of references) {
       try {
         const resolved = await resolveSessionReference(captured, sid, uri);
+        // A stream: its content as it stands now, read through the route a view reads it
+        // by, so offline the view shows it (closed, or captured while still open).
+        const held = resolved.stream;
+        if (held) {
+          const key = sessionReviewRequestKey('GET', held.content_path);
+          if (!snapshot.responses[key]) {
+            const content = (await json(held.content_path)) as Record<string, unknown>;
+            snapshot.responses[key] = { json: capturedStream(content, new Date()) };
+          }
+          continue;
+        }
         if (
           !/csv|parquet/iu.test(resolved.media_type ?? '') &&
           !/\.(csv|parquet)$/iu.test(resolved.name)
@@ -222,6 +259,20 @@ export async function captureSessionReview(
     }
   }
   return snapshot;
+}
+
+/**
+ * A stream's content as exported. A stream still open at export is marked `captured`
+ * with the time, so the offline view says what it shows rather than calling it live.
+ */
+export function capturedStream(
+  content: Record<string, unknown>,
+  at: Date,
+): Record<string, unknown> {
+  const stream = content.stream;
+  if (!stream || typeof stream !== 'object' || (stream as { state?: unknown }).state !== 'open')
+    return content;
+  return { ...content, stream: { ...stream, state: 'captured', captured_at: at.toISOString() } };
 }
 
 /** A study source a view reads: `study://<study>/<measurements|entries|records/<name>>`. */
