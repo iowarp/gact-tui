@@ -55,6 +55,7 @@ import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { StateView } from './primitives/state-view';
 import { FileViewerShell } from './file-viewer-shell';
 
 import { ImageResourceView } from './image-resource-view';
@@ -329,22 +330,21 @@ function WorkspaceTextWindowView({
           </SourceWindowContext.Provider>
         )}
       </div>
-      {/* Minimal partial-file state; the shared StateView styling belongs to #726. */}
-      <div
-        className="flex shrink-0 flex-wrap items-center gap-2 border-t px-3 py-1.5 text-muted-foreground text-xs"
-        role="status"
-      >
-        <span className="min-w-0 flex-1">{status}</span>
-        {!showEnd && textWindow.loadMore ? (
-          <Button onClick={textWindow.loadMore} size="sm" variant="ghost">
-            Load more
-          </Button>
-        ) : null}
-        {!showEnd && textWindow.loadingMore ? <span>Loading more</span> : null}
-        <Button onClick={() => setShowEnd(!showEnd)} size="sm" variant="ghost">
-          {showEnd ? 'Show beginning' : 'Show end'}
-        </Button>
-      </div>
+      <StateView
+        action={{
+          label: showEnd ? 'Show beginning' : 'Show end',
+          onClick: () => setShowEnd(!showEnd),
+        }}
+        className="shrink-0 border-t px-3"
+        kind={!showEnd && textWindow.loadingMore ? 'loading' : 'too-large'}
+        secondaryAction={
+          !showEnd && textWindow.loadMore
+            ? { label: 'Load more', onClick: textWindow.loadMore }
+            : undefined
+        }
+        size="row"
+        title={status}
+      />
     </div>
   );
 }
