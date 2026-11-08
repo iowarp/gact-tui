@@ -1,7 +1,7 @@
-import { lazy, Suspense, useState, type ComponentType } from 'react';
+import { lazy, memo, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useLocation, type Location } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
@@ -97,6 +97,14 @@ function ProviderCatalogWarmup() {
   return null;
 }
 
+/** The app's own routes, re-rendered only when the location they show changes. */
+const BackgroundRoutes = memo(
+  function BackgroundRoutes({ location, children }: { location: Location; children: ReactNode }) {
+    return <Routes location={location}>{children}</Routes>;
+  },
+  (previous, next) => previous.location === next.location,
+);
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -109,9 +117,15 @@ export default function App() {
       : returnRouteFromState(location.state, settings.endpoint),
   };
   const settingsBackground = settingsBackgroundRoute(location, settings.endpoint);
+  // While Settings is open the page behind it keeps its last location object,
+  // so moving between settings sections never re-renders the workspace.
+  const [behindSettings, setBehindSettings] = useState<Location>(location);
   const routesLocation = settingsBackground
-    ? { ...location, pathname: settingsBackground, search: '', hash: '' }
+    ? behindSettings.pathname === settingsBackground
+      ? behindSettings
+      : { ...location, pathname: settingsBackground, search: '', hash: '' }
     : location;
+  if (routesLocation !== behindSettings) setBehindSettings(routesLocation);
   useNativeMenuBridge();
   // Secondary routes load on idle or link hover, not on their first visit.
   useEffect(() => installRoutePrefetch(), []);
@@ -145,7 +159,7 @@ export default function App() {
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
       <Suspense fallback={<RouteFallback />}>
-        <Routes location={routesLocation}>
+        <BackgroundRoutes location={routesLocation}>
           <Route element={<ConnectionPage />} path="/" />
           <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
           <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
@@ -156,7 +170,7 @@ export default function App() {
           <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
           <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
           <Route element={<UnknownRouteRedirect />} path="*" />
-        </Routes>
+        </BackgroundRoutes>
       </Suspense>
       {isSettingsRoute(location.pathname) ? (
         <Suspense fallback={<SettingsWindowFallback />}>
