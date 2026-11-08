@@ -1,16 +1,24 @@
 "use client"
 
 import * as React from "react"
-import { OverlayContainer } from "./overlay-container"
+import { ModalShield } from "./modal-shield"
+import { useOverlayContainer } from "./overlay-container"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 
+const DropdownMenuModal = React.createContext(true)
+
 function DropdownMenu({
+  modal = true,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+  return (
+    <DropdownMenuModal.Provider value={modal}>
+      <DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={modal} {...props} />
+    </DropdownMenuModal.Provider>
+  )
 }
 
 function DropdownMenuPortal({
@@ -38,16 +46,25 @@ function DropdownMenuContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const container = useOverlayContainer()
+  const modal = React.useContext(DropdownMenuModal)
   return (
-    <DropdownMenuPrimitive.Portal container={React.useContext(OverlayContainer)}>
-      <DropdownMenuPrimitive.Content
-        data-slot="dropdown-menu-content"
-        sideOffset={sideOffset}
-        align={align}
-        className={cn("z-50 max-h-(--radix-dropdown-menu-content-available-height) w-max min-w-32 max-w-(--radix-dropdown-menu-content-available-width) origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
-        {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
+    <>
+      {modal ? (
+        <DropdownMenuPrimitive.Portal container={container}>
+          <ModalShield />
+        </DropdownMenuPrimitive.Portal>
+      ) : null}
+      <DropdownMenuPrimitive.Portal container={container}>
+        <DropdownMenuPrimitive.Content
+          data-slot="dropdown-menu-content"
+          sideOffset={sideOffset}
+          align={align}
+          className={cn("z-50 max-h-(--radix-dropdown-menu-content-available-height) w-max min-w-32 max-w-(--radix-dropdown-menu-content-available-width) origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          {...props}
+        />
+      </DropdownMenuPrimitive.Portal>
+    </>
   )
 }
 
@@ -243,7 +260,7 @@ function DropdownMenuSubContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
-    <DropdownMenuPrimitive.Portal container={React.useContext(OverlayContainer)}>
+    <DropdownMenuPrimitive.Portal container={useOverlayContainer()}>
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn("z-50 w-max min-w-[96px] max-w-(--radix-dropdown-menu-content-available-width) origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-xl bg-popover p-[5px] text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { OverlayContainer } from './overlay-container';
+import { useOverlayContainer } from './overlay-container';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
@@ -48,7 +48,7 @@ function DialogContent({
   showCloseButton?: boolean;
 }) {
   return (
-    <DialogPortal container={React.useContext(OverlayContainer)}>
+    <DialogPortal container={useOverlayContainer()}>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"

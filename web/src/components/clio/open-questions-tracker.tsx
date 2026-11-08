@@ -1,9 +1,9 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { Popover } from '@base-ui/react/popover';
 import { MessageCircleQuestionIcon } from 'lucide-react';
-import { useContext, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { OverlayContainer } from '@/components/ui/overlay-container';
+import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { useQuestionAnswer } from './question-answer-context';
 import { openHumanQuestions } from '@/lib/inline-question';
 import { OpenQuestionList } from './open-question-list';
@@ -16,7 +16,7 @@ export function OpenQuestionsTracker({
   bottomInset: number;
 }) {
   const answer = useQuestionAnswer();
-  const container = useContext(OverlayContainer);
+  const container = useOverlayContainer();
   const [open, setOpen] = useState(false);
   const focusDestination = useRef(false);
   const questions = openHumanQuestions(interactions);

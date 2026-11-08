@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { OverlayContainer } from './overlay-container';
+import { useOverlayContainer } from './overlay-container';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
@@ -51,7 +51,7 @@ function AlertDialogContent({
   onBackdropClick?: React.MouseEventHandler<HTMLDivElement>;
 }) {
   return (
-    <AlertDialogPortal container={React.useContext(OverlayContainer)}>
+    <AlertDialogPortal container={useOverlayContainer()}>
       <AlertDialogOverlay
         className={overlayClassName}
         data-overlay-layer={layer}

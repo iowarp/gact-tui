@@ -2,13 +2,22 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { ModalShield } from "./modal-shield"
+import { useOverlayContainer } from "./overlay-container"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
+const ContextMenuModal = React.createContext(true)
+
 function ContextMenu({
+  modal = true,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
+  return (
+    <ContextMenuModal.Provider value={modal}>
+      <ContextMenuPrimitive.Root data-slot="context-menu" modal={modal} {...props} />
+    </ContextMenuModal.Provider>
+  )
 }
 
 function ContextMenuTrigger({
@@ -36,7 +45,7 @@ function ContextMenuPortal({
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Portal>) {
   return (
-    <ContextMenuPrimitive.Portal data-slot="context-menu-portal" {...props} />
+    <ContextMenuPrimitive.Portal container={useOverlayContainer()} data-slot="context-menu-portal" {...props} />
   )
 }
 
@@ -63,14 +72,23 @@ function ContextMenuContent({
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
+  const container = useOverlayContainer()
+  const modal = React.useContext(ContextMenuModal)
   return (
-    <ContextMenuPrimitive.Portal>
-      <ContextMenuPrimitive.Content
-        data-slot="context-menu-content"
-        className={cn("z-50 max-h-(--radix-context-menu-content-available-height) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
-        {...props}
-      />
-    </ContextMenuPrimitive.Portal>
+    <>
+      {modal ? (
+        <ContextMenuPrimitive.Portal container={container}>
+          <ModalShield />
+        </ContextMenuPrimitive.Portal>
+      ) : null}
+      <ContextMenuPrimitive.Portal container={container}>
+        <ContextMenuPrimitive.Content
+          data-slot="context-menu-content"
+          className={cn("z-50 max-h-(--radix-context-menu-content-available-height) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          {...props}
+        />
+      </ContextMenuPrimitive.Portal>
+    </>
   )
 }
 
