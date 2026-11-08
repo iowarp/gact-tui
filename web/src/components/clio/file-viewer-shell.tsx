@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { OverlayContainer } from '@/components/ui/overlay-container';
 import { FileViewerActions } from './file-viewer-actions';
 import { FileViewerActionRegistry, type FileViewerAction } from './file-viewer-action-context';
@@ -16,6 +17,8 @@ import { FileSourceOptions, FileViewerInformationHost } from './file-viewer-cont
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { FileTypeIcon } from './file-type-icon';
 import { cn } from '@/lib/utils';
+import { FrameDivider } from './primitives/frame-bar';
+import { NamedTooltip } from './primitives/icon-button';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 export interface FileViewerTab {
@@ -57,6 +60,9 @@ export function FileViewerShell({
     onValueChange?.(next);
   };
   const primaryTabs = tabs.filter((tab) => !tab.secondary);
+  // More than one reading mode: the name is the crumb and the modes are a
+  // segmented group of named icons. One mode: the name itself is the tab.
+  const modes = primaryTabs.length > 1;
   const identity = fileViewerIdentity(source);
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
   const [formatActions, setFormatActions] = useState<
@@ -107,55 +113,81 @@ export function FileViewerShell({
                   onValueChange={selectValue}
                 >
                   <div
-                    className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b px-2"
+                    className="flex h-[34px] shrink-0 items-center gap-2 overflow-x-auto overflow-y-hidden border-b px-2 whitespace-nowrap @max-[360px]/viewer:gap-1.5"
                     data-slot="viewer-toolbar"
                   >
-                    {showIdentity || primaryTabs.length > 1 ? (
-                      <TabsList
-                        aria-label={label}
-                        className="h-full min-w-0 flex-1 justify-start gap-0 bg-transparent p-0 group-data-horizontal/tabs:h-full"
-                        variant="line"
-                      >
-                        {primaryTabs.map(
-                          ({ value: tabValue, label: tabLabel, title, icon: Icon }) => (
-                            <TabsTrigger
-                              key={tabValue}
-                              className={cn(
-                                'h-full rounded-none text-xs text-foreground dark:text-foreground after:bg-primary group-data-horizontal/tabs:after:bottom-0',
-                                tabValue === 'preview' && showIdentity
-                                  ? 'min-w-7 max-w-64 flex-initial justify-start gap-2 px-1'
-                                  : 'w-8 flex-none px-0',
-                              )}
-                              value={tabValue}
-                              title={
-                                tabValue === 'preview' && showIdentity
-                                  ? identity.name
-                                  : title || tabLabel
-                              }
-                              aria-label={tabLabel}
-                            >
-                              {tabValue === 'preview' && showIdentity ? (
-                                <>
+                    {modes ? (
+                      showIdentity ? (
+                        <span
+                          className="flex min-w-0 flex-1 items-center gap-1.5 text-[12.5px] font-medium"
+                          title={identity.name}
+                        >
+                          <FileTypeIcon
+                            name={identity.name}
+                            mediaType={identity.mediaType}
+                            className="size-4 shrink-0 @max-[360px]/viewer:hidden"
+                          />
+                          <span className="truncate">{identity.name}</span>
+                        </span>
+                      ) : (
+                        <span className="flex-1" />
+                      )
+                    ) : null}
+                    {modes || showIdentity ? (
+                      <TooltipProvider delayDuration={200}>
+                        <TabsList
+                          aria-label={label}
+                          className={cn(
+                            'min-w-0 justify-start bg-transparent p-0',
+                            modes
+                              ? 'h-7 flex-none gap-px rounded-[7px] border border-input p-[2px] group-data-horizontal/tabs:h-7'
+                              : 'h-full flex-1 gap-0 group-data-horizontal/tabs:h-full',
+                          )}
+                          data-slot={modes ? 'viewer-modes' : undefined}
+                        >
+                          {primaryTabs.map(
+                            ({ value: tabValue, label: tabLabel, title, icon: Icon }) =>
+                              modes ? (
+                                <NamedTooltip key={tabValue} label={title || tabLabel}>
+                                  {/* The tooltip trigger sets its own data-state; keep it off the tab. */}
+                                  <span className="inline-flex">
+                                    <TabsTrigger
+                                      className="h-[22px] w-[26px] flex-none rounded-[5px] border-0 px-0 text-muted-foreground shadow-none hover:bg-hover hover:text-foreground data-[state=active]:bg-menu-highlight data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-menu-highlight"
+                                      value={tabValue}
+                                      aria-label={tabLabel}
+                                    >
+                                      <Icon aria-hidden="true" className="size-3.5" />
+                                    </TabsTrigger>
+                                  </span>
+                                </NamedTooltip>
+                              ) : (
+                                <TabsTrigger
+                                  key={tabValue}
+                                  className="h-full min-w-7 max-w-64 flex-initial justify-start gap-1.5 rounded-none border-0 px-0 text-[12.5px] font-medium text-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:text-foreground dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-transparent"
+                                  value={tabValue}
+                                  title={identity.name}
+                                  aria-label={tabLabel}
+                                >
                                   <FileTypeIcon
                                     name={identity.name}
                                     mediaType={identity.mediaType}
-                                    badge
-                                    className="size-6 shrink-0"
+                                    className="size-4 shrink-0"
                                   />
                                   <span className="truncate">{identity.name}</span>
-                                </>
-                              ) : (
-                                <Icon aria-hidden="true" className="size-3.5" />
-                              )}
-                            </TabsTrigger>
-                          ),
-                        )}
-                      </TabsList>
+                                </TabsTrigger>
+                              ),
+                          )}
+                        </TabsList>
+                      </TooltipProvider>
                     ) : null}
                     <div
-                      className="ml-auto flex shrink-0 items-center gap-0.5"
+                      className={cn(
+                        'flex shrink-0 items-center gap-0.5 empty:hidden',
+                        modes ? undefined : 'ml-auto',
+                      )}
                       ref={setToolbarHost}
                     />
+                    <FrameDivider />
                     <div className="flex shrink-0 items-center gap-0.5">
                       <FileViewerActions
                         source={source}

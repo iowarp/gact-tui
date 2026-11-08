@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { selectFileView } from './file-viewer-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -204,9 +205,11 @@ test('session Work is a readable canvas peer with accessible task state', async 
     }),
   );
   await openFixture(page, 'text', 'A short readable result.');
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Work', exact: true }).click();
+  await showWorkbenchList(page, 'Activity');
+  await page
+    .getByRole('region', { name: 'Activity list', exact: true })
+    .getByRole('button', { name: /^Work/u })
+    .click();
   const panel = page.getByRole('tabpanel', { name: 'Work', exact: true });
   await expect(panel).toBeVisible();
   await expect(panel.getByText(goal.title, { exact: true })).toBeVisible();
@@ -248,9 +251,7 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
     }),
   );
   await openFixture(page, 'short');
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   await page.getByRole('treeitem', { name: 'converted.md', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
   await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();

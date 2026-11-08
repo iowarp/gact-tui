@@ -72,6 +72,42 @@ Status values:
 - **Shortcut sheet.** `Ctrl /` (`⌘/`) opens a searchable sheet of the keys
   active on the current screen, with a Windows and Mac toggle.
 
+## Workbench (S2)
+
+- **Changed token.** `--changed` (`text-changed`) is the teal for a file the
+  conversation changed: a diff tab, a changed workspace-file tab and changed
+  rows in the Files tree. It always comes with words (", changed in this
+  conversation" on the tab), never alone.
+- **`FrameTab`** takes `pinned` (icon only, first, no close), `changed`,
+  `compact` (an inactive tab shrinks to its icon, the name on hover) and
+  `renderTrigger`, so a host whose tabs come from Radix `Tabs` keeps its
+  `TabsTrigger` and drag handle. The close mark is
+  `data-slot="frame-tab-close"`, out of the accessibility tree; `Delete`
+  closes the focused tab.
+- **Strip positions.** `IconButton`'s `shortcutPosition` and
+  `useShortcutPresentation(id, position)` name the n-th entry of a positional
+  chord (`strip-position`), and `HeldKeyBadge` shows it while `Ctrl` or `⌘` is
+  held.
+- **Menu accelerators.** `MenuRow`'s `accelerator` shows a one-letter key in
+  the key column; `menuAcceleratorKeyDown` on the menu content picks the item
+  whose `data-accelerator` matches.
+- **Right pocket.** `clio/workbench-strip.tsx` is the vertical toolbar
+  "Workbench lists": Files, Sources, Artifacts, Activity, Agent, then Science
+  log, Terminal and Browser pages. `clio/workbench-list-column.tsx` is the one
+  list beside the tabs: `ListRow` rows with fixed tag and size columns and
+  `StateView` for empty, loading and error. Sizes in the 44 px column use
+  `formatCompactBytes` (`54 KB`; the exact size is in the row's hover name).
+  `clio/workbench-tab-row.tsx` is
+  one `FrameTab` row that measures itself: full names, then icon-only inactive
+  tabs, then an "All N tabs" menu. One context menu offers Pin, Show in Files,
+  Copy path, Close, Close others, Close to the right, Move left and Move right.
+  The pocket's width is a remembered share of the window
+  (`clio.workbench-share.v1`). Below 520 px the list overlays the tabs and
+  steps aside after a pick. An empty narrow pocket shows its list.
+- **Quiet focus.** `primitives/quiet-focus.ts` `focusQuietly(element)` hands
+  focus back to a control (after Escape restores a maximized frame) without
+  popping its hover name; `NamedTooltip` ignores that focus.
+
 ## Left for surface work
 
 These call sites still use their own markup. Migrate them to the components
@@ -100,10 +136,15 @@ above while redesigning the surface; the change is not mechanical.
 - **Rows whose trailing actions shift on hover:**
   `clio/session-summary-row.tsx`,
   `clio/workspace-navigation-session-row.tsx`, `clio/artifact-rail-row.tsx`.
-  `ListRow` keeps its action column with `visibility`.
-- **Frame bar:** `clio/file-viewer-shell.tsx` and the workbench tab strip should
-  render `FrameBar`, `FrameCrumbs` and `FrameTab`.
-- **Remaining key handlers to register in the catalog:** workbench tab keys,
+  `ListRow` keeps its action column with `visibility`. The workbench Artifacts
+  list already uses `ListRow`.
+- **Frame bar:** `clio/file-viewer-shell.tsx` now has the frame bar's 34 px
+  layout: the file name as the crumb, more than one reading mode as a
+  segmented group of named icons, and a divider before the actions. It keeps
+  Radix `Tabs` (every viewer and test reads `role="tab"`), so it does not yet
+  render `FrameBar`, `FrameCrumbs` or the parent folders. The workbench tab
+  row renders `FrameTab`.
+- **Remaining key handlers to register in the catalog:**
   `clio/selection-actions.tsx`, `ui/sidebar.tsx` (`Ctrl B`; the catalog's
   `left-pocket`), `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the
   catalog has `zoom-in`, `zoom-out` and `zoom-reset`), the `Downloads (Ctrl+J)`

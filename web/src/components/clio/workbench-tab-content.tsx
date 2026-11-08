@@ -73,6 +73,8 @@ export interface WorkbenchTabContentProps {
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   onOpenTab: (tab: WorkbenchTab) => void;
+  /** Show a folder of this workspace in the Files list. */
+  onShowFolder: (directory: string) => void;
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
@@ -109,6 +111,7 @@ export function WorkbenchTabContent({
   onOpenSubagent,
   onUndoDiff,
   onOpenTab,
+  onShowFolder,
   onReplaceTab,
   onSelectFilesPath,
   onSelectWorkspaceFilePath,
@@ -129,16 +132,12 @@ export function WorkbenchTabContent({
         <ScienceLogTab
           key={sessionId}
           onOpenFolder={(path) =>
-            onOpenTab({
-              id: 'files',
-              kind: 'files',
-              label: 'Files',
-              workspaceId,
-              directory: workspaceFilePath(
+            onShowFolder(
+              workspaceFilePath(
                 path,
                 useLiveStore.getState().entities.workspaces[workspaceId]?.path,
               ),
-            })
+            )
           }
           onOpenSubagent={onOpenSubagent}
           sessionId={sessionId}
@@ -219,6 +218,7 @@ export function WorkbenchTabContent({
     case 'workspace-file':
       return (
         <ScopedWorkspaceFileBrowser
+          mode="preview"
           sourceWorkspaceId={workspaceId}
           sessionId={sessionId}
           files={files}

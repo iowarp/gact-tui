@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRef } from 'react';
@@ -53,15 +53,22 @@ it.each(['workspace_1', 'workspace_other'])(
     await act(async () =>
       handle.current?.open({ kind: 'workspace-folder', path: 'reports', workspaceId: owner }),
     );
-    expect(await screen.findByRole('treeitem', { name: 'result.md' })).toBeVisible();
-    expect(screen.queryByText('wrong-root.txt')).not.toBeInTheDocument();
+    // The current workspace's folder opens in the Files list; another workspace's in a tab.
+    const folder = () =>
+      owner === 'workspace_1'
+        ? screen.getByRole('region', { name: 'Files list' })
+        : screen.getByRole('tabpanel');
+    expect(await within(folder()).findByRole('treeitem', { name: 'result.md' })).toBeVisible();
+    expect(within(folder()).queryByText('wrong-root.txt')).not.toBeInTheDocument();
     expect(repository.workspaceFiles).toHaveBeenCalledWith(
       owner,
       expect.any(AbortSignal),
       expect.objectContaining({ directory: 'reports' }),
     );
-    await userEvent.setup().click(screen.getByRole('button', { name: 'All folders' }));
-    expect(await screen.findByRole('button', { name: 'Expand folder reports' })).toBeVisible();
+    await userEvent.setup().click(within(folder()).getByRole('button', { name: 'All folders' }));
+    expect(
+      await within(folder()).findByRole('button', { name: 'Expand folder reports' }),
+    ).toBeVisible();
     expect(repository.workspaceFiles).toHaveBeenCalledWith(
       owner,
       expect.any(AbortSignal),
@@ -75,20 +82,18 @@ it.each([false, true])(
   async (restored) => {
     const workspaceId = 'workspace_1';
     const path = '/D:/Work/participant-survey.csv';
-    useLiveStore
-      .getState()
-      .replaceSnapshots({
-        workspaces: {
-          [workspaceId]: {
-            id: workspaceId,
-            name: 'Work',
-            display_name: 'Work',
-            path: 'D:\\Work',
-            connection_id: 'local',
-            pinned: false,
-          },
+    useLiveStore.getState().replaceSnapshots({
+      workspaces: {
+        [workspaceId]: {
+          id: workspaceId,
+          name: 'Work',
+          display_name: 'Work',
+          path: 'D:\\Work',
+          connection_id: 'local',
+          pinned: false,
         },
-      });
+      },
+    });
     repository.readWorkspaceFile.mockResolvedValue('participant,level\nP01,none\n');
     if (restored)
       window.localStorage.setItem(

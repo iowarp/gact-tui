@@ -301,7 +301,7 @@ export function ClioObservabilityView({
     }
   };
   return (
-    <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
+    <div className="@container/obs h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
         <TabsList
           aria-label="Observability view"
@@ -671,10 +671,12 @@ function ObservabilityTab({
     <TabsTrigger
       aria-label={label}
       className="h-full min-w-max shrink-0 gap-1 px-1.5 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
+      title={label}
       value={value}
     >
       {icon}
-      <span>{label}</span>
+      {/* A narrow pocket keeps only the selected view's name; the rest show their icon. */}
+      <span className="hidden @[20rem]/obs:inline [[data-state=active]>&]:inline">{label}</span>
     </TabsTrigger>
   );
 }

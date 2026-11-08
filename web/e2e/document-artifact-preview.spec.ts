@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { selectFileView } from './file-viewer-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
 // clio-agent's locked document_stack/smoke.py. Only API transport is a fixture:
@@ -216,7 +217,13 @@ for (const layout of [
             await route.fulfill({
               json: {
                 artifact_id: sourceId,
-                head: { artifact_id: sourceId, name: item.name, workspace_id: 'ws', version: 1, sha256: '' },
+                head: {
+                  artifact_id: sourceId,
+                  name: item.name,
+                  workspace_id: 'ws',
+                  version: 1,
+                  sha256: '',
+                },
                 threads: [],
                 next_label: 'S1',
               },
@@ -249,9 +256,7 @@ for (const layout of [
         // The loading shell is replaced after session hydration. Drive the
         // mounted workspace so an early click is not lost with that shell.
         await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
-        await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-        await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-        await page.getByRole('menuitem', { name: 'Session artifacts', exact: true }).click();
+        await showWorkbenchList(page, 'Artifacts');
         const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
         await expect(
           canvas.getByRole('button', { name: `Open ${name}.v1.pdf`, exact: true }),
@@ -271,10 +276,8 @@ for (const layout of [
         const previewTab = toolbar.getByRole('tab', { name: 'Preview', exact: true });
         await expect(previewTab).toHaveAttribute('data-state', 'active');
         await expect
-          .poll(() =>
-            previewTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('1');
+          .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toBeVisible();
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
@@ -406,15 +409,11 @@ for (const layout of [
         await lineageTab.click();
         await expect(lineageTab).toHaveAttribute('data-state', 'active');
         await expect
-          .poll(() =>
-            lineageTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('1');
+          .poll(() => lineageTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .not.toBe('rgba(0, 0, 0, 0)');
         await expect
-          .poll(() =>
-            previewTab.evaluate((element) => getComputedStyle(element, '::after').opacity),
-          )
-          .toBe('0');
+          .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
+          .toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         const graph = canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true });
         const sourceNode = graph.getByTestId(`rf__node-${sourceId}`);

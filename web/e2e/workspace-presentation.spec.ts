@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { selectFileView } from './file-viewer-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -44,13 +45,14 @@ for (const width of [1280, 1600]) {
     await page.route('**/v1/sessions/sess_flat_ndp/browser/pages', (route) => {
       if (route.request().method() !== 'POST') return route.fallback();
       opened.push(route.request().postDataJSON());
-      return route.fulfill({ status: 422, json: { detail: 'browser not available in the fixture' } });
+      return route.fulfill({
+        status: 422,
+        json: { detail: 'browser not available in the fixture' },
+      });
     });
     await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
     await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-    await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+    await showWorkbenchList(page, 'Files');
     await page.getByRole('treeitem', { name, exact: true }).click();
     await expect.poll(() => opened).toEqual([{ path: name }]);
     const viewer = page
@@ -58,8 +60,12 @@ for (const width of [1280, 1600]) {
       .locator('[data-slot="file-viewer"]');
     await expect(viewer).toHaveCount(1);
     await expect(viewer.locator('iframe')).toHaveCount(0);
-    await expect(viewer.getByRole('button', { name: 'Open in browser', exact: true })).toBeVisible();
-    await expect(viewer.locator('[data-language="html"]')).toContainText('__htmlPreviewRan = true;');
+    await expect(
+      viewer.getByRole('button', { name: 'Open in browser', exact: true }),
+    ).toBeVisible();
+    await expect(viewer.locator('[data-language="html"]')).toContainText(
+      '__htmlPreviewRan = true;',
+    );
     await page.screenshot({ path: testInfo.outputPath(`html-in-browser-${width}.png`) });
   });
 }
@@ -212,9 +218,7 @@ test('SVG previews stay at the top and horizontally centered through pane resizi
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   // The loading shell has its own canvas toggle; wait for the conversation.
   await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   await page.getByRole('treeitem', { name: 'figure.svg', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   const image = canvas.getByRole('img', { name: 'figure.svg', exact: true });
@@ -269,9 +273,7 @@ test('an unsupported workspace file uses one shared original download', async ({
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   // The loading shell has its own canvas toggle; wait for the conversation.
   await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   await page.getByRole('treeitem', { name: 'run.h5', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
   await expect(preview.getByRole('tab', { name: 'Preview', exact: true })).toContainText('run.h5');

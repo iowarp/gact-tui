@@ -1,6 +1,7 @@
 import { PanelRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
+import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
   Sheet,
@@ -99,6 +100,16 @@ function DesktopNavigationLayout({
   );
 }
 
+const WORKBENCH_SHARE_KEY = 'clio.workbench-share.v1';
+const DEFAULT_WORKBENCH_SHARE = 0.4;
+
+/** The workbench width as a share of the window: 40% to start, then what the user dragged. */
+function storedWorkbenchShare(): number {
+  if (typeof window === 'undefined') return DEFAULT_WORKBENCH_SHARE;
+  const value = Number(window.localStorage.getItem(WORKBENCH_SHARE_KEY));
+  return Number.isFinite(value) && value >= 0.15 && value <= 0.7 ? value : DEFAULT_WORKBENCH_SHARE;
+}
+
 export function ClioAppShell({
   navigation,
   contextBar,
@@ -125,6 +136,18 @@ export function ClioAppShell({
   const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
   const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
+  // Read once: the panel keeps its share of the group as the window resizes.
+  const [workbenchDefaultSize] = useState(
+    () =>
+      `${Math.max(320, Math.round(storedWorkbenchShare() * (typeof window === 'undefined' ? 1280 : window.innerWidth)))}px`,
+  );
+  const rememberWorkbenchWidth = useCallback((size: PanelSize) => {
+    if (size.inPixels < 320 || typeof window === 'undefined' || !window.innerWidth) return;
+    window.localStorage.setItem(
+      WORKBENCH_SHARE_KEY,
+      String(Math.round((size.inPixels / window.innerWidth) * 1000) / 1000),
+    );
+  }, []);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
       setWorkbenchPreference(open);
@@ -198,7 +221,12 @@ export function ClioAppShell({
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
             <ResizableHandle
               aria-label="Resize workspace canvas"
-              className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
+              // Collapsed, the handle sits on the window edge and its 12 px grip
+              // would cover the toolbar's last button; the toolbar toggle opens it.
+              className={cn(
+                'z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60',
+                !workbenchOpen && 'pointer-events-none',
+              )}
               onKeyUp={synchronizeWorkbenchPanel}
               onPointerUp={synchronizeWorkbenchPanel}
             />
@@ -206,9 +234,10 @@ export function ClioAppShell({
             <ResizablePanel
               collapsedSize="0px"
               collapsible
-              defaultSize="420px"
+              defaultSize={workbenchDefaultSize}
               maxSize="70%"
               minSize="320px"
+              onResize={rememberWorkbenchWidth}
               panelRef={workbenchPanelRef}
             >
               {visibleWorkbench}
@@ -239,7 +268,7 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            className="w-[min(92vw,480px)] p-0 [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            className="w-[min(92vw,480px)] p-0 data-[side=right]:w-[min(92vw,480px)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
             showCloseButton={false}
             side="right"
           >

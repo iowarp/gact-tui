@@ -708,25 +708,19 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
-  const observabilityTab = canvas.getByRole('tab', { name: 'Observability' });
+  const observabilityTab = canvas.getByRole('tab', { name: 'Activity' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
-  // tech closes the tab through the Delete shortcut announced with it. It stays
-  // faintly visible at rest because touch has no hover to reveal it.
+  // tech closes the tab through the Delete shortcut announced with it. On touch it
+  // stays faintly visible at rest, since there is no hover to reveal it.
   const observabilityClose = observabilityTab
     .locator('..')
-    .locator('[data-slot="canvas-tab-close"]');
-  // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
-  // shortcuts grew the keyboard equivalent alongside Delete.
-  await expect(observabilityTab).toHaveAttribute(
-    'aria-keyshortcuts',
-    'Delete Alt+ArrowLeft Alt+ArrowRight',
-  );
+    .locator('[data-slot="frame-tab-close"]');
+  await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
-  await expect(observabilityClose).toHaveCSS('opacity', '0.7');
-  await observabilityTab.hover();
+  // The active tab always shows its close mark.
   await expect(observabilityClose).toHaveCSS('opacity', '1');
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
   await expect(canvas).toHaveCSS('position', 'fixed');
@@ -964,7 +958,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Observability' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Activity' })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toHaveCount(0);

@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { memo, type KeyboardEvent, type ReactNode } from 'react';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ShortcutKeys } from './key-chip';
@@ -17,6 +17,12 @@ export interface MenuRowProps {
   checked?: boolean;
   /** Catalog id of the key that runs this row, shown as text. */
   shortcut?: string;
+  /**
+   * A one-key accelerator while the menu is open (a tab's right-click menu:
+   * P, F, Y, C). Shown as text in the shortcut column; the menu host handles
+   * the key (see `menuAcceleratorKeyDown`).
+   */
+  accelerator?: string;
   /** Opens a submenu or a window: shows a › in the last column. */
   submenu?: boolean;
   /** An ⓘ explanation button, kept outside the row's main action. */
@@ -38,6 +44,7 @@ export const MenuRow = memo(function MenuRow({
   value,
   checked,
   shortcut,
+  accelerator,
   submenu = false,
   info,
   className,
@@ -72,6 +79,14 @@ export const MenuRow = memo(function MenuRow({
         </span>
       ) : null}
       {shortcut ? <ShortcutKeys id={shortcut} variant="text" className="shrink-0 pl-2" /> : null}
+      {accelerator ? (
+        <kbd
+          data-slot="menu-accelerator"
+          className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground"
+        >
+          {accelerator}
+        </kbd>
+      ) : null}
       {submenu ? (
         <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       ) : null}
@@ -79,3 +94,22 @@ export const MenuRow = memo(function MenuRow({
     </span>
   );
 });
+
+/**
+ * The keydown handler for a menu whose rows carry `accelerator` letters: the
+ * key runs the row marked `data-accelerator` with that letter, as a click
+ * does, which also closes the menu. Put it on the menu content.
+ */
+// oxlint-disable-next-line react/only-export-components
+export function menuAcceleratorKeyDown(event: KeyboardEvent<HTMLElement>): void {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.key.length !== 1) return;
+  const key = event.key.toLocaleUpperCase();
+  const item = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-accelerator]')].find(
+    (candidate) =>
+      candidate.dataset.accelerator === key && candidate.getAttribute('aria-disabled') !== 'true',
+  );
+  if (!item) return;
+  event.preventDefault();
+  event.stopPropagation();
+  item.click();
+}

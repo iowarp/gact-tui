@@ -1,15 +1,18 @@
-import { memo, type ComponentProps, type ReactElement, type ReactNode } from 'react';
+import { memo, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge } from './key-chip';
+import { focusIsQuiet } from './quiet-focus';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
   label: string;
   /** Catalog id of the key that does the same thing. */
   shortcut?: string;
+  /** One key of a range shortcut (`strip-position` at 3). */
+  shortcutPosition?: number;
   side?: ComponentProps<typeof TooltipContent>['side'];
   children: ReactElement;
 }
@@ -18,10 +21,23 @@ interface NamedTooltipProps {
  * The hover name every icon carries: its name and, when it has one, the key
  * that does the same thing. The content mounts only while open.
  */
-export function NamedTooltip({ label, shortcut, side = 'bottom', children }: NamedTooltipProps) {
-  const presentation = useShortcutPresentation(shortcut);
+export function NamedTooltip({
+  label,
+  shortcut,
+  shortcutPosition,
+  side = 'bottom',
+  children,
+}: NamedTooltipProps) {
+  const presentation = useShortcutPresentation(shortcut, shortcutPosition);
+  const [open, setOpen] = useState(false);
   return (
-    <Tooltip>
+    <Tooltip
+      open={open}
+      onOpenChange={(next) => {
+        if (next && focusIsQuiet()) return;
+        setOpen(next);
+      }}
+    >
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent
         side={side}
@@ -46,6 +62,8 @@ export interface IconButtonProps
   icon: ReactNode;
   /** Catalog id; adds the key to the tooltip, the held-key badge and `aria-keyshortcuts`. */
   shortcut?: string;
+  /** One key of a range shortcut (the strip's icons by position). */
+  shortcutPosition?: number;
   /** 28px (default) or 22px for dense rows. */
   size?: 'default' | 'sm';
   /** A small count on the corner (comments, unread). */
@@ -60,6 +78,7 @@ export const IconButton = memo(function IconButton({
   label,
   icon,
   shortcut,
+  shortcutPosition,
   size = 'default',
   count,
   tooltipSide,
@@ -68,7 +87,7 @@ export const IconButton = memo(function IconButton({
   className,
   ...props
 }: IconButtonProps) {
-  const presentation = useShortcutPresentation(shortcut);
+  const presentation = useShortcutPresentation(shortcut, shortcutPosition);
   const button = (
     <Button
       aria-label={label}
@@ -94,7 +113,7 @@ export const IconButton = memo(function IconButton({
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-      {shortcut ? <HeldKeyBadge id={shortcut} /> : null}
+      {shortcut ? <HeldKeyBadge id={shortcut} position={shortcutPosition} /> : null}
     </Button>
   );
   if (!tooltip) return button;
@@ -102,6 +121,7 @@ export const IconButton = memo(function IconButton({
     <NamedTooltip
       label={count ? `${label}, ${count}` : label}
       shortcut={shortcut}
+      shortcutPosition={shortcutPosition}
       side={tooltipSide}
     >
       {button}
