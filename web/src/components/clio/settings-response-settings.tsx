@@ -1,14 +1,9 @@
 import type { AcceptedParameter } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
-import {
-  NumberField,
-  NumberFieldDecrement,
-  NumberFieldGroup,
-  NumberFieldIncrement,
-  NumberFieldInput,
-} from '@/components/reui/number-field';
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import {
@@ -164,7 +159,23 @@ function rangeText(parameter: AcceptedParameter): string {
   if (minimum !== null && maximum !== null)
     return `${minimum.toLocaleString()} to ${maximum.toLocaleString()}`;
   if (maximum !== null) return `up to ${maximum.toLocaleString()}`;
+  if (minimum !== null) return `at least ${minimum.toLocaleString()}`;
   return '';
+}
+
+/** Why a typed response setting cannot be saved, or undefined when it can (empty is the default). */
+export function responseSettingError(
+  parameter: AcceptedParameter,
+  value: string,
+): string | undefined {
+  if (parameter.kind === 'enum' || !value.trim()) return undefined;
+  const parsed = toNumber(value);
+  if (parsed === null) return 'Enter a number.';
+  if (parameter.kind === 'integer' && !Number.isInteger(parsed)) return 'Enter a whole number.';
+  const { minimum, maximum } = parameter;
+  if ((minimum !== null && parsed < minimum) || (maximum !== null && parsed > maximum))
+    return `Enter ${rangeText(parameter)}.`;
+  return undefined;
 }
 
 function ParameterRow({
@@ -181,16 +192,13 @@ function ParameterRow({
   onChange: (value: string) => void;
 }) {
   const id = `response-${parameter.name}`;
+  const range = rangeText(parameter);
+  const info = range ? `Range ${range}.` : undefined;
   if (parameter.kind === 'enum') {
     const options = parameter.options ?? [];
     return (
       <div data-parameter={parameter.name}>
-        <SettingsRow
-          description={parameter.description}
-          dirty={dirty}
-          note={value ? undefined : defaultText(parameter)}
-          title={parameter.label}
-        >
+        <SettingsRow description={parameter.description} dirty={dirty} title={parameter.label}>
           <SettingsChoice
             id={id}
             label={parameter.label}
@@ -207,38 +215,36 @@ function ParameterRow({
   }
 
   const numeric = toNumber(value);
+  const error = responseSettingError(parameter, value);
   const bounded =
     parameter.kind === 'number' && parameter.minimum !== null && parameter.maximum !== null;
-  const range = rangeText(parameter);
   const field = (
-    <NumberField
+    <Input
+      aria-describedby={error ? `${id}-error` : undefined}
+      aria-invalid={error ? true : undefined}
       aria-label={parameter.label}
-      className="w-28 shrink-0 gap-0"
+      autoComplete="off"
+      className="h-[1.875rem] w-[6.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums placeholder:font-sans placeholder:text-[0.71875rem] placeholder:text-faint md:text-xs"
+      data-slot="response-setting-input"
       disabled={disabled}
-      max={parameter.maximum ?? undefined}
-      min={parameter.minimum ?? undefined}
-      onValueChange={(next) => onChange(next === null ? '' : String(next))}
-      size="sm"
-      step={parameter.step ?? 1}
-      value={numeric}
-    >
-      <NumberFieldGroup>
-        <NumberFieldDecrement />
-        <NumberFieldInput
-          aria-label={parameter.label}
-          placeholder={bounded ? 'Default' : defaultText(parameter)}
-        />
-        <NumberFieldIncrement />
-      </NumberFieldGroup>
-    </NumberField>
+      id={id}
+      inputMode={parameter.kind === 'integer' ? 'numeric' : 'decimal'}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={bounded ? 'Default' : defaultText(parameter)}
+      spellCheck={false}
+      value={value}
+    />
   );
+  const errorLine = error ? <span id={`${id}-error`}>{error}</span> : undefined;
   if (!bounded) {
     return (
       <div data-parameter={parameter.name}>
         <SettingsRow
           description={parameter.description}
           dirty={dirty}
-          note={range || undefined}
+          error={errorLine}
+          htmlFor={id}
+          info={info}
           title={parameter.label}
         >
           {field}
@@ -258,14 +264,18 @@ function ParameterRow({
       <SettingsRow
         description={parameter.description}
         dirty={dirty}
-        info={`Range ${range}.`}
-        note={numeric === null ? defaultText(parameter) : range}
+        error={errorLine}
+        htmlFor={id}
+        info={info}
         title={parameter.label}
       >
+        <span className="shrink-0 text-[0.71875rem] text-faint" data-slot="response-default">
+          {defaultText(parameter)}
+        </span>
         <Slider
           aria-label={parameter.label}
           className={cn(
-            'min-w-20 flex-1',
+            'w-[5.5rem] shrink-0',
             numeric === null && 'opacity-60',
             hidden &&
               '[&_[data-slot=slider-range]]:opacity-0 [&_[data-slot=slider-thumb]]:opacity-0',
@@ -278,7 +288,7 @@ function ParameterRow({
           }
           step={parameter.step ?? 0.01}
           thumbProps={() => ({ 'aria-label': parameter.label })}
-          value={[numeric ?? stated ?? minimum]}
+          value={[Math.min(maximum, Math.max(minimum, numeric ?? stated ?? minimum))]}
         />
         {field}
       </SettingsRow>

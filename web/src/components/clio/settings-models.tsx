@@ -32,15 +32,20 @@ import {
   type ModelSettingsValues,
   presetIsActive,
   resolveActivePreset,
+  type ResponseSettingName,
   responseSettingsVisible,
   seedModelSettings,
   settingsForChosenModel,
 } from './settings-models-form';
 import { SettingsProviderOptions } from './settings-provider-options';
-import { SettingsResponseSettings } from './settings-response-settings';
+import { responseSettingError, SettingsResponseSettings } from './settings-response-settings';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { useWorkingContext, WorkingContextRow, type WorkingContextState } from './settings-working-context';
+import {
+  useWorkingContext,
+  WorkingContextRow,
+  type WorkingContextState,
+} from './settings-working-context';
 
 /**
  * Settings > Models: setting rows. The default model is a select-shaped field
@@ -69,7 +74,11 @@ export function ModelsSettings() {
           {configuration.error.message}
         </p>
       ) : (
-        <Skeleton aria-label="Loading models" className="mt-3 h-40 w-full @3xl:w-[60%]" role="status" />
+        <Skeleton
+          aria-label="Loading models"
+          className="mt-3 h-40 w-full @3xl:w-[60%]"
+          role="status"
+        />
       )}
     </div>
   );
@@ -302,6 +311,16 @@ function ModelsBody({
   catalogModel: ReturnType<typeof useCatalogModel>;
 }) {
   const count = dirty.size + (context?.draft ? 1 : 0);
+  const responseInvalid = Boolean(
+    catalogModel?.accepted_parameters?.some(
+      (parameter) =>
+        dirty.has(parameter.name) &&
+        responseSettingError(
+          parameter,
+          values.settings[parameter.name as ResponseSettingName] ?? '',
+        ),
+    ),
+  );
   return (
     <>
       {context ? <WorkingContextRow state={context} /> : null}
@@ -338,14 +357,15 @@ function ModelsBody({
         className="@3xl:w-[60%]"
         count={count}
         error={save.error?.message ?? context?.saveError}
-        invalid={Boolean(context?.draft && context.error)}
+        invalid={Boolean(context?.draft && context.error) || responseInvalid}
         onDiscard={() => {
           setValues(() => seed());
           setDirty(new Set());
           context?.setDraft(undefined);
         }}
         onSave={() => {
-          if (dirty.size && activePreset) save.mutate('values', { preset: activePreset, next: values });
+          if (dirty.size && activePreset)
+            save.mutate('values', { preset: activePreset, next: values });
           if (context?.draft) context.save();
         }}
         saving={barSaving || Boolean(context?.saving)}
