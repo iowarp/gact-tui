@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { PanelLeftIcon } from 'lucide-react';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
+const SIDEBAR_HOVER_INTENT_MS = 150;
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = '16rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
@@ -158,10 +159,19 @@ function Sidebar({
     document.addEventListener('keydown', keyboardNavigation, true);
     return () => document.removeEventListener('keydown', keyboardNavigation, true);
   }, []);
+  // Hover intent: a pointer passing over the strip, or aiming straight at one
+  // of its icons, acts on the strip as it is instead of reflowing it first.
+  const hoverTimer = React.useRef<number | undefined>(undefined);
+  const cancelHover = React.useCallback(() => {
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = undefined;
+  }, []);
+  React.useEffect(() => cancelHover, [cancelHover]);
   React.useEffect(() => {
+    cancelHover();
     setHovered(false);
     setFocused(false);
-  }, [state, isMobile]);
+  }, [state, isMobile, cancelHover]);
   const preview =
     contained && collapsible === 'icon' && state === 'collapsed' && (hovered || focused);
   const displayState = preview ? 'expanded' : state;
@@ -222,10 +232,16 @@ function Sidebar({
         data-slot="sidebar"
         tabIndex={-1}
         onPointerEnter={(event) => {
-          if (state === 'collapsed' && event.pointerType !== 'touch') setHovered(true);
+          if (state !== 'collapsed' || event.pointerType === 'touch') return;
+          cancelHover();
+          hoverTimer.current = window.setTimeout(() => setHovered(true), SIDEBAR_HOVER_INTENT_MS);
         }}
-        onPointerLeave={() => setHovered(false)}
+        onPointerLeave={() => {
+          cancelHover();
+          setHovered(false);
+        }}
         onPointerDownCapture={() => {
+          cancelHover();
           pointerFocus.current = true;
           setFocused(false);
         }}
@@ -337,8 +353,6 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
 
   return (
     <Button
-      data-sidebar="trigger"
-      data-slot="sidebar-trigger"
       variant="ghost"
       size="icon-sm"
       className={cn(className)}
@@ -347,6 +361,9 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
         toggleSidebar();
       }}
       {...props}
+      // After the spread: a tooltip trigger (asChild) would otherwise replace the slot.
+      data-sidebar="trigger"
+      data-slot="sidebar-trigger"
     >
       <PanelLeftIcon />
       <span className="sr-only">Toggle Sidebar</span>

@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +12,17 @@ import {
 import { TooltipProvider } from './tooltip';
 import { createPortal } from 'react-dom';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+/** The strip previews after a short hover intent, not on the first pointer contact. */
+function hoverSidebar(sidebar: Element) {
+  vi.useFakeTimers();
+  fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+  act(() => vi.advanceTimersByTime(200));
+}
 
 describe('sidebar vertical layout', () => {
   it('uses the available parent height instead of adding another viewport height', () => {
@@ -87,11 +97,34 @@ describe('collapsed navigation preview', () => {
       </SidebarProvider>,
     );
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    vi.useFakeTimers();
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    expect(sidebar).not.toHaveAttribute('data-preview');
+    act(() => vi.advanceTimersByTime(200));
     expect(sidebar).toHaveAttribute('data-preview', 'true');
     expect(screen.getByRole('button')).toHaveTextContent('unpinned expanded');
     fireEvent.pointerLeave(sidebar);
     expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
+  });
+
+  it('lets a direct click act on the strip before the hover preview reflows it', () => {
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarToggle />
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = document.querySelector('[data-slot="sidebar"]')!;
+    const toggle = screen.getByRole('button', { name: 'Toggle navigation' });
+    vi.useFakeTimers();
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerDown(toggle, { pointerType: 'mouse' });
+    fireEvent.click(toggle);
+    act(() => vi.advanceTimersByTime(200));
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+    expect(sidebar).not.toHaveAttribute('data-preview');
   });
 
   it('keeps the preview while a control has focus and dismisses with Escape', () => {
@@ -189,7 +222,7 @@ describe('collapsed navigation preview', () => {
       </SidebarProvider>,
     );
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
-    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    hoverSidebar(sidebar);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Menu item' }), { key: 'Escape' });
     expect(sidebar).toHaveAttribute('data-preview', 'true');
   });

@@ -23,7 +23,11 @@ for (const width of [1100, 1600]) {
       }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-    if (width === 1600) await page.locator('[data-slot="sidebar-trigger"]').click();
+    if (width === 1600) {
+      await page.locator('[data-slot="sidebar-trigger"]').click();
+      // The hide control lives in the strip; collapsing it must not preview it back open.
+      await page.mouse.move(width - 20, 850);
+    }
     const sidebar = page
       .locator('[data-slot="sidebar"]')
       .filter({ has: page.getByRole('navigation', { name: 'Workspace navigation' }) });

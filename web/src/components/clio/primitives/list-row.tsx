@@ -20,9 +20,9 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   /** Fixed 44px mono column: elapsed time, size or count (MetaValue). */
   meta?: ReactNode;
   /**
-   * Hover actions in a fixed column. They are hidden with `visibility`, not
-   * removed, so showing them never moves the row; keyboard focus inside the
-   * row shows them too. Touch screens have no hover, so they always show there.
+   * Hover actions in a fixed column. They are transparent at rest, not hidden
+   * or removed, so showing them never moves the row and screen readers still
+   * reach them; keyboard focus inside the row shows them too. Touch screens have no hover, so they always show there.
    */
   actions?: ReactNode;
   /** Width of the actions column in px; one value for every row of a list. */
@@ -32,6 +32,7 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * verb (Start, Stop, Install, Open). Use an IconButton with a hover name.
    */
   primaryAction?: ReactNode;
+  /**
    * Show the actions in place of the meta column on hover or focus instead of
    * beside it, so a narrow list (the left bar) keeps one right edge: the count
    * or time at rest, the row's buttons on hover. An open menu keeps them shown.
@@ -145,7 +146,7 @@ export const ListRow = memo(
             data-slot="list-row-actions"
             style={{ width: actionsWidth }}
             className={cn(
-              'invisible flex shrink-0 items-center justify-end gap-0.5 group-focus-within/list-row:visible group-hover/list-row:visible group-has-[[aria-haspopup][aria-expanded=true]]/list-row:visible pointer-coarse:visible',
+              'flex shrink-0 items-center justify-end gap-0.5 opacity-0 group-focus-within/list-row:opacity-100 group-hover/list-row:opacity-100 group-has-[[aria-haspopup][aria-expanded=true]]/list-row:opacity-100 pointer-coarse:opacity-100',
               actionsOverlay && 'absolute inset-y-0 right-1.5 z-10',
             )}
           >

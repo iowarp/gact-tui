@@ -48,6 +48,7 @@ export function ClioSessionContextBar({
   // Native window chrome shows the passive title on desktop, so there the
   // conversation menu is the chevron alone.
   const nativeTitle = inTauri();
+  const TitleElement = nativeTitle ? 'span' : 'h1';
   return (
     <div className="flex min-w-0 items-center gap-1 overflow-hidden">
       {parentSession ? (
@@ -73,34 +74,36 @@ export function ClioSessionContextBar({
             />
           </>
         ) : null}
-        <ClioSessionActions
-          disabled={!session || actionsPending}
-          management={management}
-          onCompact={onCompact}
-          onFork={canForkSession(session) ? onFork : undefined}
-          onOpenSystemTerminal={onOpenSystemTerminal}
-          onShare={onShare}
-          onUndo={onUndo}
-          title={session?.title ?? 'session'}
-          trigger={({ disabled }) => (
-            <button
-              aria-label={`Actions for ${session?.title ?? 'session'}`}
-              className={cn(
-                'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-medium outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
-                nativeTitle && 'w-7 justify-center px-0',
-              )}
-              disabled={disabled}
-              title={session?.branch ? `${title}\nBranch ${session.branch}` : title}
-              type="button"
-            >
-              {nativeTitle ? null : <h1 className="min-w-0 truncate">{title}</h1>}
-              <ChevronDownIcon
-                aria-hidden="true"
-                className="size-3.5 shrink-0 text-muted-foreground"
-              />
-            </button>
-          )}
-        />
+        <TitleElement aria-label={nativeTitle ? undefined : title} className="flex min-w-0">
+          <ClioSessionActions
+            disabled={!session || actionsPending}
+            management={management}
+            onCompact={onCompact}
+            onFork={canForkSession(session) ? onFork : undefined}
+            onOpenSystemTerminal={onOpenSystemTerminal}
+            onShare={onShare}
+            onUndo={onUndo}
+            title={session?.title ?? 'session'}
+            trigger={({ disabled }) => (
+              <button
+                aria-label={`Actions for ${session?.title ?? 'session'}`}
+                className={cn(
+                  'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-medium outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
+                  nativeTitle && 'w-7 justify-center px-0',
+                )}
+                disabled={disabled}
+                title={session?.branch ? `${title}\nBranch ${session.branch}` : title}
+                type="button"
+              >
+                {nativeTitle ? null : <span className="min-w-0 truncate">{title}</span>}
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+              </button>
+            )}
+          />
+        </TitleElement>
       </nav>
       {session ? (
         <SessionAgentControl
