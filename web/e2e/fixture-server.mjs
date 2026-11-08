@@ -1988,6 +1988,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { commands: [] });
     return;
   }
+  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/summon-targets$/u.test(url.pathname)) {
+    sendJson(response, { subagents: [], servers: [], workflows: [], flows: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/memory/summary') {
     sendJson(response, { enabled: true, inbox: 0, documents: 0 });
     return;
