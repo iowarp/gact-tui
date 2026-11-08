@@ -205,5 +205,7 @@ describe('ClioAttentionCenter', () => {
     expect(
       within(dialog).getByRole('link', { name: 'Session One: 1 question' }),
     ).toBeInTheDocument();
+    // Opening starts on the first notification, so arrows move through the list.
+    await waitFor(() => expect(within(dialog).getAllByRole('link')[0]).toHaveFocus());
   });
 });

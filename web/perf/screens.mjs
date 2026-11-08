@@ -309,7 +309,7 @@ function catalogue({ settings, infrastructure }) {
     s(
       'infrastructure',
       'agent-hosts-attention',
-      '/infrastructure/agent-hosts',
+      '/infrastructure/agent',
       async (page) => {
         await page
           .getByRole('button', { name: /Conversation memory/u })

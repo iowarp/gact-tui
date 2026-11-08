@@ -114,6 +114,7 @@ function moveFocus(event: KeyboardEvent<HTMLElement>) {
 export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
   const shortcut = useShortcutPresentation('notifications');
   const entries = useMemo(
     () =>
@@ -155,7 +156,14 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="w-[400px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          className="w-[440px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          onOpenAutoFocus={(event) => {
+            // Start on the first notification, not the settings gear.
+            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
+            if (!first) return;
+            event.preventDefault();
+            first.focus();
+          }}
           side="bottom"
         >
           <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
@@ -182,6 +190,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
             <div
               className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
               onKeyDown={moveFocus}
+              ref={listRef}
             >
               {entries.map(({ session, attention }) => {
                 const summary = attentionSummary(attention);
@@ -195,21 +204,21 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                     to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
                   >
                     <ListRow
-                      badge={
-                        <span className="text-[11.5px] font-medium text-action">
-                          {summary.kind.action}
-                        </span>
-                      }
                       description={summary.words}
                       icon={<KindIcon aria-hidden="true" className="text-warning" />}
                       layout="stacked"
                       meta={
-                        <ClioRelativeTime
-                          className="text-[11px] text-faint"
-                          compact
-                          label="Updated"
-                          timestamp={session.last_interaction_at ?? session.updated_at}
-                        />
+                        <span className="flex flex-col items-end leading-[1.3]">
+                          <ClioRelativeTime
+                            className="text-[11px] text-faint"
+                            compact
+                            label="Updated"
+                            timestamp={session.last_interaction_at ?? session.updated_at}
+                          />
+                          <span className="text-[11.5px] font-medium text-action">
+                            {summary.kind.action}
+                          </span>
+                        </span>
                       }
                       selected={session.id === activeSessionId}
                       title={

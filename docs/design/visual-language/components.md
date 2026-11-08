@@ -123,7 +123,8 @@ above while redesigning the surface; the change is not mechanical.
   and palette classes outside `web/src/theme/`.
 - Never show status with color alone. `StatusIndicator` pairs each state with
   a shape and a word, and `column` display keeps the word for assistive
-  technology.
+  technology. In `visible` display, error and warning words take their tone
+  color; every other state word stays muted.
 - Give trailing columns fixed widths and hide hover actions with
   `visibility`, so nothing moves on hover.
 - Keep every line to one line. Use `truncate`, `TruncatedText` or

@@ -1,6 +1,21 @@
 import { SchemaSection } from './tool-schema-section';
 import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
-import { EyeIcon, PlugIcon, WrenchIcon } from 'lucide-react';
+import {
+  BrainIcon,
+  EyeIcon,
+  FilePenLineIcon,
+  FileTextIcon,
+  FolderIcon,
+  GlobeIcon,
+  ListTodoIcon,
+  NotebookPenIcon,
+  PlugIcon,
+  ShapesIcon,
+  SquareTerminalIcon,
+  TextSearchIcon,
+  WrenchIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -110,7 +125,7 @@ function ToolRow({
     <InfraRow
       className="cursor-pointer"
       description={toolSummary(tool)}
-      icon={tool.server_id ? <PlugIcon /> : <WrenchIcon />}
+      icon={<ToolIcon tool={tool} />}
       meta={entry.group}
       onClick={() => onInspect(entry)}
       status={toolStatus(tool)}
@@ -124,6 +139,26 @@ function ToolRow({
       }
     />
   );
+}
+
+const BUILTIN_TOOL_ICONS: Array<[RegExp, LucideIcon]> = [
+  [/^(shell_|run_command)/u, SquareTerminalIcon],
+  [/^(fs_read|read_)/u, FileTextIcon],
+  [/^(fs_write|fs_edit|write_|edit_)/u, FilePenLineIcon],
+  [/^fs_list/u, FolderIcon],
+  [/^(fs_search|search_)/u, TextSearchIcon],
+  [/^web_/u, GlobeIcon],
+  [/^memory_/u, BrainIcon],
+  [/artifact/u, ShapesIcon],
+  [/(plan|todo|goal)/u, ListTodoIcon],
+  [/^(log_entry|query_log|export_measurements)$/u, NotebookPenIcon],
+];
+
+/** What a built-in tool does at a glance; every connected server's tool is a plug. */
+function ToolIcon({ tool }: { tool: ToolCatalogItem }) {
+  if (tool.server_id) return <PlugIcon />;
+  const Icon = BUILTIN_TOOL_ICONS.find(([pattern]) => pattern.test(tool.name))?.[1] ?? WrenchIcon;
+  return <Icon />;
 }
 
 function toolStatus(tool: ToolCatalogItem): InfraStatus {
