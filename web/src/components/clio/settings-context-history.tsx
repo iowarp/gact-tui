@@ -232,6 +232,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
     <div className="grid gap-6">
       <SettingsSectionHeading
         description="Context usage and compaction for one conversation, as the service reports them."
+        level={2}
         title="Context & compaction"
       />
       {statistics.data ? (

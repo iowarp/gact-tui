@@ -23,6 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { SettingsSectionHeading } from './settings-section-heading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,15 +35,6 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus } from './status';
 import { humanizeToolName } from './tool-presentation';
-
-function SectionHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <header>
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
-    </header>
-  );
-}
 
 function statusValue(status: string) {
   if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
@@ -321,9 +313,9 @@ export function SystemSettings() {
   });
   return (
     <div className="grid gap-6">
-      <SectionHeading
+      <SettingsSectionHeading
         description="Review service health, activity, memory, and automation hooks. Status comes from your connected service."
-        title="System"
+        title="Health"
       />
       <Tabs defaultValue="health">
         <TabsList className="flex h-auto flex-wrap justify-start">

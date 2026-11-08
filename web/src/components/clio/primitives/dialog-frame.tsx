@@ -1,4 +1,4 @@
-import { memo, useCallback, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, useCallback, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -168,6 +168,9 @@ export const WindowShell = memo(function WindowShell({
   children,
   toolbar,
   className,
+  icon,
+  contentRef,
+  contentLabel,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -178,19 +181,37 @@ export const WindowShell = memo(function WindowShell({
   toolbar?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** A glyph before the title (Settings: the gear). */
+  icon?: ReactNode;
+  /** The scrolling content area, e.g. to return to the top on a section change. */
+  contentRef?: Ref<HTMLDivElement>;
+  /** Names the content region when it is a landmark. */
+  contentLabel?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
         data-frame="window"
+        // Land in the content rather than on the first title-row control; Tab moves on from there.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          (event.target as HTMLElement)
+            .querySelector<HTMLElement>('[data-window-content]')
+            ?.focus({ preventScroll: true });
+        }}
         className={cn(
           'top-1/2 flex h-[min(720px,calc(100dvh-2rem))] w-[min(980px,calc(100vw-2rem))] max-w-none -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:max-w-none',
           'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none',
           className,
         )}
       >
-        <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-2 pl-4">
+        <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border pr-2 pl-4">
+          {icon ? (
+            <span aria-hidden="true" className="flex shrink-0 text-muted-foreground [&_svg]:size-3.5">
+              {icon}
+            </span>
+          ) : null}
           <DialogTitle className="min-w-0 flex-1 truncate text-[13px] [overflow-wrap:normal]">
             {title}
           </DialogTitle>
@@ -207,7 +228,16 @@ export const WindowShell = memo(function WindowShell({
               {navigation}
             </nav>
           ) : null}
-          <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
+          <div
+            aria-label={contentLabel}
+            className="clio-scrollbar @container min-w-0 flex-1 overflow-y-auto outline-none"
+            data-window-content=""
+            ref={contentRef}
+            role={contentLabel ? 'region' : undefined}
+            tabIndex={-1}
+          >
+            {children}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

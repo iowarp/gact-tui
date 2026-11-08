@@ -2,7 +2,15 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsRow, SettingsChoice } from '@/components/clio/settings-row';
 import { connectionScope } from '@/lib/connection-scope';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { SettingsNavigation } from '@/components/clio/settings-navigation';
+import {
+  SettingsNavigation,
+  SettingsSearchButton,
+  SettingsSectionPicker,
+} from '@/components/clio/settings-navigation';
+import { WindowShell } from '@/components/clio/primitives/dialog-frame';
+import { settingsBackgroundRoute } from '@/lib/settings-window-route';
+import { useLiveStore } from '@/store/live-store';
+import { ToolsSettingsTabs } from '@/components/clio/settings-tools-tabs';
 import { settingsDestinations } from '@/lib/application-destinations';
 import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -18,9 +26,9 @@ import {
   SunIcon,
   Volume2Icon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { ExtensionLibrary as PluginSettings } from '@/components/clio/extension-library';
@@ -43,6 +51,7 @@ import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
 import { ContextHistorySettings } from '@/components/clio/settings-context-history';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   Frame,
   FrameDescription,
@@ -506,26 +515,47 @@ function SettingsSection({
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
-  if (section === 'runtime')
+  if (section === 'runtime' || section === 'browser')
     return (
       <div className="grid gap-10">
         <RuntimeSettingsPanel exclude={['Memory', 'Browser']} />
         <ContextHistorySettings initialSessionId={sessionId} />
+        <div data-settings-anchor="browser">
+          <RuntimeSettingsPanel only="Browser" title="Browser" headingLevel={2} />
+        </div>
       </div>
     );
-  if (section === 'browser') return <RuntimeSettingsPanel only="Browser" title="Browser" />;
-  if (section === 'fleet') return <FleetSettingsPanel />;
+  if (section === 'models' || section === 'fleet')
+    return (
+      <div className="grid gap-10">
+        <ModelsSettings />
+        <div data-settings-anchor="fleet">
+          <FleetSettingsPanel />
+        </div>
+      </div>
+    );
   if (section === 'providers') return <ProvidersSettings />;
-  if (section === 'models') return <ModelsSettings />;
   if (section === 'usage') return <UsageSettings />;
   if (section === 'agents') return <AgentSettings />;
   if (section === 'plugins')
     return <PluginSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
-  if (section === 'tools')
-    return <ToolsSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
+  if (section === 'tools' || section === 'relays')
+    return (
+      <ToolsSettingsTabs
+        key={section}
+        section={section}
+        tools={
+          <ToolsSettings
+            heading={false}
+            initialSessionId={sessionId}
+            initialWorkspaceId={workspaceId}
+          />
+        }
+        remote={<RelaySettings />}
+      />
+    );
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
-  if (section === 'relays') return <RelaySettings />;
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
   if (section === 'memory') return <MemorySettings />;
   if (section === 'system') return <SystemSettings />;
@@ -539,6 +569,7 @@ function SettingsSection({
 export function SettingsPage() {
   const { section = 'general' } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { settings } = useConnectionSettings();
   const destinations = settingsDestinations(inTauri());
   const repository = useRepository();
@@ -549,41 +580,77 @@ export function SettingsPage() {
     retry: false,
   });
   const inbox = memory.data?.inbox ?? 0;
-  const content = useRef<HTMLElement>(null);
-  useEffect(() => {
-    content.current?.scrollTo({ left: 0, top: 0 });
-  }, [section]);
+  const content = useRef<HTMLDivElement>(null);
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
+  const background = settingsBackgroundRoute(location, settings.endpoint);
+  // Without the workspace behind the window, section links keep it detached:
+  // a remembered route can be stale and must not mount under Settings.
+  const linkState = background
+    ? location.state
+    : { endpoint: settings.endpoint, from: workspaceRoute, detached: true };
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
+  const workspace = useLiveStore((state) =>
+    workspaceId ? state.entities.workspaces[workspaceId] : undefined,
+  );
+  const workspaceName = workspace?.display_name || workspace?.name || 'Workspace';
+  const agentName = settings.label || vocab.agent;
+  const destination = destinations.find((item) => item.id === section);
+  const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
+  const scopeLine =
+    destination?.group === 'Agent'
+      ? `${agentName}, applies to every conversation on this agent`
+      : destination?.group === 'Workspace'
+        ? `${agentName}, kept per workspace and for you`
+        : 'This app on this device';
+  useEffect(() => {
+    const anchor = destination?.host
+      ? content.current?.querySelector(`[data-settings-anchor="${section}"]`)
+      : undefined;
+    if (anchor) anchor.scrollIntoView({ block: 'start' });
+    else content.current?.scrollTo({ left: 0, top: 0 });
+  }, [section, destination?.host]);
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
+  const navigation = {
+    sections: destinations,
+    section,
+    linkState,
+    scopeLabels,
+    badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+  };
   return (
-    <main className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:flex-row">
-      <SettingsNavigation
-        sections={destinations}
-        section={section}
-        endpoint={settings.endpoint}
-        workspaceRoute={workspaceRoute}
-        badges={{
-          memory: { count: inbox, label: `${inbox} memory changes waiting for review` },
-        }}
-      />
-      <section
-        ref={content}
-        aria-label="Settings content"
-        className="clio-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8"
-      >
-        <div className="mx-auto max-w-4xl pb-12">
-          <SettingsSection
-            key={connectionScope(settings)}
-            section={section}
-            sessionId={sessionId}
-            workspaceId={workspaceId}
-          />
+    <WindowShell
+      className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
+      contentLabel="Settings content"
+      contentRef={content}
+      icon={<SettingsIcon />}
+      navigation={<SettingsNavigation {...navigation} />}
+      onOpenChange={(open) => {
+        if (!open) void navigate(background ?? workspaceRoute);
+      }}
+      open
+      title="Settings"
+      toolbar={
+        <div className="flex min-w-0 items-center gap-1.5">
+          <SettingsSectionPicker {...navigation} />
+          <SettingsSearchButton />
         </div>
-      </section>
-    </main>
+      }
+    >
+      <main className="px-5 py-6 sm:px-8">
+        <div className="mx-auto max-w-4xl pb-12">
+          <SettingsScopeContext.Provider value={scopeLine}>
+            <SettingsSection
+              key={connectionScope(settings)}
+              section={section}
+              sessionId={sessionId}
+              workspaceId={workspaceId}
+            />
+          </SettingsScopeContext.Provider>
+        </div>
+      </main>
+    </WindowShell>
   );
 }

@@ -51,18 +51,25 @@ export function FleetSettingsPanel() {
       repository.updateFleetSettings(input),
     onSuccess: (data) => client.setQueryData(key, data),
   });
-  if (fleet.isPending) return <p role="status">Loading Fleet…</p>;
+  if (fleet.isPending)
+    return (
+      <p className="text-sm text-muted-foreground" role="status">
+        Loading helper models…
+      </p>
+    );
   if (fleet.error || !fleet.data)
     return (
-      <div role="alert">
-        Fleet could not be loaded. <Button onClick={() => void fleet.refetch()}>Retry</Button>
+      <div className="flex items-center gap-3 text-sm" role="alert">
+        Helper models could not be loaded. <Button onClick={() => void fleet.refetch()}>Retry</Button>
       </div>
     );
   const data = fleet.data;
   return (
-    <section className="flex max-w-3xl flex-col gap-4" aria-label="Fleet models">
+    <section className="flex max-w-3xl flex-col gap-4" aria-labelledby="settings-helper-models">
       <div>
-        <h2 className="text-lg font-semibold">Fleet</h2>
+        <h2 className="text-base font-semibold" id="settings-helper-models">
+          Helper models
+        </h2>
         <p className="text-sm text-muted-foreground">
           Choose models for search and evaluation. By default, each uses the conversation’s model.
         </p>

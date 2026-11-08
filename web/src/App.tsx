@@ -18,6 +18,8 @@ import { ClioSelectionActionToolbar } from '@/components/clio/selection-actions'
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
+import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 import {
@@ -74,6 +76,18 @@ function RouteFallback() {
   );
 }
 
+function SettingsWindowFallback() {
+  return (
+    <WindowShell open onOpenChange={() => undefined} title="Settings">
+      <div aria-busy="true" className="space-y-3 p-6" role="status">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-24 w-full max-w-xl" />
+        <p className="text-sm text-muted-foreground">Loading settings…</p>
+      </div>
+    </WindowShell>
+  );
+}
+
 function UnknownRouteRedirect() {
   return <Navigate replace to="/" />;
 }
@@ -94,6 +108,10 @@ export default function App() {
       ? location.pathname
       : returnRouteFromState(location.state, settings.endpoint),
   };
+  const settingsBackground = settingsBackgroundRoute(location, settings.endpoint);
+  const routesLocation = settingsBackground
+    ? { ...location, pathname: settingsBackground, search: '', hash: '' }
+    : location;
   useNativeMenuBridge();
   // Secondary routes load on idle or link hover, not on their first visit.
   useEffect(() => installRoutePrefetch(), []);
@@ -127,17 +145,26 @@ export default function App() {
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
       <Suspense fallback={<RouteFallback />}>
-        <Routes>
+        <Routes location={routesLocation}>
           <Route element={<ConnectionPage />} path="/" />
           <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
           <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
           <Route element={<RunsPage />} path="/runs" />
           <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-          <Route element={<SettingsPage />} path="/settings/:section" />
+          {/* Settings is a window over the app; without a workspace behind it the
+              app area stays empty. */}
+          <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
           <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
           <Route element={<UnknownRouteRedirect />} path="*" />
         </Routes>
       </Suspense>
+      {isSettingsRoute(location.pathname) ? (
+        <Suspense fallback={<SettingsWindowFallback />}>
+          <Routes>
+            <Route element={<SettingsPage />} path="/settings/:section" />
+          </Routes>
+        </Suspense>
+      ) : null}
       <Toaster closeButton richColors />
       {/* Fixed + full-viewport, so it covers the desktop title bar's own
           connection pill too -- not just the routed content below. */}

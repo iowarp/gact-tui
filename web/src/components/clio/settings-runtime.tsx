@@ -74,7 +74,10 @@ export function RuntimeSettingsPanel({
   exclude = [],
   title = 'Execution & history',
   description,
+  headingLevel = 1,
 }: {
+  /** 2 when the panel is folded into another settings page. */
+  headingLevel?: 1 | 2;
   /** Show only this settings group (the memory page shows ``Memory``). */
   only?: string;
   /** Hide these settings groups. */
@@ -126,6 +129,7 @@ export function RuntimeSettingsPanel({
   const patch = draft ? patchFor(draft) : undefined;
   const heading = (
     <SettingsSectionHeading
+      level={headingLevel}
       title={title}
       description={
         description ??
