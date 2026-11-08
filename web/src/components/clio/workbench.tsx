@@ -56,6 +56,7 @@ import {
   OPEN_FILE_IN_BROWSER_EVENT,
   type OpenFileInBrowserDetail,
 } from '@/lib/html-in-browser';
+import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
@@ -101,6 +102,8 @@ export interface ClioWorkbenchProps {
   /** Finished child agents are not loaded yet (they sit behind Show completed work). */
   finishedWorkHidden?: boolean;
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
+  /** Open requests from the page, read here so the page need not re-render. */
+  requests?: WorkbenchRequestSource;
   /** The session belongs to a study (its science log read says so); unknown hides the tab. */
   inStudy?: boolean;
 }
@@ -151,6 +154,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       subagents = [],
       finishedWorkHidden = false,
       requestedOpen,
+      requests,
       inStudy,
     },
     ref,
@@ -709,7 +713,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       <>
         {/* Keep request delivery outside the portal: maximizing remounts its
             contents and must not replay a previously handled open request. */}
-        <WorkbenchRequestDispatcher onOpen={openRequest} requestedOpen={requestedOpen} />
+        <WorkbenchRequestDispatcher
+          onOpen={openRequest}
+          requestedOpen={requestedOpen}
+          requests={requests}
+        />
         {maximized
           ? createPortal(
               <DismissableLayer
@@ -737,15 +745,19 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 function WorkbenchRequestDispatcher({
   onOpen,
   requestedOpen,
+  requests,
 }: {
   onOpen: (request: ClioWorkbenchOpenRequest) => void;
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
+  requests?: WorkbenchRequestSource;
 }) {
+  const subscribed = useWorkbenchRequest(requests);
+  const active = requestedOpen ?? subscribed;
   // Compact layouts mount the workbench only after their sheet opens. Keeping
   // the event in props lets this mounted child deliver the first resource
   // request instead of silently showing only the default Activity tab.
   useEffect(() => {
-    if (requestedOpen) onOpen(requestedOpen.request);
-  }, [onOpen, requestedOpen]);
+    if (active) onOpen(active.request);
+  }, [onOpen, active]);
   return null;
 }

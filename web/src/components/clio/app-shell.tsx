@@ -13,6 +13,7 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -24,6 +25,8 @@ export interface ClioAppShellProps {
   children: ReactNode;
   workbench: ReactNode;
   workbenchRevealKey?: string;
+  /** Open requests that reveal the canvas; read here so the page need not re-render. */
+  workbenchReveal?: WorkbenchRequestSource;
   statusStrip: ReactNode;
 }
 
@@ -116,9 +119,12 @@ export function ClioAppShell({
   toolbarActions,
   children,
   workbench,
-  workbenchRevealKey,
+  workbenchRevealKey: revealKeyProp,
+  workbenchReveal,
   statusStrip,
 }: ClioAppShellProps) {
+  const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
+  const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // The split workbench needs enough room for both its 400 px conversation
   // panel and 320 px canvas after the desktop navigation rail is accounted for.

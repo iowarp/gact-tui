@@ -21,7 +21,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
-import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,7 +43,8 @@ import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 import { ResourceLoading } from './resource-states';
-import { isChangedPath } from './workbench-shared';
+import { WorkbenchFileTree } from './workbench-file-tree';
+import { buildFileTree } from './workbench-file-tree-model';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
@@ -257,13 +257,12 @@ export function FileBrowser({
           <LoadingRows label="Loading workspace files" />
         ) : files.length ? (
           filteredFiles.length ? (
-            <FileTree
-              className="rounded-none border-0 bg-transparent"
+            <WorkbenchFileTree
+              changedPaths={changedPaths}
+              nodes={fileTree}
               onSelect={selectFile}
               selectedPath={activePath}
-            >
-              <FileNodes changedPaths={changedPaths} nodes={fileTree} />
-            </FileTree>
+            />
           ) : (
             <Unavailable icon={SearchIcon} label="No files match this filter" />
           )
@@ -448,90 +447,6 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-interface WorkspaceFileNode {
-  entry: WorkspaceFileEntry;
-  name: string;
-  children: Map<string, WorkspaceFileNode>;
-}
-
-function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNode[] {
-  const roots = new Map<string, WorkspaceFileNode>();
-  for (const entry of entries) {
-    const parts = (entry.display_path ?? entry.path).split(/[\\/]+/).filter(Boolean);
-    let children = roots;
-    parts.forEach((name, index) => {
-      const isLeaf = index === parts.length - 1;
-      const existing = children.get(name);
-      const node = existing ?? {
-        entry: {
-          path: parts.slice(0, index + 1).join('/'),
-          type: isLeaf ? entry.type : 'dir',
-          internal: false,
-        },
-        name,
-        children: new Map<string, WorkspaceFileNode>(),
-      };
-      if (isLeaf) node.entry = entry;
-      children.set(name, node);
-      children = node.children;
-    });
-  }
-  return sortedNodes(roots);
-}
-
-function sortedNodes(nodes: Map<string, WorkspaceFileNode>): WorkspaceFileNode[] {
-  return [...nodes.values()].sort((left, right) => {
-    if (left.entry.type !== right.entry.type) return left.entry.type === 'dir' ? -1 : 1;
-    return left.name.localeCompare(right.name);
-  });
-}
-
-// Human copy for the server's typed `redacted` reasons
-// (workspace_file_policy.workspace_read_redaction_reason). A folder carrying
-// one of these is listed (the owner ruling is to show dot folders, not hide
-// their existence) but its contents were never walked — the note explains why
-// an expanded folder shows nothing, instead of silently looking empty.
-const REDACTED_REASON_LABEL: Record<string, string> = {
-  sandbox_child_cache: 'Sandbox cache — contents not shown',
-};
-
-function FileNodes({
-  nodes,
-  changedPaths,
-}: {
-  nodes: readonly WorkspaceFileNode[];
-  changedPaths?: ReadonlySet<string>;
-}) {
-  const alignFilesWithFolders = nodes.some((node) => node.entry.type === 'dir');
-  return nodes.map((node) =>
-    node.entry.type === 'dir' ? (
-      <FileTreeFolder key={node.entry.path} name={node.name} path={node.entry.path}>
-        {node.entry.redacted ? (
-          <p className="px-2 py-1 text-xs text-muted-foreground italic">
-            {REDACTED_REASON_LABEL[node.entry.redacted] ?? 'Contents not shown.'}
-          </p>
-        ) : (
-          <FileNodes changedPaths={changedPaths} nodes={sortedNodes(node.children)} />
-        )}
-      </FileTreeFolder>
-    ) : (
-      <FileTreeFile
-        alignWithFolders={alignFilesWithFolders}
-        key={node.entry.path}
-        name={node.name}
-        path={node.entry.path}
-        {...(isChangedPath(changedPaths, node.entry.path)
-          ? {
-              className: 'text-changed',
-              'aria-label': `${node.name}, changed in this conversation`,
-              'data-changed': true,
-            }
-          : {})}
-      />
-    ),
   );
 }
 

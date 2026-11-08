@@ -360,7 +360,7 @@ export function WorkspacePage() {
               workspaceFolders={activeWorkspace?.source_folders}
             />
           }
-          workbenchRevealKey={workbench.activeRequest?.key}
+          workbenchReveal={workbench.requests}
           statusStrip={
             <WorkspaceLiveStatusStrip
               work={work}

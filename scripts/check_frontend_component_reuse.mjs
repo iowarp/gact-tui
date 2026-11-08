@@ -103,8 +103,10 @@ const requiredImports = {
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
   'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
   'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
+  // The Files list is a windowed flat tree built from the file-tree row parts.
+  'web/src/components/clio/workbench-file-tree.tsx': ['@/components/ai-elements/file-tree'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
-    '@/components/ai-elements/file-tree',
+    './workbench-file-tree',
     './artifact-card',
     './resource-viewers',
   ],

@@ -134,11 +134,14 @@ export function WorkbenchTabRow({
 
   return (
     <div
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5"
+      // A layout boundary: fitting and scrolling the tabs never re-lays out the page.
+      className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background/80 px-1.5 [contain:size_layout_style]"
       data-slot="canvas-header"
       ref={headerRef}
     >
-      <ContextMenu>
+      {/* Non-modal: a modal menu restyles <body> (scroll lock, pointer
+          events), which recalculates style for the whole page on open. */}
+      <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
           <div
             className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"

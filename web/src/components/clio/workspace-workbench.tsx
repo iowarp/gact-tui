@@ -33,8 +33,7 @@ export function WorkspaceWorkbench({
   workspaceFolders,
 }: {
   data: ObservabilityData & Pick<WorkspaceData, 'sessionArtifacts' | 'workspaceFiles'>;
-  navigation: ObservabilityNavigation &
-    Pick<ReturnType<typeof useWorkbenchNavigation>, 'activeRequest'>;
+  navigation: ObservabilityNavigation & Pick<ReturnType<typeof useWorkbenchNavigation>, 'requests'>;
   sessionId: string;
   workspaceId: string;
   /** The connected service; a new one starts a fresh workbench. */
@@ -83,7 +82,7 @@ export function WorkspaceWorkbench({
         })
       }
       key={endpoint}
-      requestedOpen={navigation.activeRequest}
+      requests={navigation.requests}
       sessionId={sessionId}
       sessionView={
         <WorkspaceObservabilityView
