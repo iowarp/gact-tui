@@ -1,25 +1,15 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
-import {
-  ArchiveIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  FolderGit2Icon,
-  SearchIcon,
-  UploadIcon,
-} from 'lucide-react';
+import { ArchiveIcon, ChevronDownIcon, FolderGit2Icon, SearchIcon, UploadIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
-import { vocab } from '@/lib/brand-vocabulary';
+import { AgentConnectionIdentity } from './agent-connection-identity';
+import { ClioMenuContent } from './clio-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -66,7 +56,6 @@ export function NavigationHeader({
   attentionControl,
 }: NavigationHeaderProps) {
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
-  const otherConnections = connections.filter((connection) => connection.endpoint !== endpoint);
 
   return (
     <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
@@ -124,80 +113,15 @@ export function NavigationHeader({
                 />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-96">
-              <DropdownMenuLabel className="space-y-1">
-                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Connected agent
-                </span>
-                <AgentConnectionIdentity
-                  endpoint={endpoint}
-                  label={activeLabel}
-                  location={activeLocation}
-                />
-                <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
-                  {endpoint}
-                </span>
-              </DropdownMenuLabel>
-              {otherConnections.length ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Other agents
-                  </DropdownMenuLabel>
-                </>
-              ) : null}
-              {otherConnections.map((recent) => {
-                const availability = connectionAvailability(
-                  connectionAvailabilities,
-                  recent.endpoint,
-                );
-                return (
-                  <DropdownMenuItem
-                    className="items-center gap-2 py-1.5"
-                    disabled={availability.state === 'unavailable'}
-                    key={recent.endpoint}
-                    onSelect={() => {
-                      if (recent.endpoint !== endpoint) void onConnect(recent);
-                    }}
-                  >
-                    <span className="grid size-4 place-items-center">
-                      {recent.endpoint === endpoint ? (
-                        <CheckIcon aria-hidden="true" className="text-primary" />
-                      ) : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm">
-                        <AgentConnectionIdentity
-                          endpoint={recent.endpoint}
-                          label={recent.label}
-                          location={recent.location}
-                        />
-                      </span>
-                      <span
-                        className="block truncate font-mono text-[11px] text-muted-foreground"
-                        title={recent.endpoint}
-                      >
-                        {recent.endpoint}
-                      </span>
-                    </span>
-                    <ConnectionAvailabilityIndicator
-                      availability={availability}
-                      compact
-                      endpoint={recent.endpoint}
-                    />
-                  </DropdownMenuItem>
-                );
-              })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link state={{ endpoint, from: currentPath }} to="/settings/connections">
-                  Manage services
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/?intent=connect">Connect another service</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+            <ClioMenuContent
+              activeLabel={activeLabel}
+              activeLocation={activeLocation}
+              connectionAvailabilities={connectionAvailabilities}
+              connections={connections}
+              currentPath={currentPath}
+              endpoint={endpoint}
+              onConnect={onConnect}
+            />
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -251,73 +175,4 @@ export function NavigationHeader({
       </SidebarMenu>
     </SidebarHeader>
   );
-}
-
-function AgentConnectionIdentity({
-  endpoint,
-  label,
-  location,
-}: {
-  endpoint: string;
-  label?: string;
-  location?: string;
-}) {
-  const displayLocation = connectionLocation(endpoint, location);
-  const name = connectionAgentName(label, displayLocation);
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="truncate">{displayLocation}</span>
-      <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
-      <span className="shrink-0 font-medium text-foreground">{name}</span>
-    </span>
-  );
-}
-
-function connectionAgentName(label: string | undefined, location: string): string {
-  const trimmed = label?.trim();
-  if (!trimmed) return vocab.agent;
-  const locationLower = location.toLocaleLowerCase();
-  const labelLower = trimmed.toLocaleLowerCase();
-  if (
-    ['this computer', 'this device', 'local'].includes(labelLower) ||
-    labelLower === locationLower
-  ) {
-    return vocab.agent;
-  }
-  const prefix = `${locationLower} `;
-  if (labelLower.startsWith(prefix)) {
-    return trimmed.slice(location.length).trim() || vocab.agent;
-  }
-  return trimmed;
-}
-
-function connectionLocation(endpoint: string, label?: string): string {
-  const namedLocation = cleanConnectionLocation(label);
-  if (namedLocation) return namedLocation;
-  try {
-    const hostname = new URL(endpoint).hostname.toLowerCase();
-    return ['127.0.0.1', 'localhost', '::1'].includes(hostname) ? 'Local' : hostname || 'Remote';
-  } catch {
-    return 'Connected';
-  }
-}
-
-function cleanConnectionLocation(value?: string): string | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed) return undefined;
-  const lower = trimmed.toLocaleLowerCase();
-  if (['this computer', 'this device', 'local'].includes(lower)) return 'Local';
-  const agent = vocab.agent.trim();
-  const agentLower = agent.toLocaleLowerCase();
-  if (lower === agentLower) return undefined;
-  if (lower.endsWith(` ${agentLower}`)) {
-    return trimmed.slice(0, -(agent.length + 1)).trim() || undefined;
-  }
-  return tunnelStyleName(trimmed) ?? trimmed;
-}
-
-function tunnelStyleName(value: string): string | undefined {
-  if (!/^[a-z0-9_-]+$/u.test(value) || /^\d+(?:\.\d+){3}$/u.test(value)) return undefined;
-  const words = value.replace(/[_-]+/gu, ' ');
-  return words.charAt(0).toLocaleUpperCase() + words.slice(1);
 }

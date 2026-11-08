@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
@@ -93,9 +94,11 @@ function show() {
   });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <RunsPage />
-      </MemoryRouter>
+      <TooltipProvider>
+        <MemoryRouter>
+          <RunsPage />
+        </MemoryRouter>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -108,9 +111,9 @@ it('discloses a lost-visibility issue once in run details rather than repeating 
   lost.progress = { message: issue, completed: null, total: null, unit: '', output: null };
   repository.queryTasks.mockResolvedValue({ tasks: [lost], total: 1, cursor: null, revision: 1 });
   show();
-  expect(await screen.findByText('Needs inspection')).toBeVisible();
+  expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
   expect(screen.queryByText(issue, { exact: true })).toBeNull();
-  await userEvent.click(screen.getByText('Details'));
+  await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
   expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
   expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
 });
@@ -135,9 +138,9 @@ it.each([
     lost.progress = { message: issue, completed: null, total: null, unit: '', output: null };
     repository.queryTasks.mockResolvedValue({ tasks: [lost], total: 1, cursor: null, revision: 1 });
     show();
-    expect(await screen.findByText('Needs inspection')).toBeVisible();
+    expect(await screen.findByRole('img', { name: 'Needs inspection' })).toBeVisible();
     expect(screen.queryByText(issue, { exact: true })).toBeNull();
-    await userEvent.click(screen.getByText('Details'));
+    await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
     expect(screen.getAllByText(`Reported issue: ${issue}`)).toHaveLength(1);
     expect(screen.getByText(`Reported issue: ${issue}`)).toBeVisible();
   },
@@ -156,12 +159,10 @@ it('loads explicit task pages across sessions and keeps original handles navigab
   );
   show();
   expect(
-    await screen.findByText('Showing 1 of 2 tasks. Search covers loaded results.'),
+    await screen.findByText('1 of 1 run, 2 in total. Search covers loaded runs.'),
   ).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
-  expect(
-    await screen.findByText('Showing 2 of 2 tasks. Search covers loaded results.'),
-  ).toBeVisible();
+  expect(await screen.findByText('2 of 2 runs')).toBeVisible();
   expect(screen.getByRole('link', { name: /Analyze dataset/u })).toHaveAttribute(
     'href',
     '/workspaces/workspace/sessions/session-two',
@@ -179,10 +180,12 @@ it('continues an empty sparse page and labels an unknown total without inventing
       : { tasks: [], total: null, cursor: 'sparse-continuation', revision: 1 },
   );
   show();
-  expect(await screen.findByText(/0 tasks loaded/)).toBeVisible();
-  expect(screen.queryByText(/Showing .* of 0 tasks/)).not.toBeInTheDocument();
+  expect(
+    await screen.findByText('0 of 0 runs. More available; search covers loaded runs.'),
+  ).toBeVisible();
+  expect(screen.queryByText(/in total/)).not.toBeInTheDocument();
   await userEvent.click(await screen.findByRole('button', { name: 'Load more tasks' }));
-  expect(await screen.findByText(/1 tasks loaded/)).toBeVisible();
+  expect(await screen.findByText('1 of 1 run')).toBeVisible();
   expect(repository.queryTasks).toHaveBeenCalledWith(
     expect.objectContaining({ cursor: 'sparse-continuation' }),
     expect.anything(),
@@ -199,11 +202,13 @@ it('discloses exact assignment and backend details only when opened', async () =
   });
   show();
   await screen.findByRole('link', { name: /Convert images/u });
-  expect(screen.getByText(description)).not.toBeVisible();
-  await userEvent.click(screen.getByText('Details'));
+  expect(screen.queryByText(description)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /^Details for/u }));
   expect(screen.getByText(description)).toBeVisible();
-  expect(screen.getByText('task-one')).toBeVisible();
-  expect(screen.getByText('Backend: working')).toBeVisible();
+  const details = screen.getByRole('dialog');
+  expect(within(details).getByText('task-one')).toBeVisible();
+  expect(within(details).getByText('Backend status')).toBeVisible();
+  expect(within(details).getByText('working')).toBeVisible();
 });
 
 it('confirms subtree cancellation and prevents duplicate requests while settlement is pending', async () => {

@@ -9,6 +9,10 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationHeader } from './navigation-header';
 
+vi.mock('@/hooks/use-runtime-version', () => ({
+  useRuntimeVersion: () => ({ version: 'v0.9.5', pending: false }),
+}));
+
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
   value: (query: string) => ({
@@ -137,11 +141,16 @@ it('shows agent identity as location followed by the branded agent name', async 
 
   await user.click(screen.getByText('Local'));
 
-  expect(screen.getByText('Connected agent')).toBeVisible();
+  expect(screen.getByText('Talking to')).toBeVisible();
   expect(screen.getAllByText('Local')).toHaveLength(2);
-  expect(screen.getByText('Other agents')).toBeVisible();
+  expect(screen.getByText('Switch to')).toBeVisible();
   expect(screen.getByText('Homelab')).toBeVisible();
-  expect(screen.getAllByText(brand.agentName).length).toBeGreaterThanOrEqual(3);
+  expect(screen.getAllByText(brand.agentName).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText('v0.9.5')).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: /Infrastructure/u })).toHaveAttribute(
+    'href',
+    '/infrastructure',
+  );
   expect(screen.getByText('http://127.0.0.1:49433')).toBeVisible();
 });
 
@@ -216,7 +225,7 @@ it.each(['local', 'aurora'] as const)(
     const user = userEvent.setup();
     for (const destination of [other, first]) {
       await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
-      expect(screen.getByText('Other agents')).toBeVisible();
+      expect(screen.getByText('Switch to')).toBeVisible();
       const item = screen
         .getAllByRole('menuitem')
         .find((node) => node.textContent?.includes(destination.endpoint));

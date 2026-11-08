@@ -1,6 +1,9 @@
+import { CircleStopIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { MoreIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
+import { NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { runConversationHref } from '@/components/clio/run-presentation';
 import type { RunRow } from '@/routes/runs-rows';
 import {
   DropdownMenu,
@@ -11,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+/** Stop and the run's menu, sized for a row's hover action column. */
 export function RunActions({
   onCancel,
   pending,
@@ -21,48 +25,47 @@ export function RunActions({
   row: RunRow;
 }) {
   const cancellable = row.cancellable;
+  const href = runConversationHref(row);
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {cancellable && (
-        <Button
-          aria-label={`Cancel ${row.taskKind ?? 'task'}: ${row.assignment || row.label}`}
-          disabled={Boolean(pending || row.cancelRequested)}
-          size="icon-sm"
-          variant="ghost"
-          onClick={onCancel}
-        >
-          <CloseIcon aria-hidden="true" />
-        </Button>
+        <NamedTooltip label={row.cancelRequested ? 'Cancellation requested' : 'Stop'}>
+          <Button
+            aria-label={`Cancel ${row.taskKind ?? 'task'}: ${row.assignment || row.label}`}
+            className="text-muted-foreground hover:bg-hover hover:text-destructive"
+            disabled={Boolean(pending || row.cancelRequested)}
+            size="icon-xs"
+            variant="ghost"
+            onClick={onCancel}
+          >
+            <CircleStopIcon aria-hidden="true" />
+          </Button>
+        </NamedTooltip>
       )}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`Actions for ${row.label}`}
-            disabled={pending}
-            size="icon-sm"
-            variant="outline"
-          >
-            <MoreIcon aria-hidden="true" />
-          </Button>
-        </DropdownMenuTrigger>
+        <NamedTooltip label="More">
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Actions for ${row.label}`}
+              className="text-muted-foreground hover:bg-hover hover:text-foreground"
+              disabled={pending}
+              size="icon-xs"
+              variant="ghost"
+            >
+              <MoreIcon aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+        </NamedTooltip>
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuLabel>Run actions</DropdownMenuLabel>
-          {row.workspaceId && row.targetSessionId ? (
+          {href ? (
             <DropdownMenuItem asChild>
-              <Link
-                to={`${`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}${row.flowHandle ? `?flow=${encodeURIComponent(row.flowHandle)}` : ''}`}
-              >
-                {row.flowHandle ? 'Open flow run' : 'Open conversation'}
-              </Link>
+              <Link to={href}>{row.flowHandle ? 'Open flow run' : 'Open conversation'}</Link>
             </DropdownMenuItem>
           ) : null}
-          {row.flowHandle && row.workspaceId && row.targetSessionId ? (
+          {row.flowHandle && href ? (
             <DropdownMenuItem asChild>
-              <Link
-                to={`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}
-              >
-                Open conversation
-              </Link>
+              <Link to={runConversationHref(row, false) ?? href}>Open conversation</Link>
             </DropdownMenuItem>
           ) : null}
           {cancellable ? (

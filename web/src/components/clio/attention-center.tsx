@@ -1,27 +1,24 @@
 import type { Session } from '@clio/core/v3';
 import { BellRingIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
-import { SessionAttentionIndicators } from './session-attention-indicators';
+import { ListRow } from './primitives/list-row';
+import { MenuKeyHints } from './primitives/menu-key-hints';
+import { StatusIndicator } from './primitives/status-indicator';
+import { MetaValue, Tag } from './primitives/tag';
 
 interface AttentionProps {
   activeSessionId: string;
@@ -32,8 +29,49 @@ interface AttentionProps {
 const notifiedAttentionIds = new Set<string>();
 const lastAttentionNoticeAt = new Map<string, number>();
 
+const BELL_HINTS = [
+  { id: 'menu-move', label: 'move' },
+  { id: 'menu-pick', label: 'open' },
+  { id: 'notifications', label: 'close' },
+] as const;
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/** What a session is waiting on, as words for the row and its one-word tag. */
+function attentionSummary(attention: SessionAttention): { words: string; tag: string } {
+  const parts: string[] = [];
+  let tag = '';
+  const add = (count: number, one: string, many: string, word: string) => {
+    if (!count) return;
+    parts.push(plural(count, one, many));
+    tag ||= word;
+  };
+  add(attention.permissionIds.length, 'approval', 'approvals', 'approve');
+  add(attention.questionIds.length, 'question', 'questions', 'reply');
+  add(attention.mcpTaskInputIds.length, 'task input', 'task inputs', 'input');
+  add(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`, `${PROTOCOL.a2ui} surfaces`, 'respond');
+  add(attention.unknownIds.length, 'unrecognized request', 'unrecognized requests', 'update');
+  return { words: parts.join(', '), tag: tag || 'respond' };
+}
+
+function moveFocus(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  const links = [...event.currentTarget.querySelectorAll<HTMLElement>('a[href]')];
+  if (links.length === 0) return;
+  event.preventDefault();
+  const index = links.indexOf(document.activeElement as HTMLElement);
+  const next =
+    event.key === 'ArrowDown'
+      ? links[(index + 1) % links.length]
+      : links[(index - 1 + links.length) % links.length];
+  next?.focus();
+}
+
 export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
   const [open, setOpen] = useState(false);
+  const shortcut = useShortcutPresentation('notifications');
   const entries = useMemo(
     () =>
       sessions
@@ -42,6 +80,9 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
     [attentions, sessions],
   );
   const responseCount = entries.reduce((total, entry) => total + entry.attention.total, 0);
+  useShortcut('notifications', () => {
+    if (responseCount > 0) setOpen((current) => !current);
+  });
   if (responseCount === 0) return null;
 
   const label =
@@ -54,9 +95,10 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
       <Popover onOpenChange={setOpen} open={open}>
         <PopoverTrigger asChild>
           <SidebarMenuButton
+            aria-keyshortcuts={shortcut?.aria}
             aria-label={`${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`}
             className="relative size-8 text-action hover:text-action"
-            tooltip={label}
+            tooltip={shortcut ? `${label} (${shortcut.text})` : label}
             type="button"
           >
             <BellRingIcon aria-hidden="true" />
@@ -68,31 +110,58 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
             </Badge>
           </SidebarMenuButton>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80" side="bottom">
-          <PopoverHeader>
-            <PopoverTitle>Response needed</PopoverTitle>
-            <PopoverDescription>Open a session to respond.</PopoverDescription>
-          </PopoverHeader>
-          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-            {entries.map(({ session, attention }) => (
-              <Button
-                asChild
-                className="h-auto min-h-12 justify-start px-2 py-2 text-left"
-                key={session.id}
-                variant={session.id === activeSessionId ? 'secondary' : 'ghost'}
-              >
-                <Link
-                  onClick={() => setOpen(false)}
-                  to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{session.title}</span>
-                    <SessionAttentionIndicators attention={attention} />
-                  </span>
-                </Link>
-              </Button>
-            ))}
+        <PopoverContent
+          align="end"
+          className="w-[400px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          side="bottom"
+        >
+          <div className="flex h-9 items-center gap-2 border-b border-border/70 px-3">
+            <PopoverTitle className="text-[13px] font-semibold">Notifications</PopoverTitle>
+            <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
+              {plural(responseCount, 'response', 'responses')}
+            </span>
           </div>
+          <section aria-labelledby="attention-needs-you" className="p-1">
+            <h3
+              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-medium text-muted-foreground"
+              id="attention-needs-you"
+            >
+              <span>Needs you</span>
+              <span className="font-mono tabular-nums">{responseCount}</span>
+            </h3>
+            <div
+              className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
+              onKeyDown={moveFocus}
+            >
+              {entries.map(({ session, attention }) => {
+                const summary = attentionSummary(attention);
+                return (
+                  <Link
+                    aria-label={`${session.title}: ${summary.words}`}
+                    className="block rounded-[6px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    key={session.id}
+                    onClick={() => setOpen(false)}
+                    to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
+                  >
+                    <ListRow
+                      badge={
+                        <Tag title={summary.words} tone="warning">
+                          {summary.tag}
+                        </Tag>
+                      }
+                      meta={<MetaValue>{attention.total}</MetaValue>}
+                      selected={session.id === activeSessionId}
+                      status={
+                        <StatusIndicator display="column" label="Waiting for you" tone="waiting" />
+                      }
+                      title={<span title={session.title}>{session.title}</span>}
+                    />
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+          <MenuKeyHints hints={BELL_HINTS} />
         </PopoverContent>
       </Popover>
     </SidebarMenuItem>

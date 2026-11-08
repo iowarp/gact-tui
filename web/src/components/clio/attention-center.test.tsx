@@ -1,12 +1,14 @@
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { playAttentionSound } from '@/lib/attention-sound';
 import type { SessionAttention } from '@/lib/session-attention';
 import { NotificationPreferencesProvider } from '@/providers/notification-preferences-provider';
-import { ClioAttentionNotifier } from './attention-center';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
@@ -148,5 +150,61 @@ describe('ClioAttentionNotifier', () => {
         vi.mocked(toast.warning).mock.calls.some(([title]) => title !== 'Response needed'),
       ).toBe(true),
     );
+  });
+});
+
+describe('ClioAttentionCenter', () => {
+  afterEach(cleanup);
+
+  function Center(props: { attentions: Record<string, SessionAttention>; sessions: Session[] }) {
+    return (
+      <MemoryRouter>
+        <TooltipProvider>
+          <SidebarProvider>
+            <ClioAttentionCenter activeSessionId="sess_1" {...props} />
+          </SidebarProvider>
+        </TooltipProvider>
+      </MemoryRouter>
+    );
+  }
+
+  it('renders nothing when no session needs a response', () => {
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
+  });
+
+  it('lists waiting sessions as one-line rows and opens with its shortcut', async () => {
+    const second: Session = { ...baseSession, id: 'sess_2', title: 'Session Two' };
+    render(
+      <Center
+        attentions={{
+          sess_1: waitingAttention('sess_1'),
+          sess_2: {
+            ...waitingAttention('sess_2'),
+            permissionIds: ['perm_1', 'perm_2'],
+            total: 3,
+          },
+        }}
+        sessions={[baseSession, second]}
+      />,
+    );
+    const trigger = screen.getByRole('button', {
+      name: /2 sessions need your response; 4 responses pending/,
+    });
+    expect(trigger).toHaveAttribute('aria-keyshortcuts');
+    fireEvent.keyDown(window, { key: 'n', code: 'KeyN', ctrlKey: true, altKey: true });
+    const dialog = await screen.findByRole('dialog');
+    // The header, the group and the rows all count responses, so they agree.
+    expect(within(dialog).getByText('4 responses')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: /Needs you\s*4/ })).toBeInTheDocument();
+    const second_row = within(dialog).getByRole('link', {
+      name: 'Session Two: 2 approvals, 1 question',
+    });
+    expect(second_row).toHaveAttribute('href', '/workspaces/ws_1/sessions/sess_2');
+    expect(within(second_row).getByText('approve')).toBeInTheDocument();
+    expect(within(second_row).getByText('3')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('link', { name: 'Session One: 1 question' }),
+    ).toBeInTheDocument();
   });
 });

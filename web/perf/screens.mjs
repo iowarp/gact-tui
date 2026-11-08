@@ -197,6 +197,12 @@ function catalogue({ settings, infrastructure }) {
     menu('menu-session-actions', 'button', /^Session actions for /u),
     menu('menu-attention-inbox', 'button', /needs your response/u),
     menu('menu-service-status', 'button', /^Workspace Service status/u),
+    s('session', 'menu-clio-add-agent', SESSION, async (page) => {
+      await press(page, 'button', /^Workspace Service status/u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
+      await page.waitForTimeout(400);
+    }),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
       await press(page, 'button', 'Show infrastructure status');
       await page.waitForTimeout(500);
@@ -276,11 +282,25 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('runs', 'executions', '/runs', null, { ready: 'h1' }),
     s('runs', 'flows', '/runs', async (page) => {
-      await press(page, 'tab', /^Flows/u);
+      await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
     }),
     s('runs', 'state-filter', '/runs', async (page) => {
-      await press(page, 'combobox', 'Filter by state');
+      // Wide bars show the states as a segmented control; narrow ones a select.
+      const select = page.getByRole('combobox', { name: 'Filter by state' });
+      if (await select.isVisible()) {
+        await select.click();
+        await overlay(page);
+      } else {
+        await press(page, 'radio', /^Needs attention/u);
+        await page.waitForTimeout(400);
+      }
+    }),
+    s('runs', 'details', '/runs', async (page) => {
+      await page
+        .getByRole('button', { name: /^Details for/u })
+        .first()
+        .click();
       await overlay(page);
     }),
     ...infrastructure.map(({ href, name }) =>
@@ -426,7 +446,7 @@ async function discover(browser, stack) {
     return page.locator(css).evaluateAll((elements) =>
       elements.map((element) => ({
         href: element.getAttribute('href'),
-        name: element.textContent.trim(),
+        name: (element.getAttribute('aria-label') ?? element.textContent).trim(),
       })),
     );
   };
@@ -439,6 +459,121 @@ async function discover(browser, stack) {
   ).filter((link, index, all) => all.findIndex((other) => other.href === link.href) === index);
   await context.close();
   return { settings, infrastructure };
+}
+
+// The fixture serves no task query, so the runs shots route a deterministic
+// page of develop's states: needs-you, running, queued and earlier groups.
+function sampleTasks() {
+  const at = (minutes) => new Date(FROZEN_TIME.getTime() - minutes * 60_000).toISOString();
+  const task = (index, kind, label, fields) => ({
+    handle: `task_sample_${index}`,
+    kind,
+    owner: {
+      human_id: 'human',
+      session_id: 'sess_flat_ndp',
+      assignment_id: `assignment_${index}`,
+      parent_handle: null,
+    },
+    label,
+    description: `${label}. Report the result and any files written to the workspace.`,
+    description_missing: false,
+    description_reference: null,
+    tool: 'builtin',
+    invocation_id: `invocation_${index}`,
+    status: 'active',
+    raw_status: 'working',
+    activity: 'executing',
+    progress: { message: '', completed: null, total: null, unit: '', output: null },
+    supported_actions: ['observe', 'wait', 'cancel'],
+    cancellation_requested_at: null,
+    terminal_at: null,
+    connection_freshness: 'fresh',
+    settlement: 'unknown',
+    recording: 'confirmed',
+    created_at: at(fields.minutes + 5),
+    updated_at: at(fields.minutes),
+    result: null,
+    details: null,
+    backend: {
+      owner: 'human',
+      server: fields.server ?? 'Local',
+      auth_scope: 'user',
+      session: 's',
+      task_id: `t${index}`,
+      queue: 'default',
+      execution_key: `k${index}`,
+      transport: 'http',
+      placement: 'local',
+    },
+    ...fields.patch,
+  });
+  const done = (status, minutes) => ({
+    status,
+    raw_status: status,
+    activity: 'idle',
+    terminal_at: at(minutes),
+    supported_actions: ['observe'],
+  });
+  const tasks = [
+    task(1, 'Subagent', 'Fit the NDP spectra across all 48 detector channels', {
+      minutes: 2,
+      patch: { activity: 'waiting_for_input', raw_status: 'input_required' },
+    }),
+    task(2, 'Shell', 'Rebuild the HDF5 index for run 2214', {
+      minutes: 14,
+      patch: {
+        ...done('failed', 14),
+        progress: {
+          message: 'Process exited with code 137: out of memory while reading chunk 812',
+          completed: null,
+          total: null,
+          unit: '',
+          output: null,
+        },
+      },
+    }),
+    task(3, 'Session', 'Compare depth profiles with the SRIM reference', {
+      minutes: 1,
+      patch: {
+        progress: {
+          message: 'Comparing profiles',
+          completed: 31,
+          total: 48,
+          unit: 'channels',
+          output: null,
+        },
+      },
+    }),
+    task(4, 'Download', 'Download Qwen3 32B weights to /scratch/models', {
+      minutes: 3,
+      server: 'polaris-login-02',
+      patch: {
+        progress: { message: 'Downloading', completed: 18, total: 64, unit: 'GB', output: null },
+      },
+    }),
+    task(5, 'Indexing', 'Index the SPOTTER campaign notebooks', {
+      minutes: 0,
+      patch: { activity: 'queued', raw_status: 'queued' },
+    }),
+    task(6, 'Subagent', 'Summarize beamline log anomalies for March', {
+      minutes: 75,
+      patch: done('completed', 75),
+    }),
+    task(7, 'MCP', 'Render the calibration report as PDF', {
+      minutes: 190,
+      patch: done('cancelled', 190),
+    }),
+    task(8, 'Shell', 'Sync results to the shared project storage', {
+      minutes: 2900,
+      server: 'aurora-uan-0010',
+      patch: done('completed', 2900),
+    }),
+    task(9, 'Session', 'Draft the methods section from the analysis notes', {
+      minutes: 9000,
+      patch: done('interrupted', 9000),
+    }),
+  ];
+  return { tasks, total: tasks.length, cursor: null, revision: 1 };
 }
 
 async function capture(browser, stack, shot, { theme, width }) {
@@ -460,6 +595,15 @@ async function capture(browser, stack, shot, { theme, width }) {
         body: JSON.stringify({
           error: { code: 'unavailable', message: 'The service is restarting.' },
         }),
+      }),
+    );
+  }
+  if (shot.surface === 'runs') {
+    await page.route('**/v1/tasks/query*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(sampleTasks()),
       }),
     );
   }

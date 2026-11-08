@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useInfrastructureTargetSelection } from '@/hooks/use-infrastructure-target-selection';
 import { useSearchParams } from 'react-router-dom';
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfrastructureActivity } from './infrastructure-activity';
@@ -9,6 +9,7 @@ import { InfrastructureHosts } from './infrastructure-hosts';
 import { SshAuthentication } from './managed-service-target';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { HostStorageSettings } from './host-storage-settings';
+import { TechnicalDetails } from './technical-details';
 import { ModelAcquisitions } from './model-acquisition';
 import { InfrastructureOverview, InfrastructureHostInspection } from './infrastructure-overview';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
@@ -30,7 +31,6 @@ export function InfrastructureInventory({
 }) {
   const repository = useRepository();
   const { settings, isManagedConnection } = useConnectionSettings();
-  const [storageOpen, setStorageOpen] = useState(false);
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', settings.endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
@@ -114,18 +114,15 @@ export function InfrastructureInventory({
               : data.targets.find((host) => host.id === targetId)?.label || targetId
           }
         />
-        <details
-          className="border-t pt-4"
-          open={storageOpen}
-          onToggle={(event) => setStorageOpen(event.currentTarget.open)}
+        <TechnicalDetails
+          className="border-t pt-4 text-sm"
+          summaryClassName="text-foreground"
+          title="Storage settings"
         >
-          <summary className="cursor-pointer text-sm font-medium">Storage settings</summary>
-          {storageOpen ? (
-            <div className="mt-4">
-              <HostStorageSettings key={targetId} targetId={targetId} />
-            </div>
-          ) : null}
-        </details>
+          <div className="mt-4">
+            <HostStorageSettings key={targetId} targetId={targetId} />
+          </div>
+        </TechnicalDetails>
       </div>
     );
   if (section === 'activity') return <InfrastructureActivity data={data} />;
