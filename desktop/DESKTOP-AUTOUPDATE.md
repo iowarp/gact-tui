@@ -29,10 +29,27 @@ the release CI that builds, signs, and publishes `latest.json`. The client
 plumbing (plugin registration, config, capability, and the launch check) is
 already wired — see "What's wired in the repo" below.
 
-> The `pubkey` field in every `tauri.conf.json` variant is currently the
-> literal placeholder `PLACEHOLDER_REPLACE_VIA_TAURI_SIGNER_GENERATE`. Auto-
-> update will refuse every update until it is replaced with a real public key.
+> The neutral `tauri.conf.json` and `tauri.gact.conf.json` carry the GACT
+> minisign public key; an embedding brand overlay (CLIO's
+> `branding/clio/tauri.clio.conf.json`) carries its own key and endpoint.
 > **No private key is, or should ever be, committed to this repo.**
+
+### Which feed updates which build
+
+Each product owns its own feed, and a client follows only the endpoint its
+brand overlay declares:
+
+| Build                          | Published by                   | Updater endpoint                                       |
+| ------------------------------ | ------------------------------ | ------------------------------------------------------ |
+| GACT Desktop (neutral)         | gact-tui `desktop-release.yml` | gact-tui `releases/latest/download/latest.json`        |
+| CLIO Desktop, lite and bundled | clio-agent `clio-bundles.yml`  | clio-agent `releases/latest/download/latest-lite.json` |
+
+The gact-tui `apps.yml` release installers carry a stub runtime and no updater
+key, so they build with `src-tauri/tauri.no-updater.conf.json`
+(`createUpdaterArtifacts: false`) and never publish an update payload that
+could replace a real bundle. On macOS the `.app.tar.gz` update payload must be
+produced from the signed, notarized and stapled app; Tauri creates it after it
+notarizes the app, so building with the Apple secrets set is sufficient.
 
 ## 1. Generate the signing keypair (one time, by a maintainer)
 
@@ -90,7 +107,10 @@ each platform, signs the artifacts with the secrets above, and — because
 `createUpdaterArtifacts: true` is set in `bundle` — produces and uploads
 `latest.json` (the marker the client polls).
 
-`.github/workflows/desktop-release.yml` (sketch):
+`.github/workflows/desktop-release.yml` is the maintained version of this
+job. It builds macOS per architecture and adds the signing steps described in
+[macOS signing and notarization](#macos-signing-and-notarization). The
+original sketch, for orientation:
 
 ```yaml
 name: desktop-release
@@ -106,7 +126,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: macos-latest, args: '--target universal-apple-darwin' }
+          - { platform: macos-latest, args: '--target aarch64-apple-darwin' }
+          - { platform: macos-latest, args: '--target x86_64-apple-darwin' }
           - { platform: ubuntu-22.04, args: '' }
           - { platform: windows-latest, args: '' }
     runs-on: ${{ matrix.platform }}
@@ -165,8 +186,74 @@ A `latest.json` looks like:
 
 The updater downloads the artifact for the running platform, verifies its
 `signature` against the configured `pubkey`, and installs it. A mismatch (wrong
-key, tampered artifact) is rejected — this is why the placeholder key blocks all
-updates until replaced.
+key, tampered artifact) is rejected.
+
+### macOS signing and notarization
+
+Gatekeeper on macOS 14+ blocks a downloaded app unless it is signed with a
+Developer ID and notarized. macOS builds are per architecture: the bundled
+runtime and the launcher are single-arch, so a universal shell would start on
+Intel without a working service.
+
+What signs what:
+
+- `scripts/macos-sign-runtime.sh` signs every Mach-O file in
+  `src-tauri/gact-runtime` inside-out (libraries, then executables with
+  `entitlements/runtime.entitlements`) with the hardened runtime and a secure
+  timestamp. It first precompiles the bundled Python library with
+  unchecked-hash `.pyc` files and can thin universal files to the target
+  architecture. `scripts/run-tauri-branded.mjs` runs it automatically for any
+  macOS `tauri build` whose config ships `gact-runtime/`, so every caller,
+  including clio-agent's `clio-bundles.yml`, gets it. Set
+  `CLIO_MACOS_SIGN_RUNTIME=0` to opt out.
+- Tauri then signs the launcher and the app with `APPLE_SIGNING_IDENTITY`,
+  `bundle.macOS.hardenedRuntime` and `entitlements/app.entitlements`, notarizes
+  and staples the app, and signs the DMG.
+- `scripts/macos-notarize.sh` notarizes and staples the DMG, which Tauri does
+  not do.
+- `scripts/macos-verify-app.sh` runs `codesign --verify --deep --strict`,
+  checks every nested Mach-O for the hardened runtime and reports
+  `spctl`; with `--require-notarized` it also requires Gatekeeper acceptance and
+  `stapler validate`.
+- `scripts/macos-signing-setup.sh` imports the certificate into a temporary
+  keychain and exports the variables above; `cleanup` deletes it.
+
+Runtime entitlements: `disable-library-validation` (Python loads wheels that
+the runtime installs after first launch) and
+`allow-unsigned-executable-memory` (cffi and ctypes callbacks). `allow-jit`
+and `allow-dyld-environment-variables` are deliberately absent; add them only
+with a package that needs them. Do not enable the app sandbox.
+
+Repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret                                        | Value                                                                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `APPLE_CERTIFICATE`                           | base64 of the exported Developer ID Application certificate and private key (`.p12`): `base64 -i cert.p12 \| pbcopy` |
+| `APPLE_CERTIFICATE_PASSWORD`                  | the `.p12` export password                                                                                           |
+| `APPLE_SIGNING_IDENTITY`                      | optional; for example `Developer ID Application: Name (TEAMID)`. Found from the certificate when unset               |
+| `KEYCHAIN_PASSWORD`                           | optional; a random password is generated when unset                                                                  |
+| `APPLE_API_KEY`                               | App Store Connect API key ID (preferred notarization method)                                                         |
+| `APPLE_API_ISSUER`                            | the API key's issuer ID                                                                                              |
+| `APPLE_API_PRIVATE_KEY`                       | contents of `AuthKey_<KEYID>.p8` (PEM text or base64)                                                                |
+| `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | alternative to the API key: Apple ID, an app-specific password and the team ID                                       |
+
+Without the certificate the builds are ad-hoc signed with the hardened
+runtime, so forks and pull requests still build. Without notarization
+credentials a signed build is not notarized. Pull-request builds of
+`apps.yml` (`tauri bundle · macos-latest · aarch64`) never notarize; they
+upload an ad-hoc DMG for testing.
+
+Verify a release by hand:
+
+```sh
+codesign --verify --deep --strict --verbose=2 "CLIO Desktop.app"
+spctl -a -vvv -t exec "CLIO Desktop.app"   # source=Notarized Developer ID
+xcrun stapler validate "CLIO Desktop.app"
+xcrun stapler validate CLIO.Desktop_*_aarch64.dmg
+```
+
+If notarization fails, `xcrun notarytool log <submission-id>` lists every file
+it rejected; `macos-notarize.sh` prints it automatically.
 
 ## 3. How the client check works (already in the repo)
 

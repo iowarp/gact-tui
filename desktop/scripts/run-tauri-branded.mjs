@@ -127,6 +127,39 @@ export function materializeMergedOverlay(paths, outputPath) {
   return outputPath;
 }
 
+/** Whether a merged config ships desktop/src-tauri/gact-runtime as app resources. */
+export function bundlesGactRuntime(config) {
+  const resources = config?.bundle?.resources;
+  if (!resources) return false;
+  const entries = Array.isArray(resources) ? resources : Object.keys(resources);
+  return entries.some((entry) => String(entry).replace(/^\.\//, '').startsWith('gact-runtime/'));
+}
+
+/**
+ * The identity to pre-sign the bundled runtime with, or null when this run
+ * needs no runtime signing.
+ *
+ * Tauri signs only the main executable, sidecars and frameworks; every other
+ * Mach-O under Contents/Resources must already carry a hardened-runtime
+ * signature or notarization fails. So a darwin `tauri build` that produces
+ * bundles from a config shipping gact-runtime signs that tree first with
+ * scripts/macos-sign-runtime.sh with the identity Tauri will use:
+ * APPLE_SIGNING_IDENTITY, then bundle.macOS.signingIdentity, then ad-hoc "-".
+ * This runs inside the wrapper so every caller, including clio-agent's
+ * bundles workflow, gets it.
+ * Set CLIO_MACOS_SIGN_RUNTIME=0 to skip it when a caller signs the runtime
+ * itself.
+ */
+export function macosRuntimeSigningIdentity({ tauriArgs, config, platform, env }) {
+  if (platform !== 'darwin' || tauriArgs[0] !== 'build') return null;
+  if (tauriArgs.includes('--no-bundle')) return null;
+  if (env.CLIO_MACOS_SIGN_RUNTIME === '0') return null;
+  if (!bundlesGactRuntime(config)) return null;
+  return (
+    env.APPLE_SIGNING_IDENTITY?.trim() || config?.bundle?.macOS?.signingIdentity?.trim() || '-'
+  );
+}
+
 /**
  * Split the wrapper's argv into the args to forward to the real Tauri CLI
  * and the extra overlay paths a caller supplied.
@@ -198,9 +231,44 @@ export function tauriCommandArgs(tauriArgs, configArgs) {
   return [...cliArgs, ...configArgs, '--', ...cargoArgs];
 }
 
+/** The lipo architecture a darwin build targets, for thinning universal runtime files. */
+export function macosThinArch(tauriArgs, hostArch = process.arch) {
+  const index = tauriArgs.indexOf('--target');
+  const target = index >= 0 ? tauriArgs[index + 1] : null;
+  if (!target) return hostArch === 'arm64' ? 'arm64' : hostArch === 'x64' ? 'x86_64' : null;
+  if (target.startsWith('aarch64-apple-darwin')) return 'arm64';
+  if (target.startsWith('x86_64-apple-darwin')) return 'x86_64';
+  return null;
+}
+
+function signBundledRuntime(tauriArgs, overlays) {
+  const config = mergeConfig(
+    readJson(resolve(tauriDir, 'tauri.conf.json')),
+    mergeOverlayPaths(overlays),
+  );
+  const identity = macosRuntimeSigningIdentity({
+    tauriArgs,
+    config,
+    platform: process.platform,
+    env: process.env,
+  });
+  if (!identity) return;
+  const runtimeDir = resolve(tauriDir, 'gact-runtime');
+  if (!existsSync(runtimeDir)) return;
+  const args = [resolve(scriptDir, 'macos-sign-runtime.sh'), '--identity', identity, runtimeDir];
+  const thinArch = macosThinArch(tauriArgs);
+  if (thinArch) args.push('--thin', thinArch);
+  const result = spawnSync('bash', args, { cwd: desktopDir, env: process.env, stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`macos-sign-runtime.sh failed with exit code ${result.status}`);
+  }
+}
+
 function main(argv) {
   const { tauriArgs, extraOverlayPaths } = parseArgv(argv);
   const overlays = resolveOverlayPaths({ extraOverlayPaths, platform: process.platform });
+  signBundledRuntime(tauriArgs, overlays);
   let configArgs = [];
   if (overlays.length === 1) {
     configArgs = ['--config', overlays[0]];

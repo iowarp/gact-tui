@@ -312,6 +312,121 @@ jobs:
           GDK_BACKEND: x11
         run: xvfb-run -a dbus-run-session -- cargo run --manifest-path desktop/src-tauri/Cargo.toml --locked --example downloads_acceptance
 
+  # A downloadable, hardened-runtime CLIO Desktop DMG for every pull request,
+  # so macOS changes can be tested on a clean Mac without Xcode. It packages
+  # the reference CLIO release's bundled runtime (real Python, uv and native
+  # wheels) with this branch's shell, which exercises the same runtime
+  # pre-sign and verification that the release builds run. Without Apple
+  # secrets it is ad-hoc signed; Gatekeeper rejects it after a browser
+  # download until it is opened from System Settings > Privacy & Security.
+  macos-bundle:
+    name: tauri bundle · macos-latest · aarch64
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      CLIO_REFERENCE_RELEASE: v0.9.5.1
+      TARGET: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the CLIO brand
+        uses: actions/checkout@v4
+        with:
+          repository: iowarp/clio-agent
+          ref: ${{ env.CLIO_REFERENCE_RELEASE }}
+          path: .clio-agent
+          sparse-checkout: branding
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: desktop/sidecar-launcher/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: |
+            desktop/src-tauri/target/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+          key: macos-bundle-cargo-${{ hashFiles('desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/Cargo.lock') }}
+          restore-keys: macos-bundle-cargo-
+      - run: pnpm install --frozen-lockfile
+      - name: Select the CLIO brand
+        run: |
+          set -euo pipefail
+          printf '{ "profile": "clio", "brandingRoot": "%s" }\n' "$GITHUB_WORKSPACE/.clio-agent/branding" \
+            > brand.config.local.json
+          cp -f .clio-agent/branding/clio/icons/* desktop/src-tauri/icons/
+      - name: Stage the reference CLIO runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "$CLIO_REFERENCE_RELEASE" -R iowarp/clio-agent \
+            --pattern '*_aarch64-bundled.dmg' --dir "$RUNNER_TEMP/reference"
+          mount="$RUNNER_TEMP/reference-mount"
+          mkdir -p "$mount"
+          hdiutil attach -nobrowse -readonly -noautoopen -quiet -mountpoint "$mount" "$RUNNER_TEMP"/reference/*.dmg
+          app="$(ls -d "$mount"/*.app | head -n 1)"
+          ditto "$app/Contents/Resources/gact-runtime" desktop/src-tauri/gact-runtime
+          hdiutil detach -quiet "$mount"
+          test -f desktop/src-tauri/gact-runtime/runtime.json
+      - name: Build web
+        run: pnpm --filter @clio/workspace build
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
+      - name: Build sidecar launcher
+        run: bash desktop/scripts/fetch-sidecar.sh "$TARGET"
+      # Certificate only: pull-request bundles are signed with the Developer
+      # ID when it is available, but never submitted for notarization.
+      - name: Set up Apple signing
+        id: apple
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: bash desktop/scripts/macos-signing-setup.sh setup
+      # The wrapper pre-signs gact-runtime (precompile, thin to arm64, hardened
+      # runtime with runtime.entitlements) before Tauri bundles and signs it.
+      - name: Build the signed DMG
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        run: >-
+          pnpm --filter @clio/desktop tauri build
+          --config src-tauri/tauri.bundled.conf.json
+          --config src-tauri/tauri.no-updater.conf.json
+          --bundles dmg --target "$TARGET"
+      - name: Verify signatures and the hardened runtime
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/$TARGET/release/bundle"
+          bash desktop/scripts/macos-verify-app.sh "$bundle"/macos/*.app "$bundle"/dmg/*.dmg \
+            | tee "$RUNNER_TEMP/macos-verify.txt"
+          mkdir -p "$RUNNER_TEMP/macos-artifact"
+          cp "$bundle"/dmg/*.dmg "$RUNNER_TEMP/macos-verify.txt" "$RUNNER_TEMP/macos-artifact/"
+          du -sh "$bundle"/macos/*.app "$bundle"/dmg/*.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clio-desktop-macos-aarch64-dmg
+          path: ${{ runner.temp }}/macos-artifact/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Remove the signing keychain
+        if: always()
+        run: bash desktop/scripts/macos-signing-setup.sh cleanup
+
   native-webview-proof:
     name: native WebView proof · fixture-backed
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
@@ -431,8 +546,9 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-15
             bundle-args: '--bundles dmg --target aarch64-apple-darwin'
+          # macos-13 (the last Intel image) is retired; cross-compile on arm64.
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15
             bundle-args: '--bundles dmg --target x86_64-apple-darwin'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
@@ -489,11 +605,41 @@ jobs:
         run: pnpm --filter @clio/desktop gen-brand-backend
       - name: Build web
         run: pnpm build
-      - name: Build unsigned installer
-        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
+      - name: Set up Apple signing
+        id: apple
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash desktop/scripts/macos-signing-setup.sh setup
+      # These installers carry a stub runtime and no updater key, so they must
+      # not produce updater artifacts that a client could install over a real
+      # bundle; the signed CLIO feed is published by clio-agent (#739 A6).
+      - name: Build installer
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} --config src-tauri/tauri.no-updater.conf.json ${{ matrix.bundle-args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+      - name: Notarize, staple and verify the macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          mode=""
+          if [ "${{ steps.apple.outputs.notarize }}" = true ]; then
+            bash desktop/scripts/macos-notarize.sh "$bundle"/dmg/*.dmg
+            mode=--require-notarized
+          fi
+          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/macos/*.app "$bundle"/dmg/*.dmg
       - name: Stage installers
         shell: bash
         run: |
@@ -545,6 +691,9 @@ jobs:
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Remove the signing keychain
+        if: always() && runner.os == 'macOS'
+        run: bash desktop/scripts/macos-signing-setup.sh cleanup
 
   release-web:
     name: release · pure-web zip
