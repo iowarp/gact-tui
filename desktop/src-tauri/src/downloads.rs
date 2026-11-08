@@ -6,6 +6,8 @@ use std::{
 };
 use tauri::{utils::config::WindowConfig, webview::DownloadEvent, Manager};
 
+use crate::startup_window;
+
 /// Defer configured startup windows so their download handler can be installed before navigation.
 pub(crate) fn defer_configured_windows(config: &mut tauri::Config) -> Vec<WindowConfig> {
     config
@@ -26,14 +28,24 @@ pub(crate) fn create_configured_windows(
     app: &tauri::App,
     windows: &[WindowConfig],
 ) -> tauri::Result<()> {
+    let version = app.package_info().version.to_string();
     for config in windows {
         let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+        let startup = config.label == startup_window::STARTUP_WINDOW;
+        let builder = if startup {
+            startup_window::prepare(builder, &version)
+        } else {
+            builder.initialization_script(startup_window::desktop_marker_script(&version))
+        };
         // WebKit requires a handler to save downloads, including Blob exports
         // and downloads from embedded frames. WebView2 keeps its own default
         // transfer UI instead; our plugin only reveals that native history.
         #[cfg(not(target_os = "windows"))]
         let builder = builder.on_download(handle_download);
-        builder.build()?;
+        let window = builder.build()?;
+        if startup {
+            startup_window::reveal_after_fallback(window);
+        }
     }
     Ok(())
 }

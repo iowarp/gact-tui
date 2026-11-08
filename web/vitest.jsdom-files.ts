@@ -54,6 +54,7 @@ export const jsdomTsTests = [
   'src/lib/shared-clock.test.ts',
   'src/lib/shortcuts/shortcuts.test.ts',
   'src/lib/surface-text-selection.test.ts',
+  'src/lib/transport/tauri-runtime.test.ts',
   'src/lib/transcript-content-selection.test.ts',
   'src/lib/update-channel.test.ts',
   'src/lib/workspace-route-memory.test.ts',

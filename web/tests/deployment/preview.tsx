@@ -17,6 +17,7 @@ const target = {
 };
 const nativeStatus = { session_id: 'ssh-preview', state: 'connected', reused: false, output: '' };
 Object.assign(window, {
+  __CLIO_DESKTOP__: { version: 'review' },
   __TAURI_INTERNALS__: {
     transformCallback: () => 1,
     unregisterCallback: () => undefined,

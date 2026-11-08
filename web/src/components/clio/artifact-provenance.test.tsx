@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -95,13 +96,13 @@ afterEach(() => {
   vi.clearAllMocks();
   for (const spy of downloadSpies) spy.mockRestore();
   downloadSpies.length = 0;
-  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  clearDesktopHost();
 });
 
 describe('ArtifactProvenance', () => {
   it.each([true, false])('downloads evidence ZIP bytes on desktop=%s', async (desktop) => {
     if (desktop) {
-      Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+      mockDesktopHost();
     }
     const bytes = new Uint8Array([99, 80, 75, 3, 4, 99]).subarray(1, 5);
     repository.exportArtifact.mockResolvedValueOnce(bytes);
@@ -172,7 +173,7 @@ describe('ArtifactProvenance', () => {
   });
 
   it('keeps a failed evidence export out of Downloads', async () => {
-    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    mockDesktopHost();
     repository.exportArtifact.mockRejectedValueOnce(new Error('Packaging failed'));
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     downloadSpies.push(click);

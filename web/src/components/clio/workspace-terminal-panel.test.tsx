@@ -1,3 +1,4 @@
+import { mockDesktopHost } from '@/test/desktop-host';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,7 +57,9 @@ const resizeObserverMock = vi.hoisted(() => {
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 import { getEmbeddedTerminal } from '@/tauri/workspace-terminal';
 
-type EventHandler = (event: { payload: { id: string; data?: string; code?: number | null } }) => void;
+type EventHandler = (event: {
+  payload: { id: string; data?: string; code?: number | null };
+}) => void;
 
 function setupListen(): Map<string, EventHandler> {
   const listeners = new Map<string, EventHandler>();
@@ -78,7 +81,7 @@ beforeEach(() => {
   xterm.MockFitAddon.instances = [];
   resizeObserverMock.TestResizeObserver.instances = [];
   vi.stubGlobal('ResizeObserver', resizeObserverMock.TestResizeObserver);
-  Object.assign(window, { __TAURI_INTERNALS__: {} });
+  mockDesktopHost();
 });
 
 afterEach(() => {
@@ -150,9 +153,9 @@ describe('WorkspaceTerminalPanel', () => {
     expect(xterm.MockTerminal.instances).toHaveLength(1);
     expect(getEmbeddedTerminal('tab-2')?.term).toBe(firstTerm);
     expect(firstTerm.open).toHaveBeenCalledTimes(1);
-    expect(
-      mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length,
-    ).toBe(1);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length).toBe(
+      1,
+    );
     expect(mocks.invoke).not.toHaveBeenCalledWith('terminal_close', expect.anything());
   });
 

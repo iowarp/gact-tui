@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -100,7 +101,7 @@ describe('ClioSessionContextBar', () => {
 
   it('opens native Downloads from the desktop toolbar', async () => {
     const user = userEvent.setup();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     try {
       render(
         <ClioSessionContextBar
@@ -118,7 +119,7 @@ describe('ClioSessionContextBar', () => {
       await user.click(screen.getByRole('button', { name: 'Open downloads' }));
       expect(downloads.open).toHaveBeenCalledOnce();
     } finally {
-      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+      clearDesktopHost();
     }
   });
 
@@ -140,7 +141,7 @@ describe('ClioSessionContextBar', () => {
   });
 
   it('keeps agent controls in Tauri while the native window owns the passive title', () => {
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     try {
       render(
         <ClioSessionContextBar
@@ -162,7 +163,7 @@ describe('ClioSessionContextBar', () => {
         screen.getByRole('button', { name: `Actions for ${session.title}` }),
       ).toBeInTheDocument();
     } finally {
-      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+      clearDesktopHost();
     }
   });
 });

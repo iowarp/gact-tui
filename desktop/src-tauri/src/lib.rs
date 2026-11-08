@@ -59,6 +59,7 @@ mod ssh_transport_command;
 mod ssh_transport_forward;
 mod ssh_transport_output;
 mod ssh_transport_steps;
+mod startup_window;
 mod storage_oauth;
 mod supervisor;
 mod supervisor_attach;
@@ -256,7 +257,8 @@ pub fn run() {
             terminal_pty::terminal_close,
             quit_clio,
             restart_clio,
-            close_prompt_shown
+            close_prompt_shown,
+            startup_window::reveal_startup_window
         ])
         .setup(move |app| {
             downloads::create_configured_windows(app, &startup_windows)?;

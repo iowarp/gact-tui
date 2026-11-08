@@ -21,6 +21,7 @@ let callbackId = 0;
 localStorage.setItem('clio.update-channel', 'stable');
 if (view === 'recovery')
   writePendingUpdateMarker({ action: 'both', version: '0.9.5-beta.7.2', startedAt: Date.now() });
+Object.assign(window, { __CLIO_DESKTOP__: { version: 'review' } });
 Object.defineProperty(window, '__TAURI_INTERNALS__', {
   configurable: true,
   value: {

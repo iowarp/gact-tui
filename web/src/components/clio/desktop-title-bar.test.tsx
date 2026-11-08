@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { StreamState } from '@clio/core/v3';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,7 +64,7 @@ describe('DesktopTitleBar', () => {
     );
 
   beforeEach(() => {
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     runDesktopWindowAction.mockClear();
     ackClosePromptShown.mockClear();
     listenForCloseRequested.mockClear();
@@ -79,11 +80,11 @@ describe('DesktopTitleBar', () => {
 
   afterEach(() => {
     cleanup();
-    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+    clearDesktopHost();
   });
 
   it('title_bar_hidden_in_browser: stays out of the browser experience', () => {
-    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+    clearDesktopHost();
     const { container } = renderTitleBar();
     expect(container).toBeEmptyDOMElement();
   });
