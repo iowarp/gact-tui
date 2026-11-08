@@ -1,5 +1,6 @@
 import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -241,9 +242,11 @@ function renderPage(
           },
         ]}
       >
-        <Routes>
-          <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-        </Routes>
+        <TooltipProvider>
+          <Routes>
+            <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
+          </Routes>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -266,6 +269,20 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('link', { name: `${brand.agentName} hosts` })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Services' })).toBeVisible();
+  });
+
+  it('moves between sections with Alt and the arrow keys while focus is on the page', async () => {
+    const user = userEvent.setup();
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'services');
+
+    expect(await screen.findByRole('heading', { name: 'Services', level: 1 })).toBeVisible();
+    screen.getByRole('main').focus();
+    await user.keyboard('{Alt>}{ArrowLeft}{/Alt}');
+    expect(
+      await screen.findByRole('heading', { name: `${brand.agentName} hosts`, level: 1 }),
+    ).toBeVisible();
+    await user.keyboard('{Alt>}{ArrowLeft}{/Alt}');
+    expect(await screen.findByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
   });
 
   it('shows typed contracts for CLIO tools and tools from installed MCPs', async () => {

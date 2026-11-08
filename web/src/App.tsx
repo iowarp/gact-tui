@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { NewConversationPage } from '@/routes/new-conversation-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
@@ -111,6 +112,7 @@ export default function App() {
     }),
   );
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
+  useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);

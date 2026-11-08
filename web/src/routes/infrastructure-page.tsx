@@ -22,8 +22,8 @@ import {
   NetworkIcon,
   ServerIcon,
 } from 'lucide-react';
-import { useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
 import { TechnicalDetails } from '@/components/clio/technical-details';
@@ -32,7 +32,12 @@ import { ManagedServices } from '@/components/clio/managed-services';
 import { ProvenanceConnections } from '@/components/clio/provenance-connections';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { FrameDivider } from '@/components/clio/primitives/frame-bar';
+import { NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { NavTabs } from '@/components/clio/primitives/nav-tabs';
+import { Tag } from '@/components/clio/primitives/tag';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,7 +49,7 @@ import {
 import { InfrastructureTools } from '@/components/clio/infrastructure-tools';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
 import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
@@ -62,6 +67,8 @@ import { connectionScope } from '@/lib/connection-scope';
 import { InfrastructureFoundationGroups } from './infrastructure-foundation-groups';
 export function InfrastructurePage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
   const { section } = useParams();
   const currentSection: InfrastructureSection = isInfrastructureSection(section)
     ? section
@@ -214,56 +221,67 @@ export function InfrastructurePage() {
   });
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
+  const sectionTabs = INFRASTRUCTURE_SECTIONS.map(({ id, icon, label }) => ({
+    id,
+    icon,
+    label,
+    to: `/infrastructure/${id}`,
+    state: location.state,
+  }));
+  const moveSection = (step: number) => {
+    const index = INFRASTRUCTURE_SECTIONS.findIndex((item) => item.id === currentSection);
+    const count = INFRASTRUCTURE_SECTIONS.length;
+    const next = INFRASTRUCTURE_SECTIONS[(index + step + count) % count]!;
+    navigate(`/infrastructure/${next.id}`, { state: location.state });
+  };
+  useShortcut('previous-tab', () => moveSection(-1), { region: mainRef });
+  useShortcut('next-tab', () => moveSection(1), { region: mainRef });
+  const sectionDescription =
+    currentSection === 'agent'
+      ? clioServiceDescription(health.data, foundationAttention)
+      : sectionDefinition.description;
   return (
-    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
-      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
-        <nav
-          aria-label="Infrastructure sections"
-          className="grid grid-cols-2 content-start gap-1 md:sticky md:top-8 md:grid-cols-1"
-        >
-          <Button
-            asChild
-            className="col-span-2 mb-2 justify-start md:col-span-1 md:mb-4"
-            variant="ghost"
-          >
-            <Link to={workspaceRoute}>
-              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
+    <main
+      className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background"
+      ref={mainRef}
+      tabIndex={-1}
+    >
+      <div className="sticky top-0 z-10 flex h-11 min-w-0 items-center gap-2 border-b border-border bg-background/95 px-2 whitespace-nowrap backdrop-blur sm:px-3">
+        <NamedTooltip label={`Back to ${vocab.workspace}`}>
+          <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
+            <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
+              <ChevronLeftIcon aria-hidden="true" />
             </Link>
           </Button>
-          {INFRASTRUCTURE_SECTIONS.map(({ id, icon: SectionIcon, label }) => (
-            <Button
-              asChild
-              className="shrink-0 justify-start"
-              key={id}
-              variant={id === currentSection ? 'secondary' : 'ghost'}
-            >
-              <Link
-                aria-current={id === currentSection ? 'page' : undefined}
-                state={location.state}
-                to={`/infrastructure/${id}`}
-              >
-                <SectionIcon aria-hidden="true" /> {label}
-              </Link>
-            </Button>
-          ))}
-        </nav>
-
-        <section className="min-w-0 pb-16">
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-                Infrastructure
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-semibold tracking-tight">{sectionDefinition.label}</h1>
+        </NamedTooltip>
+        <span className="hidden shrink-0 text-[13px] font-semibold sm:inline">Infrastructure</span>
+        <FrameDivider className="hidden sm:block" />
+        <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
+        <span className="ml-auto hidden shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground lg:flex">
+          <ShortcutKeys id="previous-tab" />
+          <ShortcutKeys id="next-tab" />
+          <span>Switch section</span>
+        </span>
+      </div>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <section className="min-w-0 pt-5 pb-16">
+          <header className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-[17px] font-semibold tracking-tight">
+                  {sectionDefinition.label}
+                </h1>
                 {currentSection === 'tools' && !toolsPending ? (
-                  <Badge variant="secondary">{displayedTools.length} tools</Badge>
+                  <Tag tone="neutral" width="auto">
+                    {displayedTools.length} tools
+                  </Tag>
                 ) : null}
               </div>
-              <p className="mt-2 max-w-3xl text-muted-foreground">
-                {currentSection === 'agent'
-                  ? clioServiceDescription(health.data, foundationAttention)
-                  : sectionDefinition.description}
+              <p
+                className="mt-0.5 truncate text-[12.5px] text-muted-foreground"
+                title={sectionDescription}
+              >
+                {sectionDescription}
               </p>
             </div>
             {currentSection === 'agent' ? (

@@ -17,6 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
 import { AsyncTaskList } from './async-task-list';
 import { SourceDownloadAttachment } from './source-download-attachment';
 import { RunActions } from './run-actions';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioEvidenceView } from './observability-evidence';
 
 afterEach(() => {
@@ -142,26 +143,28 @@ it('keeps advertised subtree cancellation available after the subagent itself co
   const user = userEvent.setup();
   const cancel = vi.fn();
   render(
-    <RunActions
-      onCancel={cancel}
-      pending={false}
-      row={{
-        handleId: 'task_completed_parent',
-        taskId: 'completed-parent',
-        label: 'Completed parent',
-        state: 'completed',
-        reportedStatus: 'completed',
-        source: 'agent_task',
-        host: 'local',
-        placement: 'local',
-        workspaceLabel: 'Owned',
-        workspaceLabelFields: { name: 'Owned', qualifiers: [] },
-        updatedAt: '2026-10-08T10:00:00Z',
-        taskKind: 'Subagent',
-        assignment: 'Own descendant work',
-        cancellable: true,
-      }}
-    />,
+    <TooltipProvider>
+      <RunActions
+        onCancel={cancel}
+        pending={false}
+        row={{
+          handleId: 'task_completed_parent',
+          taskId: 'completed-parent',
+          label: 'Completed parent',
+          state: 'completed',
+          reportedStatus: 'completed',
+          source: 'agent_task',
+          host: 'local',
+          placement: 'local',
+          workspaceLabel: 'Owned',
+          workspaceLabelFields: { name: 'Owned', qualifiers: [] },
+          updatedAt: '2026-10-08T10:00:00Z',
+          taskKind: 'Subagent',
+          assignment: 'Own descendant work',
+          cancellable: true,
+        }}
+      />
+    </TooltipProvider>,
   );
   await user.click(screen.getByRole('button', { name: 'Cancel Subagent: Own descendant work' }));
   expect(cancel).toHaveBeenCalledTimes(1);

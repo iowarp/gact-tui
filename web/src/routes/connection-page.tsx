@@ -268,7 +268,8 @@ export function ConnectionPage() {
   const initialKnownConnection =
     knownConnections.find((connection) => connection.endpoint === settings.endpoint) ??
     knownConnections[0];
-  const [manualModeRequested, setManualModeRequested] = useState(false);
+  const requestedMode = searchParams.get('mode');
+  const [manualModeRequested, setManualModeRequested] = useState(requestedMode === 'address');
   const showManualForm = manualModeRequested || knownConnections.length === 0;
   const [selectedEndpoint, setSelectedEndpoint] = useState(
     initialKnownConnection?.endpoint ?? settings.endpoint,
@@ -280,7 +281,15 @@ export function ConnectionPage() {
     initialKnownConnection ? '' : (settings.label ?? ''),
   );
   const [token, setToken] = useState('');
-  const [deployOpen, setDeployOpen] = useState(inTauri() && searchParams.get('mode') === 'deploy');
+  const [deployOpen, setDeployOpen] = useState(inTauri() && requestedMode === 'deploy');
+  // The CLIO menu links here while the page may already be open, so a new
+  // `mode` must still open its form or dialog without a remount.
+  const [handledMode, setHandledMode] = useState(requestedMode);
+  if (handledMode !== requestedMode) {
+    setHandledMode(requestedMode);
+    if (requestedMode === 'address') setManualModeRequested(true);
+    if (requestedMode === 'deploy' && inTauri()) setDeployOpen(true);
+  }
   const selectedConnection = knownConnections.find(
     (connection) => connection.endpoint === selectedEndpoint,
   );
