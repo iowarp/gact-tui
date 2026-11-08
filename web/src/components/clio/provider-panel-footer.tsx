@@ -38,68 +38,71 @@ export function ProviderPanelFooter({
 }: ProviderPanelFooterProps) {
   const busy = Boolean(actions.stage) || Boolean(logOut?.busy);
   return (
-    <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center border-t px-1 py-1.5"
-      data-slot="provider-panel-footer"
-    >
-      <RefreshButton
-        className="px-1.5"
-        label="Refresh"
-        idleIcon={CheckConnectionIcon}
-        title="Check connection, sign-in and available models"
-        refreshing={actions.handshake.isPending}
-        disabled={busy}
-        onRefresh={() => actions.handshake.mutateAsync()}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
-        Refresh
-      </RefreshButton>
-      <RefreshButton
-        className="px-1.5"
-        label="Reload models"
-        title="Rediscover models; update the provider client first if needed"
-        refreshing={actions.refreshModels.isPending}
-        disabled={busy}
-        onRefresh={() => actions.refreshModels.mutateAsync()}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
-        Reload
-      </RefreshButton>
-      {settings}
-      {logOut ? (
-        <Button
-          className="px-1.5"
+    <div className="min-w-0 shrink-0 border-t px-1 py-1.5" data-slot="provider-panel-footer">
+      <div className="flex min-w-0 flex-nowrap items-center overflow-hidden">
+        <RefreshButton
+          className="shrink-0 px-1.5"
+          label="Refresh"
+          idleIcon={CheckConnectionIcon}
+          title="Check connection, sign-in and available models"
+          refreshing={actions.handshake.isPending}
           disabled={busy}
-          onClick={logOut.run}
+          onRefresh={() => actions.handshake.mutateAsync()}
           size="xs"
           type="button"
           variant="ghost"
         >
-          <LogOutIcon data-icon="inline-start" />
-          {logOut.label}
-        </Button>
-      ) : null}
-      <span className="min-w-0 flex-1" />
-      {actions.stage ? (
-        <span
-          className="flex min-w-0 items-center gap-1.5 truncate pe-1 text-xs text-muted-foreground"
-          data-slot="provider-panel-stage"
-          role="status"
+          Refresh
+        </RefreshButton>
+        <RefreshButton
+          className="shrink-0 px-1.5"
+          label="Reload models"
+          title="Rediscover models; update the provider client first if needed"
+          refreshing={actions.refreshModels.isPending}
+          disabled={busy}
+          onRefresh={() => actions.refreshModels.mutateAsync()}
+          size="xs"
+          type="button"
+          variant="ghost"
         >
-          <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-          {actions.stage}
-        </span>
-      ) : error ? (
-        <span className="min-w-0 truncate pe-1 text-xs text-destructive" role="alert" title={error}>
-          {error}
-        </span>
-      ) : null}
+          Reload
+        </RefreshButton>
+        {settings}
+        {logOut ? (
+          <Button
+            className="shrink-0 px-1.5"
+            disabled={busy}
+            onClick={logOut.run}
+            size="xs"
+            type="button"
+            variant="ghost"
+          >
+            <LogOutIcon data-icon="inline-start" />
+            {logOut.label}
+          </Button>
+        ) : null}
+        <span className="min-w-0 flex-1" />
+        {actions.stage ? (
+          <span
+            className="flex min-w-0 items-center gap-1.5 truncate pe-1 text-xs text-muted-foreground"
+            data-slot="provider-panel-stage"
+            role="status"
+          >
+            <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+            {actions.stage}
+          </span>
+        ) : error ? (
+          <span
+            className="min-w-0 truncate pe-1 text-xs text-destructive"
+            role="alert"
+            title={error}
+          >
+            {error}
+          </span>
+        ) : null}
+      </div>
       {!busy && !error && info ? (
-        <p className="w-full text-xs text-muted-foreground" role="status">
+        <p className="truncate px-1.5 text-xs text-muted-foreground" role="status" title={info}>
           {info}
         </p>
       ) : null}

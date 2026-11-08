@@ -2,6 +2,7 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { LoadingFeedback } from './loading-feedback';
+import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import {
   Cascader,
   CascaderList,
@@ -367,7 +368,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                   layouts render through the windowed items, which fall back to
                   the plain rows below the cascader's own threshold. The active
                   provider's action UI (see `activeProviderActionsContent`
-                  above) lands as the active column's own `footer` in columns
+                  above) lands as the providers column's own `footer` in columns
                   mode, or directly below the single list in drill mode --
                   never a separate full-width row that would leave a dead cell
                   under a column that has nothing to show. */}
@@ -388,7 +389,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                   empty={
                     providerColumn ? (loadingModels ? loadingPanel : panel.column.empty) : undefined
                   }
-                  footer={providerColumn ? panel.column.footer : undefined}
+                  // The provider bar sits under the providers, as the spec's two columns do.
+                  footer={column.depth === 0 && activeGroup ? panel.column.footer : undefined}
                   key={column.depth}
                 />
               );
@@ -407,39 +409,54 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             ) : null}
           </>
         )}
-        <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
-          {loading || prepared.size < visibleProviders.length ? (
-            <LoadingFeedback label={loading ? 'Refreshing models…' : 'Loading remaining models…'} />
-          ) : null}
-          <div className="flex min-w-0 items-center gap-1">
-            <Button
-              aria-pressed={managingVisibility}
-              data-slot="provider-visibility-mode"
-              onClick={() => setManagingVisibility((current) => !current)}
-              size="sm"
-              type="button"
-              variant={managingVisibility ? 'secondary' : 'ghost'}
-            >
-              {managingVisibility ? (
-                <EyeOffIcon data-icon="inline-start" />
-              ) : (
-                <EyeIcon data-icon="inline-start" />
-              )}
-              {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
-            </Button>
-          </div>
-          {search.emptyProviders ? (
-            <span
-              className="truncate text-xs text-muted-foreground"
-              data-slot="providers-without-matches"
-            >
-              {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'} with
-              no matches
-            </span>
-          ) : null}
+        <CascaderFooter className="p-0">
+          <PickerFooter
+            className="h-10 border-t-0 px-2"
+            end={
+              <Button
+                aria-pressed={managingVisibility}
+                className="shrink-0"
+                data-slot="provider-visibility-mode"
+                onClick={() => setManagingVisibility((current) => !current)}
+                size="sm"
+                type="button"
+                variant={managingVisibility ? 'secondary' : 'ghost'}
+              >
+                {managingVisibility ? (
+                  <EyeOffIcon data-icon="inline-start" />
+                ) : (
+                  <EyeIcon data-icon="inline-start" />
+                )}
+                {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
+              </Button>
+            }
+            hints={footerHints(showColumns)}
+            start={
+              loading || prepared.size < visibleProviders.length ? (
+                <LoadingFeedback
+                  label={loading ? 'Refreshing models…' : 'Loading remaining models…'}
+                />
+              ) : search.emptyProviders ? (
+                <span className="min-w-0 truncate" data-slot="providers-without-matches">
+                  {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
+                  with no matches
+                </span>
+              ) : null
+            }
+          />
         </CascaderFooter>
         <CascaderStatus />
       </CascaderPanel>
     </Cascader>
   );
 });
+
+/** Word, then key: the picker's keys, the columns pair only beside two columns. */
+function footerHints(columns: boolean): PickerHint[] {
+  return [
+    { label: 'Move', shortcut: 'menu-move', optional: true },
+    { label: 'Choose', shortcut: 'menu-pick' },
+    ...(columns ? [{ label: 'Columns', shortcut: 'menu-columns', optional: true }] : []),
+    { label: 'Close', shortcut: 'menu-close', optional: true },
+  ];
+}
