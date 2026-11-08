@@ -23,15 +23,19 @@ export function ComposerModelButton({
             {option ? (
               <>
                 <ModelSelectorLogo provider={providerLogoId(option.providerId)} />
+                {/* The provider takes only its own width; when both names overflow they
+                    shrink in proportion, so a long provider never hides the model. */}
                 <span
-                  className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_auto_minmax(0,1fr)] items-center gap-1 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-1 text-left"
                   data-slot="model-choice-label"
                 >
-                  <span className="max-w-32 truncate" data-slot="model-choice-provider">
+                  <span className="min-w-0 max-w-32 truncate" data-slot="model-choice-provider">
                     {option.providerName}
                   </span>
-                  <span aria-hidden="true"> / </span>
-                  <span className="truncate" data-slot="model-choice-model">
+                  <span aria-hidden="true" className="shrink-0">
+                    {' / '}
+                  </span>
+                  <span className="min-w-0 grow truncate" data-slot="model-choice-model">
                     {compactModelName(option.providerId, option.id, option.label)}
                   </span>
                 </span>

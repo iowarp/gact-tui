@@ -41,7 +41,7 @@ test('an exported subagent tree reaches every descendant from its spawn and back
     {
       parent: 'sess_root',
       child: 'sess_l1',
-      link: 'Open level 1',
+      link: 'level 1',
       origin: 'Delegated by Subagent tree',
       agent: 'standard',
       model: 'local / model-b (named for this call)',
@@ -51,7 +51,7 @@ test('an exported subagent tree reaches every descendant from its spawn and back
     {
       parent: 'sess_l1',
       child: 'sess_fork',
-      link: 'Open level 1~1',
+      link: 'level 1~1',
       origin: 'Forked from level 1',
       agent: 'standard',
       model: 'local / model-b',
@@ -61,7 +61,7 @@ test('an exported subagent tree reaches every descendant from its spawn and back
     {
       parent: 'sess_l1',
       child: 'sess_explore',
-      link: 'Open explore root',
+      link: 'explore root',
       origin: 'Delegated by level 1',
       agent: 'explore',
       model: 'local / model-b (the caller’s model)',
@@ -73,7 +73,7 @@ test('an exported subagent tree reaches every descendant from its spawn and back
     const parent = section(page, edge.parent);
     const activity = parent.getByRole('button', { name: /^Activity:/ }).first();
     if ((await activity.getAttribute('aria-expanded')) !== 'true') await activity.click();
-    await parent.getByRole('button', { name: edge.link }).click();
+    await parent.getByRole('button', { name: edge.link, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${edge.child}$`, 'u'));
     const child = section(page, edge.child);
     await expect(child).toBeInViewport();

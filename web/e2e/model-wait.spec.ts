@@ -17,9 +17,10 @@ for (const width of [1280, 390]) {
       await expect(name).toHaveCSS('text-overflow', 'ellipsis');
       expect((await name.boundingBox())!.width).toBeGreaterThan(30);
     }
+    // The provider takes only its own width, never padding after a short name.
     expect(
-      Math.abs((await provider.boundingBox())!.width - (await model.boundingBox())!.width),
-    ).toBeLessThan(1);
+      await provider.evaluate((node) => node.getBoundingClientRect().width <= node.scrollWidth + 1),
+    ).toBe(true);
     await pill.hover();
     await expect(page.getByRole('tooltip')).toHaveText(fullName);
     await page.screenshot({ path: test.info().outputPath(`model-label-hover-${width}.png`) });
@@ -57,10 +58,13 @@ for (const width of [1280, 390]) {
       name: 'Thinking: Comparing the notes',
       exact: true,
     });
-    await expect(thinking).toBeVisible();
-    await thinking.click();
+    // A streaming passage with more to read is open until it settles or the reader folds it.
+    await expect(thinking).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByText('Simulated reasoning sample for this UI fixture.')).toBeVisible();
     await page.screenshot({ path: test.info().outputPath(`model-reasoning-${width}.png`) });
+    await thinking.click();
+    await expect(thinking).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByText('Simulated reasoning sample for this UI fixture.')).toHaveCount(0);
     await page.getByRole('button', { name: 'tool', exact: true }).click();
     await expect(waiting).toHaveCount(0);
     await page.getByRole('button', { name: 'wait', exact: true }).click();
