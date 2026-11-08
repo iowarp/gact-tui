@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { connectionIsLocal, normalizeEndpoint } from './connection';
+import {
+  connectionIsLocal,
+  DEFAULT_ENDPOINT,
+  normalizeEndpoint,
+  servedEndpointFor,
+} from './connection';
 
 describe('connection addresses', () => {
   it('uses explicit local ownership without treating SSH loopback tunnels as local', () => {
@@ -40,5 +45,37 @@ describe('connection addresses', () => {
     expect(() => normalizeEndpoint('https://token@agent.local')).toThrow(
       'Put access tokens in Advanced settings',
     );
+  });
+});
+
+describe('the default service address (#739 B7)', () => {
+  const page = (href: string) => {
+    const url = new URL(href);
+    return { origin: url.origin, port: url.port, protocol: url.protocol };
+  };
+
+  it('is the agent default port', () => {
+    expect(DEFAULT_ENDPOINT).toBe('http://127.0.0.1:17800');
+  });
+
+  it.each(['http://127.0.0.1:17800/', 'https://clio.example.org/workspaces/ws'])(
+    'is the serving agent itself when an agent served the page: %s',
+    (href) => {
+      const location = page(href);
+      expect(servedEndpointFor({ desktop: false, dev: false, location })).toBe(location.origin);
+    },
+  );
+
+  it.each([
+    ['the desktop app', { desktop: true, dev: false, location: page('http://127.0.0.1:17800/') }],
+    ['a Vite dev server', { desktop: false, dev: true, location: page('http://127.0.0.1:5251/') }],
+    [
+      'Vite on its own port',
+      { desktop: false, dev: false, location: page('http://localhost:5173/') },
+    ],
+    ['a file page', { desktop: false, dev: false, location: page('file:///tmp/index.html') }],
+    ['no page', { desktop: false, dev: false }],
+  ])('is not the page origin in %s', (_name, host) => {
+    expect(servedEndpointFor(host)).toBeUndefined();
   });
 });

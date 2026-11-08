@@ -23,7 +23,11 @@ import { managedBootStage } from '@/lib/desktop-boot-stage';
 import { BrandTagline } from '@/components/clio/brand-tagline';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
-import { availabilityAfterAttempt, useConnectionWaiting } from '@/lib/connection-attempt';
+import {
+  availabilityAfterAttempt,
+  useConnectionWaiting,
+  useServedEndpointProbe,
+} from '@/lib/connection-attempt';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
@@ -54,8 +58,10 @@ import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-con
 import {
   createRepository,
   DEFAULT_ENDPOINT,
+  defaultEndpoint,
   InfrastructureTargetGoneError,
   normalizeEndpoint,
+  servedEndpoint,
   type ConnectionSettings,
 } from '@/lib/connection';
 import {
@@ -117,7 +123,7 @@ export function ConnectionPage() {
     initialKnownConnection?.endpoint ?? settings.endpoint,
   );
   const [endpointDraft, setEndpointDraft] = useState(
-    initialKnownConnection ? DEFAULT_ENDPOINT : settings.endpoint,
+    initialKnownConnection ? defaultEndpoint() : settings.endpoint,
   );
   const [serviceNameDraft, setServiceNameDraft] = useState(
     initialKnownConnection ? '' : (settings.label ?? ''),
@@ -142,8 +148,13 @@ export function ConnectionPage() {
   // auto-connect ever dispatches.
   const [autoConnectDispatched, setAutoConnectDispatched] = useState(false);
   const connectionIntent = searchParams.get('intent');
+  // An agent-served page with nothing remembered connects to its own origin (#739 B7).
+  const servedAgent =
+    recents.length === 0 && connectionIntent !== 'connect' ? servedEndpoint() : undefined;
+  const servedProbe = useServedEndpointProbe(servedAgent);
   const shouldConnectAutomatically =
-    (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
+    (recents.length > 0 || managedConnectionReady || servedProbe.pending || servedProbe.answered) &&
+    connectionIntent !== 'connect';
   const waitingForManagedService = inTauri() && !credentialsReady && connectionIntent !== 'connect';
 
   const mutation = useMutation({
@@ -156,7 +167,9 @@ export function ConnectionPage() {
       const [capabilities, health] = await Promise.all([
         connectionCapabilities(repository, next.endpoint),
         // Older services have no readiness field; an unreadable health is not a failure here.
-        repository.serviceHealth().catch(() => undefined),
+        Promise.resolve()
+          .then(() => repository.serviceHealth())
+          .catch(() => undefined),
       ]);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new Error(
@@ -247,13 +260,17 @@ export function ConnectionPage() {
       autoConnectStarted.current ||
       searchOpen ||
       !credentialsReady ||
-      (recents.length === 0 && !managedConnectionReady) ||
+      (recents.length === 0 && !managedConnectionReady && !servedProbe.answered) ||
       connectionIntent === 'connect'
     )
       return;
     autoConnectStarted.current = true;
     setAutoConnectDispatched(true);
-    mutation.mutate(settings);
+    mutation.mutate(
+      recents.length === 0 && !managedConnectionReady && servedAgent
+        ? { endpoint: servedAgent }
+        : settings,
+    );
   }, [
     connectionIntent,
     searchOpen,
@@ -261,6 +278,8 @@ export function ConnectionPage() {
     managedConnectionReady,
     mutation,
     recents.length,
+    servedAgent,
+    servedProbe.answered,
     settings,
     settings.endpoint,
   ]);
@@ -475,7 +494,7 @@ export function ConnectionPage() {
                     className="justify-start"
                     onClick={() => {
                       setManualModeRequested(true);
-                      setEndpointDraft(DEFAULT_ENDPOINT);
+                      setEndpointDraft(defaultEndpoint());
                       setServiceNameDraft('');
                       setToken('');
                       mutation.reset();
@@ -521,7 +540,7 @@ export function ConnectionPage() {
                       className="h-11 font-mono text-sm"
                       id="endpoint"
                       onChange={(event) => setEndpointDraft(event.target.value)}
-                      placeholder={DEFAULT_ENDPOINT}
+                      placeholder={defaultEndpoint()}
                       required
                       value={endpointDraft}
                     />
@@ -594,7 +613,7 @@ export function ConnectionPage() {
                             mutation.reset();
                             setManualModeRequested(false);
                             setSelectedEndpoint((current) =>
-                              current === goneEndpoint ? DEFAULT_ENDPOINT : current,
+                              current === goneEndpoint ? defaultEndpoint() : current,
                             );
                             setDeployOpen(true);
                           }}

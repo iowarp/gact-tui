@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  DEFAULT_ENDPOINT,
+  defaultEndpoint,
   InfrastructureTargetGoneError,
   normalizeEndpoint,
   type ConnectionSettings,
@@ -226,7 +226,7 @@ function isLegacyManagedConnection(connection: SavedConnection): boolean {
 export function ConnectionProvider({ children }: PropsWithChildren) {
   const [recents, setRecents] = useState<SavedConnection[]>(readRecents);
   const [settings, setSettings] = useState<ConnectionSettings>(() => ({
-    endpoint: recents[0]?.endpoint ?? DEFAULT_ENDPOINT,
+    endpoint: recents[0]?.endpoint ?? defaultEndpoint(),
     label: recents[0]?.label,
     location: recents[0]?.location,
     infrastructure: recents[0]?.infrastructure,

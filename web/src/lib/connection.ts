@@ -60,7 +60,43 @@ export class InfrastructureTargetGoneError extends Error {
   }
 }
 
-export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';
+/** Where a CLIO agent serves its API and web UI by default. */
+export const DEFAULT_ENDPOINT = 'http://127.0.0.1:17800';
+
+/** Vite's own dev-server port: a page there is never served by the agent. */
+const VITE_DEV_PORT = '5173';
+
+export interface PageHost {
+  desktop: boolean;
+  /** A Vite dev server is serving this page. */
+  dev: boolean;
+  location?: Pick<Location, 'origin' | 'port' | 'protocol'>;
+}
+
+/**
+ * The agent's address when the agent itself served this page: the page's own origin.
+ * Undefined in the desktop app, under a Vite dev server, or for a non-http page.
+ */
+export function servedEndpointFor({ desktop, dev, location }: PageHost): string | undefined {
+  if (desktop || dev || !location) return undefined;
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return undefined;
+  if (location.port === VITE_DEV_PORT) return undefined;
+  return location.origin;
+}
+
+/** This page's origin when an agent served it (#739 B7). */
+export function servedEndpoint(): string | undefined {
+  return servedEndpointFor({
+    desktop: inTauri(),
+    dev: import.meta.env.DEV,
+    location: typeof window === 'undefined' ? undefined : window.location,
+  });
+}
+
+/** The address a new connection starts from: the serving agent, else the agent default. */
+export function defaultEndpoint(): string {
+  return servedEndpoint() ?? DEFAULT_ENDPOINT;
+}
 
 /** Explicit remote routes take precedence over a direct loopback connection. */
 export function connectionIsLocal(settings: ConnectionSettings, managed = false): boolean {

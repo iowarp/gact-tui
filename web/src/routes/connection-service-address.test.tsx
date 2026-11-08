@@ -56,7 +56,7 @@ it('explains a missing service address and retains the HTTP failure for inspecti
   );
   renderConnection();
   expect(screen.getByLabelText('Connection address')).toHaveAccessibleDescription(
-    /Use the agent service address, for example http:\/\/127\.0\.0\.1:8787/,
+    /Use the agent service address, for example http:\/\/127\.0\.0\.1:17800/,
   );
   await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
   expect(await screen.findByText(/No agent service was found at this address/)).toBeVisible();

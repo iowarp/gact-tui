@@ -1,11 +1,14 @@
 import { TransportError } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { KnownConnection } from '@/hooks/use-known-connections';
 import {
   NOT_REACHABLE_DETAIL,
+  probeConnection,
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
+import { queryKeys } from '@/lib/query-keys';
 import {
   CONNECTION_RETRY_MAX_MS,
   CONNECTION_RETRY_MIN_MS,
@@ -134,6 +137,36 @@ export function useConnectionWaiting(
     waiting: Boolean(availability?.starting) || (transient && !expired),
     retrying: Boolean(variables) && canRetry,
     availability,
+  };
+}
+
+/**
+ * Whether the agent that served this page answers at its own origin (#739 B7). An
+ * agent-served page with nothing remembered then connects by itself; when nothing
+ * answers the person gets the manual form. A service still starting counts as answered.
+ */
+export function useServedEndpointProbe(endpoint: string | undefined): {
+  pending: boolean;
+  answered: boolean;
+} {
+  const probe = useQuery({
+    queryKey: queryKeys.key('served-endpoint-probe', endpoint ?? ''),
+    queryFn: async ({ signal }) => {
+      try {
+        const availability = await probeConnection({ endpoint: endpoint ?? '' }, signal);
+        return availability.state !== 'unavailable';
+      } catch (error) {
+        return serviceStillStarting(error as Error);
+      }
+    },
+    enabled: Boolean(endpoint),
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+  });
+  return {
+    pending: Boolean(endpoint) && probe.isPending,
+    answered: Boolean(endpoint) && probe.data === true,
   };
 }
 
