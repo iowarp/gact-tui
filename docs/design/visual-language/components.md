@@ -55,7 +55,10 @@ Status values:
   defined in every theme (dark Notebook and its light counterpart), so surfaces
   stop mixing `bg-muted/50`, `bg-accent` and `bg-secondary` for the same hover.
 - **Buttons.** One 28 px default size and a keyboard-only inset focus ring, so a
-  ring is never clipped by its container.
+  ring is never clipped by its container. A disabled primary button drops to
+  the muted fill so it never reads as the active action. Select triggers share
+  the 28 px height so a button and a select in one row align; text inputs stay
+  32 px.
 - **Menus.** Dropdown, context and command menus share one row height,
   highlight and key column. `MenuRow` supplies the fixed trailing columns.
 - **Icon buttons.** `ToolbarAction` renders `IconButton`, so every viewer

@@ -130,6 +130,11 @@ export interface ShortcutHandlerOptions {
   region?: () => Element | null;
   /** Fire inside a text field even for a key the field would type. */
   allowInTextField?: boolean;
+  /**
+   * Fire even when a focused widget already handled the key, for app-wide
+   * keys a widget also binds (cmdk takes Ctrl+K as "previous item").
+   */
+  overrideHandled?: boolean;
 }
 
 export type ShortcutHandler = (event: KeyboardEvent, position: number | undefined) => void;
@@ -151,7 +156,7 @@ function inRegion(region: Element | null, event: KeyboardEvent): boolean {
 }
 
 function dispatch(event: KeyboardEvent) {
-  if (event.defaultPrevented || event.repeat || event.isComposing) return;
+  if (event.repeat || event.isComposing) return;
   const platform = detectKeyPlatform();
   const host = detectHost();
   const editable = isEditableTarget(event.target);
@@ -161,6 +166,7 @@ function dispatch(event: KeyboardEvent) {
     const definition = definitions.get(registration.id);
     if (!definition || (definition.host && definition.host !== host)) continue;
     const options = registration.options();
+    if (event.defaultPrevented && !options.overrideHandled) continue;
     for (const chord of shortcutChords(definition, platform)) {
       if (!chordMatches(chord, event)) continue;
       if (editable && !options.allowInTextField && isTextFieldChord(chord, platform)) continue;

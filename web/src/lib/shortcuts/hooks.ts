@@ -85,6 +85,7 @@ export interface UseShortcutOptions {
   /** Required for "the tab you're in" keys: focus must be inside it. */
   region?: RefObject<Element | null>;
   allowInTextField?: boolean;
+  overrideHandled?: boolean;
 }
 
 /**
@@ -111,6 +112,7 @@ export function useShortcut(
       () => ({
         region: () => optionsRef.current.region?.current ?? null,
         allowInTextField: optionsRef.current.allowInTextField,
+        overrideHandled: optionsRef.current.overrideHandled,
       }),
     );
   }, [id, enabled]);

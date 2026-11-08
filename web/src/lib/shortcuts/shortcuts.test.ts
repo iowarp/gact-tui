@@ -126,6 +126,27 @@ describe('registry', () => {
     input.remove();
   });
 
+  it('leaves a key a focused widget handled unless the handler overrides it', () => {
+    const handler = vi.fn();
+    let override = false;
+    const undo = registerShortcutHandler(
+      'search',
+      () => handler,
+      () => ({ overrideHandled: override }),
+    );
+    const widget = document.createElement('div');
+    widget.addEventListener('keydown', (event) => event.preventDefault());
+    document.body.append(widget);
+    const init = { key: 'k', code: 'KeyK', ctrlKey: true, bubbles: true, cancelable: true };
+    widget.dispatchEvent(new KeyboardEvent('keydown', init));
+    expect(handler).not.toHaveBeenCalled();
+    override = true;
+    widget.dispatchEvent(new KeyboardEvent('keydown', init));
+    expect(handler).toHaveBeenCalledTimes(1);
+    undo();
+    widget.remove();
+  });
+
   it('requires focus inside the region for tab keys', () => {
     const handler = vi.fn();
     const region = document.createElement('div');

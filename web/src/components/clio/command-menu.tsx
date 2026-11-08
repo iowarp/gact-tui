@@ -184,7 +184,7 @@ export function ClioCommandMenu({
   // 'command-palette' used to also be reachable via the native View menu
   // (removed, see menu_spec.rs's application-menu trim); the shared `search`
   // shortcut toggles the palette directly, so no useMenuAction is needed.
-  useShortcut('search', () => changeOpen(!open));
+  useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
   useEffect(() => {
     const openMenu = () => changeOpen(true);
     window.addEventListener('clio:open-command-menu', openMenu);
