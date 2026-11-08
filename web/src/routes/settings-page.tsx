@@ -8,7 +8,11 @@ import {
   SettingsSectionPicker,
 } from '@/components/clio/settings-navigation';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
-import { settingsBackgroundRoute } from '@/lib/settings-window-route';
+import {
+  arrivedFromSearch,
+  settingsBackgroundRoute,
+  withoutSearchArrival,
+} from '@/lib/settings-window-route';
 import { useLiveStore } from '@/store/live-store';
 import { ToolsSettingsTabs } from '@/components/clio/settings-tools-tabs';
 import { settingsDestinations } from '@/lib/application-destinations';
@@ -28,7 +32,14 @@ import {
 } from 'lucide-react';
 import { DeleteIcon, MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { ExtensionLibrary as PluginSettings } from '@/components/clio/extension-library';
@@ -583,11 +594,14 @@ export function SettingsPage() {
   const content = useRef<HTMLDivElement>(null);
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const background = settingsBackgroundRoute(location, settings.endpoint);
+  const [searchParams] = useSearchParams();
+  const filter = searchParams.get('q') ?? '';
   // Without the workspace behind the window, section links keep it detached:
   // a remembered route can be stale and must not mount under Settings.
   const linkState = background
-    ? location.state
+    ? withoutSearchArrival(location.state)
     : { endpoint: settings.endpoint, from: workspaceRoute, detached: true };
+  const fromSearch = arrivedFromSearch(location.state);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const workspace = useLiveStore((state) =>
@@ -610,6 +624,21 @@ export function SettingsPage() {
     if (anchor) anchor.scrollIntoView({ block: 'start' });
     else content.current?.scrollTo({ left: 0, top: 0 });
   }, [section, destination?.host]);
+  useEffect(() => {
+    if (!fromSearch) return;
+    const target = destination?.host
+      ? content.current?.querySelector(
+          `[data-settings-anchor="${section}"] h2, [data-settings-anchor="${section}"] h1`,
+        )
+      : content.current?.querySelector('h1');
+    if (!target) return;
+    target.classList.add('clio-search-arrival');
+    const done = window.setTimeout(() => target.classList.remove('clio-search-arrival'), 1600);
+    return () => {
+      window.clearTimeout(done);
+      target.classList.remove('clio-search-arrival');
+    };
+  }, [fromSearch, section, destination?.host, location.key]);
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
@@ -619,6 +648,12 @@ export function SettingsPage() {
     linkState,
     scopeLabels,
     badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+    filter,
+    onClearFilter: () =>
+      void navigate(
+        { pathname: location.pathname, hash: location.hash },
+        { replace: true, state: withoutSearchArrival(location.state) },
+      ),
   };
   return (
     <WindowShell

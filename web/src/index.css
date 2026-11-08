@@ -664,6 +664,39 @@ div.maplibregl-map {
   animation: stream-cursor 1.1s ease-in-out infinite;
 }
 
+/* The setting a search opened: briefly marked, then reads as usual. */
+@keyframes search-arrival {
+  0%,
+  40% {
+    background-color: var(--highlight);
+    box-shadow: 0 0 0 4px var(--highlight);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.clio-search-arrival {
+  border-radius: 0.25rem;
+  animation: search-arrival 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clio-search-arrival {
+    animation: none !important;
+    background-color: var(--highlight);
+    box-shadow: 0 0 0 4px var(--highlight);
+  }
+}
+
+html[data-clio-motion='reduced'] .clio-search-arrival {
+  animation: none !important;
+  background-color: var(--highlight);
+  box-shadow: 0 0 0 4px var(--highlight);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

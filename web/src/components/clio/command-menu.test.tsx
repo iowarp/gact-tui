@@ -308,14 +308,54 @@ describe('ClioCommandMenu workspace search', () => {
     );
     expect(screen.getByRole('dialog')).toBeVisible();
   });
-  it('focuses the search immediately on each open and keeps the assistant shortcut inside its input', async () => {
+  it('narrows to one result type with tabs, a typed prefix and the arrow keys', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
+    await user.keyboard('>dark');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+
+    await user.keyboard('{ArrowRight}');
+    expect(input).toHaveValue('dark');
+    expect(screen.getByRole('tab', { name: /^Settings/u })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.queryByRole('option', { name: 'Switch to dark mode' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /^All/u }));
+    expect(input).toHaveFocus();
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+
+    await user.clear(input);
+    await user.click(screen.getByRole('tab', { name: /^Files/u }));
+    expect(screen.getByText('Type to find a workspace file.')).toBeVisible();
+    await user.keyboard('{Backspace}');
+    expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('opens Settings filtered to the search when every result is a setting', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard('drive');
+    await screen.findByRole('option', { name: 'Data sources' });
+    expect(await screen.findByRole('button', { name: /^Open in Settings/u })).toBeVisible();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(screen.getByTestId('location')).toHaveTextContent('/settings/data-sources?q=drive');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('focuses the search immediately on each open and keeps the assistant in the footer', async () => {
     const user = userEvent.setup();
     renderMenu();
     await user.keyboard('{Control>}k{/Control}');
     const input = screen.getByPlaceholderText('Search work, files, artifacts, or actions…');
     await waitFor(() => expect(input).toHaveFocus());
-    const shortcut = screen.getByRole('button', { name: /^Ask .+ Search Tab$/u });
-    expect(shortcut.closest('[data-slot="input-group"]')).toContainElement(input);
+    const shortcut = screen.getByRole('button', { name: /^Ask .+ Tab$/u });
+    expect(shortcut.closest('[data-slot="picker-footer"]')).toBeInTheDocument();
     await user.keyboard('station');
     expect(input).toHaveValue('station');
     await user.keyboard('{Escape}');
@@ -365,9 +405,10 @@ describe('ClioCommandMenu workspace search', () => {
     });
     expect(passage.querySelector('mark')).toHaveTextContent(/immutable/i);
     const headings = [...document.querySelectorAll('[cmdk-group-heading]')].map(
-      (item) => item.textContent,
+      (item) => item.querySelector('span > span')?.textContent,
     );
-    expect(headings.indexOf('Sessions')).toBeLessThan(headings.indexOf('Matching messages'));
+    expect(headings).toContain('Conversations');
+    expect(headings.indexOf('Conversations')).toBeLessThan(headings.indexOf('Matching messages'));
     await user.click(passage);
 
     await waitFor(() =>

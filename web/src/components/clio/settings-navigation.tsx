@@ -1,7 +1,7 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
-import { hostSection } from '@/lib/settings-window-route';
+import { hostSection, matchingSettingsSections } from '@/lib/settings-window-route';
 import { Link } from 'react-router-dom';
 import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { CloseIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from '@/components/clio/primitives/icon-button';
 
 export type SettingsDestination = ApplicationDestination;
 
@@ -26,12 +28,17 @@ export interface SettingsNavigationProps {
   scopeLabels: Record<string, string>;
   /** Items waiting on a section (e.g. memory changes to review), shown as a count. */
   badges?: Record<string, { count: number; label: string }>;
+  /** A search from the global search (`?q=`): only matching sections are listed. */
+  filter?: string;
+  /** Lists every section again. */
+  onClearFilter?: () => void;
 }
 
 const SCOPE_ORDER = ['App', 'Workspace', 'Agent'];
 
-function grouped(sections: SettingsDestination[]) {
-  const listed = sections.filter((item) => !item.host);
+function grouped(sections: SettingsDestination[], filter = '') {
+  const matched = filter.trim() ? matchingSettingsSections(sections, filter) : undefined;
+  const listed = sections.filter((item) => !item.host && (!matched || matched.has(item.id)));
   const groups = [...new Set(listed.map((item) => item.group ?? 'App'))].sort(
     (a, b) => SCOPE_ORDER.indexOf(a) - SCOPE_ORDER.indexOf(b),
   );
@@ -52,11 +59,22 @@ export function SettingsNavigation({
   linkState,
   scopeLabels,
   badges = {},
+  filter = '',
+  onClearFilter,
 }: SettingsNavigationProps) {
   const current = hostSection(sections, section);
+  const groups = grouped(sections, filter);
+  const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   return (
     <div className="flex flex-col gap-3 py-1">
-      {grouped(sections).map(({ group, items }) => (
+      {search ? (
+        <SettingsFilterBar
+          count={groups.reduce((sum, group) => sum + group.items.length, 0)}
+          filter={filter.trim()}
+          onClear={onClearFilter}
+        />
+      ) : null}
+      {groups.map(({ group, items }) => (
         <section key={group} aria-label={scopeLabels[group] ?? group} className="space-y-px">
           <h2
             className="truncate px-2 pb-1 text-[11px] font-medium text-muted-foreground"
@@ -75,7 +93,7 @@ export function SettingsNavigation({
               key={id}
               state={linkState}
               title={label}
-              to={`/settings/${id}`}
+              to={`/settings/${id}${search}`}
             >
               <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 truncate">{label}</span>
@@ -113,8 +131,11 @@ export function SettingsSectionPicker({
   linkState,
   scopeLabels,
   badges = {},
+  filter = '',
+  onClearFilter,
 }: SettingsNavigationProps) {
   const [open, setOpen] = useState(false);
+  const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   const openingSearch = useRef(false);
   const current = hostSection(sections, section);
   const active = sections.find((item) => item.id === current);
@@ -150,15 +171,23 @@ export function SettingsSectionPicker({
           Search everywhere
           <ShortcutKeys id="search" className="ml-auto text-[10px]" />
         </DropdownMenuItem>
-        {grouped(sections).map(({ group, items }) => (
+        {search && onClearFilter ? (
+          <DropdownMenuItem onSelect={onClearFilter}>
+            <CloseIcon aria-hidden="true" />
+            <span className="truncate">Show every section</span>
+          </DropdownMenuItem>
+        ) : null}
+        {grouped(sections, filter).map(({ group, items }) => (
           <div key={group}>
-            <DropdownMenuLabel className="truncate">{scopeLabels[group] ?? group}</DropdownMenuLabel>
+            <DropdownMenuLabel className="truncate">
+              {scopeLabels[group] ?? group}
+            </DropdownMenuLabel>
             {items.map(({ id, label, icon: Icon }) => (
               <DropdownMenuItem asChild key={id}>
                 <Link
                   aria-current={id === current ? 'page' : undefined}
                   state={linkState}
-                  to={`/settings/${id}`}
+                  to={`/settings/${id}${search}`}
                 >
                   <Icon aria-hidden="true" />
                   <span className="truncate">{label}</span>
@@ -173,10 +202,46 @@ export function SettingsSectionPicker({
   );
 }
 
+/** Says the list is a search's results, and how to see every section again. */
+function SettingsFilterBar({
+  filter,
+  count,
+  onClear,
+}: {
+  filter: string;
+  count: number;
+  onClear?: () => void;
+}) {
+  return (
+    <div
+      className="flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted/60 pr-0.5 pl-2 text-xs whitespace-nowrap"
+      role="status"
+    >
+      <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 truncate" title={filter}>
+        {filter}
+      </span>
+      <span className="shrink-0 text-muted-foreground tabular-nums">{count}</span>
+      {onClear ? (
+        <IconButton
+          className="ml-auto"
+          icon={<CloseIcon />}
+          label="Show every section"
+          onClick={onClear}
+          size="sm"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
   if (!badge?.count) return null;
   return (
-    <Badge aria-label={badge.label} className="ml-auto h-4.5 min-w-4.5 px-1 text-[10px] tabular-nums">
+    <Badge
+      aria-label={badge.label}
+      className="ml-auto h-4.5 min-w-4.5 px-1 text-[10px] tabular-nums"
+    >
       {badge.count}
     </Badge>
   );

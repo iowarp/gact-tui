@@ -1,5 +1,6 @@
 import type { Location } from 'react-router-dom';
 import type { ApplicationDestination } from './application-destinations';
+import { matchesGlobalSearch } from './global-search-commands';
 import { returnRouteFromState } from './workspace-route-memory';
 
 export const SETTINGS_ROUTE_PREFIX = '/settings/';
@@ -26,6 +27,36 @@ export function settingsBackgroundRoute(
 }
 
 /** A folded page (Helper models, Remote tools, Browser) highlights the page that hosts it. */
-export function hostSection(sections: readonly Pick<ApplicationDestination, 'id' | 'host'>[], section: string): string {
+export function hostSection(
+  sections: readonly Pick<ApplicationDestination, 'id' | 'host'>[],
+  section: string,
+): string {
   return sections.find((item) => item.id === section)?.host ?? section;
+}
+
+/**
+ * The listed sections a settings search matches: by name, scope or keywords,
+ * or through a page folded into them (a "fleet" match keeps Models).
+ */
+export function matchingSettingsSections(
+  sections: readonly Pick<ApplicationDestination, 'id' | 'host' | 'label' | 'group' | 'keywords'>[],
+  filter: string,
+): Set<string> {
+  const matched = new Set<string>();
+  for (const item of sections) {
+    if (matchesGlobalSearch(filter, item.label, 'Settings', item.group, item.keywords))
+      matched.add(item.host ?? item.id);
+  }
+  return matched;
+}
+
+/** Route state that arrived from the global search, which only the first section shows. */
+export function withoutSearchArrival(state: unknown): unknown {
+  if (!state || typeof state !== 'object' || !('fromSearch' in state)) return state;
+  const { fromSearch: _arrival, ...rest } = state as Record<string, unknown>;
+  return rest;
+}
+
+export function arrivedFromSearch(state: unknown): boolean {
+  return Boolean(state && typeof state === 'object' && 'fromSearch' in state && state.fromSearch);
 }

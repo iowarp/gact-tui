@@ -112,6 +112,16 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-close', 'Close', 'menu', ['Esc']),
+  def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-columns', 'Providers and models column', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-all-results', 'All results', 'menu', ['Ctrl+Enter']),
+  def('menu-all-types', 'Back to all types, in an empty search', 'menu', ['Backspace']),
+  def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
+  def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
 
   def('graph-move', 'Move between nodes', 'graph', ['Left', 'Right', 'Up', 'Down'], {
     joiner: 'pair',
