@@ -4,6 +4,7 @@ import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { BoxIcon, FileIcon, FolderIcon, MessageSquareTextIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { brand } from '@brand';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
@@ -181,24 +182,14 @@ export function ClioCommandMenu({
   });
 
   // 'command-palette' used to also be reachable via the native View menu
-  // (removed — see menu_spec.rs's application-menu trim); the Ctrl/Cmd+K
-  // listener below already toggles the palette directly, so no
-  // useMenuAction registration is needed.
+  // (removed, see menu_spec.rs's application-menu trim); the shared `search`
+  // shortcut toggles the palette directly, so no useMenuAction is needed.
+  useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
   useEffect(() => {
     const openMenu = () => changeOpen(true);
-    const handleKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        changeOpen(!open);
-      }
-    };
     window.addEventListener('clio:open-command-menu', openMenu);
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('clio:open-command-menu', openMenu);
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [open, changeOpen]);
+    return () => window.removeEventListener('clio:open-command-menu', openMenu);
+  }, [changeOpen]);
   useEffect(() => {
     const timer = window.setTimeout(() => setServerQuery(query.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);

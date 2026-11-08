@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -152,17 +153,7 @@ export function ClioAppShell({
     else workbenchPanelRef.current?.collapse();
   }, [desktopWorkbench, workbenchOpen]);
 
-  useEffect(() => {
-    if (!hasWorkbench) return;
-    const handleShortcut = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') {
-        event.preventDefault();
-        toggleWorkbench();
-      }
-    };
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
-  }, [hasWorkbench, toggleWorkbench]);
+  useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
 
   const sessionSurface = (
     <section
@@ -176,8 +167,8 @@ export function ClioAppShell({
           <ToolbarAction
             label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
             onClick={toggleWorkbench}
-            size="icon-sm"
-            variant={workbenchOpen ? 'secondary' : 'ghost'}
+            shortcut="right-pocket"
+            aria-pressed={workbenchOpen}
           >
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>

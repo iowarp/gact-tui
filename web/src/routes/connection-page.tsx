@@ -1,3 +1,4 @@
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { BrandIcon } from '@/components/clio/brand-icon';
 import { brand } from '@brand';
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
@@ -125,7 +126,7 @@ function HomeSearchButton() {
       onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
     >
       <SearchIcon aria-hidden="true" /> Search{' '}
-      <kbd className="ml-2 text-[10px] text-muted-foreground">Ctrl K</kbd>
+      <ShortcutKeys id="search" className="ml-2 text-[10px]" />
     </Button>
   );
 }

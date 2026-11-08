@@ -26,6 +26,9 @@ are full-page renders at 1680 px.
 The workbench pages are numbered passes. Later pages override earlier ones where
 they conflict. Read them in table order.
 
+[components.md](components.md) maps each recurring element to its shared
+component in `web/src`, with the component gallery used for visual review.
+
 ## Design rules
 
 - One general component per concept, reused everywhere.

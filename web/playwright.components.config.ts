@@ -14,6 +14,7 @@ export default defineConfig({
     '**/tool-operations.spec.ts',
     '**/dialog-layout.spec.ts',
     '**/fs-file-tools.spec.ts',
+    '**/component-gallery.spec.ts',
   ],
   webServer: [
     {

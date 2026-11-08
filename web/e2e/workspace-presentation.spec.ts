@@ -210,6 +210,8 @@ test('SVG previews stay at the top and horizontally centered through pane resizi
   );
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  // The loading shell has its own canvas toggle; wait for the conversation.
+  await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
   await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
@@ -265,6 +267,8 @@ test('an unsupported workspace file uses one shared original download', async ({
     route.fulfill({ contentType: 'application/octet-stream', body: bytes }),
   );
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  // The loading shell has its own canvas toggle; wait for the conversation.
+  await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
   await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();

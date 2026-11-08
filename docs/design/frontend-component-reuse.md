@@ -13,6 +13,12 @@ The implementation rule is:
 `pnpm check:frontend-reuse` enforces the sourced composition of the major surfaces below. It is a
 regression guard, not a substitute for browser review or accessibility testing.
 
+Recurring controls (icon buttons, key chips, menu rows, list rows, tags, status marks, the frame
+bar, dialog frame, window shell and empty/loading/error states) have one shared component each in
+`web/src/components/clio/primitives/`. Keyboard shortcuts come from `web/src/lib/shortcuts/`. See
+[visual-language/components.md](visual-language/components.md) for the map and the call sites
+that still need migrating.
+
 | Product surface       | Sourced composition                                                                     | CLIO-owned responsibility                                         |
 | --------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Conversation          | AI Elements Conversation, Message, Checkpoint, Chain of Thought, Plan, Task, Code Block | Causal GACT block grouping, virtualization, exact-message focus   |

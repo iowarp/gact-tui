@@ -1,3 +1,4 @@
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
 import { Link } from 'react-router-dom';
@@ -52,7 +53,7 @@ export function SettingsNavigation({
     >
       <SearchIcon aria-hidden="true" className="size-3.5" />
       <span>Search everywhere</span>
-      <kbd className="ml-auto text-[10px]">Ctrl K</kbd>
+      <ShortcutKeys id="search" className="ml-auto text-[10px] text-inherit" />
     </Button>
   );
 
