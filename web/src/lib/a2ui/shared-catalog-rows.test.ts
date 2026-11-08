@@ -42,6 +42,15 @@ describe('shareA2uiCatalogRows', () => {
     expect(producible?.producible).toBe(true);
   });
 
+  it('keeps rows apart when the sidecar routes differ under the same checksum', () => {
+    const base = shareA2uiCatalogRows({ rows: [row()], rejected: [] }).rows[0];
+    const rerouted = row();
+    rerouted.sidecar = { ...rerouted.sidecar, events: {} };
+    const shared = shareA2uiCatalogRows({ rows: [rerouted], rejected: [] }).rows[0];
+    expect(shared).not.toBe(base);
+    expect(shared?.sidecar.events).toEqual({});
+  });
+
   it('never shares rows without a checksum and keeps rejections', () => {
     const rejected = [{ catalogId: 'x', reason: 'bad' }] as never;
     const first = shareA2uiCatalogRows({ rows: [row({ checksum: '' })], rejected });

@@ -2,18 +2,18 @@ import type { A2uiCatalogListDecodeResult, A2uiCatalogRow } from '@clio/core/v3'
 
 /**
  * Every session's `GET .../a2ui/catalogs` repeats the same installed catalogs
- * (the builtin workspace catalog alone is ~126 KB). Rows with the same
- * identity, checksum and producibility are interchangeable, so sessions share
- * one decoded instance instead of each holding its own copy. Bounded: the key
- * space is installed catalogs × producibility, and the oldest entry goes first.
+ * (the builtin workspace catalog alone is ~126 KB, nearly all of it `file`).
+ * The checksum identifies the catalog file; the remaining fields (sidecar
+ * routes, instructions, producibility) are small and compared in full, so
+ * sessions share one decoded instance only when the rows are identical.
+ * Bounded: the oldest entry goes first.
  */
 const SHARED_ROW_LIMIT = 64;
 const sharedRows = new Map<string, A2uiCatalogRow>();
 
 function rowKey(row: A2uiCatalogRow): string {
-  return [row.catalogId, row.protocolVersion, row.checksum, row.producible ? 'p' : '-'].join(
-    '\u0000',
-  );
+  const { file: _file, ...rest } = row;
+  return `${row.checksum}\u0000${JSON.stringify(rest)}`;
 }
 
 export function shareA2uiCatalogRows(
