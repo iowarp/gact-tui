@@ -51,7 +51,7 @@ export function ClioMoreDetailsPanel({
 }: ClioMoreDetailsPanelProps) {
   const [draft, setDraft] = useState('');
   const [asking, setAsking] = useState(false);
-  const { entities, messages, transcript } = useLiveSessionTranscript(
+  const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
     workspaceId,
     side?.id,
     'aside',
@@ -62,6 +62,9 @@ export function ClioMoreDetailsPanel({
     () => (side ? messages.filter((message) => message.created_at >= side.created_at) : []),
     [messages, side],
   );
+  // Older pages only until the aside's own start; the parent history before it is not shown.
+  const exchangeEarlier =
+    side && earlier && (messages[0]?.created_at ?? '') >= side.created_at ? earlier : undefined;
   // A turn is live in the aside: follow-ups wait for it (the service runs one
   // turn per session), and the header says so.
   const answering = Boolean(
@@ -117,6 +120,7 @@ export function ClioMoreDetailsPanel({
             <ClioConversation
               actionLifecycles={entities.a2ui_action_lifecycles}
               artifacts={entities.artifacts}
+              earlier={exchangeEarlier}
               error={transcript.error?.message}
               loading={transcript.isPending}
               messages={exchange}

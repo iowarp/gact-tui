@@ -34,6 +34,8 @@ it('reads only the selected session and never displays the previous selection wh
   expect(result.current.pending).toBe(true);
   expect(transcript.mock.calls.map((call) => call[0])).toEqual(['fork', 'child']);
   expect(artifacts.mock.calls.map((call) => call[0])).toEqual(['fork', 'child']);
+  // Only the newest page: a preview never reads a long conversation whole.
+  expect(transcript.mock.calls[0]?.[2]).toEqual({ limit: 40 });
   client.clear();
 });
 

@@ -5,9 +5,15 @@ import { createRef } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { useLiveStore } from '@/store/live-store';
+import { rangeReadsFromText } from '@/test/workspace-file-range';
 
-const repository = vi.hoisted(() => ({ workspaceFiles: vi.fn(), readWorkspaceFile: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  workspaceFiles: vi.fn(),
+  readWorkspaceFile: vi.fn(),
+  readWorkspaceFileRange: vi.fn(),
+}));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+repository.readWorkspaceFileRange.mockImplementation(rangeReadsFromText(repository.readWorkspaceFile));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://folder-review' } }),
 }));

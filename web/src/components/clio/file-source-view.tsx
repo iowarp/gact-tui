@@ -5,6 +5,8 @@ import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 import { FileSourceOptions } from './file-viewer-context';
 import { useFileViewerActions } from './file-viewer-action-context';
+import { isLargeSource } from '@/lib/source-window';
+import { VirtualSourceLines } from './virtual-source-lines';
 
 /** Source has logical numbered lines, one scroll owner, and no nested title or actions. */
 export function FileSourceView({
@@ -35,6 +37,18 @@ export function FileSourceView({
     [options],
   );
   useFileViewerActions(actions);
+  const large = useMemo(() => isLargeSource(content), [content]);
+  // Highlighting tokenizes and mounts every line; large files list only the lines in view.
+  if (large)
+    return (
+      <VirtualSourceLines
+        role="region"
+        aria-label={label || `Source of ${name}`}
+        className="h-full"
+        content={content}
+        wrap={options?.wrap ?? false}
+      />
+    );
   return (
     <CodeBlock
       role="region"

@@ -10,6 +10,7 @@ import type {
 } from '@clio/core/v3';
 import { Clock3Icon, ScanIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSharedNow } from '@/lib/shared-clock';
 import { Button } from '@/components/ui/button';
 import { Gantt } from '@/components/reui/gantt/gantt';
 import { GanttNav, GanttTitle } from '@/components/reui/gantt/gantt-nav';
@@ -62,7 +63,6 @@ export function ClioProcessLanes({
   const spans = useMemo(() => latestExecutionSpans(recordedSpans), [recordedSpans]);
   const branches = useMemo(() => branchPalette(spans), [spans]);
   const lanes = useMemo(() => executionLanes(spans, branches), [branches, spans]);
-  const [now, setNow] = useState(() => Date.now());
   const container = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState({ width: 1040, rem: 16 });
   const [selected, setSelected] = useState<ProcessSpan | null>(null);
@@ -80,11 +80,7 @@ export function ClioProcessLanes({
     return () => observer.disconnect();
   }, [hasLanes]);
   const hasRunning = spans.some((span) => span.end === null);
-  useEffect(() => {
-    if (!hasRunning) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [hasRunning]);
+  const now = useSharedNow(hasRunning, { target: container });
   const extent = useMemo(() => fullExtent(spans, now), [now, spans]);
   const model = useMemo(
     () =>

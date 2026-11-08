@@ -52,7 +52,8 @@ let log = [];
 
 const cors = {
   'Access-Control-Allow-Headers':
-    'Authorization, Content-Type, Last-Event-ID, Upload-Offset, X-A2UI-Version, X-GACT-Version',
+    'Authorization, Content-Type, Last-Event-ID, Range, Upload-Offset, X-A2UI-Version, X-GACT-Version',
+  'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Origin': '*',
   'Cache-Control': 'no-store',
@@ -389,6 +390,21 @@ function largeFile(path) {
 
 let cachedLargeFiles = new Map();
 
+/** One `bytes=a-b`, `bytes=a-` or `bytes=-n` range; anything else reads the whole file. */
+function byteRange(header, length) {
+  const match = /^bytes=(\d*)-(\d*)$/u.exec(header ?? '');
+  if (!match || (match[1] === '' && match[2] === '')) return undefined;
+  if (match[1] === '') {
+    const suffix = Number(match[2]);
+    if (suffix === 0) return 'unsatisfiable';
+    return { start: Math.max(0, length - suffix), end: length - 1 };
+  }
+  const start = Number(match[1]);
+  if (start >= length) return 'unsatisfiable';
+  const end = match[2] === '' ? length - 1 : Math.min(Number(match[2]), length - 1);
+  return end < start ? undefined : { start, end };
+}
+
 /** Deterministic bytes for the base fixture's listed files (it serves none). */
 function seededFile(path) {
   if (path === 'results/stations.csv') {
@@ -570,6 +586,12 @@ const server = createServer(async (request, response) => {
     const body = await readBody(request);
     scenario = { ...defaults, ...JSON.parse(body.toString('utf8') || '{}') };
     cachedLargeFiles = new Map();
+    // Build the synthetic large files now: generating 20 MB inside the first
+    // read would be charged to the viewer's file-ready time.
+    for (const path of ['perf/large-table.csv', 'perf/large-log.txt']) {
+      const file = largeFile(path);
+      if (file) cachedLargeFiles.set(path, { ...file, bytes: Buffer.from(file.body) });
+    }
     log = [];
     sendJson(response, scenario);
     return;
@@ -657,17 +679,37 @@ const server = createServer(async (request, response) => {
     } else if (
       get &&
       url.pathname.endsWith('/files/read') &&
-      (largeFile(url.searchParams.get('path') ?? '') ||
+      // Cached files first: generating a large file only to test the route costs seconds.
+      (cachedLargeFiles.has(url.searchParams.get('path') ?? '') ||
+        largeFile(url.searchParams.get('path') ?? '') ||
         seededFile(url.searchParams.get('path') ?? ''))
     ) {
       const path = url.searchParams.get('path') ?? '';
       if (!cachedLargeFiles.has(path))
         cachedLargeFiles.set(path, largeFile(path) ?? seededFile(path));
       const file = cachedLargeFiles.get(path);
-      response.writeHead(200, { ...cors, 'Content-Type': file.type });
-      response.end(file.body);
-      entry.status = 200;
-      entry.bytes = Buffer.byteLength(file.body);
+      file.bytes ??= Buffer.from(file.body);
+      // Ranged reads behave like the service's Starlette FileResponse (RFC 9110).
+      const range = byteRange(request.headers.range, file.bytes.length);
+      if (range === 'unsatisfiable') {
+        response.writeHead(416, { ...cors, 'Content-Range': `bytes */${file.bytes.length}` });
+        response.end();
+        entry.status = 416;
+        entry.bytes = 0;
+      } else {
+        const body = range ? file.bytes.subarray(range.start, range.end + 1) : file.bytes;
+        response.writeHead(range ? 206 : 200, {
+          ...cors,
+          'Accept-Ranges': 'bytes',
+          'Content-Type': file.type,
+          ...(range
+            ? { 'Content-Range': `bytes ${range.start}-${range.end}/${file.bytes.length}` }
+            : {}),
+        });
+        response.end(body);
+        entry.status = range ? 206 : 200;
+        entry.bytes = body.length;
+      }
     } else if (get && sessionMatch?.[2] === '/messages') {
       // Synthetic conversations other than the long one are short.
       const sid = sessionMatch[1];

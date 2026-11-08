@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { useEffect, useState } from 'react';
+import { useSharedNow } from '@/lib/shared-clock';
 
 /** Prefer recorded execution time; derive it from timestamps only when available. */
 export function toolDuration(tool: ToolInvocation | undefined, now: number): number | undefined {
@@ -15,17 +15,12 @@ export function toolDuration(tool: ToolInvocation | undefined, now: number): num
 
 /** Tick only mounted active calls with a real start time, and stop at completion. */
 export function useToolDuration(tool: ToolInvocation | undefined): number | undefined {
-  const [now, setNow] = useState(Date.now);
   const ticking = Boolean(
     tool &&
       (tool.state === 'running' || tool.state === 'pending') &&
       !tool.completed_at &&
       Number.isFinite(Date.parse(tool.started_at ?? '')),
   );
-  useEffect(() => {
-    if (!ticking) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [ticking, tool?.id, tool?.started_at]);
+  const now = useSharedNow(ticking);
   return toolDuration(tool, now);
 }

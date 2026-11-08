@@ -1,14 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useSharedNow } from '@/lib/shared-clock';
 
-/** Re-render once a second while something is running, for elapsed times. */
+/** The current time, refreshed by the shared clock once a second while 	icking. */
 export function useNow(ticking: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!ticking) return;
-    const tick = () => setNow(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [ticking]);
-  return now;
+  return useSharedNow(ticking);
 }

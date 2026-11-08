@@ -9,6 +9,8 @@ import { KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
 import { wrapKernelComponentWithPresets } from './kernel-presets';
 import { classifyA2uiRegistryFailure, shouldRetryA2uiRegistryFailure } from './registry-failure';
 import type { A2uiRegistrySnapshot } from './registry-store';
+import { shareA2uiCatalogRows } from './shared-catalog-rows';
+import { A2UI_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
 
 /** A saved artifact can belong to a session other than the open chat; its catalog stays local. */
 export function useSavedA2uiCatalogs(sessionId: string): A2uiRegistrySnapshot {
@@ -16,9 +18,9 @@ export function useSavedA2uiCatalogs(sessionId: string): A2uiRegistrySnapshot {
   const { settings } = useConnectionSettings();
   const query = useQuery({
     queryKey: ['saved-dashboard-catalogs', connectionScope(settings), sessionId],
-    queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal),
+    queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal).then(shareA2uiCatalogRows),
     retry: shouldRetryA2uiRegistryFailure,
-    staleTime: 60_000,
+    staleTime: A2UI_CATALOG_STALE_TIME_MS,
   });
   return useMemo(() => {
     const registry = new A2uiCatalogRegistry<ReactComponentImplementation>(

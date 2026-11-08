@@ -14,6 +14,7 @@ import { m } from 'motion/react';
 import { memo, useCallback } from 'react';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
+import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import {
   Message,
   MessageAction,
@@ -355,10 +356,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 ) : null}
                 {message.role !== 'assistant' ? (
                   <time className="font-mono text-[0.625rem]" dateTime={message.created_at}>
-                    {new Date(message.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatClockTime(message.created_at)}
                   </time>
                 ) : null}
                 {executionMode === 'plan' ? (
@@ -539,13 +537,10 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 ) : null}
               </MessageContent>
               {message.role === 'user' ? (
-                <div className="shrink-0" title={new Date(message.created_at).toLocaleString()}>
+                <div className="shrink-0" title={formatDateTime(message.created_at)}>
                   {userContinuation ? (
                     <time className="sr-only" dateTime={message.created_at}>
-                      {new Date(message.created_at).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatClockTime(message.created_at)}
                     </time>
                   ) : null}
                   {userContinuation && entities.markedMessageIds?.has(message.id) ? (

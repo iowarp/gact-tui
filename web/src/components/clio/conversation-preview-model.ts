@@ -1,8 +1,17 @@
 import type { Message, Session } from '@clio/core/v3';
 import { conversationForkOrigin } from './conversation-fork-origin';
 
-/** Keep a short actual history around the saved fork point, plus the latest continuation. */
-export function conversationPreview(session: Session, messages: readonly Message[]) {
+/**
+ * Keep a short actual history around the saved fork point, plus the latest continuation.
+ *
+ * @param partial - messages is the newest page only; a fork point not in it is
+ *   older than the page, not rewound.
+ */
+export function conversationPreview(
+  session: Session,
+  messages: readonly Message[],
+  partial = false,
+) {
   const origin = conversationForkOrigin(session);
   const boundary = origin?.message_id
     ? messages.findIndex((message) => message.id === origin.message_id)
@@ -17,7 +26,7 @@ export function conversationPreview(session: Session, messages: readonly Message
     origin,
     copied,
     continuation,
-    boundaryRetained: boundary >= 0 || origin?.message_count === 0,
+    boundaryRetained: boundary >= 0 || origin?.message_count === 0 || partial,
   };
 }
 
