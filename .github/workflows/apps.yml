@@ -411,11 +411,11 @@ jobs:
         run: |
           set -euo pipefail
           bundle="desktop/src-tauri/target/$TARGET/release/bundle"
-          bash desktop/scripts/macos-verify-app.sh "$bundle"/macos/*.app "$bundle"/dmg/*.dmg \
+          bash desktop/scripts/macos-verify-app.sh "$bundle"/dmg/*.dmg \
             | tee "$RUNNER_TEMP/macos-verify.txt"
           mkdir -p "$RUNNER_TEMP/macos-artifact"
           cp "$bundle"/dmg/*.dmg "$RUNNER_TEMP/macos-verify.txt" "$RUNNER_TEMP/macos-artifact/"
-          du -sh "$bundle"/macos/*.app "$bundle"/dmg/*.dmg
+          du -sh "$bundle"/dmg/*.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: clio-desktop-macos-aarch64-dmg
@@ -639,7 +639,7 @@ jobs:
             bash desktop/scripts/macos-notarize.sh "$bundle"/dmg/*.dmg
             mode=--require-notarized
           fi
-          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/macos/*.app "$bundle"/dmg/*.dmg
+          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/dmg/*.dmg
       - name: Stage installers
         shell: bash
         run: |

@@ -207,7 +207,8 @@ mod tests {
             home.join(".local/bin"),
         ];
         let dirs = fallback_dirs(Some(&home), |dir| existing.iter().any(|e| e == dir));
-        assert_eq!(dirs, vec!["/opt/homebrew/bin", "/Users/someone/.local/bin"]);
+        let local_bin = home.join(".local/bin").to_string_lossy().into_owned();
+        assert_eq!(dirs, vec!["/opt/homebrew/bin".to_owned(), local_bin]);
         assert!(fallback_dirs(None, |_| false).is_empty());
     }
 }

@@ -151,7 +151,7 @@ jobs:
           bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           mode=""
           if [ "${{ steps.apple.outputs.notarize }}" = true ]; then mode=--require-notarized; fi
-          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/macos/*.app "$bundle"/dmg/*.dmg
+          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/dmg/*.dmg
 
       - name: Remove the signing keychain
         if: always() && runner.os == 'macOS'
