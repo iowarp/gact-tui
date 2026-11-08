@@ -59,9 +59,6 @@ func paletteCommandSubtitle(c gact.Command) string {
 	if c.ArgumentHint != "" {
 		policy = append(policy, "input "+c.ArgumentHint)
 	}
-	if c.AgentInvocable != nil && *c.AgentInvocable {
-		policy = append(policy, "agent callable")
-	}
 	if c.PlannerVisible != nil && *c.PlannerVisible {
 		policy = append(policy, "planner visible")
 	}
