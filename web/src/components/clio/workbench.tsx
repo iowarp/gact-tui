@@ -58,7 +58,14 @@ import {
 } from '@/lib/html-in-browser';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
-import { workbenchTabIcons, workbenchTabPath } from './workbench-tab-icons';
+import { workbenchTabPath } from './workbench-tab-icons';
+import {
+  agentTab,
+  restoredWorkbenchState,
+  saveWorkbenchState,
+  sessionTab,
+  workTab,
+} from './workbench-tab-storage';
 import { WorkbenchTabRow } from './workbench-tab-row';
 import { WorkbenchStrip, type WorkbenchListView, type WorkbenchStripItem } from './workbench-strip';
 import { WorkbenchListColumn } from './workbench-list-column';
@@ -104,106 +111,9 @@ export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
 }
 
-const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Activity' };
-const workTab: WorkbenchTab = { id: 'work', kind: 'work', label: 'Work' };
-const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
-const WORKBENCH_TABS_STORAGE_PREFIX = 'clio.workbench-tabs.v1';
-const LIST_VIEWS = new Set<string>([
-  'files',
-  'sources',
-  'artifacts',
-  'activity',
-  'terminal',
-  'browser',
-] satisfies WorkbenchListView[]);
 /** Below this the list column lays over the tab instead of beside it. */
 const LIST_OVERLAY_BELOW = 520;
 const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
-
-function workbenchTabsStorageKey(workspaceId: string): string {
-  return `${WORKBENCH_TABS_STORAGE_PREFIX}:${workspaceId}`;
-}
-
-function isWorkbenchTab(value: unknown): value is WorkbenchTab {
-  if (!value || typeof value !== 'object') return false;
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.id === 'string' &&
-    typeof row.kind === 'string' &&
-    row.kind in workbenchTabIcons &&
-    typeof row.label === 'string'
-  );
-}
-
-/** Lists now live on the strip; tabs older builds saved for them are not restored. */
-function isListTab(tab: WorkbenchTab): boolean {
-  return (
-    tab.kind === 'artifacts' ||
-    tab.kind === 'resources' ||
-    (tab.kind === 'files' && tab.id === 'files')
-  );
-}
-
-interface RestoredWorkbench {
-  tabs: WorkbenchTab[];
-  activeTabId: string;
-  listView?: WorkbenchListView;
-  pinnedIds: string[];
-}
-
-function restoredWorkbenchState(workspaceId: string, hasSession = true): RestoredWorkbench {
-  const defaultTabs = hasSession ? [sessionTab] : [];
-  const fresh: RestoredWorkbench = {
-    tabs: defaultTabs,
-    activeTabId: defaultTabs[0]?.id ?? '',
-    listView: 'files',
-    pinnedIds: [],
-  };
-  if (typeof window === 'undefined') return fresh;
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(workbenchTabsStorageKey(workspaceId)) ?? 'null',
-    ) as unknown;
-    if (!parsed || typeof parsed !== 'object') return fresh;
-    const record = parsed as Record<string, unknown>;
-    const storedTabs = Array.isArray(record.tabs)
-      ? record.tabs
-          .filter(isWorkbenchTab)
-          .filter((tab) => !isListTab(tab))
-          .map((tab) =>
-            tab.kind === 'knowledge'
-              ? // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
-                { ...tab, label: tab.label.replace(/ \u00b7 Knowledge$/u, '') }
-              : tab.kind === 'session' && String(tab.label) === 'Observability'
-                ? sessionTab
-                : tab,
-          )
-      : [];
-    const tabs = storedTabs.length ? storedTabs : defaultTabs;
-    const requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';
-    const listView =
-      record.listView === null
-        ? undefined
-        : typeof record.listView === 'string' && LIST_VIEWS.has(record.listView)
-          ? (record.listView as WorkbenchListView)
-          : 'files';
-    const pinnedIds = Array.isArray(record.pinnedIds)
-      ? record.pinnedIds.filter(
-          (id): id is string => typeof id === 'string' && tabs.some((tab) => tab.id === id),
-        )
-      : [];
-    return {
-      tabs,
-      activeTabId: tabs.some((tab) => tab.id === requestedActive)
-        ? requestedActive
-        : (tabs[0]?.id ?? ''),
-      listView,
-      pinnedIds,
-    };
-  } catch {
-    return fresh;
-  }
-}
 
 function parentDirectory(path: string): string {
   const index = path.lastIndexOf('/');
@@ -265,10 +175,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const tabStripRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-      window.localStorage.setItem(
-        workbenchTabsStorageKey(workspaceId),
-        JSON.stringify({ activeTabId, tabs, listView: listView ?? null, pinnedIds }),
-      );
+      saveWorkbenchState(workspaceId, { activeTabId, tabs, listView, pinnedIds });
     }, [activeTabId, listView, pinnedIds, tabs, workspaceId]);
 
     useEffect(() => {

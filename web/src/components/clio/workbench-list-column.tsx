@@ -12,12 +12,12 @@ import {
   ListChecksIcon,
   PanelRightCloseIcon,
   PaperclipIcon,
-  PlusIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
 import { memo, type KeyboardEvent, type ReactNode } from 'react';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatCompactBytes, formatResourceSize } from '@/lib/format';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ArtifactFilters } from './artifact-filters';
 import { ArtifactTypeIcon } from './artifact-type-icon';
@@ -564,7 +564,7 @@ function TerminalList({
         <div role="listitem">
           <ListRow
             className="cursor-pointer text-muted-foreground"
-            icon={<PlusIcon />}
+            icon={<AddIcon />}
             onClick={onOpenTerminal}
             onKeyDown={activateOnKey(onOpenTerminal)}
             role="button"

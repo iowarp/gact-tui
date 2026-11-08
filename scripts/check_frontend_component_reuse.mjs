@@ -100,7 +100,9 @@ const requiredImports = {
     '@/components/ui/button',
     '@/components/ui/select',
   ],
-  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
+  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
+  'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
+  'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
     '@/components/ai-elements/file-tree',
     './artifact-card',
