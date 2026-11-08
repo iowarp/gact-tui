@@ -357,7 +357,7 @@ function RenderedCode({
 }) {
   return (
     <Suspense
-      fallback={<div aria-busy="true" className="h-24 animate-pulse rounded-lg bg-muted" />}
+      fallback={<div aria-busy="true" className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />}
     >
       <ClioA2UICodeView
         accessibility={componentAccessibility}
@@ -390,7 +390,7 @@ function ClioCodeArtifactSource({
     );
   }
   if (loading || text === undefined) {
-    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+    return <div className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />;
   }
   return (
     <RenderedCode accessibility={accessibility} code={text} language={language} title={title} />
@@ -491,7 +491,7 @@ function ClioDiffArtifactSource({
     );
   }
   if (loading || text === undefined) {
-    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+    return <div className="h-24 motion-safe:animate-pulse rounded-lg bg-muted" />;
   }
   return (
     <ClioDiffView

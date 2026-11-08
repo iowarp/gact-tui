@@ -60,7 +60,9 @@ export function switchTheme(root: HTMLElement, theme: ResolvedTheme): void {
   document.head.append(pause);
   applyTheme(root, theme);
   void getComputedStyle(root).color;
-  window.setTimeout(() => pause.remove(), 1);
+  // Keep the pause until the new colors have painted; a 1 ms timeout can fire before
+  // the frame on WebKit, letting every surface's color transition run visibly.
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => pause.remove()));
 }
 
 /** Run before first paint by the boot script that `vite-plugin-theme.ts` injects. */
