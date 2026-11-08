@@ -415,8 +415,13 @@ test('missing historical completion stays unknown and preserves captured output'
     await expect(page.getByRole('status', { name: 'Unknown' })).toBeVisible();
     await expect(row.locator('.animate-spin')).toHaveCount(0);
     await expect(row.locator('[data-slot="tool-duration"]')).toHaveCount(0);
-    await row.hover();
-    await expect(page.getByRole('tooltip')).toContainText(reason);
+    // A synthetic pointer that jumps straight back can race the previous pass's
+    // tooltip closing, so enter the row afresh until its tooltip opens.
+    await expect(async () => {
+      await page.mouse.move(0, 0);
+      await row.hover();
+      await expect(page.getByRole('tooltip')).toContainText(reason, { timeout: 1_500 });
+    }).toPass();
     await row.click();
     const result = page.getByRole('region', { name: 'Run: Result' });
     await expect(result).toContainText(reason);
