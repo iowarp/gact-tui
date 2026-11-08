@@ -17,7 +17,8 @@
   Deliberately omitted:
   allow-jit: nothing in the runtime uses MAP_JIT (no numba/llvmlite/V8).
     Add it only together with such a package.
-  allow-dyld-environment-variables: the launcher sets no DYLD_* variables.
+  allow-dyld-environment-variables: only clio_run needs it; see
+    runtime-dyld.entitlements.
 -->
 <plist version="1.0">
 <dict>

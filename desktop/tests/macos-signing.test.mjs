@@ -42,10 +42,19 @@ test('entitlements grant only the justified runtime exceptions', () => {
     'com.apple.security.cs.allow-unsigned-executable-memory',
   ]);
   for (const plist of [app, runtime]) {
-    assert.doesNotMatch(plist, /<key>com\.apple\.security\.app-sandbox<\/key>/);
-    assert.doesNotMatch(plist, /<key>[^<]*allow-jit<\/key>/);
     assert.doesNotMatch(plist, /<key>[^<]*allow-dyld-environment-variables<\/key>/);
   }
+  const dyld = read('desktop/src-tauri/entitlements/runtime-dyld.entitlements');
+  assert.deepEqual(keys(dyld), [
+    ...keys(runtime),
+    'com.apple.security.cs.allow-dyld-environment-variables',
+  ]);
+  for (const plist of [app, runtime, dyld]) {
+    assert.doesNotMatch(plist, /<key>com\.apple\.security\.app-sandbox<\/key>/);
+    assert.doesNotMatch(plist, /<key>[^<]*allow-jit<\/key>/);
+  }
+  const signer = read('desktop/scripts/macos-sign-runtime.sh');
+  assert.match(signer, /DYLD_EXECUTABLES="\$\{MACOS_DYLD_EXECUTABLES-clio_run\}"/);
 });
 
 test('signing scripts are executable and use hardened runtime with timestamps', () => {

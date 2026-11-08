@@ -17,6 +17,11 @@
 #                        else "-" (ad-hoc, no timestamp)
 #   --entitlements FILE  entitlements for executables; default
 #                        src-tauri/entitlements/runtime.entitlements
+#   --dyld-entitlements FILE
+#                        entitlements for the executables named in
+#                        $MACOS_DYLD_EXECUTABLES (space-separated basenames,
+#                        default "clio_run"), which are started with DYLD_*
+#                        variables; default runtime-dyld.entitlements
 #   --keychain PATH      keychain holding the identity; default
 #                        $APPLE_KEYCHAIN_PATH
 #   --no-compile         skip precompiling Python bytecode
@@ -39,6 +44,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME="$SCRIPT_DIR/../src-tauri/gact-runtime"
 IDENTITY="${APPLE_SIGNING_IDENTITY:-}"
 ENTITLEMENTS="$SCRIPT_DIR/../src-tauri/entitlements/runtime.entitlements"
+DYLD_ENTITLEMENTS="$SCRIPT_DIR/../src-tauri/entitlements/runtime-dyld.entitlements"
+DYLD_EXECUTABLES="${MACOS_DYLD_EXECUTABLES-clio_run}"
 KEYCHAIN="${APPLE_KEYCHAIN_PATH:-}"
 COMPILE=1
 VERIFY_ONLY=0
@@ -52,12 +59,13 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --identity) IDENTITY="${2:?--identity needs a value}"; shift 2 ;;
     --entitlements) ENTITLEMENTS="${2:?--entitlements needs a file}"; shift 2 ;;
+    --dyld-entitlements) DYLD_ENTITLEMENTS="${2:?--dyld-entitlements needs a file}"; shift 2 ;;
     --keychain) KEYCHAIN="${2:?--keychain needs a path}"; shift 2 ;;
     --no-compile) COMPILE=0; shift ;;
     --verify-only) VERIFY_ONLY=1; shift ;;
     --thin) THIN_ARCH="${2:?--thin needs an architecture}"; shift 2 ;;
     --jobs) JOBS="${2:?--jobs needs a number}"; shift 2 ;;
-    -h|--help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option: $1" ;;
     *) RUNTIME="$1"; shift ;;
   esac
@@ -68,6 +76,7 @@ done
 [ -d "$RUNTIME" ] || die "runtime directory not found: $RUNTIME"
 RUNTIME="$(cd "$RUNTIME" && pwd)"
 [ -f "$ENTITLEMENTS" ] || die "entitlements file not found: $ENTITLEMENTS"
+[ -f "$DYLD_ENTITLEMENTS" ] || die "entitlements file not found: $DYLD_ENTITLEMENTS"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/macos-sign-runtime.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -175,6 +184,10 @@ verify_runtime() {
       if ! codesign -d --entitlements - "$path" 2>/dev/null | grep -q 'disable-library-validation'; then
         log "executable lacks runtime entitlements: ${path#"$RUNTIME"/}"
         failures=$((failures + 1))
+      elif grep -qxF "$path" "$WORK/execs-dyld.txt" 2>/dev/null \
+          && ! codesign -d --entitlements - "$path" 2>/dev/null | grep -q 'allow-dyld-environment-variables'; then
+        log "executable lacks allow-dyld-environment-variables: ${path#"$RUNTIME"/}"
+        failures=$((failures + 1))
       fi
     fi
   done <"$WORK/macho.tsv"
@@ -194,7 +207,13 @@ if [ "$VERIFY_ONLY" -eq 0 ] && [ -n "$THIN_ARCH" ]; then
   thin_runtime
 fi
 awk -F'\t' '$1 == "lib" { print $2 }' "$WORK/macho.tsv" >"$WORK/libs.txt"
-awk -F'\t' '$1 == "exec" { print $2 }' "$WORK/macho.tsv" >"$WORK/execs.txt"
+awk -F'\t' -v names="$DYLD_EXECUTABLES" '
+  BEGIN { n = split(names, list, " "); for (i = 1; i <= n; i++) dyld[list[i]] = 1 }
+  $1 == "exec" {
+    base = $2; sub(/.*\//, "", base)
+    print $2 > (base in dyld ? dyld_out : plain_out)
+  }' dyld_out="$WORK/execs-dyld.txt" plain_out="$WORK/execs.txt" "$WORK/macho.tsv"
+touch "$WORK/execs.txt" "$WORK/execs-dyld.txt"
 : >"$WORK/bundles.txt"
 while IFS= read -r dir; do
   if is_code_bundle "$dir"; then
@@ -220,6 +239,10 @@ if [ "$VERIFY_ONLY" -eq 0 ]; then
   # Inside-out: libraries, then executables, then the bundles that contain them.
   sign_list "$WORK/libs.txt"
   sign_list "$WORK/execs.txt" --entitlements "$ENTITLEMENTS"
+  if [ -s "$WORK/execs-dyld.txt" ]; then
+    log "allowing DYLD_* variables for: $(sed 's|.*/||' "$WORK/execs-dyld.txt" | sort -u | tr '\n' ' ')"
+  fi
+  sign_list "$WORK/execs-dyld.txt" --entitlements "$DYLD_ENTITLEMENTS"
   while IFS= read -r bundle; do
     printf '%s\n' "$bundle" >"$WORK/one-bundle.txt"
     sign_list "$WORK/one-bundle.txt" --entitlements "$ENTITLEMENTS"
