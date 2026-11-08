@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Button } from './button';
@@ -67,6 +67,33 @@ describe('modal layer shields', () => {
     await user.click(screen.getByRole('button', { name: 'Actions' }));
     expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument();
     expect(shields()).toHaveLength(0);
+  });
+
+  it('counts as outside the component that opened the menu, so its hover ends', async () => {
+    const onPointerLeave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <div data-testid="preview" onPointerLeave={onPointerLeave}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Rename</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    const shield = shields()[0]!;
+    onPointerLeave.mockClear();
+    fireEvent.pointerOut(screen.getByRole('button', { name: 'Actions', hidden: true }), {
+      relatedTarget: shield,
+    });
+    fireEvent.pointerOver(shield, {
+      relatedTarget: screen.getByRole('button', { name: 'Actions', hidden: true }),
+    });
+    expect(onPointerLeave).toHaveBeenCalled();
   });
 
   it('shields only modal popovers', async () => {

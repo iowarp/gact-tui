@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { createPortal } from 'react-dom';
 import { useControllableState } from '@radix-ui/react-use-controllable-state';
 import { ModalShield } from './modal-shield';
 import { useOverlayContainer } from './overlay-container';
@@ -83,7 +82,7 @@ function SelectContent({
   const open = React.useContext(SelectOpen);
   return (
     <>
-      {open ? createPortal(<ModalShield />, container ?? document.body) : null}
+      {open ? <ModalShield container={container} /> : null}
       <SelectPrimitive.Portal container={container}>
         <SelectPrimitive.Content
           data-slot="select-content"

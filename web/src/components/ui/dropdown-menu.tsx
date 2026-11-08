@@ -52,7 +52,7 @@ function DropdownMenuContent({
     <>
       {modal ? (
         <DropdownMenuPrimitive.Portal container={container}>
-          <ModalShield />
+          <ModalShield container={container} />
         </DropdownMenuPrimitive.Portal>
       ) : null}
       <DropdownMenuPrimitive.Portal container={container}>

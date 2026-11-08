@@ -36,7 +36,7 @@ function PopoverContent({
     <>
       {modal ? (
         <PopoverPrimitive.Portal container={container}>
-          <ModalShield />
+          <ModalShield container={container} />
         </PopoverPrimitive.Portal>
       ) : null}
       <PopoverPrimitive.Portal container={container}>

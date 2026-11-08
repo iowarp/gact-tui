@@ -78,7 +78,7 @@ function ContextMenuContent({
     <>
       {modal ? (
         <ContextMenuPrimitive.Portal container={container}>
-          <ModalShield />
+          <ModalShield container={container} />
         </ContextMenuPrimitive.Portal>
       ) : null}
       <ContextMenuPrimitive.Portal container={container}>
