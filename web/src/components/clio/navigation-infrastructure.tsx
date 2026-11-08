@@ -26,6 +26,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 import { serviceTitle } from '@/lib/mcp-service-presentation';
 import { mcpServerPreparation } from '@/lib/mcp-preparation';
@@ -133,15 +134,17 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   }, [health.data, health.error, health.isPending, servers.data, servers.error, servers.isPending]);
 
   const overall = aggregateInfrastructureState(items);
+  const shortcut = useShortcutPresentation('infrastructure');
 
   return (
     <Collapsible asChild onOpenChange={setOpen} open={open}>
       <SidebarMenuItem>
         <SidebarMenuButton
           asChild
-          tooltip={`Infrastructure: ${overall.stateLabel}. ${overall.detail || infrastructureSummary(items)}`}
+          tooltip={`Infrastructure${shortcut ? ` (${shortcut.text})` : ''}: ${overall.stateLabel}. ${overall.detail || infrastructureSummary(items)}`}
         >
           <Link
+            aria-keyshortcuts={shortcut?.aria}
             aria-label={`Infrastructure: ${overall.stateLabel}`}
             state={{ endpoint, from }}
             to="/infrastructure"

@@ -148,10 +148,15 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
     './data-grid-table',
   ],
+  // RC1 S4 deliberately replaces the runs DataGrid with grouped rows on the
+  // shared ListRow primitive (fixed status/source/workspace/state/time columns,
+  // details in a popover) so runs align with the conversation rail and bell.
+  // Reviewed at 1680/1280/1024/768 in light and dark (docs/design/rc1-campaign.md).
   'web/src/routes/runs-page.tsx': [
-    '@/components/clio/data-grid-table',
-    '@/components/reui/data-grid/data-grid',
+    '@/components/clio/run-list-row',
+    '@/components/clio/run-actions',
   ],
+  'web/src/components/clio/run-list-row.tsx': ['@/components/clio/primitives/list-row'],
   'web/src/components/clio/settings-session-defaults.tsx': [
     '@/components/ui/select',
     './composer-model-label',

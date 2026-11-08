@@ -1,7 +1,6 @@
-import { RunActions } from '@/components/clio/run-actions';
 import { queryKeys } from '@/lib/query-keys';
 import { truncate } from '@/lib/format';
-import { DATA_GRID_PAGE_SIZES, RUNS_POLL_MS } from '@/lib/runtime-limits';
+import { RUNS_POLL_MS } from '@/lib/runtime-limits';
 import type { Session } from '@clio/core/v3';
 import {
   keepPreviousData,
@@ -11,29 +10,17 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
-import { useTable } from '@tanstack/react-table';
-import {
-  ActivityIcon,
-  ChevronLeftIcon,
-  ExternalLinkIcon,
-  SearchIcon,
-  WorkflowIcon,
-} from 'lucide-react';
+import { ActivityIcon, ChevronLeftIcon, SearchIcon, WorkflowIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ClioDataGridTable } from '@/components/clio/data-grid-table';
-import { ClioStatus } from '@/components/clio/status';
-import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
-import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
-import {
-  DataGrid,
-  DataGridContainer,
-  dataGridFeatures,
-  type DataGridFeatures,
-} from '@/components/reui/data-grid/data-grid';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FrameDivider } from '@/components/clio/primitives/frame-bar';
+import { NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { SegmentedControl } from '@/components/clio/primitives/segmented-control';
+import { StateView } from '@/components/clio/primitives/state-view';
+import { RunActions } from '@/components/clio/run-actions';
+import { RunListRow } from '@/components/clio/run-list-row';
+import { RUN_GROUP_LABELS, runGroup, type RunGroup } from '@/components/clio/run-presentation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,11 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -57,17 +41,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
-import {
-  buildFlowRows,
-  buildRows,
-  retainFlowTools,
-  sourceLabels,
-  type RunRow,
-} from '@/routes/runs-rows';
-import { taskProgressLabel } from '@/components/clio/task-progress-label';
+import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
 
 const FLOW_SCAN_BATCH = 4;
@@ -75,13 +52,21 @@ const FLOW_SCAN_BATCH = 4;
 const FLOW_SESSION_PAGE = 20;
 type ConfirmedRunAction = { kind: 'cancel'; row: RunRow };
 
-function formatWhen(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
+/** Rows drawn at once; more appear on request so a long history stays light. */
+const RUN_ROW_STEP = 150;
+const RUN_GROUP_ORDER: readonly RunGroup[] = ['needs-you', 'running', 'queued', 'earlier'];
+const STATE_OPTIONS = [
+  { value: 'all', label: 'All states' },
+  { value: 'active', label: 'Active' },
+  { value: 'waiting_user', label: 'Waiting for you' },
+  { value: 'attention', label: 'Needs attention' },
+  { value: 'completed', label: 'Completed' },
+] as const;
+const SOURCE_OPTIONS = [
+  { value: 'all', label: 'All execution' },
+  { value: 'agent_task', label: 'Agents' },
+  { value: 'mcp_task', label: 'Tools' },
+] as const;
 export function RunsPage() {
   const location = useLocation();
   const repository = useRepository();
@@ -254,148 +239,11 @@ export function RunsPage() {
       return stateMatches && sourceMatches && searchMatches;
     });
   }, [category, rows, search, sourceFilter, stateFilter]);
-  const columns = useMemo<ColumnDef<DataGridFeatures, RunRow, unknown>[]>(
-    () => [
-      {
-        accessorKey: 'label',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Run" />,
-        cell: ({ row }) => (
-          <div className="min-w-56 py-0.5">
-            {row.original.workspaceId && row.original.targetSessionId ? (
-              <Link
-                className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                to={`${`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}${row.original.flowHandle ? `?flow=${encodeURIComponent(row.original.flowHandle)}` : ''}`}
-              >
-                {truncate(row.original.label, 80)}
-                <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-              </Link>
-            ) : (
-              <span className="font-medium">{row.original.label}</span>
-            )}
-            {row.original.taskKind && (
-              <p className="text-xs text-muted-foreground">{row.original.taskKind}</p>
-            )}
-            <details className="mt-1 max-w-80 text-xs">
-              <summary className="cursor-pointer text-muted-foreground">Details</summary>
-              <p className="mt-2 whitespace-pre-wrap break-words">{row.original.assignment}</p>
-              <p className="mt-2 break-all font-mono">{row.original.taskId}</p>
-              <p className="text-muted-foreground">Backend: {row.original.reportedStatus}</p>
-              {row.original.statusDetail ? (
-                <p className="mt-2 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-                  Reported issue: {row.original.statusDetail}
-                </p>
-              ) : null}
-            </details>
-          </div>
-        ),
-        meta: { autoSize: true, headerTitle: 'Run' },
-      },
-      {
-        accessorKey: 'state',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="State" />,
-        cell: ({ row }) => (
-          <div className="max-w-72 space-y-1.5 py-1">
-            <ClioStatus
-              detail={row.original.statusReason}
-              label={
-                (row.original.cancelRequested ||
-                  requestedCancellation.has(row.original.handleId)) &&
-                !['completed', 'failed', 'cancelled', 'interrupted'].includes(row.original.state)
-                  ? 'Cancellation requested'
-                  : undefined
-              }
-              value={row.original.state}
-            />
-            {taskProgressLabel(
-              row.original.progress,
-              row.original.taskKind,
-              row.original.statusDetail,
-            ) && (
-              <p className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                {taskProgressLabel(
-                  row.original.progress,
-                  row.original.taskKind,
-                  row.original.statusDetail,
-                )}
-              </p>
-            )}
-            {row.original.statusReason && row.original.state !== 'task_state_uncertain' ? (
-              <p
-                className="line-clamp-2 text-xs text-destructive"
-                title={row.original.statusReason}
-              >
-                {row.original.statusReason}
-              </p>
-            ) : null}
-          </div>
-        ),
-        meta: { autoSize: true, headerTitle: 'State' },
-      },
-      {
-        accessorKey: 'source',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Execution" />,
-        cell: ({ row }) => (
-          <div className="max-w-52 py-0.5">
-            <p className="text-sm">{sourceLabels[row.original.source]}</p>
-            <p className="truncate text-xs text-muted-foreground" title={row.original.placement}>
-              {row.original.source === 'flow'
-                ? row.original.placement
-                : row.original.host || 'Host unavailable'}
-            </p>
-          </div>
-        ),
-        meta: { headerTitle: 'Execution' },
-      },
-      {
-        accessorKey: 'workspaceLabel',
-        header: ({ column }) => (
-          <DataGridColumnHeader column={column} title={capitalize(vocab.workspace)} />
-        ),
-        cell: ({ row }) => (
-          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
-            <span>{row.original.workspaceLabelFields.name}</span>
-            {row.original.workspaceLabelFields.qualifiers.map((qualifier) => (
-              <span className="text-xs text-muted-foreground" key={qualifier}>
-                {qualifier}
-              </span>
-            ))}
-          </span>
-        ),
-        meta: { headerTitle: capitalize(vocab.workspace) },
-      },
-      {
-        accessorKey: 'updatedAt',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Updated" />,
-        cell: ({ row }) => (
-          <time
-            className="whitespace-nowrap text-xs text-muted-foreground"
-            dateTime={row.original.updatedAt}
-          >
-            {formatWhen(row.original.updatedAt)}
-          </time>
-        ),
-        meta: { headerTitle: 'Updated' },
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <RunActions
-            onCancel={() => setConfirmedAction({ kind: 'cancel', row: row.original })}
-            pending={cancel.isPending && cancel.variables?.handleId === row.original.handleId}
-            row={{
-              ...row.original,
-              cancelRequested:
-                row.original.cancelRequested || requestedCancellation.has(row.original.handleId),
-            }}
-          />
-        ),
-        meta: { autoSize: true, headerTitle: 'Actions' },
-      },
-    ],
-    [cancel.isPending, cancel.variables, requestedCancellation],
+  const [visibleLimit, setVisibleLimit] = useState(RUN_ROW_STEP);
+  const shownRows = useMemo(
+    () => filteredRows.slice(0, visibleLimit),
+    [filteredRows, visibleLimit],
   );
-  const table = useTable({ columns, data: filteredRows, features: dataGridFeatures });
   const flowError = flowTranscripts.find((query) => query.error)?.error;
   const error =
     category === 'flows'
@@ -407,173 +255,214 @@ export function RunsPage() {
   const flowsRemaining = Math.max(0, flowSessionTotal - flowsIndexed);
   const flowsIndexing = flowTranscripts.slice(0, flowScanLimit).some((query) => query.isFetching);
   const flowFailures = flowTranscripts.filter((query) => query.isError).length;
+  const loading =
+    sessions.isPending ||
+    workspaces.isPending ||
+    (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing);
+  const groups = useMemo(() => {
+    const byGroup = new Map<RunGroup, RunRow[]>();
+    for (const row of shownRows) {
+      const group = runGroup(row.state);
+      const list = byGroup.get(group);
+      if (list) list.push(row);
+      else byGroup.set(group, [row]);
+    }
+    return RUN_GROUP_ORDER.flatMap((group) => {
+      const groupRows = byGroup.get(group);
+      return groupRows ? [{ group, rows: groupRows }] : [];
+    });
+  }, [shownRows]);
+  const noun = category === 'flows' ? 'flows' : 'runs';
 
   return (
-    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-              Operations
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Runs</h1>
-            <p className="mt-2 text-muted-foreground">
-              Track operational handles and the flows agents started (workflows, councils and more).
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
-              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
+    <main className="flex h-full min-h-0 flex-col bg-background">
+      <div className="@container/runbar flex h-11 min-w-0 shrink-0 items-center gap-2 border-b border-border px-2 whitespace-nowrap sm:px-3">
+        <NamedTooltip label={`Back to ${vocab.workspace}`}>
+          <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
+            <Link
+              aria-label={`Back to ${vocab.workspace}`}
+              to={returnRouteFromState(location.state, settings.endpoint)}
+            >
+              <ChevronLeftIcon aria-hidden="true" />
             </Link>
           </Button>
-        </div>
-        <Tabs
-          className="mt-8"
-          onValueChange={(value) => setCategory(value as 'executions' | 'flows')}
+        </NamedTooltip>
+        <h1 className="shrink-0 text-[13px] font-semibold">Runs</h1>
+        <FrameDivider className="hidden @[520px]/runbar:block" />
+        <SegmentedControl
+          label="Run categories"
+          onValueChange={setCategory}
+          options={[
+            {
+              value: 'executions',
+              label: `Executions ${executionRows.length}`,
+              icon: <ActivityIcon aria-hidden="true" />,
+            },
+            {
+              value: 'flows',
+              label: `Flows ${flowRows.length}`,
+              icon: <WorkflowIcon aria-hidden="true" />,
+            },
+          ]}
           value={category}
-        >
-          <TabsList aria-label="Run categories">
-            <TabsTrigger value="executions">
-              <ActivityIcon aria-hidden="true" /> Executions
-              <Badge className="ml-1" variant="secondary">
-                {executionRows.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="flows">
-              <WorkflowIcon aria-hidden="true" /> Flows
-              <Badge className="ml-1" variant="secondary">
-                {flowRows.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-64 flex-1">
-            <SearchIcon
-              aria-hidden="true"
-              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              aria-label="Search runs"
-              className="pl-9"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={
-                category === 'flows'
-                  ? 'Search flow, workspace, or state'
-                  : 'Search run, workspace, state, host, or task'
-              }
-              value={search}
-            />
-          </div>
-          <Select onValueChange={setStateFilter} value={stateFilter}>
-            <SelectTrigger aria-label="Filter by state" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All states</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="waiting_user">Waiting for you</SelectItem>
-              <SelectItem value="attention">Needs attention</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          {category === 'executions' ? (
-            <Select onValueChange={setSourceFilter} value={sourceFilter}>
-              <SelectTrigger aria-label="Filter by execution type" className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All execution</SelectItem>
-                <SelectItem value="agent_task">Agents</SelectItem>
-                <SelectItem value="mcp_task">Tools</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Badge variant="secondary">
-            {filteredRows.length} {category === 'flows' ? 'flows' : 'runs'}
-          </Badge>
-        </div>
-        {category === 'flows' ? (
-          <Alert className="mt-6">
-            <WorkflowIcon aria-hidden="true" />
-            <AlertTitle>Flow runs</AlertTitle>
-            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-              <span>
-                Each row is a flow an agent started in a conversation, with its task&apos;s current
-                state. Open one to see its steps and any stall in the workspace canvas.
-                {flowsRemaining > 0
-                  ? ` ${flowsIndexed} of ${flowSessionTotal} sessions indexed.`
-                  : ''}
-                {flowFailures > 0
-                  ? ` ${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed.`
-                  : ''}
-              </span>
-              {flowScanLimit < orderedFlowSessions.length || flowSessionPages.hasNextPage ? (
-                <Button
-                  disabled={flowsIndexing || flowSessionPages.isFetchingNextPage}
-                  onClick={() => {
-                    // Read the next page of conversations when the indexed ones run out.
-                    if (
-                      flowScanLimit + FLOW_SCAN_BATCH > orderedFlowSessions.length &&
-                      flowSessionPages.hasNextPage
-                    ) {
-                      void flowSessionPages.fetchNextPage();
-                    }
-                    setFlowScanLimit((current) => current + FLOW_SCAN_BATCH);
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {error ? (
-          <Alert className="mt-6" variant="destructive">
-            <ActivityIcon aria-hidden="true" />
-            <AlertTitle>Run explorer unavailable</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
-        ) : (
-          <DataGrid
-            emptyMessage="No runs match the current search and filters."
-            isLoading={
-              sessions.isPending ||
-              workspaces.isPending ||
-              (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing)
-            }
-            recordCount={filteredRows.length}
-            table={table}
-            tableLayout={{
-              columnsResizable: true,
-              dense: true,
-              headerSticky: true,
-              width: 'fixed',
-            }}
+        />
+        <SegmentedControl
+          className="hidden @[1080px]/runbar:flex"
+          label="Filter by state"
+          onValueChange={setStateFilter}
+          options={STATE_OPTIONS}
+          value={stateFilter}
+        />
+        <Select onValueChange={setStateFilter} value={stateFilter}>
+          <SelectTrigger
+            aria-label="Filter by state"
+            className="h-7! w-36 shrink-0 text-[12px] @[1080px]/runbar:hidden"
+            size="sm"
           >
-            <DataGridContainer className="mt-6 rounded-xl border bg-card">
-              <ClioDataGridTable />
-              <div className="border-t px-4">
-                <DataGridPagination sizes={DATA_GRID_PAGE_SIZES} />
-              </div>
-            </DataGridContainer>
-          </DataGrid>
-        )}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>
-            {runs.data?.pages[0]?.total == null
-              ? `${tasks.length} tasks loaded`
-              : `Showing ${tasks.length} of ${runs.data.pages[0].total} tasks`}
-            . Search covers loaded results.
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {category === 'executions' ? (
+          <SegmentedControl
+            className="hidden @[1240px]/runbar:flex"
+            label="Filter by execution type"
+            onValueChange={setSourceFilter}
+            options={SOURCE_OPTIONS}
+            value={sourceFilter}
+          />
+        ) : null}
+        <div className="relative ml-auto min-w-24 max-w-56 flex-1">
+          <SearchIcon
+            aria-hidden="true"
+            className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            aria-label="Search runs"
+            className="h-7 pl-7 text-[12px]"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={category === 'flows' ? 'Search flows' : 'Search runs'}
+            title={
+              category === 'flows'
+                ? 'Search flow, workspace, or state'
+                : 'Search run, workspace, state, host, or task'
+            }
+            value={search}
+          />
+        </div>
+        <span className="hidden w-16 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums @[680px]/runbar:inline">
+          {filteredRows.length} {noun}
+        </span>
+      </div>
+      {category === 'flows' ? (
+        <div className="flex h-8 min-w-0 shrink-0 items-center gap-2 border-b border-border px-3 text-[12px] whitespace-nowrap text-muted-foreground">
+          <WorkflowIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span
+            className="min-w-0 flex-1 truncate"
+            title="Each row is a flow an agent started in a conversation, with its task's current state. Open one to see its steps and any stall in the workspace canvas."
+          >
+            Flows agents started in conversations
+            {flowsRemaining > 0 ? `, ${flowsIndexed} of ${flowSessionTotal} sessions indexed` : ''}
+            {flowFailures > 0
+              ? `, ${flowFailures} session${flowFailures === 1 ? '' : 's'} could not be indexed`
+              : ''}
           </span>
+          {flowScanLimit < orderedFlowSessions.length || flowSessionPages.hasNextPage ? (
+            <Button
+              disabled={flowsIndexing || flowSessionPages.isFetchingNextPage}
+              onClick={() => {
+                // Read the next page of conversations when the indexed ones run out.
+                if (
+                  flowScanLimit + FLOW_SCAN_BATCH > orderedFlowSessions.length &&
+                  flowSessionPages.hasNextPage
+                ) {
+                  void flowSessionPages.fetchNextPage();
+                }
+                setFlowScanLimit((current) => current + FLOW_SCAN_BATCH);
+              }}
+              size="xs"
+              variant="outline"
+            >
+              {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-2 py-2 sm:px-3">
+        {error ? (
+          <StateView
+            action={{ label: 'Retry', onClick: () => void refreshRuns() }}
+            detail={error.message}
+            kind="error"
+            title="Run explorer unavailable"
+          />
+        ) : loading ? (
+          <StateView kind="loading" title={`Loading ${noun}`} />
+        ) : filteredRows.length === 0 ? (
+          <StateView kind="empty" title="No runs match the current search and filters." />
+        ) : (
+          groups.map(({ group, rows: groupRows }) => (
+            <section aria-labelledby={`runs-group-${group}`} className="mb-2" key={group}>
+              <h2
+                className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-medium text-muted-foreground"
+                id={`runs-group-${group}`}
+              >
+                <span>{RUN_GROUP_LABELS[group]}</span>
+                <span className="font-mono tabular-nums">{groupRows.length}</span>
+              </h2>
+              {groupRows.map((row) => {
+                const cancelRequested =
+                  Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId);
+                return (
+                  <RunListRow
+                    actions={
+                      <RunActions
+                        onCancel={() => setConfirmedAction({ kind: 'cancel', row })}
+                        pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
+                        row={{ ...row, cancelRequested }}
+                      />
+                    }
+                    cancelRequested={cancelRequested}
+                    key={row.handleId}
+                    row={row}
+                  />
+                );
+              })}
+            </section>
+          ))
+        )}
+        <div className="mt-2 flex h-8 min-w-0 items-center gap-3 px-1.5 text-[12px] whitespace-nowrap text-muted-foreground">
+          <span className="min-w-0 truncate">
+            {footerCount(filteredRows.length, rows.length, noun)}
+            {category === 'executions' && runs.hasNextPage
+              ? runs.data?.pages[0]?.total == null
+                ? '. More available; search covers loaded runs.'
+                : `, ${runs.data.pages[0].total} in total. Search covers loaded runs.`
+              : null}
+          </span>
+          {filteredRows.length > visibleLimit ? (
+            <Button
+              className="ml-auto"
+              onClick={() => setVisibleLimit((current) => current + RUN_ROW_STEP)}
+              size="xs"
+              variant="outline"
+            >
+              Show {Math.min(RUN_ROW_STEP, filteredRows.length - visibleLimit)} more
+            </Button>
+          ) : null}
           {runs.hasNextPage ? (
             <Button
-              size="sm"
-              variant="outline"
+              className={filteredRows.length > visibleLimit ? undefined : 'ml-auto'}
               disabled={runs.isFetchingNextPage}
               onClick={() => void runs.fetchNextPage()}
+              size="xs"
+              variant="outline"
             >
               {runs.isFetchingNextPage ? 'Loading…' : 'Load more tasks'}
             </Button>
@@ -611,4 +500,9 @@ export function RunsPage() {
       </AlertDialog>
     </main>
   );
+}
+
+/** "4 of 9 runs": what the filter shows out of what is loaded, in the header's noun. */
+function footerCount(shown: number, loaded: number, noun: 'runs' | 'flows'): string {
+  return `${shown} of ${loaded} ${loaded === 1 ? noun.slice(0, -1) : noun}`;
 }

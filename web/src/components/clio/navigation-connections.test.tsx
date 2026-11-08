@@ -31,6 +31,9 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: mocks.settings, recents: [mocks.connections[0]] }),
 }));
 vi.mock('@/hooks/use-known-connections', () => ({ useKnownConnections: () => mocks.connections }));
+vi.mock('@/hooks/use-runtime-version', () => ({
+  useRuntimeVersion: () => ({ version: undefined, pending: false }),
+}));
 vi.mock('@/hooks/use-connection-availability', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-connection-availability')>()),
   useConnectionAvailabilities: () => ({}),

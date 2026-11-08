@@ -583,17 +583,31 @@ export async function exploreJourney(r) {
     { css: 'h1', text: 'Runs' },
     { control: runs },
   );
+  // Run categories are a segmented control (radios) since the RC1 runs layout.
   for (const tab of ['Flows', 'Executions']) {
-    const control = page.getByRole('tab', { name: new RegExp(`^${tab}`, 'u') }).first();
+    const control = page.getByRole('radio', { name: new RegExp(`^${tab}`, 'u') }).first();
     await r.measure(
       `runs tab: ${tab}`,
       'tab',
       () => control.click(),
-      { css: '[role="tab"][aria-selected="true"]', text: tab },
+      { css: '[role="radio"][aria-checked="true"]', text: tab },
       { control },
     );
   }
-  await r.overlay('runs state filter', 'combobox', 'Filter by state');
+  // Wide bars show the states as a segmented control; narrow ones a select.
+  const stateSelect = r.control('combobox', 'Filter by state');
+  if (await r.visible(stateSelect, 500)) {
+    await r.overlay('runs state filter', 'combobox', 'Filter by state');
+  } else {
+    const attention = page.getByRole('radio', { name: /^Needs attention/u }).first();
+    await r.measure(
+      'runs state filter',
+      'tab',
+      () => attention.click(),
+      { css: '[role="radio"][aria-checked="true"]', text: 'Needs attention' },
+      { control: attention },
+    );
+  }
   await page.goBack();
   await waitIdle(page);
   const infra = r.control('link', /^Infrastructure/u);
@@ -623,7 +637,7 @@ export async function exploreJourney(r) {
       { control, timeoutMs: 8000 },
     );
   }
-  const home = r.control('link', 'Workspace', { exact: true });
+  const home = r.control('link', /^(Workspace|Back to workspace)$/iu);
   await r.measure(
     'back to workspace (from infrastructure)',
     'navigation',

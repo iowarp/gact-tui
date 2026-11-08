@@ -70,19 +70,22 @@ export function ModelInventoryRow({
     },
   });
   return (
-    <article className="py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <article className="@container py-3">
+      <div className="flex min-w-0 items-center gap-3 whitespace-nowrap">
         <Button
           variant="link"
-          className="h-auto min-w-0 max-w-full justify-start p-0 text-left font-medium text-foreground"
+          className="h-auto min-w-0 shrink justify-start p-0 text-left font-medium text-foreground"
           onClick={() => setDetailsOpen(true)}
+          title={model.repository}
         >
-          {model.repository}
+          <span className="truncate">{model.repository}</span>
         </Button>
         {metadata.data ? (
-          <ModelCapabilityTags size="sm" tags={displayedTags(registryModelTags(metadata.data))} />
+          <div className="hidden min-w-0 overflow-hidden @4xl:flex">
+            <ModelCapabilityTags size="sm" tags={displayedTags(registryModelTags(metadata.data))} />
+          </div>
         ) : null}
-        <Badge variant="outline">
+        <Badge className="shrink-0" variant="outline">
           {model.state === 'ready' ? (shared ? 'Shared cache' : 'Ready') : model.state}
         </Badge>
         <div className="ml-auto flex shrink-0 items-center gap-2">

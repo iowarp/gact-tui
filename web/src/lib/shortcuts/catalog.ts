@@ -74,6 +74,9 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
   def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: ['Shift+Cmd+/'] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
+  def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
+  // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.
+  def('notifications', 'Notifications', 'anywhere', ['Ctrl+Alt+N']),
   def('shortcuts', 'All shortcuts', 'anywhere', ['Ctrl+/']),
   def('show-keys', 'Show keys on screen', 'anywhere', ['hold Ctrl']),
   def('fullscreen', 'Full screen', 'anywhere', ['F11'], { host: 'desktop', mac: ['Ctrl+Cmd+F'] }),

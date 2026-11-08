@@ -9,6 +9,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   title: ReactNode;
   /** Muted words after the title (a path, a model), cut first when narrow. */
   description?: ReactNode;
+  /**
+   * Extra fixed-width columns between the name and the badge (source,
+   * workspace). Each child sets its own width, the same on every row, and may
+   * hide at narrow container widths; columns drop, they never shift.
+   */
+  columns?: ReactNode;
   /** Fixed 58px column: a Tag. */
   badge?: ReactNode;
   /** Fixed 44px mono column: elapsed time, size or count (MetaValue). */
@@ -40,6 +46,7 @@ export const ListRow = memo(
       icon,
       title,
       description,
+      columns,
       badge,
       meta,
       actions,
@@ -84,6 +91,7 @@ export const ListRow = memo(
             </span>
           ) : null}
         </span>
+        {columns}
         {badge !== undefined ? (
           <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
         ) : null}

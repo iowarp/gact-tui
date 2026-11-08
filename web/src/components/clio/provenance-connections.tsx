@@ -15,6 +15,8 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
+import { StateView } from './primitives/state-view';
+import { TechnicalDetails } from './technical-details';
 import { ManagedServiceLogo } from './managed-service-identity';
 import { ClioStatus } from './status';
 import { HostPathPicker } from './host-path-picker';
@@ -168,17 +170,20 @@ function ConnectionRow({
         </p>
       ) : null}
       {action.error ? (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          {action.error.message}
-        </p>
+        <StateView
+          className="mt-2"
+          kind="error"
+          size="row"
+          title="This connection action did not finish"
+          detail={action.error.message}
+        />
       ) : null}
       {Object.keys(row.verification).length ? (
-        <details className="mt-2 text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Verification receipt</summary>
-          <pre className="mt-2 whitespace-pre-wrap break-all">
+        <TechnicalDetails className="mt-2 text-xs" title="Verification receipt">
+          <pre className="mt-2 whitespace-pre-wrap break-all text-muted-foreground">
             {JSON.stringify(row.verification, null, 2)}
           </pre>
-        </details>
+        </TechnicalDetails>
       ) : null}
     </article>
   );

@@ -1,5 +1,4 @@
 import type { InfrastructureInventory, McpUserConfiguration } from '@clio/core/v3';
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRightIcon, BotIcon, CpuIcon, GlobeIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -15,6 +14,7 @@ import { InfrastructureTopology } from './infrastructure-topology';
 import { remoteUrlFromSpec } from './web-search-configuration';
 import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { StateView } from './primitives/state-view';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { TechnicalDetails } from './technical-details';
 
@@ -30,8 +30,8 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
   });
   return (
     <section className="py-2" aria-label="Computer capabilities">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Computer capabilities</h2>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h2 className="truncate text-sm font-semibold">Computer capabilities</h2>
         <Button
           size="sm"
           variant="outline"
@@ -42,9 +42,13 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
         </Button>
       </div>
       {query.error ? (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          Could not inspect this computer. Check its connection, then try again.
-        </p>
+        <StateView
+          className="mt-3"
+          kind="error"
+          size="row"
+          title="Could not inspect this computer. Check its connection, then try again."
+          action={{ label: 'Retry', onClick: () => void query.refetch() }}
+        />
       ) : null}
       {query.error ? (
         <TechnicalDetails className="mt-2 text-xs" title="Inspection details">
@@ -56,19 +60,21 @@ export function InfrastructureHostInspection({ targetId }: { targetId: string })
       {query.data ? (
         <>
           <ManagedServiceHostFacts facts={query.data.facts} />
-          <details className="mt-3 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Computer identity & paths</summary>
+          <TechnicalDetails className="mt-3 text-xs" title="Computer identity & paths">
             {query.data.facts.hostname ? (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 truncate text-xs text-muted-foreground">
                 Computer: {query.data.facts.hostname}
               </p>
             ) : null}
             {query.data.facts.home ? (
-              <p className="mt-1 break-all text-xs text-muted-foreground">
+              <p
+                className="mt-1 truncate text-xs text-muted-foreground"
+                title={displayHostPath(query.data.facts.home)}
+              >
                 Home: {displayHostPath(query.data.facts.home)}
               </p>
             ) : null}
-          </details>
+          </TechnicalDetails>
         </>
       ) : (
         <p className="mt-3 text-sm text-muted-foreground" role="status">
@@ -97,7 +103,6 @@ export function InfrastructureOverview({
 }) {
   const { settings } = useConnectionSettings();
   const { servers } = useSavedServers();
-  const [inspectionOpen, setInspectionOpen] = useState(false);
   const research = webResearchRow(data, webSearch, webSearchConnected);
   const rows: {
     label: string;
@@ -113,7 +118,7 @@ export function InfrastructureOverview({
     {
       label: 'Agent',
       icon: BotIcon,
-      detail: settings.label || vocab.agent,
+      detail: agentDetail(settings.label, settings.endpoint),
       description: 'Sessions and tools run here.',
       action: 'Inspect agent',
       status: 'Connected',
@@ -148,7 +153,7 @@ export function InfrastructureOverview({
         endpoint={settings.endpoint}
       />
       <section aria-label="Manage your setup">
-        <p className="text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           Each service can use a different host. Your agent connection stays the same.
         </p>
         <div className="mt-3 divide-y border-y">
@@ -156,39 +161,31 @@ export function InfrastructureOverview({
             ({ label, icon: Icon, detail, description, action, to, onClick, status, state }) => (
               <div
                 key={label}
-                className="grid items-center gap-3 py-3 sm:grid-cols-[9rem_minmax(0,1fr)_auto]"
+                className="grid grid-cols-[9.5rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
               >
-                <div className="flex items-center gap-3 font-medium">
-                  <Icon className="size-4 text-primary" />
-                  {label}
+                <div className="flex min-w-0 items-center gap-3 font-medium">
+                  <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                  <span className="truncate">{label}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="break-words text-sm" title={detail}>
+                  <p className="truncate text-sm" title={detail}>
                     {detail}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground" title={description}>
+                    {description}
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:justify-self-end">
+                <div className="flex shrink-0 items-center justify-end gap-2">
                   {status ? <ClioStatus label={status} value={state} /> : null}
                   {to ? (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="w-fit justify-self-start sm:justify-self-end"
-                    >
+                    <Button asChild variant="ghost" size="sm">
                       <Link to={to}>
                         {action}
                         <ArrowRightIcon />
                       </Link>
                     </Button>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-fit justify-self-start sm:justify-self-end"
-                      onClick={onClick}
-                    >
+                    <Button variant="ghost" size="sm" onClick={onClick}>
                       {action}
                       <ArrowRightIcon />
                     </Button>
@@ -200,18 +197,19 @@ export function InfrastructureOverview({
         </div>
       </section>
       {servers.data?.length ? (
-        <details className="border-b pb-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            Saved model servers ({servers.data.length})
-          </summary>
+        <TechnicalDetails
+          className="border-b pb-4 text-sm"
+          summaryClassName="text-foreground"
+          title={`Saved model servers (${servers.data.length})`}
+        >
           <div className="mt-3 divide-y">
             {servers.data.map((server) => (
-              <div key={server.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
-                <span className="font-medium">{server.label}</span>
+              <div key={server.id} className="flex min-w-0 items-center gap-3 py-3 text-sm">
+                <span className="truncate font-medium">{server.label}</span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                   {server.address}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {server.check
                     ? server.check.reachable
                       ? 'Reachable'
@@ -221,42 +219,44 @@ export function InfrastructureOverview({
               </div>
             ))}
           </div>
-        </details>
+        </TechnicalDetails>
       ) : null}
       {servers.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Saved model servers could not load: {servers.error.message}
-        </p>
+        <StateView
+          kind="error"
+          size="row"
+          title="Saved model servers could not load"
+          detail={servers.error.message}
+          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+        />
       ) : null}
-      <details
-        className="border-b pb-4"
-        open={inspectionOpen}
-        onToggle={(event) => setInspectionOpen(event.currentTarget.open)}
+      <TechnicalDetails
+        className="border-b pb-4 text-sm"
+        summaryClassName="text-foreground"
+        title="Computer details"
       >
-        <summary className="cursor-pointer text-sm font-medium">Computer details</summary>
         <section className="mt-4 space-y-3" aria-label="Computer inspection">
           <ManagedServiceHostSelector
             targets={data.targets}
             targetId={targetId}
             onSelect={onTarget}
           />
-          {inspectionOpen ? <InfrastructureHostInspection targetId={targetId} /> : null}
+          <InfrastructureHostInspection targetId={targetId} />
         </section>
-      </details>
-      <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline">
-          <Link to="/infrastructure/agent">Manage computers</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to="/infrastructure/models">Download models & manage storage</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link to="/infrastructure/activity">
-            View activity
-            <ArrowRightIcon />
-          </Link>
-        </Button>
-      </div>
+      </TechnicalDetails>
+      <nav aria-label="More infrastructure" className="flex min-w-0 items-center gap-2">
+        {[
+          { to: '/infrastructure/agent', label: 'Manage computers' },
+          { to: '/infrastructure/models', label: 'Download models & manage storage' },
+          { to: '/infrastructure/activity', label: 'View activity' },
+        ].map((item) => (
+          <Button asChild className="min-w-0" key={item.to} variant="outline">
+            <Link to={item.to}>
+              <span className="truncate">{item.label}</span>
+            </Link>
+          </Button>
+        ))}
+      </nav>
     </div>
   );
 }
@@ -321,4 +321,10 @@ function webResearchRow(
     status: 'Not connected',
     state: 'unavailable',
   };
+}
+
+/** The agent row names the connection, or its address when the name is just "Agent". */
+function agentDetail(label: string | undefined, endpoint: string): string {
+  const name = label?.trim();
+  return name && name.toLowerCase() !== vocab.agent.toLowerCase() ? name : endpoint;
 }

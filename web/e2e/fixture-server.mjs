@@ -1399,6 +1399,466 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+
+// Infrastructure of "This computer": a Windows workstation with an AMD GPU and
+// Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
+// The service catalog is the production catalog captured for review.
+const observedEpoch = Date.parse(observedAt) / 1000;
+const localHome = 'C:\\Users\\researcher';
+const modelsRoot = `${localHome}\\.clio\\models`;
+const webSearchUrl = 'http://127.0.0.1:8089';
+const llamaCppUrl = 'http://127.0.0.1:8088';
+const webSearchSpec = {
+  name: 'CLIO Web Search',
+  command: 'clio-kit',
+  args: ['mcp-server', 'web', '--remote-url', webSearchUrl],
+  env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
+  always_load: true,
+};
+const webSearchTools = [
+  { name: 'web_search', description: 'Search the web and return ranked results with snippets.' },
+  { name: 'web_fetch', description: 'Fetch a page and return its readable text and links.' },
+];
+const webSearchConfiguration = {
+  name: 'web',
+  configured: true,
+  scope: 'user',
+  status: 'ready',
+  transport: 'stdio',
+  tools_count: webSearchTools.length,
+  tools: webSearchTools.map((tool) => tool.name),
+  tool_details: webSearchTools,
+  spec: webSearchSpec,
+  retryable: false,
+};
+const savedMcpServices = [
+  {
+    name: 'web',
+    label: 'CLIO Web Search',
+    transport: 'stdio',
+    always_load: true,
+    spec: webSearchSpec,
+  },
+  {
+    name: 'earthscope',
+    label: 'EarthScope GNSS',
+    transport: 'http',
+    always_load: false,
+    spec: { url: 'https://mcp.earthscope.org/gnss', authentication: 'oauth' },
+  },
+];
+const savedModelServers = [
+  {
+    id: 'lmstudio',
+    preset_id: 'lmstudio',
+    label: 'LM Studio',
+    address: 'http://127.0.0.1:1234/v1',
+    custom: false,
+    check: {
+      reachable: true,
+      connectivity: 'ok',
+      models: ['qwen3-30b', 'text-embedding-nomic-embed-text-v1.5'],
+      error: '',
+      checked_at: observedAt,
+    },
+  },
+  {
+    id: 'llama_cpp',
+    preset_id: 'llama_cpp',
+    label: 'llama.cpp',
+    address: `${llamaCppUrl}/v1`,
+    custom: false,
+    check: {
+      reachable: true,
+      connectivity: 'ok',
+      models: ['Qwen3-8B-Q4_K_M.gguf'],
+      error: '',
+      checked_at: observedAt,
+    },
+  },
+  {
+    id: 'lab_vllm',
+    preset_id: 'vllm',
+    label: 'Lab GPU server (vLLM)',
+    address: 'http://10.42.0.17:8000/v1',
+    custom: true,
+  },
+];
+const objectSchema = (properties, required = Object.keys(properties)) => ({
+  type: 'object',
+  properties,
+  required,
+});
+const stringField = (description) => ({ type: 'string', description });
+const builtinTools = [
+  [
+    'fs_read_file',
+    'Read file',
+    'workspace',
+    'Read a workspace file, optionally a line range.',
+    { path: stringField('Workspace-relative path.') },
+  ],
+  [
+    'fs_write_file',
+    'Write file',
+    'workspace',
+    'Create or replace a workspace file.',
+    { path: stringField('Workspace-relative path.'), content: stringField('Full file content.') },
+  ],
+  [
+    'fs_edit_file',
+    'Edit file',
+    'workspace',
+    'Replace exact text in a workspace file.',
+    {
+      path: stringField('Workspace-relative path.'),
+      old_text: stringField('Text to replace.'),
+      new_text: stringField('Replacement text.'),
+    },
+  ],
+  [
+    'fs_list_directory',
+    'List directory',
+    'workspace',
+    'List the entries of a workspace directory.',
+    { path: stringField('Workspace-relative directory.') },
+  ],
+  [
+    'fs_search_text',
+    'Search text',
+    'workspace',
+    'Search workspace files with a regular expression.',
+    { pattern: stringField('Regular expression.'), glob: stringField('Optional file glob.') },
+  ],
+  [
+    'shell_bash',
+    'Run command',
+    'shell',
+    'Run a shell command in the workspace and return its output.',
+    { command: stringField('Command line to run.'), timeout_s: { type: 'integer', minimum: 1 } },
+  ],
+  [
+    'create_artifact',
+    'Create artifact',
+    'artifacts',
+    'Save a versioned artifact such as a plot, table or report.',
+    { name: stringField('Artifact name.'), path: stringField('Source file.') },
+  ],
+  [
+    'update_plan',
+    'Update plan',
+    'planning',
+    'Record the current plan and step status.',
+    { steps: { type: 'array', items: { type: 'string' } } },
+  ],
+  [
+    'memory_search',
+    'Search memory',
+    'memory',
+    'Search saved memory documents for relevant facts.',
+    { query: stringField('What to look for.') },
+  ],
+  [
+    'log_entry',
+    'Log entry',
+    'science',
+    'Append a measurement or observation to the science log.',
+    { title: stringField('Entry title.'), body: stringField('Entry text.') },
+  ],
+].map(([name, title, domain, description, properties]) => ({
+  id: `clio:${name}`,
+  name,
+  title,
+  description,
+  source: 'builtin',
+  status: 'available',
+  enabled: true,
+  owner: 'clio',
+  tags: [domain],
+  visible_to: [],
+  input_schema: objectSchema(properties, Object.keys(properties).slice(0, 1)),
+  output_schema: {},
+  domain,
+}));
+const liveTools = [
+  ...builtinTools.filter((tool) => tool.name !== 'log_entry'),
+  ...webSearchTools.map(({ name, description }) => ({
+    id: `mcp_web:${name}`,
+    name,
+    title: name === 'web_search' ? 'Web search' : 'Fetch page',
+    description,
+    server_id: 'mcp_web',
+    source: 'mcp',
+    status: 'available',
+    enabled: true,
+    owner: 'web',
+    tags: ['web'],
+    visible_to: [],
+    input_schema: objectSchema(
+      name === 'web_search'
+        ? { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } }
+        : { url: stringField('Page address.') },
+      [name === 'web_search' ? 'query' : 'url'],
+    ),
+    output_schema: {},
+  })),
+];
+const localTargetFacts = {
+  target_id: 'local',
+  label: 'This computer',
+  os: 'windows',
+  arch: 'x86_64',
+  identity: { uid: -1, gid: -1 },
+  home: localHome,
+  hostname: 'SCIENCE-WS',
+  agent_data_root: `${localHome}\\.clio`,
+  accelerator: 'amd',
+  docker_available: true,
+  docker_installed: true,
+  uv_available: true,
+  transport_state: 'connected',
+  container_runtimes: [
+    { name: 'docker', installed: true, usable: true, version: '28.3.2', detail: 'Docker Desktop' },
+    { name: 'podman', installed: false, usable: false, reason: 'not_installed', detail: '' },
+  ],
+  gpus: [
+    { index: 0, name: 'AMD Radeon RX 7900 XTX', vendor: 'amd', memory_total_mib: 24560, uuid: '' },
+  ],
+};
+const runningServices = {
+  llama_cpp: {
+    state: 'running',
+    connection_url: llamaCppUrl,
+    connection_strategy: 'loopback',
+    configuration: {
+      model_path: `${modelsRoot}\\Qwen--Qwen3-8B-GGUF\\Qwen3-8B-Q4_K_M.gguf`,
+      port: '8088',
+    },
+    effective_parameters: [
+      {
+        id: 'ctx_size',
+        label: 'Context size',
+        value: '32768',
+        source: 'server_report',
+        detail: '',
+      },
+      { id: 'parallel', label: 'Parallel slots', value: '4', source: 'launch_request', detail: '' },
+      { id: 'gpu_layers', label: 'GPU layers', value: '37', source: 'engine_default', detail: '' },
+    ],
+    owned_resources: [
+      {
+        kind: 'directory',
+        ref: `${localHome}\\.clio\\services\\llama_cpp`,
+        created_at: '2026-08-20T15:12:00.000Z',
+      },
+    ],
+    access: {
+      mode: 'api_key',
+      detail: 'Protected by the key this agent made for it.',
+      verified: true,
+    },
+  },
+  web_search: {
+    state: 'running',
+    connection_url: webSearchUrl,
+    connection_strategy: 'loopback',
+    owned_resources: [
+      {
+        kind: 'directory',
+        ref: `${localHome}\\.clio\\services\\web_search`,
+        created_at: '2026-08-18T09:40:00.000Z',
+      },
+    ],
+  },
+  ollama: { state: 'stopped' },
+};
+const reviewCatalog = JSON.parse(
+  readFileSync(new URL('../tests/review/service-methods-catalog.json', import.meta.url), 'utf8'),
+);
+const managedServiceCatalog = {
+  facts: localTargetFacts,
+  services: reviewCatalog
+    .find((scenario) => scenario.label === 'Windows AMD + Docker')
+    .services.map((service) => ({
+      ...service,
+      state: 'not_installed',
+      ...runningServices[service.id],
+    })),
+};
+const downloadedModel = (id, repository, revision, folder, bytes, extra = {}) => ({
+  id,
+  target_id: 'local',
+  storage_root: modelsRoot,
+  repository,
+  requested_revision: 'main',
+  revision,
+  destination: `${modelsRoot}\\${folder}`,
+  state: 'ready',
+  phase: 'Model available',
+  bytes_done: bytes,
+  bytes_total: bytes,
+  created_at: observedEpoch - 3 * 86_400,
+  updated_at: observedEpoch - 3 * 86_400 + 1_260,
+  observed_at: observedEpoch,
+  error: null,
+  origin: 'receipt',
+  ...extra,
+});
+const localModelInventory = {
+  target_id: 'local',
+  models: [
+    downloadedModel(
+      'model_qwen3_8b_gguf',
+      'Qwen/Qwen3-8B-GGUF',
+      '7c41481f57cb95916b40956ab2f0b9a7e5d4f0a3',
+      'Qwen--Qwen3-8B-GGUF',
+      5_027_783_488,
+      {
+        file_path: `${modelsRoot}\\Qwen--Qwen3-8B-GGUF\\Qwen3-8B-Q4_K_M.gguf`,
+        files: ['Qwen3-8B-Q4_K_M.gguf'],
+      },
+    ),
+    downloadedModel(
+      'model_nomic_embed',
+      'nomic-ai/nomic-embed-text-v1.5-GGUF',
+      '3b0d7e5b1a6f1d6c2e8f5a1c9b4d7e2f6a0c3b5d',
+      'nomic-ai--nomic-embed-text-v1.5-GGUF',
+      146_146_432,
+      {
+        file_path: `${modelsRoot}\\nomic-ai--nomic-embed-text-v1.5-GGUF\\nomic-embed-text-v1.5.Q8_0.gguf`,
+        files: ['nomic-embed-text-v1.5.Q8_0.gguf'],
+      },
+    ),
+    downloadedModel(
+      'model_granite_33_8b',
+      'ibm-granite/granite-3.3-8b-instruct',
+      '51dd4bc2ade4059a6bd87649d68aa11e4fb2529b',
+      'ibm-granite--granite-3.3-8b-instruct',
+      16_337_210_368,
+      {
+        storage_root: `${localHome}\\.cache\\huggingface\\hub`,
+        destination: `${localHome}\\.cache\\huggingface\\hub\\models--ibm-granite--granite-3.3-8b-instruct\\snapshots\\51dd4bc2ade4059a6bd87649d68aa11e4fb2529b`,
+        phase: 'Model available (Hugging Face cache)',
+        origin: 'hf_cache',
+      },
+    ),
+  ],
+  errors: [],
+  unavailable_reason: null,
+};
+const hubEvidence = [
+  { detail: 'Hugging Face model card', observed_at: observedAt, source: 'hf_repo' },
+];
+const tagged = (values) => values.map((value) => ({ evidence: hubEvidence, value }));
+const registryDetails = (repository, revision, model) => {
+  const card = `# ${repository}\n\n${model.description}\n`;
+  return {
+    repository,
+    metadata_repository: model.base ?? repository,
+    revision,
+    capability_tags: {
+      model_key: repository,
+      model_type: { evidence: hubEvidence, value: model.type },
+      capabilities: tagged(model.capabilities),
+      input_modalities: tagged(['text']),
+      output_modalities: tagged([model.type === 'embedding' ? 'embeddings' : 'text']),
+      domains: tagged(['language']),
+      tasks: tagged([model.type === 'embedding' ? 'feature-extraction' : 'text-generation']),
+    },
+    model_facts: {
+      model_key: repository,
+      description: {
+        evidence: hubEvidence,
+        value: { plain: model.description, text: model.description },
+      },
+      parameters: {
+        evidence: hubEvidence,
+        value: {
+          active: model.parameters,
+          experts_active: null,
+          experts_total: null,
+          precision: 'rounded',
+          total: model.parameters,
+        },
+      },
+      pricing: null,
+      recent: null,
+      released_at: { evidence: hubEvidence, value: { date: model.released, precision: 'day' } },
+    },
+    context_window: model.context,
+    reasoning: model.capabilities.includes('reasoning')
+      ? { mechanism: 'chat_template', levels: ['on', 'off'] }
+      : null,
+    native_tool_calling: model.capabilities.includes('tool_calling'),
+    hub_tags: model.tags,
+    card_url: `https://huggingface.co/${repository}`,
+    card_markdown: card,
+    card_repository: repository,
+    card_revision: revision,
+    card_status: 'complete',
+    card_chars: card.length,
+  };
+};
+const modelRegistry = new Map(
+  [
+    registryDetails('Qwen/Qwen3-8B-GGUF', '7c41481f57cb95916b40956ab2f0b9a7e5d4f0a3', {
+      base: 'Qwen/Qwen3-8B',
+      type: 'chat',
+      capabilities: ['tool_calling', 'reasoning'],
+      description: 'Qwen3 8B dense language model with switchable thinking, quantized to GGUF.',
+      parameters: 8_190_000_000,
+      released: '2025-04-29',
+      context: 32_768,
+      tags: ['gguf', 'text-generation', 'qwen3'],
+    }),
+    registryDetails(
+      'nomic-ai/nomic-embed-text-v1.5-GGUF',
+      '3b0d7e5b1a6f1d6c2e8f5a1c9b4d7e2f6a0c3b5d',
+      {
+        base: 'nomic-ai/nomic-embed-text-v1.5',
+        type: 'embedding',
+        capabilities: [],
+        description:
+          'Long-context text embedding model with Matryoshka dimensions, quantized to GGUF.',
+        parameters: 137_000_000,
+        released: '2024-02-10',
+        context: 8_192,
+        tags: ['gguf', 'sentence-similarity', 'feature-extraction'],
+      },
+    ),
+    registryDetails(
+      'ibm-granite/granite-3.3-8b-instruct',
+      '51dd4bc2ade4059a6bd87649d68aa11e4fb2529b',
+      {
+        type: 'chat',
+        capabilities: ['tool_calling', 'reasoning'],
+        description: 'Granite 3.3 8B instruction model with reasoning and tool calling.',
+        parameters: 8_170_000_000,
+        released: '2025-04-16',
+        context: 131_072,
+        tags: ['safetensors', 'text-generation', 'granite'],
+      },
+    ),
+  ].map((details) => [details.repository, details]),
+);
+const provenanceConnections = [
+  {
+    id: 'prov_flowcept_lab',
+    service_id: 'flowcept',
+    label: 'Lab Flowcept',
+    url: 'http://10.42.0.21:8008',
+    configuration: {
+      settings_path: `${localHome}\\flowcept\\settings.yaml`,
+      capture_attention: 'false',
+    },
+    verification: { wrote_record: true, read_back: true, checked_at: observedAt },
+    managed: false,
+    verified: true,
+    active: false,
+    selected: false,
+  },
+];
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
@@ -1982,6 +2442,69 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/servers') {
     sendJson(response, { servers: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/mcp/configuration') {
+    sendJson(response, { servers: savedMcpServices });
+    return;
+  }
+  const mcpConfiguration = /^\/v1\/mcp\/configuration\/([^/]+)$/u.exec(url.pathname);
+  if (request.method === 'GET' && mcpConfiguration) {
+    const name = decodeURIComponent(mcpConfiguration[1]);
+    sendJson(
+      response,
+      name === 'web'
+        ? webSearchConfiguration
+        : { name, configured: false, scope: 'user', status: 'local_fallback', retryable: false },
+    );
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/providers/servers') {
+    sendJson(response, { servers: savedModelServers });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/catalog/tools') {
+    sendJson(response, { tools: builtinTools });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/tools') {
+    sendJson(response, { tools: liveTools });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/catalog') {
+    const targetId = url.searchParams.get('target_id') ?? 'local';
+    if (targetId !== 'local') {
+      sendJson(response, { error: 'target_not_found', target_id: targetId }, 404);
+      return;
+    }
+    sendJson(response, managedServiceCatalog);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/provenance/connections') {
+    sendJson(response, { connections: provenanceConnections });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/infrastructure/models/details') {
+    const repository = url.searchParams.get('repository') ?? '';
+    const details = modelRegistry.get(repository);
+    if (details) sendJson(response, details);
+    else sendJson(response, { error: 'model_not_found', repository }, 404);
+    return;
+  }
+  const targetModels = /^\/v1\/infrastructure\/targets\/([^/]+)\/models$/u.exec(url.pathname);
+  if (request.method === 'GET' && targetModels) {
+    const targetId = decodeURIComponent(targetModels[1]);
+    sendJson(
+      response,
+      targetId === 'local'
+        ? localModelInventory
+        : {
+            target_id: targetId,
+            models: [],
+            errors: [],
+            unavailable_reason: 'Unknown execution host.',
+          },
+    );
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/commands') {

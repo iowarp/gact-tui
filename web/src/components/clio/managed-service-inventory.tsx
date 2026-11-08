@@ -180,7 +180,12 @@ export function ManagedServiceInventory({
                         >
                           {service.label}
                         </button>
-                        <p className="text-xs text-muted-foreground">{service.description}</p>
+                        <p
+                          className="truncate text-xs text-muted-foreground"
+                          title={service.description}
+                        >
+                          {service.description}
+                        </p>
                         {status.reason ? (
                           <p className="text-xs text-warning-foreground">{status.reason}</p>
                         ) : null}
