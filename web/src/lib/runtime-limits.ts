@@ -27,6 +27,19 @@
 export const ACTIVE_SESSION_POLL_MS = 1_500;
 
 /**
+ * Refetch cadence for the same reads while the focused session's live stream is
+ * connected. Stream events invalidate these reads as they change, so the poll
+ * only catches a frame that never arrived. Unit: milliseconds.
+ */
+export const LIVE_STREAM_FALLBACK_POLL_MS = 15_000;
+
+/**
+ * Refetch cadence for the active transcript page while a turn runs and no live
+ * stream is connected. Unit: milliseconds.
+ */
+export const ACTIVE_TRANSCRIPT_POLL_MS = 5_000;
+
+/**
  * Messages per transcript page. Opening a conversation reads this many of its
  * newest messages; scrolling to the top reads the same number of older ones.
  * Larger pages mean fewer requests while scrolling back and a slower first paint.
@@ -237,6 +250,21 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
 export const INLINE_PREVIEW_MAX_BYTES = 8_000_000;
 
 /**
+ * Largest workspace text file read whole. Unit: bytes. Larger files, and files
+ * whose size the listing did not report, are read in ranged windows instead.
+ */
+export const TEXT_FULL_READ_MAX_BYTES = 1_000_000;
+
+/** One ranged window of a large text file (head chunk, each load-more, the tail). Unit: bytes. */
+export const TEXT_WINDOW_CHUNK_BYTES = 512 * 1024;
+
+/**
+ * Most of a large text file held in the tab across load-more windows. Unit: bytes.
+ * Past this the viewer says the rest is too large to show here.
+ */
+export const TEXT_WINDOW_MAX_BYTES = 4_000_000;
+
+/**
  * Largest text artifact fetched for a transcript card's text preview.
  * Unit: bytes. Much tighter than the inline budget because a card preview is a
  * glance, not a read.
@@ -379,6 +407,14 @@ export const QUERY_STALE_TIME_MS = 10_000;
  * stream goes unnoticed.
  */
 export const PROVIDER_CATALOG_STALE_TIME_MS = 30_000;
+
+/**
+ * Freshness of a session's A2UI catalog list and capabilities. Catalogs change
+ * only when a pack is installed or activated, and a surface naming an unknown
+ * catalog refetches at once, so revisiting a conversation reuses the list
+ * instead of downloading it again. Unit: milliseconds.
+ */
+export const A2UI_CATALOG_STALE_TIME_MS = 10 * 60_000;
 
 /**
  * Automatic retries for a failed read. Unit: attempts after the first.

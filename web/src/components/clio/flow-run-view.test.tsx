@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 
 const repository = vi.hoisted(() => ({
   taskFlow: vi.fn(),
@@ -242,6 +243,7 @@ describe('FlowRunView', () => {
     expect(repository.transcript).toHaveBeenCalledWith(
       'session-task_draft',
       expect.any(AbortSignal),
+      { limit: TRANSCRIPT_PAGE_SIZE },
     );
   });
 

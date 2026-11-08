@@ -46,7 +46,7 @@ export function ClioSearchAssistant({
   const sending = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const { entities, messages, transcript } = useLiveSessionTranscript(
+  const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
     session?.workspace_id ?? workspaceId,
     session?.id,
     'search',
@@ -211,6 +211,7 @@ export function ClioSearchAssistant({
           <ClioConversation
             sessionId={session.id}
             workspaceId={session.workspace_id}
+            earlier={earlier}
             messages={messages}
             tools={entities.tools}
             tasks={entities.tasks}

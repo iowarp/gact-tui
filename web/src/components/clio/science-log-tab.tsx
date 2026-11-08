@@ -24,6 +24,7 @@ import type { ScienceFileReference } from './science-log-sources';
 import { StudyTree } from './study-tree';
 import { StudyViews } from './study-views';
 import { useStudyViewFocus } from '@/lib/a2ui/open-view';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { StudyGraph, type StudyGraphScope } from './study-graph';
 import { observationGroups } from './study-graph-model';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -357,11 +358,18 @@ function useTranscriptJump(sessionId: string, workspaceId: string) {
       let messageId = messageForCall(loaded, session, callId);
       if (!messageId) {
         try {
-          messageId = messageForCall(
-            (await repository.transcript(session)).messages,
-            session,
-            callId,
-          );
+          // Page back from the newest messages until the call is found; only one
+          // page is held at a time, never the whole conversation.
+          let before: string | undefined;
+          for (;;) {
+            const page = await repository.transcript(session, undefined, {
+              limit: TRANSCRIPT_PAGE_SIZE,
+              before,
+            });
+            messageId = messageForCall(page.messages, session, callId);
+            if (messageId || !page.next_cursor || page.next_cursor === before) break;
+            before = page.next_cursor;
+          }
         } catch {
           messageId = undefined;
         }

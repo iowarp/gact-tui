@@ -17,6 +17,43 @@ const SEGMENT_HIGHLIGHT_NAMES = Array.from(
 );
 const SELECTED_HIGHLIGHT_NAME = 'clio-attn-selected';
 
+/*
+ * SPOTTER's text-map levels 1..9 (render_heatmap.py, render_pretoken_heatmap.py)
+ * over the warm "signal" chart hue, the same for lines, words and tokens; level
+ * 0 is not painted. A Highlight's ranges can only be styled through a global
+ * ::highlight() rule, and while any such rule exists every style recalculation
+ * computes highlight styles for every element (about half the cost of opening
+ * a menu on a long conversation). So the rules are mounted only while heat is
+ * shown.
+ */
+const HIGHLIGHT_RULES = [
+  ...SEGMENT_HIGHLIGHT_NAMES.slice(1).map((name, index) => {
+    const level = index + 1;
+    const ink = level >= 7 ? ' color: var(--foreground);' : '';
+    return `::highlight(${name}) { background-color: color-mix(in oklch, var(--chart-5) ${level * 8}%, transparent);${ink} }`;
+  }),
+  `::highlight(${SELECTED_HIGHLIGHT_NAME}) { background-color: color-mix(in oklch, var(--primary) 22%, transparent); text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--primary) 70%, transparent); text-decoration-thickness: 2px; }`,
+].join('\n');
+
+let highlightStyle: HTMLStyleElement | undefined;
+let highlightStyleUsers = 0;
+
+function retainHighlightStyle(): () => void {
+  highlightStyleUsers += 1;
+  if (!highlightStyle) {
+    highlightStyle = document.createElement('style');
+    highlightStyle.dataset.clioAttentionHighlights = '';
+    highlightStyle.textContent = HIGHLIGHT_RULES;
+    document.head.append(highlightStyle);
+  }
+  return () => {
+    highlightStyleUsers -= 1;
+    if (highlightStyleUsers > 0) return;
+    highlightStyle?.remove();
+    highlightStyle = undefined;
+  };
+}
+
 function clearHighlights() {
   if (typeof CSS === 'undefined' || !CSS.highlights) return;
   for (const name of SEGMENT_HIGHLIGHT_NAMES) CSS.highlights.delete(name);
@@ -110,12 +147,14 @@ export function useAttentionHighlights(
     };
 
     scheduleApply();
+    const releaseStyle = retainHighlightStyle();
     const observer = new MutationObserver(scheduleApply);
     observer.observe(container, { childList: true, subtree: true, characterData: true });
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
       clearHighlights();
+      releaseStyle();
     };
   }, [containerRef, data, messages, tools, view]);
 }

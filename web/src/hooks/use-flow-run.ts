@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { agentTaskToSubagent } from '@/lib/session-agent-tasks';
 import { queryKeys } from '@/lib/query-keys';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import {
@@ -115,7 +116,10 @@ export function useFlowTaskAnswer(handle: string | undefined, enabled: boolean, 
     queryFn: async ({ signal }) => {
       const task = await repository.agentTask(handle!, signal);
       if (!task.child_session_id) return '';
-      const transcript = await repository.transcript(task.child_session_id, signal);
+      // The answer is the newest assistant text: the tail page holds it.
+      const transcript = await repository.transcript(task.child_session_id, signal, {
+        limit: TRANSCRIPT_PAGE_SIZE,
+      });
       const last = transcript.messages.filter((message) => message.role === 'assistant').at(-1);
       const texts =
         last?.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])) ?? [];

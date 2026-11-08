@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 import { BrainIcon, ChevronDownIcon, DotIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
-import { createContext, memo, useContext, useMemo } from 'react';
+import { createContext, memo, useContext, useMemo, useState } from 'react';
 
 interface ChainOfThoughtContextValue {
   isOpen: boolean;
@@ -154,6 +154,13 @@ export type ChainOfThoughtContentProps = ComponentProps<typeof CollapsibleConten
 
 export const ChainOfThoughtContent = memo(
   ({ className, children, ...props }: ChainOfThoughtContentProps) => {
+    const { isOpen } = useChainOfThought();
+    // A closed Radix content still mounts an empty hidden node whose presence
+    // check forces a style recalculation; a transcript has one per row. Mount
+    // it on first open, then keep it so closing still animates.
+    const [opened, setOpened] = useState(isOpen);
+    if (isOpen && !opened) setOpened(true);
+    if (!opened && !isOpen) return null;
     return (
       <CollapsibleContent
         className={cn(

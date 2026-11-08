@@ -11,8 +11,10 @@ import { buildContextTargets, resolveContextSession } from '@/lib/context-target
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { cachedModelFacts } from '@/components/clio/model-picker-fact-cache';
+import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import {
   ACTIVE_SESSION_POLL_MS,
+  ACTIVE_TRANSCRIPT_POLL_MS,
   WAITING_SESSIONS_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
@@ -129,6 +131,9 @@ export function useWorkspaceData({
     [sessionId, settings.endpoint],
   );
 
+  // Polls below yield to the live stream: its events invalidate these reads, so
+  // they poll fast only while no stream delivers, and pause in a hidden tab.
+  const streamHealthy = useLiveStreamHealthy();
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
@@ -141,10 +146,11 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.sessionFamily(sessionId, signal),
     enabled: Boolean(sessionId),
     placeholderData: reloadSessions,
-    refetchIntervalInBackground: true,
     refetchInterval: (query) => {
       const current = query.state.data?.find((item) => item.id === sessionId);
-      return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
+      return current && isSessionActive(current.state)
+        ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy)
+        : false;
     },
   });
   // Sessions waiting on a person (a permission or an answer) and their ancestors:
@@ -171,10 +177,11 @@ export function useWorkspaceData({
     placeholderData: reloadTranscript,
     // A provider can finish without emitting visible stream chunks. Keep the
     // active transcript current even if the SSE completion frame is missed.
-    refetchIntervalInBackground: true,
     refetchInterval: () => {
       const current = sessions.data?.find((item) => item.id === sessionId);
-      return current && isSessionActive(current.state) ? 5_000 : false;
+      return current && isSessionActive(current.state)
+        ? livePollInterval(ACTIVE_TRANSCRIPT_POLL_MS, streamHealthy)
+        : false;
     },
   });
   const surrounding = useSessionResourceLoading(
@@ -243,11 +250,22 @@ export function useWorkspaceData({
   // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
   // which is what every backend answered before the capability existed.
   const useLegacyInteractions = !supportsUnifiedInteractions;
+  // Interaction events on the stream invalidate these; a background session's
+  // request still arrives within the waiting-sessions cadence. While this family
+  // waits on a person, a missed event would leave the agent blocked with nothing
+  // on screen, so the read stays fast.
+  const familyAwaitsPerson =
+    sessions.data?.some(
+      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
+    ) ?? false;
+  const interactionPollMs = familyAwaitsPerson
+    ? ACTIVE_SESSION_POLL_MS
+    : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
   const approvals = useQuery({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
     enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: ACTIVE_SESSION_POLL_MS,
+    refetchInterval: interactionPollMs,
   });
   // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
   // pendingApprovals just above: a background session's question must reach
@@ -258,7 +276,7 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
     enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: ACTIVE_SESSION_POLL_MS,
+    refetchInterval: interactionPollMs,
   });
   const normalizedInteractions = useQuery({
     queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
@@ -266,7 +284,7 @@ export function useWorkspaceData({
       repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
       Boolean(attendedSessionId) && allSessions.data !== undefined && supportsUnifiedInteractions,
-    refetchInterval: ACTIVE_SESSION_POLL_MS,
+    refetchInterval: interactionPollMs,
   });
   const attentionRootSessionIds = useMemo(() => {
     if (!supportsUnifiedInteractions) return [];
@@ -336,7 +354,10 @@ export function useWorkspaceData({
   const interactionSurfaceSnapshots = useQueries({
     queries: a2uiOwnerIds.map((ownerSessionId) => ({
       queryKey: queryKeys.transcript(settings.endpoint, ownerSessionId, 'pending-a2ui'),
-      queryFn: ({ signal }) => repository.transcript(ownerSessionId, signal),
+      // The newest page only: the whole transcript of every owner was read here
+      // (and re-read on each transcript invalidation) just to find a question's card.
+      queryFn: ({ signal }) =>
+        repository.transcript(ownerSessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     })),
   });
   const interactionSurfaces = {
@@ -500,7 +521,7 @@ export function useWorkspaceData({
       (query.state.data ?? []).some((resource) =>
         ['submitted', 'processing'].includes(resource.processing?.state ?? ''),
       )
-        ? ACTIVE_SESSION_POLL_MS
+        ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy)
         : false,
   });
   const installedAgents = useInstalledAgents(Boolean(workspaceId) && surrounding.enabled === true);
@@ -679,7 +700,7 @@ export function useWorkspaceData({
       sessions: hierarchySessions,
       familyProvenance: familyExecutionProvenance.execution.data,
       familyProvenancePending:
-        familyExecutionProvenance.providers.isPending ||
+        familyExecutionProvenance.providers.isLoading ||
         familyExecutionProvenance.execution.isFetching,
     },
     interactionSessionIds,

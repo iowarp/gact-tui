@@ -1,6 +1,7 @@
 import { conversationHref, conversationRole } from './conversation-family-navigation';
 import type { Artifact, ExecutionProvenanceResult, Session } from '@clio/core/v3';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSharedNow } from '@/lib/shared-clock';
 import { Link } from 'react-router-dom';
 import { ScanIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,20 +35,16 @@ export function ConversationGantt({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState({ width: 900, rem: 16 });
-  const [now, setNow] = useState(Date.now);
   const [selected, setSelected] = useState<ConversationGanttData>();
+  const running = provenance?.spans.some(
+    (span) => span.event_type === 'turn.started' && span.end_time === null,
+  );
+  // Shared clock, paused while the chart is scrolled away or the tab is hidden.
+  const now = useSharedNow(Boolean(running), { periodMs: 2_000, target: container });
   const model = useMemo(
     () => conversationGantt(sessions, sessionId, provenance, now),
     [sessions, sessionId, provenance, now],
   );
-  const running = provenance?.spans.some(
-    (span) => span.event_type === 'turn.started' && span.end_time === null,
-  );
-  useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 2000);
-    return () => window.clearInterval(timer);
-  }, [running]);
   useEffect(() => {
     const element = container.current;
     if (!element) return;

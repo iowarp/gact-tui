@@ -44,7 +44,6 @@ import {
 import { ClioDocumentWorkspace } from './document-workspace';
 
 import { HtmlFileInBrowser } from './html-in-browser';
-import { LatexFileWorkspace } from './latex-workspace';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
@@ -56,6 +55,8 @@ import { StreamArtifactView } from './stream-artifact-view';
 import { isStreamArtifact } from './stream-artifact';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
+import { WorkspaceTextView } from './workspace-text-view';
+export { TextResourceView } from './workspace-text-view';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -169,63 +170,6 @@ function WorkspacePdfView({
           name={fileName(path)}
         />
       </div>
-    </WorkspaceFileComments>
-  );
-}
-
-function WorkspaceTextView({
-  workspaceId,
-  path,
-  size,
-  mediaType,
-  html,
-}: {
-  workspaceId: string;
-  path: string;
-  size?: number;
-  mediaType?: string;
-  /** An HTML file: shown as its source, and opened in the shared browser. */
-  html?: { openOnShow: boolean };
-}) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const canLoad = size === undefined || size <= INLINE_PREVIEW_MAX_BYTES;
-  const content = useQuery({
-    queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
-    queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
-    enabled: canLoad,
-  });
-  if (!canLoad) return <LargeResourceNotice name={fileName(path)} size={size} />;
-  if (html && content.data !== undefined)
-    return (
-      <HtmlFileInBrowser
-        content={content.data}
-        name={fileName(path)}
-        openOnShow={html.openOnShow}
-        path={path}
-      />
-    );
-  const view = (
-    <TextResourceView
-      content={content.data}
-      error={content.error?.message}
-      path={path}
-      mediaType={mediaType}
-    />
-  );
-  // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
-  const format = textFileFormat(path, mediaType);
-  if (format !== 'markdown' && !path.toLowerCase().endsWith('.tex')) return view;
-  // A paper's entry file (it has \documentclass) opens as the LaTeX workspace.
-  if (path.toLowerCase().endsWith('.tex') && /^[^%\n]*\\documentclass/mu.test(content.data ?? ''))
-    return (
-      <WorkspaceFileComments modes={['text', 'region']} path={path} workspaceId={workspaceId}>
-        <LatexFileWorkspace fallback={view} path={path} workspaceId={workspaceId} />
-      </WorkspaceFileComments>
-    );
-  return (
-    <WorkspaceFileComments modes={['text']} path={path} workspaceId={workspaceId}>
-      {view}
     </WorkspaceFileComments>
   );
 }
@@ -574,27 +518,6 @@ function ArtifactFileView({
   );
 }
 
-export function TextResourceView({
-  path,
-  content,
-  error,
-  mediaType,
-}: {
-  path: string;
-  content?: string;
-  error?: string;
-  mediaType?: string;
-}) {
-  if (content === undefined && !error)
-    return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
-  if (error)
-    return (
-      <div className="p-4">
-        <ResourceUnavailable detail={error} label="File preview unavailable" />
-      </div>
-    );
-  return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
-}
 function fileName(path: string): string {
   return (
     path

@@ -1,5 +1,6 @@
 import type { Message } from '@clio/core/v3';
 import type { ReactNode } from 'react';
+import { formatClockTime, formatDateTime, formatNumber } from '@/lib/locale-format';
 
 /** End-of-message facts come from the message, never the session's cumulative usage. */
 export function MessageCompletionFooter({
@@ -44,9 +45,7 @@ export function MessageCompletionFooter({
     usage && (usage.input > 0 || usage.output > 0)
       ? `${compactTokens(usage.input)} in / ${compactTokens(usage.output)} out`
       : undefined,
-    message.cost_usd !== undefined
-      ? `$${message.cost_usd.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
-      : undefined,
+    message.cost_usd !== undefined ? `$${formatNumber(message.cost_usd, 4)}` : undefined,
     toolCount > 0
       ? `${toolCount}${failedToolCount > 0 ? ` (${failedToolCount} failed)` : ''} ${toolCount === 1 ? 'tool call' : 'tool calls'}`
       : undefined,
@@ -66,15 +65,13 @@ export function MessageCompletionFooter({
         {settled ? facts.map((fact) => <span key={fact}>{fact}</span>) : null}
       </div>
       {children}
-      <time dateTime={timestamp} className="shrink-0" title={new Date(timestamp).toLocaleString()}>
-        {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      <time dateTime={timestamp} className="shrink-0" title={formatDateTime(timestamp)}>
+        {formatClockTime(timestamp)}
       </time>
     </div>
   );
 }
 
 function compactTokens(value: number): string {
-  return value >= 1000
-    ? `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}K`
-    : value.toLocaleString();
+  return value >= 1000 ? `${formatNumber(value / 1000, 1)}K` : formatNumber(value);
 }

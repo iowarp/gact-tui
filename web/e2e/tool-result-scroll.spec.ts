@@ -336,6 +336,8 @@ for (const shortTranscript of [false, true]) {
 
     // Hold a real background refresh so both edges of the history-sync
     // indicator are observable without depending on the network's timing.
+    // While the live stream is healthy the transcript refreshes on its slow
+    // fallback cadence (LIVE_STREAM_FALLBACK_POLL_MS, 15 s), not every 5 s.
     const syncing = log.getByRole('status').filter({ hasText: 'Syncing history' });
     await expect(syncing).toHaveCount(0);
     let releaseRefresh!: () => void;
@@ -352,7 +354,7 @@ for (const shortTranscript of [false, true]) {
     );
     const beforeRefresh = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
     try {
-      await expect(syncing).toBeVisible({ timeout: 10_000 });
+      await expect(syncing).toBeVisible({ timeout: 20_000 });
       await expect
         .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
         .toBeCloseTo(beforeRefresh, 0);
