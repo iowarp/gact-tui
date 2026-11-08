@@ -132,6 +132,12 @@ export interface CascaderActionsContextValue<T = unknown> {
    * makes `aria-activedescendant` resolve to nothing. Latched per level.
    */
   virtualized: boolean;
+  /**
+   * The level wants windowing but no renderer has registered yet: the one
+   * unpainted commit before the layout-effect flip. A windowing renderer reads
+   * it to render no rows there instead of every row unwindowed.
+   */
+  windowingPending: boolean;
   /** Mounts a windowing renderer, returns its unregister. LAYOUT effect only. */
   registerVirtualRenderer: () => () => void;
   /** The root's `virtualize` prop. `undefined` means "decide by count". */

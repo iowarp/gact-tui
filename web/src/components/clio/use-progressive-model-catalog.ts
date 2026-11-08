@@ -2,9 +2,13 @@ import { startTransition, useEffect, useMemo, useState } from 'react';
 import type { ProviderGroup } from './model-picker-model';
 import { cachedModelFacts, modelsPrepared } from './model-picker-fact-cache';
 
+/** From this many models, the picker paints a skeleton before any catalog work. */
+export const LARGE_MODEL_CATALOG = 200;
+
 /** Paint providers first, prepare the selection next, then warm remaining lists. */
 export function useProgressiveModelCatalog(providers: readonly ProviderGroup[], selected?: string) {
-  const small = providers.reduce((sum, provider) => sum + provider.choices.length, 0) < 200;
+  const small =
+    providers.reduce((sum, provider) => sum + provider.choices.length, 0) < LARGE_MODEL_CATALOG;
   const [ready, setReady] = useState(
     () =>
       new Set(

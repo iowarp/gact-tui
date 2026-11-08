@@ -10,6 +10,8 @@ const providerIdNames: Record<string, string> = {
   amsc_mag: 'AmSC Model Access Gateway',
   codex: 'OpenAI Codex',
   claude_code: 'Claude Code',
+  copilot: 'GitHub Copilot',
+  inception: 'Inception (Mercury)',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
@@ -30,6 +32,8 @@ const providerSummaries: Record<string, string> = {
   amsc_mag: 'Use models available through your American Science Cloud project allocation.',
   codex: 'Use models included with your Codex subscription.',
   claude_code: 'Use models included with your Claude subscription.',
+  copilot: 'Use models included with your GitHub Copilot plan.',
+  inception: 'Use Mercury diffusion models through your Inception account.',
   openai: 'Use OpenAI models connected to this agent.',
   anthropic: 'Use Anthropic models connected to this agent.',
   openrouter: 'Use models available through your OpenRouter account.',
@@ -84,6 +88,7 @@ export const providerLogoIds: Record<string, string> = {
   bedrock: 'amazon-bedrock',
   codex: 'openai',
   claude_code: 'anthropic',
+  copilot: 'github-copilot',
   gemini: 'google',
   google_gemini: 'google',
   google_vertex: 'google',
@@ -102,6 +107,22 @@ export const providerLogoIds: Record<string, string> = {
   argonne_tara: 'argonne',
   argonne_local_vllm: 'argonne',
 };
+
+/**
+ * Provider kinds whose official client the service installs and updates in
+ * place (its provider components), each with the vendor that publishes the
+ * client. Kept equal to clio-agent's `providers/components/registry.py`.
+ */
+const managedClientVendors: Record<string, string> = {
+  codex: 'OpenAI',
+  claude_code: 'Anthropic',
+  copilot: 'GitHub',
+};
+
+/** The vendor of a provider kind's service-managed client, or undefined when it has none. */
+export function providerManagedClientVendor(providerKind: string | undefined): string | undefined {
+  return providerKind ? managedClientVendors[providerKind] : undefined;
+}
 
 /** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {

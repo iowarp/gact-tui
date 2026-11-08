@@ -5,6 +5,7 @@ import { ProviderComponentStatus } from './provider-component-status';
 import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
 import { providerCredentialKind } from '@/lib/provider-availability';
+import { providerManagedClientVendor } from '@/lib/provider-presentation';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
@@ -48,7 +49,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
     apiBase: group?.endpoint ?? preset?.api_base ?? '',
     preset,
   });
-  // The provider's client update (Claude Code and direct Codex): its running stage drives
+  // The provider's client update (Claude Code, direct Codex, GitHub Copilot): its running stage drives
   // the same heartbeat and panel text as every other provider action, and a
   // finished update re-checks the provider so its models reflect the new SDK.
   const componentUpdate = useProviderComponentUpdate({
@@ -59,7 +60,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   });
   const stage = componentUpdate.stage ?? providerActions.stage;
   const componentStatus =
-    group && (preset?.provider === 'claude_code' || preset?.provider === 'codex') ? (
+    group && providerManagedClientVendor(preset?.provider) ? (
       <ProviderComponentStatus
         group={group}
         state={componentUpdate}

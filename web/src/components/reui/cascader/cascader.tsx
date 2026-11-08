@@ -1030,6 +1030,11 @@ function Cascader<T>({
     hasVirtualRenderer &&
     (virtualLatch.key === levelKey ? virtualLatch.on || wantsVirtual : wantsVirtual);
 
+  // Before the first registration: a renderer's layout effect flips
+  // `virtualized` before paint, so rendering every row here only costs work
+  // (thousands of nodes, styled by any layout read) nobody ever sees.
+  const windowingPending = wantsVirtual && !hasVirtualRenderer;
+
   if (!hasVirtualRenderer) {
     // Nothing is windowing, so nothing may stay latched.
     if (virtualLatch.on || virtualLatch.key !== levelKey) {
@@ -1843,6 +1848,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      windowingPending,
       registerVirtualRenderer,
       virtualize,
       virtualizeThreshold,
@@ -1887,6 +1893,7 @@ function Cascader<T>({
       baseId,
       labels,
       virtualized,
+      windowingPending,
       registerVirtualRenderer,
       virtualize,
       virtualizeThreshold,

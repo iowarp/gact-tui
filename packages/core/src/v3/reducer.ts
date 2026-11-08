@@ -125,10 +125,18 @@ function appendDelta(message: Message, blockId: string, delta: string): Message 
     if (block.id !== blockId || (block.type !== 'text' && block.type !== 'reasoning')) return block;
     return { ...block, text: block.text + delta, streaming: true };
   });
-  return { ...message, blocks };
+  return { ...withoutCanvas(message), blocks };
+}
+
+/** A diffusion canvas is a live preview: any recorded content supersedes it. */
+function withoutCanvas(message: Message): Message {
+  if (message.canvas === undefined) return message;
+  const { canvas: _canvas, ...rest } = message;
+  return rest;
 }
 
 function upsertBlock(message: Message, block: MessageBlock): Message {
+  message = withoutCanvas(message);
   const index = message.blocks.findIndex((candidate) =>
     block.type === 'tool' && candidate.type === 'tool'
       ? candidate.tool_id === block.tool_id
@@ -174,7 +182,7 @@ function completeBlock(message: Message, blockId: string, text: string): Message
     if (block.id !== blockId || (block.type !== 'text' && block.type !== 'reasoning')) return block;
     return { ...block, text, streaming: false };
   });
-  return { ...message, blocks };
+  return { ...withoutCanvas(message), blocks };
 }
 
 /**
@@ -365,6 +373,46 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         },
       };
     }
+    case 'message.canvas': {
+      const payload = envelope.payload as {
+        message_id?: unknown;
+        step?: unknown;
+        shape?: unknown;
+        text?: unknown;
+      };
+      // An older server sends no shape: its frames are diffusion steps.
+      const shape = payload.shape ?? 'snapshot';
+      if (
+        typeof payload.message_id !== 'string' ||
+        typeof payload.text !== 'string' ||
+        typeof payload.step !== 'number' ||
+        (shape !== 'snapshot' && shape !== 'append')
+      ) {
+        throw new Error('Invalid message.canvas payload');
+      }
+      const message = base.messages[payload.message_id];
+      if (!message) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Message ${payload.message_id} is not resident for its canvas`,
+        );
+      }
+      // A settled message shows its recorded text; a late preview is stale.
+      if (message.completed_at) return { ...base, revisions };
+      return {
+        ...base,
+        revisions,
+        messages: {
+          ...base.messages,
+          [message.id]: {
+            ...message,
+            canvas: { text: payload.text, step: payload.step, shape },
+          },
+        },
+      };
+    }
     case 'message.completed': {
       const payload = messageCompletionSchema.parse(envelope.payload);
       const message = base.messages[payload.message_id];
@@ -409,7 +457,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         messages: {
           ...base.messages,
           [message.id]: {
-            ...message,
+            ...withoutCanvas(message),
             completed_at: payload.completed_at ?? envelope.occurred_at,
             usage: payload.tokens ?? message.usage,
             cost_usd: payload.cost_usd ?? message.cost_usd,

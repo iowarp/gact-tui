@@ -255,6 +255,37 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     );
   });
 
+  it('a device-code-only sign-in opens the page where the code is entered', async () => {
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-device',
+      device: {
+        user_code: 'ABCD-1234',
+        verification_url: 'https://github.com/login/device',
+        interval: 5,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending', reason: '' });
+    const windowOpen = vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    await user.click(screen.getByText('Codex'));
+    await user.click(await screen.findByRole('button', { name: 'Log in' }));
+
+    const panel = await screen.findByLabelText('Complete Codex sign-in');
+    expect(windowOpen).toHaveBeenCalledWith(
+      'https://github.com/login/device',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(within(panel).getByText('ABCD-1234')).toBeVisible();
+    expect(within(panel).getByRole('link', { name: 'Enter the code' })).toHaveAttribute(
+      'href',
+      'https://github.com/login/device',
+    );
+  });
+
   it('install needed: Install, and its failure replaces the sentence', async () => {
     repository.languageModelConfiguration.mockResolvedValue({
       ...defaultConfiguration,

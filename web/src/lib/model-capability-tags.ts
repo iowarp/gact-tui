@@ -138,6 +138,15 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
       tags.push({ axis: 'domain', value: tag.value, evidence: evidenceOf(tag.evidence) });
     }
   }
+  // A snapshot-streaming model is a diffusion model: a capability tag, so the
+  // picker shows it and `cap:diffusion` finds it.
+  if (option.streamShape === 'snapshot') {
+    tags.push({
+      axis: 'capability',
+      value: 'diffusion',
+      evidence: [{ source: option.capabilityProvenance?.stream_shape?.source || 'catalog' }],
+    });
+  }
   // Descriptive facts that read as tags: a recent release, and the size.
   const facts = option.modelFacts;
   if (facts?.recent?.value === true) {
@@ -207,6 +216,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   code_execution: 'Code execution',
   computer_use: 'Computer use',
   prompt_caching: 'Prompt caching',
+  diffusion: 'Diffusion',
 };
 
 /** "200K", "1M", "32K": a context size as people say it. */
@@ -300,7 +310,9 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
         ? 'Can use tools.'
         : tag.value === 'reasoning'
           ? 'Can think before answering.'
-          : `${modelCapabilityTagLabel(tag)}.`;
+          : tag.value === 'diffusion'
+            ? 'Writes the whole answer at once and refines it in parallel steps (a diffusion model).'
+            : `${modelCapabilityTagLabel(tag)}.`;
     case 'role':
       return tag.value === 'surrogate'
         ? 'A specialist model: it does one task rather than hold a conversation.'

@@ -115,6 +115,21 @@ it('refreshes local server models without asking for subscription client compone
   expect(repository.refreshProviderModels).toHaveBeenCalledWith(['vllm']);
 });
 
+it('updates the GitHub Copilot client before finding plan models', async () => {
+  const { input, repository, status } = fixture();
+  repository.providerComponents.mockResolvedValue({ ...status, update_available: true });
+  const outcome = await refreshModelsWithClient({
+    ...input,
+    providerKind: 'copilot',
+    providerId: 'copilot',
+  });
+  expect(repository.providerComponents).toHaveBeenCalledWith('copilot', { refresh: true });
+  expect(repository.updateProviderComponents).toHaveBeenCalledWith('copilot');
+  expect(repository.refreshProviderModels).toHaveBeenCalledWith(['copilot']);
+  expect(outcome.notice).toContain('Client updated; no new models found');
+  expect(outcome.notice).toContain('official GitHub client update');
+});
+
 it('refreshes the catalog when no compatible official client release exists yet', async () => {
   const { input, repository, status } = fixture();
   repository.providerComponents.mockResolvedValue({

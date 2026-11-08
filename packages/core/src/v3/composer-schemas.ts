@@ -389,6 +389,13 @@ export const providerCatalogSchema = z.object({
             source: optionalWireString(),
           }),
           native_tool_calling: z.boolean(),
+          // How the model streams (`snapshot`: a diffusion model). Optional:
+          // older services do not report it; an unknown shape reads as absent.
+          stream_shape: z
+            .enum(['append', 'snapshot'])
+            .nullish()
+            .catch(undefined)
+            .transform((value) => value ?? undefined),
           context_window: z
             .number()
             .nullish()

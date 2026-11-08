@@ -1,5 +1,6 @@
 import type { ClioRepository, ProviderModelRefreshResult } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
+import { providerManagedClientVendor } from '@/lib/provider-presentation';
 
 const UPDATE_STAGE = {
   checking: 'Checking client updates…',
@@ -29,8 +30,9 @@ export async function refreshModelsWithClient({
   providerKind?: string;
   onStage: (stage: ProviderModelRefreshStage) => void;
 }): Promise<{ result?: ProviderModelRefreshResult; notice?: string }> {
-  const company = providerKind === 'codex' ? 'OpenAI' : 'Anthropic';
-  const managedClient = providerKind === 'codex' || providerKind === 'claude_code';
+  const vendor = providerManagedClientVendor(providerKind);
+  const managedClient = vendor !== undefined;
+  const company = vendor ?? 'provider';
   let updated = false;
   let restartRequired = false;
   let clientUnavailable = false;

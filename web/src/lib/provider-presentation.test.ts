@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { providerLogoUrls } from '../components/ai-elements/provider-logo-svgs';
-import { providerDisplayName, providerLogoId, providerLogoIds } from './provider-presentation';
+import {
+  providerDisplayName,
+  providerLogoId,
+  providerLogoIds,
+  providerManagedClientVendor,
+} from './provider-presentation';
 
 const publicLogosDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -31,6 +36,7 @@ describe('providerLogoId', () => {
     ['vertex_ai', 'google'],
     ['codex', 'openai'],
     ['claude_code', 'anthropic'],
+    ['copilot', 'github-copilot'],
     ['lm_studio', 'lmstudio'],
     // llama.cpp has no official mark to license — neutral, not a fabricated
     // glyph, and no longer aliased to ollama's real one.
@@ -123,7 +129,24 @@ describe('providerDisplayName', () => {
 
   it('names a bare id only when no service data is at hand', () => {
     expect(providerDisplayName(undefined, 'claude_code')).toBe('Claude Code');
+    expect(providerDisplayName(undefined, 'copilot')).toBe('GitHub Copilot');
     expect(providerDisplayName(undefined, 'Some Service')).toBe('Some Service');
     expect(providerDisplayName(undefined)).toBe('Provider');
+  });
+});
+
+describe('providerManagedClientVendor', () => {
+  it.each([
+    ['codex', 'OpenAI'],
+    ['claude_code', 'Anthropic'],
+    ['copilot', 'GitHub'],
+  ])('names the client vendor of service-managed provider %s', (kind, vendor) => {
+    expect(providerManagedClientVendor(kind)).toBe(vendor);
+  });
+
+  it('has no client vendor for providers without service-managed components', () => {
+    expect(providerManagedClientVendor('openai')).toBeUndefined();
+    expect(providerManagedClientVendor('openrouter')).toBeUndefined();
+    expect(providerManagedClientVendor(undefined)).toBeUndefined();
   });
 });

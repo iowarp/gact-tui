@@ -48,6 +48,8 @@ export interface ClioModelOption {
   reasoning?: ModelReasoningLevels;
   /** Whether the model calls tools natively, when the live catalog says. */
   toolCalling?: boolean;
+  /** How the model streams; `snapshot` is a diffusion model. */
+  streamShape?: 'append' | 'snapshot';
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
   /** Maximum generated tokens reported by this deployment. */
@@ -355,6 +357,7 @@ function liveProviderOptions(
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
+      streamShape: model.stream_shape,
       contextWindow: model.loaded_context_window || model.context_window,
       outputLimit: model.output_limit,
       contextBasis: model.context_basis,
