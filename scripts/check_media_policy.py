@@ -36,6 +36,7 @@ _ALLOWED_IMAGE_PREFIXES: tuple[str, ...] = (
     "docs/screenshots/",              # curated doc images (sole screenshot home)
     "branding/",                      # branding mechanism assets
     "docs/ref/",                      # small static design-reference images
+    "docs/design/visual-language/previews/",  # reference design mockups for the visual-language spec
     "ref/",                           # design reference
     "logo/",                          # logo art
     "desktop/src-tauri/icons/",       # functional desktop app icons (build input)
