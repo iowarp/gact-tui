@@ -18,7 +18,8 @@ import { AddIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
-import { DesktopBoot, HomeSearchButton, managedBootStage } from '@/components/clio/desktop-boot';
+import { DesktopBoot, HomeSearchButton } from '@/components/clio/desktop-boot';
+import { managedBootStage } from '@/lib/desktop-boot-stage';
 import { BrandTagline } from '@/components/clio/brand-tagline';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
@@ -152,10 +153,23 @@ export function ConnectionPage() {
         endpoint: normalizeEndpoint(candidate.endpoint),
       });
       const repository = createRepository(next);
-      const capabilities = await connectionCapabilities(repository, next.endpoint);
+      const [capabilities, health] = await Promise.all([
+        connectionCapabilities(repository, next.endpoint),
+        // Older services have no readiness field; an unreadable health is not a failure here.
+        repository.serviceHealth().catch(() => undefined),
+      ]);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new Error(
           `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
+        );
+      }
+      if (health?.readiness === 'starting') {
+        // Reading workspaces now only earns a 503; wait for readiness (#739 B1).
+        throw new TransportError(
+          'The service is still starting.',
+          503,
+          'task_runtime_starting',
+          health.starting ? { starting: health.starting } : undefined,
         );
       }
       const rememberedRoute = lastWorkspaceRoute(next.endpoint);
@@ -295,9 +309,20 @@ export function ConnectionPage() {
     // flight) does.
     (!credentialsReady ||
       (!autoConnectDispatched && mutation.status === 'idle') ||
-      mutation.isPending)
+      mutation.isPending ||
+      // Hysteresis (#739 B1): a service still starting fails the attempt between
+      // retries, and a resolved attempt renders once before navigating. Neither may
+      // flash the form in between.
+      (autoConnectDispatched && waiting.retrying) ||
+      (Boolean(resolvedRoute) && !searchOpen))
   ) {
-    return <DesktopBoot logoSource={logoSource} stage="opening_workspace" />;
+    return (
+      <DesktopBoot
+        detail={waiting.availability?.starting ? waiting.availability.detail : undefined}
+        logoSource={logoSource}
+        stage="opening_workspace"
+      />
+    );
   }
 
   return (

@@ -1,17 +1,12 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { brand } from '@brand';
 import { CheckIcon, SearchIcon } from 'lucide-react';
+import { useReducedMotionConfig } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
-import type { ManagedBackendStatus } from '@/tauri/managed-backend';
-
-export type DesktopBootStage =
-  | 'checking_existing'
-  | 'starting_service'
-  | 'installing_runtime'
-  | 'opening_workspace';
+import type { DesktopBootStage } from '@/lib/desktop-boot-stage';
 
 const desktopBootCopy: Record<DesktopBootStage, { detail: string; label: string }> = {
   checking_existing: {
@@ -32,12 +27,6 @@ const desktopBootCopy: Record<DesktopBootStage, { detail: string; label: string 
   },
 };
 
-export function managedBootStage(status?: ManagedBackendStatus): DesktopBootStage {
-  if (status?.kind === 'needs_install') return 'installing_runtime';
-  if (status?.kind === 'starting') return status.detail;
-  return 'checking_existing';
-}
-
 export function HomeSearchButton() {
   return (
     <Button
@@ -54,13 +43,17 @@ export function HomeSearchButton() {
 }
 
 export function DesktopBoot({
+  detail,
   logoSource,
   stage,
 }: {
+  /** What the service says it is still loading, in place of the stage's own detail. */
+  detail?: string;
   logoSource: string | null;
   stage: DesktopBootStage;
 }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const reducedMotion = useReducedMotionConfig();
   const copy = desktopBootCopy[stage];
   const activeStep = stage === 'checking_existing' ? 0 : stage === 'opening_workspace' ? 2 : 1;
 
@@ -93,7 +86,7 @@ export function DesktopBoot({
               aria-hidden="true"
               className="absolute inset-7 rounded-full border border-primary/25"
             />
-            <div className="relative grid size-36 place-items-center overflow-hidden rounded-[2.25rem] border border-primary/30 bg-card/45 p-4 shadow-2xl backdrop-blur-xl sm:size-40">
+            <div className="relative grid size-36 place-items-center overflow-hidden rounded-[2.25rem] border border-primary/30 bg-card p-4 shadow-2xl sm:size-40">
               {logoSource ? (
                 <img
                   alt=""
@@ -108,13 +101,19 @@ export function DesktopBoot({
               )}
             </div>
           </div>
-          <Shimmer
-            as="h1"
-            className="mt-7 font-heading text-2xl font-semibold tracking-[-0.035em]"
-            duration={1.7}
-          >
-            {`Starting ${brand.name}`}
-          </Shimmer>
+          {reducedMotion ? (
+            <h1 className="mt-7 font-heading text-2xl font-semibold tracking-[-0.035em]">
+              {`Starting ${brand.name}`}
+            </h1>
+          ) : (
+            <Shimmer
+              as="h1"
+              className="mt-7 font-heading text-2xl font-semibold tracking-[-0.035em]"
+              duration={1.7}
+            >
+              {`Starting ${brand.name}`}
+            </Shimmer>
+          )}
           <p className="mt-2 text-sm text-muted-foreground">
             Your local scientific workspace is getting ready.
           </p>
@@ -123,7 +122,7 @@ export function DesktopBoot({
 
       <aside
         aria-live="polite"
-        className="absolute bottom-6 right-6 w-[min(22rem,calc(100%-3rem))] rounded-2xl border border-border/80 bg-card/75 p-4 text-left shadow-xl backdrop-blur-xl"
+        className="absolute bottom-6 right-6 w-[min(22rem,calc(100%-3rem))] rounded-2xl border border-border/80 bg-card p-4 text-left shadow-xl"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -131,7 +130,7 @@ export function DesktopBoot({
               Local startup
             </p>
             <p className="mt-1 truncate text-sm font-medium">{copy.label}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{copy.detail}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{detail ?? copy.detail}</p>
           </div>
           <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
             {elapsedSeconds}s

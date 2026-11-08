@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GACT_HTTP_TIMEOUT_MS } from '@/lib/runtime-limits';
+import {
+  GACT_HTTP_TIMEOUT_MS,
+  MANAGED_BACKEND_POLL_MS,
+  MANAGED_BACKEND_PREPARE_POLL_MS,
+} from '@/lib/runtime-limits';
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -86,6 +90,52 @@ describe('managed Tauri backend', () => {
       ['get_backend'],
       ['get_backend'],
     ]);
+  });
+
+  it('reports each supervisor status once rather than on every poll (#739)', async () => {
+    vi.useFakeTimers();
+    const starting = (detail: string) => ({
+      url: '',
+      bearer_token: '',
+      status: { kind: 'starting', detail },
+    });
+    for (let poll = 0; poll < 20; poll += 1)
+      mocks.invoke.mockResolvedValueOnce(starting('checking_existing'));
+    for (let poll = 0; poll < 20; poll += 1)
+      mocks.invoke.mockResolvedValueOnce(starting('starting_service'));
+    mocks.invoke.mockResolvedValueOnce({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    const onStatus = vi.fn();
+
+    const ready = waitForManagedBackend({ onStatus });
+    await vi.advanceTimersByTimeAsync(40 * MANAGED_BACKEND_POLL_MS);
+    await expect(ready).resolves.toMatchObject({ status: { kind: 'ready' } });
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(41);
+    expect(onStatus.mock.calls.map(([status]) => status)).toEqual([
+      { kind: 'starting', detail: 'checking_existing' },
+      { kind: 'starting', detail: 'starting_service' },
+      { kind: 'ready' },
+    ]);
+  });
+
+  it('polls package preparation at its slower cadence', async () => {
+    vi.useFakeTimers();
+    mocks.invoke.mockResolvedValue({
+      url: '',
+      bearer_token: '',
+      status: { kind: 'starting', detail: 'installing_runtime' },
+    });
+    const pending = waitForManagedBackend({ prepareTimeoutMs: 60_000 }).catch(() => undefined);
+
+    await vi.advanceTimersByTimeAsync(10 * MANAGED_BACKEND_PREPARE_POLL_MS);
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(11);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await pending;
   });
 
   it('separates package preparation from the service-readiness deadline', async () => {

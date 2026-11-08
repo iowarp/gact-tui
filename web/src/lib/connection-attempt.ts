@@ -6,7 +6,11 @@ import {
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
-import { CONNECTION_WAIT_FOR_START_MS } from '@/lib/runtime-limits';
+import {
+  CONNECTION_RETRY_MAX_MS,
+  CONNECTION_RETRY_MIN_MS,
+  CONNECTION_WAIT_FOR_START_MS,
+} from '@/lib/runtime-limits';
 
 /** The connect attempt as the page's mutation exposes it. */
 export interface ConnectAttempt {
@@ -53,32 +57,82 @@ export function availabilityAfterAttempt(
   };
 }
 
+/** The service answered but is still bringing up its task runtime (`/v1/*` 503). */
+export function serviceStillStarting(error: Error | null | undefined): boolean {
+  return (
+    error instanceof TransportError &&
+    (error.status === 503 || error.code === 'task_runtime_starting')
+  );
+}
+
+/** Delay before automatic connect retry number `retry` (0-based): 250 ms doubling to 2 s. */
+export function connectRetryDelayMs(retry: number): number {
+  return Math.min(CONNECTION_RETRY_MAX_MS, CONNECTION_RETRY_MIN_MS * 2 ** Math.max(0, retry));
+}
+
+/**
+ * One run of automatic retries. Retries resend the failed attempt's own `variables`, so
+ * a new `variables` object is a new attempt by the person (or auto-connect) and starts a
+ * new chain with a fresh waiting window and backoff.
+ */
+interface RetryChain {
+  variables: ConnectionSettings;
+  startedAt: number;
+  retries: number;
+}
+
 /**
  * Whether a failed attempt is a service still coming up rather than a failure: it is
- * starting, or nothing has answered yet and the attempt is recent. The page then waits
- * and connects by itself instead of showing an error.
+ * starting (503 `task_runtime_starting`, or its probe says so), or nothing has answered
+ * yet and the attempt is recent. The page then waits and connects by itself instead of
+ * showing an error. Only those transient failures are retried, after a backoff and
+ * within `CONNECTION_WAIT_FOR_START_MS` of the chain's first failure; anything else (an
+ * incompatible protocol, a rejected token) is shown once.
+ *
+ * `retrying` is true while a retry is scheduled, so a boot screen can stay up between
+ * attempts instead of flashing the form.
  */
 export function useConnectionWaiting(
   attempt: ConnectAttempt,
   known: readonly KnownConnection[],
-): { waiting: boolean; availability?: ConnectionAvailability } {
-  const endpoint = attempt.isError ? attemptedEndpoint(attempt) : undefined;
+): { waiting: boolean; retrying: boolean; availability?: ConnectionAvailability } {
+  const { error, isError, isPending, mutate, submittedAt, variables } = attempt;
+  const endpoint = isError ? attemptedEndpoint(attempt) : undefined;
   const availability = known.find((connection) => connection.endpoint === endpoint)?.availability;
+  const starting = isError && serviceStillStarting(error);
+  const notAnswered =
+    isError && error instanceof TransportError && error.code === 'network_unavailable';
+  const transient = starting || notAnswered;
+
+  const [chain, setChain] = useState<RetryChain | null>(null);
+  if (isError && variables && chain?.variables !== variables) {
+    setChain({ variables, startedAt: submittedAt, retries: 0 });
+  }
+  const current = chain && variables && chain.variables === variables ? chain : undefined;
+  const expired = useWaitExpired(isError ? (current?.startedAt ?? submittedAt) : null);
+  const canRetry = transient && (starting || reachable(availability)) && !expired;
+  const delayMs = connectRetryDelayMs(current?.retries ?? 0);
   const retried = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!endpoint || !attempt.variables || attempt.isPending || !reachable(availability)) return;
-    if (retried.current === attempt.submittedAt) return; // once per failed attempt
-    retried.current = attempt.submittedAt;
-    attempt.mutate(attempt.variables);
-  }, [attempt, availability, endpoint]);
+    if (!endpoint || !variables || isPending || !canRetry) return;
+    if (retried.current === submittedAt) return; // once per failed attempt
+    const timer = globalThis.setTimeout(() => {
+      retried.current = submittedAt;
+      setChain((previous) =>
+        previous?.variables === variables
+          ? { ...previous, retries: previous.retries + 1 }
+          : previous,
+      );
+      mutate(variables);
+    }, delayMs);
+    return () => globalThis.clearTimeout(timer);
+  }, [canRetry, delayMs, endpoint, isPending, mutate, submittedAt, variables]);
 
-  const expired = useWaitExpired(attempt.isError ? attempt.submittedAt : null);
-  if (!endpoint) return { waiting: false };
-  const notAnswered =
-    attempt.error instanceof TransportError && attempt.error.code === 'network_unavailable';
+  if (!endpoint) return { waiting: false, retrying: false };
   return {
-    waiting: Boolean(availability?.starting) || (notAnswered && !expired),
+    waiting: Boolean(availability?.starting) || (transient && !expired),
+    retrying: Boolean(variables) && canRetry,
     availability,
   };
 }
