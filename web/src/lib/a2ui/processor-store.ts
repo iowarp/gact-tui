@@ -18,7 +18,9 @@ import { useQueries } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { loadSessionResource, type SessionResourceLoading } from '@/lib/session-resource-loading';
+import { A2UI_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { classifyA2uiRegistryFailure, shouldRetryA2uiRegistryFailure } from './registry-failure';
+import { shareA2uiCatalogRows } from './shared-catalog-rows';
 import {
   collectA2uiClientDataModelSurfaces,
   disposeA2uiSessionRegistry,
@@ -74,10 +76,11 @@ export function useA2uiSessionRegistry(
       queryKey: ['a2ui-catalogs', id],
       enabled: immediate.has(id) || loading.enabled !== false,
       queryFn: ({ signal }) =>
-        immediate.has(id)
+        (immediate.has(id)
           ? repository.a2uiCatalogs(id, signal)
-          : loadSessionResource(loading, signal, () => repository.a2uiCatalogs(id, signal)),
-      staleTime: 60_000,
+          : loadSessionResource(loading, signal, () => repository.a2uiCatalogs(id, signal))
+        ).then(shareA2uiCatalogRows),
+      staleTime: A2UI_CATALOG_STALE_TIME_MS,
       retry: shouldRetryA2uiRegistryFailure,
     })),
   });
@@ -89,7 +92,7 @@ export function useA2uiSessionRegistry(
         immediate.has(id)
           ? repository.a2uiCapabilities(id, signal)
           : loadSessionResource(loading, signal, () => repository.a2uiCapabilities(id, signal)),
-      staleTime: 60_000,
+      staleTime: A2UI_CATALOG_STALE_TIME_MS,
       retry: shouldRetryA2uiRegistryFailure,
     })),
   });

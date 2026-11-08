@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
@@ -125,11 +126,14 @@ export function useSessionMutations({
     queryFn: ({ signal }) => repository.queuedMessages(sessionId, signal),
     queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
   });
+  // Pending-steer events on the live stream invalidate this read.
+  const streamHealthy = useLiveStreamHealthy();
   const pendingSteers = useQuery({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.pendingSteers(sessionId, signal),
     queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
-    refetchInterval: session?.state === 'running' ? ACTIVE_SESSION_POLL_MS : false,
+    refetchInterval:
+      session?.state === 'running' ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy) : false,
   });
 
   const invalidateComposerState = () => {

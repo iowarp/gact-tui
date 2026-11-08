@@ -7,7 +7,9 @@ import {
 import type { QueryClient } from '@tanstack/react-query';
 import { KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
 import { wrapKernelComponentWithPresets } from './kernel-presets';
+import { A2UI_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { shouldRetryA2uiRegistryFailure } from './registry-failure';
+import { shareA2uiCatalogRows } from './shared-catalog-rows';
 
 /** Negotiate a newly created session before its first send and warm the route's queries. */
 export async function firstMessageMetadata(
@@ -18,14 +20,14 @@ export async function firstMessageMetadata(
   const [catalogs, capabilities] = await Promise.allSettled([
     queryClient.fetchQuery({
       queryKey: ['a2ui-catalogs', sessionId],
-      queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal),
-      staleTime: 60_000,
+      queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal).then(shareA2uiCatalogRows),
+      staleTime: A2UI_CATALOG_STALE_TIME_MS,
       retry: shouldRetryA2uiRegistryFailure,
     }),
     queryClient.fetchQuery({
       queryKey: ['a2ui-capabilities', sessionId],
       queryFn: ({ signal }) => repository.a2uiCapabilities(sessionId, signal),
-      staleTime: 60_000,
+      staleTime: A2UI_CATALOG_STALE_TIME_MS,
       retry: shouldRetryA2uiRegistryFailure,
     }),
   ]);

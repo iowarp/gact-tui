@@ -67,7 +67,9 @@ function sharedProps(
     onProvenanceProviderChange: provenance.setProvider,
     processes: data.processes,
     provenanceDegradation: provenance.degradation,
-    provenancePending: provenance.providers.isPending || provenance.execution.isPending,
+    // isLoading, not isPending: a disabled query (no queryable provider) stays
+    // pending forever, which left the evidence list loading next to its reason.
+    provenancePending: provenance.providers.isLoading || provenance.execution.isLoading,
     provenanceProvider: provenance.provider,
     provenanceProviders: provenance.providers.data?.providers,
     resources: data.workspaceResources.data ?? [],
