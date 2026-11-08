@@ -7,7 +7,6 @@ import { BrainIcon, ChevronDownIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import {
   createContext,
-  lazy,
   memo,
   Suspense,
   useCallback,
@@ -18,11 +17,8 @@ import {
   useState,
 } from 'react';
 
+import { useMarkdownText } from './markdown-text-loader';
 import { Shimmer } from './shimmer';
-
-const MarkdownText = lazy(() =>
-  import('./markdown').then((module) => ({ default: module.MarkdownText })),
-);
 
 interface ReasoningContextValue {
   isStreaming: boolean;
@@ -189,20 +185,23 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
   children: string;
 };
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      'mt-4 text-sm',
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-      className,
-    )}
-    {...props}
-  >
-    <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
-      <MarkdownText>{children}</MarkdownText>
-    </Suspense>
-  </CollapsibleContent>
-));
+export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
+  const MarkdownText = useMarkdownText();
+  return (
+    <CollapsibleContent
+      className={cn(
+        'mt-4 text-sm',
+        'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
+        className,
+      )}
+      {...props}
+    >
+      <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
+        <MarkdownText>{children}</MarkdownText>
+      </Suspense>
+    </CollapsibleContent>
+  );
+});
 
 Reasoning.displayName = 'Reasoning';
 ReasoningTrigger.displayName = 'ReasoningTrigger';

@@ -5,11 +5,11 @@ import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { UIMessage } from 'ai';
+import { type MarkdownTextComponent, useMarkdownText } from './markdown-text-loader';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactElement, ReactNode } from 'react';
 import {
   createContext,
-  lazy,
   memo,
   Suspense,
   useCallback,
@@ -18,10 +18,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-
-const MarkdownText = lazy(() =>
-  import('./markdown').then((module) => ({ default: module.MarkdownText })),
-);
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role'];
@@ -277,21 +273,24 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof MarkdownText> & {
+export type MessageResponseProps = ComponentProps<MarkdownTextComponent> & {
   loadingFallback?: ReactNode;
 };
 
 export const MessageResponse = memo(
-  ({ className, loadingFallback, ...props }: MessageResponseProps) => (
-    <Suspense
-      fallback={loadingFallback ?? <p className={className}>{String(props.children ?? '')}</p>}
-    >
-      <MarkdownText
-        className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
-        {...props}
-      />
-    </Suspense>
-  ),
+  ({ className, loadingFallback, ...props }: MessageResponseProps) => {
+    const MarkdownText = useMarkdownText();
+    return (
+      <Suspense
+        fallback={loadingFallback ?? <p className={className}>{String(props.children ?? '')}</p>}
+      >
+        <MarkdownText
+          className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+          {...props}
+        />
+      </Suspense>
+    );
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children && nextProps.isAnimating === prevProps.isAnimating,
 );

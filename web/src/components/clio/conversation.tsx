@@ -62,6 +62,11 @@ import {
   placeContinuedActivity,
   liveActivityIterationId,
 } from './conversation-activity-placement';
+import { loadMarkdownText } from '@/components/ai-elements/markdown-text-loader';
+
+// Message text reflows once the markdown renderer arrives; request it with the
+// transcript instead of after the first rows mount, so the tail paints formatted.
+void loadMarkdownText();
 
 /** Within this distance of the top, a paged transcript reads its next older page. */
 const EARLIER_LOAD_THRESHOLD_PX = 600;

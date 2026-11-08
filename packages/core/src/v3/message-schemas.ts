@@ -253,7 +253,7 @@ const unknownMessageBlockSchema = z
  * version cannot read is contained as a typed `unknown` block carrying its
  * original type and payload, never raised into a failure of its message.
  */
-export const messageBlockSchema = z.union([
+const messageBlockUnionSchema = z.union([
   resourceMessageBlockSchema,
   contextReferenceMessageBlockSchema,
   summonMessageBlockSchema,
@@ -266,6 +266,45 @@ export const messageBlockSchema = z.union([
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,
 ]);
+
+/**
+ * The hand-written members of the union by their literal `type`. Every other
+ * member rejects a block of another type, so trying only the matching one is
+ * the same decode; a common block (text, tool call) otherwise fails eight
+ * strict schemas twice each before reaching the generated union.
+ */
+const handWrittenBlockSchemas = new Map<string, z.ZodTypeAny>([
+  ['resource', resourceMessageBlockSchema],
+  ['context_reference', contextReferenceMessageBlockSchema],
+  ['summon', summonMessageBlockSchema],
+  ['mcp_app', mcpAppMessageBlockSchema],
+  ['subagent', subagentMessageBlockSchema],
+  ['agent_message', agentMessageBlockSchema],
+  ['injection', injectionMessageBlockSchema],
+  ['notice', noticeMessageBlockSchema],
+]);
+const generalBlockSchemas: readonly z.ZodTypeAny[] = [
+  knownMessageBlockSchema,
+  additiveKnownMessageBlockSchema,
+  unknownMessageBlockSchema,
+];
+
+export const messageBlockSchema = z
+  .unknown()
+  .transform((value, context): z.output<typeof messageBlockUnionSchema> => {
+    const type =
+      typeof value === 'object' && value !== null ? (value as { type?: unknown }).type : undefined;
+    const specific = typeof type === 'string' ? handWrittenBlockSchemas.get(type) : undefined;
+    for (const schema of specific ? [specific, ...generalBlockSchemas] : generalBlockSchemas) {
+      const result = schema.safeParse(value);
+      if (result.success) return result.data as z.output<typeof messageBlockUnionSchema>;
+    }
+    // Undecodable even as `unknown`: report exactly what the full union reports.
+    const result = messageBlockUnionSchema.safeParse(value);
+    if (result.success) return result.data;
+    for (const issue of result.error.issues) context.addIssue(issue);
+    return z.NEVER;
+  });
 
 export const messageUsageSchema = z.object({
   input: z.number().int().nonnegative(),
