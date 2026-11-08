@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, type ComponentType } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
@@ -19,6 +19,13 @@ import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
+import {
+  installRoutePrefetch,
+  loadedRouteChunk,
+  loadRouteChunk,
+  type RouteChunk,
+  type RouteModule,
+} from '@/lib/route-chunks';
 
 // Desktop only, and it carries the bundled changelog and its markdown renderer.
 const WhatsNewDialog = lazy(() =>
@@ -26,20 +33,31 @@ const WhatsNewDialog = lazy(() =>
     default: module.WhatsNewDialog,
   })),
 );
-const ConnectionPage = lazy(() =>
-  import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
-);
-const RunsPage = lazy(() =>
-  import('@/routes/runs-page').then((module) => ({ default: module.RunsPage })),
-);
-const InfrastructurePage = lazy(() =>
-  import('@/routes/infrastructure-page').then((module) => ({
-    default: module.InfrastructurePage,
-  })),
-);
-const SettingsPage = lazy(() =>
-  import('@/routes/settings-page').then((module) => ({ default: module.SettingsPage })),
-);
+/**
+ * A lazily loaded route that renders synchronously once its module is loaded.
+ * `lazy` alone suspends on every first mount, and React then holds the reveal
+ * for its 300 ms fallback throttle even when the chunk was prefetched. The
+ * component is chosen once per mount so a page never remounts mid-visit.
+ */
+function lazyRoute<Name extends RouteChunk>(
+  name: Name,
+  pick: (module: RouteModule<Name>) => ComponentType,
+): ComponentType {
+  const Lazy = lazy(() => loadRouteChunk(name).then((module) => ({ default: pick(module) })));
+  return function LazyRoute() {
+    const [Page] = useState<ComponentType>(() => {
+      const module = loadedRouteChunk(name);
+      return module ? pick(module) : Lazy;
+    });
+    return <Page />;
+  };
+}
+
+const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
+const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
+const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
+const SettingsPage = lazyRoute('settings', (module) => module.SettingsPage);
+
 function RouteFallback() {
   return (
     <main
@@ -76,6 +94,8 @@ export default function App() {
       : returnRouteFromState(location.state, settings.endpoint),
   };
   useNativeMenuBridge();
+  // Secondary routes load on idle or link hover, not on their first visit.
+  useEffect(() => installRoutePrefetch(), []);
   useEffect(() => {
     // "Connected" here means the boot-time connection resolution (managed
     // backend wait, or the immediate ready state for a manual/browser
