@@ -169,8 +169,8 @@ describe('ClioAttentionCenter', () => {
   }
 
   it('renders nothing when no session needs a response', () => {
-    const { container } = render(<Center attentions={{}} sessions={[baseSession]} />);
-    expect(container.querySelector('[data-sidebar="menu-item"]')).toBeNull();
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
   });
 
   it('lists waiting sessions as one-line rows and opens with its shortcut', async () => {
@@ -194,12 +194,15 @@ describe('ClioAttentionCenter', () => {
     expect(trigger).toHaveAttribute('aria-keyshortcuts');
     fireEvent.keyDown(window, { key: 'n', code: 'KeyN', ctrlKey: true, altKey: true });
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Needs you')).toBeInTheDocument();
+    // The header, the group and the rows all count responses, so they agree.
+    expect(within(dialog).getByText('4 responses')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: /Needs you\s*4/ })).toBeInTheDocument();
     const second_row = within(dialog).getByRole('link', {
       name: 'Session Two: 2 approvals, 1 question',
     });
     expect(second_row).toHaveAttribute('href', '/workspaces/ws_1/sessions/sess_2');
     expect(within(second_row).getByText('approve')).toBeInTheDocument();
+    expect(within(second_row).getByText('3')).toBeInTheDocument();
     expect(
       within(dialog).getByRole('link', { name: 'Session One: 1 question' }),
     ).toBeInTheDocument();

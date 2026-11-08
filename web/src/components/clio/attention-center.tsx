@@ -18,7 +18,7 @@ import {
 import { ListRow } from './primitives/list-row';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { StatusIndicator } from './primitives/status-indicator';
-import { Tag } from './primitives/tag';
+import { MetaValue, Tag } from './primitives/tag';
 
 interface AttentionProps {
   activeSessionId: string;
@@ -127,7 +127,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
               id="attention-needs-you"
             >
               <span>Needs you</span>
-              <span className="font-mono tabular-nums">{entries.length}</span>
+              <span className="font-mono tabular-nums">{responseCount}</span>
             </h3>
             <div
               className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
@@ -144,8 +144,12 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                     to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
                   >
                     <ListRow
-                      badge={<Tag tone="warning">{summary.tag}</Tag>}
-                      description={summary.words}
+                      badge={
+                        <Tag title={summary.words} tone="warning">
+                          {summary.tag}
+                        </Tag>
+                      }
+                      meta={<MetaValue>{attention.total}</MetaValue>}
                       selected={session.id === activeSessionId}
                       status={
                         <StatusIndicator display="column" label="Waiting for you" tone="waiting" />

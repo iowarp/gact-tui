@@ -110,13 +110,13 @@ export function InfrastructureTopology({
               </div>
             ))}
             {!remote.length ? (
-              <p className="text-sm text-muted-foreground">
-                None added.{' '}
+              <p className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm text-muted-foreground">
+                <span>None added</span>
                 <Link
                   to="/infrastructure/agent"
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="truncate text-primary underline-offset-4 hover:underline"
                 >
-                  Manage computers
+                  Add one
                 </Link>
               </p>
             ) : null}

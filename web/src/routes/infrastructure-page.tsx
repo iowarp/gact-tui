@@ -31,11 +31,11 @@ import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
 import { ProvenanceConnections } from '@/components/clio/provenance-connections';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FrameDivider } from '@/components/clio/primitives/frame-bar';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { NavTabs } from '@/components/clio/primitives/nav-tabs';
+import { StateView } from '@/components/clio/primitives/state-view';
 import { Tag } from '@/components/clio/primitives/tag';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
@@ -141,6 +141,11 @@ export function InfrastructurePage() {
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
         : (servers.error ?? webSearchConfiguration.error);
+  const retrySection = () => {
+    for (const query of [health, servers, tools, effectiveToolset, webSearchConfiguration]) {
+      if (query.error) void query.refetch();
+    }
+  };
   const displayedTools = sessionToolScope
     ? effectiveToolset.data
       ? effectiveToolCatalog(effectiveToolset.data.tools, tools.data ?? [], servers.data ?? [])
@@ -305,16 +310,15 @@ export function InfrastructurePage() {
           </header>
 
           {error ? (
-            <Alert className="mt-6" variant="destructive">
-              <NetworkIcon aria-hidden="true" />
-              <AlertTitle>This section could not load completely</AlertTitle>
-              <AlertDescription>
-                The connected {vocab.agent} service did not return all of the requested information.
-                <TechnicalDetails className="mt-2 text-xs" title="Technical details">
-                  <p className="mt-1 break-words font-mono">{error.message}</p>
-                </TechnicalDetails>
-              </AlertDescription>
-            </Alert>
+            <StateView
+              className="mt-6 rounded-md border"
+              kind="error"
+              size="row"
+              icon={NetworkIcon}
+              title="This section could not load completely"
+              detail={error.message}
+              action={{ label: 'Retry', onClick: retrySection }}
+            />
           ) : null}
 
           {currentSection === 'overview' ||

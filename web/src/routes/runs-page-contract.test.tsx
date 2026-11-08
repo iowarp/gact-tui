@@ -159,12 +159,10 @@ it('loads explicit task pages across sessions and keeps original handles navigab
   );
   show();
   expect(
-    await screen.findByText('Showing 1 of 2 tasks. Search covers loaded results.'),
+    await screen.findByText('1 of 1 run, 2 in total. Search covers loaded runs.'),
   ).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
-  expect(
-    await screen.findByText('Showing 2 of 2 tasks. Search covers loaded results.'),
-  ).toBeVisible();
+  expect(await screen.findByText('2 of 2 runs')).toBeVisible();
   expect(screen.getByRole('link', { name: /Analyze dataset/u })).toHaveAttribute(
     'href',
     '/workspaces/workspace/sessions/session-two',
@@ -182,10 +180,12 @@ it('continues an empty sparse page and labels an unknown total without inventing
       : { tasks: [], total: null, cursor: 'sparse-continuation', revision: 1 },
   );
   show();
-  expect(await screen.findByText(/0 tasks loaded/)).toBeVisible();
-  expect(screen.queryByText(/Showing .* of 0 tasks/)).not.toBeInTheDocument();
+  expect(
+    await screen.findByText('0 of 0 runs. More available; search covers loaded runs.'),
+  ).toBeVisible();
+  expect(screen.queryByText(/in total/)).not.toBeInTheDocument();
   await userEvent.click(await screen.findByRole('button', { name: 'Load more tasks' }));
-  expect(await screen.findByText(/1 tasks loaded/)).toBeVisible();
+  expect(await screen.findByText('1 of 1 run')).toBeVisible();
   expect(repository.queryTasks).toHaveBeenCalledWith(
     expect.objectContaining({ cursor: 'sparse-continuation' }),
     expect.anything(),

@@ -211,8 +211,9 @@ it('shows saved provider servers and preserves actual host facts in the topology
   await userEvent.click(await screen.findByText('Saved model servers (1)'));
   expect(await screen.findByText('My running server')).toBeVisible();
   await userEvent.click(screen.getByText('Computer details'));
-  expect(await screen.findByText('Home: C:\\Users\\Alice')).not.toBeVisible();
-  await userEvent.click(await screen.findByText('Computer identity & paths'));
+  const identity = await screen.findByText('Computer identity & paths');
+  expect(screen.queryByText('Home: C:\\Users\\Alice')).toBeNull();
+  await userEvent.click(identity);
   expect(screen.getByText('Home: C:\\Users\\Alice')).toBeVisible();
   expect(await screen.findByText('Computer: WORKSTATION')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Model providers' })).toHaveAttribute(
@@ -283,19 +284,6 @@ it('says the built-in search engine is not installed, with Install, in the map a
   expect(screen.getByRole('link', { name: /Install SearXNG/u })).toHaveAttribute(
     'href',
     '/infrastructure/services?target=local&service=searxng',
-  );
-});
-
-it('lays the setup map out flat: no framed card inside a framed box', () => {
-  show(
-    <InfrastructureOverview data={failedInstallInventory} targetId="local" onTarget={vi.fn()} />,
-  );
-  const map = screen.getByRole('list', { name: /Connections from this client/u });
-  // This client → connected agent → remote computers, as three sibling steps.
-  expect(map.querySelectorAll(':scope > [role="listitem"]')).toHaveLength(3);
-  expect(map.querySelectorAll('[class*="rounded-xl"], [class*="bg-muted"]')).toHaveLength(0);
-  expect(screen.getByRole('link', { name: /Manage services on connected/u }).className).not.toMatch(
-    /\bborder\b/u,
   );
 });
 

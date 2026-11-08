@@ -439,10 +439,12 @@ export function RunsPage() {
         )}
         <div className="mt-2 flex h-8 min-w-0 items-center gap-3 px-1.5 text-[12px] whitespace-nowrap text-muted-foreground">
           <span className="min-w-0 truncate">
-            {runs.data?.pages[0]?.total == null
-              ? `${tasks.length} tasks loaded`
-              : `Showing ${tasks.length} of ${runs.data.pages[0].total} tasks`}
-            . Search covers loaded results.
+            {footerCount(filteredRows.length, rows.length, noun)}
+            {category === 'executions' && runs.hasNextPage
+              ? runs.data?.pages[0]?.total == null
+                ? '. More available; search covers loaded runs.'
+                : `, ${runs.data.pages[0].total} in total. Search covers loaded runs.`
+              : null}
           </span>
           {filteredRows.length > visibleLimit ? (
             <Button
@@ -498,4 +500,9 @@ export function RunsPage() {
       </AlertDialog>
     </main>
   );
+}
+
+/** "4 of 9 runs": what the filter shows out of what is loaded, in the header's noun. */
+function footerCount(shown: number, loaded: number, noun: 'runs' | 'flows'): string {
+  return `${shown} of ${loaded} ${loaded === 1 ? noun.slice(0, -1) : noun}`;
 }

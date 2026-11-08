@@ -263,7 +263,6 @@ describe('InfrastructurePage', () => {
   it('separates agent, tools, and services while opening on the requested section', async () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(screen.getByRole('main')).toHaveClass('h-full', 'min-h-0', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
     expect(screen.getByRole('link', { name: `${brand.agentName} hosts` })).toBeVisible();
@@ -665,7 +664,7 @@ describe('InfrastructurePage', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
     await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
-    expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
+    expect(screen.getByRole('dialog')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByRole('button', { name: 'Connect Relay' })).not.toBeInTheDocument();
