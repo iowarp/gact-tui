@@ -409,7 +409,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             ) : null}
           </>
         )}
-        <CascaderFooter className="p-0">
+        <CascaderFooter className="mt-auto p-0">
           <PickerFooter
             className="h-10 border-t-0 px-2"
             end={
