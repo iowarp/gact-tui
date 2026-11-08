@@ -13,6 +13,8 @@
     "pretest:e2e": "node e2e/build.mjs",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test -c playwright.live.config.ts",
+    "perf": "node perf/run.mjs",
+    "screens": "node perf/screens.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {

@@ -11,6 +11,10 @@ workspace.
 - [CLIO visual language](design/visual-language/README.md) is the visual
   reference for the Web and Desktop redesign. It contains self-contained HTML
   pages and previews. It is a proposal and is not implemented yet.
+- [RC1 UI campaign](design/rc1-campaign.md) is the charter for implementing that
+  reference across Web and Desktop.
+- [Performance and screenshots](perf-and-screens.md) documents `pnpm perf`,
+  `pnpm screens`, the budgets and the [current baseline](perf/baseline/README.md).
 - [Agent operational memory](agent-operational-memory.md) contains safety rules for
   exercising real scientific sessions.
 - [Provenance graph](design/provenance-graph-2026-08.md) describes the current
