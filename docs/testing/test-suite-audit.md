@@ -144,3 +144,15 @@ Counts:
 - Order of work: recommendations 1, 2 and 7–9 first. They are safe now and
   touch no tests. Do recommendations 3 and 5 per surface as each RC1 workstream
   lands its rewrite.
+
+## Implementation corrections
+
+Implementing the recommendations outside S1–S4 (changes outside the four RC1 surfaces) showed that two of the audit's estimates were file-level overstatements:
+
+| Audit estimate                                 | Measured on implementation                                                                 | Why                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8 source-scan files, about 72 tests            | 2 files, 6 tests, now lint scripts (`check_middle_dot_copy.mjs`, `check_skill_copies.mjs`) | The other 6 files read JSON or binary fixtures through real decoders, or check CSS against the TS theme contract. They are contract tests and stay.                                                                                                               |
+| About 280 one-off DOM tests to delete          | 0 outside S1–S4                                                                            | A per-test scan found 23 tests whose only assertions are on classes or styles. Those outside S1–S4 guard a data contract, a WCAG contrast floor, panel weights or icon semantics. The real markup-only cases are on S1–S4 surfaces, which those sessions rewrite. |
+| Geometry/CSS e2e checks convert to screenshots | 1 converted (`standard-math` KaTeX typeface)                                               | The rest outside S1–S4 assert layout invariants: containment on narrow screens, no overlap, a fork drawn beside its step, a chart with non-zero size. Pixel baselines would make these weaker and platform-bound.                                                 |
+
+The CI speed-up (parallel jobs, 4 e2e shards, a node unit environment, thread pools without isolation for DOM-free tests) does not depend on deleting tests.
