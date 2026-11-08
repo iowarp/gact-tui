@@ -26,6 +26,13 @@ fn pid_alive(pid: u32) -> bool {
     }
     #[cfg(unix)]
     {
+        // A killed direct child stays a zombie, which `kill(pid, 0)` still
+        // reports as alive, until its parent reaps it. Production registers a
+        // waiter thread that reaps; these tests register without one.
+        let mut status = 0;
+        if unsafe { libc::waitpid(pid as i32, &mut status, libc::WNOHANG) } == pid as i32 {
+            return false;
+        }
         unsafe { libc::kill(pid as i32, 0) == 0 }
     }
 }
