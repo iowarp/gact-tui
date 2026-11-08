@@ -19,9 +19,9 @@ import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
-import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
+import { SettingsWindow } from '@/routes/settings-window';
 import {
   installRoutePrefetch,
   loadedRouteChunk,
@@ -59,7 +59,6 @@ function lazyRoute<Name extends RouteChunk>(
 const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
 const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
 const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
-const SettingsPage = lazyRoute('settings', (module) => module.SettingsPage);
 
 function RouteFallback() {
   return (
@@ -73,18 +72,6 @@ function RouteFallback() {
         <p className="text-sm text-muted-foreground">Loading workspace…</p>
       </div>
     </main>
-  );
-}
-
-function SettingsWindowFallback() {
-  return (
-    <WindowShell open onOpenChange={() => undefined} title="Settings">
-      <div aria-busy="true" className="space-y-3 p-6" role="status">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-24 w-full max-w-xl" />
-        <p className="text-sm text-muted-foreground">Loading settings…</p>
-      </div>
-    </WindowShell>
   );
 }
 
@@ -173,11 +160,9 @@ export default function App() {
         </BackgroundRoutes>
       </Suspense>
       {isSettingsRoute(location.pathname) ? (
-        <Suspense fallback={<SettingsWindowFallback />}>
-          <Routes>
-            <Route element={<SettingsPage />} path="/settings/:section" />
-          </Routes>
-        </Suspense>
+        <Routes>
+          <Route element={<SettingsWindow />} path="/settings/:section" />
+        </Routes>
       ) : null}
       <Toaster closeButton richColors />
       {/* Fixed + full-viewport, so it covers the desktop title bar's own

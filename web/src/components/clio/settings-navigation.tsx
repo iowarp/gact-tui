@@ -77,7 +77,7 @@ export function SettingsNavigation({
       {groups.map(({ group, items }) => (
         <section key={group} aria-label={scopeLabels[group] ?? group} className="space-y-px">
           <h2
-            className="truncate px-2 pb-1 text-[11px] font-medium text-muted-foreground"
+            className="truncate px-2 pb-1 text-[0.6875rem] font-medium text-muted-foreground"
             title={scopeLabels[group] ?? group}
           >
             {scopeLabels[group] ?? group}
@@ -86,7 +86,7 @@ export function SettingsNavigation({
             <Link
               aria-current={id === current ? 'page' : undefined}
               className={cn(
-                'flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-[13px] whitespace-nowrap outline-none',
+                'flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-[0.8125rem] whitespace-nowrap outline-none',
                 'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50',
                 id === current && 'bg-accent font-medium text-accent-foreground',
               )}
@@ -124,7 +124,7 @@ export function SettingsSearchButton() {
   );
 }
 
-/** Below 600 px the section list folds into this menu in the title row. */
+/** Below 768 px the section list folds into this menu in the title row. */
 export function SettingsSectionPicker({
   sections,
   section,
@@ -144,7 +144,7 @@ export function SettingsSectionPicker({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="Choose settings section"
-          className="h-7 min-w-0 max-w-44 shrink gap-1 px-2 text-xs min-[600px]:hidden"
+          className="h-7 min-w-0 max-w-44 shrink gap-1 px-2 text-xs min-[768px]:hidden"
           variant="outline"
         >
           <span className="truncate">{active?.label ?? 'Sections'}</span>
@@ -163,6 +163,7 @@ export function SettingsSectionPicker({
         }}
       >
         <DropdownMenuItem
+          aria-label="Search everywhere from settings menu"
           onSelect={() => {
             openingSearch.current = true;
           }}

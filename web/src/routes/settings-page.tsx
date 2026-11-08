@@ -1,21 +1,6 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsRow, SettingsChoice } from '@/components/clio/settings-row';
-import { connectionScope } from '@/lib/connection-scope';
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import {
-  SettingsNavigation,
-  SettingsSearchButton,
-  SettingsSectionPicker,
-} from '@/components/clio/settings-navigation';
-import { WindowShell } from '@/components/clio/primitives/dialog-frame';
-import {
-  arrivedFromSearch,
-  settingsBackgroundRoute,
-  withoutSearchArrival,
-} from '@/lib/settings-window-route';
-import { useLiveStore } from '@/store/live-store';
 import { ToolsSettingsTabs } from '@/components/clio/settings-tools-tabs';
-import { settingsDestinations } from '@/lib/application-destinations';
 import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -30,16 +15,9 @@ import {
   SunIcon,
   Volume2Icon,
 } from 'lucide-react';
-import { DeleteIcon, MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
-import {
-  Link,
-  Navigate,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from 'react-router-dom';
+import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { type ComponentType, type SVGProps } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { ExtensionLibrary as PluginSettings } from '@/components/clio/extension-library';
@@ -62,7 +40,6 @@ import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
 import { ContextHistorySettings } from '@/components/clio/settings-context-history';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
-import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   Frame,
   FrameDescription,
@@ -99,11 +76,6 @@ import {
   useTheme,
 } from '@/providers/appearance-provider';
 import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
-import {
-  returnRouteFromState,
-  sessionIdFromRoute,
-  workspaceIdFromRoute,
-} from '@/lib/workspace-route-memory';
 
 function ConnectionsSettings() {
   const repository = useRepository();
@@ -514,7 +486,7 @@ function NotificationSettings() {
   );
 }
 
-function SettingsSection({
+export function SettingsSection({
   section,
   sessionId,
   workspaceId,
@@ -575,117 +547,4 @@ function SettingsSection({
   if (section === 'about') return <AboutSettings />;
   if (section === 'appearance') return <AppearanceSettings />;
   return <GeneralSettings />;
-}
-
-export function SettingsPage() {
-  const { section = 'general' } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { settings } = useConnectionSettings();
-  const destinations = settingsDestinations(inTauri());
-  const repository = useRepository();
-  const memory = useQuery({
-    queryKey: ['memory', 'summary'],
-    queryFn: ({ signal }) => repository.memorySummary(signal),
-    refetchInterval: 60_000,
-    retry: false,
-  });
-  const inbox = memory.data?.inbox ?? 0;
-  const content = useRef<HTMLDivElement>(null);
-  const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
-  const background = settingsBackgroundRoute(location, settings.endpoint);
-  const [searchParams] = useSearchParams();
-  const filter = searchParams.get('q') ?? '';
-  // Without the workspace behind the window, section links keep it detached:
-  // a remembered route can be stale and must not mount under Settings.
-  const linkState = background
-    ? withoutSearchArrival(location.state)
-    : { endpoint: settings.endpoint, from: workspaceRoute, detached: true };
-  const fromSearch = arrivedFromSearch(location.state);
-  const workspaceId = workspaceIdFromRoute(workspaceRoute);
-  const sessionId = sessionIdFromRoute(workspaceRoute);
-  const workspace = useLiveStore((state) =>
-    workspaceId ? state.entities.workspaces[workspaceId] : undefined,
-  );
-  const workspaceName = workspace?.display_name || workspace?.name || 'Workspace';
-  const agentName = settings.label || vocab.agent;
-  const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
-  const scopeLine =
-    destination?.group === 'Agent'
-      ? `${agentName}, applies to every conversation on this agent`
-      : destination?.group === 'Workspace'
-        ? `${agentName}, kept per workspace and for you`
-        : 'This app on this device';
-  useEffect(() => {
-    const anchor = destination?.host
-      ? content.current?.querySelector(`[data-settings-anchor="${section}"]`)
-      : undefined;
-    if (anchor) anchor.scrollIntoView({ block: 'start' });
-    else content.current?.scrollTo({ left: 0, top: 0 });
-  }, [section, destination?.host]);
-  useEffect(() => {
-    if (!fromSearch) return;
-    const target = destination?.host
-      ? content.current?.querySelector(
-          `[data-settings-anchor="${section}"] h2, [data-settings-anchor="${section}"] h1`,
-        )
-      : content.current?.querySelector('h1');
-    if (!target) return;
-    target.classList.add('clio-search-arrival');
-    const done = window.setTimeout(() => target.classList.remove('clio-search-arrival'), 1600);
-    return () => {
-      window.clearTimeout(done);
-      target.classList.remove('clio-search-arrival');
-    };
-  }, [fromSearch, section, destination?.host, location.key]);
-  if (section === 'desktop') {
-    return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
-  }
-  const navigation = {
-    sections: destinations,
-    section,
-    linkState,
-    scopeLabels,
-    badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
-    filter,
-    onClearFilter: () =>
-      void navigate(
-        { pathname: location.pathname, hash: location.hash },
-        { replace: true, state: withoutSearchArrival(location.state) },
-      ),
-  };
-  return (
-    <WindowShell
-      className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
-      contentLabel="Settings content"
-      contentRef={content}
-      icon={<SettingsIcon />}
-      navigation={<SettingsNavigation {...navigation} />}
-      onOpenChange={(open) => {
-        if (!open) void navigate(background ?? workspaceRoute);
-      }}
-      open
-      title="Settings"
-      toolbar={
-        <div className="flex min-w-0 items-center gap-1.5">
-          <SettingsSectionPicker {...navigation} />
-          <SettingsSearchButton />
-        </div>
-      }
-    >
-      <main className="px-5 py-6 sm:px-8">
-        <div className="mx-auto max-w-4xl pb-12">
-          <SettingsScopeContext.Provider value={scopeLine}>
-            <SettingsSection
-              key={connectionScope(settings)}
-              section={section}
-              sessionId={sessionId}
-              workspaceId={workspaceId}
-            />
-          </SettingsScopeContext.Provider>
-        </div>
-      </main>
-    </WindowShell>
-  );
 }

@@ -208,7 +208,10 @@ export const WindowShell = memo(function WindowShell({
       >
         <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border pr-2 pl-4">
           {icon ? (
-            <span aria-hidden="true" className="flex shrink-0 text-muted-foreground [&_svg]:size-3.5">
+            <span
+              aria-hidden="true"
+              className="flex shrink-0 text-muted-foreground [&_svg]:size-3.5"
+            >
               {icon}
             </span>
           ) : null}
@@ -223,7 +226,7 @@ export const WindowShell = memo(function WindowShell({
           {navigation ? (
             <nav
               aria-label={`${title} sections`}
-              className="hidden w-52 shrink-0 overflow-y-auto border-r border-border p-1.5 min-[600px]:block"
+              className="hidden w-52 shrink-0 overflow-y-auto border-r border-border p-1.5 min-[768px]:block"
             >
               {navigation}
             </nav>
