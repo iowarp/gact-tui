@@ -337,11 +337,21 @@ describe('ClioCommandMenu workspace search', () => {
   });
 
   it('opens Settings filtered to the search when every result is a setting', async () => {
+    // No remembered passages match, so only settings remain once the search settles.
+    repository.searchMemory.mockResolvedValue({
+      query: 'drive',
+      include_cross_session: true,
+      searched_sessions: [],
+      hits: [],
+      metadata: { source: 'arc' },
+    });
     const user = userEvent.setup();
     renderMenu();
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('drive');
     await screen.findByRole('option', { name: 'Data sources' });
+    expect(await screen.findByRole('button', { name: /^Open in Settings/u })).toBeVisible();
+    await waitFor(() => expect(repository.searchMemory).toHaveBeenCalled());
     expect(await screen.findByRole('button', { name: /^Open in Settings/u })).toBeVisible();
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(screen.getByTestId('location')).toHaveTextContent('/settings/data-sources?q=drive');

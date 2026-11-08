@@ -1,6 +1,6 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
-import type { Artifact, MemorySearchHit } from '@clio/core/v3';
+import type { MemorySearchHit } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
   BoxIcon,
@@ -47,9 +47,7 @@ import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { ClioSearchAssistant } from './search-assistant';
 import { SearchHighlight } from './search-highlight';
 import { messageSearchHash } from '@/lib/search-matches';
-import { projectText } from '@/lib/attention-text';
 import { connectionScope } from '@/lib/connection-scope';
-import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import {
   ALL_SCOPE_GROUP_LIMIT,
   COMMAND_MENU_SCOPES,
@@ -68,7 +66,9 @@ import {
   ResultsHeading,
 } from './global-search-results';
 import type { GlobalSearchMatches } from './use-global-search-matches';
+import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { TextTabs } from './primitives/text-tabs';
+import { ArtifactResultGroup, FileResultGroup, MessageHitGroup } from './command-menu-work-groups';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import { isSettingsRoute } from '@/lib/settings-window-route';
 import {
@@ -633,101 +633,32 @@ export function ClioCommandMenu({
                       ) : null}
                       {inCommandMenuScope(activeScope, 'conversations') &&
                       messageRows.rows.length ? (
-                        <CommandGroup
-                          heading={
-                            <ResultsHeading count={memoryHits.length} label="Matching messages" />
-                          }
-                        >
-                          {messageRows.rows.map((hit) => (
-                            <CommandItem
-                              key={`${hit.session_id}:${hit.message_id}:${hit.part_id ?? ''}`}
-                              onSelect={() => void openMemoryHit(hit)}
-                              value={`message:${hit.session_id}:${hit.message_id}:${hit.part_id ?? ''}`}
-                              className="items-start py-2"
-                            >
-                              <MessageSquareTextIcon aria-hidden="true" />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate font-medium">
-                                  <SearchHighlight
-                                    text={hit.session_title || 'Untitled session'}
-                                    query={searchText}
-                                  />
-                                </span>
-                                <span className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">
-                                  <SearchHighlight
-                                    text={projectText(hit.text, { source: true }).text}
-                                    query={searchText}
-                                    partial
-                                  />
-                                </span>
-                                <span className="mt-1 block truncate text-[11px] text-muted-foreground">
-                                  {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open
-                                  matching passage
-                                </span>
-                              </span>
-                              <CommandShortcut>{roleLabel(hit.role)}</CommandShortcut>
-                            </CommandItem>
-                          ))}
-                          <MoreResultsItem
-                            hidden={messageRows.hidden}
-                            noun="messages"
-                            onMore={pickScope}
-                            scope="conversations"
-                          />
-                        </CommandGroup>
+                        <MessageHitGroup
+                          hits={messageRows}
+                          onMore={pickScope}
+                          onOpen={(hit) => void openMemoryHit(hit)}
+                          query={searchText}
+                          total={memoryHits.length}
+                          workspaceNames={workspaceNames}
+                        />
                       ) : null}
                       {inCommandMenuScope(activeScope, 'files') && fileRows.rows.length ? (
-                        <CommandGroup
-                          heading={<ResultsHeading count={matchingFiles.length} label="Files" />}
-                        >
-                          {fileRows.rows.map((file) => (
-                            <CommandItem
-                              key={file.path}
-                              onSelect={() =>
-                                void openResource({ kind: 'workspace-file', path: file.path })
-                              }
-                              value={file.path}
-                            >
-                              <FileIcon aria-hidden="true" />
-                              <span className="min-w-0 flex-1 truncate">
-                                <SearchHighlight text={file.path} query={searchText} />
-                              </span>
-                            </CommandItem>
-                          ))}
-                          <MoreResultsItem
-                            hidden={fileRows.hidden}
-                            noun="files"
-                            onMore={pickScope}
-                            scope="files"
-                          />
-                        </CommandGroup>
+                        <FileResultGroup
+                          files={fileRows}
+                          onMore={pickScope}
+                          onOpen={(path) => void openResource({ kind: 'workspace-file', path })}
+                          query={searchText}
+                          total={matchingFiles.length}
+                        />
                       ) : null}
                       {inCommandMenuScope(activeScope, 'artifacts') && artifactRows.rows.length ? (
-                        <CommandGroup
-                          heading={
-                            <ResultsHeading count={matchingArtifacts.length} label="Artifacts" />
-                          }
-                        >
-                          {artifactRows.rows.map((artifact: Artifact) => (
-                            <CommandItem
-                              key={artifact.id}
-                              onSelect={() => void openResource({ kind: 'artifact', artifact })}
-                              value={`artifact:${artifact.id}`}
-                            >
-                              <BoxIcon aria-hidden="true" />
-                              <span className="min-w-0 flex-1 truncate">
-                                <SearchHighlight text={artifact.name} query={searchText} />
-                              </span>
-                              <CommandShortcut>{artifact.media_type}</CommandShortcut>
-                            </CommandItem>
-                          ))}
-                          <MoreResultsItem
-                            hidden={artifactRows.hidden}
-                            noun="artifacts"
-                            onMore={pickScope}
-                            scope="artifacts"
-                          />
-                        </CommandGroup>
+                        <ArtifactResultGroup
+                          artifacts={artifactRows}
+                          onMore={pickScope}
+                          onOpen={(artifact) => void openResource({ kind: 'artifact', artifact })}
+                          query={searchText}
+                          total={matchingArtifacts.length}
+                        />
                       ) : null}
                       <GlobalSearchGroups
                         limit={groupLimit}
@@ -793,9 +724,3 @@ const SCOPE_ICONS: Record<CommandMenuScope, ReactNode> = {
   settings: <SettingsIcon aria-hidden="true" />,
   more: <MoreIcon aria-hidden="true" />,
 };
-
-function roleLabel(role: MemorySearchHit['role']): string {
-  if (role === 'assistant') return brand.name;
-  if (role === 'user') return 'You';
-  return role === 'tool' ? 'Tool' : 'System';
-}
