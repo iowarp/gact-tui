@@ -7,6 +7,8 @@
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
 mod agent_port;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod app_location;
 mod blocking_command;
 mod brand_backend;
 mod clio_core_daemon;
@@ -25,6 +27,8 @@ mod gact_http_response;
 mod gact_http_tests;
 #[cfg(not(windows))]
 mod install_prepare;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod login_path;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod installer_dir_swap;
 mod installer_options;
@@ -165,6 +169,9 @@ pub use install_prepare::prepare_runtime_command;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before any thread starts: children inherit the adopted PATH.
+    #[cfg(target_os = "macos")]
+    login_path::adopt_login_shell_path();
     let supervisor = Supervisor::new();
     let state = Mutex::new(supervisor);
 
@@ -283,6 +290,10 @@ pub fn run() {
             // after a failure. Best-effort: a failure here leaves logging a
             // no-op but never blocks boot.
             let _ = supervisor_boot_log::init_boot_log(app.handle());
+            #[cfg(target_os = "macos")]
+            if let Some(outcome) = login_path::outcome() {
+                supervisor_boot_log::boot_log_line(outcome);
+            }
 
             let app_data = app
                 .path()
@@ -345,10 +356,12 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 let app_menu = menu::build_menu(app.handle())?;
-                app.set_menu(app_menu)?;
+                app.set_menu(app_menu.clone())?;
+                menu::register_app_roles(&app_menu)?;
                 app.on_menu_event(|app, ev| {
                     menu::handle_menu_event(app, ev.id().as_ref());
                 });
+                app_location::offer_move_to_applications(app.handle());
             }
             // Defense in depth: nothing above should ever install a native
             // menu outside macOS — Tauri does not install a default one on

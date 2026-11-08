@@ -14,6 +14,7 @@
     "description": "Start with a question, a workspace resource, or one of these examples."
   },
   "logoSvg": "logo.svg",
+  "trayTemplate": "tray-template.png",
   "accent": "#5b8def",
   "themeTokens": {},
   "releaseUrl": "https://github.com/iowarp/gact-tui/releases",

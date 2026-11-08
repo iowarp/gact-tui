@@ -255,6 +255,31 @@ xcrun stapler validate CLIO.Desktop_*_aarch64.dmg
 If notarization fails, `xcrun notarytool log <submission-id>` lists every file
 it rejected; `macos-notarize.sh` prints it automatically.
 
+### First launch on macOS
+
+- **Install location.** When the app runs from its disk image or from
+  Gatekeeper's App Translocation mount (a quarantined app opened straight
+  from Downloads), it offers **Move to Applications** and reopens from there.
+  It moves into `/Applications`, or `~/Applications` for standard accounts.
+  The manual fix is to drag the app into Applications, or for an
+  unnotarized test build:
+  `xattr -dr com.apple.quarantine "/Applications/CLIO Desktop.app"`.
+- **Read-only bundle.** Nothing writes inside the signed app. The launcher sets
+  `PYTHONDONTWRITEBYTECODE=1`; the runtime ships its bytecode precompiled and
+  signed. Check with `find "CLIO Desktop.app" -newer <marker>` after a launch.
+- **Shell environment.** Apps opened from Finder inherit launchd's minimal
+  `PATH`. At startup the desktop reads the login shell's `PATH`
+  (`$SHELL -i -l`, three-second limit, logged in the boot log) and falls back
+  to Homebrew, `/usr/local`, `~/.local/bin` and `~/.cargo/bin`. Terminal
+  sessions start the shell as a login shell (`-l`).
+- **Menus and tray.** The menu bar has Window (Minimize, Zoom, Full Screen,
+  Close, Bring All to Front) and Help menus. The menu-bar item uses the
+  brand's `trayTemplate` image as a template icon and opens its menu on a
+  left click.
+- **First-run preparation.** Long first launches come from the embedding
+  agent preparing its runtime packages; moving that work into the runtime
+  build is tracked in iowarp/gact-tui#739 (C1).
+
 ## 3. How the client check works (already in the repo)
 
 - **Plugins** — `src-tauri/src/lib.rs` registers

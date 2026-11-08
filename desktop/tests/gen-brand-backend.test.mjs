@@ -9,9 +9,17 @@
 // override of every field. A drift between the two would show up here
 // before it reaches a shipped build.
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-import { resolveBrandVocabulary, resolvePortConfig } from '../scripts/gen-brand-backend.mjs';
+import {
+  resolveBrandVocabulary,
+  resolvePortConfig,
+  resolveTrayTemplate,
+} from '../scripts/gen-brand-backend.mjs';
 
 /**
  * Mirrors ONLY the vocabulary defaulting rules from
@@ -111,4 +119,27 @@ test('a brand with no backend has no port override and the shared default', () =
     resolver: null,
   });
   assert.throws(() => resolvePortConfig({ portConfig: { default: 70000 } }), /TCP port/);
+});
+
+test('the tray template comes only from the selected brand', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'brand-tray-'));
+  try {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    writeFileSync(join(dir, 'tray.png'), png);
+    writeFileSync(join(dir, 'logo.svg'), '<svg/>');
+    assert.deepEqual(resolveTrayTemplate({ trayTemplate: 'tray.png' }, dir), png);
+    assert.equal(resolveTrayTemplate({}, dir).length, 0, 'no template: the tray uses the app icon');
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: 'logo.svg' }, dir), /not a PNG/);
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: '' }, dir), /PNG path/);
+    assert.throws(() => resolveTrayTemplate({ trayTemplate: 'missing.png' }, dir), /ENOENT/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the neutral brand ships a template and the generated copy matches it', () => {
+  const brandDir = fileURLToPath(new URL('../../branding/gact/', import.meta.url));
+  const raw = JSON.parse(readFileSync(join(brandDir, 'brand.json'), 'utf8'));
+  const generated = fileURLToPath(new URL('../src-tauri/gen/tray-template.png', import.meta.url));
+  assert.deepEqual(readFileSync(generated), resolveTrayTemplate(raw, brandDir));
 });

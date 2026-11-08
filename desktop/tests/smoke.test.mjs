@@ -66,7 +66,7 @@ test('desktop variants use product-owned frameless chrome with scoped window con
   }
 
   const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
-  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu\)/);
+  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu(?:\.clone\(\))?\)/);
 });
 
 test('desktop close, reopen, and quit lifecycle route through one guarded request_quit path', () => {
@@ -205,11 +205,17 @@ test('CSP is present, localhost-scoped, and identical across config variants', (
   // (2) connect-src is scoped to localhost; broad wildcards are removed because
   // remote/SSH-tunneled egress is done by Rust (gact_http/gact_sse), not the WebView.
   for (const csp of [baseCsp, gactCsp]) {
-    assert.match(csp, /(?:^|;)\s*frame-src 'self' http: https: gact-viewer:(?:;|$)/,
-      'the opaque interactive renderer must load from the connected service, '
-        + 'and the HDF5 viewer from its own gact-viewer: origin');
-    assert.match(csp, /(?:^|;)\s*script-src 'self'(?:;|$)/,
-      'preview scripts must not relax the main application script policy');
+    assert.match(
+      csp,
+      /(?:^|;)\s*frame-src 'self' http: https: gact-viewer:(?:;|$)/,
+      'the opaque interactive renderer must load from the connected service, ' +
+        'and the HDF5 viewer from its own gact-viewer: origin',
+    );
+    assert.match(
+      csp,
+      /(?:^|;)\s*script-src 'self'(?:;|$)/,
+      'preview scripts must not relax the main application script policy',
+    );
     assert.match(csp, /connect-src[^;]*'self'/, 'connect-src must allow self');
     // Attachments are read from `blob:` object URLs the page itself created
     // (prompt-input.tsx's URL.createObjectURL). Without `blob:` here, the
