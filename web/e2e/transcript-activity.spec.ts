@@ -31,15 +31,16 @@ test('renders reader-controlled causal entries and a truthful completion footer 
   await expect(thinking).toHaveCount(0);
   await expect(message.getByRole('button', { name: /^(?:Thinking|Reasoning):/u })).toHaveCount(0);
   await expect(activity.locator('svg.animate-spin')).toHaveCount(1);
+  // Markdown paragraphs end with a line break that keeps their boundary in the DOM text.
   await expect(
     message
       .locator('p')
-      .filter({ hasText: /^Read the fixture notes before preparing the report\.$/u }),
+      .filter({ hasText: /^Read the fixture notes before preparing the report\.\n?$/u }),
   ).toHaveCount(1);
   await expect(message.getByRole('group', { name: 'Activity detail' })).toHaveCount(0);
   await expect(message.locator('[data-slot="message-completion-footer"]')).toHaveCount(0);
   const update = message.locator('p').filter({
-    hasText: /^Read the fixture notes before preparing the report\.$/u,
+    hasText: /^Read the fixture notes before preparing the report\.\n?$/u,
   });
   await expect
     .poll(async () => {
@@ -163,6 +164,13 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     );
     const read = message.getByRole('button', { name: 'Show result for Read' });
     const run = message.getByRole('button', { name: 'Show result for Run' });
+    // The action is the row's button; its target and outcome read beside it.
+    const readRow = message.locator('[data-slot="activity-row"]').filter({
+      has: page.getByRole('button', { name: 'Show result for Read' }),
+    });
+    const runRow = message.locator('[data-slot="activity-row"]').filter({
+      has: page.getByRole('button', { name: 'Show result for Run' }),
+    });
     const reasoningToToolGap = async () => {
       const [reasoningBounds, readBounds] = await Promise.all([
         reasoning.boundingBox(),
@@ -175,8 +183,8 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     // is verified independently above.
     await expect.poll(reasoningToToolGap).toBeGreaterThanOrEqual(4);
     await expect.poll(reasoningToToolGap).toBeLessThanOrEqual(8);
-    await expect(read).toContainText('61 lines');
-    await expect(run).toContainText('failed');
+    await expect(readRow).toContainText('61 lines');
+    await expect(runRow).toContainText('failed');
     expect((await read.boundingBox())!.y).toBeLessThan((await run.boundingBox())!.y);
     expect(await timeline.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     const footer = message.locator('[data-slot="message-completion-footer"]');
@@ -190,7 +198,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     const details = message.getByRole('region', { name: 'Read: Result' });
     await expect(details).toHaveCount(1);
     // A named (not linked) subject stays the row's target when the row is open.
-    await expect(read).toContainText('notes.md');
+    await expect(readRow).toContainText('notes.md');
     await expect(details).not.toContainText('Arguments');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await read.focus();
