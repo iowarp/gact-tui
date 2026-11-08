@@ -22,7 +22,6 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FileTextView } from './file-text-view';
-import { SourceWindowContext } from '@/lib/source-window';
 import { textFileFormat } from '@/lib/file-presentation';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
@@ -32,12 +31,7 @@ import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { formatBytes } from '@/lib/format';
 import { isTextMediaType } from '@/lib/media-types';
-import {
-  INLINE_PREVIEW_MAX_BYTES,
-  TEXT_FULL_READ_MAX_BYTES,
-  TEXT_WINDOW_CHUNK_BYTES,
-} from '@/lib/runtime-limits';
-import { useWorkspaceTextWindow } from '@/hooks/use-workspace-text-window';
+import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 
 import { ArtifactProvenance } from './artifact-provenance';
 import {
@@ -50,12 +44,10 @@ import {
 import { ClioDocumentWorkspace } from './document-workspace';
 
 import { HtmlFileInBrowser } from './html-in-browser';
-import { LatexFileWorkspace } from './latex-workspace';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
-import { StateView } from './primitives/state-view';
 import { FileViewerShell } from './file-viewer-shell';
 
 import { ImageResourceView } from './image-resource-view';
@@ -63,6 +55,8 @@ import { StreamArtifactView } from './stream-artifact-view';
 import { isStreamArtifact } from './stream-artifact';
 import { DashboardResourceView } from './dashboard-view';
 export { ImageResourceView } from './image-resource-view';
+import { WorkspaceTextView } from './workspace-text-view';
+export { TextResourceView } from './workspace-text-view';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -180,174 +174,6 @@ function WorkspacePdfView({
   );
 }
 
-function WorkspaceTextView({
-  workspaceId,
-  path,
-  size,
-  mediaType,
-  html,
-}: {
-  workspaceId: string;
-  path: string;
-  size?: number;
-  mediaType?: string;
-  /** An HTML file: shown as its source, and opened in the shared browser. */
-  html?: { openOnShow: boolean };
-}) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  // Unsized and large files are read in ranged windows, never whole.
-  const windowed = size === undefined || size > TEXT_FULL_READ_MAX_BYTES;
-  const content = useQuery({
-    queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
-    queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
-    enabled: !windowed,
-  });
-  if (windowed)
-    return (
-      <WorkspaceTextWindowView
-        html={html}
-        mediaType={mediaType}
-        path={path}
-        size={size}
-        workspaceId={workspaceId}
-      />
-    );
-  return (
-    <WorkspaceTextContent
-      content={content.data}
-      error={content.error?.message}
-      html={html}
-      mediaType={mediaType}
-      path={path}
-      workspaceId={workspaceId}
-    />
-  );
-}
-
-/** A file's text once read whole: HTML opens in the browser, papers in the LaTeX workspace. */
-function WorkspaceTextContent({
-  workspaceId,
-  path,
-  mediaType,
-  html,
-  content,
-  error,
-}: {
-  workspaceId: string;
-  path: string;
-  mediaType?: string;
-  html?: { openOnShow: boolean };
-  content?: string;
-  error?: string;
-}) {
-  if (html && content !== undefined)
-    return (
-      <HtmlFileInBrowser
-        content={content}
-        name={fileName(path)}
-        openOnShow={html.openOnShow}
-        path={path}
-      />
-    );
-  const view = (
-    <TextResourceView content={content} error={error} path={path} mediaType={mediaType} />
-  );
-  // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
-  const format = textFileFormat(path, mediaType);
-  if (format !== 'markdown' && !path.toLowerCase().endsWith('.tex')) return view;
-  // A paper's entry file (it has \documentclass) opens as the LaTeX workspace.
-  if (path.toLowerCase().endsWith('.tex') && /^[^%\n]*\\documentclass/mu.test(content ?? ''))
-    return (
-      <WorkspaceFileComments modes={['text', 'region']} path={path} workspaceId={workspaceId}>
-        <LatexFileWorkspace fallback={view} path={path} workspaceId={workspaceId} />
-      </WorkspaceFileComments>
-    );
-  return (
-    <WorkspaceFileComments modes={['text']} path={path} workspaceId={workspaceId}>
-      {view}
-    </WorkspaceFileComments>
-  );
-}
-
-/**
- * A large or unsized text file: its head window first, more as the source
- * scrolls, and its end on request. A file that fits in the first window is
- * shown whole, like any other.
- */
-function WorkspaceTextWindowView({
-  workspaceId,
-  path,
-  size,
-  mediaType,
-  html,
-}: {
-  workspaceId: string;
-  path: string;
-  size?: number;
-  mediaType?: string;
-  html?: { openOnShow: boolean };
-}) {
-  const [showEnd, setShowEnd] = useState(false);
-  const textWindow = useWorkspaceTextWindow(workspaceId, path, { tail: showEnd });
-  const sourceWindow = useMemo(
-    () => ({ onEndReached: textWindow.loadMore }),
-    [textWindow.loadMore],
-  );
-  const head = textWindow.head;
-  if (!head || head.complete)
-    return (
-      <WorkspaceTextContent
-        content={head?.text}
-        error={textWindow.headError?.message}
-        html={html}
-        mediaType={mediaType}
-        path={path}
-        workspaceId={workspaceId}
-      />
-    );
-  const name = fileName(path);
-  const total = size === undefined ? '' : ` of ${formatBytes(size)}`;
-  const status = showEnd
-    ? textWindow.tailError
-      ? `The end of ${name} could not be read: ${textWindow.tailError.message}`
-      : `Showing the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}${total}.`
-    : head.capped
-      ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
-      : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
-  return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="text-file-window">
-      <div className="min-h-0 flex-1">
-        {showEnd ? (
-          textWindow.tail === undefined && !textWindow.tailError ? (
-            <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
-          ) : (
-            <FileTextView content={textWindow.tail ?? ''} mediaType={mediaType} name={name} />
-          )
-        ) : (
-          <SourceWindowContext.Provider value={sourceWindow}>
-            <FileTextView content={head.text} mediaType={mediaType} name={name} />
-          </SourceWindowContext.Provider>
-        )}
-      </div>
-      <StateView
-        action={{
-          label: showEnd ? 'Show beginning' : 'Show end',
-          onClick: () => setShowEnd(!showEnd),
-        }}
-        className="shrink-0 border-t px-3"
-        kind={!showEnd && textWindow.loadingMore ? 'loading' : 'too-large'}
-        secondaryAction={
-          !showEnd && textWindow.loadMore
-            ? { label: 'Load more', onClick: textWindow.loadMore }
-            : undefined
-        }
-        size="row"
-        title={status}
-      />
-    </div>
-  );
-}
 function WorkspaceImageView({
   workspaceId,
   path,
@@ -692,27 +518,6 @@ function ArtifactFileView({
   );
 }
 
-export function TextResourceView({
-  path,
-  content,
-  error,
-  mediaType,
-}: {
-  path: string;
-  content?: string;
-  error?: string;
-  mediaType?: string;
-}) {
-  if (content === undefined && !error)
-    return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
-  if (error)
-    return (
-      <div className="p-4">
-        <ResourceUnavailable detail={error} label="File preview unavailable" />
-      </div>
-    );
-  return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
-}
 function fileName(path: string): string {
   return (
     path
