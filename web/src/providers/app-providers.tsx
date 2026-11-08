@@ -2,6 +2,7 @@ import { SESSION_CACHE_POLICY } from '@/lib/session-cache-retention';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
+import { ShortcutSheetLauncher } from '@/components/clio/primitives/shortcut-sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QUERY_RETRY_COUNT, QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { ConnectionProvider } from './connection-provider';
@@ -31,7 +32,10 @@ export function AppProviders({ children }: PropsWithChildren) {
           <NotificationPreferencesProvider>
             <ConversationDisplayProvider>
               <ClioMotionProvider>
-                <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
+                <TooltipProvider delayDuration={450}>
+                  {children}
+                  <ShortcutSheetLauncher />
+                </TooltipProvider>
               </ClioMotionProvider>
             </ConversationDisplayProvider>
           </NotificationPreferencesProvider>

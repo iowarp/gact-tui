@@ -48,6 +48,8 @@ import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import { isMacOS } from '@/lib/platform';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
 import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
 import { dispatchMenuAction } from '@/tauri/menu-actions';
@@ -56,6 +58,8 @@ import {
   runDesktopWindowAction,
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
+
+const RELOAD_KEYS = ['Ctrl+R'] as const;
 
 // macOS keeps its native traffic lights (top-left); the bar's left section
 // is padded clear of them so the hamburger/brand block never sits under
@@ -165,44 +169,17 @@ export function DesktopTitleBar() {
     };
   }, []);
 
-  // Alt+Space is the conventional Windows/Linux "open the window's system
-  // menu" shortcut; the hamburger IS that menu here, so it answers to the
-  // same key. New session / Settings / fullscreen are bound here too: the
-  // hamburger advertises Ctrl N / Ctrl , / F11 as their shortcuts, but
-  // nothing bound them on Windows/Linux, and trimming the native macOS menu
-  // down to About/Settings/hide-group/Quit (see menu_spec.rs) dropped its
-  // Cmd+N item along with it — so this is now the ONLY binding for new
-  // session and fullscreen on every platform, and macOS's native Cmd+Comma
-  // accelerator (which still exists) simply overlaps harmlessly with this
-  // one (`dispatchMenuAction`/settings navigation are idempotent). Also
-  // registered unconditionally, ahead of the early return, for the same
-  // hooks-order reason as the effect above.
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.altKey && event.code === 'Space') {
-        event.preventDefault();
-        setMenuOpen(true);
-        return;
-      }
-      const primaryModifier = event.metaKey || event.ctrlKey;
-      if (primaryModifier && event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        dispatchMenuAction('new-session');
-        return;
-      }
-      if (primaryModifier && event.key === ',') {
-        event.preventDefault();
-        dispatchMenuAction('open-settings');
-        return;
-      }
-      if (event.key === 'F11') {
-        event.preventDefault();
-        void runWindowAction('toggleFullscreen');
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  // The window menu answers to Alt+Space (⇧⌘/ on a Mac, where ⌥Space types a
+  // character). New session, Settings and fullscreen are bound here too:
+  // trimming the native macOS menu (see menu_spec.rs) dropped its Cmd+N, so
+  // this is the only binding for new session and fullscreen on every
+  // platform; macOS's native Cmd+Comma overlaps harmlessly (settings
+  // navigation is idempotent). Keys and labels come from the shared catalog.
+  // Registered ahead of the early return for the hooks-order reason above.
+  useShortcut('app-menu', () => setMenuOpen(true));
+  useShortcut('new-conversation', () => dispatchMenuAction('new-session'));
+  useShortcut('settings', () => dispatchMenuAction('open-settings'));
+  useShortcut('fullscreen', () => void runWindowAction('toggleFullscreen'));
 
   if (!inTauri()) return null;
 
@@ -226,7 +203,9 @@ export function DesktopTitleBar() {
             <DropdownMenuItem onSelect={() => dispatchMenuAction('new-session')}>
               <AddIcon aria-hidden="true" />
               New session
-              <DropdownMenuShortcut>{macOS ? '⌘N' : 'Ctrl N'}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="new-conversation" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => dispatchMenuAction('manage-agent-services')}>
               <ServerIcon aria-hidden="true" />
@@ -235,17 +214,23 @@ export function DesktopTitleBar() {
             <DropdownMenuItem onSelect={() => dispatchMenuAction('open-settings')}>
               <SettingsIcon aria-hidden="true" />
               Settings
-              <DropdownMenuShortcut>{macOS ? '⌘,' : 'Ctrl ,'}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="settings" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => window.location.reload()}>
               <RefreshIcon aria-hidden="true" />
               Reload workspace
-              <DropdownMenuShortcut>Ctrl R</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys keys={RELOAD_KEYS} />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void runWindowAction('toggleFullscreen')}>
               <PanelTopIcon aria-hidden="true" />
               Toggle fullscreen
-              <DropdownMenuShortcut>F11</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="fullscreen" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -257,7 +242,9 @@ export function DesktopTitleBar() {
             >
               <ZoomInIcon aria-hidden="true" />
               Zoom in
-              <DropdownMenuShortcut>{macOS ? '⌘+' : 'Ctrl +'}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="zoom-in" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(event) => {
@@ -267,12 +254,16 @@ export function DesktopTitleBar() {
             >
               <ZoomOutIcon aria-hidden="true" />
               Zoom out
-              <DropdownMenuShortcut>{macOS ? '⌘-' : 'Ctrl -'}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="zoom-out" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => desktopZoom.resetZoom()}>
               <RefreshIcon aria-hidden="true" />
               Reset zoom ({Math.round(desktopZoom.zoom * 100)}%)
-              <DropdownMenuShortcut>{macOS ? '⌘0' : 'Ctrl 0'}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                <ShortcutKeys id="zoom-reset" />
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => dispatchMenuAction('help-docs')}>

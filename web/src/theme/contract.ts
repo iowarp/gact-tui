@@ -21,6 +21,13 @@ export const COLOR_TOKENS = [
   'secondary-foreground',
   'muted',
   'muted-foreground',
+  // Workbench chrome: rules and line numbers (never body text), row hover,
+  // menu highlight, and the key chip that shows a keyboard shortcut
+  'faint',
+  'hover',
+  'menu-highlight',
+  'key',
+  'key-border',
   'accent',
   'accent-foreground',
   'border',

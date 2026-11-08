@@ -1,3 +1,4 @@
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import {
@@ -211,9 +212,10 @@ export function NavigationHeader({
           >
             <SearchIcon aria-hidden="true" />
             <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
-            <kbd className="ml-auto text-[10px] text-muted-foreground group-data-[collapsible=icon]:hidden">
-              Ctrl K
-            </kbd>
+            <ShortcutKeys
+              id="search"
+              className="ml-auto text-[10px] group-data-[collapsible=icon]:hidden"
+            />
           </SidebarMenuButton>
         </SidebarMenuItem>
         {attentionControl}

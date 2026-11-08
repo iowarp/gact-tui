@@ -126,6 +126,11 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-hover: var(--hover);
+  --color-menu-highlight: var(--menu-highlight);
+  --color-key: var(--key);
+  --color-key-border: var(--key-border);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
