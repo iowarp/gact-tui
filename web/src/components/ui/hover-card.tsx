@@ -2,6 +2,7 @@ import * as React from "react"
 import { HoverCard as HoverCardPrimitive, Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { useOverlayContainer } from "./overlay-container"
 
 function HoverCard({
   ...props
@@ -49,7 +50,7 @@ function HoverCardContent({
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
   return (
-    <HoverCardPrimitive.Portal data-slot="hover-card-portal">
+    <HoverCardPrimitive.Portal container={useOverlayContainer()} data-slot="hover-card-portal">
       <HoverCardPrimitive.Content
         data-slot="hover-card-content"
         align={align}
