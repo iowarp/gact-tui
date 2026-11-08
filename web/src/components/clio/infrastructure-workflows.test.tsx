@@ -16,7 +16,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 vi.mock('./ssh-host-picker', () => ({ SshHostPicker: () => <p>Saved SSH computers</p> }));
-vi.mock('./infrastructure-overview', () => ({
+vi.mock('./infrastructure-host-inspection', () => ({
   InfrastructureHostInspection: ({ targetId }: { targetId: string }) => <p>Inspect {targetId}</p>,
 }));
 const data = infrastructureInventorySchema.parse({

@@ -5,7 +5,7 @@ import { ChevronDownIcon, CircleAlertIcon, LaptopIcon, ServerIcon } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { vocab } from '@/lib/brand-vocabulary';
-import { InfrastructureHostInspection } from './infrastructure-overview';
+import { InfrastructureHostInspection } from './infrastructure-host-inspection';
 import { ComputerConnectionContent } from './managed-service-host-selector';
 import { Dialog } from '@/components/ui/dialog';
 import { InfoTip } from './info-tip';
