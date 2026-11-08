@@ -613,7 +613,7 @@ export function ClioCommandMenu({
                               </span>
                               <ClioRelativeTime
                                 compact
-                                className="w-8 shrink-0 text-right text-xs tabular-nums"
+                                className="w-14 shrink-0 text-right text-xs whitespace-nowrap tabular-nums"
                                 timestamp={sessionInteractionAt(session)}
                               />
                             </CommandItem>
