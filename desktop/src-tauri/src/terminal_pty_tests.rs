@@ -26,6 +26,13 @@ fn pid_alive(pid: u32) -> bool {
     }
     #[cfg(unix)]
     {
+        // A killed direct child stays a zombie, which `kill(pid, 0)` still
+        // reports as alive, until its parent reaps it. Production registers a
+        // waiter thread that reaps; these tests register without one.
+        let mut status = 0;
+        if unsafe { libc::waitpid(pid as i32, &mut status, libc::WNOHANG) } == pid as i32 {
+            return false;
+        }
         unsafe { libc::kill(pid as i32, 0) == 0 }
     }
 }
@@ -120,8 +127,10 @@ fn immediate_exit_command() -> CommandBuilder {
     }
     #[cfg(not(windows))]
     {
+        // Silent on purpose: macOS blocks a tty's last close until unread
+        // output drains, and this test deliberately never reads.
         let mut cmd = CommandBuilder::new("/bin/sh");
-        cmd.args(["-c", "echo hi"]);
+        cmd.args(["-c", "exit 0"]);
         cmd
     }
 }
