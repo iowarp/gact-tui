@@ -101,14 +101,14 @@ above while redesigning the surface; the change is not mechanical.
   `clio/subagent-card.tsx`, `clio/tool-terminal-result.tsx`,
   `clio/transcript-reasoning.tsx`.
 - **Rows whose trailing actions shift on hover:**
-  `clio/session-summary-row.tsx`,
-  `clio/workspace-navigation-session-row.tsx`, `clio/artifact-rail-row.tsx`.
-  `ListRow` keeps its action column with `visibility`.
+  `clio/session-summary-row.tsx` and `clio/artifact-rail-row.tsx`.
+  `ListRow` keeps its action column with `visibility`. The left-bar workspace and
+  conversation rows already use it, with `actionsOverlay` so the hover actions
+  cover the trailing time instead of reserving a second column.
 - **Frame bar:** `clio/file-viewer-shell.tsx` and the workbench tab strip should
   render `FrameBar`, `FrameCrumbs` and `FrameTab`.
 - **Remaining key handlers to register in the catalog:** workbench tab keys,
-  `clio/selection-actions.tsx`, `ui/sidebar.tsx` (`Ctrl B`; the catalog's
-  `left-pocket`), `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the
+  `clio/selection-actions.tsx`, `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the
   catalog has `zoom-in`, `zoom-out` and `zoom-reset`), the `Downloads (Ctrl+J)`
   title in `clio/downloads-button.tsx`, `clio/global-search-results.tsx`, and
   Mermaid zoom and pan. Register the key with `useShortcut(id, handler)` and show

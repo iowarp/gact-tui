@@ -3,30 +3,17 @@ import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-lim
 import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { McpServerDefinition } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  CheckCircle2Icon,
-  ChevronDownIcon,
-  CircleAlertIcon,
-  CircleDashedIcon,
-  LoaderCircleIcon,
-  XCircleIcon,
-} from 'lucide-react';
+import { NetworkIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
-import {
-  SidebarMenuAction,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from '@/components/ui/sidebar';
+import { IconButton } from '@/components/clio/primitives/icon-button';
+import { ListRow } from '@/components/clio/primitives/list-row';
+import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 import { serviceTitle } from '@/lib/mcp-service-presentation';
 import { mcpServerPreparation } from '@/lib/mcp-preparation';
@@ -134,62 +121,81 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   }, [health.data, health.error, health.isPending, servers.data, servers.error, servers.isPending]);
 
   const overall = aggregateInfrastructureState(items);
-  const shortcut = useShortcutPresentation('infrastructure');
 
   return (
-    <Collapsible asChild onOpenChange={setOpen} open={open}>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          asChild
-          tooltip={`Infrastructure${shortcut ? ` (${shortcut.text})` : ''}: ${overall.stateLabel}. ${overall.detail || infrastructureSummary(items)}`}
-        >
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <IconButton
+          className={cn(OVERALL_TONE[overall.state])}
+          icon={<NetworkIcon />}
+          label={`Infrastructure: ${overall.stateLabel}`}
+          shortcut="infrastructure"
+          tooltipSide="top"
+        />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 gap-0 p-0" side="top">
+        <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3">
+          <p className="text-[13px] font-semibold">Infrastructure</p>
+          <p className="min-w-0 flex-1 truncate text-right text-[12px] text-muted-foreground">
+            {overall.detail || infrastructureSummary(items)}
+          </p>
+        </div>
+        <div className="max-h-56 overflow-y-auto p-1.5">
+          {items.map((item) => (
+            <Link
+              aria-label={`${item.label}: ${item.stateLabel}`}
+              className="block rounded-[6px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              key={item.id}
+              onClick={() => setOpen(false)}
+              state={{ endpoint, from }}
+              title={item.detail ? `${item.stateLabel}: ${item.detail}` : item.stateLabel}
+              to="/infrastructure"
+            >
+              <ListRow
+                className="cursor-pointer"
+                description={item.stateLabel}
+                status={
+                  <StatusIndicator
+                    display="column"
+                    label={item.stateLabel}
+                    tone={ITEM_TONE[item.state]}
+                  />
+                }
+                title={item.label}
+              />
+            </Link>
+          ))}
+        </div>
+        <div className="border-t border-border p-1.5">
           <Link
-            aria-keyshortcuts={shortcut?.aria}
-            aria-label={`Infrastructure: ${overall.stateLabel}`}
+            className="flex h-7 items-center rounded-[6px] px-1.5 text-[13px] text-primary outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+            onClick={() => setOpen(false)}
             state={{ endpoint, from }}
             to="/infrastructure"
           >
-            <InfrastructureStateIcon state={overall.state} />
-            <span>Infrastructure</span>
+            Open Infrastructure
           </Link>
-        </SidebarMenuButton>
-        <SidebarMenuAction
-          aria-expanded={open}
-          aria-label={open ? 'Hide infrastructure status' : 'Show infrastructure status'}
-          onClick={() => setOpen((current) => !current)}
-          type="button"
-        >
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={cn('transition-transform', open && 'rotate-180')}
-          />
-        </SidebarMenuAction>
-        <CollapsibleContent>
-          <SidebarMenuSub className="max-h-48 overflow-y-auto">
-            {items.map((item) => (
-              <SidebarMenuSubItem key={item.id}>
-                <SidebarMenuSubButton asChild size="sm">
-                  <Link
-                    aria-label={`${item.label}: ${item.stateLabel}`}
-                    state={{ endpoint, from }}
-                    title={item.detail ? `${item.stateLabel}: ${item.detail}` : item.stateLabel}
-                    to="/infrastructure"
-                  >
-                    <InfrastructureStateIcon state={item.state} />
-                    <span>{item.label}</span>
-                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                      {item.stateLabel}
-                    </span>
-                  </Link>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
+
+const OVERALL_TONE: Record<InfrastructureState, string | undefined> = {
+  checking: undefined,
+  healthy: undefined,
+  degraded: 'text-warning hover:text-warning',
+  failed: 'text-destructive hover:text-destructive',
+  unavailable: undefined,
+};
+
+const ITEM_TONE: Record<InfrastructureState, StatusTone> = {
+  checking: 'running',
+  healthy: 'success',
+  degraded: 'warning',
+  failed: 'error',
+  unavailable: 'idle',
+};
 
 /**
  * Severity comes from the typed fields the service owns; `status` is free-form
@@ -315,29 +321,4 @@ function infrastructureSummary(items: readonly InfrastructureItem[]): string {
   const attention = active.filter((item) => ['failed', 'degraded'].includes(item.state));
   if (!attention.length) return `${vocab.agent} and connected services are ready.`;
   return attention.map((item) => `${item.label}: ${item.stateLabel}`).join('; ');
-}
-
-function InfrastructureStateIcon({ state }: { state: InfrastructureState }) {
-  const presentation = {
-    checking: {
-      icon: LoaderCircleIcon,
-      label: 'Checking',
-      className: 'text-info motion-safe:animate-spin',
-    },
-    healthy: { icon: CheckCircle2Icon, label: 'Ready', className: 'text-success' },
-    degraded: { icon: CircleAlertIcon, label: 'Warning', className: 'text-warning' },
-    failed: { icon: XCircleIcon, label: 'Failed', className: 'text-destructive' },
-    unavailable: {
-      icon: CircleDashedIcon,
-      label: 'Unavailable',
-      className: 'text-muted-foreground',
-    },
-  }[state];
-  const Icon = presentation.icon;
-  return (
-    <>
-      <Icon aria-hidden="true" className={presentation.className} />
-      <span className="sr-only">{presentation.label}</span>
-    </>
-  );
 }

@@ -118,7 +118,7 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
   expect(await page.evaluate(() => document.cookie)).toBe(cookie);
   const controls = [
     sidebar.getByRole('button', { name: 'Search work', exact: true }),
-    sidebar.getByRole('button', { name: 'Create or import', exact: true }),
+    sidebar.getByRole('button', { name: 'New conversation', exact: true }),
     sidebar.locator('[data-slot="sidebar-header"] [data-sidebar="menu-button"]').first(),
   ];
   for (const control of controls) {

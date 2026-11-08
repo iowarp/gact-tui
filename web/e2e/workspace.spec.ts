@@ -224,20 +224,22 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(disclosure).toBeVisible();
   await waitForArtifactPreview(page);
   const newSession = page.getByRole('button', {
-    name: 'New session in flat-NDP',
+    name: 'New conversation in flat-NDP',
     exact: true,
     includeHidden: true,
   });
   const overflow = page.getByRole('button', {
     name: 'Workspace actions for flat-NDP',
     exact: true,
+    includeHidden: true,
   });
   const actions = newSession.locator('..');
   await page.mouse.move(1090, 790);
-  await expect(actions).toHaveCSS('opacity', '0');
+  await expect(actions).toHaveCSS('visibility', 'hidden');
   await page.screenshot({ path: testInfo.outputPath('workspace-row-at-rest.png') });
+  await disclosure.hover();
   await newSession.hover();
-  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(actions).toHaveCSS('visibility', 'visible');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
   await newSession.click();
@@ -255,7 +257,7 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   await page.mouse.move(1090, 790);
   await overflow.focus();
-  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(actions).toHaveCSS('visibility', 'visible');
   await overflow.click();
   const menu = page.getByRole('menu');
   await testInfo.attach('workspace-menu-trigger', {
@@ -272,7 +274,7 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
-  await expect(actions).toHaveCSS('opacity', '1');
+  await expect(actions).toHaveCSS('visibility', 'visible');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });
 });

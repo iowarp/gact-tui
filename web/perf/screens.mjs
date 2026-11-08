@@ -55,12 +55,35 @@ const control = (page, role, name, options = {}) =>
     .filter({ visible: true })
     .first();
 
+/**
+ * Row actions in the left bar stay hidden until their row is hovered; hover the
+ * row that owns a hidden match so the action can be pressed like a person would.
+ */
+async function revealRowAction(page, role, name, options) {
+  const matches = page.getByRole(role, { name, includeHidden: true, ...options });
+  const count = Math.min(await matches.count(), 20);
+  for (let index = 0; index < count; index += 1) {
+    const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+    if (!(await row.isVisible().catch(() => false))) continue;
+    // Hover the trailing edge, where the actions column appears, so the pointer
+    // stays on the row (and off any hover card) while the action is pressed.
+    const box = await row.boundingBox();
+    await row.hover(box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {});
+    await page.waitForTimeout(150);
+    return true;
+  }
+  return false;
+}
+
 async function press(page, role, name, options) {
   const target = control(page, role, name, options);
-  const visible = await target
+  let visible = await target
     .waitFor({ state: 'visible', timeout: 1500 })
     .then(() => true)
     .catch(() => false);
+  if (!visible && (await revealRowAction(page, role, name, options))) {
+    visible = await target.isVisible().catch(() => false);
+  }
   if (!visible) {
     // Narrow layouts move the left bar into a sheet behind the sidebar trigger.
     const trigger = page
@@ -71,6 +94,9 @@ async function press(page, role, name, options) {
       await trigger.click();
       await page.waitForTimeout(500);
     }
+  }
+  if (!(await target.isVisible().catch(() => false))) {
+    await revealRowAction(page, role, name, options);
   }
   await target.waitFor({ state: 'visible', timeout: 4000 });
   await target.click();
@@ -192,24 +218,22 @@ function catalogue({ settings, infrastructure }) {
       { maxWidth: 1024 },
     ),
     menu('menu-search-work', 'button', 'Search work'),
-    menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
-    menu('menu-attention-inbox', 'button', /needs your response/u),
-    menu('menu-service-status', 'button', /^Workspace Service status/u),
+    menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
+    menu('menu-agent', 'button', /^[^:]+: .+ @ /u),
     s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^Workspace Service status/u);
+      await press(page, 'button', /^[^:]+: .+ @ /u);
       await overlay(page);
       await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
       await page.waitForTimeout(400);
     }),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
-      await press(page, 'button', 'Show infrastructure status');
+      await press(page, 'button', /^Infrastructure: /u);
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
     menu('menu-open-questions', 'button', /open question/u),
-    menu('menu-version-status', 'button', /^Version status/u),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
@@ -233,13 +257,11 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('session', 'dialog-new-session', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
+      await press(page, 'button', /^New conversation in /u);
       await overlay(page);
     }),
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      await press(page, 'button', 'New workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
     s('canvas', 'observability', SESSION, openCanvas),

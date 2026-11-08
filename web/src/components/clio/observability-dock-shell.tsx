@@ -27,6 +27,8 @@ import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useState, useSyncExternalStore, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
+import { cn } from '@/lib/utils';
 import {
   Popover,
   PopoverContent,
@@ -187,6 +189,10 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             ? 'Settled'
             : 'No active work';
 
+  const toolbarProgress = Boolean(
+    props.toolbar && (activeActivityCount || sessionActive || unresolvedWorkCount),
+  );
+
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);
     setChildAgentsOpen(false);
@@ -214,13 +220,31 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
                 cycle(event.key === 'ArrowLeft' ? -1 : 1);
               }
             }}
-            className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className={cn(
+              'h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground',
+              toolbarProgress && 'w-auto tabular-nums',
+            )}
             size={props.toolbar ? 'icon-sm' : 'sm'}
             title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
             type="button"
             variant="ghost"
           >
             <EvidenceLayoutIcon layout={layout} />
+            {toolbarProgress ? (
+              // The top bar's rail button carries the work the bottom bar used to state.
+              <span
+                aria-hidden="true"
+                className="flex items-center gap-1"
+                data-slot="rail-progress"
+              >
+                <StatusIndicator
+                  display="column"
+                  label={dockStatus}
+                  tone={unresolvedWorkCount ? 'warning' : 'running'}
+                />
+                {activeActivityCount ? activeActivityCount.toLocaleString() : null}
+              </span>
+            ) : null}
             <span
               className={
                 props.toolbar

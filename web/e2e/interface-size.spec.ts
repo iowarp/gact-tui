@@ -104,12 +104,11 @@ test('larger interface keeps the composer and anchored Create dialog reachable',
       await composer.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);
     await expect(composer.locator('button[type="submit"]')).toBeInViewport();
-    const create = page.getByRole('button', { name: 'Create or import', exact: true });
+    const create = page.getByRole('button', { name: 'New conversation', exact: true });
     if (!(await create.isVisible())) {
       await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
     }
     await create.click();
-    await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
     await expect(dialog).toBeVisible();
     const before = (await dialog.boundingBox())!;

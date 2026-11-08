@@ -55,6 +55,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',
   }),
+  def('import-conversation', 'Import conversation?', 'anywhere', ['Ctrl+I']),
   def('left-pocket', 'Left pocket', 'anywhere', ['Ctrl+B']),
   def('right-pocket', 'Right pocket', 'anywhere', ['Ctrl+Shift+B']),
   def('previous-conversation', 'Previous conversation', 'anywhere', ['Alt+Up'], {

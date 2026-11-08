@@ -15,8 +15,7 @@ test('session creation expands downward from a stable corner and keeps actions r
   page.on('pageerror', (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  await page.getByRole('button', { name: 'Create or import', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
+  await page.getByRole('button', { name: 'New conversation', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
   const fields = dialog.getByRole('region', { name: 'Creation options', exact: true });
   const advanced = dialog.getByRole('button', { name: 'Advanced session behavior', exact: true });
@@ -101,8 +100,7 @@ test('session creation expands downward from a stable corner and keeps actions r
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
-  await page.getByRole('button', { name: 'Create or import', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
+  await page.getByRole('button', { name: 'New conversation', exact: true }).click();
   await advanced.click();
   const phoneBox = (await dialog.boundingBox())!;
   expect(phoneBox.x).toBeGreaterThanOrEqual(15);

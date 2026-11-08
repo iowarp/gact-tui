@@ -1,4 +1,4 @@
-import type { Workspace } from '@clio/core/v3';
+﻿import type { Workspace } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -62,6 +62,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
               agents={[]}
               onAction={vi.fn()}
               onCreateSession={onCreateSession}
+              onNewWorkspace={vi.fn()}
               onDelete={vi.fn()}
               onDownloadSession={vi.fn().mockResolvedValue(undefined)}
               onEditWorkspace={onEditWorkspace}
@@ -76,11 +77,11 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   );
 
   const disclosure = screen.getByRole('button', { name: 'Collapse workspace Reports' });
-  expect(screen.getByText('No sessions')).toBeVisible();
+  expect(screen.getByText('No conversations yet')).toBeVisible();
   await user.click(disclosure);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
 
-  await user.click(screen.getByRole('button', { name: 'New session in Reports' }));
+  await user.click(screen.getByRole('button', { name: 'New conversation in Reports' }));
   expect(onCreateSession).toHaveBeenCalledTimes(1);
   expect(onCreateSession).toHaveBeenCalledWith(workspace.id);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');

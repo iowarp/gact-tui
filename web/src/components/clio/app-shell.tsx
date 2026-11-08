@@ -15,6 +15,18 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { NamedTooltip } from './primitives/icon-button';
+
+/** The left bar carries its own hide control, even collapsed; on phones it is a sheet the top bar opens. */
+function TopBarSidebarTrigger() {
+  const { isMobile } = useSidebar();
+  if (!isMobile) return null;
+  return (
+    <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+      <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground" />
+    </NamedTooltip>
+  );
+}
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -23,6 +35,7 @@ export interface ClioAppShellProps {
   children: ReactNode;
   workbench: ReactNode;
   workbenchRevealKey?: string;
+  /** Recovery, work needing inspection and usage, shown in the top bar's trailing group. */
   statusStrip: ReactNode;
 }
 
@@ -160,8 +173,9 @@ export function ClioAppShell({
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
     >
-      <DesktopWorkspaceToolbar navigation={<SidebarTrigger />}>
+      <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
         <div className="min-w-0 flex-1">{contextBar}</div>
+        {statusStrip}
         {toolbarActions}
         {hasWorkbench && (
           <ToolbarAction
@@ -175,9 +189,6 @@ export function ClioAppShell({
         )}
       </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-      {statusStrip && (
-        <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
-      )}
     </section>
   );
 

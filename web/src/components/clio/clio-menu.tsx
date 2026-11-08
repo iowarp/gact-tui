@@ -8,6 +8,7 @@ import {
   ServerIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenuContent,
@@ -44,6 +45,8 @@ interface ClioMenuContentProps {
   connectionAvailabilities: ConnectionAvailabilityMap;
   connections: readonly ConnectionSettings[];
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
+  /** Rows under the version grid: the stream error, update state and release link. */
+  versionActions?: ReactNode;
 }
 
 const MENU_HINTS = [
@@ -101,6 +104,7 @@ export function ClioMenuContent({
   connectionAvailabilities,
   connections,
   onConnect,
+  versionActions,
 }: ClioMenuContentProps) {
   const runtime = useRuntimeVersion();
   const desktop = inTauri();
@@ -155,6 +159,7 @@ export function ClioMenuContent({
             },
           ]}
         />
+        {versionActions}
         <DropdownMenuItem asChild>
           <Link state={returnState} to="/settings/connections">
             <MenuRow icon={<ConfigureIcon />} label="Connection settings" />

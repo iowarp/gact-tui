@@ -157,7 +157,7 @@ it('distinguishes goal and todo semantics and sizes the footer control consisten
   mount(<SessionWorkStatus sessionId="s" onOpen={vi.fn()} fallback="No active work" />);
   const entry = await screen.findByRole('button', { name: 'Open session Work' });
   expect(entry).toHaveAttribute('data-work-kind', 'goal');
-  expect(entry).toHaveClass('h-6');
+  expect(entry).toHaveClass('h-7');
   expect(entry.querySelector('svg')).toHaveClass('size-3.5');
   expect(entry).toHaveTextContent('Goal active: Verify readable output');
   expect(entry).toHaveTextContent('Todos: 1/2 current');

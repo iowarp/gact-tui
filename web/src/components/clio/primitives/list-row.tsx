@@ -22,7 +22,7 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   /**
    * Hover actions in a fixed column. They are hidden with `visibility`, not
    * removed, so showing them never moves the row; keyboard focus inside the
-   * row shows them too.
+   * row shows them too. Touch screens have no hover, so they always show there.
    */
   actions?: ReactNode;
   /** Width of the actions column in px; one value for every row of a list. */
@@ -32,6 +32,11 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * verb (Start, Stop, Install, Open). Use an IconButton with a hover name.
    */
   primaryAction?: ReactNode;
+   * Show the actions in place of the meta column on hover or focus instead of
+   * beside it, so a narrow list (the left bar) keeps one right edge: the count
+   * or time at rest, the row's buttons on hover. An open menu keeps them shown.
+   */
+  actionsOverlay?: boolean;
   /** A trailing ⓘ (26px), always visible. */
   info?: ReactNode;
   /**
@@ -63,6 +68,7 @@ export const ListRow = memo(
       actions,
       actionsWidth = 44,
       primaryAction,
+      actionsOverlay = false,
       info,
       layout = 'inline',
       selected = false,
@@ -75,7 +81,6 @@ export const ListRow = memo(
     return (
       <div
         ref={ref}
-        data-slot="list-row"
         data-selected={selected || undefined}
         data-layout={layout}
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
@@ -86,6 +91,8 @@ export const ListRow = memo(
           className,
         )}
         {...rest}
+        // After the spread so wrappers such as HoverCardTrigger keep the row's slot.
+        data-slot="list-row"
       >
         {status !== undefined ? (
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
@@ -93,20 +100,21 @@ export const ListRow = memo(
         {icon ? (
           <span
             aria-hidden="true"
+            data-slot="list-row-icon"
             className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
           >
             {icon}
           </span>
         ) : null}
         {layout === 'stacked' ? (
-          <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+          <span data-slot="list-row-text" className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
               <span className="min-w-0 truncate text-[11px] text-faint">{description}</span>
             ) : null}
           </span>
         ) : (
-          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span data-slot="list-row-text" className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate">{title}</span>
             {description ? (
               <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
@@ -119,12 +127,27 @@ export const ListRow = memo(
         {badge !== undefined ? (
           <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
         ) : null}
-        {meta !== undefined ? <span className="flex w-11 shrink-0 justify-end">{meta}</span> : null}
+        {meta !== undefined ? (
+          <span
+            data-slot="list-row-meta"
+            className={cn(
+              'flex w-11 shrink-0 justify-end',
+              actionsOverlay &&
+                actions !== undefined &&
+                'group-focus-within/list-row:invisible group-hover/list-row:invisible group-has-[[aria-haspopup][aria-expanded=true]]/list-row:invisible pointer-coarse:invisible',
+            )}
+          >
+            {meta}
+          </span>
+        ) : null}
         {actions !== undefined ? (
           <span
             data-slot="list-row-actions"
             style={{ width: actionsWidth }}
-            className="invisible flex shrink-0 items-center justify-end gap-0.5 group-focus-within/list-row:visible group-hover/list-row:visible"
+            className={cn(
+              'invisible flex shrink-0 items-center justify-end gap-0.5 group-focus-within/list-row:visible group-hover/list-row:visible group-has-[[aria-haspopup][aria-expanded=true]]/list-row:visible pointer-coarse:visible',
+              actionsOverlay && 'absolute inset-y-0 right-1.5 z-10',
+            )}
           >
             {actions}
           </span>

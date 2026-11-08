@@ -48,8 +48,6 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
     'ws_flat_ndp',
   );
-  await expect(page.getByText('No active work', { exact: true })).toBeVisible();
-  await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New conversation actions' }).click();
   await page.getByRole('menuitem', { name: 'Workspace files', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Files', exact: true })).toBeVisible();

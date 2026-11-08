@@ -1,12 +1,14 @@
 import { sessionAgentRef, type Session } from '@clio/core/v3';
-import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, GitBranchIcon } from 'lucide-react';
+import { IconButton } from '@/components/clio/primitives/icon-button';
+import { cn } from '@/lib/utils';
 import { canForkSession } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
 import { SessionAgentControl } from './session-agent-control';
 import type { ClioSessionActionsProps } from './session-actions';
+import { WorkspaceMark } from './workspace-mark';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
@@ -42,37 +44,64 @@ export function ClioSessionContextBar({
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
+  const title = session?.title ?? 'Session unavailable';
+  // Native window chrome shows the passive title on desktop, so there the
+  // conversation menu is the chevron alone.
+  const nativeTitle = inTauri();
   return (
-    <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+    <div className="flex min-w-0 items-center gap-1 overflow-hidden">
       {parentSession ? (
-        <Button
-          aria-label={`Return to parent conversation ${parentSession.title}`}
-          className="shrink-0"
+        <IconButton
+          icon={<ArrowLeftIcon />}
+          label={`Return to parent conversation ${parentSession.title}`}
           onClick={() => onReturnToParent(parentSession)}
-          size="icon-xs"
-          title={`Return to ${parentSession.title}`}
-          variant="ghost"
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-        </Button>
+        />
       ) : null}
-      {/* Native window chrome owns the passive title. Agent controls remain
-          available in the workspace toolbar in every host. */}
-      {inTauri() ? null : (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <h1 className="min-w-[4ch] shrink-[3] truncate text-sm font-medium">
-            {session?.title ?? 'Session unavailable'}
-          </h1>
-          {workspaceLabel ? (
-            <span className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex">
-              <span className="text-muted-foreground">in</span>
-              <span className="max-w-28 truncate" title={workspaceLabel}>
-                {workspaceLabel}
-              </span>
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-[13px]">
+        {workspaceLabel && !nativeTitle ? (
+          <>
+            <span
+              className="hidden min-w-0 max-w-40 shrink-[2] items-center gap-1.5 text-muted-foreground lg:flex"
+              title={workspaceLabel}
+            >
+              {session ? <WorkspaceMark id={session.workspace_id} /> : null}
+              <span className="truncate">{workspaceLabel}</span>
             </span>
-          ) : null}
-        </div>
-      )}
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="hidden size-3.5 shrink-0 text-faint lg:block"
+            />
+          </>
+        ) : null}
+        <ClioSessionActions
+          disabled={!session || actionsPending}
+          management={management}
+          onCompact={onCompact}
+          onFork={canForkSession(session) ? onFork : undefined}
+          onOpenSystemTerminal={onOpenSystemTerminal}
+          onShare={onShare}
+          onUndo={onUndo}
+          title={session?.title ?? 'session'}
+          trigger={({ disabled }) => (
+            <button
+              aria-label={`Actions for ${session?.title ?? 'session'}`}
+              className={cn(
+                'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-medium outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
+                nativeTitle && 'w-7 justify-center px-0',
+              )}
+              disabled={disabled}
+              title={session?.branch ? `${title}\nBranch ${session.branch}` : title}
+              type="button"
+            >
+              {nativeTitle ? null : <h1 className="min-w-0 truncate">{title}</h1>}
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
+            </button>
+          )}
+        />
+      </nav>
       {session ? (
         <SessionAgentControl
           agentRef={sessionAgentRef(session)}
@@ -81,21 +110,12 @@ export function ClioSessionContextBar({
           sessionId={session.id}
         />
       ) : null}
-      {/* Keep conversation actions apart from agent customization. */}
-      <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
-      <ClioSessionActions
-        disabled={!session || actionsPending}
-        management={management}
-        onCompact={onCompact}
-        onFork={canForkSession(session) ? onFork : undefined}
-        onOpenSystemTerminal={onOpenSystemTerminal}
-        onShare={onShare}
-        onUndo={onUndo}
-        title={session?.title ?? 'session'}
-      />
       <ClioDownloadsButton />
       {session?.branch ? (
-        <span className="hidden items-center gap-1 font-mono text-[0.625rem] text-muted-foreground lg:flex">
+        <span
+          className="hidden shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground xl:flex"
+          title={`Branch ${session.branch}`}
+        >
           <GitBranchIcon aria-hidden="true" className="size-3" />
           {session.branch}
         </span>

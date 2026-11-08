@@ -1,5 +1,7 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ActivityIcon } from 'lucide-react';
+import { ArchiveIcon } from 'lucide-react';
+import { IconButton } from '@/components/clio/primitives/icon-button';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -8,9 +10,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -114,7 +113,10 @@ export function ClioNavigation({
   // the direct paths below (the header's import button, per-session export)
   // already cover them, so no useMenuAction registration is needed for
   // either.
+  const importSession = () => importInputRef.current?.click();
   useMenuAction('new-session', () => openNewSession());
+  useShortcut('new-conversation-browser', () => openNewSession(), { allowInTextField: true });
+  useShortcut('import-conversation', importSession, { allowInTextField: true });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);
@@ -134,23 +136,24 @@ export function ClioNavigation({
             activeLabel={settings.label}
             activeLocation={settings.location}
             attentionControl={
-              <ClioAttentionCenter
-                activeSessionId={activeSessionId}
-                attentions={attentions}
-                sessions={sessions}
-              />
+              <li className="shrink-0">
+                <ClioAttentionCenter
+                  activeSessionId={activeSessionId}
+                  attentions={attentions}
+                  sessions={sessions}
+                />
+              </li>
             }
             currentPath={location.pathname}
             connectionAvailabilities={connectionAvailabilities}
             endpoint={endpoint}
             onConnect={switchService}
-            onImportSession={() => importInputRef.current?.click()}
+            onImportSession={importSession}
             onNewSession={() => openNewSession()}
-            onNewWorkspace={() => setCreateKind('workspace')}
-            onOpenArchived={() => setArchivedOpen(true)}
+            onOpenFiles={onOpenWorkspaceFiles}
             connections={knownConnections}
           />
-          <SidebarContent>
+          <SidebarContent className="gap-0">
             <WorkspaceNavigation
               actions={actions}
               attentions={attentions}
@@ -162,37 +165,31 @@ export function ClioNavigation({
               onDelete={setDeleteTarget}
               onDownloadSession={downloadSession}
               onEditWorkspace={setWorkspaceEditorId}
+              onNewWorkspace={() => setCreateKind('workspace')}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={setRenameTarget}
               sessions={sessions}
               workspaces={workspaces}
             />
           </SidebarContent>
-          <SidebarFooter className="gap-0 px-2 pb-2">
-            <SidebarGroup className="p-0">
-              <SidebarGroupLabel>Explore</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Runs">
-                      <Link state={{ endpoint, from: location.pathname }} to="/runs">
-                        <ActivityIcon aria-hidden="true" />
-                        <span>Runs</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Settings">
-                      <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
-                        <SettingsIcon aria-hidden="true" />
-                        <span>Settings</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+          <SidebarFooter className="flex-row items-center gap-0.5 border-t border-sidebar-border px-2 py-1.5 group-data-[collapsible=icon]:flex-col">
+            <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Settings">
+                  <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
+                    <SettingsIcon aria-hidden="true" />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
+            <IconButton
+              icon={<ArchiveIcon />}
+              label="Archived conversations"
+              onClick={() => setArchivedOpen(true)}
+              tooltipSide="top"
+            />
           </SidebarFooter>
         </nav>
         <SidebarRail />

@@ -6,7 +6,7 @@ import {
   Undo2Icon,
 } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
 import { toast } from 'sonner';
 import {
@@ -49,10 +49,16 @@ export interface ClioSessionActionsProps {
   onOpenSystemTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onUndo: () => Promise<void>;
+  /**
+   * Replaces the More button, e.g. with the top bar's title and chevron. It must be a button
+   * that forwards props; it gets the menu's open state and `disabled`.
+   */
+  trigger?: (state: { disabled: boolean }) => ReactNode;
 }
 
 export function ClioSessionActions({
   title,
+  trigger,
   disabled,
   management,
   onFork,
@@ -103,17 +109,21 @@ export function ClioSessionActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`Actions for ${title}`}
-            className="max-sm:size-8"
-            disabled={disabled || pending}
-            size="icon-xs"
-            variant="ghost"
-          >
-            <MoreIcon aria-hidden="true" />
-          </Button>
+          {trigger ? (
+            trigger({ disabled: Boolean(disabled || pending) })
+          ) : (
+            <Button
+              aria-label={`Actions for ${title}`}
+              className="max-sm:size-8"
+              disabled={disabled || pending}
+              size="icon-xs"
+              variant="ghost"
+            >
+              <MoreIcon aria-hidden="true" />
+            </Button>
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-64">
+        <DropdownMenuContent align={trigger ? 'start' : 'end'} className="min-w-64">
           {management ? (
             <>
               <SessionOrganizeMenuItems

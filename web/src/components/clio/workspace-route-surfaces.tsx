@@ -6,11 +6,10 @@ import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
-import { inTauri } from '@/lib/transport/tauri-runtime';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
-import { LiveConnectionIndicator } from './live-connection-indicator';
 import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
-import { SystemVersionStatus } from './navigation-version-status';
+import { NamedTooltip } from './primitives/icon-button';
+import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus } from './status';
 import { SessionUsageReadout } from './session-usage-readout';
 import { SessionWorkStatus } from './session-work';
@@ -237,29 +236,36 @@ export function WorkspaceStatusStrip({
     ? `Recovery checkpoint ${cursor.slice(-10)}`
     : 'No recovery checkpoint was reported';
   return (
-    <div className="flex h-full items-center gap-3 overflow-hidden text-[0.625rem] text-muted-foreground">
-      {/* Desktop already shows this indicator once, in the title bar
-          (LiveConnectionIndicator there) -- the bottom bar drops its own
-          copy there so the two surfaces never duplicate the same pill. */}
-      {inTauri() ? null : <LiveConnectionIndicator />}
-      {recoveryLabel ? <span title={recoveryDetail}>{recoveryLabel}</span> : null}
+    <div
+      className="flex shrink-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground"
+      data-slot="top-bar-status"
+    >
+      {recoveryLabel ? (
+        <span className="flex items-center gap-1 px-1" title={recoveryDetail}>
+          <StatusIndicator display="column" label={recoveryLabel} tone="waiting" />
+          <span className="hidden md:inline">{recoveryLabel}</span>
+        </span>
+      ) : null}
       {unresolvedWorkCount > 0 && onInspectTasks ? (
-        <Button
-          aria-label="Inspect unresolved tasks"
-          className="h-6 min-w-0 px-0 text-[0.625rem]"
-          onClick={onInspectTasks}
-          type="button"
-          variant="ghost"
-        >
-          {activeWorkLabel}
-        </Button>
+        <NamedTooltip label={activeWorkLabel}>
+          <Button
+            aria-label="Inspect unresolved tasks"
+            className="h-7 gap-1.5 px-1.5 text-[12px] text-warning-foreground hover:bg-hover"
+            onClick={onInspectTasks}
+            type="button"
+            variant="ghost"
+          >
+            <AlertTriangleIcon aria-hidden="true" className="size-3.5" />
+            <span aria-hidden="true" className="tabular-nums">
+              {unresolvedWorkCount} to inspect
+            </span>
+            <span className="sr-only">{activeWorkLabel}</span>
+          </Button>
+        </NamedTooltip>
       ) : sessionId && onOpenWork ? (
-        <SessionWorkStatus sessionId={sessionId} onOpen={onOpenWork} fallback={activeWorkLabel} />
-      ) : (
-        <span>{activeWorkLabel}</span>
-      )}
-      <SystemVersionStatus />
-      <SessionUsageReadout cost={cost} sessionId={sessionId} tokens={tokens} />
+        <SessionWorkStatus sessionId={sessionId} onOpen={onOpenWork} />
+      ) : null}
+      {sessionId ? <SessionUsageReadout cost={cost} sessionId={sessionId} tokens={tokens} /> : null}
     </div>
   );
 }

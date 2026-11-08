@@ -12,6 +12,25 @@ import { NavigationHeader } from './navigation-header';
 vi.mock('@/hooks/use-runtime-version', () => ({
   useRuntimeVersion: () => ({ version: 'v0.9.5', pending: false }),
 }));
+vi.mock('@/hooks/use-connection-indicator-state', () => ({
+  useConnectionIndicatorState: () => 'live',
+}));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({
+    agentBehindLatest: false,
+    desktopShell: false,
+    displayedDesktopVersion: undefined,
+    latestClioVersion: undefined,
+    message: undefined,
+    recheck: vi.fn(),
+    settings: { endpoint: 'http://127.0.0.1:8788' },
+    state: 'current',
+    statusLabel: 'Version status: up to date',
+    updateAll: vi.fn(),
+    updating: false,
+    versions: [{ label: 'Agent', version: '1.2.0', testId: 'version-row-agent' }],
+  }),
+}));
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
@@ -51,8 +70,6 @@ it('shows saved service addresses and prevents selecting an unavailable service'
             onConnect={onConnect}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[
               { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
               { endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' },
@@ -63,9 +80,10 @@ it('shows saved service addresses and prevents selecting an unavailable service'
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText('Contained'));
+  await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
 
-  expect(screen.getAllByText('http://127.0.0.1:8788').length).toBeGreaterThan(0);
+  expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.getByText('http://127.0.0.1:8788')).toBeVisible();
   expect(screen.getByText('http://127.0.0.1:9999')).toBeVisible();
   const offline = screen.getByRole('menuitem', { name: /Offline lab/u });
   expect(offline).toHaveAttribute('data-disabled');
@@ -73,28 +91,19 @@ it('shows saved service addresses and prevents selecting an unavailable service'
   expect(onConnect).not.toHaveBeenCalled();
 });
 
-it('explains the active service status when its indicator is hovered', async () => {
-  const user = userEvent.setup();
+it('names the agent and where it runs under the product name', () => {
   render(
     <MemoryRouter>
       <TooltipProvider>
         <SidebarProvider>
           <NavigationHeader
             activeLabel="This device"
-            connectionAvailabilities={{
-              'http://127.0.0.1:8788': {
-                state: 'degraded',
-                label: 'Limited',
-                detail: 'No model is selected yet.',
-              },
-            }}
+            connectionAvailabilities={{}}
             currentPath="/"
             endpoint="http://127.0.0.1:8788"
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[{ endpoint: 'http://127.0.0.1:8788', label: 'This device' }]}
           />
         </SidebarProvider>
@@ -102,13 +111,11 @@ it('explains the active service status when its indicator is hovered', async () 
     </MemoryRouter>,
   );
 
-  await user.hover(
-    screen.getByRole('img', {
-      name: 'Service status: Limited. No model is selected yet.',
-    }),
-  );
-
-  expect(await screen.findByText('No model is selected yet.')).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: new RegExp(`^${brand.name}: .+ @ this computer$`, 'u') }),
+  ).toBeVisible();
+  expect(screen.getByRole('button', { name: 'New conversation' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Import conversation…' })).toBeInTheDocument();
 });
 
 it('shows agent identity as location followed by the branded agent name', async () => {
@@ -124,8 +131,6 @@ it('shows agent identity as location followed by the branded agent name', async 
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[
               {
                 endpoint: 'http://127.0.0.1:17800',
@@ -139,13 +144,12 @@ it('shows agent identity as location followed by the branded agent name', async 
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText('Local'));
+  await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
 
   expect(screen.getByText('Talking to')).toBeVisible();
-  expect(screen.getAllByText('Local')).toHaveLength(2);
+  expect(screen.getByText('Local')).toBeVisible();
   expect(screen.getByText('Switch to')).toBeVisible();
-  expect(screen.getByText('Homelab')).toBeVisible();
-  expect(screen.getAllByText(brand.agentName).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText('http://127.0.0.1:17800')).toBeVisible();
   expect(screen.getByText('v0.9.5')).toBeVisible();
   expect(screen.getByRole('menuitem', { name: /Infrastructure/u })).toHaveAttribute(
     'href',
@@ -168,8 +172,6 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[]}
           />
         </SidebarProvider>
@@ -177,8 +179,7 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByText('Ares')).toBeVisible();
-  expect(screen.getByText('Research')).toBeVisible();
+  expect(screen.getByText('Research @ Ares')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(
@@ -208,8 +209,6 @@ it.each(['local', 'aurora'] as const)(
           }}
           onImportSession={vi.fn()}
           onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
         />
       );
     }
