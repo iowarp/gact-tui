@@ -127,8 +127,10 @@ fn immediate_exit_command() -> CommandBuilder {
     }
     #[cfg(not(windows))]
     {
+        // Silent on purpose: macOS blocks a tty's last close until unread
+        // output drains, and this test deliberately never reads.
         let mut cmd = CommandBuilder::new("/bin/sh");
-        cmd.args(["-c", "echo hi"]);
+        cmd.args(["-c", "exit 0"]);
         cmd
     }
 }
