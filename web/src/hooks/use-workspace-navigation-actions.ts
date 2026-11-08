@@ -32,6 +32,11 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('sessions', settings.endpoint, targetWorkspaceId),
         }),
+        // The open session's family, which the sidebar shows: the live stream
+        // does not report renames or pins.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('sessions', settings.endpoint, 'family'),
+        }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('session-pages', settings.endpoint),
         }),

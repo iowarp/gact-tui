@@ -251,12 +251,16 @@ export function useWorkspaceData({
   // which is what every backend answered before the capability existed.
   const useLegacyInteractions = !supportsUnifiedInteractions;
   // Interaction events on the stream invalidate these; a background session's
-  // request still arrives within the waiting-sessions cadence.
-  const interactionPollMs = livePollInterval(
-    ACTIVE_SESSION_POLL_MS,
-    streamHealthy,
-    WAITING_SESSIONS_POLL_MS,
-  );
+  // request still arrives within the waiting-sessions cadence. While this family
+  // waits on a person, a missed event would leave the agent blocked with nothing
+  // on screen, so the read stays fast.
+  const familyAwaitsPerson =
+    sessions.data?.some(
+      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
+    ) ?? false;
+  const interactionPollMs = familyAwaitsPerson
+    ? ACTIVE_SESSION_POLL_MS
+    : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
   const approvals = useQuery({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
@@ -350,16 +354,17 @@ export function useWorkspaceData({
   const interactionSurfaceSnapshots = useQueries({
     queries: a2uiOwnerIds.map((ownerSessionId) => ({
       queryKey: queryKeys.transcript(settings.endpoint, ownerSessionId, 'pending-a2ui'),
-      // Only the surfaces: the whole transcript of every owner was read here (and
-      // re-read on each transcript invalidation) just to find a question's card.
-      queryFn: ({ signal }) => repository.surfaces(ownerSessionId, signal),
+      // The newest page only: the whole transcript of every owner was read here
+      // (and re-read on each transcript invalidation) just to find a question's card.
+      queryFn: ({ signal }) =>
+        repository.transcript(ownerSessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     })),
   });
   const interactionSurfaces = {
     ...entities.surfaces,
     ...Object.fromEntries(
       interactionSurfaceSnapshots
-        .flatMap((snapshot) => snapshot.data ?? [])
+        .flatMap((snapshot) => snapshot.data?.surfaces ?? [])
         .map((surface) => [`${surface.session_id}:${surface.id}`, surface]),
     ),
   };
