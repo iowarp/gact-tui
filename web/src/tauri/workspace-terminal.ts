@@ -69,9 +69,22 @@ export function loadXterm(): Promise<XtermModule> {
  * `id` in the payload — mirroring the `gact:sse` bridge's keyed channel)
  * are implemented in `desktop/src-tauri/src/terminal_pty.rs`.
  */
-async function invokeTerminalOpen(id: string, cwd: string, cols: number, rows: number): Promise<void> {
+async function invokeTerminalOpen(
+  id: string,
+  cwd: string,
+  cols: number,
+  rows: number,
+  command?: EmbeddedTerminalCommand,
+): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('terminal_open', { id, cwd, cols, rows });
+  await invoke('terminal_open', {
+    id,
+    cwd,
+    cols,
+    rows,
+    argv: command?.argv ?? null,
+    env: command?.env ?? null,
+  });
 }
 
 async function invokeTerminalWrite(id: string, data: string): Promise<void> {
@@ -114,10 +127,18 @@ export type EmbeddedTerminalStatus =
   | { kind: 'exited'; code: number | null }
   | { kind: 'error'; message: string };
 
+/** A program to run in the terminal instead of the user's shell (`argv`),
+ * and variables added to the environment it inherits (`env`). */
+export interface EmbeddedTerminalCommand {
+  argv?: string[];
+  env?: Record<string, string>;
+}
+
 interface EmbeddedTerminalEntry {
   tabId: string;
   sessionId: string;
   cwd: string;
+  command?: EmbeddedTerminalCommand;
   id: string;
   /** `undefined` until the lazily-loaded xterm chunk resolves and
    * constructs it — every accessor below checks for this. */
@@ -202,7 +223,7 @@ async function openEntry(entry: EmbeddedTerminalEntry, cols: number, rows: numbe
     entry.unlistenExit = await listenTerminalExit(entry.id, (code) => {
       setStatus(entry, { kind: 'exited', code });
     });
-    await invokeTerminalOpen(entry.id, entry.cwd, cols, rows);
+    await invokeTerminalOpen(entry.id, entry.cwd, cols, rows, entry.command);
     setStatus(entry, { kind: 'running' });
   } catch (error) {
     setStatus(entry, {
@@ -218,6 +239,8 @@ export interface EnsureEmbeddedTerminalOptions {
   cwd: string;
   cols: number;
   rows: number;
+  /** Omit to open the user's shell. */
+  command?: EmbeddedTerminalCommand;
 }
 
 /**
@@ -234,6 +257,7 @@ export function ensureEmbeddedTerminal(options: EnsureEmbeddedTerminalOptions): 
     tabId: options.tabId,
     sessionId: options.sessionId,
     cwd: options.cwd,
+    command: options.command,
     id: generateTerminalId(),
     term: undefined,
     fitAddon: undefined,

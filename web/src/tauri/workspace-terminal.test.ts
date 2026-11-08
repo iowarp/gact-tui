@@ -124,6 +124,37 @@ describe('ensureEmbeddedTerminal', () => {
       mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length,
     ).toBe(1);
   });
+
+  it('opens the shell by default and a chosen program with its environment when given', async () => {
+    mocks.listen.mockImplementation(resolvedUnlisten);
+    mocks.invoke.mockResolvedValue(undefined);
+
+    await ensureEmbeddedTerminal({
+      tabId: 'tab-shell',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
+    }).readyPromise;
+    await ensureEmbeddedTerminal({
+      tabId: 'tab-program',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 100,
+      rows: 30,
+      command: { argv: ['clio-coder', '--session-file', '/tmp/s.json'], env: { HOME: '/h' } },
+    }).readyPromise;
+
+    const opens = mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open');
+    expect(opens.at(-2)?.[1]).toMatchObject({ cwd: '/workspace/demo', argv: null, env: null });
+    expect(opens.at(-1)?.[1]).toMatchObject({
+      cwd: '/workspace/demo',
+      cols: 100,
+      rows: 30,
+      argv: ['clio-coder', '--session-file', '/tmp/s.json'],
+      env: { HOME: '/h' },
+    });
+  });
 });
 
 describe('closeEmbeddedTerminalTab', () => {
