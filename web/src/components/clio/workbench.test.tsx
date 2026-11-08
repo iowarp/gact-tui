@@ -21,10 +21,12 @@ import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { rangeReadsFromText } from '@/test/workspace-file-range';
 
 const { repository, useAppearancePreferences } = vi.hoisted(() => ({
   repository: {
     readWorkspaceFile: vi.fn(),
+    readWorkspaceFileRange: vi.fn(),
   },
   // Default matches the real provider's default (owner ruling: dot files are
   // visible by default; "Hide dot files and folders" is opt-in).
@@ -32,6 +34,7 @@ const { repository, useAppearancePreferences } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+repository.readWorkspaceFileRange.mockImplementation(rangeReadsFromText(repository.readWorkspaceFile));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));

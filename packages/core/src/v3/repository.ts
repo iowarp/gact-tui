@@ -16,6 +16,7 @@ import type {
   SessionArtifactListing,
   SessionDefaults,
   TranscriptPageOptions,
+  WorkspaceFileRange,
   TranscriptSnapshot,
   TurnAttempt,
   Workspace,
@@ -388,6 +389,32 @@ export class ClioRepository extends BrowserRepository {
       `/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`,
       signal,
     );
+  }
+
+  /**
+   * One byte range of a workspace file (an RFC 9110 `Range` read): `start`..`end`
+   * inclusive, or the last `suffix` bytes. A service that ignores `Range` answers
+   * with the whole file, so callers bound what they keep.
+   */
+  public readWorkspaceFileRange(
+    workspaceId: string,
+    path: string,
+    range: WorkspaceFileRange,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`,
+      headers: {
+        Range: 'suffix' in range ? `bytes=-${range.suffix}` : `bytes=${range.start}-${range.end}`,
+      },
+      responseType: 'bytes',
+      decode: (value) => {
+        if (!(value instanceof Uint8Array)) throw new TypeError('Expected a binary response');
+        return value;
+      },
+      signal,
+    });
   }
 
   public async tools(signal?: AbortSignal): Promise<ToolCatalogItem[]> {

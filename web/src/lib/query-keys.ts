@@ -178,6 +178,13 @@ export const queryKeys = {
       : (['transcript', endpoint, sessionId] as const),
   workspaceFile: (endpoint: string, workspaceId: string, path: string) =>
     ['workspace-file', endpoint, workspaceId, path] as const,
+  /** Ranged windows of a large text file; nested under the file so its invalidation covers them. */
+  workspaceFileWindow: (
+    endpoint: string,
+    workspaceId: string,
+    path: string,
+    window: 'head' | 'tail',
+  ) => ['workspace-file', endpoint, workspaceId, path, 'window', window] as const,
   workspaceFileBytes: (endpoint: string, workspaceId: string, path: string) =>
     ['workspace-file-bytes', endpoint, workspaceId, path] as const,
   workspaceFiles: (endpoint: string, workspaceId: string) =>

@@ -33,13 +33,19 @@ const page = (messages: ReturnType<typeof message>[], next_cursor?: string) => (
 });
 
 it('reads the newest page, then older pages only on request', async () => {
-  stream.mockImplementation(async function* (_scope: unknown, _cursor: unknown, signal: AbortSignal) {
+  stream.mockImplementation(async function* (
+    _scope: unknown,
+    _cursor: unknown,
+    signal: AbortSignal,
+  ) {
     await new Promise((resolve) => signal.addEventListener('abort', resolve));
+    yield* [];
   });
-  transcript.mockImplementation(async (_id: string, _signal: unknown, options?: { before?: string }) =>
-    options?.before === 'm3'
-      ? page([message('m1', 1), message('m2', 2)])
-      : page([message('m3', 3), message('m4', 4)], 'm3'),
+  transcript.mockImplementation(
+    async (_id: string, _signal: unknown, options?: { before?: string }) =>
+      options?.before === 'm3'
+        ? page([message('m1', 1), message('m2', 2)])
+        : page([message('m3', 3), message('m4', 4)], 'm3'),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const wrapper = ({ children }: PropsWithChildren) => (
@@ -63,8 +69,13 @@ it('reads the newest page, then older pages only on request', async () => {
 });
 
 it('offers no earlier control when the first page is the whole conversation', async () => {
-  stream.mockImplementation(async function* (_scope: unknown, _cursor: unknown, signal: AbortSignal) {
+  stream.mockImplementation(async function* (
+    _scope: unknown,
+    _cursor: unknown,
+    signal: AbortSignal,
+  ) {
     await new Promise((resolve) => signal.addEventListener('abort', resolve));
+    yield* [];
   });
   transcript.mockResolvedValue(page([message('m1', 1)]));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });

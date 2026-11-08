@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { OPEN_BROWSER_PAGE_EVENT } from '@/lib/html-in-browser';
+import { rangeReadsFromText } from '@/test/workspace-file-range';
 import { ArtifactView, WorkspaceFileView } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const { repository } = vi.hoisted(() => ({
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
     readWorkspaceFileBytes: vi.fn(),
+    readWorkspaceFileRange: vi.fn(),
     workspaceFiles: vi.fn(),
     openBrowserFile: vi.fn(),
     commentTarget: vi.fn(),
@@ -64,6 +66,10 @@ vi.mock('./document-pdf-viewer', () => ({
     <div aria-label={`PDF ${name}`}>{`${bytes.byteLength} bytes`}</div>
   ),
 }));
+
+repository.readWorkspaceFileRange.mockImplementation(
+  rangeReadsFromText(repository.readWorkspaceFile),
+);
 
 beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 afterEach(() => {
@@ -326,6 +332,33 @@ describe('WorkspaceFileView', () => {
       expect.any(AbortSignal),
     );
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+  });
+
+  it('reads a large unsized log as ranged windows with a virtualized source and its end on request', async () => {
+    const lines = Array.from({ length: 30_000 }, (_, index) => `line ${index} processed`);
+    repository.readWorkspaceFile.mockResolvedValue(lines.join('\n'));
+    renderFile(
+      <WorkspaceFileView path="run.log" mediaType="text/plain" workspaceId="workspace_1" />,
+    );
+    expect(await screen.findByText(/^Showing the first [\d.]+ [KM]i?B\.$/u)).toBeVisible();
+    expect(repository.readWorkspaceFileRange).toHaveBeenCalledWith(
+      'workspace_1',
+      'run.log',
+      { start: 0, end: 512 * 1024 },
+      expect.anything(),
+    );
+    expect(repository.readWorkspaceFile).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-slot="virtual-source"]')).toBeInTheDocument();
+    expect(document.querySelector('pre')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show end' }));
+    expect(await screen.findByText(/^Showing the last [\d.]+ [KM]i?B\.$/u)).toBeVisible();
+    expect(repository.readWorkspaceFileRange).toHaveBeenCalledWith(
+      'workspace_1',
+      'run.log',
+      { suffix: 512 * 1024 },
+      expect.anything(),
+    );
+    expect(screen.getByRole('button', { name: 'Show beginning' })).toBeVisible();
   });
 
   it('shows the read error instead of an endless PDF loading state', async () => {
