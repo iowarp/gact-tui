@@ -8,11 +8,9 @@ import { InfrastructureActivity } from './infrastructure-activity';
 import { InfrastructureHosts } from './infrastructure-hosts';
 import { SshAuthentication } from './managed-service-target';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
-import { HostStorageSettings } from './host-storage-settings';
-import { TechnicalDetails } from './technical-details';
+import { StateView } from './primitives/state-view';
 import { ModelAcquisitions } from './model-acquisition';
 import { InfrastructureOverview } from './infrastructure-overview';
-import { InfrastructureHostInspection } from './infrastructure-host-inspection';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import type { SshHost } from '@/lib/ssh-hosts';
@@ -28,7 +26,10 @@ export function InfrastructureInventory({
   children?: ReactNode;
   /** Hosts: what on the connected agent's own computer needs attention. */
   localAttention?: string[];
-  overview?: Omit<ComponentProps<typeof InfrastructureOverview>, 'data' | 'targetId' | 'onTarget'>;
+  overview?: Omit<
+    ComponentProps<typeof InfrastructureOverview>,
+    'data' | 'targetId' | 'onReconnect' | 'reconnecting' | 'reconnectError'
+  >;
 }) {
   const repository = useRepository();
   const { settings, isManagedConnection } = useConnectionSettings();
@@ -69,37 +70,22 @@ export function InfrastructureInventory({
   }, [requestedTarget, targetId, inventory.data?.targets, setTargetId]);
   if (inventory.error)
     return (
-      <p role="alert" className="mt-6 text-destructive">
-        {inventory.error.message}
-      </p>
+      <StateView
+        className="mt-2"
+        kind="error"
+        size="row"
+        title="Infrastructure could not load"
+        detail={inventory.error.message}
+        action={{ label: 'Retry', onClick: () => void inventory.refetch() }}
+      />
     );
   if (!inventory.data)
-    return (
-      <p role="status" className="mt-6 text-muted-foreground">
-        Loading infrastructure…
-      </p>
-    );
+    return <StateView className="mt-2" kind="loading" size="row" title="Loading infrastructure…" />;
   const data = inventory.data;
   if (section === 'models')
     return (
-      <div className="mt-6 space-y-6">
-        <ManagedServiceHostSelector
-          targets={data.targets}
-          targetId={targetId}
-          canAdd={canConnectComputer}
-          onSshHost={connectComputer}
-          pending={registerTarget.isPending}
-          error={registerTarget.error?.message}
-          onSelect={(id) => {
-            setTargetId(id);
-            setParams({ target: id }, { replace: true });
-          }}
-        />
-        {connectionError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {connectionError}
-          </p>
-        ) : null}
+      <div className="flex min-w-0 flex-col">
+        {connectionError ? <StateView kind="error" size="row" title={connectionError} /> : null}
         {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
           <SshAuthentication
             prompt={transportStatus.prompt}
@@ -114,16 +100,21 @@ export function InfrastructureInventory({
               ? 'Local'
               : data.targets.find((host) => host.id === targetId)?.label || targetId
           }
+          hostSelector={
+            <ManagedServiceHostSelector
+              targets={data.targets}
+              targetId={targetId}
+              canAdd={canConnectComputer}
+              onSshHost={connectComputer}
+              pending={registerTarget.isPending}
+              error={registerTarget.error?.message}
+              onSelect={(id) => {
+                setTargetId(id);
+                setParams({ target: id }, { replace: true });
+              }}
+            />
+          }
         />
-        <TechnicalDetails
-          className="border-t pt-4 text-sm"
-          summaryClassName="text-foreground"
-          title="Storage settings"
-        >
-          <div className="mt-4">
-            <HostStorageSettings key={targetId} targetId={targetId} />
-          </div>
-        </TechnicalDetails>
       </div>
     );
   if (section === 'activity') return <InfrastructureActivity data={data} />;
@@ -138,10 +129,16 @@ export function InfrastructureInventory({
         localAttention={localAttention}
       >
         {children}
-        <InfrastructureHostInspection targetId="local" />
       </InfrastructureHosts>
     );
   return (
-    <InfrastructureOverview {...overview} data={data} targetId={targetId} onTarget={setTargetId} />
+    <InfrastructureOverview
+      {...overview}
+      data={data}
+      targetId={targetId}
+      onReconnect={canConnectComputer ? connectComputer : undefined}
+      reconnecting={registerTarget.isPending}
+      reconnectError={registerTarget.error?.message}
+    />
   );
 }

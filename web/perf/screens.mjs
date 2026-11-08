@@ -306,6 +306,29 @@ function catalogue({ settings, infrastructure }) {
     ...infrastructure.map(({ href, name }) =>
       s('infrastructure', slug(name), href, null, { ready: 'h1', settleMs: 1200 }),
     ),
+    s(
+      'infrastructure',
+      'agent-hosts-attention',
+      '/infrastructure/agent-hosts',
+      async (page) => {
+        await page
+          .getByRole('button', { name: /Conversation memory/u })
+          .first()
+          .click();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, route: 'degraded-health' },
+    ),
+    s(
+      'infrastructure',
+      'activity-failure',
+      '/infrastructure/activity',
+      async (page) => {
+        await page.getByRole('button', { name: 'Start SearXNG details' }).click();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200 },
+    ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
       scenario: { messages: 600, toolsPerMessage: 2 },
@@ -597,6 +620,19 @@ async function capture(browser, stack, shot, { theme, width }) {
         }),
       }),
     );
+  }
+  if (shot.route === 'degraded-health') {
+    // One error and one warning, so the hosts tab shows every group.
+    await page.route('**/v1/health', async (route) => {
+      const health = await (await route.fetch()).json();
+      health.overall_status = 'degraded';
+      health.integrations = [
+        { name: 'lm_provider', status: 'unavailable' },
+        { name: 'arc', status: 'degraded' },
+        ...health.integrations.filter(({ name }) => name !== 'arc'),
+      ];
+      await route.fulfill({ json: health });
+    });
   }
   if (shot.surface === 'runs') {
     await page.route('**/v1/tasks/query*', (route) =>

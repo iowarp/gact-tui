@@ -1,156 +1,137 @@
-import type { InfrastructureInventory, McpUserConfiguration } from '@clio/core/v3';
-import { ArrowRightIcon, BotIcon, CpuIcon, GlobeIcon } from 'lucide-react';
+import type { InfrastructureInventory, McpUserConfiguration, SavedServer } from '@clio/core/v3';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  ChevronRightIcon,
+  CpuIcon,
+  GlobeIcon,
+  HardDriveIcon,
+  HistoryIcon,
+  ServerIcon,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
-import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { vocab } from '@/lib/brand-vocabulary';
-import { InfrastructureTopology } from './infrastructure-topology';
-import { remoteUrlFromSpec } from './web-search-configuration';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
-import { ClioStatus, type ClioStatusValue } from './status';
-import { StateView } from './primitives/state-view';
 import { managedServiceStatus } from '@/lib/managed-service-status';
-import { TechnicalDetails } from './technical-details';
-import { InfrastructureHostInspection } from './infrastructure-host-inspection';
+import type { SshHost } from '@/lib/ssh-hosts';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
+import { BrandIcon } from './brand-icon';
+import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraTabActions } from './infrastructure-tab-actions';
+import { InfrastructureTopology } from './infrastructure-topology';
+import { IconButton, NamedTooltip } from './primitives/icon-button';
+import type { StatusTone } from './primitives/status-indicator';
+import { StateView } from './primitives/state-view';
+import type { ClioStatusValue } from './status';
+import { remoteUrlFromSpec } from './web-search-configuration';
 
-/** A map first, clear routes to each role, and computer diagnostics on demand. */
+const MORE = [
+  { to: '/infrastructure/agent', label: 'Manage computers', icon: ServerIcon },
+  { to: '/infrastructure/models', label: 'Models & storage', icon: HardDriveIcon },
+  { to: '/infrastructure/activity', label: 'View activity', icon: HistoryIcon },
+] as const;
+
+/** Where the agent, inference and web research stand, then the map of what connects to what. */
 export function InfrastructureOverview({
   data,
   targetId,
-  onTarget,
   webSearch,
   webSearchConnected = false,
   onManageWebSearch,
+  onReconnect,
+  reconnecting = false,
+  reconnectError,
 }: {
   data: InfrastructureInventory;
+  /** The selected computer; Inspect again re-reads its capabilities too. */
   targetId: string;
-  onTarget: (id: string) => void;
   webSearch?: McpUserConfiguration;
   webSearchConnected?: boolean;
   onManageWebSearch?: () => void;
+  /** Reconnect a computer that needs sign-in, from its node on the map. */
+  onReconnect?: (host: SshHost) => Promise<unknown>;
+  reconnecting?: boolean;
+  reconnectError?: string;
 }) {
   const { settings } = useConnectionSettings();
   const { servers } = useSavedServers();
+  const queryClient = useQueryClient();
+  const inspect = useMutation({
+    mutationFn: () =>
+      Promise.all([
+        queryClient.refetchQueries({
+          queryKey: ['infrastructure-inventory', settings.endpoint],
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: ['managed-service-catalog', settings.endpoint, targetId],
+          exact: true,
+        }),
+        servers.refetch(),
+      ]),
+  });
   const research = webResearchRow(data, webSearch, webSearchConnected);
-  const rows: {
-    label: string;
-    icon: typeof BotIcon;
-    detail: string;
-    description: string;
-    action: string;
-    status?: string;
-    state: ClioStatusValue;
-    to?: string;
-    onClick?: () => void;
-  }[] = [
-    {
-      label: 'Agent',
-      icon: BotIcon,
-      detail: agentDetail(settings.label, settings.endpoint),
-      description: 'Sessions and tools run here.',
-      action: 'Inspect agent',
-      status: 'Connected',
-      state: 'healthy',
-      to: '/infrastructure/agent',
-    },
-    {
-      label: 'Inference',
-      icon: CpuIcon,
-      detail: servers.data?.length
-        ? `${servers.data.length} saved model ${servers.data.length === 1 ? 'server' : 'servers'}`
-        : 'Providers and model servers',
-      description: 'Connect an API or a model server on any host.',
-      action: 'Model providers',
-      status: undefined,
-      state: 'unavailable',
-      to: '/settings/providers',
-    },
-    {
-      label: 'Web research',
-      icon: GlobeIcon,
-      ...research,
-      onClick: research.to ? undefined : onManageWebSearch,
-      to: research.to ?? (onManageWebSearch ? undefined : '/infrastructure/services'),
-    },
-  ];
+  const inference = inferenceRow(servers.data, Boolean(servers.error));
+  const agent = agentDetail(settings.label, settings.endpoint);
   return (
-    <div className="mt-6 space-y-5">
-      <InfrastructureTopology
-        data={data}
-        agentLabel={settings.label || vocab.agent}
-        endpoint={settings.endpoint}
-      />
-      <section aria-label="Manage your setup">
-        <p className="truncate text-xs text-muted-foreground">
-          Each service can use a different host. Your agent connection stays the same.
-        </p>
-        <div className="mt-3 divide-y border-y">
-          {rows.map(
-            ({ label, icon: Icon, detail, description, action, to, onClick, status, state }) => (
-              <div
-                key={label}
-                className="grid grid-cols-[9.5rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
-              >
-                <div className="flex min-w-0 items-center gap-3 font-medium">
-                  <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-                  <span className="truncate">{label}</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm" title={detail}>
-                    {detail}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground" title={description}>
-                    {description}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center justify-end gap-2">
-                  {status ? <ClioStatus label={status} value={state} /> : null}
-                  {to ? (
-                    <Button asChild variant="ghost" size="sm">
-                      <Link to={to}>
-                        {action}
-                        <ArrowRightIcon />
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button variant="ghost" size="sm" onClick={onClick}>
-                      {action}
-                      <ArrowRightIcon />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-      </section>
-      {servers.data?.length ? (
-        <TechnicalDetails
-          className="border-b pb-4 text-sm"
-          summaryClassName="text-foreground"
-          title={`Saved model servers (${servers.data.length})`}
-        >
-          <div className="mt-3 divide-y">
-            {servers.data.map((server) => (
-              <div key={server.id} className="flex min-w-0 items-center gap-3 py-3 text-sm">
-                <span className="truncate font-medium">{server.label}</span>
-                <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                  {server.address}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {server.check
-                    ? server.check.reachable
-                      ? 'Reachable'
-                      : 'Not reachable'
-                    : 'Not checked'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </TechnicalDetails>
-      ) : null}
+    <div className="@container/overview flex min-w-0 flex-1 flex-col pt-1">
+      <InfraTabActions>
+        <IconButton
+          aria-busy={inspect.isPending || undefined}
+          disabled={inspect.isPending}
+          icon={<RefreshIcon className={cn(inspect.isPending && 'motion-safe:animate-spin')} />}
+          label="Inspect again"
+          onClick={() => inspect.mutate()}
+        />
+      </InfraTabActions>
+      <InfraList label="Your setup" meta={110} status={112}>
+        <InfraRow
+          description={named('Sessions and tools run here.')}
+          icon={<BrandIcon className="size-4" />}
+          meta={agent}
+          primaryAction={<OpenLink label="Open Agent" to="/infrastructure/agent" />}
+          status={{ tone: 'success', label: 'Connected' }}
+          title={named('Agent')}
+        />
+        <InfraRow
+          description={named('Connect an API or a model server on any host.')}
+          icon={<CpuIcon />}
+          meta={inference.meta}
+          primaryAction={<OpenLink label="Open Inference" to="/infrastructure/services" />}
+          status={inference.status}
+          title={named('Inference')}
+        />
+        <InfraRow
+          description={named(research.description)}
+          details={
+            research.reason ? (
+              <p className="truncate text-[11px] text-muted-foreground" title={research.reason}>
+                {research.reason}
+              </p>
+            ) : undefined
+          }
+          icon={<GlobeIcon />}
+          meta={research.meta}
+          primaryAction={
+            research.to || !onManageWebSearch ? (
+              <OpenLink label={research.action} to={research.to ?? '/infrastructure/services'} />
+            ) : (
+              <IconButton
+                icon={<ChevronRightIcon />}
+                label={research.action}
+                size="sm"
+                onClick={onManageWebSearch}
+              />
+            )
+          }
+          status={{ tone: statusTone(research.state), label: research.status }}
+          title={named('Web research')}
+        />
+      </InfraList>
       {servers.error ? (
         <StateView
           kind="error"
@@ -160,35 +141,100 @@ export function InfrastructureOverview({
           action={{ label: 'Retry', onClick: () => void servers.refetch() }}
         />
       ) : null}
-      <TechnicalDetails
-        className="border-b pb-4 text-sm"
-        summaryClassName="text-foreground"
-        title="Computer details"
+      {reconnectError ? (
+        <StateView
+          kind="error"
+          size="row"
+          title="Could not connect this computer"
+          detail={reconnectError}
+        />
+      ) : null}
+      <nav
+        aria-label="More infrastructure"
+        className="flex min-w-0 items-center gap-1 overflow-hidden px-0.5 pt-2 pb-1"
       >
-        <section className="mt-4 space-y-3" aria-label="Computer inspection">
-          <ManagedServiceHostSelector
-            targets={data.targets}
-            targetId={targetId}
-            onSelect={onTarget}
-          />
-          <InfrastructureHostInspection targetId={targetId} />
-        </section>
-      </TechnicalDetails>
-      <nav aria-label="More infrastructure" className="flex min-w-0 items-center gap-2">
-        {[
-          { to: '/infrastructure/agent', label: 'Manage computers' },
-          { to: '/infrastructure/models', label: 'Download models & manage storage' },
-          { to: '/infrastructure/activity', label: 'View activity' },
-        ].map((item) => (
-          <Button asChild className="min-w-0" key={item.to} variant="outline">
-            <Link to={item.to}>
-              <span className="truncate">{item.label}</span>
+        {MORE.map(({ to, label, icon: Icon }) => (
+          <Button
+            asChild
+            className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground"
+            key={to}
+            size="xs"
+            variant="ghost"
+          >
+            <Link title={label} to={to}>
+              <Icon aria-hidden="true" />
+              <span className="truncate">{label}</span>
             </Link>
           </Button>
         ))}
       </nav>
+      <InfrastructureTopology
+        agentLabel={agent}
+        className="mt-1 hidden flex-1 border-t border-border @[520px]/overview:block"
+        client={inTauri() ? 'Desktop app' : 'Browser'}
+        data={data}
+        reconnecting={reconnecting}
+        onReconnect={onReconnect}
+      />
     </div>
   );
+}
+
+/** A row's pinned arrow: opens the tab that manages it, named on hover. */
+function OpenLink({ label, to }: { label: string; to: string }) {
+  return (
+    <NamedTooltip label={label}>
+      <Button
+        asChild
+        className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground"
+        size="icon-xs"
+        variant="ghost"
+      >
+        <Link aria-label={label} to={to}>
+          <ChevronRightIcon aria-hidden="true" className="size-3.5" />
+        </Link>
+      </Button>
+    </NamedTooltip>
+  );
+}
+
+/** Row text that keeps its full wording on hover when it is cut short. */
+function named(text: string) {
+  return <span title={text}>{text}</span>;
+}
+
+function statusTone(value: ClioStatusValue): StatusTone {
+  switch (value) {
+    case 'healthy':
+      return 'success';
+    case 'degraded':
+      return 'warning';
+    case 'running':
+      return 'running';
+    case 'failed':
+      return 'error';
+    default:
+      return 'idle';
+  }
+}
+
+/** Saved model servers summarised: how many answered their last check, and which. */
+function inferenceRow(
+  servers: SavedServer[] | undefined,
+  failed: boolean,
+): { status: InfraStatus; meta?: string } {
+  if (failed) return { status: { tone: 'error', label: 'Could not load' } };
+  if (!servers) return { status: { tone: 'running', label: 'Loading' } };
+  if (!servers.length) return { status: { tone: 'idle', label: 'None connected' } };
+  const reachable = servers.filter((server) => server.check?.reachable);
+  const meta = [...new Set((reachable.length ? reachable : servers).map((row) => row.label))].join(
+    ', ',
+  );
+  if (reachable.length)
+    return { status: { tone: 'success', label: `${reachable.length} connected` }, meta };
+  if (servers.some((server) => server.check))
+    return { status: { tone: 'warning', label: 'Not reachable' }, meta };
+  return { status: { tone: 'idle', label: 'Not checked' }, meta };
 }
 
 /**
@@ -200,25 +246,27 @@ function webResearchRow(
   webSearch: McpUserConfiguration | undefined,
   connected: boolean,
 ): {
-  detail: string;
   description: string;
+  meta?: string;
+  reason?: string;
   action: string;
   status: string;
   state: ClioStatusValue;
   to?: string;
 } {
   const description = 'Add source reading and research tools to your agent.';
-  if (connected)
+  if (connected) {
+    const url = remoteUrlFromSpec(webSearch?.spec);
     return {
-      detail: remoteUrlFromSpec(webSearch?.spec) || 'Connected',
-      description,
+      description: 'Source reading and research tools are connected.',
+      meta: url ? urlHost(url) : undefined,
       action: 'Manage web research',
       status: 'Connected',
       state: 'healthy',
     };
+  }
   if (webSearch?.configured)
     return {
-      detail: 'Needs attention',
       description,
       action: 'Manage web research',
       status: 'Needs attention',
@@ -231,8 +279,9 @@ function webResearchRow(
     const status = managedServiceStatus(builtIn);
     const name = infrastructureServiceName(builtIn.service_id);
     return {
-      detail: `Built-in search engine: ${name}`,
-      description: status.reason ?? description,
+      description: `Built-in search engine: ${name}`,
+      meta: data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
+      reason: status.reason,
       action:
         status.action === 'install'
           ? `Install ${name}`
@@ -245,12 +294,19 @@ function webResearchRow(
     };
   }
   return {
-    detail: 'No research service connected',
-    description,
+    description: 'No research service connected',
     action: 'Connect web research',
     status: 'Not connected',
     state: 'unavailable',
   };
+}
+
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The agent row names the connection, or its address when the name is just "Agent". */

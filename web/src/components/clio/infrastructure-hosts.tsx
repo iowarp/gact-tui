@@ -1,19 +1,44 @@
 import type { InfrastructureInventory } from '@clio/core/v3';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDownIcon, CircleAlertIcon, LaptopIcon, ServerIcon } from 'lucide-react';
+import {
+  BoxIcon,
+  LaptopIcon,
+  LayersIcon,
+  LoaderCircleIcon,
+  PlugIcon,
+  ServerIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { vocab } from '@/lib/brand-vocabulary';
-import { InfrastructureHostInspection } from './infrastructure-host-inspection';
-import { ComputerConnectionContent } from './managed-service-host-selector';
 import { Dialog } from '@/components/ui/dialog';
-import { InfoTip } from './info-tip';
+import { vocab } from '@/lib/brand-vocabulary';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { computerConnectionLabel } from '@/lib/infrastructure-service-labels';
+import { InfrastructureHostInspection } from './infrastructure-host-inspection';
+import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
+import { ComputerConnectionContent } from './managed-service-host-selector';
+import { InfoTip } from './info-tip';
+import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 
-/** The same computer row and direct actions for local and remote computers. */
+/** The words and mark for a computer's connection; never the colour alone. */
+function connectionStatus(local: boolean, state: string): InfraStatus {
+  if (local) return { tone: 'success', label: 'Connected' };
+  const label = computerConnectionLabel(state);
+  if (state === 'connected') return { tone: 'success', label };
+  if (state === 'connecting' || state === 'reconnecting') return { tone: 'running', label };
+  if (state === 'awaiting_input' || state === 'reauthentication_required')
+    return { tone: 'waiting', label };
+  if (state === 'failed') return { tone: 'error', label };
+  return { tone: 'idle', label };
+}
+
+/**
+ * The connected agent's own health (`children`), then one row per computer
+ * with the same direct actions for local and remote computers.
+ */
 export function InfrastructureHosts({
   data,
   children,
@@ -34,25 +59,31 @@ export function InfrastructureHosts({
 }) {
   const [connectOpen, setConnectOpen] = useState(false);
   return (
-    <div className="mt-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          Computers
-          <InfoTip label="About computers">
-            Local is the connected {vocab.agent} computer. Other computers run services for this
-            agent through Desktop SSH. Adding one does not switch your agent connection.
-          </InfoTip>
-        </div>
-        {onConnectComputer ? (
-          <Button size="sm" onClick={() => setConnectOpen(true)}>
-            <AddIcon />
-            Add computer
-          </Button>
-        ) : (
-          <span className="text-xs text-muted-foreground">Add SSH computers in Desktop</span>
-        )}
-      </div>
-      <div className="divide-y border-y">
+    <div className="flex min-w-0 flex-col gap-1">
+      {children}
+      <InfraList
+        heading="Computers"
+        headingAction={
+          <>
+            <InfoTip label="About computers">
+              Local is the connected {vocab.agent} computer. Other computers run services for this
+              agent through Desktop SSH. Adding one does not switch your agent connection.
+            </InfoTip>
+            {onConnectComputer ? (
+              <IconButton
+                icon={<AddIcon />}
+                label="Add computer"
+                onClick={() => setConnectOpen(true)}
+                size="sm"
+              />
+            ) : (
+              <span className="text-[11px] text-faint">Add SSH computers in Desktop</span>
+            )}
+          </>
+        }
+        hover={52}
+        meta={0}
+      >
         {data.targets
           .filter((host) => host.kind !== 'direct')
           .map((host) => (
@@ -65,9 +96,7 @@ export function InfrastructureHosts({
                 host.ssh?.host ||
                 (host.kind === 'local' ? `Connected ${vocab.agent}` : 'Saved computer')
               }
-              status={
-                host.kind === 'local' ? 'Connected' : computerConnectionLabel(host.transport_state)
-              }
+              status={connectionStatus(host.kind === 'local', host.transport_state)}
               attention={host.kind === 'local' ? localAttention : []}
               onInspect={() => onSelect(host.id)}
               onReconnect={
@@ -88,19 +117,11 @@ export function InfrastructureHosts({
                   : undefined
               }
               pending={pending}
-            >
-              {host.kind === 'local' ? (
-                children
-              ) : (
-                <InfrastructureHostInspection targetId={host.id} />
-              )}
-            </ComputerRow>
+            />
           ))}
-      </div>
+      </InfraList>
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Could not connect this computer: {error}
-        </p>
+        <StateView kind="error" size="row" title={`Could not connect this computer: ${error}`} />
       ) : null}
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         {onConnectComputer ? (
@@ -116,6 +137,24 @@ export function InfrastructureHosts({
   );
 }
 
+/** A small icon link with its hover name, for a row's hover actions. */
+function RowLink({ icon, label, to }: { icon: ReactNode; label: string; to: string }) {
+  return (
+    <NamedTooltip label={label}>
+      <Button
+        asChild
+        className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
+        size="icon-xs"
+        variant="ghost"
+      >
+        <Link aria-label={label} to={to}>
+          {icon}
+        </Link>
+      </Button>
+    </NamedTooltip>
+  );
+}
+
 function ComputerRow({
   id,
   label,
@@ -123,7 +162,6 @@ function ComputerRow({
   address,
   status,
   attention,
-  children,
   onInspect,
   onReconnect,
   pending,
@@ -132,77 +170,70 @@ function ComputerRow({
   label: string;
   local: boolean;
   address: string;
-  status: string;
+  status: InfraStatus;
   attention: string[];
-  children: ReactNode;
   onInspect: () => void;
   onReconnect?: () => Promise<unknown>;
   pending: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const Icon = local ? LaptopIcon : ServerIcon;
+  const target = encodeURIComponent(id);
   return (
-    <section className="py-4" aria-label={`${label} computer`}>
-      <div className="flex flex-wrap items-center gap-3">
-        <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{label}</h2>
-          <p className="truncate text-xs text-muted-foreground">{address}</p>
-          {attention.length ? (
-            <p className="mt-1 flex items-start gap-1.5 text-xs text-warning-foreground">
-              <CircleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-              <span>Needs attention: {attention.join(', ')}. Open Details for what to do.</span>
-            </p>
-          ) : null}
-        </div>
-        <Badge
-          variant="outline"
-          title="Connection to this computer. Services have their own run and connection states."
-        >
-          {status}
-        </Badge>
-        <div className="flex flex-wrap items-center gap-2 max-sm:basis-full max-sm:pl-8">
-          {onReconnect ? (
-            <Button
-              size="sm"
-              variant="outline"
+    <InfraRow
+      actions={
+        <InfraRowActions className="flex items-center gap-0.5">
+          <RowLink
+            icon={<LayersIcon />}
+            label={`Services on ${label}`}
+            to={`/infrastructure/services?target=${target}`}
+          />
+          <RowLink
+            icon={<BoxIcon />}
+            label={`Models on ${label}`}
+            to={`/infrastructure/models?target=${target}`}
+          />
+        </InfraRowActions>
+      }
+      className="cursor-pointer"
+      description={
+        attention.length ? (
+          <span className="text-warning-foreground" title={attention.join(', ')}>
+            Needs attention: {attention.join(', ')}.
+          </span>
+        ) : (
+          address
+        )
+      }
+      details={open ? <InfrastructureHostInspection targetId={id} /> : undefined}
+      icon={<Icon />}
+      onClick={() => {
+        if (!open) onInspect();
+        setOpen(!open);
+      }}
+      primaryAction={
+        onReconnect ? (
+          <InfraRowActions>
+            <IconButton
               disabled={pending}
+              icon={
+                pending ? <LoaderCircleIcon className="motion-safe:animate-spin" /> : <PlugIcon />
+              }
+              label="Reconnect"
               onClick={() => void onReconnect().catch(() => undefined)}
-            >
-              {pending ? 'Connecting…' : 'Reconnect'}
-            </Button>
-          ) : null}
-          <Button asChild size="sm" variant="outline">
-            <Link
-              aria-label={`Services on ${label}`}
-              to={`/infrastructure/services?target=${encodeURIComponent(id)}`}
-            >
-              Services
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link
-              aria-label={`Models on ${label}`}
-              to={`/infrastructure/models?target=${encodeURIComponent(id)}`}
-            >
-              Models
-            </Link>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={open}
-            aria-label={`${label} details`}
-            onClick={() => {
-              if (!open) onInspect();
-              setOpen(!open);
-            }}
-          >
-            Details <ChevronDownIcon className={open ? 'rotate-180' : ''} />
-          </Button>
-        </div>
-      </div>
-      {open ? <div className="mt-4 border-t pt-4">{children}</div> : null}
-    </section>
+              size="sm"
+            />
+          </InfraRowActions>
+        ) : (
+          <InfraRowChevron expanded={open} />
+        )
+      }
+      status={status}
+      title={
+        <InfraRowToggle expanded={open} label={`${label} details`}>
+          {label}
+        </InfraRowToggle>
+      }
+    />
   );
 }

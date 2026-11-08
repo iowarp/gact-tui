@@ -1,5 +1,5 @@
 import type { InfrastructureTarget } from '@clio/core/v3';
-import { ChevronDownIcon, LaptopIcon, PencilIcon, ServerIcon } from 'lucide-react';
+import { ChevronDownIcon, LaptopIcon, ServerIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { SshHost } from '@/lib/ssh-hosts';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SshHostPicker } from './ssh-host-picker';
 
@@ -94,7 +94,7 @@ export function ManagedServiceHostSelector({
               </DropdownMenuItem>
               {sshHost ? (
                 <DropdownMenuItem onSelect={() => setOpen(true)}>
-                  <MenuRow icon={<PencilIcon />} label="Edit connection" />
+                  <MenuRow icon={<EditIcon />} label="Edit connection" />
                 </DropdownMenuItem>
               ) : null}
             </>

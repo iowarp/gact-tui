@@ -1,8 +1,21 @@
 import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { SearchIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { CatalogToolset } from './catalog-toolset';
+import { toolSourceCounts, type ToolSource } from './catalog-tool-bundles';
+import { InfraFilterMenu, InfraSearchField } from './infrastructure-filter-menu';
+import { InfraTabActions } from './infrastructure-tab-actions';
+import { IconButton } from './primitives/icon-button';
+import { SegmentedControl } from './primitives/segmented-control';
+import { StateView } from './primitives/state-view';
+
+type ToolScope = 'session' | 'agent';
+
+const SCOPE_OPTIONS = [
+  { value: 'session', label: 'This session' },
+  { value: 'agent', label: 'All agent tools' },
+] as const;
 
 /** Keep actual session availability distinct from browsing the agent catalog. */
 export function InfrastructureTools({
@@ -18,52 +31,83 @@ export function InfrastructureTools({
   pending: boolean;
   tools: ToolCatalogItem[];
   servers: McpServerDefinition[];
-  onScope: (scope: 'session' | 'agent') => void;
+  onScope: (scope: ToolScope) => void;
 }) {
+  const [query, setQuery] = useState('');
+  const [source, setSource] = useState<ToolSource>('all');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const counts = useMemo(() => toolSourceCounts(tools, servers, query), [query, servers, tools]);
+  const clearFilters = () => {
+    setQuery('');
+    setSource('all');
+  };
   return (
-    <div className="mt-6">
-      {sessionId ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Tool scope">
-          <span className="mr-1 text-xs text-muted-foreground">Show</span>
-          <Button
-            size="sm"
-            variant={sessionScoped ? 'secondary' : 'ghost'}
-            aria-pressed={sessionScoped}
-            onClick={() => onScope('session')}
-          >
-            This session
-          </Button>
-          <Button
-            size="sm"
-            variant={!sessionScoped ? 'secondary' : 'ghost'}
-            aria-pressed={!sessionScoped}
-            onClick={() => onScope('agent')}
-          >
-            All agent tools
-          </Button>
-        </div>
-      ) : null}
+    <>
+      <InfraTabActions>
+        {sessionId ? (
+          <SegmentedControl
+            label="Tool scope"
+            onValueChange={onScope}
+            options={SCOPE_OPTIONS}
+            value={sessionScoped ? 'session' : 'agent'}
+          />
+        ) : null}
+        {tools.length ? (
+          <InfraFilterMenu
+            label="Tool source"
+            onValueChange={setSource}
+            options={[
+              { value: 'all', label: 'All', count: counts.all },
+              { value: 'builtin', label: 'Built in', count: counts.builtin },
+              { value: 'mcp', label: 'MCP', count: counts.mcp },
+            ]}
+            value={source}
+          />
+        ) : null}
+        {searchOpen || query ? (
+          <InfraSearchField
+            autoFocus={searchOpen}
+            className="w-[180px]"
+            label="Search tools"
+            onEscape={() => setSearchOpen(false)}
+            onValueChange={setQuery}
+            placeholder="Search tools"
+            value={query}
+          />
+        ) : (
+          <IconButton
+            icon={<SearchIcon />}
+            label="Search tools"
+            onClick={() => setSearchOpen(true)}
+          />
+        )}
+      </InfraTabActions>
       {pending ? (
-        <div aria-label="Loading tool catalog" className="grid gap-3" role="status">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-[32rem] w-full" />
-        </div>
+        <StateView kind="loading" size="row" title="Loading tool catalog" />
       ) : tools.length ? (
-        <CatalogToolset servers={servers} tools={tools} />
+        <CatalogToolset
+          onClearFilters={clearFilters}
+          query={query}
+          servers={servers}
+          source={source}
+          tools={tools}
+        />
       ) : (
-        <div className="border-y py-6 text-sm text-muted-foreground">
-          <p>
-            {sessionScoped
+        <StateView
+          action={
+            sessionScoped
+              ? { label: 'Browse all agent tools', onClick: () => onScope('agent') }
+              : undefined
+          }
+          kind="empty"
+          size="row"
+          title={
+            sessionScoped
               ? `This session has not recorded an effective ${vocab.agent} toolset yet.`
-              : `${vocab.agent} has not reported any tools.`}
-          </p>
-          {sessionScoped ? (
-            <Button className="mt-3" size="sm" variant="outline" onClick={() => onScope('agent')}>
-              Browse all agent tools
-            </Button>
-          ) : null}
-        </div>
+              : `${vocab.agent} has not reported any tools.`
+          }
+        />
       )}
-    </div>
+    </>
   );
 }

@@ -1,13 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState, type ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { InfraTabActionsProvider } from './infrastructure-tab-actions';
 
 const fixtures = vi.hoisted(() => ({
   repository: {
     modelInventory: vi.fn(),
     hostStorageSettings: vi.fn(),
+    inspectHostPath: vi.fn(),
     searchModelsPage: vi.fn(),
     acquireModel: vi.fn(),
     modelAcquisitionAction: vi.fn(),
@@ -29,7 +33,21 @@ beforeEach(() => {
     unavailable_reason: null,
   });
   fixtures.repository.hostStorageSettings.mockResolvedValue({
-    effective: { models: '/data/models' },
+    effective: {
+      root: '/data/clio',
+      models: '/data/models',
+      services: '/data/services',
+      evidence: '/data/evidence',
+      temporary: '/data/tmp',
+    },
+    requested: {},
+    defaults: {},
+  });
+  fixtures.repository.inspectHostPath.mockResolvedValue({
+    path: '/data/models',
+    free_bytes: 1.2e12,
+    total_bytes: 2e12,
+    writable: true,
   });
   fixtures.repository.searchModelsPage.mockResolvedValue({
     models: [],
@@ -55,18 +73,118 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+function TabBar({ children }: { children: ReactNode }) {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <div data-testid="tab-bar" ref={setTarget} />
+      <InfraTabActionsProvider value={target}>{children}</InfraTabActionsProvider>
+    </>
+  );
+}
 function mount() {
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <MemoryRouter>
-        <ModelAcquisitions targetId="homelab" hostLabel="Homelab" />
+        <TooltipProvider>
+          <TabBar>
+            <ModelAcquisitions
+              targetId="homelab"
+              hostLabel="Homelab"
+              hostSelector={<button type="button">Computer: Homelab</button>}
+            />
+          </TabBar>
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
+const readyRow = {
+  id: 'qwen',
+  repository: 'Qwen/Qwen2.5-7B-Instruct',
+  requested_revision: 'main',
+  revision: 'a'.repeat(40),
+  destination: '/data/models/qwen',
+  state: 'ready',
+  phase: 'Files verified',
+  bytes_done: 16.4e9,
+  bytes_total: 16.4e9,
+  created_at: 1,
+  updated_at: 1,
+  error: null,
+  origin: 'receipt',
+};
 describe('host model acquisition', () => {
+  it('places the computer selector and Download model in the tab bar', async () => {
+    mount();
+    const bar = screen.getByTestId('tab-bar');
+    const download = await within(bar).findByRole('button', { name: 'Download model' });
+    const selector = within(bar).getByRole('button', { name: 'Computer: Homelab' });
+    expect(selector.compareDocumentPosition(download) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(await screen.findByText('Downloaded models on Homelab')).toBeVisible();
+    expect(await screen.findByText('1.2 TB free')).toBeVisible();
+  });
+  it('lists a model with its revision, size, status and runtime, and expands its facts', async () => {
+    fixtures.repository.modelInventory.mockResolvedValue({
+      models: [readyRow],
+      errors: [],
+      unavailable_reason: null,
+    });
+    fixtures.repository.managedServiceCatalog.mockResolvedValue({
+      services: [{ id: 'vllm', label: 'vLLM', variants: [{ compatible: true }] }],
+    });
+    mount();
+    const row = (await screen.findByText('Qwen/Qwen2.5-7B-Instruct')).closest(
+      '[role="listitem"]',
+    ) as HTMLElement;
+    expect(row).toHaveTextContent('main, 16.4 GB');
+    expect(row).toHaveTextContent('Ready');
+    expect(await within(row).findByText('vLLM')).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Set up runtime' })).toHaveAttribute(
+      'href',
+      '/infrastructure/services?target=homelab&model=qwen',
+    );
+    const toggle = within(row).getByRole('button', { name: 'Show details' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    toggle.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(within(row).getByRole('button', { name: 'Hide details' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(row).toHaveTextContent('main @ aaaaaaa');
+    expect(row).toHaveTextContent('/data/models/qwen');
+    expect(within(row).getByText('Last checked')).toBeInTheDocument();
+  });
+  it('marks a model whose files no runtime here can serve', async () => {
+    fixtures.repository.modelInventory.mockResolvedValue({
+      models: [readyRow],
+      errors: [],
+      unavailable_reason: null,
+    });
+    fixtures.repository.managedServiceCatalog.mockResolvedValue({
+      services: [{ id: 'vllm', label: 'vLLM', variants: [{ compatible: false }] }],
+    });
+    mount();
+    expect(await screen.findByText('Runtime unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Set up runtime' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText('Qwen/Qwen2.5-7B-Instruct'));
+    expect(screen.getByText(/No compatible runtime for these files on Homelab/u)).toBeVisible();
+  });
+  it('shows the storage locations and edits them in a dialog', async () => {
+    mount();
+    expect(await screen.findByText('Storage on Homelab')).toBeVisible();
+    expect(await screen.findByText('/data/clio')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit locations' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Save locations' })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
   it('requests image models from the Hub and follows the returned continuation', async () => {
     fixtures.repository.searchModelsPage.mockImplementation(
       async ({ filters, cursor }: { filters: string[]; cursor?: string }) => ({
@@ -175,12 +293,11 @@ describe('host model acquisition', () => {
     expect(screen.queryByText('Files verified')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Set up runtime' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for org/shared' }));
-    expect(screen.getByRole('menuitem', { name: 'Delete model files...' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-    expect(screen.getByText(/shared cache is managed outside/iu)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Retry download' })).not.toBeInTheDocument();
+    const shared = screen.getByText('org/shared').closest('[role="listitem"]') as HTMLElement;
+    await userEvent.click(within(shared).getByRole('button', { name: 'Show details' }));
+    expect(within(shared).getByRole('button', { name: 'Delete model' })).toBeDisabled();
+    expect(within(shared).getByText(/shared cache, managed outside/iu)).toBeVisible();
   });
   it('downloads an explicitly selected revision on the named host without starting inference', async () => {
     const user = userEvent.setup();
@@ -275,7 +392,7 @@ describe('host model acquisition', () => {
     });
     fixtures.repository.modelAcquisitionAction.mockResolvedValue({ id: 'job' });
     mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel download' }));
     await waitFor(() =>
       expect(fixtures.repository.modelAcquisitionAction).toHaveBeenCalledWith(
         'homelab',

@@ -1,7 +1,7 @@
-import type { InfrastructureInventory, ToolCatalogItem } from '@clio/core/v3';
+import type { InfrastructureInventory } from '@clio/core/v3';
 import { targetFactsSchema } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -26,8 +26,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ open: native }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio: vi.fn() }));
 import { HostPathPicker } from './host-path-picker';
 import { InfrastructureOverview } from './infrastructure-overview';
+import { InfraTabActionsProvider } from './infrastructure-tab-actions';
 import { InfrastructureHosts } from './infrastructure-hosts';
-import { CatalogToolset } from './catalog-toolset';
+import { InfrastructureHostInspection } from './infrastructure-host-inspection';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { displayHostPath } from '@/lib/host-path-display';
 import { InfrastructureFoundationGroups } from '@/routes/infrastructure-foundation-groups';
 import { SandboxFoundationRow } from '@/routes/infrastructure-sandbox-row';
@@ -36,7 +38,9 @@ function show(ui: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <TooltipProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -141,14 +145,20 @@ it('groups each health row once and updates the counts from the live sandbox sta
         { name: 'lm_provider', status: 'degraded' },
         { name: 'sandbox', status: 'degraded' },
       ]}
-      renderRow={(row) => <div key={row.name}>{row.name}</div>}
+      renderRow={(row) => (
+        <div key={row.name} role="listitem">
+          {row.name}
+        </div>
+      )}
     />,
   );
-  await screen.findByText('Ready and working (2)');
-  expect(screen.getByText('Warnings (1)')).toBeVisible();
+  const ready = await screen.findByRole('list', { name: 'Ready and working' });
+  await waitFor(() => expect(within(ready).getAllByRole('listitem')).toHaveLength(2));
+  expect(
+    within(screen.getByRole('list', { name: 'Warnings' })).getAllByRole('listitem'),
+  ).toHaveLength(1);
   expect(screen.getAllByText('sandbox')).toHaveLength(1);
-  expect(screen.getByLabelText('Ready and working (2)')).not.toHaveAttribute('open');
-  expect(screen.queryByLabelText('Errors (0)')).not.toBeInTheDocument();
+  expect(screen.queryByRole('list', { name: 'Errors' })).not.toBeInTheDocument();
 });
 
 it('shows the sandbox setup result instead of silently discarding it', async () => {
@@ -174,7 +184,7 @@ it('shows the sandbox setup result instead of silently discarding it', async () 
   );
 });
 
-it('shows saved provider servers and preserves actual host facts in the topology overview', async () => {
+it('keeps the actual Windows home path in parsed host facts', () => {
   const facts = targetFactsSchema.parse({
     target_id: 'local',
     label: 'Local',
@@ -191,6 +201,9 @@ it('shows saved provider servers and preserves actual host facts in the topology
     agent_data_root: 'C:\\CLIO data',
   });
   expect(facts.home).toBe('C:\\Users\\Alice');
+});
+
+it('summarises saved model servers and opens each role and map node where it is managed', async () => {
   show(
     <InfrastructureOverview
       data={
@@ -203,32 +216,99 @@ it('shows saved provider servers and preserves actual host facts in the topology
         } as InfrastructureInventory
       }
       targetId="local"
-      onTarget={vi.fn()}
     />,
   );
-  expect(screen.getByRole('list', { name: /Connections from this client/u })).toBeInTheDocument();
+  expect(await screen.findByText('1 connected')).toBeVisible();
+  expect(screen.getByText('My running server')).toBeVisible();
   expect(repository.managedServiceCatalog).not.toHaveBeenCalled();
-  await userEvent.click(await screen.findByText('Saved model servers (1)'));
-  expect(await screen.findByText('My running server')).toBeVisible();
-  await userEvent.click(screen.getByText('Computer details'));
-  const identity = await screen.findByText('Computer identity & paths');
-  expect(screen.queryByText('Home: C:\\Users\\Alice')).toBeNull();
-  await userEvent.click(identity);
-  expect(screen.getByText('Home: C:\\Users\\Alice')).toBeVisible();
-  expect(await screen.findByText('Computer: WORKSTATION')).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Model providers' })).toHaveAttribute(
-    'href',
-    '/settings/providers',
-  );
-  expect(
-    within(screen.getByLabelText('Connection map')).getByRole('link', {
-      name: /Manage services on connected/u,
-    }),
-  ).toHaveAttribute('href', '/infrastructure/services?target=local');
-  expect(screen.getByRole('link', { name: 'Inspect agent' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Open Agent' })).toHaveAttribute(
     'href',
     '/infrastructure/agent',
   );
+  expect(screen.getByRole('link', { name: 'Open Inference' })).toHaveAttribute(
+    'href',
+    '/infrastructure/services',
+  );
+  const more = screen.getByRole('navigation', { name: 'More infrastructure' });
+  expect(within(more).getByRole('link', { name: 'Models & storage' })).toHaveAttribute(
+    'href',
+    '/infrastructure/models',
+  );
+  const map = screen.getByLabelText('Connection map');
+  expect(
+    within(map).getByRole('list', { name: /Connections from this client/u }),
+  ).toBeInTheDocument();
+  expect(within(map).getByRole('link', { name: /Manage services on connected/u })).toHaveAttribute(
+    'href',
+    '/infrastructure/services?target=local',
+  );
+  expect(within(map).getByRole('link', { name: /Add a computer/u })).toHaveAttribute(
+    'href',
+    '/infrastructure/agent',
+  );
+});
+
+it('reconnects a computer that needs sign-in from its map node and inspects again from the tab bar', async () => {
+  const reconnect = vi.fn().mockResolvedValue(undefined);
+  const slot = document.createElement('div');
+  document.body.append(slot);
+  show(
+    <InfraTabActionsProvider value={slot}>
+      <InfrastructureOverview
+        data={
+          {
+            targets: [
+              {
+                id: 'ares',
+                label: 'ares',
+                kind: 'ssh',
+                install_root: '',
+                ssh: { profile: '', host: 'ares.example', user: 'alice', port: 22, jump_hosts: [] },
+                transport_state: 'connected',
+                auto_reconnect: true,
+                created_at: '',
+                updated_at: '',
+              },
+              {
+                id: 'polaris',
+                label: 'polaris',
+                kind: 'ssh',
+                install_root: '',
+                ssh: { profile: '', host: 'polaris.example', user: '', port: 22, jump_hosts: [] },
+                transport_state: 'reauthentication_required',
+                auto_reconnect: true,
+                created_at: '',
+                updated_at: '',
+              },
+            ],
+            services: [],
+            connections: [],
+            operations: [],
+            model_acquisitions: [],
+          } as unknown as InfrastructureInventory
+        }
+        targetId="local"
+        onReconnect={reconnect}
+      />
+    </InfraTabActionsProvider>,
+  );
+  const map = screen.getByLabelText('Connection map');
+  expect(
+    within(map).getByRole('link', { name: /Services on ares, SSH: Connected/u }),
+  ).toHaveAttribute('href', '/infrastructure/services?target=ares');
+  const polaris = within(map).getByRole('button', {
+    name: /Reconnect polaris, SSH: Sign-in needed/u,
+  });
+  polaris.focus();
+  await userEvent.keyboard('{Enter}');
+  expect(reconnect).toHaveBeenCalledWith(
+    expect.objectContaining({ id: 'polaris', host: 'polaris.example', port: 22 }),
+  );
+  await screen.findByText('1 connected');
+  expect(repository.savedServers).toHaveBeenCalledTimes(1);
+  await userEvent.click(within(slot).getByRole('button', { name: 'Inspect again' }));
+  expect(repository.savedServers).toHaveBeenCalledTimes(2);
+  slot.remove();
 });
 
 const failedInstallInventory = {
@@ -268,7 +348,6 @@ it('says the built-in search engine is not installed, with Install, in the map a
     <InfrastructureOverview
       data={failedInstallInventory}
       targetId="local"
-      onTarget={vi.fn()}
       onManageWebSearch={vi.fn()}
     />,
   );
@@ -314,30 +393,18 @@ it('shows what needs attention on the computer it belongs to', () => {
       localAttention={['Memory service process']}
     />,
   );
+  const local = screen.getByRole('button', { name: 'Local details' }).closest('[role="listitem"]');
   expect(
-    within(screen.getByRole('region', { name: 'Local computer' })).getByText(
-      /Needs attention: Memory service process/u,
-    ),
+    within(local as HTMLElement).getByText(/Needs attention: Memory service process/u),
   ).toBeVisible();
 });
 
-it('keeps the tool-list action outside the selected tool contract', async () => {
-  const tool = {
-    id: 'collect',
-    name: 'get_agent_task_output',
-    title: 'Collect',
-    description: 'Collect completed task output.',
-    source: 'native',
-    visible_to: [],
-    tags: [],
-    input_schema: {},
-    output_schema: {},
-  } as ToolCatalogItem;
-  show(<CatalogToolset tools={[tool]} />);
-  expect(screen.getByRole('heading', { name: /^Collect$/ })).toBeVisible();
-  const action = screen.getByRole('button', { name: 'View tool list' });
-  expect(action.closest('article')).toBeNull();
-  await userEvent.click(action);
-  expect(await screen.findByRole('dialog')).toBeVisible();
-  expect(screen.getByRole('heading', { name: 'Browse tools' })).toBeVisible();
+it('reads computer capabilities as facts and inspects the computer again', async () => {
+  show(<InfrastructureHostInspection targetId="local" />);
+  const facts = await screen.findByRole('region', { name: 'Computer capabilities' });
+  expect(await within(facts).findByText('WORKSTATION')).toBeVisible();
+  expect(within(facts).getByText('C:\\Users\\Alice')).toBeVisible();
+  expect(repository.managedServiceCatalog).toHaveBeenCalledTimes(1);
+  await userEvent.click(within(facts).getByRole('button', { name: 'Inspect again' }));
+  await waitFor(() => expect(repository.managedServiceCatalog).toHaveBeenCalledTimes(2));
 });
