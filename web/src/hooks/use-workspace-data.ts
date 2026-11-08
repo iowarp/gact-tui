@@ -350,14 +350,16 @@ export function useWorkspaceData({
   const interactionSurfaceSnapshots = useQueries({
     queries: a2uiOwnerIds.map((ownerSessionId) => ({
       queryKey: queryKeys.transcript(settings.endpoint, ownerSessionId, 'pending-a2ui'),
-      queryFn: ({ signal }) => repository.transcript(ownerSessionId, signal),
+      // Only the surfaces: the whole transcript of every owner was read here (and
+      // re-read on each transcript invalidation) just to find a question's card.
+      queryFn: ({ signal }) => repository.surfaces(ownerSessionId, signal),
     })),
   });
   const interactionSurfaces = {
     ...entities.surfaces,
     ...Object.fromEntries(
       interactionSurfaceSnapshots
-        .flatMap((snapshot) => snapshot.data?.surfaces ?? [])
+        .flatMap((snapshot) => snapshot.data ?? [])
         .map((surface) => [`${surface.session_id}:${surface.id}`, surface]),
     ),
   };

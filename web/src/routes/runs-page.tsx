@@ -60,7 +60,13 @@ import { useRepository } from '@/hooks/use-repository';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
-import { buildFlowRows, buildRows, sourceLabels, type RunRow } from '@/routes/runs-rows';
+import {
+  buildFlowRows,
+  buildRows,
+  retainFlowTools,
+  sourceLabels,
+  type RunRow,
+} from '@/routes/runs-rows';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { matchesRunState } from '@/lib/session-agent-tasks';
 
@@ -182,8 +188,9 @@ export function RunsPage() {
   const flowTranscripts = useQueries({
     queries: orderedFlowSessions.map((session, index) => ({
       enabled: category === 'flows' && index < flowScanLimit,
-      queryKey: queryKeys.key('transcript', settings.endpoint, session.id),
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.transcript(session.id, signal),
+      queryKey: queryKeys.transcript(settings.endpoint, session.id, 'flow-tools'),
+      queryFn: async ({ signal }: { signal: AbortSignal }) =>
+        retainFlowTools(await repository.transcript(session.id, signal)),
       staleTime: RUNS_POLL_MS,
     })),
   });

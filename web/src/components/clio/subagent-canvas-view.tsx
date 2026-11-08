@@ -32,7 +32,7 @@ export function ClioSubagentCanvasView({
 }: ClioSubagentCanvasViewProps) {
   const navigation = useContext(PresentationNavigation);
   const childSessionId = subagent.child_session_id;
-  const { entities, messages, transcript } = useLiveSessionTranscript(
+  const { entities, messages, transcript, earlier } = useLiveSessionTranscript(
     workspaceId,
     childSessionId,
     'canvas',
@@ -113,6 +113,7 @@ export function ClioSubagentCanvasView({
           sessionId={childSessionId}
           actionLifecycles={entities.a2ui_action_lifecycles}
           artifacts={entities.artifacts}
+          earlier={earlier}
           error={transcript.error?.message}
           loading={transcript.isPending}
           messages={messages}

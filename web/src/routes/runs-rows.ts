@@ -138,6 +138,24 @@ function taskState(task: TaskSnapshot): RunState {
 }
 
 // Pure indexing keeps transcript-derived flow identity deterministic and testable.
+/**
+ * Keep only what the Flows view reads from a scanned conversation: its workflow
+ * tool calls. The scan reads whole transcripts (no tools-only route yet), so the
+ * cache holds this projection instead of every message of every scanned session.
+ */
+export function retainFlowTools(transcript: TranscriptSnapshot): TranscriptSnapshot {
+  return {
+    cursor: transcript.cursor,
+    next_cursor: transcript.next_cursor,
+    messages: [],
+    tools: transcript.tools.filter((tool) => Boolean(flowToolDescriptor(tool))),
+    tasks: [],
+    subagents: [],
+    artifacts: [],
+    surfaces: [],
+  };
+}
+
 export function buildFlowRows(
   transcripts: readonly TranscriptSnapshot[],
   sessions: readonly Session[],
