@@ -21,7 +21,7 @@ func TestPaletteClassifiesThemeNavigationAndMCPPrompts(t *testing.T) {
 		{
 			ID: "/summarize", Title: "Summarize MCP text", Source: "mcp_prompt",
 			CommandSource: "mcp_prompt", Invocation: "mcp_prompt",
-			UserInvocable: &trueValue, AgentInvocable: &trueValue, PlannerVisible: &trueValue,
+			UserInvocable: &trueValue, PlannerVisible: &trueValue,
 		},
 	}
 
