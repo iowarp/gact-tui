@@ -8,6 +8,9 @@ workspace.
 
 - [Frontend decisions](design/frontend-decisions.md) records semantic and visual
   departures from the retired web clients, with acceptance evidence.
+- [CLIO visual language](design/visual-language/README.md) is the visual
+  reference for the Web and Desktop redesign. It contains self-contained HTML
+  pages and previews. It is a proposal and is not implemented yet.
 - [Agent operational memory](agent-operational-memory.md) contains safety rules for
   exercising real scientific sessions.
 - [Provenance graph](design/provenance-graph-2026-08.md) describes the current
