@@ -338,10 +338,11 @@ function AppearanceSettings() {
       <div>
         <SettingsRow
           title="Theme"
-          description={
+          description="Choose a theme, or follow your system setting."
+          note={
             theme === 'system' || THEMES.find(({ id }) => id === theme)?.scheme === 'system'
-              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}.`
-              : 'Choose a theme, or follow your system setting.'
+              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}`
+              : undefined
           }
         >
           <SettingsChoice
@@ -432,6 +433,7 @@ function NotificationSettings() {
       <SectionHeading
         title="Notifications"
         description={`Choose how ${vocab.agent} alerts you when a session needs your approval or answer.`}
+        info="The sidebar attention marker stays visible with sound and notifications turned off."
       />
       <div>
         <SettingsRow
@@ -470,6 +472,7 @@ function NotificationSettings() {
         <SettingsRow
           title="Desktop notifications"
           htmlFor="desktop-attention-notifications"
+          inlineControl
           description="Notify when a session needs a response while the app is in the background. Your browser may ask for permission."
         >
           <Switch
@@ -479,9 +482,6 @@ function NotificationSettings() {
           />
         </SettingsRow>
       </div>
-      <p className="text-sm text-muted-foreground">
-        The sidebar attention marker stays visible with sound and notifications turned off.
-      </p>
     </div>
   );
 }
@@ -510,7 +510,7 @@ export function SettingsSection({
     );
   if (section === 'models' || section === 'fleet')
     return (
-      <div className="grid gap-10">
+      <div className="flex flex-col">
         <ModelsSettings />
         <div data-settings-anchor="fleet">
           <FleetSettingsPanel />

@@ -1,61 +1,96 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { IconButton } from './primitives/icon-button';
 import { InfoTip } from './info-tip';
 
-/** Place a preference beside its control, stacking on small screens. */
+/**
+ * Setting row (B): label and ⓘ hint on the left, the control on the right, one
+ * 44 px line. Explanation lives behind the ⓘ; `note` is a short visible state
+ * line under the label ("Following your system, now dark"). Rows take 60% of a
+ * wide page and stack their control under the label when narrow.
+ */
 export function SettingsRow({
   title,
   description,
   info,
+  note,
+  error,
   children,
   htmlFor,
   inlineControl = false,
+  dirty = false,
 }: {
   title: string;
+  /** Explanation of the setting; shown behind the ⓘ beside the label. */
   description?: ReactNode;
-  /** Explanation beside the field label, without another line of page copy. */
+  /** More explanation behind the same ⓘ (source, effect, …). */
   info?: ReactNode;
+  /** Visible state under the label, one line. */
+  note?: ReactNode;
+  /** A validation message under the label. */
+  error?: ReactNode;
   children: ReactNode;
   htmlFor?: string;
-  /** Small controls such as switches can stay beside their label at narrow widths. */
+  /** Small controls such as switches stay beside their label at every width. */
   inlineControl?: boolean;
+  /** A typed value waiting in the save bar. */
+  dirty?: boolean;
 }) {
+  const hint =
+    description && info ? (
+      <div className="grid gap-1.5">
+        <div>{description}</div>
+        <div>{info}</div>
+      </div>
+    ) : (
+      (description ?? info)
+    );
   return (
-    <div className="@container">
+    <div className="@container w-full @3xl:w-[60%]" data-slot="settings-row-frame">
       <div
         data-slot="settings-row"
+        data-dirty={dirty || undefined}
         className={cn(
-          'grid items-center gap-3 border-b border-border/60 py-4',
+          'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
           inlineControl
             ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : '@2xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]',
+            : 'grid-cols-1 @md:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
+          dirty &&
+            'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
       >
-        <div className="min-w-0 pr-4">
-          <div className="flex items-center gap-1.5">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
             {htmlFor ? (
-              <Label htmlFor={htmlFor} className="text-sm font-medium">
+              <Label htmlFor={htmlFor} className="min-w-0 truncate text-[0.8125rem] font-normal">
                 {title}
               </Label>
             ) : (
-              <h2 className="text-sm font-medium">{title}</h2>
+              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal">{title}</h2>
             )}
-            {info ? <InfoTip label={`About ${title}`}>{info}</InfoTip> : null}
+            {hint ? (
+              <InfoTip className="text-faint" label={`About ${title}`}>
+                {hint}
+              </InfoTip>
+            ) : null}
           </div>
-          {description ? (
-            <div className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
-              {description}
+          {note ? (
+            <div className="mt-0.5 truncate text-[0.71875rem] text-faint" data-slot="settings-note">
+              {note}
+            </div>
+          ) : null}
+          {error ? (
+            <div className="mt-0.5 truncate text-xs text-destructive" role="alert">
+              {error}
             </div>
           ) : null}
         </div>
         <div
           data-slot="settings-control"
-          className={cn(
-            'flex w-full min-w-0 items-center justify-start @2xl:justify-end',
-            inlineControl && 'self-start pt-0.5',
-          )}
+          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end"
         >
           {children}
         </div>
@@ -64,7 +99,40 @@ export function SettingsRow({
   );
 }
 
-/** Accessible radio choices with visible labels and explanatory hover text. */
+/** Small muted label over a run of rows ("Response", "Model servers"), with an optional + at the right. */
+export function SettingsGroupLabel({
+  children,
+  onAdd,
+  addLabel,
+  actions,
+  className,
+}: {
+  children: ReactNode;
+  onAdd?: () => void;
+  addLabel?: string;
+  /** Other icon actions at the right end. */
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'mt-4 flex h-7 min-w-0 items-center gap-2 text-[0.71875rem] whitespace-nowrap text-faint',
+        className,
+      )}
+      data-slot="settings-group-label"
+    >
+      <h3 className="min-w-0 truncate font-normal">{children}</h3>
+      <span className="flex-1" />
+      {actions}
+      {onAdd ? (
+        <IconButton icon={<AddIcon />} label={addLabel ?? 'Add'} onClick={onAdd} size="sm" />
+      ) : null}
+    </div>
+  );
+}
+
+/** Accessible radio choices as one segmented control, with explanatory hover text. */
 export function SettingsChoice({
   id,
   label,
@@ -89,7 +157,8 @@ export function SettingsChoice({
       orientation="horizontal"
       value={value}
       onValueChange={onChange}
-      className="@container grid w-full auto-cols-fr grid-flow-col gap-0.5 rounded-lg bg-muted/70 p-1"
+      data-slot="settings-choice"
+      className="inline-flex max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
     >
       {options.map(({ value: option, label: name, description, icon: Icon }) => (
         <Label
@@ -97,10 +166,8 @@ export function SettingsChoice({
           htmlFor={`${id}-${option}`}
           title={description}
           className={cn(
-            'flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-0.5 py-1.5 text-center text-sm text-muted-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
-            // Four or more labelled icons do not fit side by side in the control column.
-            (options.length < 4 || !Icon) && '@2xs:flex-row',
-            value === option && 'bg-background text-foreground shadow-sm',
+            'flex h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[0.3125rem] px-2.5 text-xs font-normal whitespace-nowrap text-muted-foreground hover:text-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
+            value === option && 'bg-menu-highlight text-foreground',
           )}
         >
           <RadioGroupItem
@@ -113,8 +180,8 @@ export function SettingsChoice({
               if (value !== option) onChange(option);
             }}
           />
-          {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
-          <span className="min-w-0 max-w-full [overflow-wrap:normal]">{name}</span>
+          {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
+          <span className="min-w-0 truncate">{name}</span>
         </Label>
       ))}
     </RadioGroup>

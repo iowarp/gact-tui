@@ -273,7 +273,7 @@ export function SessionDefaultsSettings() {
             htmlFor="session-default-approval"
             title="Confirmations"
             info={<>{selectedApproval.description} Workspace and organization rules still apply.</>}
-            description={unavailableApprovalNotice(approvalOptions)}
+            note={unavailableApprovalNotice(approvalOptions)}
           >
             <Select
               onValueChange={(value) =>

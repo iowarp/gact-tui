@@ -167,6 +167,7 @@ export const WindowShell = memo(function WindowShell({
   navigation,
   children,
   toolbar,
+  search,
   className,
   icon,
   contentRef,
@@ -179,6 +180,8 @@ export const WindowShell = memo(function WindowShell({
   navigation?: ReactNode;
   /** Controls in the title row, before ×. */
   toolbar?: ReactNode;
+  /** A wide search field right after the title. */
+  search?: ReactNode;
   children: ReactNode;
   className?: string;
   /** A glyph before the title (Settings: the gear). */
@@ -206,19 +209,32 @@ export const WindowShell = memo(function WindowShell({
           className,
         )}
       >
-        <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border pr-2 pl-4">
+        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border pr-2 pl-3">
           {icon ? (
             <span
               aria-hidden="true"
-              className="flex shrink-0 text-muted-foreground [&_svg]:size-3.5"
+              className="flex shrink-0 text-muted-foreground [&_svg]:size-4"
             >
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate text-[13px] [overflow-wrap:normal]">
+          <DialogTitle
+            className={cn(
+              'min-w-0 truncate text-sm font-semibold [overflow-wrap:normal]',
+              !search && 'flex-1',
+            )}
+          >
             {title}
           </DialogTitle>
           <DialogDescription className="sr-only">{title}</DialogDescription>
+          {search ? (
+            <>
+              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-auto">
+                {search}
+              </div>
+              <span className="flex-1" />
+            </>
+          ) : null}
           {toolbar}
           <FrameClose />
         </div>
@@ -226,7 +242,7 @@ export const WindowShell = memo(function WindowShell({
           {navigation ? (
             <nav
               aria-label={`${title} sections`}
-              className="hidden w-52 shrink-0 overflow-y-auto border-r border-border p-1.5 min-[768px]:block"
+              className="hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5 min-[768px]:block"
             >
               {navigation}
             </nav>

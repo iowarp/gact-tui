@@ -4,6 +4,7 @@ import type { ApplicationDestination } from '@/lib/application-destinations';
 import { hostSection, matchingSettingsSections } from '@/lib/settings-window-route';
 import { Link } from 'react-router-dom';
 import { ChevronDownIcon, SearchIcon } from 'lucide-react';
+import { SettingsScopeIcon } from '@/components/clio/settings-scope-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,7 +67,7 @@ export function SettingsNavigation({
   const groups = grouped(sections, filter);
   const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   return (
-    <div className="flex flex-col gap-3 py-1">
+    <div className="flex flex-col">
       {search ? (
         <SettingsFilterBar
           count={groups.reduce((sum, group) => sum + group.items.length, 0)}
@@ -75,27 +76,27 @@ export function SettingsNavigation({
         />
       ) : null}
       {groups.map(({ group, items }) => (
-        <section key={group} aria-label={scopeLabels[group] ?? group} className="space-y-px">
+        <section key={group} aria-label={scopeLabels[group] ?? group}>
           <h2
-            className="truncate px-2 pb-1 text-[0.6875rem] font-medium text-muted-foreground"
+            className="mt-2 flex h-7 min-w-0 items-center gap-2 px-2 text-xs font-medium text-muted-foreground first:mt-0"
             title={scopeLabels[group] ?? group}
           >
-            {scopeLabels[group] ?? group}
+            <SettingsScopeIcon group={group} />
+            <span className="min-w-0 truncate">{scopeLabels[group] ?? group}</span>
           </h2>
-          {items.map(({ id, label, icon: Icon }) => (
+          {items.map(({ id, label }) => (
             <Link
               aria-current={id === current ? 'page' : undefined}
               className={cn(
-                'flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-[0.8125rem] whitespace-nowrap outline-none',
-                'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-accent font-medium text-accent-foreground',
+                'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
+                'hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+                id === current && 'bg-accent text-foreground',
               )}
               key={id}
               state={linkState}
               title={label}
               to={`/settings/${id}${search}`}
             >
-              <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 truncate">{label}</span>
               <NavBadge badge={badges[id]} />
             </Link>
@@ -109,18 +110,21 @@ export function SettingsNavigation({
 /** Title-row search: the global search, so a setting result opens on its row. */
 export function SettingsSearchButton() {
   return (
-    <Button
+    <button
       aria-label="Search everywhere"
-      className="h-7 w-44 justify-start gap-2 px-2 text-xs font-normal text-muted-foreground max-[599px]:w-7 max-[599px]:justify-center max-[599px]:px-0"
+      className={cn(
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
+        'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
+        'max-[599px]:size-7 max-[599px]:justify-center max-[599px]:p-0',
+      )}
       onClick={openGlobalSearch}
       title="Search settings and everything else"
       type="button"
-      variant="outline"
     >
-      <SearchIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span className="max-[599px]:hidden">Search</span>
-      <ShortcutKeys id="search" className="ml-auto text-[10px] text-inherit max-[599px]:hidden" />
-    </Button>
+      <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate text-left max-[599px]:hidden">Search</span>
+      <ShortcutKeys id="search" className="shrink-0 text-[10px] max-[599px]:hidden" />
+    </button>
   );
 }
 
@@ -241,7 +245,7 @@ function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
   return (
     <Badge
       aria-label={badge.label}
-      className="ml-auto h-4.5 min-w-4.5 px-1 text-[10px] tabular-nums"
+      className="ml-auto h-4.5 min-w-4.5 shrink-0 border-transparent bg-destructive px-1 text-[10px] text-white tabular-nums"
     >
       {badge.count}
     </Badge>

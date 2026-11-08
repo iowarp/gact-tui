@@ -51,6 +51,7 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
+  def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),
   def('new-conversation', 'New conversation', 'anywhere', ['Ctrl+N'], { host: 'desktop' }),
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',

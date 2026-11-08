@@ -1,7 +1,6 @@
 import type { AcceptedParameter } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import { Badge } from '@/components/reui/badge';
+import { useState } from 'react';
 import {
   NumberField,
   NumberFieldDecrement,
@@ -9,10 +8,8 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from '@/components/reui/number-field';
-import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Slider } from '@/components/ui/slider';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import {
   INLINE_SETTINGS_LIMIT,
@@ -21,6 +18,7 @@ import {
   type ModelSettingsValues,
   type ResponseSettingName,
 } from './settings-models-form';
+import { SettingsChoice, SettingsGroupLabel, SettingsRow } from './settings-row';
 
 const GROUPS: ReadonlyArray<{ id: AcceptedParameter['group']; title: string }> = [
   { id: 'sampling', title: 'Sampling' },
@@ -35,36 +33,35 @@ function atStep(value: number, step: number | null): string {
   const decimals = step && step < 1 ? Math.min(6, String(step).split('.')[1]?.length ?? 0) : 0;
   return String(Number(value.toFixed(decimals)));
 }
-const SELECTED = 'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
 
 interface SettingsResponseSettingsProps {
   /** The selected model's accepted settings; undefined while that is unknown. */
   parameters: AcceptedParameter[] | undefined;
   settings: ModelSettingsValues['settings'];
-  edited: boolean;
-  saving: boolean;
+  /** Typed values waiting in the page's save bar. */
+  dirty?: ReadonlySet<string>;
+  disabled?: boolean;
   onEdit: (name: ResponseSettingName, value: string) => void;
-  onSave: () => void;
 }
 
 /**
- * The response settings the SELECTED model accepts -- nothing else. The
- * service states which settings the model and its endpoint take
- * (`accepted_parameters`, each with its range and default), so a model that
- * takes none shows no section at all, a few show inline, and a local server's
- * long list sits behind one disclosure grouped as Sampling / Length /
- * Advanced. Empty means the default: the model's recommended value when the
- * service names one, else the provider's own, and nothing is sent. A saved
- * value this model does not take is listed as not used by it (and never
- * sent), so switching models loses nothing.
+ * The response settings the SELECTED model accepts -- nothing else -- as
+ * setting rows under a "Response" group label. The service states which
+ * settings the model and its endpoint take (`accepted_parameters`, each with
+ * its range and default), so a model that takes none shows no group at all, a
+ * few show inline, and a local server's long list sits behind one disclosure
+ * grouped as Sampling / Length / Advanced. Empty means the default: the
+ * model's recommended value when the service names one, else the provider's
+ * own, and nothing is sent. A saved value this model does not take is listed
+ * as not used by it (and never sent), so switching models loses nothing.
+ * Typed values wait in the page's save bar.
  */
 export function SettingsResponseSettings({
   parameters,
   settings,
-  edited,
-  saving,
+  dirty,
+  disabled = false,
   onEdit,
-  onSave,
 }: SettingsResponseSettingsProps) {
   const [open, setOpen] = useState(false);
   const shown = shownResponseParameters(parameters);
@@ -72,93 +69,75 @@ export function SettingsResponseSettings({
     settings,
     parameters?.map((parameter) => parameter.name),
   );
-  const save = (
-    <div className="flex justify-end">
-      <Button disabled={!edited || saving} onClick={onSave} size="sm" type="button">
-        {saving ? 'Saving…' : 'Save'}
-      </Button>
-    </div>
-  );
   const note = unused.length ? <UnusedNote unused={unused} /> : null;
 
   if (!shown.length) {
-    // No section: this model takes no response settings. A saved value still
+    // No group: this model takes no response settings. A saved value still
     // says so, and it can still be saved away with the model choice.
-    return note ? (
-      <div className="flex flex-col gap-2" data-slot="response-settings-unused-only">
-        {note}
-      </div>
-    ) : null;
+    return note ? <div data-slot="response-settings-unused-only">{note}</div> : null;
   }
 
-  const controls = (items: typeof shown) => (
-    <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-      {items.map((parameter) => (
-        <ParameterControl
-          key={parameter.name}
-          onChange={(value) => onEdit(parameter.name, value)}
-          parameter={parameter}
-          value={settings[parameter.name] ?? ''}
-        />
-      ))}
-    </div>
-  );
+  const rows = (items: typeof shown) =>
+    items.map((parameter) => (
+      <ParameterRow
+        dirty={dirty?.has(parameter.name) ?? false}
+        disabled={disabled}
+        key={parameter.name}
+        onChange={(value) => onEdit(parameter.name, value)}
+        parameter={parameter}
+        value={settings[parameter.name] ?? ''}
+      />
+    ));
 
   if (shown.length <= INLINE_SETTINGS_LIMIT) {
     return (
-      <section
-        aria-label="Response settings"
-        className="flex flex-col gap-3"
-        data-slot="response-settings"
-      >
-        <h3 className="text-sm font-medium">Response settings</h3>
-        {controls(shown)}
+      <section aria-label="Response settings" data-slot="response-settings">
+        <SettingsGroupLabel>Response</SettingsGroupLabel>
+        {rows(shown)}
         {note}
-        {save}
       </section>
     );
   }
 
   return (
     <Collapsible data-slot="response-settings" onOpenChange={setOpen} open={open}>
-      <CollapsibleTrigger asChild>
-        <Button className="-ms-2" size="sm" type="button" variant="ghost">
+      <div className="mt-4 flex h-7 items-center" data-slot="settings-group-label">
+        <CollapsibleTrigger
+          className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[0.71875rem] whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          type="button"
+        >
           <ChevronRightIcon
             aria-hidden="true"
             className={cn(
-              'transition-transform motion-reduce:transition-none',
+              'size-3.5 transition-transform motion-reduce:transition-none',
               open && 'rotate-90',
             )}
           />
           Response settings
-          <Badge size="sm" variant="secondary">
+          <span className="rounded-full bg-muted px-1.5 text-[0.65625rem] tabular-nums text-muted-foreground">
             {shown.length}
-          </Badge>
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-5 pt-3">
+          </span>
+        </CollapsibleTrigger>
+      </div>
+      <CollapsibleContent>
         {GROUPS.map((group) => {
           const items = shown.filter((parameter) => parameter.group === group.id);
           return items.length ? (
-            <section aria-label={group.title} className="flex flex-col gap-3" key={group.id}>
-              <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {group.title}
-              </h4>
-              {controls(items)}
+            <section aria-label={group.title} key={group.id}>
+              <SettingsGroupLabel className="mt-2">{group.title}</SettingsGroupLabel>
+              {rows(items)}
             </section>
           ) : null;
         })}
-        {note}
-        {save}
       </CollapsibleContent>
-      {!open && note ? <div className="pt-1">{note}</div> : null}
+      {note}
     </Collapsible>
   );
 }
 
 function UnusedNote({ unused }: { unused: ReturnType<typeof unusedResponseSettings> }) {
   return (
-    <p className="text-xs text-muted-foreground" data-slot="response-settings-unused">
+    <p className="mt-2 truncate text-xs text-faint" data-slot="response-settings-unused">
       Saved but not used by this model:{' '}
       {unused.map((item, index) => (
         <span key={item.name}>
@@ -188,78 +167,54 @@ function rangeText(parameter: AcceptedParameter): string {
   return '';
 }
 
-function Setting({
-  parameter,
-  children,
-  aside,
-}: {
-  parameter: AcceptedParameter;
-  children: ReactNode;
-  aside?: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5" data-parameter={parameter.name}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground" title={parameter.description}>
-          {parameter.label}
-        </span>
-        {aside}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ParameterControl({
+function ParameterRow({
   parameter,
   value,
+  dirty,
+  disabled,
   onChange,
 }: {
   parameter: AcceptedParameter;
   value: string;
+  dirty: boolean;
+  disabled: boolean;
   onChange: (value: string) => void;
 }) {
+  const id = `response-${parameter.name}`;
   if (parameter.kind === 'enum') {
     const options = parameter.options ?? [];
     return (
-      <Setting parameter={parameter}>
-        <ToggleGroup
-          aria-label={parameter.label}
-          className="flex-wrap"
-          onValueChange={(next) => {
-            if (!next) return;
-            onChange(next === PROVIDER_DEFAULT ? '' : next);
-          }}
-          size="sm"
-          spacing={0}
-          type="single"
-          value={value && options.includes(value) ? value : PROVIDER_DEFAULT}
-          variant="outline"
+      <div data-parameter={parameter.name}>
+        <SettingsRow
+          description={parameter.description}
+          dirty={dirty}
+          note={value ? undefined : defaultText(parameter)}
+          title={parameter.label}
         >
-          <ToggleGroupItem
-            className={SELECTED}
-            title={defaultText(parameter)}
-            value={PROVIDER_DEFAULT}
-          >
-            Default
-          </ToggleGroupItem>
-          {options.map((option) => (
-            <ToggleGroupItem className={SELECTED} key={option} value={option}>
-              {option}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </Setting>
+          <SettingsChoice
+            id={id}
+            label={parameter.label}
+            onChange={(next) => onChange(next === PROVIDER_DEFAULT ? '' : next)}
+            options={[
+              { value: PROVIDER_DEFAULT, label: 'Default', description: defaultText(parameter) },
+              ...options.map((option) => ({ value: option, label: option })),
+            ]}
+            value={value && options.includes(value) ? value : PROVIDER_DEFAULT}
+          />
+        </SettingsRow>
+      </div>
     );
   }
 
   const numeric = toNumber(value);
   const bounded =
     parameter.kind === 'number' && parameter.minimum !== null && parameter.maximum !== null;
+  const range = rangeText(parameter);
   const field = (
     <NumberField
       aria-label={parameter.label}
-      className={cn('gap-0', bounded && 'w-32 shrink-0')}
+      className="w-28 shrink-0 gap-0"
+      disabled={disabled}
       max={parameter.maximum ?? undefined}
       min={parameter.minimum ?? undefined}
       onValueChange={(next) => onChange(next === null ? '' : String(next))}
@@ -277,17 +232,18 @@ function ParameterControl({
       </NumberFieldGroup>
     </NumberField>
   );
-  const range = rangeText(parameter);
   if (!bounded) {
     return (
-      <Setting
-        aside={
-          range ? <span className="text-xs text-muted-foreground tabular-nums">{range}</span> : null
-        }
-        parameter={parameter}
-      >
-        {field}
-      </Setting>
+      <div data-parameter={parameter.name}>
+        <SettingsRow
+          description={parameter.description}
+          dirty={dirty}
+          note={range || undefined}
+          title={parameter.label}
+        >
+          {field}
+        </SettingsRow>
+      </div>
     );
   }
   const minimum = parameter.minimum as number;
@@ -298,22 +254,23 @@ function ParameterControl({
   const stated = typeof parameter.default === 'number' ? parameter.default : null;
   const hidden = numeric === null && stated === null;
   return (
-    <Setting
-      aside={
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {numeric === null ? defaultText(parameter) : range}
-        </span>
-      }
-      parameter={parameter}
-    >
-      <div className="flex items-center gap-3">
+    <div data-parameter={parameter.name}>
+      <SettingsRow
+        description={parameter.description}
+        dirty={dirty}
+        info={`Range ${range}.`}
+        note={numeric === null ? defaultText(parameter) : range}
+        title={parameter.label}
+      >
         <Slider
           aria-label={parameter.label}
           className={cn(
+            'min-w-20 flex-1',
             numeric === null && 'opacity-60',
             hidden &&
               '[&_[data-slot=slider-range]]:opacity-0 [&_[data-slot=slider-thumb]]:opacity-0',
           )}
+          disabled={disabled}
           max={maximum}
           min={minimum}
           onValueChange={([next]) =>
@@ -324,7 +281,7 @@ function ParameterControl({
           value={[numeric ?? stated ?? minimum]}
         />
         {field}
-      </div>
-    </Setting>
+      </SettingsRow>
+    </div>
   );
 }

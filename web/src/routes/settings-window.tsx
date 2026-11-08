@@ -14,7 +14,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
-import { SettingsScopeContext } from '@/lib/settings-scope-context';
+import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   arrivedFromSearch,
   settingsBackgroundRoute,
@@ -91,12 +91,15 @@ export function SettingsWindow() {
   const agentName = settings.label || vocab.agent;
   const destination = destinations.find((item) => item.id === section);
   const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
-  const scopeLine =
-    destination?.group === 'Agent'
-      ? `${agentName}, applies to every conversation on this agent`
-      : destination?.group === 'Workspace'
-        ? `${agentName}, kept per workspace and for you`
-        : 'This app on this device';
+  const scopeLine: SettingsScope = {
+    group: destination?.group === 'Agent' || destination?.group === 'Workspace' ? destination.group : 'App',
+    line:
+      destination?.group === 'Agent'
+        ? `${agentName}, applies to every conversation on this agent`
+        : destination?.group === 'Workspace'
+          ? `${workspaceName} on ${agentName}, kept for this workspace and for you`
+          : 'App, applies to this computer',
+  };
   useEffect(() => {
     if (!sectionsLoaded) return;
     const anchor = destination?.host
@@ -147,16 +150,12 @@ export function SettingsWindow() {
         if (!open) void navigate(background ?? workspaceRoute);
       }}
       open
+      search={<SettingsSearchButton />}
       title="Settings"
-      toolbar={
-        <div className="flex min-w-0 items-center gap-1.5">
-          <SettingsSectionPicker {...navigation} />
-          <SettingsSearchButton />
-        </div>
-      }
+      toolbar={<SettingsSectionPicker {...navigation} />}
     >
-      <main className="px-5 py-6 sm:px-8">
-        <div className="mx-auto max-w-4xl pb-12">
+      <main className="px-5 pt-4 pb-5 sm:px-7">
+        <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>
             <Suspense fallback={<SectionsLoading />}>
               <SettingsSection
