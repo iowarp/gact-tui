@@ -1,8 +1,5 @@
 import type { KnowledgeSnapshot } from '@clio/core/v3';
 
-/** A note card in a small graph, in graph units: it zooms with the canvas. */
-export const KNOWLEDGE_CARD = { width: 112, height: 36 } as const;
-
 /** "1 link", "8 links": the count of notes linked to or from a note. */
 export function knowledgeLinkCount(count: number): string {
   return `${count.toLocaleString()} ${count === 1 ? 'link' : 'links'}`;

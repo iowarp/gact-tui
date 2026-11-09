@@ -1,270 +1,227 @@
 import type { KnowledgeSnapshot } from '@clio/core/v3';
-import { ScanIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { knowledgeTopology, type KnowledgeGraphLayout } from '@/lib/knowledge-graph-layout';
-import { knowledgeLabels, type GraphCamera, type GraphSize } from '@/lib/knowledge-graph-labels';
-import { KnowledgeGraphGeometry } from './knowledge-graph-geometry';
-import { KNOWLEDGE_CARD } from './knowledge-vault-stats';
-import { IconButton } from './primitives/icon-button';
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  useReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { FileTextIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { cn } from '@/lib/utils';
+import {
+  KNOWLEDGE_NODE,
+  knowledgeNeighborhood,
+  type KnowledgeGraphCard,
+  type KnowledgeNeighborhood,
+} from './knowledge-graph-model';
+import { knowledgeLinkCount } from './knowledge-vault-stats';
 import { StateView } from './primitives/state-view';
 
-/** Up to this many notes the graph draws cards; beyond it, dots (the layout's small graph). */
-const CARD_GRAPH_LIMIT = 40;
-
-function fittedCamera(graph: KnowledgeGraphLayout, size: GraphSize): GraphCamera {
-  if (!graph.nodes.length) return { x: size.width / 2, y: size.height / 2, scale: 1 };
-  const cards = graph.nodes.length <= CARD_GRAPH_LIMIT;
-  const xs = graph.nodes.map((node) => node.x),
-    ys = graph.nodes.map((node) => node.y);
-  const left = Math.min(...xs),
-    right = Math.max(...xs),
-    top = Math.min(...ys),
-    bottom = Math.max(...ys);
-  const scale = Math.max(
-    0.04,
-    Math.min(
-      cards ? 1 : 1.6,
-      (size.width - 100) / (right - left + (cards ? KNOWLEDGE_CARD.width + 48 : 120)),
-      (size.height - 80) / (bottom - top + (cards ? KNOWLEDGE_CARD.height + 64 : 100)),
-    ),
-  );
-  return {
-    x: size.width / 2 - ((left + right) / 2) * scale,
-    y: size.height / 2 - ((top + bottom) / 2) * scale,
-    scale,
-  };
+interface NoteNodeData extends Record<string, unknown> {
+  card: KnowledgeGraphCard;
+  onSelect: (path: string) => void;
 }
+interface MoreNodeData extends Record<string, unknown> {
+  count: number;
+}
+type NoteNode = Node<NoteNodeData, 'note'>;
+type MoreNode = Node<MoreNodeData, 'more'>;
+type GraphNode = NoteNode | MoreNode;
+
+const nodeTypes = { note: NoteCard, more: MoreCard };
+const { width, height } = KNOWLEDGE_NODE;
+const FIT = { padding: 0.06, maxZoom: 1 };
+/** Below this a card's name is unreadable: center the focused note instead of fitting all. */
+const READABLE_ZOOM = 0.75;
+const EDGE = {
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    color: 'var(--muted-foreground)',
+    width: 14,
+    height: 14,
+  },
+  style: { stroke: 'var(--muted-foreground)', strokeWidth: 1 },
+};
 
 /**
- * The vault's note graph, full-bleed on a dotted canvas: stable geometry,
- * readable names and local emphasis. Selecting a note selects it in the vault.
+ * A vault's notes graph, full-bleed on a dotted canvas: the focused note with the
+ * notes that link to it on its left and those it links to on its right. Choosing a
+ * card focuses it and selects it in the vault.
  */
 export function KnowledgeGraph({
   snapshot,
   selected,
   onSelect,
-  isolated = true,
 }: {
   snapshot: KnowledgeSnapshot;
   selected: string;
   onSelect: (path: string) => void;
-  /** Whether notes without links show, around the linked ones. */
-  isolated?: boolean;
 }) {
-  const host = useRef<HTMLDivElement>(null);
-  const arranged = useRef<KnowledgeGraphLayout | undefined>(undefined);
-  const automaticFraming = useRef(true);
-  const measured = useRef<GraphSize>({ width: 0, height: 0 });
-  const [size, setSize] = useState<GraphSize>({ width: 0, height: 0 });
-  const [camera, setCamera] = useState<GraphCamera>({ x: 0, y: 0, scale: 1 });
-  const [hover, setHover] = useState('');
-  const [layout, setLayout] = useState<{
-    topology: KnowledgeGraphLayout;
-    graph?: KnowledgeGraphLayout;
-    error?: string;
-  }>();
-  const drag = useRef<{ x: number; y: number; origin: GraphCamera } | null>(null);
-  const topology = useMemo(() => {
-    const result = knowledgeTopology(snapshot);
-    return isolated ? result : { ...result, nodes: result.nodes.filter((node) => node.degree > 0) };
-  }, [snapshot, isolated]);
-  const graph = layout?.topology === topology ? layout.graph : undefined;
-  const error = layout?.topology === topology ? layout.error : undefined;
+  const container = useRef<HTMLElement>(null);
+  const graph = useMemo(() => knowledgeNeighborhood(snapshot, selected), [snapshot, selected]);
+  const nodes = useMemo<GraphNode[]>(
+    () => [
+      ...graph.cards.map(
+        (card): NoteNode => ({
+          id: card.id,
+          type: 'note',
+          position: { x: card.x, y: card.y },
+          style: { width, height },
+          data: { card, onSelect },
+        }),
+      ),
+      ...graph.more.map(
+        (more): MoreNode => ({
+          id: `more:${more.side}`,
+          type: 'more',
+          position: { x: more.x, y: more.y },
+          style: { width, height },
+          data: { count: more.count },
+        }),
+      ),
+    ],
+    [graph, onSelect],
+  );
+  const edges = useMemo<Edge[]>(
+    () => graph.edges.map((edge) => ({ ...edge, ...EDGE })),
+    [graph.edges],
+  );
+  const focused = graph.cards.find((card) => card.side === 'focus');
+  return (
+    <section
+      aria-label="Note graph"
+      className="h-full min-h-0 min-w-0 overflow-hidden bg-background"
+      ref={container}
+    >
+      {focused ? (
+        <ReactFlow<GraphNode, Edge>
+          key={graph.focus}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          minZoom={0.2}
+          maxZoom={1.8}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          zoomOnDoubleClick={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <FitOnResize container={container} graph={graph} />
+          <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
+          <Controls
+            aria-label="Note graph controls"
+            className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!fill-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!fill-foreground"
+            position="bottom-right"
+            showInteractive={false}
+          />
+        </ReactFlow>
+      ) : (
+        <StateView kind="empty" size="viewer" title="No notes match this view" />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Fit the neighborhood on focus and on pane resize, never below a readable size:
+ * a pane too narrow for both sides starts at the focused note, the rest a pan away.
+ */
+function FitOnResize({
+  container,
+  graph,
+}: {
+  container: RefObject<HTMLElement | null>;
+  graph: KnowledgeNeighborhood;
+}) {
+  const { fitView, setViewport } = useReactFlow();
   useEffect(() => {
-    arranged.current = undefined;
-    const worker = new Worker(new URL('../../lib/knowledge-graph.worker.ts', import.meta.url), {
-      type: 'module',
-    });
-    worker.onmessage = (event: MessageEvent<{ graph?: KnowledgeGraphLayout; error?: string }>) => {
-      setLayout({ topology, ...event.data });
-      if (event.data.graph && host.current) {
-        arranged.current = event.data.graph;
-        automaticFraming.current = true;
-        setCamera(
-          fittedCamera(event.data.graph, {
-            width: host.current.clientWidth,
-            height: host.current.clientHeight,
-          }),
-        );
+    const element = container.current;
+    const placed = [...graph.cards, ...graph.more];
+    const focus = graph.cards.find((card) => card.side === 'focus');
+    if (!element || !focus) return;
+    const left = Math.min(...placed.map((node) => node.x));
+    const right = Math.max(...placed.map((node) => node.x)) + width;
+    const top = Math.min(...placed.map((node) => node.y));
+    const bottom = Math.max(...placed.map((node) => node.y)) + height;
+    let frame = 0;
+    const fit = () => {
+      const w = element.clientWidth;
+      const h = element.clientHeight;
+      if (!w || !h) return;
+      const pad = 1 + FIT.padding * 2;
+      const whole = Math.min(w / ((right - left) * pad), h / ((bottom - top) * pad), FIT.maxZoom);
+      if (whole >= READABLE_ZOOM) {
+        void fitView(FIT);
+        return;
       }
-    };
-    worker.onerror = () =>
-      setLayout({ topology, error: 'Choose notes in the vault list, or Refresh.' });
-    worker.postMessage(topology);
-    return () => worker.terminate();
-  }, [topology]);
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) => {
-      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
-      const previous = measured.current;
-      if (next.width === previous.width && next.height === previous.height) return;
-      measured.current = next;
-      setSize(next);
-      if (automaticFraming.current && arranged.current) {
-        setCamera(fittedCamera(arranged.current, next));
-      } else {
-        setCamera((current) => ({
-          ...current,
-          x: current.x + (next.width - previous.width) / 2,
-          y: current.y + (next.height - previous.height) / 2,
-        }));
-      }
-    });
-    observer.observe(host.current!);
-    return () => observer.disconnect();
-  }, []);
-  const fit = useCallback(() => {
-    automaticFraming.current = true;
-    if (graph) setCamera(fittedCamera(graph, size));
-  }, [graph, size]);
-  const active = hover || selected;
-  useEffect(() => {
-    const node = graph?.nodes.find((item) => item.id === active);
-    if (!node || !size.width) return;
-    // Wait for the reader's resize observation before framing a selected node.
-    const frame = requestAnimationFrame(() =>
-      setCamera((current) => {
-        const x = node.x * current.scale + current.x,
-          y = node.y * current.scale + current.y;
-        return x >= 35 && x <= size.width - 35 && y >= 35 && y <= size.height - 35
-          ? current
-          : {
-              ...current,
-              x: size.width / 2 - node.x * current.scale,
-              y: size.height / 2 - node.y * current.scale,
-            };
-      }),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [active, graph, size]);
-  const zoom = useCallback(
-    (factor: number, x = size.width / 2, y = size.height / 2) => {
-      automaticFraming.current = false;
-      setCamera((current) => {
-        const scale = Math.min(5, Math.max(0.04, current.scale * factor));
-        return {
-          scale,
-          x: x - ((x - current.x) * scale) / current.scale,
-          y: y - ((y - current.y) * scale) / current.scale,
-        };
+      const zoom = READABLE_ZOOM;
+      void setViewport({
+        x: w / 2 - (focus.x + width / 2) * zoom,
+        y: h / 2 - ((top + bottom) / 2) * zoom,
+        zoom,
       });
-    },
-    [size],
-  );
-  useEffect(() => {
-    const element = host.current!;
-    const wheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const rect = element.getBoundingClientRect();
-      zoom(Math.exp(-event.deltaY * 0.0015), event.clientX - rect.left, event.clientY - rect.top);
     };
-    element.addEventListener('wheel', wheel, { passive: false });
-    return () => element.removeEventListener('wheel', wheel);
-  }, [zoom]);
-  const cards = Boolean(graph && graph.nodes.length <= CARD_GRAPH_LIMIT);
-  const labels = useMemo(
-    () => (graph && !cards ? knowledgeLabels(graph, camera, size, active) : []),
-    [graph, cards, camera, size, active],
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [container, fitView, graph, setViewport]);
+  return null;
+}
+
+const HANDLE = '!size-0 !min-h-0 !min-w-0 !border-0 !opacity-0';
+
+function NoteCard({ data }: NodeProps<NoteNode>) {
+  const { card } = data;
+  const focus = card.side === 'focus';
+  const links = knowledgeLinkCount(card.links);
+  return (
+    <div className="relative" style={{ width, height }}>
+      <Handle className={HANDLE} position={Position.Left} type="target" />
+      <button
+        aria-label={`${card.title}, ${links}`}
+        aria-pressed={focus}
+        className={cn(
+          'nodrag nopan grid h-full w-full grid-cols-[14px_minmax(0,1fr)] content-center gap-x-2 rounded-md border bg-card px-2.5 text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring',
+          focus && 'border-primary ring-1 ring-primary/40',
+        )}
+        onClick={() => data.onSelect(card.id)}
+        title={`${card.title} (${links})`}
+        type="button"
+      >
+        <FileTextIcon aria-hidden="true" className="row-span-2 size-3.5 text-muted-foreground" />
+        <span
+          className={cn('truncate text-[12.5px] leading-4 font-semibold', focus && 'text-primary')}
+        >
+          {card.title}
+        </span>
+        <span className="truncate text-[11px] leading-[14px] text-muted-foreground">{links}</span>
+      </button>
+      <Handle className={HANDLE} position={Position.Right} type="source" />
+    </div>
   );
-  const select = useCallback((path: string) => onSelect(path), [onSelect]);
-  const setHovered = useCallback((path: string) => setHover(path), []);
+}
+
+function MoreCard({ data }: NodeProps<MoreNode>) {
   return (
     <div
-      ref={host}
-      role="region"
-      aria-label="Note graph"
-      className="relative h-full min-h-0 overflow-hidden bg-background bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:14px_14px]"
+      className="flex items-center px-2.5 text-[11px] text-muted-foreground tabular-nums"
+      style={{ width, height }}
     >
-      {!graph && !error && <StateView kind="loading" size="viewer" title="Arranging the notes" />}
-      {error && (
-        <StateView
-          kind="error"
-          size="viewer"
-          title="The note graph could not be arranged"
-          detail={error}
-        />
-      )}
-      {graph && !graph.nodes.length && (
-        <StateView
-          kind="empty"
-          size="viewer"
-          className="absolute inset-0"
-          title={isolated ? 'No notes match this view' : 'No linked notes in this view'}
-          detail={
-            isolated ? undefined : 'Show unlinked notes from More actions, or change the search.'
-          }
-        />
-      )}
-      {graph && (
-        <svg
-          width="100%"
-          height="100%"
-          className="absolute inset-0 touch-none"
-          aria-label={`${graph.nodes.length} notes, ${graph.edges.length} connections`}
-          onPointerDown={(event) => {
-            if (event.button !== 0) return;
-            event.currentTarget.setPointerCapture(event.pointerId);
-            drag.current = { x: event.clientX, y: event.clientY, origin: camera };
-          }}
-          onPointerMove={(event) => {
-            if (!drag.current) return;
-            automaticFraming.current = false;
-            setCamera({
-              ...drag.current.origin,
-              x: drag.current.origin.x + event.clientX - drag.current.x,
-              y: drag.current.origin.y + event.clientY - drag.current.y,
-            });
-          }}
-          onPointerUp={() => {
-            drag.current = null;
-          }}
-          onPointerCancel={() => {
-            drag.current = null;
-          }}
-        >
-          <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.scale})`}>
-            <KnowledgeGraphGeometry
-              graph={graph}
-              active={active}
-              selected={selected}
-              scale={camera.scale}
-              cards={cards}
-              onSelect={select}
-              onHover={setHovered}
-            />
-          </g>
-          <g
-            aria-hidden="true"
-            pointerEvents="none"
-            fill="var(--foreground)"
-            fontSize={13}
-            stroke="var(--background)"
-            strokeWidth={4}
-            paintOrder="stroke"
-            strokeLinejoin="round"
-          >
-            {labels.map((label) => (
-              <text
-                key={label.id}
-                x={label.x}
-                y={label.y}
-                fontWeight={label.id === active ? 600 : 400}
-              >
-                {label.text}
-              </text>
-            ))}
-          </g>
-        </svg>
-      )}
-      <div
-        className="absolute right-3 bottom-3 flex gap-1"
-        role="group"
-        aria-label="Graph navigation"
-      >
-        <IconButton label="Zoom in" icon={<ZoomInIcon />} onClick={() => zoom(1.3)} />
-        <IconButton label="Zoom out" icon={<ZoomOutIcon />} onClick={() => zoom(1 / 1.3)} />
-        <IconButton label="Fit" icon={<ScanIcon />} onClick={fit} />
-      </div>
+      {data.count.toLocaleString()} more {data.count === 1 ? 'note' : 'notes'}
     </div>
   );
 }

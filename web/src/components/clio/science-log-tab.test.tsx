@@ -310,11 +310,15 @@ describe('Science log tab', () => {
     expect(observation).toHaveAttribute('data-focused', 'true');
     expect(observation).toHaveTextContent('Metricrate');
     expect(observation).toHaveTextContent('Value0.42 1/s');
-    expect(observation).toHaveTextContent('Cited by');
-    expect(within(observation).getByText('interprets')).toBeVisible();
-    await user.click(within(observation).getByRole('button', { name: /^run_trial run/u }));
+    await user.click(within(observation).getAllByRole('button', { name: /^run_trial run/u })[0]!);
     expect(onViewCall).toHaveBeenCalledWith('sess_h1', call(40));
-    // Sources stay collapsed until asked for.
+    // Links, backlinks and sources wait behind one collapsed More.
+    const more = within(observation).getByText('More').closest('details')!;
+    expect(more).not.toHaveAttribute('open');
+    await user.click(within(observation).getByText('More'));
+    expect(more).toHaveAttribute('open');
+    expect(more).toHaveTextContent('Cited by');
+    expect(within(more).getByText('interprets')).toBeVisible();
     const sources = within(observation).getByText('Sources (1)').closest('details')!;
     expect(sources).not.toHaveAttribute('open');
     expect(sources).toHaveTextContent('run_trial');

@@ -13,7 +13,7 @@ import { ResourceUnavailable } from './resource-states';
 import { useSavedA2uiCatalogs } from '@/lib/a2ui/saved-catalogs';
 import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
 import { visualCapturePixelRatio } from './a2ui-visual-viewer';
-import { useFileViewerFacts } from './file-viewer-facts';
+import { useFileViewerFacts, useFileViewerTitle } from './file-viewer-facts';
 import { cn } from '@/lib/utils';
 import { DashboardCaptureAction } from './dashboard-capture-action';
 import { dashboardTabCount } from './dashboard-tabs';
@@ -141,6 +141,7 @@ export function DashboardView({
   );
   useFileViewerActions(fileActions);
   const tabCount = useMemo(() => dashboardTabCount(report), [report]);
+  useFileViewerTitle(report.title, 'dashboards');
   useFileViewerFacts(tabCount ? [`${tabCount} ${tabCount === 1 ? 'tab' : 'tabs'}`] : undefined);
   const wholeDashboard = useCallback(
     () => ({

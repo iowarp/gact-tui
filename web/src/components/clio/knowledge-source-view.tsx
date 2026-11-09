@@ -63,7 +63,6 @@ export function KnowledgeSourceView({
   }, [query]);
   const [focus, setFocus] = useState('');
   const [selected, setSelected] = useState('');
-  const [isolated, setIsolated] = useState(true);
   const [attachments, setAttachments] = useState(false);
   const key = useMemo(
     () => ['knowledge', scope, workspaceId, sourceId] as const,
@@ -129,7 +128,11 @@ export function KnowledgeSourceView({
     <>
       {graph.data ? (
         <>
-          <span className="tabular-nums" data-frame-position="">
+          <span
+            className="tabular-nums"
+            data-frame-position=""
+            title={accessWords(source?.link_access)}
+          >
             {graph.data.total} {attachments ? 'items' : graph.data.total === 1 ? 'note' : 'notes'}
           </span>
           <span className="tabular-nums">
@@ -139,7 +142,6 @@ export function KnowledgeSourceView({
         </>
       ) : null}
       {focus ? <span>Linked to {focus.split('/').at(-1)}</span> : null}
-      <span>{accessWords(source?.link_access)}</span>
       {headless ? (
         <span title={syncError}>
           {sync.data?.state === 'running'
@@ -222,7 +224,7 @@ export function KnowledgeSourceView({
             where={
               <FrameCrumbs
                 parts={
-                  selected
+                  selected && mode !== 'graph'
                     ? [
                         { label: vaultName, onSelect: () => setSelected('') },
                         { label: noteTitle || selected },
@@ -255,8 +257,6 @@ export function KnowledgeSourceView({
                   selected,
                   focus,
                   setFocus: focusOn,
-                  isolated,
-                  setIsolated,
                   attachments,
                   setAttachments,
                   refresh,
@@ -319,7 +319,6 @@ export function KnowledgeSourceView({
                     snapshot={graph.data}
                     selected={selected}
                     onSelect={setSelected}
-                    isolated={isolated}
                   />
                 ) : null}
               </TabsContent>

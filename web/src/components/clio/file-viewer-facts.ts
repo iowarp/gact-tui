@@ -19,3 +19,26 @@ export function useFileViewerFacts(facts: readonly string[] | undefined) {
     return () => register?.(id);
   }, [register, id, key]);
 }
+
+/** What a renderer calls the file it shows, and the kind of collection it belongs to. */
+export interface FileViewerTitle {
+  title: string;
+  collection: string;
+}
+
+export const FileViewerTitleRegistry = createContext<
+  ((title: FileViewerTitle | undefined) => void) | undefined
+>(undefined);
+
+/**
+ * Names the shown file in the frame bar's crumbs by its title ("dashboards ?
+ * Opal sites") in place of its file name, which stays the hover name.
+ */
+export function useFileViewerTitle(title: string | undefined, collection: string) {
+  const register = useContext(FileViewerTitleRegistry);
+  useEffect(() => {
+    if (!register || !title) return;
+    register({ title, collection });
+    return () => register(undefined);
+  }, [register, title, collection]);
+}

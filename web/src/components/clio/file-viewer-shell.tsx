@@ -23,7 +23,11 @@ import {
   type FileViewerContentsReader,
 } from './file-viewer-action-context';
 import { FileSourceOptions, FileViewerInformationHost } from './file-viewer-context';
-import { FileViewerFactsRegistry } from './file-viewer-facts';
+import {
+  FileViewerFactsRegistry,
+  FileViewerTitleRegistry,
+  type FileViewerTitle,
+} from './file-viewer-facts';
 import { fileViewerReference } from './file-viewer-location';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
@@ -132,7 +136,17 @@ export function FileViewerShell({
     setHost: setCommentsHost,
     claimed: commentsClaimed,
   } = useCommentsSlot();
-  const crumbs = useFileViewerCrumbs(source);
+  const pathCrumbs = useFileViewerCrumbs(source);
+  const [titled, setTitled] = useState<FileViewerTitle>();
+  const crumbs = useMemo(
+    () =>
+      !titled
+        ? pathCrumbs
+        : pathCrumbs.length > 1
+          ? [...pathCrumbs.slice(0, -1), { label: titled.title }]
+          : [{ label: titled.collection }, { label: titled.title }],
+    [pathCrumbs, titled],
+  );
   const [fullscreenHost, setFullscreenHost] = useState<HTMLElement>();
   const fullscreen = Boolean(fullscreenHost);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -166,140 +180,142 @@ export function FileViewerShell({
           <OverlayContainer.Provider value={fullscreenHost}>
             <FileViewerActionRegistry.Provider value={registerActions}>
               <FileViewerFactsRegistry.Provider value={registerFacts}>
-                <FileViewerContentsRegistry.Provider value={registerReader}>
-                  <FrameCommentsSlot.Provider value={commentsSlot}>
-                    <div
-                      ref={hostRef}
-                      data-slot="file-viewer"
-                      className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background"
-                    >
-                      <TooltipProvider delayDuration={200}>
-                        <Tabs
-                          className="h-full min-h-0 min-w-0 gap-0 overflow-hidden"
-                          value={selectedValue}
-                          onValueChange={selectValue}
-                        >
-                          <FrameBar
-                            label="File"
-                            className="bg-background"
-                            where={
-                              showIdentity ? (
-                                <span
-                                  className="flex min-w-0 items-center gap-1.5"
-                                  data-slot="viewer-identity"
-                                >
-                                  <FileTypeIcon
-                                    name={identity.name}
-                                    mediaType={identity.mediaType}
-                                    className="size-4 shrink-0"
-                                  />
-                                  <FrameCrumbs parts={crumbs} />
-                                </span>
-                              ) : (
-                                <span className="flex-1" />
-                              )
-                            }
-                            what={what.map((fact, index) => (
-                              <span
-                                key={`${index}:${fact}`}
-                                className="tabular-nums"
-                                // The renderer's first fact says where you are; it outlasts the rest.
-                                data-frame-position={
-                                  index === 0 && rendererFacts.length > 0 ? '' : undefined
-                                }
-                              >
-                                {fact}
-                              </span>
-                            ))}
-                            format={
-                              <>
-                                {modes ? (
-                                  <FileModeControls
-                                    modes={primaryTabs}
-                                    value={selectedValue}
-                                    onChange={selectValue}
-                                    label={label}
-                                  />
-                                ) : null}
-                                <div
-                                  className="flex shrink-0 items-center gap-0.5 empty:hidden"
-                                  data-slot="frame-format-host"
-                                  ref={setToolbarHost}
-                                />
-                              </>
-                            }
-                            actions={
-                              <FileViewerActions
-                                source={source}
-                                hasDocumentActions={hasDocumentActions}
-                                contents={contents}
-                                addToMessage={addToMessage}
-                                comments={
-                                  <>
-                                    <span
-                                      ref={setCommentsHost}
-                                      className="contents"
-                                      data-slot="frame-comments"
+                <FileViewerTitleRegistry.Provider value={setTitled}>
+                  <FileViewerContentsRegistry.Provider value={registerReader}>
+                    <FrameCommentsSlot.Provider value={commentsSlot}>
+                      <div
+                        ref={hostRef}
+                        data-slot="file-viewer"
+                        className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+                      >
+                        <TooltipProvider delayDuration={200}>
+                          <Tabs
+                            className="h-full min-h-0 min-w-0 gap-0 overflow-hidden"
+                            value={selectedValue}
+                            onValueChange={selectValue}
+                          >
+                            <FrameBar
+                              label="File"
+                              className="bg-background"
+                              where={
+                                showIdentity ? (
+                                  <span
+                                    className="flex min-w-0 items-center gap-1.5"
+                                    data-slot="viewer-identity"
+                                  >
+                                    <FileTypeIcon
+                                      name={identity.name}
+                                      mediaType={identity.mediaType}
+                                      className="size-4 shrink-0"
                                     />
-                                    {commentsClaimed ? null : (
-                                      <FrameCommentsUnavailable reason="Not available for this format" />
-                                    )}
-                                  </>
-                                }
-                                formatActions={[
-                                  ...tabs
-                                    .filter((tab) => tab.secondary)
-                                    .map(
-                                      (tab): FileViewerAction => ({
-                                        kind: 'view',
-                                        label: tab.label,
-                                        description: tab.title,
-                                        icon: tab.icon,
-                                        selected: selectedValue === tab.value,
-                                        onSelect: () => selectValue(tab.value),
-                                      }),
-                                    ),
-                                  ...[...formatActions.values()].flat(),
-                                ]}
-                                fullscreen={fullscreen}
-                                onFullscreen={() => void toggleFullscreen()}
-                                onInformationHost={setInformationHost}
-                              />
-                            }
-                          />
-                          {!showIdentity && tabs.length === 1 ? (
-                            <div
-                              className="min-h-0 flex-1 overflow-hidden"
-                              data-selection-surface="file"
-                              data-file-path={selectionPath}
-                              data-file-name={identity.name}
-                              data-workspace-id={source.workspaceId}
-                            >
-                              {tabs[0]?.content}
-                            </div>
-                          ) : (
-                            tabs.map((tab) => (
-                              <TabsContent
-                                key={tab.value}
-                                className="m-0 min-h-0 overflow-hidden"
-                                value={tab.value}
+                                    <FrameCrumbs parts={crumbs} />
+                                  </span>
+                                ) : (
+                                  <span className="flex-1" />
+                                )
+                              }
+                              what={what.map((fact, index) => (
+                                <span
+                                  key={`${index}:${fact}`}
+                                  className="tabular-nums"
+                                  // The renderer's first fact says where you are; it outlasts the rest.
+                                  data-frame-position={
+                                    index === 0 && rendererFacts.length > 0 ? '' : undefined
+                                  }
+                                >
+                                  {fact}
+                                </span>
+                              ))}
+                              format={
+                                <>
+                                  {modes ? (
+                                    <FileModeControls
+                                      modes={primaryTabs}
+                                      value={selectedValue}
+                                      onChange={selectValue}
+                                      label={label}
+                                    />
+                                  ) : null}
+                                  <div
+                                    className="flex shrink-0 items-center gap-0.5 empty:hidden"
+                                    data-slot="frame-format-host"
+                                    ref={setToolbarHost}
+                                  />
+                                </>
+                              }
+                              actions={
+                                <FileViewerActions
+                                  source={source}
+                                  hasDocumentActions={hasDocumentActions}
+                                  contents={contents}
+                                  addToMessage={addToMessage}
+                                  comments={
+                                    <>
+                                      <span
+                                        ref={setCommentsHost}
+                                        className="contents"
+                                        data-slot="frame-comments"
+                                      />
+                                      {commentsClaimed ? null : (
+                                        <FrameCommentsUnavailable reason="Not available for this format" />
+                                      )}
+                                    </>
+                                  }
+                                  formatActions={[
+                                    ...tabs
+                                      .filter((tab) => tab.secondary)
+                                      .map(
+                                        (tab): FileViewerAction => ({
+                                          kind: 'view',
+                                          label: tab.label,
+                                          description: tab.title,
+                                          icon: tab.icon,
+                                          selected: selectedValue === tab.value,
+                                          onSelect: () => selectValue(tab.value),
+                                        }),
+                                      ),
+                                    ...[...formatActions.values()].flat(),
+                                  ]}
+                                  fullscreen={fullscreen}
+                                  onFullscreen={() => void toggleFullscreen()}
+                                  onInformationHost={setInformationHost}
+                                />
+                              }
+                            />
+                            {!showIdentity && tabs.length === 1 ? (
+                              <div
+                                className="min-h-0 flex-1 overflow-hidden"
                                 data-selection-surface="file"
                                 data-file-path={selectionPath}
                                 data-file-name={identity.name}
                                 data-workspace-id={source.workspaceId}
-                                {...(tab.secondary || !modes
-                                  ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
-                                  : {})}
                               >
-                                {tab.content}
-                              </TabsContent>
-                            ))
-                          )}
-                        </Tabs>
-                      </TooltipProvider>
-                    </div>
-                  </FrameCommentsSlot.Provider>
-                </FileViewerContentsRegistry.Provider>
+                                {tabs[0]?.content}
+                              </div>
+                            ) : (
+                              tabs.map((tab) => (
+                                <TabsContent
+                                  key={tab.value}
+                                  className="m-0 min-h-0 overflow-hidden"
+                                  value={tab.value}
+                                  data-selection-surface="file"
+                                  data-file-path={selectionPath}
+                                  data-file-name={identity.name}
+                                  data-workspace-id={source.workspaceId}
+                                  {...(tab.secondary || !modes
+                                    ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
+                                    : {})}
+                                >
+                                  {tab.content}
+                                </TabsContent>
+                              ))
+                            )}
+                          </Tabs>
+                        </TooltipProvider>
+                      </div>
+                    </FrameCommentsSlot.Provider>
+                  </FileViewerContentsRegistry.Provider>
+                </FileViewerTitleRegistry.Provider>
               </FileViewerFactsRegistry.Provider>
             </FileViewerActionRegistry.Provider>
           </OverlayContainer.Provider>

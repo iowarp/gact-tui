@@ -165,45 +165,98 @@ function EntryDetails({
       !(entry.type === 'conclusion' && edge.relation === 'cites') &&
       edge.relation !== 'derived from',
   );
-  const rows: Row[] = [
-    ...typeRows(entry, links, reference),
-    ...(entry.type === 'observation' ? citeRows(entry, links, reference) : []),
-  ];
+  const cites =
+    entry.type === 'observation'
+      ? citeItems(entry, links, reference, (id) => entryReference(byId.get(id), id))
+      : [];
+  const rows: Row[] = [...typeRows(entry, links, reference)];
+  if (cites.length) rows.push(['Cites', <CitesValue items={cites} key="cites" />]);
   if (entry.status_reason) rows.push(['Status reason', entry.status_reason]);
-  if (linked.length) rows.push(['Links', edgeList(linked, (edge) => edge.to, reference)]);
+  // The spec's facts stay in view; everything else waits behind one quiet disclosure.
+  const more: Row[] = [];
+  if (cites.length > 1)
+    more.push([
+      'All cites',
+      <ul className="grid min-w-0" key="all-cites">
+        {cites.map((item) => (
+          <li className="flex min-w-0 whitespace-nowrap" key={item.key}>
+            {item.node}
+          </li>
+        ))}
+      </ul>,
+    ]);
+  if (linked.length) more.push(['Links', edgeList(linked, (edge) => edge.to, reference)]);
   if (backlinks.length)
-    rows.push(['Cited by', edgeList(backlinks, (edge) => edge.from, reference)]);
+    more.push(['Cited by', edgeList(backlinks, (edge) => edge.from, reference)]);
   if (entry.created_at)
-    rows.push([
+    more.push([
       'Recorded',
       <time dateTime={entry.created_at} key="time">
         {formatTime(entry.created_at)}
       </time>,
     ]);
+  const sources = entry.type === 'observation' && lineage(entry).length > 0;
   return (
     <div className="col-span-3 mt-0.5 mr-3 mb-1.5 ml-[34px] min-w-0 border-l pl-3">
-      <dl
-        aria-label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`}
-        className="grid min-w-0 grid-cols-[74px_minmax(0,1fr)] gap-x-2.5 py-0.5 text-xs leading-[22px] font-normal"
-      >
-        {rows.map(([label, value]) => (
-          <Fragment key={label}>
-            <dt className="truncate text-muted-foreground">{label}</dt>
-            {/* One line each: a fact ellipsizes with its full text on hover; never a broken word. */}
-            <dd className="min-w-0 text-foreground/90">
-              {typeof value === 'string' ? (
-                <span className="block truncate" title={value}>
-                  {value}
-                </span>
-              ) : (
-                value
-              )}
-            </dd>
-          </Fragment>
-        ))}
-      </dl>
-      {entry.type === 'observation' ? <ObservationSources entry={entry} links={links} /> : null}
+      <FactGrid label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`} rows={rows} />
+      {more.length || sources ? (
+        <details className="min-w-0 text-xs" data-slot="science-entry-more">
+          <summary className="w-fit cursor-pointer leading-[22px] text-muted-foreground hover:text-foreground">
+            More
+          </summary>
+          {more.length ? (
+            <FactGrid label={`More about ${ENTRY_TYPE_LABELS[entry.type]}`} rows={more} />
+          ) : null}
+          {sources ? <ObservationSources entry={entry} links={links} /> : null}
+        </details>
+      ) : null}
     </div>
+  );
+}
+
+function FactGrid({ label, rows }: { label: string; rows: readonly Row[] }) {
+  if (!rows.length) return null;
+  return (
+    <dl
+      aria-label={label}
+      className="grid min-w-0 grid-cols-[74px_minmax(0,1fr)] gap-x-2.5 py-0.5 text-xs leading-[22px] font-normal"
+    >
+      {rows.map(([name, value]) => (
+        <Fragment key={name}>
+          <dt className="truncate text-muted-foreground">{name}</dt>
+          {/* One line each: a fact ellipsizes with its full text on hover; never a broken word. */}
+          <dd className="min-w-0 text-foreground/90">
+            {typeof value === 'string' ? (
+              <span className="block truncate" title={value}>
+                {value}
+              </span>
+            ) : (
+              value
+            )}
+          </dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+type CiteItem = { key: string; label: string; node: ReactNode };
+
+/** The first cite and a count of the rest; More lists them all. */
+function CitesValue({ items }: { items: readonly CiteItem[] }) {
+  const [first, ...rest] = items;
+  return (
+    <span className="flex min-w-0 items-baseline gap-x-2 whitespace-nowrap">
+      {first!.node}
+      {rest.length ? (
+        <span
+          className="shrink-0 text-muted-foreground tabular-nums"
+          title={rest.map((item) => item.label).join('\n')}
+        >
+          +{rest.length}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -353,47 +406,45 @@ function measurementRows(entry: ScienceEntry): Row[] {
 }
 
 /** What an observation cites: the recorded runs behind it and the entries it derives from. */
-function citeRows(
+function citeItems(
   entry: ScienceEntry,
   links: ScienceCallLinks,
   reference: (id: string) => ReactNode,
-): Row[] {
+  referenceText: (id: string) => string,
+): CiteItem[] {
   const scripts = new Map(
     sourceFiles(entry)
       .filter((file) => file.direction === 'script' && file.callId)
       .map((file) => [file.callId, file.path]),
   );
-  const runs = lineage(entry).filter((row) => row.callId);
-  const derived = derivedFrom(entry);
-  if (!runs.length && !derived.length) return [];
-  return [
-    [
-      'Cites',
-      <span
-        className="flex min-w-0 items-baseline gap-x-3 overflow-hidden whitespace-nowrap"
-        key="cites"
-      >
-        {runs.map((row, index) => {
-          const script = scripts.get(row.callId);
-          const label = `${script ? basename(script) : row.tool || row.callId} run`;
-          return links.onViewCall && row.session ? (
-            <button
-              aria-label={`${label}: view call ${row.callId} in transcript`}
-              className="shrink-0 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
-              key={`${row.callId}:${index}`}
-              onClick={() => links.onViewCall!(row.session, row.callId)}
-              type="button"
-            >
-              {label}
-            </button>
-          ) : (
-            <span key={`${row.callId}:${index}`}>{label}</span>
-          );
-        })}
-        {derived.map((id) => reference(id))}
-      </span>,
-    ],
-  ];
+  const runs = lineage(entry)
+    .filter((row) => row.callId)
+    .map((row, index): CiteItem => {
+      const script = scripts.get(row.callId);
+      const label = `${script ? basename(script) : row.tool || row.callId} run`;
+      const key = `${row.callId}:${index}`;
+      const node =
+        links.onViewCall && row.session ? (
+          <button
+            aria-label={`${label}: view call ${row.callId} in transcript`}
+            className="min-w-0 truncate text-left text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+            onClick={() => links.onViewCall!(row.session, row.callId)}
+            title={label}
+            type="button"
+          >
+            {label}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate" title={label}>
+            {label}
+          </span>
+        );
+      return { key, label, node };
+    });
+  const derived = derivedFrom(entry).map(
+    (id): CiteItem => ({ key: id, label: referenceText(id), node: reference(id) }),
+  );
+  return [...runs, ...derived];
 }
 
 function ConclusionClaims({

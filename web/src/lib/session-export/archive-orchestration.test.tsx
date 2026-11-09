@@ -747,6 +747,7 @@ describe('exported orchestration', () => {
     // The observation's sources: tool, arguments, result hash, session, and its file.
     const observation = within(log).getByRole('listitem', { name: /^Observation:/u });
     await user.click(within(observation).getByRole('button', { name: /^Observation:/u }));
+    await user.click(within(observation).getByText('More'));
     await user.click(within(observation).getByText('Sources (1)'));
     const source = observation.querySelector('[data-slot="science-source"]') as HTMLElement;
     expect(source).toHaveTextContent('measure');

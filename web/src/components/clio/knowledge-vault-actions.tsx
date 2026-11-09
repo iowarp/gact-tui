@@ -7,7 +7,6 @@ import {
   PaperclipIcon,
   PlayIcon,
   SquareIcon,
-  UnlinkIcon,
 } from 'lucide-react';
 import { useContext, useMemo, type ReactNode, type RefObject } from 'react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -30,8 +29,6 @@ export interface KnowledgeVaultMenu {
   selected: string;
   focus: string;
   setFocus: (path: string) => void;
-  isolated: boolean;
-  setIsolated: (isolated: boolean) => void;
   attachments: boolean;
   setAttachments: (attachments: boolean) => void;
   refresh: () => void;
@@ -167,8 +164,6 @@ function KnowledgeVaultMenuRows({
   selected,
   focus,
   setFocus,
-  isolated,
-  setIsolated,
   attachments,
   setAttachments,
   refresh,
@@ -202,14 +197,6 @@ function KnowledgeVaultMenuRows({
       {mode === 'graph' ? (
         <>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              setIsolated(!isolated);
-            }}
-          >
-            <MenuRow icon={<UnlinkIcon />} label="Show unlinked notes" checked={isolated} />
-          </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault();
