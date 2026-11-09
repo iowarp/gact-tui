@@ -111,13 +111,13 @@ test('a file found from a new conversation retains its unsent draft and route', 
   expect(fixture.state.created).toBe(0);
 });
 
-test('the compact Settings menu hands focus to the shared global search', async ({ page }) => {
+test('the compact Settings picker hands focus to the shared global search', async ({ page }) => {
   await installSearchFixture(page, endpoint);
-  await page.setViewportSize({ width: 640, height: 800 });
+  await page.setViewportSize({ width: 560, height: 800 });
   await page.goto('/settings/general');
   await page.getByRole('button', { name: 'Choose settings section' }).click();
-  await page.getByRole('menuitem', { name: 'Search everywhere from settings menu' }).click();
-  await expect(page.getByRole('menu')).toHaveCount(0);
+  await page.getByRole('option', { name: 'Search everywhere from settings menu' }).click();
+  await expect(page.getByPlaceholder('Search sections…')).toHaveCount(0);
   await expect(page.getByPlaceholder(placeholder)).toBeFocused();
   await page.keyboard.type('dark');
   await expect(
