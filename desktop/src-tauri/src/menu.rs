@@ -1,13 +1,14 @@
 //! Native macOS application menu for GACT Desktop (1.0 item 9).
 //!
 //! Builds ONLY the macOS global application menu (About / Settings / the
-//! hide group / Quit) plus Edit, and wires its non-predefined item
-//! activations to a single Tauri event the React frontend listens for.
+//! hide group / Quit) plus Edit, Window and Help, and wires its
+//! non-predefined item activations to a single Tauri event the React
+//! frontend listens for.
 //! Windows and Linux never call [`build_menu`] at all — see the
 //! `#[cfg(target_os = "macos")]` gate in `lib.rs` — because those platforms
 //! use the product-owned title bar exclusively (a second, OS-drawn menu
-//! strip there would be a redundant, off-brand menu bar). Everything that
-//! used to live in a native File/View/Help menu is reachable through that
+//! strip there would be a redundant, off-brand menu bar). The product
+//! actions that used to live in a native File/View menu are reachable through that
 //! same title bar's hamburger menu on every platform instead — see
 //! `web/src/components/clio/desktop-title-bar.tsx`.
 //!
@@ -87,13 +88,19 @@ fn build_predefined<R: Runtime>(
         Predefined::Hide => PredefinedMenuItem::hide(app, None),
         Predefined::HideOthers => PredefinedMenuItem::hide_others(app, None),
         Predefined::ShowAll => PredefinedMenuItem::show_all(app, None),
+        Predefined::Minimize => PredefinedMenuItem::minimize(app, None),
+        Predefined::Maximize => PredefinedMenuItem::maximize(app, None),
+        Predefined::Fullscreen => PredefinedMenuItem::fullscreen(app, None),
+        Predefined::CloseWindow => PredefinedMenuItem::close_window(app, None),
+        Predefined::BringAllToFront => PredefinedMenuItem::bring_all_to_front(app, None),
     }
 }
 
 /// Build the full native menu tree from [`MENU_SPEC`].
 ///
 /// Top-level submenus: the macOS **application menu** (About / Settings /
-/// the hide group / Quit) and **Edit**. Edit is made entirely of
+/// the hide group / Quit), **Edit**, **Window** and **Help**. Edit and
+/// Window are made entirely of
 /// [`PredefinedMenuItem`]s so the OS provides native clipboard / undo
 /// behavior. Accelerators use the `CmdOrCtrl` modifier so they render as Cmd
 /// on macOS (the only platform this menu is ever built on).
@@ -124,6 +131,24 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         menu.append(&submenu)?;
     }
     Ok(menu)
+}
+
+/// Hand the Window and Help submenus to AppKit once the menu is installed, so
+/// macOS adds the open-window list and the Help search field to them.
+#[cfg(target_os = "macos")]
+pub fn register_app_roles<R: Runtime>(menu: &Menu<R>) -> tauri::Result<()> {
+    use crate::menu_spec::{HELP_MENU_TITLE, WINDOW_MENU_TITLE};
+    for item in menu.items()? {
+        let Some(submenu) = item.as_submenu() else {
+            continue;
+        };
+        match submenu.text()?.as_str() {
+            WINDOW_MENU_TITLE => submenu.set_as_windows_menu_for_nsapp()?,
+            HELP_MENU_TITLE => submenu.set_as_help_menu_for_nsapp()?,
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// Handle a menu activation: emit the [`MENU_EVENT`] for actionable items.

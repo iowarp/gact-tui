@@ -166,19 +166,16 @@ describe('a permission question asked from a script', () => {
     const onResponse = renderQuestion(
       scriptQuestion(['allow', 'deny', 'allow_session', 'allow_workspace', 'allow_script']),
     );
-    expect(
-      screen.getByText('Asked from this script, which is paused until you answer:'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Script' })).toBeInTheDocument();
+    expect(screen.getByText(/paused until you answer/)).toBeInTheDocument();
     expect(screen.getByText(/await tools\.fs\.write_file/)).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Permission duration' }));
-    await user.click(screen.getByRole('option', { name: 'Rest of this script' }));
     await user.click(screen.getByRole('button', { name: 'Allow for the rest of this script' }));
     expect(onResponse).toHaveBeenCalledWith(expect.anything(), { action: 'allow_script' });
   });
 
   it('does not offer the rest of the script where the question does not', () => {
     renderQuestion(scriptQuestion(['allow', 'deny']));
-    expect(screen.queryByRole('combobox', { name: 'Permission duration' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeInTheDocument();
     expect(screen.queryByText('Rest of this script')).toBeNull();
   });
 });

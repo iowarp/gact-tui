@@ -96,8 +96,7 @@ export function TranscriptSyncing() {
 export const TRANSCRIPT_CONTROL_LANE_PX = 40;
 
 /**
- * The lane above the composer for "Jump to latest" (centred) and the open
- * questions chip (right, positioned by its owner). It is a sticky, opaque
+ * The lane above the composer for "Jump to latest". It is a sticky, opaque
  * band at the end of the scroller: scrolled up, transcript text passes behind
  * it like behind the composer instead of under a floating button; at the end,
  * its own height keeps the last line clear of it. Being inside the scroller, a

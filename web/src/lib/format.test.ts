@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatDuration, formatResourceSize, truncate } from './format';
+import {
+  formatBytes,
+  formatCompactBytes,
+  formatDuration,
+  formatResourceSize,
+  truncate,
+} from './format';
 
 describe('formatBytes', () => {
   it('reads decimal units so the number matches the KB/MB/GB label it renders', () => {
@@ -18,6 +24,18 @@ describe('formatBytes', () => {
   it('renders nothing for a value that is not a finite size', () => {
     expect(formatBytes(Number.NaN)).toBe('');
     expect(formatBytes(Number.POSITIVE_INFINITY)).toBe('');
+  });
+});
+
+describe('formatCompactBytes', () => {
+  it('fits a fixed list column: one decimal only below ten, at most six characters', () => {
+    expect(formatCompactBytes(512)).toBe('512 B');
+    expect(formatCompactBytes(2_000)).toBe('2.0 KB');
+    expect(formatCompactBytes(54_000)).toBe('54 KB');
+    expect(formatCompactBytes(540_000)).toBe('540 KB');
+    expect(formatCompactBytes(999_999)).toBe('1.0 MB');
+    expect(formatCompactBytes(9_960)).toBe('10 KB');
+    expect(formatCompactBytes(-1)).toBe('—');
   });
 });
 

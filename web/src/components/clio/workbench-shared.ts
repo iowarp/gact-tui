@@ -4,11 +4,23 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { ActivityKind } from './workbench-activity-model';
 
 export type WorkbenchTab =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
   | { id: 'work'; kind: 'work'; label: 'Work' }
-  | { id: 'session'; kind: 'session'; label: 'Observability' }
+  /** The session's Gantt chart and context window; Activity lists the rest. */
+  | { id: 'session'; kind: 'session'; label: 'Timeline' }
+  /** One Activity row's detail: a tool call, a task, a question, a source. */
+  | {
+      id: string;
+      kind: 'activity';
+      label: string;
+      itemId: string;
+      activityKind: ActivityKind;
+      sessionId: string;
+      workspaceId: string;
+    }
   | {
       id: string;
       kind: 'files';
@@ -93,6 +105,20 @@ export function fileName(path: string): string {
       .filter(Boolean)
       .at(-1) ?? path
   );
+}
+
+/** Whether a path is one the conversation changed (diff paths may be absolute). */
+export function isChangedPath(changed: ReadonlySet<string> | undefined, path: string): boolean {
+  if (!changed?.size) return false;
+  const normalized = path.replace(/\\/gu, '/');
+  if (changed.has(normalized)) return true;
+  for (const candidate of changed) if (candidate.endsWith(`/${normalized}`)) return true;
+  return false;
+}
+
+/** The set of paths a conversation's diffs touched, with forward slashes. */
+export function changedPathSet(diffs: readonly SessionDiff[]): ReadonlySet<string> {
+  return new Set(diffs.map((diff) => diff.path.replace(/\\/gu, '/')));
 }
 
 export function assertNever(value: never): never {

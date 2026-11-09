@@ -68,6 +68,7 @@ import { useCommentSessionAttachment } from './comments/use-comment-session-atta
 import { ComposerAddContextButton } from './composer-add-context-button';
 import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
+import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import {
   isSourceAttachment,
   useComposerSourceAttachments,
@@ -321,6 +322,20 @@ export function ClioComposer({
     sessionId,
   );
   const popoverOpen = showCommands || showReferences;
+  const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
+  useEffect(() => {
+    addReferenceRef.current = (reference) =>
+      isSourceAttachment(reference)
+        ? sourceAttachments.add(reference)
+        : composerReferences.select(reference);
+  });
+  useEffect(() => {
+    if (!contextReferences || !workspaceId) return undefined;
+    return registerComposerReferenceTarget({
+      workspaceId,
+      add: (reference) => addReferenceRef.current(reference),
+    });
+  }, [contextReferences, workspaceId]);
 
   useEffect(() => {
     const previousKey = handledFocusRequestKeyRef.current;

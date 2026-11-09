@@ -25,6 +25,7 @@ import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createAgentFixture } from './agent-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -48,6 +49,19 @@ let a2uiRasterDemo = false;
 let meshDemoFormat = 'obj';
 let meshDemoRevision = 1;
 let attachmentsEnabled = false;
+// `/__test/sandbox-inactive`: the service resolved its OS write fence off.
+let sandboxInactive = false;
+const inactiveSandboxRow = {
+  name: 'sandbox',
+  status: 'degraded',
+  summary: 'No OS write fence: agent tools run with the advisory permission layer only.',
+  next_action: 'Reinstall CLIO Desktop to restore the bundled Codex sandbox.',
+  required: true,
+  reason: 'codex_not_installed',
+  active: false,
+  acknowledgement_required: true,
+  warning: 'Agent commands will run without OS isolation.',
+};
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -1400,6 +1414,7 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
 // Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
@@ -1878,6 +1893,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    agentFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
@@ -1899,6 +1915,7 @@ const server = createServer(async (request, response) => {
     meshDemoFormat = 'obj';
     meshDemoRevision = 1;
     attachmentsEnabled = false;
+    sandboxInactive = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
     mcpAppModelContextUpdates = 0;
@@ -1925,6 +1942,11 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/sandbox-inactive') {
+    sandboxInactive = true;
+    sendJson(response, { status: 'ready' }, 202);
+    return;
+  }
   if (request.method === 'POST' && url.pathname === '/__test/attachments-demo') {
     attachmentsEnabled = true;
     sendJson(response, { status: 'ready' }, 202);
@@ -2392,6 +2414,7 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
+        x_clio_agent_plugins: true,
         ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
@@ -2421,11 +2444,15 @@ const server = createServer(async (request, response) => {
       healthy: true,
       uptime_s: 1,
       overall_status: 'healthy',
-      // Only ready rows: a warning here would show in navigation on every page.
-      integrations: ['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
-        name,
-        status: 'ready',
-      })),
+      // Only ready rows unless a spec asks for the unprotected sandbox: a warning
+      // here would show in navigation on every page.
+      integrations: [
+        ...['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
+          name,
+          status: 'ready',
+        })),
+        ...(sandboxInactive ? [inactiveSandboxRow] : []),
+      ],
       tool_hooks_installed: true,
     });
     return;
@@ -2433,8 +2460,22 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/v1/system/sandbox') {
     // The app observes setup globally, including outside Infrastructure. This
     // test-owned server runs no protected processes and has no setup in flight.
+    if (sandboxInactive) {
+      sendJson(response, {
+        ...inactiveSandboxRow,
+        resolved: true,
+        mechanism: 'none',
+        setup_in_progress: false,
+      });
+      return;
+    }
     sendJson(response, {
       name: 'sandbox',
+      resolved: true,
+      active: false,
+      mechanism: null,
+      acknowledgement_required: false,
+      warning: null,
       status: 'not_required',
       detail: 'Protected execution is not required by this test-owned fixture.',
       required: false,
@@ -2573,21 +2614,24 @@ const server = createServer(async (request, response) => {
     const search = url.searchParams.get('q')?.toLowerCase();
     const waiting = url.searchParams.get('waiting_on_person') === 'true';
     const waitingIds = new Set();
-    for (const row of all.filter((row) => ['waiting_user', 'waiting_permission'].includes(row.state))) {
+    for (const row of all.filter((row) =>
+      ['waiting_user', 'waiting_permission'].includes(row.state),
+    )) {
       let id = row.id;
       while (id && !waitingIds.has(id)) {
         waitingIds.add(id);
         id = byId.get(id)?.parent_session_id;
       }
     }
-    const rows = all.filter((row) =>
-      (!named || named.includes(row.id)) &&
-      (!family || rootOf(row.id) === rootOf(family)) &&
-      (!waiting || waitingIds.has(row.id)) &&
-      (!workspace || row.workspace_id === workspace) &&
-      (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
-      (!search || row.title.toLowerCase().includes(search)) &&
-      Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
+    const rows = all.filter(
+      (row) =>
+        (!named || named.includes(row.id)) &&
+        (!family || rootOf(row.id) === rootOf(family)) &&
+        (!waiting || waitingIds.has(row.id)) &&
+        (!workspace || row.workspace_id === workspace) &&
+        (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
+        (!search || row.title.toLowerCase().includes(search)) &&
+        Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
     );
     const limit = Number(url.searchParams.get('limit') || rows.length || 1);
     const offset = Number(url.searchParams.get('cursor') || 0);
@@ -2599,8 +2643,11 @@ const server = createServer(async (request, response) => {
     return;
   }
   const scienceLog = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/science-log$/u);
-  if (request.method === 'GET' && scienceLog &&
-      [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])) {
+  if (
+    request.method === 'GET' &&
+    scienceLog &&
+    [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])
+  ) {
     // These conversation fixtures have no study; the production read still runs.
     sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
@@ -3410,37 +3457,8 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agents') {
-    sendJson(response, {
-      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
-    });
-    return;
-  }
-  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
-    sendJson(response, { plugins: [], default_marketplace_error: null });
-    return;
-  }
-  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
-    sendJson(response, {
-      session_id: url.pathname.split('/')[3],
-      delta: { add: [], remove: [] },
-      subagent: false,
-      resolution: {
-        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
-        plugins: [
-          {
-            id: 'core',
-            kind: 'plugin',
-            marketplace: 'clio-builtin',
-            provenance: { source: 'core', via: 'core', label: 'core' },
-            removable: false,
-          },
-        ],
-        prompt: { sections: [] },
-      },
-    });
-    return;
-  }
+  // Agents, the plugin catalog and each session's composable agent.
+  if (await agentFixture.handle(request, url, response)) return;
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {
     response.writeHead(204, commonHeaders());
     response.end();

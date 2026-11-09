@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -173,18 +174,30 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
-  for (const name of [
-    'File explorer',
-    'Workspace resources',
-    'Session artifacts',
-    'Conversation agent',
-    'Work',
-  ]) {
-    await canvas.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
-    await page.getByRole('menuitem', { name, exact: true }).click();
-  }
+  // Fill the tab row: the artifact, a source, the agent and an activity.
+  await showWorkbenchList(page, 'Artifacts');
+  await page
+    .getByRole('region', { name: 'Artifacts list', exact: true })
+    .getByRole('button', { name: /^Open / })
+    .first()
+    .click();
+  await showWorkbenchList(page, 'Sources');
+  const sources = page.getByRole('region', { name: 'Sources list', exact: true });
+  const source = sources.getByRole('button', { name: /^Open / }).first();
+  if (await source.isVisible()) await source.click();
+  await canvas
+    .getByRole('toolbar', { name: 'Workbench lists', exact: true })
+    .getByRole('button', { name: 'Agent', exact: true })
+    .click();
+  await showWorkbenchList(page, 'Activity');
+  // An Activity row opens its detail (or its file) as one more tab.
+  await page
+    .getByRole('region', { name: 'Activity list', exact: true })
+    .getByRole('list', { name: 'Activity', exact: true })
+    .getByRole('button')
+    .first()
+    .click();
   for (const width of [1280, 1100]) {
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(canvas);

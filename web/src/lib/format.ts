@@ -31,6 +31,27 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
+ * The same size in at most six characters for a fixed list column
+ * (`2.0 KB`, `54 KB`, `540 KB`): one decimal only below ten. The full
+ * `formatBytes` value belongs in the row's hover name.
+ */
+export function formatCompactBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < BYTES_PER_KILOBYTE) return `${Math.round(bytes)} B`;
+  let value = bytes / BYTES_PER_KILOBYTE;
+  let index = 0;
+  while (value >= BYTES_PER_KILOBYTE && index < BYTE_UNITS.length - 1) {
+    value /= BYTES_PER_KILOBYTE;
+    index += 1;
+  }
+  if (value >= 999.5 && index < BYTE_UNITS.length - 1) {
+    value /= BYTES_PER_KILOBYTE;
+    index += 1;
+  }
+  return `${value < 9.95 ? value.toFixed(1) : Math.round(value)} ${BYTE_UNITS[index]}`;
+}
+
+/**
  * Formats the size of a stored resource, where a size that is not a real byte
  * count means the service could not report one — a distinct thing from zero
  * bytes, and worth saying rather than rendering as a number.

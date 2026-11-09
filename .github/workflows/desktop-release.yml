@@ -7,6 +7,20 @@
 #   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/clio-updater.key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the password set at generate time (empty here)
 # The public half lives in tauri.conf.json's plugins.updater.pubkey (committed).
+#
+# macOS builds one thin app per architecture (the bundled runtime and the
+# launcher are single-arch, so a universal shell would start on Intel without a
+# working service). Developer ID signing and notarization turn on when the
+# Apple secrets exist and are skipped otherwise, so forks and pull requests
+# still produce ad-hoc signed builds:
+#   APPLE_CERTIFICATE           base64 of the Developer ID Application .p12
+#   APPLE_CERTIFICATE_PASSWORD  its export password
+#   APPLE_SIGNING_IDENTITY      optional, discovered from the certificate
+#   KEYCHAIN_PASSWORD           optional, random when empty
+#   notarization, App Store Connect API key (preferred):
+#     APPLE_API_KEY, APPLE_API_ISSUER, APPLE_API_PRIVATE_KEY (.p8 contents)
+#   or Apple ID: APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID
+# See desktop/DESKTOP-AUTOUPDATE.md#macos-signing-and-notarization.
 name: desktop-release
 
 on:
@@ -25,10 +39,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: macos-latest, args: '--target universal-apple-darwin' }
-          - { platform: ubuntu-22.04, args: '' }
-          - { platform: windows-latest, args: '' }
+          - { platform: macos-latest, target: aarch64-apple-darwin, args: '--target aarch64-apple-darwin' }
+          - { platform: macos-latest, target: x86_64-apple-darwin, args: '--target x86_64-apple-darwin' }
+          - { platform: ubuntu-22.04, target: '', args: '' }
+          - { platform: windows-latest, target: '', args: '' }
     runs-on: ${{ matrix.platform }}
+    # Notarizing a large app can take 5-30 minutes per submission.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +66,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
 
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
@@ -65,9 +82,33 @@ jobs:
       # The desktop shell bundles the GACT sidecar (clio-agent runtime); fetch it
       # before building so the bundled installer is self-contained.
       - name: Fetch sidecar
-        run: pnpm --filter @clio/desktop fetch-sidecar
+        run: pnpm --filter @clio/desktop fetch-sidecar ${{ matrix.target }}
 
+      # Imports the Developer ID certificate into a temporary keychain and
+      # exports APPLE_SIGNING_IDENTITY (or "-" for ad-hoc) plus notarization
+      # credentials for the build. The secrets stay scoped to this step.
+      - name: Set up Apple signing
+        id: apple
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash desktop/scripts/macos-signing-setup.sh setup
+
+      # On macOS the build signs the app with APPLE_SIGNING_IDENTITY, hardened
+      # runtime and entitlements/app.entitlements, and notarizes and staples
+      # it when the setup step exported credentials. The updater .app.tar.gz
+      # is created from that stapled app.
       - name: Build, sign, and publish the updater release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -79,3 +120,39 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }} -- --locked
+
+      # Tauri notarizes the .app but not the .dmg around it. Notarize and
+      # staple the DMG too, so Gatekeeper accepts the download offline, then
+      # replace the asset tauri-action uploaded.
+      - name: Notarize and staple the DMG
+        if: runner.os == 'macOS' && steps.apple.outputs.notarize == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          dmg="$(ls "$bundle"/dmg/*.dmg)"
+          bash desktop/scripts/macos-notarize.sh "$dmg"
+          # Replace the unstapled asset for this architecture, whatever name
+          # tauri-action gave it (GitHub turns spaces into dots).
+          suffix="_${dmg##*_}"
+          gh release view "${{ github.ref_name }}" --json assets --jq '.assets[].name' \
+            | { grep -F -- "$suffix" || true; } | while IFS= read -r old; do
+                gh release delete-asset "${{ github.ref_name }}" "$old" --yes
+              done
+          asset="$RUNNER_TEMP/$(basename "$dmg" | tr ' ' '.')"
+          cp "$dmg" "$asset"
+          gh release upload "${{ github.ref_name }}" "$asset"
+
+      - name: Verify macOS signature and Gatekeeper assessment
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          mode=""
+          if [ "${{ steps.apple.outputs.notarize }}" = true ]; then mode=--require-notarized; fi
+          bash desktop/scripts/macos-verify-app.sh $mode "$bundle"/dmg/*.dmg
+
+      - name: Remove the signing keychain
+        if: always() && runner.os == 'macOS'
+        run: bash desktop/scripts/macos-signing-setup.sh cleanup

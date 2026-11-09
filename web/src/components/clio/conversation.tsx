@@ -3,9 +3,8 @@ import { useContext } from 'react';
 import { useInRouterContext, useLocation } from 'react-router-dom';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
 import { highlightSearchPassage } from '@/lib/search-passage';
-import { inlineQuestionDomId } from '@/lib/inline-question';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
-import type { McpAppIdentity, PendingInteraction } from '@clio/core/v3';
+import type { McpAppIdentity } from '@clio/core/v3';
 import { GitBranchIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -28,8 +27,6 @@ import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
-import { OpenQuestionsTracker } from './open-questions-tracker';
-import { useOpenQuestionsShown } from './use-open-questions-shown';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
@@ -77,7 +74,6 @@ void loadMarkdownText();
 
 /** Within this distance of the top, a paged transcript reads its next older page. */
 const EARLIER_LOAD_THRESHOLD_PX = 600;
-const NO_INTERACTIONS: readonly PendingInteraction[] = [];
 
 export function ClioConversation(props: ClioConversationProps) {
   const inRouter = useInRouterContext();
@@ -468,11 +464,8 @@ function ConversationBody({
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           if (focusAttentionEvidence(messageId, new URLSearchParams(query))) return;
-          // An agent question's card is the landmark for its tool call when shown.
-          const activity = activityId
-            ? (document.getElementById(inlineQuestionDomId(activityId)) ??
-              document.getElementById(`tool-${activityId}`))
-            : null;
+          // A tool call's activity row is the landmark for its deep link.
+          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
           if (activity) {
             activity.scrollIntoView({ block: 'center' });
             activity.focus({ preventScroll: true });
@@ -505,7 +498,6 @@ function ConversationBody({
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
   const jumpVisible = !autoscroll.engaged && autoscroll.scrollable && messages.length > 0;
-  const questionsShown = useOpenQuestionsShown(entities.interactions ?? NO_INTERACTIONS);
 
   // An empty list is only "no messages" once the transcript actually arrived.
   // A load error outranks everything, including a running turn's preparation.
@@ -524,7 +516,6 @@ function ConversationBody({
 
   return (
     <div className="relative h-full min-h-0">
-      <OpenQuestionsTracker interactions={entities.interactions ?? []} bottomInset={bottomInset} />
       {messages.length > 0 ? (
         <>
           <ClioTranscriptMinimap
@@ -604,7 +595,7 @@ function ConversationBody({
         style={{
           paddingBottom: bottomInset,
           scrollPaddingBottom:
-            bottomInset + (jumpVisible || questionsShown ? TRANSCRIPT_CONTROL_LANE_PX : 0),
+            bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
         }}
         tabIndex={0}
       >
@@ -751,9 +742,7 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {jumpVisible || questionsShown ? (
-          <TranscriptControlLane onJump={jumpVisible ? autoscroll.engage : undefined} />
-        ) : null}
+        {jumpVisible ? <TranscriptControlLane onJump={autoscroll.engage} /> : null}
       </div>
     </div>
   );

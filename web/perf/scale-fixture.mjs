@@ -391,8 +391,100 @@ function seededFile(path) {
   }
   if (path === 'results/vertical-displacement.png')
     return { type: 'image/png', body: displacementPng(640, 360) };
+  if (path === SEEDED_SOURCE_PATH) return { type: 'text/x-python', body: SEEDED_SOURCE };
   return undefined;
 }
+
+/** A source file and its recorded change, so screens can show source and diff tabs. */
+const SEEDED_SOURCE_PATH = 'scripts/regrid_stations.py';
+const SEEDED_SOURCE = `"""Regrid GNSS station uplift onto the study grid."""
+
+from __future__ import annotations
+
+import csv
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+GRID_STEP_DEG = 0.25
+REVIEW_COVERAGE_PCT = 80.0
+
+
+@dataclass(frozen=True)
+class Station:
+    name: str
+    latitude: float
+    longitude: float
+    coverage_pct: float
+    uplift_mm_yr: float
+
+
+def read_stations(path: Path) -> list[Station]:
+    with path.open(newline="") as handle:
+        return [
+            Station(
+                row["station"],
+                float(row["latitude"]),
+                float(row["longitude"]),
+                float(row["coverage_pct"]),
+                float(row["uplift_mm_yr"]),
+            )
+            for row in csv.DictReader(handle)
+        ]
+
+
+def regrid(stations: list[Station], step: float = GRID_STEP_DEG) -> np.ndarray:
+    lats = np.arange(34.0, 40.5, step)
+    lons = np.arange(-121.0, -115.0, step)
+    grid = np.full((lats.size, lons.size), np.nan)
+    for station in stations:
+        if station.coverage_pct < REVIEW_COVERAGE_PCT:
+            continue
+        i = int((station.latitude - lats[0]) / step)
+        j = int((station.longitude - lons[0]) / step)
+        grid[i, j] = station.uplift_mm_yr
+    return grid
+
+
+if __name__ == "__main__":
+    stations = read_stations(Path("results/stations.csv"))
+    grid = regrid(stations)
+    print(f"{np.count_nonzero(~np.isnan(grid))} cells from {len(stations)} stations")
+`;
+const SEEDED_DIFF = {
+  id: 'diff_regrid_threshold',
+  path: SEEDED_SOURCE_PATH,
+  status: 'applied',
+  created: false,
+  unified_diff: [
+    `--- a/${SEEDED_SOURCE_PATH}`,
+    `+++ b/${SEEDED_SOURCE_PATH}`,
+    '@@ -9,7 +9,7 @@ from pathlib import Path',
+    ' import numpy as np',
+    ' ',
+    ' GRID_STEP_DEG = 0.25',
+    '-REVIEW_COVERAGE_PCT = 70.0',
+    '+REVIEW_COVERAGE_PCT = 80.0',
+    ' ',
+    ' ',
+    ' @dataclass(frozen=True)',
+    '@@ -43,6 +43,7 @@ def regrid(stations: list[Station], step: float = GRID_STEP_DEG) -> np.ndarray:',
+    '     for station in stations:',
+    '         if station.coverage_pct < REVIEW_COVERAGE_PCT:',
+    '             continue',
+    '+        # Stations below the review threshold stay out of the grid.',
+    '         i = int((station.latitude - lats[0]) / step)',
+    '         j = int((station.longitude - lons[0]) / step)',
+    '         grid[i, j] = station.uplift_mm_yr',
+    '',
+  ].join('\n'),
+  lines_added: 2,
+  lines_removed: 1,
+  undo_available: true,
+  tool_name: 'fs_edit_file',
+  recorded_at: '2026-08-22T00:00:00Z',
+};
 
 /** A smooth displacement-like field as an RGB PNG. */
 function displacementPng(width, height) {
@@ -526,7 +618,18 @@ async function handleSessions(url, response) {
 
 async function handleFiles(url, response, workspaceId) {
   const base = await upstreamJson(`/v1/workspaces/${BASE_WORKSPACE}/files`);
-  const all = [...(workspaceId === BASE_WORKSPACE ? (base.entries ?? []) : []), ...largeTree()];
+  const seeded =
+    workspaceId === BASE_WORKSPACE
+      ? [
+          { path: 'scripts', type: 'dir' },
+          { path: SEEDED_SOURCE_PATH, type: 'file', size: Buffer.byteLength(SEEDED_SOURCE) },
+        ]
+      : [];
+  const all = [
+    ...(workspaceId === BASE_WORKSPACE ? (base.entries ?? []) : []),
+    ...seeded,
+    ...largeTree(),
+  ];
   const directory = url.searchParams.get('directory');
   if (directory === null) {
     return sendJson(response, {
@@ -634,8 +737,7 @@ const server = createServer(async (request, response) => {
     } else if (
       get &&
       (url.pathname === `/v1/workspaces/${BASE_WORKSPACE}/files` ||
-        workspaceMatch?.[2] === '/files') &&
-      (scenario.files > 0 || scenario.largeFileBytes > 0 || workspaceMatch)
+        workspaceMatch?.[2] === '/files')
     ) {
       entry.status = 200;
       entry.bytes = await handleFiles(
@@ -677,6 +779,9 @@ const server = createServer(async (request, response) => {
         entry.status = range ? 206 : 200;
         entry.bytes = body.length;
       }
+    } else if (get && url.pathname === `/v1/sessions/${BASE_SESSION}/diffs`) {
+      entry.status = 200;
+      entry.bytes = sendJson(response, { diffs: [SEEDED_DIFF] });
     } else if (get && sessionMatch?.[2] === '/messages') {
       // Synthetic conversations other than the long one are short.
       const sid = sessionMatch[1];
