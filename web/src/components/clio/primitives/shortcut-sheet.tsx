@@ -17,6 +17,7 @@ import {
 } from '@/lib/shortcuts/hooks';
 import type { KeyPlatform } from '@/lib/shortcuts/keys';
 import { activeShortcutIds, shortcutChords, shortcutLabels } from '@/lib/shortcuts/registry';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
@@ -153,14 +154,19 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
   useLayoutEffect(() => onColumns(columns), [columns, onColumns]);
   return (
     <KeyPlatformContext.Provider value={platform}>
-      <div className="flex h-12 min-w-0 shrink-0 items-center gap-3 border-b border-border px-[18px]">
+      {/* Below 600px the header folds to two rows: title, OS and close, then the find field and legend. */}
+      <div className="flex h-12 min-w-0 shrink-0 items-center gap-3 border-b border-border px-[18px] max-[599px]:h-auto max-[599px]:flex-wrap max-[599px]:gap-y-2.5 max-[599px]:py-2.5">
         <DialogTitle className="shrink-0 font-sans text-[14px] leading-none font-semibold whitespace-nowrap">
           Keyboard shortcuts
         </DialogTitle>
         <DialogDescription className="sr-only">
           Every key, grouped by where it works.
         </DialogDescription>
-        <div className="relative ml-6 w-[300px] min-w-[7.5rem] shrink">
+        <span
+          aria-hidden="true"
+          className="hidden basis-full max-[599px]:order-2 max-[599px]:block"
+        />
+        <div className="relative ml-6 w-[300px] min-w-[7.5rem] shrink max-[599px]:order-3 max-[599px]:ml-0 max-[599px]:w-auto max-[599px]:flex-1">
           <SearchIcon
             aria-hidden="true"
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint"
@@ -173,8 +179,8 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
             className="h-[30px] rounded-[7px] pl-8 text-[12px]"
           />
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-4 text-[11.5px] text-faint">
-          <span className="flex items-center gap-1.5 whitespace-nowrap">
+        <div className="ml-auto flex shrink-0 items-center gap-4 text-[11.5px] text-faint max-[599px]:contents">
+          <span className="flex items-center gap-1.5 whitespace-nowrap max-[599px]:order-4">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
             {WORKS_HERE}
           </span>
@@ -183,14 +189,15 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
             options={PLATFORM_OPTIONS}
             value={platform}
             onValueChange={setPlatform}
-            className="border border-border bg-transparent p-0"
+            className="border border-border bg-transparent p-0 max-[599px]:order-1 max-[599px]:ml-auto"
           />
           <DialogClose
             aria-label="Close"
             title="Close"
-            className="rounded-[5px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="rounded-[5px] outline-none focus-visible:ring-1 focus-visible:ring-ring max-[599px]:order-1 max-[599px]:grid max-[599px]:size-7 max-[599px]:place-items-center max-[599px]:text-muted-foreground max-[599px]:hover:text-foreground"
           >
-            <KeyCap>Esc</KeyCap>
+            <KeyCap className="max-[599px]:hidden">Esc</KeyCap>
+            <CloseIcon aria-hidden="true" className="hidden size-4 max-[599px]:block" />
           </DialogClose>
         </div>
       </div>
@@ -261,6 +268,7 @@ export const ShortcutSheet = memo(function ShortcutSheet({
         showCloseButton={false}
         className={cn(
           'top-1/2 flex max-h-[min(640px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-none -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-[12px] p-0 sm:max-w-none',
+          'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:max-h-none max-[599px]:w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none',
           SHEET_WIDTH[columns],
           className,
         )}
