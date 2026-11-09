@@ -1,5 +1,6 @@
 import { type ReactNode, useContext } from 'react';
 import { SettingsScopeContext } from '@/lib/settings-scope-context';
+import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { InfoTip } from './info-tip';
 import { SettingsScopeIcon } from './settings-scope-icon';
 
@@ -44,7 +45,11 @@ export function SettingsSectionHeading({
         >
           {title}
         </Heading>
-        {hint ? <InfoTip label={`About ${title}`}>{hint}</InfoTip> : null}
+        {hint ? (
+          <InfoTip className={NARROW_HIDDEN} label={`About ${title}`}>
+            {hint}
+          </InfoTip>
+        ) : null}
         {actions ? (
           <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 font-sans">
             {actions}
