@@ -396,8 +396,10 @@ function RailButton({
       onClick={() => setOpen(!open)}
       className={cn(
         'h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground',
-        // Fixed slots, so the button keeps its width whatever it shows.
+        // Fixed slots, so the button keeps its width whatever it shows. A phone's
+        // top bar has no room for empty slots, so an idle button is just its icon.
         toolbar && 'w-[3.25rem] justify-end gap-1 px-1.5',
+        toolbar && current.kind === 'idle' && 'max-sm:w-7 max-sm:justify-center',
       )}
       data-rail-look={toolbar ? current.kind : undefined}
       size="sm"
@@ -407,7 +409,13 @@ function RailButton({
     >
       {toolbar ? (
         <>
-          <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
+          <span
+            aria-hidden="true"
+            className={cn(
+              'flex size-3 shrink-0 items-center justify-center',
+              current.kind === 'idle' && 'max-sm:hidden',
+            )}
+          >
             {current.kind === 'running' ? (
               <LoaderCircleIcon className="size-3 text-primary motion-safe:animate-spin" />
             ) : current.kind === 'waiting' ? (
@@ -420,6 +428,7 @@ function RailButton({
             aria-hidden="true"
             className={cn(
               'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
+              current.kind === 'idle' && 'max-sm:hidden',
               current.kind === 'waiting' && 'text-warning',
               current.kind === 'failed' && 'text-destructive',
             )}
