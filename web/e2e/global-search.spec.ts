@@ -13,7 +13,7 @@ test('home search uses the default backend without selecting a connection, works
   const input = page.getByPlaceholder(placeholder);
   await expect(input).toBeFocused();
   await input.fill('Find the reviewer handoff');
-  await expect(page.getByRole('button', { name: /^Ask .+ Search Tab$/u })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /^Ask .+ Tab$/u })).toBeEnabled();
   await input.press('Tab');
   const assistant = page.getByRole('textbox', { name: /^Ask .+ Search$/u });
   await expect(assistant).toBeFocused();

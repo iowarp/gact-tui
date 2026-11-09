@@ -344,7 +344,7 @@ function catalogue({ settings, infrastructure }) {
       }),
     ),
     s('settings', 'models-default-picker', '/settings/models', async (page) => {
-      await press(page, 'button', 'Change', { exact: true });
+      await press(page, 'button', 'Default model', { exact: true });
       await overlay(page);
     }),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {

@@ -1211,6 +1211,24 @@ function sendJson(response, body, status = 200) {
   response.end(JSON.stringify(body));
 }
 
+function initialFleetSettings() {
+  return {
+    revision: 'fleet_1',
+    search: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+    spotter: null,
+    judges: {
+      goals: null,
+      variants: null,
+      permissions: null,
+      memory_extract: null,
+      memory_consolidate: null,
+      explore: null,
+    },
+    explore_nudge: { enabled: true, after: 6 },
+  };
+}
+let fleetSettings = initialFleetSettings();
+
 /** Read one bounded JSON request body from the local browser fixture. */
 async function readJson(request) {
   const chunks = [];
@@ -1928,6 +1946,7 @@ const server = createServer(async (request, response) => {
     transcriptActivityTools = [];
     nextCursor = 1;
     queuedMessages = [];
+    fleetSettings = initialFleetSettings();
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
@@ -2899,6 +2918,20 @@ const server = createServer(async (request, response) => {
     sendJson(response, resources.get(resourcePath(url.pathname)).record);
     return;
   }
+  // Helper models: search on Codex, the judges inheriting the conversation model.
+  if (url.pathname === '/v1/settings/fleet' && ['GET', 'PATCH'].includes(request.method)) {
+    if (request.method === 'PATCH') {
+      const patch = await readJson(request);
+      fleetSettings = {
+        ...fleetSettings,
+        ...patch,
+        judges: { ...fleetSettings.judges, ...patch.judges },
+        revision: `fleet_${Number(fleetSettings.revision.split('_')[1]) + 1}`,
+      };
+    }
+    sendJson(response, fleetSettings);
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
     sendJson(response, providerCatalog);
     return;
@@ -3082,6 +3115,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/v1/providers/lm') {
     sendJson(response, {
       configured: true,
+      provider_id: 'codex',
       provider: 'codex',
       api_base: 'codex://direct',
       model: 'gpt-5.6-luna',

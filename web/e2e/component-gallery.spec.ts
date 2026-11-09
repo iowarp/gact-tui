@@ -49,6 +49,7 @@ for (const theme of THEMES) {
 
       // Hover actions are transparent at rest, so showing them never moves the row.
       const first = rows.first();
+      await first.scrollIntoViewIfNeeded();
       const title = first.locator('.truncate').first();
       const before = await title.boundingBox();
       const actions = first.locator('[data-slot="list-row-actions"]');
