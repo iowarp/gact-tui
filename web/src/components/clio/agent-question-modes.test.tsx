@@ -3,12 +3,11 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { responseTrayInteractions } from './workspace-route-state';
-import { OpenQuestionsTracker } from './open-questions-tracker';
 import { OpenQuestionsSection } from './open-question-list';
-import { InlineQuestionCard } from './inline-question-card';
+import { AgentAnswerActivity } from './agent-answer-activity';
+import { ATTENTION_REVEAL_EVENT } from './interaction-control';
 import { AgentQuestionDialog } from './agent-question-dialog';
 import { QuestionAnswerContext } from './question-answer-context';
-import { vocab } from '@/lib/brand-vocabulary';
 
 afterEach(cleanup);
 function question(mode: 'async' | 'blocking'): PendingInteraction {
@@ -31,87 +30,15 @@ describe('explicit agent question modes', () => {
     const rows = [question('async'), question('blocking')];
     expect(responseTrayInteractions(rows, new Set(['tool1']))).toEqual(rows);
   });
-  it('opens an async question from a compact transcript entry without answering it', async () => {
-    const openQuestion = vi.fn();
-    const onResponse = vi.fn();
-    render(
-      <QuestionAnswerContext.Provider
-        value={{ openQuestion, startAnswer: vi.fn(), stopAnswer: vi.fn() }}
-      >
-        <InlineQuestionCard interaction={question('async')} onResponse={onResponse} />
-      </QuestionAnswerContext.Provider>,
-    );
-    expect(screen.getByText(/Answer when ready/)).toBeVisible();
-    await userEvent.click(
-      screen.getByRole('button', { name: new RegExp(`${vocab.agent} asked a question`) }),
-    );
-    expect(openQuestion).toHaveBeenCalledWith(question('async'));
-    expect(onResponse).not.toHaveBeenCalled();
-  });
-  it('tracks both modes at the lower right, excluding resolved questions', async () => {
-    const openQuestion = vi.fn();
-    render(
-      <QuestionAnswerContext.Provider
-        value={{ openQuestion, startAnswer: vi.fn(), stopAnswer: vi.fn() }}
-      >
-        <OpenQuestionsTracker
-          bottomInset={80}
-          interactions={[
-            question('async'),
-            question('blocking'),
-            { ...question('async'), id: 'done', status: 'answered' },
-          ]}
-        />
-      </QuestionAnswerContext.Provider>,
-    );
-    expect(screen.getByRole('complementary')).toHaveStyle({ bottom: '92px' });
-    await userEvent.click(screen.getByRole('button', { name: '2 open questions' }));
-    expect(screen.getByRole('dialog', { name: 'Open questions' })).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
-    expect(openQuestion).toHaveBeenCalledWith(question('async'));
-  });
-  it('links to the question source without answering or opening the response dialog', async () => {
-    const openQuestion = vi.fn();
-    render(
-      <QuestionAnswerContext.Provider
-        value={{
-          openQuestion,
-          questionLink: () => '#message-m1/activity-tool1',
-          startAnswer: vi.fn(),
-          stopAnswer: vi.fn(),
-        }}
-      >
-        <OpenQuestionsTracker bottomInset={80} interactions={[question('async')]} />
-      </QuestionAnswerContext.Provider>,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '1 open question' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Go to question 1' }));
-    expect(window.location.hash).toBe('#message-m1/activity-tool1');
-    expect(openQuestion).not.toHaveBeenCalled();
-    window.location.hash = '';
-  });
-  it('opens the list on hover and expands one question without starting an answer', async () => {
-    const openQuestion = vi.fn();
-    render(
-      <QuestionAnswerContext.Provider
-        value={{ openQuestion, startAnswer: vi.fn(), stopAnswer: vi.fn() }}
-      >
-        <OpenQuestionsTracker
-          bottomInset={80}
-          interactions={[question('async'), question('blocking')]}
-        />
-      </QuestionAnswerContext.Provider>,
-    );
-    await userEvent.hover(screen.getByRole('button', { name: '2 open questions' }));
-    expect(await screen.findByRole('dialog', { name: 'Open questions' })).toBeVisible();
-    expect(screen.queryByText('Answer when ready')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Expand question 1' }));
-    expect(screen.getByText('Answer when ready')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Expand question 2' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(openQuestion).not.toHaveBeenCalled();
+  it('keeps a pending question to its activity row in the log, answered in the ask card', async () => {
+    const revealed = vi.fn();
+    window.addEventListener(ATTENTION_REVEAL_EVENT, revealed);
+    render(<AgentAnswerActivity interaction={question('async')} />);
+    expect(screen.getByText('Waiting for your response')).toBeVisible();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Answer below: What does X mean?' }));
+    expect(revealed).toHaveBeenCalledTimes(1);
+    window.removeEventListener(ATTENTION_REVEAL_EVENT, revealed);
   });
   it('keeps the same live questions in Work and removes a resolved question', async () => {
     const rows = [question('async'), question('blocking')];

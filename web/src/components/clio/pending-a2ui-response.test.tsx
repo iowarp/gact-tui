@@ -165,7 +165,7 @@ describe('PendingA2UIResponse', () => {
   it("pending_a2ui_renders_single_bordered_container: keeps exactly one bordered box, the catalog component's own", () => {
     renderPendingA2UI(mapSurface());
 
-    const card = document.querySelector('[data-slot="pending-a2ui"]');
+    const card = document.querySelector('[data-response-surface="a2ui"]');
     expect(card).not.toBeNull();
     // The map's own Frame (a real, visibly bordered box) is the one box left.
     // Every wrapper this file adds between the tray and it — the removed

@@ -1,7 +1,10 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { ArrowUpToLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { vocab } from '@/lib/brand-vocabulary';
 import { CloseIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { plainQuestionText, questionPrompt } from './question-card-model';
+import { IconButton } from './primitives/icon-button';
 
 interface PendingQuestionNoticeProps {
   /** Pending questions waiting in the log, oldest first. */
@@ -13,10 +16,9 @@ interface PendingQuestionNoticeProps {
 }
 
 /**
- * The small notice over the composer while the agent waits on a question:
- * how many are waiting and a way to the card in the log. Once "Other answer"
- * was picked it says which question the next message answers instead. The
- * question itself (full text, options) lives in the log, never here.
+ * One quiet row over the composer while the agent waits on a question: how
+ * many are waiting, or which one the next message answers, and the way to it.
+ * The question itself (full text, options) lives in its card, never here.
  */
 export function PendingQuestionNotice({
   questions,
@@ -27,53 +29,46 @@ export function PendingQuestionNotice({
   const target = answering ?? questions[0];
   if (!target) return null;
   const count = questions.length;
+  const Icon = answering ? EditIcon : MessageCircleQuestionIcon;
+  const prompt = answering ? plainQuestionText(questionPrompt(answering)) : undefined;
   return (
-    <div
-      aria-live="polite"
-      // Match the composer surface so the tray joins the input in either theme.
-      className="pointer-events-auto relative z-10 mx-auto -mb-px flex w-[calc(100%_-_1.5rem)] min-w-0 max-w-[54.5rem] items-center gap-2 rounded-t-xl border border-b-0 border-composer-border bg-composer px-3 py-1 text-sm"
-      data-slot="pending-question-notice"
-      role="status"
-    >
-      {answering ? (
-        <EditIcon aria-hidden="true" className="size-4 shrink-0 text-action" />
-      ) : (
-        <MessageCircleQuestionIcon aria-hidden="true" className="size-4 shrink-0 text-action" />
-      )}
-      <p className="min-w-0 flex-1 truncate">
-        {answering ? (
-          <>
-            <span className="font-medium">Answering: </span>
-            <span className="text-muted-foreground">{answering.prompt ?? answering.title}</span>
-          </>
-        ) : count === 1 ? (
-          'The agent asked you a question'
-        ) : (
-          `The agent asked you ${count} questions`
-        )}
-      </p>
-      <Button
-        className="h-7 shrink-0"
-        onClick={() => onGoToQuestion(target)}
-        size="sm"
-        type="button"
-        variant="ghost"
+    <TooltipProvider>
+      <div
+        aria-live="polite"
+        className="pointer-events-auto relative z-10 mx-auto mb-1.5 flex h-[30px] w-full max-w-4xl min-w-0 items-center gap-2 rounded-[7px] border border-border bg-card pr-0.5 pl-2.5 text-[12px]"
+        data-slot="pending-question-notice"
+        role="status"
       >
-        <ArrowUpToLineIcon data-icon="inline-start" />
-        Go to question
-      </Button>
-      {answering ? (
-        <Button
-          aria-label="Stop answering"
-          className="shrink-0"
-          onClick={onStopAnswering}
-          size="icon-sm"
+        <Icon aria-hidden="true" className="size-3.5 shrink-0 text-action" />
+        <p className="min-w-0 flex-1 truncate" title={prompt}>
+          {answering ? (
+            <>
+              <span className="font-medium">Answering: </span>
+              <span className="text-muted-foreground">{prompt}</span>
+            </>
+          ) : count === 1 ? (
+            `${vocab.agent} asked you a question`
+          ) : (
+            `${vocab.agent} asked you ${count} questions`
+          )}
+        </p>
+        <IconButton
+          icon={<ArrowUpToLineIcon aria-hidden="true" />}
+          label="Go to question"
+          onClick={() => onGoToQuestion(target)}
+          size="sm"
           type="button"
-          variant="ghost"
-        >
-          <CloseIcon aria-hidden="true" />
-        </Button>
-      ) : null}
-    </div>
+        />
+        {answering ? (
+          <IconButton
+            icon={<CloseIcon aria-hidden="true" />}
+            label="Stop answering"
+            onClick={onStopAnswering}
+            size="sm"
+            type="button"
+          />
+        ) : null}
+      </div>
+    </TooltipProvider>
   );
 }

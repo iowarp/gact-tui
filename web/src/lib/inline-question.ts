@@ -1,11 +1,6 @@
 import type { Message, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { isVariantPickInteraction } from './variant-runs';
 
-/** The inline question card's DOM id, keyed by the tool call that asked it. */
-export function inlineQuestionDomId(invocationId: string): string {
-  return `question-${encodeURIComponent(invocationId)}`;
-}
-
 /** Human questions still awaiting an answer, excluding plan and draft choices. */
 export function openHumanQuestions(
   interactions: readonly PendingInteraction[],
@@ -23,7 +18,8 @@ export function openHumanQuestions(
 
 /**
  * A question the agent asked with its own `ask_user` tool, anchored to that
- * tool call: it lives in the log at the tool call, not in the response tray.
+ * tool call: its activity row sits at the tool call, and it is answered in the
+ * ask card above the composer.
  */
 export function isToolAnchoredQuestion(interaction: PendingInteraction): boolean {
   return (

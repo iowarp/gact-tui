@@ -110,14 +110,12 @@ for (const theme of ['dark', 'light'] as const) {
     const input = composer.locator('form > [data-slot="input-group"]');
     const question = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
     await expect(question).toBeVisible();
-    await expect(question.getByRole('radio', { name: 'Table', exact: true })).toBeVisible();
-    await expect(
-      question.getByRole('button', { name: 'Send response', exact: true }),
-    ).toBeDisabled();
+    await expect(question.getByRole('button', { name: /Table/ })).toBeVisible();
+    // The ask card is its own block, 8px above the composer, not fused to it.
+    const cardBox = await question.locator('[data-slot="ask-card"]:visible').boundingBox();
+    const inputBox = await input.boundingBox();
+    expect(cardBox && inputBox && inputBox.y - (cardBox.y + cardBox.height)).toBeGreaterThan(4);
     const background = await input.evaluate((node) => getComputedStyle(node).backgroundColor);
-    await expect
-      .poll(() => question.evaluate((node) => getComputedStyle(node).backgroundColor))
-      .toBe(background);
     await composer.screenshot({ path: testInfo.outputPath(`question-${theme}.png`) });
     expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
     await page.reload();

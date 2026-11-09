@@ -212,7 +212,6 @@ describe('ClioConversation variant runs', () => {
       />,
     );
 
-    expect(document.querySelector('[data-slot="inline-question"]')).toBeNull();
     const block = screen.getByRole('group', { name: 'Alternative drafts' });
     await userEvent.click(within(block).getByRole('button', { name: 'Pick Draft 1' }));
     expect(onInteractionResponse).toHaveBeenCalledWith(interaction, {
