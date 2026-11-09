@@ -4,12 +4,17 @@ function statusOf(error: unknown) {
   return Number.isFinite(status) ? status : undefined;
 }
 
+/** The service answered that it has no such feature: not a failure, and retrying cannot help. */
+export function notOffered(error: unknown) {
+  const message = error instanceof Error ? error.message : '';
+  return statusOf(error) === 404 || /\b404\b|not found/iu.test(message);
+}
+
 /** The service's own message when it is plain language; otherwise a reason without HTTP text. */
 export function plainReason(error: unknown) {
   const status = statusOf(error);
   const message = error instanceof Error ? error.message.trim() : '';
-  if (status === 404 || /\b404\b|not found/iu.test(message))
-    return 'This agent does not offer it yet.';
+  if (notOffered(error)) return 'This agent does not offer it yet.';
   if (status === 401 || status === 403) return 'This agent did not allow it.';
   if (/failed to fetch|networkerror|unreachable|econn|timed? ?out/iu.test(message))
     return 'The agent could not be reached.';
