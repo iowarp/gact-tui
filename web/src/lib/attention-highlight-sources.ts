@@ -6,8 +6,7 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { buildMessageAttentionIndex } from './attention-tool-index';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { contentRevision } from '@/lib/content-revision';
 
 export interface ResolvedAttentionBlock {
   block: AttentionBlock;
@@ -118,7 +117,6 @@ export function resolveAttentionSources(
   }
   return resolved.filter(
     ({ block, sourceText }) =>
-      !block.content_revision ||
-      bytesToHex(sha256(new TextEncoder().encode(sourceText))) === block.content_revision,
+      !block.content_revision || contentRevision(sourceText) === block.content_revision,
   );
 }

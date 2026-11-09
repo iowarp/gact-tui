@@ -28,11 +28,19 @@ export interface ProductVersionDetail {
   testId?: string;
 }
 
+/** A plain fact under the versions, such as the agent's address. */
+export interface ProductFactDetail {
+  label: string;
+  value: string;
+  testId?: string;
+}
+
 /** Shared update status, supported actions, and a read-only version list. */
 export function ProductUpdateSummary({
   state,
   message,
   versions,
+  facts = [],
   updating = false,
   disabled = false,
   onCheck,
@@ -42,6 +50,7 @@ export function ProductUpdateSummary({
   state: ProductUpdateState;
   message?: string;
   versions: ProductVersionDetail[];
+  facts?: ProductFactDetail[];
   updating?: boolean;
   disabled?: boolean;
   onCheck: () => unknown | Promise<unknown>;
@@ -94,8 +103,8 @@ export function ProductUpdateSummary({
           />
         )}
       </div>
-      {versions.length ? (
-        <dl className="grid gap-2 text-sm">
+      {versions.length || facts.length ? (
+        <dl className="grid gap-2 text-xs">
           {versions.map(({ label, version, targetVersion, releaseUrl, testId }) => (
             <div
               key={label}
@@ -103,7 +112,7 @@ export function ProductUpdateSummary({
               data-testid={testId}
             >
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="min-w-0 break-words text-right font-mono text-xs">
+              <dd className="min-w-0 break-words text-right font-mono text-[11.5px]">
                 {version ? (
                   releaseUrl ? (
                     <ExternalLink href={releaseUrl} className="hover:underline">
@@ -116,6 +125,18 @@ export function ProductUpdateSummary({
                   'Not checked'
                 )}
                 {targetVersion ? ` → v${targetVersion}` : ''}
+              </dd>
+            </div>
+          ))}
+          {facts.map(({ label, value, testId }) => (
+            <div
+              key={label}
+              className="flex items-baseline justify-between gap-x-4"
+              data-testid={testId}
+            >
+              <dt className="shrink-0 text-muted-foreground">{label}</dt>
+              <dd className="min-w-0 truncate text-right font-mono text-[11.5px]" title={value}>
+                {value}
               </dd>
             </div>
           ))}

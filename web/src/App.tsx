@@ -182,7 +182,7 @@ export default function App() {
           <Route element={<SettingsWindow />} path="/settings/:section" />
         </Routes>
       ) : null}
-      <Toaster closeButton richColors />
+      <Toaster />
       {/* Fixed + full-viewport, so it covers the desktop title bar's own
           connection pill too -- not just the routed content below. */}
       <UpdateRestartOverlay />
