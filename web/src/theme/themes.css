@@ -94,6 +94,7 @@
   --scale-low: #3f7c8c;
   --scale-mid: #b07a1e;
   --scale-high: #7a3022;
+  --on-category: var(--invert-foreground);
   --terminal: #2b2a26;
   --terminal-foreground: #ede7da;
   --terminal-muted: #b3ac9f;
@@ -197,8 +198,8 @@
   --scale-low: #7fbccb;
   --scale-mid: #e8c27a;
   --scale-high: #e8a595;
-  /* Notebook dark's categories are pale, so text on them is ink, not paper. */
   --on-category: #1e1c19;
+  /* Notebook dark's categories are pale, so text on them is ink, not paper. */
   --terminal: #161512;
   --terminal-foreground: #ece6da;
   --terminal-muted: #9c9588;
@@ -302,6 +303,7 @@
   --scale-low: #0ea5e9;
   --scale-mid: #f59e0b;
   --scale-high: #be123c;
+  --on-category: var(--invert-foreground);
   --terminal: var(--color-zinc-950);
   --terminal-foreground: var(--color-zinc-100);
   --terminal-muted: var(--color-zinc-400);
@@ -405,6 +407,7 @@
   --scale-low: #0ea5e9;
   --scale-mid: #f59e0b;
   --scale-high: #be123c;
+  --on-category: var(--invert-foreground);
   --terminal: var(--color-zinc-950);
   --terminal-foreground: var(--color-zinc-100);
   --terminal-muted: var(--color-zinc-400);
@@ -512,6 +515,7 @@
   --scale-low: #ffb3b3;
   --scale-mid: #ff3333;
   --scale-high: #990000;
+  --on-category: var(--invert-foreground);
   --terminal: #5c0000;
   --terminal-foreground: #ffe0e0;
   --terminal-muted: #ff9999;

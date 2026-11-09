@@ -89,6 +89,7 @@ export const COLOR_TOKENS = [
   'scale-low',
   'scale-mid',
   'scale-high',
+  'on-category',
   // Terminals and logs
   'terminal',
   'terminal-foreground',
