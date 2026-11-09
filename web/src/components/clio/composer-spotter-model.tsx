@@ -47,6 +47,7 @@ export function ComposerSpotterModel({
         options={options}
         provider={choice?.providerId}
         title="Choose SPOTTER model"
+        placement="composer"
         trigger={
           <IconButton
             className={choice ? 'text-accent-foreground hover:text-accent-foreground' : undefined}

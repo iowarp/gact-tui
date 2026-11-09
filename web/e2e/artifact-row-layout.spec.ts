@@ -108,6 +108,12 @@ test('centers artifact row actions without covering the relation badge', async (
         return stableReads;
       })
       .toBeGreaterThanOrEqual(3);
+    // The live session's silent-wait row reveals after a quiet second. Its height
+    // is reserved from mount, so revealing it must not shift the pinned transcript
+    // out from under the pointer.
+    const restingTop = (await card.boundingBox())!.y;
+    await expect(page.locator('[data-slot="turn-response-wait"]')).toBeVisible();
+    expect((await card.boundingBox())!.y).toBe(restingTop);
     const resting = await measure();
     const restingBorder = await card.evaluate(
       (element) => getComputedStyle(element).borderTopColor,

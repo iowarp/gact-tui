@@ -215,7 +215,7 @@ describe('ClioCommandMenu workspace search', () => {
   });
 
   it.each([
-    ['drive', 'Data sources', '/settings/data-sources'],
+    ['drive', /^Data sources/u, '/settings/data-sources'],
     ['reviewer', /Station Reviewer/u, '/settings/agents#agent-lab%2Freviewer'],
     ['delta', /Delta GPU host/u, '/infrastructure/services?target=delta'],
   ])(
@@ -349,10 +349,10 @@ describe('ClioCommandMenu workspace search', () => {
     renderMenu();
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('drive');
-    await screen.findByRole('option', { name: 'Data sources' });
-    expect(await screen.findByRole('button', { name: /^Open in Settings/u })).toBeVisible();
+    await screen.findByRole('option', { name: /^Data sources/u });
+    expect(await screen.findByRole('button', { name: /^All in Settings/u })).toBeVisible();
     await waitFor(() => expect(repository.searchMemory).toHaveBeenCalled());
-    expect(await screen.findByRole('button', { name: /^Open in Settings/u })).toBeVisible();
+    expect(await screen.findByRole('button', { name: /^All in Settings/u })).toBeVisible();
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(screen.getByTestId('location')).toHaveTextContent('/settings/data-sources?q=drive');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
