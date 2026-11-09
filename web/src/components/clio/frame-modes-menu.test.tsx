@@ -1,9 +1,9 @@
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CodeIcon, EyeIcon, GitBranchIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Tabs } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DocumentViewControls } from './document-view-controls';
 import { FileModeControls } from './file-mode-controls';
@@ -20,10 +20,12 @@ function Frame({
   onChange,
   document = false,
   onAdd,
+  bodies = false,
 }: {
   onChange: (value: string) => void;
   document?: boolean;
   onAdd?: () => void;
+  bodies?: boolean;
 }) {
   const [mode, setMode] = useState('render');
   const [view, setView] = useState('preview');
@@ -53,6 +55,13 @@ function Frame({
           />
         }
       />
+      {bodies
+        ? MODES.map(({ value, label }) => (
+            <TabsContent key={value} value={value}>
+              <button type="button">{`${label} body`}</button>
+            </TabsContent>
+          ))
+        : null}
     </Tabs>
   );
 }
@@ -204,5 +213,17 @@ describe('frame bar modes at the narrowest fold', () => {
       style.remove();
       restore();
     }
+  });
+
+  it('keeps focus in the frame when a mode key replaces the focused body', async () => {
+    const onChange = vi.fn();
+    render(<Frame onChange={onChange} bodies />);
+    act(() => screen.getByRole('button', { name: 'Render body' }).focus());
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('tabpanel', { name: 'Lineage' })),
+    );
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    expect(onChange).toHaveBeenLastCalledWith('render');
   });
 });
