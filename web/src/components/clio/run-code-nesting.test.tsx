@@ -6,7 +6,7 @@ import {
   type ToolInvocation,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
@@ -190,4 +190,14 @@ describe('a permission question asked from a script', () => {
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeInTheDocument();
     expect(screen.queryByText('Rest of this script')).toBeNull();
   });
+
+  it('colours the script with the theme syntax tokens once the highlighter loads', async () => {
+    renderQuestion(scriptQuestion(['allow', 'deny']));
+    const script = screen.getByRole('group', { name: 'Script' });
+    await waitFor(
+      () => expect(script.querySelector('code span[style*="--syntax-"]')).not.toBeNull(),
+      { timeout: 20_000 },
+    );
+    expect(script.querySelector('pre')).toHaveTextContent(/await tools\.fs\.write_file\(f\)/u);
+  }, 30_000);
 });

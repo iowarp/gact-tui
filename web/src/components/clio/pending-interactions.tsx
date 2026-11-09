@@ -2,6 +2,7 @@ import { useAttentionDraft } from './attention-drafts';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
+  Artifact,
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
@@ -18,6 +19,7 @@ import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { planArtifact } from './plan-artifact';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -45,6 +47,9 @@ export interface ClioPendingInteractionsProps {
   onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
   /** Opens the script a permission was asked from as a tab (its tool call's detail). */
   onOpenScript?: (interaction: PendingInteraction, callId: string) => void;
+  /** The session's artifacts, so a plan card can open its saved plan. */
+  artifacts?: Readonly<Record<string, Artifact>>;
+  onOpenArtifact?: (artifact: Artifact) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -61,6 +66,8 @@ export function ClioPendingInteractions({
   onRefetchSurfaces,
   onOpenSurfaceQuestion,
   onOpenScript,
+  artifacts = {},
+  onOpenArtifact,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
@@ -107,7 +114,8 @@ export function ClioPendingInteractions({
     const card = document
       .getElementById(pendingInteractionDomId(selectedId))
       ?.closest<HTMLElement>('[data-slot="ask-card"]');
-    card?.focus({ preventScroll: true });
+    // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
+    card?.focus({ preventScroll: true, focusVisible: false });
   }, [pendingKey, selectedId]);
   useEffect(() => {
     const reveal = (event: Event) => {
@@ -278,9 +286,11 @@ export function ClioPendingInteractions({
                   if (interaction.source.tool_name === 'plan_exit') {
                     return (
                       <PlanExitResponse
+                        artifact={planArtifact(interaction, artifacts)}
                         disabled={interactionDisabled}
                         interaction={interaction}
                         key={interaction.id}
+                        onOpenArtifact={onOpenArtifact}
                         onResponse={handleResponse}
                         ownerLabel={ownerLabel}
                         responseError={responseError}
