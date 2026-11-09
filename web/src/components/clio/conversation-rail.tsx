@@ -97,7 +97,7 @@ export function ConversationRail({
             open ? document.querySelector('[data-slot="conversation-surface"]') : undefined
           }
           // A maximized canvas covers the conversation, so the rail hides with it.
-          className="clio-scrollbar [body:has(aside[data-maximized=true])_&]:hidden max-h-[var(--radix-popover-content-available-height)] w-[min(max(20rem,25vw),calc(100vw-1rem))] gap-0 overflow-y-auto overscroll-contain p-0"
+          className="clio-scrollbar [body[data-canvas-maximized]_&]:hidden max-h-[var(--radix-popover-content-available-height)] w-[min(max(20rem,25vw),calc(100vw-1rem))] gap-0 overflow-y-auto overscroll-contain p-0"
         >
           <SessionRailContent
             evidence={evidence}
