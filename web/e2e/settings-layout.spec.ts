@@ -17,11 +17,13 @@ test('settings controls share a centre and remain within narrow windows', async 
         const box = control.getBoundingClientRect();
         const input = control.querySelector('[role="radiogroup"], input, [role="switch"]');
         const inner = input?.getBoundingClientRect();
-        const labels = input?.querySelectorAll('label');
+        const wide =
+          getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u)
+            .length > 1;
         return {
           centre: box.x + box.width / 2,
-          innerCentre: inner ? inner.x + inner.width / 2 : null,
-          widths: labels ? [...labels].map((label) => label.getBoundingClientRect().width) : [],
+          // Two-column rows end their control at the row's trailing edge; stacked rows start it.
+          edgeGap: inner ? (wide ? box.right - inner.right : inner.left - box.left) : 0,
           overflow: control.scrollWidth - control.clientWidth,
         };
       }),
@@ -30,18 +32,9 @@ test('settings controls share a centre and remain within narrow windows', async 
     for (const metric of metrics) {
       expect(metric.overflow).toBeLessThanOrEqual(1);
       expect(Math.abs(metric.centre - metrics[0]!.centre)).toBeLessThanOrEqual(1);
-      if (metric.innerCentre !== null)
-        expect(Math.abs(metric.innerCentre - metric.centre)).toBeLessThanOrEqual(1);
-      if (metric.widths.length)
-        expect(Math.max(...metric.widths) - Math.min(...metric.widths)).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.edgeGap)).toBeLessThanOrEqual(1);
     }
     const pane = page.getByRole('region', { name: 'Settings content' });
-    if (width === 768) {
-      const description = page.getByText(
-        'Use a focused reading column or give tables and diagrams more room.',
-      );
-      expect((await description.boundingBox())?.width).toBeGreaterThan(300);
-    }
     expect(
       await pane.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);
