@@ -5,6 +5,11 @@ import { useRepository } from './use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 
+// The workspace reads each of these from only one of its two observers. An
+// unread observer tracks nothing and re-renders the workspace on every
+// staleness or fetch flip, so name the props its readers use.
+const DETAIL_PROPS = ['data', 'error', 'isPending'] as const;
+
 export function sessionObservabilityQueryKey(endpoint: string, sessionId: string) {
   return queryKeys.sessionObservability(endpoint, sessionId);
 }
@@ -25,18 +30,21 @@ export function useSessionObservability(
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.sessionDiffs(sessionId, signal)),
     enabled,
+    notifyOnChangeProps: [...DETAIL_PROPS],
   });
   const contextFiles = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-files'),
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.contextFiles(sessionId, signal)),
     enabled,
+    notifyOnChangeProps: [...DETAIL_PROPS],
   });
   const contextFrames = useQuery({
     queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-frames'),
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () => repository.contextFrames(sessionId, signal)),
     enabled,
+    notifyOnChangeProps: [...DETAIL_PROPS],
   });
   const processes = useInfiniteQuery({
     queryKey: [
