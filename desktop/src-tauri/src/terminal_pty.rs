@@ -94,6 +94,20 @@ fn platform_shell_candidates() -> Vec<String> {
     vec!["/bin/zsh".to_string(), "/bin/bash".to_string()]
 }
 
+/// Start Unix shells as login shells, as Terminal and iTerm do, so
+/// `path_helper` and profile files (Homebrew `shellenv`, pyenv, …) set up the
+/// same PATH the user sees in their own terminal (#739 C2).
+fn login_shell_args(shell: &str) -> &'static [&'static str] {
+    if cfg!(windows) {
+        return &[];
+    }
+    let name = shell.rsplit('/').next().unwrap_or(shell);
+    match name {
+        "sh" | "bash" | "zsh" | "fish" | "ksh" | "mksh" | "dash" | "tcsh" | "csh" => &["-l"],
+        _ => &[],
+    }
+}
+
 /// Open a pty running `cmd` rooted at `cwd`. The env the child sees is
 /// whatever `CommandBuilder` inherits by default (the desktop process's own
 /// environment) plus `TERM=xterm-256color`, so full-screen tools (vim,
@@ -156,7 +170,9 @@ pub(crate) fn spawn_shell(
 ) -> Result<SpawnedPty, String> {
     let mut failures = Vec::new();
     for candidate in shell_candidates(shell) {
-        match spawn_command(cwd, cols, rows, CommandBuilder::new(&candidate)) {
+        let mut command = CommandBuilder::new(&candidate);
+        command.args(login_shell_args(&candidate));
+        match spawn_command(cwd, cols, rows, command) {
             Ok(spawned) => return Ok(spawned),
             Err(error) => failures.push(format!("{candidate}: {error}")),
         }
