@@ -22,12 +22,12 @@ import { cn } from '@/lib/utils';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
- * folders, Open, Copy, the position fact (a page, a row count; marked
- * `data-frame-position`), then @ with the modes folding to one icon, then only the name,
- * comments and the … menu. Children hide on the bar's `data-fold-*` flags
- * (`group-data-[fold-open]/frame:hidden`).
+ * folders, Open, Copy, then @ with the modes folding to one icon, then the
+ * position fact (a page, a row count; marked `data-frame-position`), then only
+ * the name, Download, comments and the … menu. Children hide on the bar's
+ * `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
-const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'position', 'talk', 'name'] as const;
+const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'talk', 'position', 'name'] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
