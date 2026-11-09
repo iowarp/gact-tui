@@ -80,7 +80,7 @@ export function DataSourceAccountRow({
           />
         </>
       }
-      icon={<SourceProviderLogo provider={row.id} />}
+      icon={<SourceProviderLogo provider={row.id} size="icon" />}
       meta={<span title={meta}>{meta}</span>}
       selected={selected}
       slot={

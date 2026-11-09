@@ -91,7 +91,7 @@ export function DataSourceSettings() {
         detail={
           login ? (
             <DetailPane
-              icon={<SourceProviderLogo provider={login.id} />}
+              icon={<SourceProviderLogo provider={login.id} size="icon" />}
               key={`${scope}:${login.id}`}
               onClose={() => setLogin(undefined)}
               title={`Sign in to ${login.name}`}
