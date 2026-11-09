@@ -288,8 +288,8 @@ it('shows a choice the person made as blocked, without the default mark', async 
 it('says when the settings cannot be read', async () => {
   repository.toolSettings.mockRejectedValue(new Error('Plugin is not installed'));
   renderPage();
-  expect(await screen.findByText('Tool settings could not be loaded')).toBeVisible();
-  expect(screen.getByText('Plugin is not installed')).toBeVisible();
+  expect(await screen.findByText('Tool settings couldn’t be loaded.')).toBeVisible();
+  expect(screen.getByTitle('Plugin is not installed')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
 });
 
@@ -326,7 +326,7 @@ it('filters the Tools tab from the / key', async () => {
   expect(screen.getByText('home_light_set')).toBeVisible();
   expect(screen.queryByRole('region', { name: 'postgres-tools' })).toBeNull();
   fireEvent.change(filter, { target: { value: 'nothing-here' } });
-  expect(screen.getByText('No tools match')).toBeVisible();
+  expect(screen.getByText('No tools match “nothing-here”.')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Clear filter' }));
   expect(screen.getByText('home_light_list')).toBeVisible();
 });
@@ -334,7 +334,9 @@ it('filters the Tools tab from the / key', async () => {
 it('says when no plugin brings tools, or the plugins cannot be listed', async () => {
   catalog.result = { data: { plugins: [] }, error: null, isPending: false, refetch: vi.fn() };
   const { unmount } = renderTabs('/settings/tool-permissions');
-  expect(await screen.findByText('No plugin tools yet')).toBeVisible();
+  expect(
+    await screen.findByText('No plugin tools yet. Extensions that bring tools list them here.'),
+  ).toBeVisible();
   expect(screen.queryByRole('searchbox', { name: 'Filter tools' })).toBeNull();
   unmount();
   const refetch = vi.fn();
@@ -345,7 +347,7 @@ it('says when no plugin brings tools, or the plugins cannot be listed', async ()
     refetch,
   };
   renderTabs('/settings/tool-permissions');
-  expect(screen.getByText('Tools could not be listed')).toBeVisible();
+  expect(screen.getByText('Plugin tools couldn’t be loaded.')).toBeVisible();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
   expect(refetch).toHaveBeenCalled();
 });
