@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useNavigate, useLocation, type Location } from
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { NewConversationPage } from '@/routes/new-conversation-page';
@@ -137,8 +138,14 @@ export default function App() {
     navigate('/settings/connections', { state: settingsReturnState }),
   );
   useMenuAction('manage-agents', () => navigate('/?intent=connect'));
+  // A static native menu can't list the saved agents: it opens the CLIO menu,
+  // or the agent picker when no CLIO menu is on screen.
+  useMenuAction('switch-agent', () => {
+    if (!requestClioMenu()) navigate('/?intent=connect');
+  });
   useMenuAction('connect-by-address', () => navigate('/?intent=connect&mode=address'));
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
+  useMenuAction('install-agent', () => navigate('/?intent=connect&mode=deploy'));
   const openInfrastructure = () => navigate('/infrastructure', { state: settingsReturnState });
   useShortcut('infrastructure', openInfrastructure);
   useMenuAction('open-infrastructure', openInfrastructure);

@@ -3,7 +3,7 @@
   "productName": "GACT Desktop",
   "identifier": "land.charm.gact.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/workspace build",
+    "beforeBuildCommand": "pnpm --filter @clio/workspace build:bundle",
     "beforeDevCommand": "pnpm --filter @clio/workspace dev"
   },
   "app": {

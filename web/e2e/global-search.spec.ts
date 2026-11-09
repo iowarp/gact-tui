@@ -84,7 +84,7 @@ test('a file found from Settings opens in the remembered workspace canvas', asyn
   await page.goto('/settings/appearance');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(
     new RegExp(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}$`, 'u'),
   );
@@ -104,7 +104,7 @@ test('a file found from a new conversation retains its unsent draft and route', 
   await composer.fill('Keep this unsent review draft.');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(new RegExp(`${route}$`, 'u'));
   await expect(page.getByRole('heading', { name: 'Plant study notes', exact: true })).toBeVisible();
   await expect(composer).toHaveText('Keep this unsent review draft.');

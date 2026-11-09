@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, useMemo } from 'react';
 import type { Artifact } from '@clio/core/v3';
 import type { ClioConversationProps } from './conversation-types';
 
@@ -52,3 +52,75 @@ type Navigation = Pick<
     artifactHref?: (artifact: Artifact) => string | undefined;
   };
 export const PresentationNavigation = createContext<Navigation | null>(null);
+
+// Only the navigation fields, so a parent render that leaves them unchanged does not
+// re-render every row's context consumers (links, hover cards, variant runs).
+export function usePresentationNavigation({
+  artifacts,
+  interactions,
+  messages,
+  onInteractionResponse,
+  onOpenArtifact,
+  onOpenFile,
+  onOpenFileReference,
+  onOpenFlow,
+  onOpenFolder,
+  onOpenResource,
+  onOpenSubagent,
+  onOpenTasks,
+  onOpenWebPage,
+  onOpenWork,
+  resources,
+  sessionId,
+  subagents,
+  surfaces,
+  tools,
+  workspaceId,
+}: ClioConversationProps): Navigation {
+  return useMemo(
+    () => ({
+      artifacts,
+      interactions,
+      messages,
+      onInteractionResponse,
+      onOpenArtifact,
+      onOpenFile,
+      onOpenFileReference,
+      onOpenFlow,
+      onOpenFolder,
+      onOpenResource,
+      onOpenSubagent,
+      onOpenTasks,
+      onOpenWebPage,
+      onOpenWork,
+      resources,
+      sessionId,
+      subagents,
+      surfaces,
+      tools,
+      workspaceId,
+    }),
+    [
+      artifacts,
+      interactions,
+      messages,
+      onInteractionResponse,
+      onOpenArtifact,
+      onOpenFile,
+      onOpenFileReference,
+      onOpenFlow,
+      onOpenFolder,
+      onOpenResource,
+      onOpenSubagent,
+      onOpenTasks,
+      onOpenWebPage,
+      onOpenWork,
+      resources,
+      sessionId,
+      subagents,
+      surfaces,
+      tools,
+      workspaceId,
+    ],
+  );
+}

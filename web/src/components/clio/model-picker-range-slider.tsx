@@ -26,7 +26,10 @@ function RangeOption({ option }: { option: RangeSliderOption }) {
         onCheckedChange={(checked) => option.onCheckedChange(checked === true)}
         {...(option.control === 'switch' ? { size: 'sm' as const } : {})}
       />
-      <Label className={cn('text-xs font-normal', option.disabled && 'text-muted-foreground')} htmlFor={id}>
+      <Label
+        className={cn('text-xs font-normal', option.disabled && 'text-muted-foreground')}
+        htmlFor={id}
+      >
         {option.label}
       </Label>
     </div>
@@ -77,13 +80,20 @@ export function ModelPickerRangeSlider({
 }: RangeSliderProps) {
   const last = stops.length - 1;
   return (
-    <section className="flex flex-col gap-2" data-range={label.toLowerCase()} data-slot="facet-range">
+    <section
+      className="flex flex-col gap-2"
+      data-range={label.toLowerCase()}
+      data-slot="facet-range"
+    >
       <div className="flex min-h-6 items-center gap-2">
         <h3 className="text-xs font-medium text-muted-foreground" title={hint}>
           {label}
         </h3>
         {token ? (
-          <code className="rounded bg-accent px-1 font-mono text-[0.7rem] text-accent-foreground" data-slot="facet-range-token">
+          <code
+            className="rounded bg-accent px-1 font-mono text-[0.7rem] text-accent-foreground"
+            data-slot="facet-range-token"
+          >
             {token}
           </code>
         ) : null}
@@ -103,7 +113,10 @@ export function ModelPickerRangeSlider({
           step={1}
           value={[...value]}
         />
-        <div aria-hidden="true" className="relative mt-1.5 h-4 text-[0.68rem] text-muted-foreground tabular-nums">
+        <div
+          aria-hidden="true"
+          className="relative mt-1.5 h-4 text-[0.68rem] text-muted-foreground tabular-nums"
+        >
           {stops.map((stop, index) =>
             stop.tick ? (
               <span

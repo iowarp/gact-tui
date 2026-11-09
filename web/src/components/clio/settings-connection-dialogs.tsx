@@ -150,6 +150,7 @@ export function RenameAgentDialog({
       >
         <Input
           className={cn(CONNECTION_FIELD, DIALOG_FIELD)}
+          data-initial-focus=""
           id="rename-agent-name"
           onChange={(event) => setDraft(event.target.value)}
           value={value}

@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -20,6 +21,7 @@ export function useWorkspaceCapabilities({ pollMs = false }: { pollMs?: number |
   const modelConfiguration = useQuery({
     queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
   });
 
   return { capabilities, modelConfiguration };

@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import type { SessionExportMode } from '@clio/core/v3';
-import { CheckIcon, DownloadIcon, FileTextIcon, PackageIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
@@ -37,7 +37,7 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
       }}
     >
       <DropdownMenuSubTrigger className="whitespace-nowrap" ref={trigger}>
-        <DownloadIcon aria-hidden="true" /> Export
+        Export
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent
         className="w-72 max-w-[calc(100vw-1rem)]"
@@ -65,15 +65,9 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
           }}
         />
         <DropdownMenuSeparator />
-        <KeyMenuItem
-          icon={<FileTextIcon aria-hidden="true" />}
-          label="Download HTML"
-          menuKey="H"
-          onSelect={() => onExport('transcript')}
-        />
+        <KeyMenuItem label="Download HTML" menuKey="H" onSelect={() => onExport('transcript')} />
         <KeyMenuItem
           disabled={!effects}
-          icon={<PackageIcon aria-hidden="true" />}
           label="Download ZIP"
           menuKey="Z"
           onSelect={() => onExport(full ? 'full' : 'effects')}
