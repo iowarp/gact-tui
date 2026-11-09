@@ -23,10 +23,10 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. A row takes 60% of a wide page; `fullWidth` keeps the whole width for a wide control
-(a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
+switch. Rows fill the section, like item lists, so every Settings page has one content width;
+the control column is 52% of the row. `dirty` marks a value that is still waiting in the save bar. The description sits
 behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
 from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
 number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,
@@ -47,7 +47,7 @@ A choice that applies at once, so it never reaches the save bar.
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
-a word), never a bare dot. Below 36rem of list width the status column narrows to at most 10rem (still one width for every row) and hover actions float over the row. `ItemList` caps the list at 760 px (the spec pane width), so
+a word), never a bare dot. Below 36rem of list width the status column narrows to at most 9.875rem, the spec's 158 px (still one width for every row) and hover actions float over the row. `ItemList` caps the list at 760 px (the spec pane width), so
 sections don't set their own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 

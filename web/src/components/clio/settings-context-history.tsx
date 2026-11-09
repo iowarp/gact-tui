@@ -190,7 +190,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           <Select onValueChange={setSessionId} value={selectedSessionId}>
             <SelectTrigger
               aria-label="Session"
-              className="h-7 w-[clamp(10rem,45%,16rem)] min-w-0 text-[0.78125rem] text-foreground"
+              className="w-[clamp(10rem,45%,16rem)] min-w-0 py-0 text-[0.78125rem] text-foreground data-[size=sm]:h-6"
               id="context-session"
               size="sm"
             >
@@ -205,7 +205,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
             </SelectContent>
           </Select>
         }
-        className="w-full @3xl:w-[60%]"
+        className="w-full"
         info="Context usage, retention and compaction for one conversation, as the service reports them."
       >
         Session retention

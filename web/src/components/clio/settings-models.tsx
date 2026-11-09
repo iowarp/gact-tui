@@ -74,11 +74,7 @@ export function ModelsSettings() {
           title={configuration.error.message}
         />
       ) : (
-        <Skeleton
-          aria-label="Loading models"
-          className="mt-3 h-40 w-full @3xl:w-[60%]"
-          role="status"
-        />
+        <Skeleton aria-label="Loading models" className="mt-3 h-40 w-full" role="status" />
       )}
     </div>
   );
@@ -362,7 +358,6 @@ function ModelsBody({
         />
       ) : null}
       <SaveBar
-        className="@3xl:w-[60%]"
         count={count}
         error={save.error?.message ?? context?.saveError}
         invalid={Boolean(context?.draft && context.error) || responseInvalid}

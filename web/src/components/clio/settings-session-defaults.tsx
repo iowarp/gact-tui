@@ -125,7 +125,7 @@ export function SessionDefaultsSettings() {
     return (
       <div>
         <SectionHeading />
-        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+        <div className="w-full border-b border-border/70 py-1">
           <StateView
             action={{ label: 'Retry', onClick: () => void defaults.refetch() }}
             kind="error"
@@ -141,7 +141,7 @@ export function SessionDefaultsSettings() {
     return (
       <div>
         <SectionHeading />
-        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+        <div className="w-full border-b border-border/70 py-1">
           <StateView
             kind="loading"
             size="row"
@@ -315,7 +315,7 @@ export function SessionDefaultsSettings() {
         </SettingsRow>
       </div>
       {save.isError ? (
-        <div className="w-full py-1 @3xl:w-[60%]">
+        <div className="w-full py-1">
           <StateView
             action={{
               label: 'Retry',

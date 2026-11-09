@@ -295,7 +295,7 @@ export function RuntimeSettingsPanel({
         <SettingsLoadError error={apply.error} title="That change was not applied." />
       ) : null}
       <SaveBar
-        className="sticky bottom-0 z-10 bg-background @3xl:w-[60%]"
+        className="sticky bottom-0 z-10 bg-background"
         count={changeCount}
         error={
           save.error
