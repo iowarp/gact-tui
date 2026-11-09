@@ -19,6 +19,7 @@ import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
+import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 import {
   installRoutePrefetch,
@@ -126,18 +127,26 @@ export default function App() {
       <ProviderCatalogWarmup />
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route element={<ConnectionPage />} path="/" />
-          <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
-          <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
-          <Route element={<RunsPage />} path="/runs" />
-          <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-          <Route element={<SettingsPage />} path="/settings/:section" />
-          <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
-          <Route element={<UnknownRouteRedirect />} path="*" />
-        </Routes>
-      </Suspense>
+      <div className="flex h-full min-h-0 flex-col">
+        <SandboxInactiveBanner />
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route element={<ConnectionPage />} path="/" />
+              <Route
+                element={<WorkspacePage />}
+                path="/workspaces/:workspaceId/sessions/:sessionId"
+              />
+              <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
+              <Route element={<RunsPage />} path="/runs" />
+              <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
+              <Route element={<SettingsPage />} path="/settings/:section" />
+              <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
+              <Route element={<UnknownRouteRedirect />} path="*" />
+            </Routes>
+          </Suspense>
+        </div>
+      </div>
       <Toaster closeButton richColors />
       {/* Fixed + full-viewport, so it covers the desktop title bar's own
           connection pill too -- not just the routed content below. */}
