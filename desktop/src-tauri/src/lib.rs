@@ -262,7 +262,21 @@ pub fn run() {
             startup_window::reveal_startup_window
         ])
         .setup(move |app| {
-            downloads::create_configured_windows(app, &startup_windows)?;
+            let version = app.package_info().version.to_string();
+            let windows =
+                downloads::create_configured_windows(app, &startup_windows, |config, builder| {
+                    if config.label == startup_window::STARTUP_WINDOW {
+                        startup_window::prepare(builder, &version)
+                    } else {
+                        builder
+                            .initialization_script(startup_window::desktop_marker_script(&version))
+                    }
+                })?;
+            for window in windows {
+                if window.label() == startup_window::STARTUP_WINDOW {
+                    startup_window::reveal_after_fallback(window);
+                }
+            }
             // Resolve + remember the persisted boot-log path FIRST so the
             // supervisor's worker threads (spawn + install/repair streamers)
             // can append to it and the "Open logs" command can reveal it
