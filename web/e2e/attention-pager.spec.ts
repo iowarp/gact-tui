@@ -106,7 +106,9 @@ for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/workspaces/ws_flat_ndp/sessions/${sid}`);
       const panel = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
-      await expect(panel.getByText('1/3', { exact: true })).toBeVisible();
+      // Every card carries its own pager; read the one on the visible page.
+      const visible = panel.locator('[data-attention-item]:visible');
+      await expect(visible.getByText('1/3', { exact: true })).toBeVisible();
       await expect(panel.locator('[data-attention-item]:visible')).toHaveCount(1);
       await expect(panel.getByText('Read file', { exact: true })).toBeVisible();
       await expect(panel.getByText('results/stations.csv', { exact: true })).toBeVisible();
@@ -114,7 +116,7 @@ for (const theme of ['light', 'dark']) {
       await page.screenshot({ path: testInfo.outputPath(`permission-${theme}-${width}.png`) });
       await expect(panel.getByRole('button', { name: 'Allow for this workspace' })).toBeVisible();
       await panel.getByRole('button', { name: 'Next request' }).click();
-      await expect(panel.getByText('2/3', { exact: true })).toBeVisible();
+      await expect(visible.getByText('2/3', { exact: true })).toBeVisible();
       await panel.getByRole('radio', { name: /Station table/ }).click();
       await panel.getByRole('button', { name: 'Next question' }).click();
       await panel.getByRole('radio', { name: 'Other answer' }).click();
@@ -139,7 +141,7 @@ for (const theme of ['light', 'dark']) {
       await panel.getByRole('textbox').fill('Measurement quality');
       await page.screenshot({ path: testInfo.outputPath(`bundle-${theme}-${width}.png`) });
       await panel.getByRole('button', { name: 'Submit all answers' }).click();
-      await expect(panel.getByText('2/2', { exact: true })).toBeVisible();
+      await expect(visible.getByText('2/2', { exact: true })).toBeVisible();
       await expect(panel.getByRole('textbox')).toHaveValue('Keep uncertainty visible.');
       expect(submissions).toEqual([
         {

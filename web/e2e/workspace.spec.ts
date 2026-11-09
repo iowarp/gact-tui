@@ -1106,7 +1106,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Short as well as narrow. The queue has its own 136 px bound and the
   // pending-response stack has a responsive viewport bound, so both must keep
   // wheel and keyboard scrolling local when they compete for composer space.
-  await page.setViewportSize({ height: 720, width: 848 });
+  await page.setViewportSize({ height: 600, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
@@ -1121,7 +1121,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
   // One compact page replaces the stack. Expand its real technical details to
   // exercise overflow; the normal short permission correctly needs no scrolling.
-  await pendingResponses.getByText('Technical details', { exact: true }).click();
+  await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
 
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();

@@ -44,7 +44,9 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/tests/review/folder-access.html');
     await expect(
-      page.getByText('Move the measurements you selected into the results folder.'),
+      page.getByText('Move the measurements you selected into the results folder.', {
+        exact: true,
+      }),
     ).toBeInViewport();
     await expect(page.getByText('Research PC')).toBeInViewport();
     await expect(page.getByText('C:\\Users\\Alice\\Downloads', { exact: true })).toBeVisible();
