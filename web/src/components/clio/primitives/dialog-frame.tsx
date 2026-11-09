@@ -196,6 +196,12 @@ export const WindowShell = memo(function WindowShell({
       <DialogContent
         showCloseButton={false}
         data-frame="window"
+        // Esc with focus in a nested scope (a detail pane) closes that scope, not the window.
+        onEscapeKeyDown={(event) => {
+          if ((event.target as Element | null)?.closest?.('[data-escape-scope]')) {
+            event.preventDefault();
+          }
+        }}
         // Land in the content rather than on the first title-row control; Tab moves on from there.
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -211,10 +217,7 @@ export const WindowShell = memo(function WindowShell({
       >
         <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border pr-2 pl-3">
           {icon ? (
-            <span
-              aria-hidden="true"
-              className="flex shrink-0 text-muted-foreground [&_svg]:size-4"
-            >
+            <span aria-hidden="true" className="flex shrink-0 text-muted-foreground [&_svg]:size-4">
               {icon}
             </span>
           ) : null}
@@ -229,9 +232,7 @@ export const WindowShell = memo(function WindowShell({
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-auto">
-                {search}
-              </div>
+              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-auto">{search}</div>
               <span className="flex-1" />
             </>
           ) : null}

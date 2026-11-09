@@ -59,6 +59,8 @@ import {
   FrameTab,
 } from '../../src/components/clio/primitives/frame-bar';
 import { DialogFrame, WindowShell } from '../../src/components/clio/primitives/dialog-frame';
+import { DetailPane, ListDetailLayout } from '../../src/components/clio/primitives/detail-pane';
+import { ItemList, ItemRow } from '../../src/components/clio/primitives/item-row';
 import { StateView, type StateKind } from '../../src/components/clio/primitives/state-view';
 import { ShortcutSheet } from '../../src/components/clio/primitives/shortcut-sheet';
 
@@ -354,6 +356,74 @@ function Rows() {
   );
 }
 
+const PANE_TABS = [
+  { value: 'capabilities', label: 'Capabilities' },
+  { value: 'tools', label: 'Tools' },
+  { value: 'files', label: 'Files' },
+] as const;
+
+function ListAndDetail() {
+  const [open, setOpen] = useState<string | null>('home-assistant');
+  const [tab, setTab] = useState<(typeof PANE_TABS)[number]['value']>('capabilities');
+  const plugins = ['home-assistant', 'ndp-explorer', LONG_NAME];
+  return (
+    <ListDetailLayout
+      className="h-72 rounded-xl border border-border"
+      list={
+        <ItemList label="Plugins" className="p-1.5">
+          {plugins.map((name, index) => (
+            <ItemRow
+              key={name}
+              icon={<LayoutGridIcon />}
+              title={name}
+              meta={index === 2 ? LONG_PATH : 'Plugin, 2 tools'}
+              selected={open === name}
+              status={
+                <StatusIndicator
+                  tone={index === 1 ? 'warning' : 'success'}
+                  label={index === 1 ? 'Update' : 'Enabled'}
+                />
+              }
+              actions={
+                <IconButton
+                  label="Explore"
+                  icon={<PanelRightIcon />}
+                  size="sm"
+                  onClick={() => setOpen(name)}
+                />
+              }
+              actionsWidth={30}
+            />
+          ))}
+        </ItemList>
+      }
+      detail={
+        open ? (
+          <DetailPane
+            icon={<LayoutGridIcon />}
+            title={open}
+            onClose={() => setOpen(null)}
+            actions={<IconButton label="Update" icon={<RefreshIcon />} />}
+            tabs={
+              <SegmentedControl
+                label="Plugin contents"
+                options={PANE_TABS}
+                value={tab}
+                onValueChange={setTab}
+              />
+            }
+          >
+            <ItemList label="Capabilities">
+              <ItemRow size="sm" icon={<CodeIcon />} title="ha-lights" meta="Skill" />
+              <ItemRow size="sm" icon={<TerminalIcon />} title="home-assistant" meta="MCP server" />
+            </ItemList>
+          </DetailPane>
+        ) : null
+      }
+    />
+  );
+}
+
 function Menus() {
   return (
     <div className="flex flex-wrap items-start gap-4">
@@ -590,6 +660,9 @@ function Gallery() {
             </Section>
             <Section title="List rows">
               <Rows />
+            </Section>
+            <Section title="List and detail pane">
+              <ListAndDetail />
             </Section>
             <Section title="Menus">
               <Menus />
