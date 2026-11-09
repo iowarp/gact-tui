@@ -60,3 +60,18 @@ export function withoutSearchArrival(state: unknown): unknown {
 export function arrivedFromSearch(state: unknown): boolean {
   return Boolean(state && typeof state === 'object' && 'fromSearch' in state && state.fromSearch);
 }
+
+const SCOPE_ORDER = ['App', 'Workspace', 'Agent'];
+
+/** Visible sections grouped by scope, in App, workspace, agent order. */
+export function groupedSettingsSections(sections: ApplicationDestination[], filter = '') {
+  const matched = filter.trim() ? matchingSettingsSections(sections, filter) : undefined;
+  const listed = sections.filter((item) => !item.host && (!matched || matched.has(item.id)));
+  const groups = [...new Set(listed.map((item) => item.group ?? 'App'))].sort(
+    (a, b) => SCOPE_ORDER.indexOf(a) - SCOPE_ORDER.indexOf(b),
+  );
+  return groups.map((group) => ({
+    group,
+    items: listed.filter((item) => (item.group ?? 'App') === group),
+  }));
+}

@@ -1,7 +1,7 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
-import { hostSection, matchingSettingsSections } from '@/lib/settings-window-route';
+import { groupedSettingsSections, hostSection } from '@/lib/settings-window-route';
 import { Link } from 'react-router-dom';
 import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { SettingsScopeIcon } from '@/components/clio/settings-scope-icon';
@@ -35,20 +35,6 @@ export interface SettingsNavigationProps {
   onClearFilter?: () => void;
 }
 
-const SCOPE_ORDER = ['App', 'Workspace', 'Agent'];
-
-function grouped(sections: SettingsDestination[], filter = '') {
-  const matched = filter.trim() ? matchingSettingsSections(sections, filter) : undefined;
-  const listed = sections.filter((item) => !item.host && (!matched || matched.has(item.id)));
-  const groups = [...new Set(listed.map((item) => item.group ?? 'App'))].sort(
-    (a, b) => SCOPE_ORDER.indexOf(a) - SCOPE_ORDER.indexOf(b),
-  );
-  return groups.map((group) => ({
-    group,
-    items: listed.filter((item) => (item.group ?? 'App') === group),
-  }));
-}
-
 function openGlobalSearch() {
   window.dispatchEvent(new Event('clio:open-command-menu'));
 }
@@ -64,7 +50,7 @@ export function SettingsNavigation({
   onClearFilter,
 }: SettingsNavigationProps) {
   const current = hostSection(sections, section);
-  const groups = grouped(sections, filter);
+  const groups = groupedSettingsSections(sections, filter);
   const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   return (
     <div className="flex flex-col">
@@ -89,8 +75,8 @@ export function SettingsNavigation({
               aria-current={id === current ? 'page' : undefined}
               className={cn(
                 'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
-                'hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-accent text-foreground',
+                'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+                id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
               state={linkState}
@@ -123,7 +109,7 @@ export function SettingsSearchButton() {
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-left max-[599px]:hidden">Search</span>
-      <ShortcutKeys id="search" className="shrink-0 text-[10px] max-[599px]:hidden" />
+      <ShortcutKeys id="search" variant="inline" className="max-[599px]:hidden" />
     </button>
   );
 }
@@ -182,13 +168,17 @@ export function SettingsSectionPicker({
             <span className="truncate">Show every section</span>
           </DropdownMenuItem>
         ) : null}
-        {grouped(sections, filter).map(({ group, items }) => (
+        {groupedSettingsSections(sections, filter).map(({ group, items }) => (
           <div key={group}>
             <DropdownMenuLabel className="truncate">
               {scopeLabels[group] ?? group}
             </DropdownMenuLabel>
             {items.map(({ id, label, icon: Icon }) => (
-              <DropdownMenuItem asChild key={id}>
+              <DropdownMenuItem
+                asChild
+                className="aria-[current=page]:bg-menu-highlight aria-[current=page]:text-foreground"
+                key={id}
+              >
                 <Link
                   aria-current={id === current ? 'page' : undefined}
                   state={linkState}
@@ -240,7 +230,7 @@ function SettingsFilterBar({
   );
 }
 
-function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
+export function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
   if (!badge?.count) return null;
   return (
     <Badge

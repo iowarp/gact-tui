@@ -20,6 +20,7 @@ import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
+import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 import { SettingsWindow } from '@/routes/settings-window';
 import {
@@ -125,11 +126,13 @@ export default function App() {
     if (!desktopHost || !credentialsReady) return;
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
-  useMenuAction('open-settings', () =>
+  const openSettings = () =>
     navigate('/settings/general', {
       state: settingsReturnState,
-    }),
-  );
+    });
+  useMenuAction('open-settings', openSettings);
+  // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
+  useShortcut('settings', openSettings);
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
   useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
@@ -145,20 +148,28 @@ export default function App() {
       <ProviderCatalogWarmup />
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
-      <Suspense fallback={<RouteFallback />}>
-        <BackgroundRoutes location={routesLocation}>
-          <Route element={<ConnectionPage />} path="/" />
-          <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
-          <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
-          <Route element={<RunsPage />} path="/runs" />
-          <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-          {/* Settings is a window over the app; without a workspace behind it the
-              app area stays empty. */}
-          <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
-          <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
-          <Route element={<UnknownRouteRedirect />} path="*" />
-        </BackgroundRoutes>
-      </Suspense>
+      <div className="flex h-full min-h-0 flex-col">
+        <SandboxInactiveBanner />
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={<RouteFallback />}>
+            <BackgroundRoutes location={routesLocation}>
+              <Route element={<ConnectionPage />} path="/" />
+              <Route
+                element={<WorkspacePage />}
+                path="/workspaces/:workspaceId/sessions/:sessionId"
+              />
+              <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
+              <Route element={<RunsPage />} path="/runs" />
+              <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
+              {/* Settings is a window over the app; without a workspace behind it the
+                  app area stays empty. */}
+              <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
+              <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
+              <Route element={<UnknownRouteRedirect />} path="*" />
+            </BackgroundRoutes>
+          </Suspense>
+        </div>
+      </div>
       {isSettingsRoute(location.pathname) ? (
         <Routes>
           <Route element={<SettingsWindow />} path="/settings/:section" />

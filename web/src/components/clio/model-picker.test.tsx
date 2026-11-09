@@ -250,7 +250,7 @@ describe('ClioModelPicker', () => {
 
     const status = screen.getByTitle('Codex status: Ready');
     expect(status).toHaveClass('text-success');
-    expect(status.querySelector('svg')).toBeInTheDocument();
+    expect(status.querySelector('span.rounded-full')).toBeInTheDocument();
     await user.hover(status);
     expect(await screen.findByText('Provider status')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();

@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 // Generate src-tauri/gen/brand-backend.json from the selected brand profile.
 //
+// Also writes src-tauri/gen/tray-template.png next to it: the brand's optional
+// "trayTemplate" PNG (a monochrome macOS menu-bar mark, see
+// branding/README.md), or an empty file when the brand has none, so the tray
+// falls back to the app icon instead of showing another brand's mark.
+//
 // Reads <brandingRoot>/<profile>/brand.json, extracts and normalizes its
 // vocabulary fields (productName, agentName) and its optional "backend"
 // block (applying the same defaults as the vite brand plugin), and writes
@@ -117,6 +122,27 @@ export function resolveBrandVocabulary(raw, profile) {
 }
 
 /** Resolve a raw "backend" block into a fully-defaulted backend object. */
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/**
+ * The brand's macOS menu-bar template image, or an empty buffer when the brand
+ * declares none. `trayTemplate` is a PNG path relative to the profile folder;
+ * only its alpha channel is used, so it should be a black mark on transparency.
+ */
+export function resolveTrayTemplate(raw, profileDir) {
+  const relative = raw?.trayTemplate;
+  if (relative === undefined) return Buffer.alloc(0);
+  if (typeof relative !== 'string' || !relative.trim()) {
+    throw new Error('"trayTemplate" must be a PNG path relative to the brand folder');
+  }
+  const path = resolve(profileDir, relative);
+  const bytes = readFileSync(path);
+  if (!bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error(`"trayTemplate" ${path} is not a PNG image`);
+  }
+  return bytes;
+}
+
 function resolveBackend(raw) {
   const b = raw.backend;
   if (!b) return DEFAULT_BACKEND;
@@ -235,8 +261,17 @@ function main(argv) {
   const outPath = outPathArg
     ? resolve(outPathArg)
     : resolve(__dirname, '../src-tauri/gen/brand-backend.json');
+  let trayTemplate;
+  try {
+    trayTemplate = resolveTrayTemplate(raw, dirname(brandPath));
+  } catch (err) {
+    console.error(`gen-brand-backend: brand "${profile}": ${err.message}`);
+    process.exit(1);
+  }
+
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(resolved, null, 2) + '\n');
+  writeFileSync(resolve(dirname(outPath), 'tray-template.png'), trayTemplate);
 
   console.log(`gen-brand-backend: wrote ${outPath} for brand "${profile}" (mode=${resolved.mode})`);
 }

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
+import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
   SettingsNavigation,
   SettingsSearchButton,
@@ -13,6 +14,7 @@ import { settingsDestinations } from '@/lib/application-destinations';
 import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
+import { isLoopbackAddress } from '@/lib/local-servers';
 import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
@@ -39,6 +41,16 @@ const LazySettingsSection = lazy(() =>
 function SectionsLoaded({ onLoaded }: { onLoaded: () => void }) {
   useEffect(onLoaded, [onLoaded]);
   return null;
+}
+
+/** "CLIO local" for this computer's agent, "CLIO on gpu-01" for another. */
+function agentPlaceName(endpoint: string): string {
+  if (isLoopbackAddress(endpoint)) return `${vocab.agent} local`;
+  try {
+    return `${vocab.agent} on ${new URL(endpoint).hostname}`;
+  } catch {
+    return vocab.agent;
+  }
 }
 
 function SectionsLoading() {
@@ -88,11 +100,14 @@ export function SettingsWindow() {
     workspaceId ? state.entities.workspaces[workspaceId] : undefined,
   );
   const workspaceName = workspace?.display_name || workspace?.name || 'Workspace';
-  const agentName = settings.label || vocab.agent;
+  const agentName = settings.label || agentPlaceName(settings.endpoint);
   const destination = destinations.find((item) => item.id === section);
   const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
   const scopeLine: SettingsScope = {
-    group: destination?.group === 'Agent' || destination?.group === 'Workspace' ? destination.group : 'App',
+    group:
+      destination?.group === 'Agent' || destination?.group === 'Workspace'
+        ? destination.group
+        : 'App',
     line:
       destination?.group === 'Agent'
         ? `${agentName}, applies to every conversation on this agent`
@@ -150,6 +165,7 @@ export function SettingsWindow() {
         if (!open) void navigate(background ?? workspaceRoute);
       }}
       open
+      rail={<SettingsNavRail {...navigation} />}
       search={<SettingsSearchButton />}
       title="Settings"
       toolbar={<SettingsSectionPicker {...navigation} />}
