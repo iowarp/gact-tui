@@ -22,8 +22,11 @@ type TreeRow =
 const ROW_HEIGHT_PX = 28;
 /** Small trees render every row; larger ones only the rows in view. */
 const WINDOW_ABOVE_ROWS = 150;
-/** Each level: 16 px to the guide line, 8 px after it (the old ml-4 + pl-2). */
-const INDENT_PX = 24;
+/** Spec `.zx` rows: 8 px padding, then 20 px per level and no guide lines. */
+const ROW_PAD_PX = 8;
+const INDENT_PX = 20;
+const TREE_ROW_CLASS =
+  'flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] border-none bg-transparent pr-2 text-left whitespace-nowrap transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
 
 /**
  * The Files list: a flat, windowed tree. Folders sort their children only when
@@ -116,7 +119,7 @@ export function WorkbenchFileTree({
 
   return (
     <div
-      className="relative min-w-0 font-mono text-sm"
+      className="relative min-w-0 font-sans text-[12.5px]"
       ref={treeRef}
       role="tree"
       style={windowed ? { height: virtualizer.getTotalSize() } : undefined}
@@ -155,21 +158,12 @@ function TreeRowView({
   onToggle: (path: string) => void;
 }) {
   const style = {
-    paddingLeft: row.depth * INDENT_PX,
+    paddingLeft: ROW_PAD_PX + row.depth * INDENT_PX,
     ...(top === undefined ? {} : { position: 'absolute' as const, top, left: 0, right: 0 }),
   };
-  const guides = Array.from({ length: row.depth }, (_, level) => (
-    <span
-      aria-hidden="true"
-      className="absolute inset-y-0 border-l border-border"
-      key={level}
-      style={{ left: 16 + level * INDENT_PX }}
-    />
-  ));
   if (row.kind === 'note')
     return (
-      <p className="relative h-7 px-2 py-1 text-xs text-muted-foreground italic" style={style}>
-        {guides}
+      <p className="flex h-7 items-center pr-2 text-[11.5px] text-faint italic" style={style}>
         {row.label}
       </p>
     );
@@ -182,25 +176,22 @@ function TreeRowView({
       <div
         aria-expanded={open}
         aria-level={row.depth + 1}
-        className="relative h-7"
+        className="h-7"
         role="treeitem"
-        style={style}
+        style={top === undefined ? undefined : { position: 'absolute', top, left: 0, right: 0 }}
       >
-        {guides}
         <button
           aria-label={`${open ? 'Collapse' : 'Expand'} folder ${node.name}`}
-          className="flex h-7 w-full min-w-0 cursor-pointer items-center gap-1 rounded border-none bg-transparent px-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className={TREE_ROW_CLASS}
           onClick={() => onToggle(path)}
+          style={{ paddingLeft: style.paddingLeft }}
           type="button"
         >
-          <ChevronRightIcon
-            className={cn(
-              'size-4 shrink-0 text-muted-foreground transition-transform',
-              open && 'rotate-90',
-            )}
-          />
+          <span aria-hidden="true" className="grid w-3 shrink-0 place-items-center text-faint">
+            <ChevronRightIcon className={cn('size-3 transition-transform', open && 'rotate-90')} />
+          </span>
           <FileTreeIcon>
-            <Icon className="size-4 text-info" />
+            <Icon className="size-3.5 text-muted-foreground" />
           </FileTreeIcon>
           <FileTreeName>{node.name}</FileTreeName>
         </button>
@@ -208,15 +199,16 @@ function TreeRowView({
     );
   }
   const changed = isChangedPath(changedPaths, path);
+  const selected = selectedPath === path;
   return (
     <div
       aria-label={changed ? `${node.name}, changed in this conversation` : undefined}
       aria-level={row.depth + 1}
-      aria-selected={selectedPath === path}
+      aria-selected={selected}
       className={cn(
-        'relative flex h-7 w-full min-w-0 cursor-pointer items-center gap-1 rounded px-1.5 transition-colors hover:bg-muted/50',
-        selectedPath === path && 'bg-muted',
+        TREE_ROW_CLASS,
         changed && 'text-changed',
+        selected && 'bg-accent text-accent-foreground hover:bg-accent',
       )}
       data-changed={changed || undefined}
       onClick={() => onSelect(path)}
@@ -224,13 +216,17 @@ function TreeRowView({
         if (event.key === 'Enter' || event.key === ' ') onSelect(path);
       }}
       role="treeitem"
-      style={{ ...style, paddingLeft: row.depth * INDENT_PX + 6 }}
+      style={style}
       tabIndex={0}
     >
-      {guides}
-      {row.alignWithFolders ? <span aria-hidden="true" className="size-4 shrink-0" /> : null}
+      {row.alignWithFolders ? <span aria-hidden="true" className="w-3 shrink-0" /> : null}
       <FileTreeIcon>
-        <FileIcon className="size-4 text-muted-foreground" />
+        <FileIcon
+          className={cn(
+            'size-3.5',
+            changed || selected ? 'text-accent-foreground' : 'text-muted-foreground',
+          )}
+        />
       </FileTreeIcon>
       <FileTreeName>{node.name}</FileTreeName>
     </div>
