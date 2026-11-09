@@ -124,15 +124,70 @@ export function layoutArtifactLineage(
         : lineage.truncated.nodes !== undefined
           ? `at ${lineage.truncated.nodes} nodes`
           : 'bounded';
+    const frontier = depthFrontier(lineage, edges, placed);
     placed.push({
-      id: 'gap:cut-short',
+      id: CUT_SHORT,
       kind: 'gap',
       name: 'Cut short',
       detail: at,
-      tip: `The service stopped the graph ${at}. Older steps aren't shown.`,
+      tip: `The service stopped the graph ${at}. ${frontier.upstream ? 'Older' : 'Later'} steps aren't shown.`,
     });
+    // The break is drawn as an amber edge into the column where the walk stopped.
+    for (const id of frontier.ids)
+      edges.push(frontier.upstream ? { from: CUT_SHORT, to: id } : { from: id, to: CUT_SHORT });
   }
   return layoutNodes(placed, edges);
+}
+
+const CUT_SHORT = 'gap:cut-short';
+
+/**
+ * The nodes where the service stopped walking: those at the reported depth,
+ * upstream first, or else the furthest the graph reaches. Custody gaps are
+ * already breaks, so the cut joins the recorded steps beside them.
+ */
+function depthFrontier(
+  lineage: ArtifactLineage,
+  links: readonly { from: string; to: string }[],
+  placed: readonly Placed[],
+): { ids: string[]; upstream: boolean } {
+  const kinds = new Map(placed.map((node) => [node.id, node.kind]));
+  const recorded = links.filter(
+    (link) => !link.from.startsWith('gap:') && !link.to.startsWith('gap:'),
+  );
+  const walk = (upstream: boolean) => {
+    const distance = new Map([[lineage.root, 0]]);
+    const queue = [lineage.root];
+    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+      for (const link of recorded) {
+        const next = upstream ? (link.to === id ? link.from : '') : link.from === id ? link.to : '';
+        if (!next || distance.has(next)) continue;
+        distance.set(next, (distance.get(id) ?? 0) + 1);
+        queue.push(next);
+      }
+    }
+    return distance;
+  };
+  const at = (distance: Map<string, number>, depth: number) => {
+    const ids = [...distance].filter(([, value]) => value === depth).map(([id]) => id);
+    const steps = ids.filter((id) => kinds.get(id) !== 'gap');
+    return steps.length ? steps : ids;
+  };
+  const deepest = (distance: Map<string, number>) => Math.max(0, ...distance.values());
+  const up = walk(true);
+  const down = walk(false);
+  const depth = lineage.truncated?.at_depth;
+  if (depth !== undefined && depth > 0) {
+    if (lineage.direction !== 'downstream' && at(up, depth).length)
+      return { ids: at(up, depth), upstream: true };
+    if (lineage.direction !== 'upstream' && at(down, depth).length)
+      return { ids: at(down, depth), upstream: false };
+  }
+  const upstream =
+    lineage.direction === 'upstream' ||
+    (lineage.direction === 'both' && deepest(up) >= deepest(down));
+  const distance = upstream ? up : down;
+  return { ids: at(distance, deepest(distance)), upstream };
 }
 
 function describeNode(
@@ -289,6 +344,7 @@ export function layoutNodes(
       y: Math.round(position.y - LINEAGE_NODE_HEIGHT / 2),
     };
   });
+  producersFirst(nodes, known, (id) => graph.node(id).x);
   const at = new Map(nodes.map((node) => [node.id, node]));
   const edges = known.map((link): LineageGraphEdge => {
     const from = at.get(link.from)!;
@@ -316,6 +372,38 @@ export function layoutNodes(
     files: nodes.filter((node) => node.kind === 'file' || node.kind === 'self').length,
     actions: nodes.filter((node) => node.kind === 'action').length,
   };
+}
+
+/**
+ * Among siblings in one column (the same neighbours), recorded steps come
+ * before gaps: the producing tool first, an outside edit below it.
+ */
+function producersFirst(
+  nodes: LineageGraphNode[],
+  links: readonly { from: string; to: string }[],
+  column: (id: string) => number,
+) {
+  const neighbours = new Map<string, string[]>();
+  for (const link of links) {
+    neighbours.set(link.from, [...(neighbours.get(link.from) ?? []), link.to]);
+    neighbours.set(link.to, [...(neighbours.get(link.to) ?? []), link.from]);
+  }
+  const groups = new Map<string, LineageGraphNode[]>();
+  for (const node of nodes) {
+    const key = `${column(node.id)}|${[...(neighbours.get(node.id) ?? [])].sort().join(',')}`;
+    groups.set(key, [...(groups.get(key) ?? []), node]);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const rows = group.map((node) => node.y).sort((left, right) => left - right);
+    const ordered = [...group].sort(
+      (left, right) =>
+        Number(left.kind === 'gap') - Number(right.kind === 'gap') || left.y - right.y,
+    );
+    ordered.forEach((node, index) => {
+      node.y = rows[index] ?? node.y;
+    });
+  }
 }
 
 function nodeWidth(node: Placed): number {

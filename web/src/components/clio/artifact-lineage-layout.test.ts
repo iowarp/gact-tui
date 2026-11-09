@@ -67,6 +67,71 @@ describe('layoutArtifactLineage', () => {
       'MTA1_east_north_up.png',
       'Cut short',
     ]);
+    expect(graph.edges.find((edge) => edge.from === 'gap:cut-short')).toMatchObject({
+      to: 'artifact_plot',
+      gap: true,
+    });
+  });
+
+  it('draws a cut-short graph as an amber gap into the column where the walk stopped', () => {
+    const graph = layoutArtifactLineage(artifact, {
+      ...lineage,
+      truncated: { reason: 'depth', at_depth: 2 },
+    });
+    const cut = graph.nodes.find((node) => node.id === 'gap:cut-short');
+    expect(cut).toMatchObject({ kind: 'gap', name: 'Cut short', detail: 'at depth 2' });
+    // Two steps upstream of the plot sits the CSV; the custody gap beside it is already a break.
+    const into = graph.edges.filter((edge) => edge.from === 'gap:cut-short');
+    expect(into.map((edge) => [edge.to, edge.gap])).toEqual([['artifact_csv', true]]);
+    const csv = graph.nodes.find((node) => node.id === 'artifact_csv')!;
+    expect(cut!.x + cut!.width).toBeLessThan(csv.x);
+  });
+
+  it('cuts downstream when only the readers reach the reported depth', () => {
+    const graph = layoutArtifactLineage(artifact, {
+      root: 'artifact_csv',
+      direction: 'downstream',
+      depth: 1,
+      nodes: lineage.nodes.slice(0, 3),
+      edges: lineage.edges.slice(0, 2),
+      truncated: { reason: 'depth', at_depth: 1 },
+    });
+    expect(graph.edges.filter((edge) => edge.to === 'gap:cut-short')).toMatchObject([
+      { from: 'activity:call_plot', gap: true },
+    ]);
+    expect(graph.nodes.find((node) => node.id === 'gap:cut-short')?.tip).toContain('Later steps');
+  });
+
+  it('puts the producing tool above an outside edit that feeds the same file', () => {
+    const graph = layoutArtifactLineage(artifact, {
+      root: 'artifact_plot',
+      direction: 'both',
+      depth: 5,
+      nodes: [
+        {
+          id: 'artifact_edit',
+          type: 'artifact',
+          name: 'MTA1_east_north_up.png',
+          custody_gap: true,
+        },
+        { id: 'activity:call_plot', type: 'activity', tool: 'plot_timeseries', status: 'ok' },
+        { id: 'artifact_plot', type: 'artifact', name: 'MTA1_east_north_up.png', version: 2 },
+      ],
+      edges: [
+        { from: 'artifact_edit', to: 'artifact_plot', type: 'used', evidence: 'observed' },
+        {
+          from: 'activity:call_plot',
+          to: 'artifact_plot',
+          type: 'generated',
+          evidence: 'declared',
+        },
+      ],
+    });
+    const tool = graph.nodes.find((node) => node.id === 'activity:call_plot')!;
+    const edit = graph.nodes.find((node) => node.id === 'artifact_edit')!;
+    expect(tool.y).toBeLessThan(edit.y);
+    const edge = graph.edges.find((entry) => entry.from === 'activity:call_plot')!;
+    expect(edge.path.startsWith(`M${tool.x + tool.width},${tool.y + 20}`)).toBe(true);
   });
 });
 

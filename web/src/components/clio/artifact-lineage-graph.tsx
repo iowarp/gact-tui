@@ -167,11 +167,13 @@ function LineageGraph({
     <div
       role="region"
       aria-label={label}
-      className="flex h-full min-h-0 min-w-0 overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px]"
+      data-slot="lineage-canvas"
+      className="flex h-full min-h-0 min-w-0 items-start overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px] p-3.5"
     >
-      {/* Centred while it fits; auto margins fall to zero and it scrolls once it does not. */}
+      {/* Laid out from the top-left, as the spec's canvas is; spare room falls below and right. */}
       <div
-        className="relative m-auto shrink-0"
+        data-slot="lineage-layout"
+        className="relative shrink-0"
         style={{ width: graph.width, height: graph.height }}
       >
         <svg

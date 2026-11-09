@@ -87,7 +87,11 @@ it('draws the recorded lineage and opens the producing action in Activity', asyn
   const onOpenActivity = vi.fn();
   const client = mount({ onOpenActivity });
   const action = await screen.findByRole('button', { name: /Build report/u });
-  expect(screen.getByRole('region', { name: 'Artifact lineage graph' })).toBeVisible();
+  const canvas = screen.getByRole('region', { name: 'Artifact lineage graph' });
+  expect(canvas).toBeVisible();
+  // The graph is laid out from the canvas's top-left, not centred in it.
+  expect(canvas).toHaveClass('items-start');
+  expect(canvas.querySelector('[data-slot="lineage-layout"]')).not.toHaveClass('m-auto');
   expect(document.body).not.toHaveTextContent('"nodes"');
   expect(repository.executionProvenance).not.toHaveBeenCalled();
   expect(repository.artifactLineage).toHaveBeenCalledWith(
