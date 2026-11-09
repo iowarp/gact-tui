@@ -27,4 +27,15 @@ describe('latexProblems', () => {
       'Citation smap008 undefined',
     ]);
   });
+
+  it('only warns about an undefined citation or reference, since the PDF still builds', () => {
+    const problems = latexProblems(
+      report([
+        { kind: 'undefined_citation', message: 'Citation smap008 undefined', line: 34 },
+        { kind: 'undefined_reference', message: 'Reference fig:a undefined', line: 12 },
+        { kind: 'missing_file', message: 'figs/a.png not found', line: 0 },
+      ]),
+    );
+    expect(problems.map((problem) => problem.severity)).toEqual(['warning', 'warning', 'error']);
+  });
 });

@@ -693,12 +693,14 @@ export function ClioChart(props: ClioChartProps) {
     <section
       {...a2uiAccessibilityProps(accessibility)}
       aria-label={label}
-      className="group relative min-w-0"
+      className="group group/chart relative min-w-0 outline-none"
       data-slot="a2ui-chart"
       data-a2ui-component-id={componentId}
       data-visual-state={failure ? 'failed' : loading ? 'loading' : 'ready'}
       role="group"
       style={dataViewFlexStyle(weight)}
+      // A tap focuses a dashboard chart, which reveals its actions in a narrow pane on touch.
+      tabIndex={dashboard ? -1 : undefined}
     >
       <ChartHeader
         dashboard={dashboard}
