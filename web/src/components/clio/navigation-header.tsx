@@ -2,6 +2,8 @@ import { SearchIcon, UploadIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { useCommandKeyHeld } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import {
   SidebarHeader,
   SidebarMenu,
@@ -48,6 +50,7 @@ export function NavigationHeader({
 }: NavigationHeaderProps) {
   // Collapsed, the toggle moves to the top bar beside the breadcrumb.
   const { state: sidebarState } = useSidebar();
+  const commandKeyHeld = useCommandKeyHeld();
   return (
     <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
       <SidebarMenu className="flex-row items-center gap-1 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
@@ -105,10 +108,14 @@ export function NavigationHeader({
             <SearchIcon aria-hidden="true" />
             <span className="truncate">Search</span>
             <ShortcutKeys
-              className="ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden"
+              className={cn(
+                'ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden',
+                // The held badge takes its place.
+                commandKeyHeld && 'invisible',
+              )}
               id="search"
             />
-            <HeldKeyBadge id="search" />
+            <HeldKeyBadge id="search" side="inside-end" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

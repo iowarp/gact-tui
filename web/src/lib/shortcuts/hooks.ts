@@ -151,8 +151,6 @@ const heldListeners = new Set<() => void>();
 function setHeld(next: boolean) {
   if (held === next) return;
   held = next;
-  // Dims the page under the key badges (see index.css).
-  document.documentElement.toggleAttribute('data-keys-held', next);
   for (const listener of heldListeners) listener();
 }
 

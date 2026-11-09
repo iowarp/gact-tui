@@ -170,6 +170,17 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -250,7 +261,8 @@ function seededSettingsShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// connected?, route?, keepPointer?, platform?}. `platform: 'mac'` makes the page
+// report a Mac, for its ? keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -311,6 +323,41 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // Opening a file closes the list; show it again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
@@ -382,6 +429,54 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'New workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s(
+      'session',
+      'dialog-archived',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s(
+      'session',
+      'dialog-archived-delete',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
+        await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s('session', 'dialog-share', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+      await page.getByRole('dialog', { name: /^Share / }).waitFor();
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-share-link',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Actions for /u);
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+        await page.getByRole('button', { name: 'Create share link' }).click();
+        await page.getByRole('textbox', { name: 'Share link' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'share-link' },
+    ),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -668,7 +763,11 @@ const SAVED_AGENTS = [
   { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
 ];
 
-async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
@@ -707,6 +806,11 @@ async function newContext(browser, stack, { theme, width, connected = true, save
       await route.fulfill({ response });
     });
     await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
   }
   return context;
 }
@@ -856,6 +960,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
   const page = await context.newPage();
@@ -881,6 +986,48 @@ async function capture(browser, stack, shot, { theme, width }) {
         for (const session of listing.sessions ?? []) session.state = 'idle';
         await route.fulfill({ json: listing });
       },
+    );
+  }
+  if (shot.route === 'archived-sessions') {
+    // The fixture archives nothing; three archived rows as the spec draws them.
+    const archived = [
+      ['sess_archived_regrid', 'Soil moisture regrid', '2026-08-30T10:00:00Z'],
+      ['sess_archived_smap', 'SMAP granule audit', '2026-08-26T10:00:00Z'],
+      ['sess_archived_probe', 'Probe calibration notes', '2026-08-11T10:00:00Z'],
+    ];
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        const template = listing.sessions?.find((row) => !row.parent_session_id);
+        if (template) {
+          for (const [id, title, at] of archived) {
+            listing.sessions.push({
+              ...template,
+              id,
+              title,
+              state: 'completed',
+              archived: true,
+              pinned: false,
+              updated_at: at,
+            });
+          }
+          listing.total = listing.sessions.length;
+        }
+        await route.fulfill({ json: listing });
+      },
+    );
+  }
+  if (shot.route === 'share-link') {
+    await page.route('**/v1/sessions/*/share', (route) =>
+      route.fulfill({
+        json: {
+          token: 'shr_7f3k9q2m',
+          session_id: 'sess_flat_ndp',
+          url: '/s/7f3k9q2m',
+          expires_at: '2026-09-08T15:00:00Z',
+        },
+      }),
     );
   }
   if (shot.route === 'degraded-health') {
