@@ -93,7 +93,7 @@ export function AgentSettings() {
       onPreview={() => setPreviewRef(agent.ref)}
       onViewSource={agent.kind === 'user' ? () => setSourceAgent(agent) : undefined}
       selected={agent.ref === previewRef}
-      slot={agent.ref === defaultRef ? <Tag>Default</Tag> : null}
+      slot={agent.ref === defaultRef ? <Tag tone="chip" width="auto">Default</Tag> : null}
     />
   );
   const list = (
