@@ -81,7 +81,10 @@ it('turns the Explore suggestion off without touching the models', async () => {
     explore_nudge: { enabled: true, after: 6 },
   };
   repository.fleetSettings.mockResolvedValue(initial);
-  repository.updateFleetSettings.mockImplementation(async (value) => ({ ...value, revision: 'r2' }));
+  repository.updateFleetSettings.mockImplementation(async (value) => ({
+    ...value,
+    revision: 'r2',
+  }));
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -92,12 +95,25 @@ it('turns the Explore suggestion off without touching the models', async () => {
     </QueryClientProvider>,
   );
   const toggle = await screen.findByRole('switch', { name: 'Suggest Explore while searching' });
-  expect(screen.getByText('6')).toBeTruthy();
-  await userEvent.setup().click(toggle);
+  const reads = screen.getByRole('textbox', {
+    name: 'Reads before the Explore suggestion, as a number',
+  });
+  expect(reads).toHaveValue('6');
+  const user = userEvent.setup();
+  await user.clear(reads);
+  await user.type(reads, '9{Enter}');
   await waitFor(() =>
     expect(repository.updateFleetSettings).toHaveBeenCalledWith({
       ...initial,
-      explore_nudge: { enabled: false, after: 6 },
+      explore_nudge: { enabled: true, after: 9 },
+    }),
+  );
+  await user.click(toggle);
+  await waitFor(() =>
+    expect(repository.updateFleetSettings).toHaveBeenLastCalledWith({
+      ...initial,
+      revision: 'r2',
+      explore_nudge: { enabled: false, after: 9 },
     }),
   );
 });

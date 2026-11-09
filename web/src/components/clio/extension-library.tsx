@@ -526,29 +526,29 @@ function ExtensionLibraryContents({
 
   const suggestions = curated.filter((item) => item.suggested && !item.installed && matches(item));
   const yours = loadError ? (
-    <StateView
-      action={{
-        label: 'Retry',
-        onClick: () => {
-          void catalog.refetch();
-          void marketplaces.refetch();
-        },
-      }}
-      className="mt-6"
-      detail={loadError.message}
-      kind="error"
-      title="Extensions could not be loaded"
-    />
+    <div title={loadError.message}>
+      <StateView
+        action={{
+          label: 'Retry',
+          onClick: () => {
+            void catalog.refetch();
+            void marketplaces.refetch();
+          },
+        }}
+        kind="error"
+        size="row"
+        title="Extensions couldn’t be loaded."
+      />
+    </div>
   ) : loading ? (
-    <StateView className="mt-6" kind="loading" title="Loading extensions…" />
+    <StateView kind="loading" size="row" title="Loading extensions…" />
   ) : nothingInstalled && type === 'all' && !term ? (
     <StateView
       action={{ label: 'Add a marketplace', onClick: manager.openInstall }}
-      className="mt-6"
-      detail="Plugins, marketplaces, MCP connections and skills you add appear here."
       kind="empty"
       secondaryAction={{ label: 'Discover', onClick: () => setView('discover') }}
-      title="No extensions yet"
+      size="row"
+      title="No extensions yet."
     />
   ) : (
     <>
@@ -556,11 +556,12 @@ function ExtensionLibraryContents({
         <ItemList label="Extensions">{entries.map(row)}</ItemList>
       ) : (
         <StateView
-          className="mt-6"
           kind="empty"
           size="row"
           title={
-            term ? 'No matching extensions' : `No ${EXTENSION_TYPE_LABELS[type].toLowerCase()} yet`
+            term
+              ? `No extensions match “${term}”.`
+              : `No ${EXTENSION_TYPE_LABELS[type].toLowerCase()} yet.`
           }
         />
       )}
@@ -589,18 +590,20 @@ function ExtensionLibraryContents({
             <StateView kind="loading" size="row" title="Searching the MCP Registry…" />
           ) : null}
           {registry.error ? (
-            <StateView
-              action={{ label: 'Retry', onClick: () => void registry.refetch() }}
-              kind="error"
-              size="row"
-              title={registry.error.message}
-            />
+            <div title={registry.error.message}>
+              <StateView
+                action={{ label: 'Retry', onClick: () => void registry.refetch() }}
+                kind="error"
+                size="row"
+                title="The MCP Registry couldn’t be searched."
+              />
+            </div>
           ) : null}
           {registryItems.length ? (
             <ItemList label="MCP Registry servers">{registryItems.map(discoverRow)}</ItemList>
           ) : null}
           {registry.data && !registry.data.servers.length ? (
-            <StateView kind="empty" size="row" title="No matching servers" />
+            <StateView kind="empty" size="row" title="No servers match." />
           ) : null}
           <div className="mt-2 flex items-center gap-2">
             {registry.data?.next_cursor ? (
@@ -624,7 +627,7 @@ function ExtensionLibraryContents({
         </section>
       ) : null}
       {!shownCurated.length && !showRegistry ? (
-        <StateView kind="empty" size="row" title="No matching suggestions" />
+        <StateView kind="empty" size="row" title="No suggestions match." />
       ) : null}
     </>
   );
@@ -664,13 +667,13 @@ function ExtensionLibraryContents({
         </p>
       ) : null}
       {catalog.data?.default_marketplace_error ? (
-        <StateView
-          className="mt-3"
-          detail={`${catalog.data.default_marketplace_error.message} Other marketplaces still work.`}
-          kind="error"
-          size="row"
-          title="The shipped marketplace could not be installed"
-        />
+        <div className="mt-3" title={catalog.data.default_marketplace_error.message}>
+          <StateView
+            kind="error"
+            size="row"
+            title="The shipped marketplace couldn’t be installed; other marketplaces still work."
+          />
+        </div>
       ) : null}
       <div className="mt-3">{view === 'yours' ? yours : discover}</div>
       {manager.report}

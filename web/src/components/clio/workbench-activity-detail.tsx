@@ -503,7 +503,7 @@ function TurnDetail({
               <div key={step.id} role="listitem">
                 <ListRow
                   aria-label={`${row.name}, ${row.status}`}
-                  className="cursor-pointer"
+                  className="cursor-pointer text-[12.5px]"
                   columns={<MetaValue width={64}>{row.trailing}</MetaValue>}
                   onClick={open}
                   onKeyDown={(event) => {

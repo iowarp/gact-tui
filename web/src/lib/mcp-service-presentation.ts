@@ -131,7 +131,14 @@ export function serviceTarget(entry: {
 }): { short: string; full: string; kind: 'url' | 'command' } | undefined {
   const server = entry.server;
   if (server?.transport === 'in_process' || server?.source === 'plugin') return undefined;
-  const spec = entry.saved?.spec ?? server?.spec ?? {};
+  return specTarget(entry.saved?.spec ?? server?.spec);
+}
+
+/** A server spec's target: a URL's host, or a command's runner and package. */
+export function specTarget(
+  spec: Record<string, unknown> | undefined,
+): { short: string; full: string; kind: 'url' | 'command' } | undefined {
+  if (!spec) return undefined;
   if (typeof spec.url === 'string' && spec.url.trim()) {
     const full = spec.url.trim();
     try {
