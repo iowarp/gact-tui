@@ -32,7 +32,7 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * Item row (D): icon and name with a meta line, then fixed columns for status,
  * hover actions and a slot. `size="line"` is the shared 30px one-line row
  * (name, then muted meta that shrinks first). Every row of a list shares the
- * column widths, so status words and buttons line up. Below 36rem of list width
+ * column widths, so status words and buttons line up. Below 42rem of list width
  * the status column narrows to at most 7.5rem (still one width for every row),
  * the slot keeps its width, and hover actions float over the row's right side
  * instead of reserving a column, so the name keeps the room.
@@ -75,8 +75,8 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           actionsVisible
-            ? '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-actions)_var(--item-slot)]'
-            : '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-slot)]',
+            ? '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-actions)_var(--item-slot)]'
+            : '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-slot)]',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -133,7 +133,7 @@ export const ItemRow = memo(
           className={cn(
             'flex min-w-0 items-center justify-end gap-px',
             !actionsVisible &&
-              'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+1.125rem)] @max-xl:bg-hover @max-xl:w-[min(var(--item-status),7.5rem)] @max-xl:min-w-max',
+              'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+1.125rem)] @max-2xl:bg-hover @max-2xl:w-[min(var(--item-status),7.5rem)] @max-2xl:min-w-max',
           )}
           data-slot="item-row-actions"
         >
