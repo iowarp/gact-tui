@@ -72,24 +72,37 @@ export function DraftAgentCompositionView({
   draft,
   onChange,
   library = false,
+  embedded = false,
 }: {
   library?: boolean;
+  /** Inside a host that already shows the agent's name and scrolls (a detail pane). */
+  embedded?: boolean;
   draft: DraftAgent;
   onChange: (next: DraftAgent) => void;
 }) {
   const change = useDraftAgentChange(draft, onChange);
-  return <AgentComposition change={change} draft library={library} onCompact={() => undefined} />;
+  return (
+    <AgentComposition
+      change={change}
+      draft
+      embedded={embedded}
+      library={library}
+      onCompact={() => undefined}
+    />
+  );
 }
 
 function AgentComposition({
   change: source,
   draft = false,
   library = false,
+  embedded = false,
   onCompact,
 }: {
   change: AgentChangeSource;
   draft?: boolean;
   library?: boolean;
+  embedded?: boolean;
   onCompact: () => void;
 }) {
   const repository = useRepository();
@@ -155,22 +168,40 @@ function AgentComposition({
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);
   const changed = delta.add.length + delta.remove.length > 0;
   return (
-    <div className="clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto">
-      <header className={library ? 'grid gap-3 border-b p-4 pr-12' : 'grid gap-3 border-b p-4'}>
+    <div
+      className={
+        embedded
+          ? 'flex min-w-0 flex-col'
+          : 'clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto'
+      }
+    >
+      <header
+        className={
+          embedded
+            ? 'grid gap-3 border-b pb-3'
+            : library
+              ? 'grid gap-3 border-b p-4 pr-12'
+              : 'grid gap-3 border-b p-4'
+        }
+      >
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-            <BotIcon aria-hidden="true" className="size-5" />
-          </span>
+          {embedded ? null : (
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <BotIcon aria-hidden="true" className="size-5" />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
-            <h2 className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold">
-              {resolution.agent.name || resolution.agent.id}
-              {!library ? (
-                <span className="font-mono text-xs font-normal text-muted-foreground">
-                  {resolution.agent.ref}
-                  {resolution.agent.version ? `, version ${resolution.agent.version}` : ''}
-                </span>
-              ) : null}
-            </h2>
+            {embedded ? null : (
+              <h2 className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold">
+                {resolution.agent.name || resolution.agent.id}
+                {!library ? (
+                  <span className="font-mono text-xs font-normal text-muted-foreground">
+                    {resolution.agent.ref}
+                    {resolution.agent.version ? `, version ${resolution.agent.version}` : ''}
+                  </span>
+                ) : null}
+              </h2>
+            )}
             {resolution.agent.role ? (
               <p className="mt-0.5 text-sm text-muted-foreground">{resolution.agent.role}</p>
             ) : null}
@@ -293,7 +324,10 @@ function AgentComposition({
           </Alert>
         ) : null}
       </header>
-      <Tabs className="min-h-0 flex-1 p-4" defaultValue="plugins">
+      <Tabs
+        className={embedded ? 'min-h-0 flex-1 pt-3' : 'min-h-0 flex-1 p-4'}
+        defaultValue="plugins"
+      >
         <TabsList>
           <TabsTrigger value="plugins">Plugins ({resolution.plugins.length})</TabsTrigger>
           <TabsTrigger value="prompt">Prompt</TabsTrigger>
