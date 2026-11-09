@@ -2,7 +2,7 @@ import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
-import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { ServiceVersionError } from '@/lib/service-version-error';
 import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -19,11 +19,16 @@ import {
 
 export type ConnectionAvailabilityState = 'checking' | 'healthy' | 'degraded' | 'unavailable';
 
+/** What was actually observed when a service could not be opened. */
+export type UnavailableReason = 'no-answer' | 'timeout' | 'incompatible' | 'error' | 'failed';
+
 export interface ConnectionAvailability {
   state: ConnectionAvailabilityState;
   label: string;
   detail: string;
   diagnostics?: string;
+  /** Why an `unavailable` service cannot be opened. */
+  reason?: UnavailableReason;
   /** The service answered but is still starting; it is re-checked every second. */
   starting?: boolean;
 }
@@ -145,11 +150,9 @@ export async function probeConnection(
     const repository = createRepository(settings);
     const capabilities = await repository.capabilities(controller.signal);
     if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
-      return {
-        state: 'unavailable',
-        label: 'Incompatible',
-        detail: `Requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}.`,
-      };
+      return unavailableFromError(
+        new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions),
+      );
     }
 
     try {
@@ -190,13 +193,21 @@ export async function probeConnection(
   }
 }
 
+/** The probe gave up waiting: something may be listening, but it did not answer. */
+export class ServiceTimeoutError extends Error {
+  constructor() {
+    super('The service did not respond in time.');
+    this.name = 'ServiceTimeoutError';
+  }
+}
+
 function rethrowCancelledProbe(
   error: unknown,
   requestSignal: AbortSignal,
   probeSignal: AbortSignal,
 ): void {
   if (requestSignal.aborted) throw error;
-  if (probeSignal.aborted) throw new Error('The service did not respond in time.');
+  if (probeSignal.aborted) throw new ServiceTimeoutError();
 }
 
 function sameAvailability(
@@ -207,7 +218,8 @@ function sameAvailability(
     left?.state === right.state &&
     left.label === right.label &&
     left.detail === right.detail &&
-    left.diagnostics === right.diagnostics
+    left.diagnostics === right.diagnostics &&
+    left.reason === right.reason
   );
 }
 
@@ -215,23 +227,70 @@ function availabilityFromError(error: unknown): ConnectionAvailability {
   if (!error || (error instanceof Error && error.name === 'AbortError')) {
     return CHECKING_CONNECTION;
   }
+  return unavailableFromError(error);
+}
+
+/**
+ * An unavailable service, labelled by what actually happened: nothing answered, it did
+ * not answer in time, it is a different version, or it answered with an error. The
+ * primary text stays plain; protocol versions and raw errors go to `diagnostics`.
+ */
+export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof TransportError && error.code === 'network_unavailable') {
     return {
       state: 'unavailable',
       label: 'Not reachable',
       detail: NOT_REACHABLE_DETAIL,
+      reason: 'no-answer',
+    };
+  }
+  if (error instanceof ServiceTimeoutError) {
+    return {
+      state: 'unavailable',
+      label: 'Not responding',
+      detail: error.message,
+      reason: 'timeout',
+    };
+  }
+  if (error instanceof ServiceVersionError) {
+    return {
+      state: 'unavailable',
+      label: 'Incompatible',
+      detail: error.message,
+      diagnostics: JSON.stringify(error.details, null, 2),
+      reason: 'incompatible',
+    };
+  }
+  if (error instanceof TransportError && error.code === 'incompatible_capabilities') {
+    return {
+      state: 'unavailable',
+      label: 'Incompatible',
+      detail: new ServiceVersionError(PROTOCOL_VERSION, []).message,
+      diagnostics: JSON.stringify({ message: error.message, details: error.details }, null, 2),
+      reason: 'incompatible',
+    };
+  }
+  if (error instanceof TransportError && error.status !== undefined) {
+    return {
+      state: 'unavailable',
+      label: 'Service error',
+      detail: error.message || 'The service reported an error.',
+      diagnostics: JSON.stringify(
+        { status: error.status, code: error.code, details: error.details },
+        null,
+        2,
+      ),
+      reason: 'error',
     };
   }
   return {
     state: 'unavailable',
-    label:
-      error instanceof TransportError && error.code === 'incompatible_capabilities'
-        ? 'Incompatible'
-        : 'Not reachable',
-    detail: error instanceof Error ? error.message : NOT_REACHABLE_DETAIL,
+    label: 'Not available',
+    detail: error instanceof Error && error.message ? error.message : NOT_REACHABLE_DETAIL,
     diagnostics:
       error instanceof TransportError && error.details
         ? JSON.stringify(error.details, null, 2)
         : undefined,
+    reason: 'failed',
   };
 }
