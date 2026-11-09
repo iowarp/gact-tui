@@ -1,20 +1,12 @@
 import { useContext, useState } from 'react';
-import { ShieldAlertIcon } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { FolderCheckIcon, ShieldAlertIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tag } from './primitives/tag';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationNavigation } from './presentation-navigation';
+import { DialogFrame } from './primitives/dialog-frame';
+import { KeyValueGrid } from './primitives/key-value-grid';
 import { setFolderGrant, useFolderGrants } from './sandbox-boundary-grants';
 import { useWorkspaceFolders } from './workspace-folders';
 import type { SandboxBoundary } from './sandbox-boundary';
@@ -153,49 +145,47 @@ export function SandboxBoundaryNotice({
             ),
           )
         : null}
-      <AlertDialog open={Boolean(asking)} onOpenChange={(open) => !open && setAsking(undefined)}>
-        <AlertDialogContent data-dialog="allow-folder">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{`Allow writing to ${folderName(asking ?? '')}?`}</AlertDialogTitle>
-            <AlertDialogDescription>
-              The sandbox stopped a command from writing outside the folders this workspace may
-              change.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <dl className="grid gap-2 text-sm">
-            <div className="grid gap-0.5">
-              <dt className="text-xs text-muted-foreground">Folder</dt>
-              <dd className="font-mono text-xs [overflow-wrap:anywhere]">{asking}</dd>
-            </div>
-            <div className="grid gap-0.5">
-              <dt className="text-xs text-muted-foreground">What you allow</dt>
-              <dd>
-                Commands and scripts in every conversation of this workspace may create, change and
-                delete files in this folder and its subfolders.
-              </dd>
-            </div>
-            <div className="grid gap-0.5">
-              <dt className="text-xs text-muted-foreground">How long</dt>
-              <dd>Until you remove it in Settings, Permissions.</dd>
-            </div>
-            <div className="grid gap-0.5">
-              <dt className="text-xs text-muted-foreground">What happens next</dt>
-              <dd>The blocked command is not run again. Ask the agent to try again.</dd>
-            </div>
-          </dl>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (asking) void grant(asking);
-                setAsking(undefined);
-              }}
-            >
-              Allow folder
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DialogFrame
+        confirm={{
+          label: 'Allow folder',
+          onConfirm: () => {
+            if (asking) void grant(asking);
+            setAsking(undefined);
+          },
+        }}
+        description={`The sandbox blocked ${boundary.program ?? 'a command'} from writing there.`}
+        icon={<FolderCheckIcon />}
+        onOpenChange={(open) => !open && setAsking(undefined)}
+        open={Boolean(asking)}
+        title={`Allow writing to ${asking ?? ''}?`}
+      >
+        <div data-dialog="allow-folder">
+          <KeyValueGrid
+            items={[
+              {
+                label: 'What you allow',
+                title: `Read and write in ${asking ?? ''}`,
+                value: (
+                  <span className="min-w-0 truncate">
+                    Read and write in <span className="font-mono text-[12px]">{asking}</span>
+                  </span>
+                ),
+              },
+              {
+                label: 'For',
+                value: folders.workspace?.name
+                  ? `This workspace, ${folders.workspace.name}`
+                  : 'This workspace',
+              },
+              { label: 'Until', value: 'You remove it in Settings, Permissions' },
+            ]}
+            variant="facts"
+          />
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            The blocked command is not run again. Ask the agent to try again.
+          </p>
+        </div>
+      </DialogFrame>
     </div>
   );
 }
