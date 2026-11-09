@@ -102,6 +102,24 @@ async function stripList(page, name) {
   await page.waitForTimeout(800);
 }
 
+/** Show the Files list and open folders top-down, nested ones included. */
+async function expandedFiles(page, folders) {
+  await stripList(page, 'Files');
+  const list = page.getByRole('region', { name: 'Files list' });
+  for (let i = 0; i < folders; i += 1) {
+    const folder = list.getByRole('button', { name: /^Expand folder / }).first();
+    if (!(await folder.isVisible().catch(() => false))) break;
+    await folder.click();
+    await page.waitForTimeout(200);
+  }
+  await list
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first()
+    .evaluate((viewport) => viewport.scrollTo(0, 0))
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+
 async function openFile(page, path) {
   await stripList(page, 'Files');
   const list = page.getByRole('region', { name: 'Files list' });
@@ -256,6 +274,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
+    s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
     s('canvas', 'file-source', SESSION, (page) => openFile(page, 'scripts/regrid_stations.py')),
     s('canvas', 'file-diff', SESSION, async (page) => {
@@ -397,6 +416,9 @@ function catalogue({ settings, infrastructure }) {
       { scenario: { sessions: 300, workspaces: 20 } },
     ),
     s('scale', 'large-file-tree', SESSION, (page) => stripList(page, 'Files'), {
+      scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
+    }),
+    s('scale', 'large-file-tree-expanded', SESSION, (page) => expandedFiles(page, 6), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
     }),
     s('scale', 'large-csv', SESSION, (page) => openFile(page, 'perf/large-table.csv'), {

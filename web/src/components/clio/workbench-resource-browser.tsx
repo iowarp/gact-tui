@@ -325,7 +325,9 @@ export function FileBrowser({
           </Alert>
         )
       ) : null}
-      <ScrollArea className="min-h-0 flex-1 p-2">
+      {/* Radix wraps content in display:table, which lets long names widen the
+          tree and scroll it sideways; block keeps every row truncating. */}
+      <ScrollArea className="min-h-0 flex-1 p-2" viewportProps={{ className: '[&>div]:!block' }}>
         {directory !== undefined || filesNextOffset !== undefined ? (
           <WorkspaceDirectoryTree
             directory={directory}

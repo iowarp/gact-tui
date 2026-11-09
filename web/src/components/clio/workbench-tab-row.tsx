@@ -213,7 +213,10 @@ export function WorkbenchTabRow({
               strategy="horizontal"
               value={tabs as WorkbenchTab[]}
             >
-              <TabsList className="h-full w-max items-stretch justify-start gap-0.5 rounded-none bg-transparent p-0">
+              <TabsList
+                className="h-full w-max items-stretch justify-start gap-0.5 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-full"
+                variant="line"
+              >
                 {tabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = workbenchTabLabel(tab);
@@ -250,7 +253,7 @@ export function WorkbenchTabRow({
                           <SortableItemHandle asChild>
                             <TabsTrigger
                               aria-keyshortcuts="Delete"
-                              className={`${className} h-full justify-start border-0 bg-transparent py-0 font-normal text-inherit shadow-none data-active:bg-transparent data-active:shadow-none dark:data-active:bg-transparent`}
+                              className={`${className} h-full justify-start rounded-none border-0 bg-transparent py-0 font-normal text-inherit shadow-none after:hidden`}
                               onAuxClick={(event) => {
                                 if (event.button !== 1) return;
                                 event.preventDefault();
