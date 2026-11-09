@@ -246,7 +246,7 @@ function seededSettingsShots() {
 // pending-update marker and a stand-in for the desktop host's commands.
 const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
 
-function desktopStub({ version, marker, desktop, seen }) {
+function desktopStub({ version, marker, desktop, seen, boot }) {
   try {
     if (marker)
       localStorage.setItem(
@@ -264,10 +264,20 @@ function desktopStub({ version, marker, desktop, seen }) {
     unregisterCallback: () => undefined,
     // Only the app version answers; everything else stays pending, as on a
     // host that is still coming up.
-    invoke: (command) =>
-      command === 'plugin:app|version' && version
-        ? Promise.resolve(version)
-        : new Promise(() => undefined),
+    invoke: (command) => {
+      if (command === 'plugin:app|version' && version) return Promise.resolve(version);
+      // Local startup: the service was found missing, and the runtime is being prepared.
+      if (boot && command === 'get_backend') {
+        const detail =
+          (boot.calls = (boot.calls ?? 0) + 1) > 1 ? 'installing_runtime' : 'checking_existing';
+        return Promise.resolve({ url: '', bearer_token: '', status: { kind: 'starting', detail } });
+      }
+      if (boot && command === 'read_logs')
+        return Promise.resolve(
+          '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
+        );
+      return new Promise(() => undefined);
+    },
   };
 }
 
@@ -317,6 +327,16 @@ function catalogue({ settings, infrastructure }) {
     });
   return [
     s('connect', 'first-run', '/', null, { connected: false, ready: 'main' }),
+    s('connect', 'local-startup', '/', null, {
+      connected: false,
+      ready: '[aria-label="Startup progress"] [aria-current="step"]',
+      allowLoading: true,
+      settleMs: 2500,
+      initScript: [
+        desktopStub,
+        { desktop: true, version: APP_VERSION, seen: APP_VERSION, boot: {} },
+      ],
+    }),
     s('connect', 'unreachable-service', '/', null, {
       connected: 'http://127.0.0.1:9',
       ready: 'main',
@@ -480,6 +500,28 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
       await press(page, 'tab', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
     }),
     s(
       'session',
