@@ -148,7 +148,8 @@ async function expectWorkspaceRegions(
     header: { region: page.locator('[data-slot="workspace-header"]'), mask: [] },
     transcript: {
       region: page.locator('[data-slot="session-transcript"]'),
-      mask: [composerStack],
+      // The Thinking row counts seconds from mount, so its time differs per run.
+      mask: [composerStack, page.locator('[data-slot="turn-response-wait"]').getByText(/^\d+s$/)],
     },
     attention: { region: attention, mask: [] },
     composer: { region: composerStack, mask: [attention] },
