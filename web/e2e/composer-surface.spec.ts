@@ -237,7 +237,8 @@ for (const theme of ['dark', 'light'] as const) {
         path: testInfo.outputPath(`${theme}-${width}-idle-composer.png`),
       });
       // Surface separation is a visual design threshold; text meets WCAG AA contrast.
-      expect(colors.surfaceContrast).toBeGreaterThan(theme === 'dark' ? 1.25 : 1.08);
+      // Notebook separates the composer by a warm card step, not a bright slab.
+      expect(colors.surfaceContrast).toBeGreaterThan(1.08);
       expect(colors.placeholderContrast).toBeGreaterThanOrEqual(4.5);
       await editor.click();
       await expect(editor).toBeFocused();

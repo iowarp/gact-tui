@@ -45,8 +45,8 @@ test('appearance settings stay within narrow windows and apply the theme', async
     .getByRole('radiogroup', { name: 'Theme' })
     .locator('svg')
     .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
-  // System, Light, Dark and Notebook (Debug is offered in development builds only).
-  expect(icons).toHaveLength(4);
+  // System, Light, Dark, Cool and Neutral (Debug is development-only).
+  expect(icons).toHaveLength(5);
   // Labelled choices use the spec's 14px chip icon, the same size as SegmentedControl.
   expect(Math.min(...icons)).toBeGreaterThanOrEqual(14);
 });
