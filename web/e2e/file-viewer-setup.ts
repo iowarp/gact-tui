@@ -2,7 +2,8 @@ import { expect, type Download, type Locator, type Page } from '@playwright/test
 
 /**
  * Open a file view: a visible mode tab, the folded modes menu of a narrow
- * frame bar, or a secondary inspection view through File actions.
+ * frame bar, the checked mode list in … at the narrowest step, or a secondary
+ * inspection view through File actions.
  */
 export async function selectFileView(page: Page, viewer: Locator, name: string): Promise<void> {
   const tab = viewer.getByRole('tab', { name, exact: true });
@@ -31,7 +32,12 @@ export async function selectFileView(page: Page, viewer: Locator, name: string):
     await page.keyboard.press('Escape');
   }
   await viewer.getByRole('button', { name: 'File actions', exact: true }).click();
-  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+  // Narrowest, the modes are a checked list in …; otherwise an inspection view.
+  await page
+    .getByRole('menuitemradio', { name, exact: true })
+    .or(page.getByRole('menuitemcheckbox', { name, exact: true }))
+    .first()
+    .click();
   await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
 }
 

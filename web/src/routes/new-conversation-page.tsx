@@ -31,7 +31,7 @@ import {
   canUploadWorkspaceResources,
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
-import { useComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
@@ -70,6 +70,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
+  const draftValue = useComposerDraftValue(draft);
   const [filesViewActive, setFilesViewActive] = useState(false);
   const data = useWorkspaceData({
     contextTargetId: '',
@@ -204,7 +205,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           <ClioDownloadsButton />
         </div>
       }
-      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} tokens={0} />}
+      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
       workbenchReveal={requests}
       workbench={
         <ClioWorkbench
@@ -237,7 +238,12 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
                   setDraftDelta(next.delta);
                 }}
               />
-            ) : undefined
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">
+                The default agent has nothing to change here. Choose an agent next to “with” to
+                customize its plugins, prompt and tools.
+              </p>
+            )
           }
           onUndoDiff={(sessionId, workspaceId, changeId) =>
             diffActions.undo.mutateAsync({ sessionId, workspaceId, changeId })
@@ -284,7 +290,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
                 }}
                 onManageAgents={openAgent}
               />
-              {draftRef ? (
+              {agentsSupported !== false ? (
                 <DraftCustomizeChip
                   changes={draftChanges}
                   disabled={send.isPending}
@@ -324,7 +330,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               await send.mutateAsync(value);
             }}
             resources={data.workspaceResources.data ?? []}
-            value={draft.value}
+            value={draftValue}
             onValueChange={draft.onValueChange}
             references={draft.references}
             onReferencesChange={draft.onReferencesChange}

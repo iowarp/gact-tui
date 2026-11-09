@@ -1,24 +1,40 @@
 import { brand } from '@brand';
 import {
+  AppWindowIcon,
   ArrowLeftIcon,
+  ArrowLeftRightIcon,
   ArrowRightIcon,
+  BookOpenIcon,
+  BotIcon,
+  DownloadIcon,
+  EyeIcon,
+  FileIcon,
+  KeyboardIcon,
+  LayersIcon,
+  Link2Icon,
   Maximize2Icon,
   MinusIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
   PanelTopIcon,
+  ScanIcon,
+  SearchIcon,
   ServerIcon,
+  TerminalSquareIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
 import {
   AddIcon,
   CloseIcon,
+  ConnectionSettingsIcon,
   HelpIcon,
   InfoIcon,
   MoreIcon,
   RefreshIcon,
   SettingsIcon,
 } from '@/lib/icon-vocabulary';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -38,10 +54,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
+import { SwitchAgentItem } from '@/components/clio/clio-menu';
+import { useKnownConnections } from '@/hooks/use-known-connections';
+import { useSwitchConnection } from '@/hooks/use-switch-connection';
+import type { ConnectionSettings } from '@/lib/connection';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
 import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
@@ -52,7 +76,12 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
 import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
-import { dispatchMenuAction } from '@/tauri/menu-actions';
+import {
+  dispatchMenuAction,
+  useMenuAction,
+  useMenuActionAvailable,
+  type MenuAction,
+} from '@/tauri/menu-actions';
 import {
   ackClosePromptShown,
   runDesktopWindowAction,
@@ -108,6 +137,73 @@ function WindowButton({
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
+}
+
+/**
+ * One app-menu row that runs the same workflow as the native menu bar item.
+ * Disabled while no mounted screen handles the action (Workbench without one).
+ */
+function MenuActionItem({
+  action,
+  children,
+  keepOpen = false,
+  shortcut,
+}: {
+  action: MenuAction;
+  children: ReactNode;
+  /** Keep the menu open so repeated picks (zoom) apply in place. */
+  keepOpen?: boolean;
+  /** Shortcut catalog id whose keys the row shows. */
+  shortcut?: string;
+}) {
+  const available = useMenuActionAvailable(action);
+  return (
+    <DropdownMenuItem
+      disabled={!available}
+      onSelect={(event) => {
+        if (keepOpen) event.preventDefault();
+        dispatchMenuAction(action);
+      }}
+    >
+      {children}
+      {shortcut ? (
+        <DropdownMenuShortcut>
+          <ShortcutKeys id={shortcut} />
+        </DropdownMenuShortcut>
+      ) : null}
+    </DropdownMenuItem>
+  );
+}
+
+/**
+ * The saved agents other than the current one. It mounts only while the
+ * Switch to submenu is open, so their availability is probed on demand.
+ */
+function SwitchAgentItems() {
+  const { settings } = useConnectionSettings();
+  const connections = useKnownConnections();
+  const switchConnection = useSwitchConnection();
+  const others = connections.filter((connection) => connection.endpoint !== settings.endpoint);
+  const switchTo = async (connection: ConnectionSettings) => {
+    try {
+      await switchConnection(connection);
+    } catch (error) {
+      toast.error('Could not switch agent service', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+  if (!others.length) {
+    return <p className="px-2 py-1.5 text-[12px] text-muted-foreground">No other saved agents</p>;
+  }
+  return others.map((connection) => (
+    <SwitchAgentItem
+      availability={connection.availability}
+      connection={connection}
+      key={connection.endpoint}
+      onConnect={switchTo}
+    />
+  ));
 }
 
 /** Product-owned chrome for the frameless Tauri window. */
@@ -168,17 +264,21 @@ export function DesktopTitleBar() {
   }, []);
 
   // The window menu answers to Alt+Space in Desktop; a browser keeps that key
-  // for the CLIO menu search, and a Mac keeps ??/ for searching its menu bar,
-  // so there it has no key. New session, fullscreen and reload are bound here
-  // too: trimming the native macOS menu (see menu_spec.rs) dropped its Cmd+N,
-  // and WKWebView has no reload key, so these are the only bindings on every
-  // platform. Settings (Ctrl+,) is bound in App for web and desktop alike. Keys
+  // for the CLIO menu search, and a Mac keeps ⇧⌘/ for searching its menu bar,
+  // so there it has no key. New conversation, fullscreen and reload are bound
+  // here too: WKWebView offers a key to the page before the native menu, and
+  // these handlers prevent the default, so the macOS accelerator never runs
+  // twice. Settings (Ctrl+,) is bound in App for web and desktop alike. Keys
   // and labels come from the shared catalog. Registered ahead of the early
   // return for the hooks-order reason above.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: inTauri() });
   useShortcut('new-conversation', () => dispatchMenuAction('new-session'));
   useShortcut('fullscreen', () => void runWindowAction('toggleFullscreen'));
   useShortcut('reload', () => window.location.reload());
+  useMenuAction('reload', () => window.location.reload());
+  useMenuAction('zoom-in', desktopZoom.zoomIn);
+  useMenuAction('zoom-out', desktopZoom.zoomOut);
+  useMenuAction('zoom-reset', desktopZoom.resetZoom);
 
   if (!inTauri()) return null;
 
@@ -199,82 +299,164 @@ export function DesktopTitleBar() {
           <DropdownMenuContent align="start" className="min-w-56">
             <DropdownMenuLabel>{brand.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => dispatchMenuAction('new-session')}>
-              <AddIcon aria-hidden="true" />
-              New session
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="new-conversation" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => dispatchMenuAction('manage-agent-services')}>
-              <ServerIcon aria-hidden="true" />
-              Connect or deploy {vocab.agent}…
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => dispatchMenuAction('open-settings')}>
-              <SettingsIcon aria-hidden="true" />
-              Settings
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="settings" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => window.location.reload()}>
-              <RefreshIcon aria-hidden="true" />
-              Reload workspace
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="reload" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void runWindowAction('toggleFullscreen')}>
-              <PanelTopIcon aria-hidden="true" />
-              Toggle fullscreen
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="fullscreen" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FileIcon aria-hidden="true" />
+                File
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-56">
+                <MenuActionItem action="new-session" shortcut="new-conversation">
+                  <AddIcon aria-hidden="true" />
+                  New conversation
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setClosePromptOpen(true)}>
+                  <CloseIcon aria-hidden="true" />
+                  Close window
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <EyeIcon aria-hidden="true" />
+                View
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-56">
+                <MenuActionItem action="search" shortcut="search">
+                  <SearchIcon aria-hidden="true" />
+                  Search
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <MenuActionItem action="toggle-left-bar" shortcut="left-pocket">
+                  <PanelLeftIcon aria-hidden="true" />
+                  Left bar
+                </MenuActionItem>
+                <MenuActionItem action="toggle-workbench" shortcut="right-pocket">
+                  <PanelRightIcon aria-hidden="true" />
+                  Workbench
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <MenuActionItem action="reload" shortcut="reload">
+                  <RefreshIcon aria-hidden="true" />
+                  Reload workspace
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <MenuActionItem action="zoom-reset" keepOpen shortcut="zoom-reset">
+                  <ScanIcon aria-hidden="true" />
+                  Actual size ({Math.round(desktopZoom.zoom * 100)}%)
+                </MenuActionItem>
+                <MenuActionItem action="zoom-in" keepOpen shortcut="zoom-in">
+                  <ZoomInIcon aria-hidden="true" />
+                  Zoom in
+                </MenuActionItem>
+                <MenuActionItem action="zoom-out" keepOpen shortcut="zoom-out">
+                  <ZoomOutIcon aria-hidden="true" />
+                  Zoom out
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void runWindowAction('toggleFullscreen')}>
+                  <PanelTopIcon aria-hidden="true" />
+                  Toggle fullscreen
+                  <DropdownMenuShortcut>
+                    <ShortcutKeys id="fullscreen" />
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <BotIcon aria-hidden="true" />
+                Agent
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-56">
+                <MenuActionItem action="connection-settings">
+                  <ConnectionSettingsIcon aria-hidden="true" />
+                  Connection settings
+                </MenuActionItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowLeftRightIcon aria-hidden="true" />
+                    Switch to
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-[300px]">
+                    <SwitchAgentItems />
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <MenuActionItem action="manage-agents">
+                  <ServerIcon aria-hidden="true" />
+                  Manage agents
+                </MenuActionItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <AddIcon aria-hidden="true" />
+                    Add an agent…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-56">
+                    <MenuActionItem action="connect-by-address">
+                      <Link2Icon aria-hidden="true" />
+                      Connect by address
+                    </MenuActionItem>
+                    <MenuActionItem action="manage-agent-services">
+                      <TerminalSquareIcon aria-hidden="true" />
+                      Connect over SSH
+                    </MenuActionItem>
+                    <MenuActionItem action="install-agent">
+                      <DownloadIcon aria-hidden="true" />
+                      Install {brand.agentName} on a computer
+                    </MenuActionItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <MenuActionItem action="open-infrastructure" shortcut="infrastructure">
+                  <LayersIcon aria-hidden="true" />
+                  Infrastructure
+                </MenuActionItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <AppWindowIcon aria-hidden="true" />
+                Window
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-56">
+                <DropdownMenuItem onSelect={() => void runWindowAction('minimize')}>
+                  <MinusIcon aria-hidden="true" />
+                  Minimize
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void runWindowAction('toggleMaximize')}>
+                  <Maximize2Icon aria-hidden="true" />
+                  Maximize or restore
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <HelpIcon aria-hidden="true" />
+                Help
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="min-w-56">
+                <MenuActionItem action="help-docs">
+                  <BookOpenIcon aria-hidden="true" />
+                  Documentation
+                </MenuActionItem>
+                <MenuActionItem action="keyboard-shortcuts" shortcut="shortcuts">
+                  <KeyboardIcon aria-hidden="true" />
+                  Keyboard shortcuts
+                </MenuActionItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(event) => {
-                // Keep the menu open so repeated clicks keep zooming.
-                event.preventDefault();
-                desktopZoom.zoomIn();
-              }}
-            >
-              <ZoomInIcon aria-hidden="true" />
-              Zoom in
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="zoom-in" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                desktopZoom.zoomOut();
-              }}
-            >
-              <ZoomOutIcon aria-hidden="true" />
-              Zoom out
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="zoom-out" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => desktopZoom.resetZoom()}>
-              <RefreshIcon aria-hidden="true" />
-              Reset zoom ({Math.round(desktopZoom.zoom * 100)}%)
-              <DropdownMenuShortcut>
-                <ShortcutKeys id="zoom-reset" />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => dispatchMenuAction('help-docs')}>
-              <HelpIcon aria-hidden="true" />
-              Documentation
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => dispatchMenuAction('about')}>
+            <MenuActionItem action="about">
               <InfoIcon aria-hidden="true" />
               About {brand.wordmark}
-            </DropdownMenuItem>
+            </MenuActionItem>
+            <MenuActionItem action="open-settings" shortcut="settings">
+              <SettingsIcon aria-hidden="true" />
+              Settings
+            </MenuActionItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void runWindowAction('quit')}>
+            <DropdownMenuItem onSelect={() => void runWindowAction('quit')}>
               <CloseIcon aria-hidden="true" />
               Quit {brand.wordmark}
             </DropdownMenuItem>

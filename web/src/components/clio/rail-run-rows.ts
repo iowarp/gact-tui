@@ -69,6 +69,7 @@ export function railRuns(
         workspaceLabel: '',
         workspaceLabelFields: { name: '', qualifiers: [] },
         updatedAt: task?.updated_at ?? task?.created_at ?? '',
+        elapsedMs: child?.duration_ms,
         flowHandle: task?.flow ? entry.key : undefined,
       },
     };

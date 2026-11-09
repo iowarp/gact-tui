@@ -12,14 +12,14 @@ type Marker = { name: string; used_percent: number };
 
 function Readout({ tokens, cost, marker }: { tokens?: number; cost?: number; marker?: Marker }) {
   return (
-    <span className="ml-auto hidden items-center gap-3 font-mono sm:inline-flex">
+    <span className="hidden items-center gap-3 text-[12px] text-muted-foreground tabular-nums sm:inline-flex">
       {marker ? (
         <span className="rounded border border-warning/50 px-1 text-warning-foreground">
           {marker.name} {Math.round(marker.used_percent)}%
         </span>
       ) : null}
       <span title="Tokens recorded for this conversation">Tokens: {tokens ?? 0}</span>
-      <span>
+      <span className="hidden lg:inline">
         Cost:{' '}
         {cost === undefined ? (
           <span className="text-muted-foreground/70">&mdash;</span>
@@ -32,7 +32,7 @@ function Readout({ tokens, cost, marker }: { tokens?: number; cost?: number; mar
 }
 
 /**
- * The tokens and cost under the chat box. Hovering (or focusing) shows the
+ * The tokens and cost in the conversation's top bar. Hovering (or focusing) shows the
  * account the conversation runs on: its usage windows and resets, its balance,
  * and what this conversation and the work it started spent per model. Past 80%
  * of a window, the readout names that window and its use.
@@ -80,14 +80,14 @@ function SessionUsageHover({
       <HoverCardTrigger asChild>
         <button
           aria-label="Usage for this conversation's account"
-          className="ml-auto hidden cursor-default items-center sm:inline-flex"
+          className="hidden h-7 cursor-default items-center rounded-[6px] px-1.5 hover:bg-hover sm:inline-flex"
           onClick={() => setOpen(true)}
           type="button"
         >
           <Readout cost={cost} marker={marker} tokens={tokens} />
         </button>
       </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-80 font-sans" side="top">
+      <HoverCardContent align="end" className="w-80 font-sans" side="bottom">
         {account ? (
           <div className="grid gap-3">
             <div>
