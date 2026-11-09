@@ -55,12 +55,35 @@ const control = (page, role, name, options = {}) =>
     .filter({ visible: true })
     .first();
 
+/**
+ * Row actions in the left bar stay hidden until their row is hovered; hover the
+ * row that owns a hidden match so the action can be pressed like a person would.
+ */
+async function revealRowAction(page, role, name, options) {
+  const matches = page.getByRole(role, { name, includeHidden: true, ...options });
+  const count = Math.min(await matches.count(), 20);
+  for (let index = 0; index < count; index += 1) {
+    const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+    if (!(await row.isVisible().catch(() => false))) continue;
+    // Hover the trailing edge, where the actions column appears, so the pointer
+    // stays on the row (and off any hover card) while the action is pressed.
+    const box = await row.boundingBox();
+    await row.hover(box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {});
+    await page.waitForTimeout(150);
+    return true;
+  }
+  return false;
+}
+
 async function press(page, role, name, options) {
   const target = control(page, role, name, options);
-  const visible = await target
+  let visible = await target
     .waitFor({ state: 'visible', timeout: 1500 })
     .then(() => true)
     .catch(() => false);
+  if (!visible && (await revealRowAction(page, role, name, options))) {
+    visible = await target.isVisible().catch(() => false);
+  }
   if (!visible) {
     // Narrow layouts move the left bar into a sheet behind the sidebar trigger.
     const trigger = page
@@ -71,6 +94,9 @@ async function press(page, role, name, options) {
       await trigger.click();
       await page.waitForTimeout(500);
     }
+  }
+  if (!(await target.isVisible().catch(() => false))) {
+    await revealRowAction(page, role, name, options);
   }
   await target.waitFor({ state: 'visible', timeout: 4000 });
   await target.click();
@@ -199,12 +225,23 @@ async function tabOnly(page, stripName, tabListTitle) {
   await page.waitForTimeout(800);
 }
 
+/** On a phone the pane holds the tab's list or its body; show the body. */
+async function phoneTabBody(page, listTitle) {
+  if ((page.viewportSize()?.width ?? 1280) > 480) return;
+  const hide = control(page, 'button', `Hide ${listTitle}`, { exact: true });
+  if (await hide.isVisible().catch(() => false)) {
+    await hide.dispatchEvent('click');
+    await page.waitForTimeout(600);
+  }
+}
+
 /** Open the study's science log from the workbench strip. */
 async function openScienceLog(page) {
   await stripList(page, 'Science log');
   // A list left open on the strip covers the study's own; show the study.
   const show = control(page, 'button', 'Show Study', { exact: true });
-  if (await show.isVisible().catch(() => false)) await show.click();
+  // On a phone the canvas sheet takes the pointer; click by event.
+  if (await show.isVisible().catch(() => false)) await show.dispatchEvent('click');
   await showsText(page, 'Was 2022 below baseline?');
   await page.waitForTimeout(800);
 }
@@ -634,16 +671,15 @@ function catalogue({ settings, infrastructure }) {
       ),
     ]),
     menu('menu-search-work', 'button', 'Search work'),
-    menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
-    menu('menu-attention-inbox', 'button', /needs your response/u),
+    menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
     s(
       'session',
       'menu-service-status',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^Workspace Service status/u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
       },
@@ -654,7 +690,7 @@ function catalogue({ settings, infrastructure }) {
       'menu-clio-add-agent',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^Workspace Service status/u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
         // By key, so moving the pointer away before the capture keeps it open.
@@ -665,7 +701,7 @@ function catalogue({ settings, infrastructure }) {
       { savedAgents: true },
     ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
-      await press(page, 'button', 'Show infrastructure status');
+      await press(page, 'button', /^Infrastructure: /u);
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
@@ -676,12 +712,6 @@ function catalogue({ settings, infrastructure }) {
       await page.keyboard.press('ArrowRight');
       await page.waitForTimeout(400);
     }),
-    menu(
-      'menu-version-status',
-      'button',
-      /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u,
-    ),
-    menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
@@ -704,18 +734,35 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('session', 'dialog-new-session', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-    }),
-    s('session', 'dialog-new-workspace', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-      await press(page, 'radio', 'Workspace', { exact: true });
+      // New conversation is a draft in place (full-picture/08), not a dialog.
+      await press(page, 'button', 'New conversation', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s('session', 'held-keys', SESSION, async (page) => {
+      // Holding the command key alone shows each control's shortcut badge.
+      await page.keyboard.down('Control');
+      await page.waitForTimeout(900);
+    }),
+    s('session', 'dialog-new-workspace', SESSION, async (page) => {
+      await press(page, 'button', 'New workspace', { exact: true });
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-allow-folder',
+      SESSION,
+      async (page) => {
+        // From the keyboard, so the focus ring shows where it starts (Cancel), as the spec draws.
+        await control(page, 'button', 'Allow opal').focus();
+        await page.keyboard.press('Enter');
+        await overlay(page);
+      },
+      { route: 'sandbox-blocked' },
+    ),
     s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
+      await press(page, 'button', 'New workspace', { exact: true });
       await overlay(page);
+      await press(page, 'radio', 'Session', { exact: true });
       await press(page, 'button', 'Advanced session behavior');
       await page.waitForTimeout(300);
     }),
@@ -726,7 +773,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await press(page, 'menuitem', 'Delete…', { exact: true });
       await overlay(page);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
@@ -917,6 +964,16 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
+    s(
+      'runs',
+      'selected',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button').first().click();
+        await page.waitForTimeout(600);
+      },
+      { ready: '[data-run-state]' },
+    ),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
@@ -972,6 +1029,21 @@ function catalogue({ settings, infrastructure }) {
         await page.waitForTimeout(300);
       },
       { ready: 'h1', settleMs: 1200 },
+    ),
+    // A computer row with its hover actions showing (narrow, laid over the row's end).
+    // Touch layouts have no hover, so the row takes keyboard focus instead.
+    s(
+      'infrastructure',
+      'agent-hosts-hover',
+      '/infrastructure/agent',
+      async (page) => {
+        const host = page.locator('[data-slot="list-row"]', { hasText: 'utah-cluster' }).first();
+        await host.hover();
+        // The actions are hidden until then, so focus goes to the name's button.
+        await host.locator('button[aria-expanded]').first().focus();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, keepPointer: true },
     ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
@@ -1059,9 +1131,10 @@ function catalogue({ settings, infrastructure }) {
         'science-log',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           // The spec opens one observation in place.
           const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
-          if (await row.isVisible().catch(() => false)) await row.click();
+          if (await row.isVisible().catch(() => false)) await row.dispatchEvent('click');
           await page.waitForTimeout(600);
         },
       ],
@@ -1069,6 +1142,7 @@ function catalogue({ settings, infrastructure }) {
         'study-graph',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
         },
       ],
@@ -1099,6 +1173,7 @@ function catalogue({ settings, infrastructure }) {
             'SMAP L3 soil moisture',
           ]);
           await tabOnly(page, 'Files', 'Outline');
+          await phoneTabBody(page, 'Outline');
         },
       ],
     ].map(([state, setup]) =>
@@ -1419,6 +1494,36 @@ async function capture(browser, stack, shot, { theme, width }) {
         await route.fulfill({ json: listing });
       },
     );
+  }
+  if (shot.route === 'sandbox-blocked') {
+    // The catalog search becomes a script the sandbox stopped from writing outside the workspace.
+    await page.route('**/v1/sessions/*/messages*', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const transcript = await (await route.fetch()).json();
+      transcript.tools = (transcript.tools ?? []).map((tool) =>
+        tool.id === 'tool_earthscope'
+          ? {
+              ...tool,
+              name: 'shell_bash',
+              title: 'Run',
+              state: 'failed',
+              input: { command: 'python qc_sites.py' },
+              error: 'Permission denied: /scratch/jc/opal/sites.csv',
+              output: {
+                boundary: {
+                  kind: 'write_denied',
+                  confidence: 'confirmed',
+                  paths: ['/scratch/jc/opal/sites.csv'],
+                  request_roots: ['/scratch/jc/opal'],
+                  message:
+                    "CLIO's sandbox blocked this write. /scratch/jc/opal is not a permitted folder.",
+                },
+              },
+            }
+          : tool,
+      );
+      await route.fulfill({ json: transcript });
+    });
   }
   if (shot.route === 'archived-sessions') {
     // The fixture archives nothing; three archived rows as the spec draws them.

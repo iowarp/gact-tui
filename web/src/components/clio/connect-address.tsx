@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { ConnectField, ConnectStatusLine, ConnectInput } from '@/components/clio/connect-frame';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { internalException, UNEXPECTED_CONNECT_ERROR } from '@/hooks/use-connection-availability';
 import { defaultEndpoint } from '@/lib/connection';
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
@@ -98,7 +99,9 @@ export function ConnectAddressFields({
 
 /**
  * A failure as one status line: what failed, why, and the next step. Raw
- * diagnostics stay behind the Diagnostic details button.
+ * diagnostics, including an unexpected exception's own text, stay behind the
+ * Diagnostic details button. Without a title the line gives only the reason,
+ * for when the failure's headline is already shown nearby.
  */
 export function ConnectErrorLine({
   error,
@@ -107,12 +110,14 @@ export function ConnectErrorLine({
   recovery,
 }: {
   error: Error;
-  title: string;
+  title?: string;
   onRetry?: () => void;
   recovery?: ReactNode;
 }) {
-  const details =
-    error instanceof TransportError || error instanceof ServiceVersionError
+  const internal = internalException(error);
+  const details = internal
+    ? { error: internal }
+    : error instanceof TransportError || error instanceof ServiceVersionError
       ? error.details
       : undefined;
   return (
@@ -154,7 +159,14 @@ export function ConnectErrorLine({
       role="alert"
       tone="error"
     >
-      <span className="font-medium after:content-[':']">{title}</span> <span>{error.message}</span>
+      {title ? (
+        <>
+          <span className="font-medium after:content-[':']">{title}</span>{' '}
+        </>
+      ) : null}
+      <span>
+        {internal ? (title ? UNEXPECTED_CONNECT_ERROR : 'Unexpected error') : error.message}
+      </span>
     </ConnectStatusLine>
   );
 }

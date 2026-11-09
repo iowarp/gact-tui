@@ -21,7 +21,7 @@ export function detectKeyPlatform(): KeyPlatform {
   return isMacOS() ? 'mac' : 'windows';
 }
 
-function detectHost(): 'desktop' | 'browser' {
+export function detectHost(): 'desktop' | 'browser' {
   try {
     return inTauri() ? 'desktop' : 'browser';
   } catch {

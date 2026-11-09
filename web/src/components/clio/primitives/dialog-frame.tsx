@@ -7,7 +7,11 @@ import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
 
-/** Focus goes to the element marked with this attribute when a frame opens. */
+/**
+ * Focus goes to the first element marked with this attribute when a frame opens:
+ * the safe button, or a body field that is the point of the dialog (Rename's
+ * name, its text selected).
+ */
 const INITIAL_FOCUS = '[data-initial-focus]';
 
 function focusSafeButton(event: Event) {
@@ -16,6 +20,7 @@ function focusSafeButton(event: Event) {
   if (!target) return;
   event.preventDefault();
   target.focus();
+  if (target instanceof HTMLInputElement) target.select();
 }
 
 /**
@@ -94,7 +99,7 @@ export interface DialogFrameProps {
   onOpenChange: (open: boolean) => void;
   icon?: ReactNode;
   title: string;
-  /** One line under the title; cut with an ellipsis, never two lines. */
+  /** A sentence under the title, aligned with its text; it wraps rather than cut. */
   description?: string;
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
@@ -120,9 +125,10 @@ export interface DialogFrameProps {
 }
 
 /**
- * The one dialog: icon, title, ×, one-line description, body, buttons on the
+ * The one dialog: icon, title, ×, a description under the title, body, buttons on the
  * right. 36% of the window wide (360 to 560 px), a bottom sheet below 600 px.
- * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button.
+ * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button
+ * unless a body field is marked `data-initial-focus`.
  */
 export const DialogFrame = memo(function DialogFrame({
   open,
@@ -200,8 +206,10 @@ export const DialogFrame = memo(function DialogFrame({
         </div>
         {description ? (
           <DialogDescription
-            title={description}
-            className="-mt-2 truncate pr-3.5 pb-1 pl-[18px] text-[12.5px] [overflow-wrap:normal]"
+            className={cn(
+              '-mt-2 pr-3.5 pb-1 text-[12.5px] leading-normal text-pretty',
+              icon ? 'pl-[42px]' : 'pl-4',
+            )}
           >
             {description}
           </DialogDescription>
@@ -209,7 +217,11 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">
+          <div
+            data-slot="dialog-frame-body"
+            // The footer rule closes the body, so a last settings row drops its own.
+            className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0"
+          >
             {children}
           </div>
         ) : null}
@@ -225,9 +237,12 @@ export const DialogFrame = memo(function DialogFrame({
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
-              <Button variant="ghost" data-initial-focus="">
+              <Button className="border-border gap-[7px]" variant="ghost" data-initial-focus="">
                 {cancelLabel ?? 'Close'}
-                <FooterKey className="text-muted-foreground" keys={['Esc']} />
+                <FooterKey
+                  className="border-muted-foreground/45 text-muted-foreground"
+                  keys={['Esc']}
+                />
               </Button>
             </DialogPrimitive.Close>
           )}
@@ -235,6 +250,8 @@ export const DialogFrame = memo(function DialogFrame({
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
               variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
+              // The face fills the whole 28 px, under the border too.
+              className="gap-[7px] bg-clip-border"
               disabled={confirm.disabled}
               onClick={confirm.onConfirm}
               data-initial-focus={confirmOnly ? '' : undefined}

@@ -1,8 +1,9 @@
 import { cjk } from '@streamdown/cjk';
-import { math } from '@streamdown/math';
-import { type ComponentProps, useEffect, useRef } from 'react';
+import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { defaultRemarkPlugins, Streamdown, type ExtraProps } from 'streamdown';
 import { ExternalLink } from '@/components/ui/external-link';
+import { deferredModule } from '@/lib/deferred-chunk';
+import { pendingMathPlugin } from '@/lib/pending-math';
 import {
   normalizeMathMarkdown,
   parseMathMarkdownBlocks,
@@ -10,7 +11,35 @@ import {
 } from '@/lib/remark-standard-math';
 import { cn } from '@/lib/utils';
 
-const streamdownPlugins = { cjk, math };
+type MathPlugin = typeof import('@streamdown/math').math;
+
+// KaTeX is most of the markdown renderer's weight and most text has no math, so it
+// loads when the first text with math syntax renders (or while the app is idle).
+// Until then each formula is a faint box of about its size, never its TeX source.
+const mathChunk = deferredModule(() => import('@streamdown/math').then((module) => module.math));
+const MATH_SYNTAX = /\$|\\[([]|\\begin\{/u;
+const pendingPlugins = { cjk, math: pendingMathPlugin };
+let mathPlugins: { cjk: typeof cjk; math: MathPlugin } | undefined;
+
+function useMathPlugins(needed: boolean) {
+  const [math, setMath] = useState(() => mathChunk.loaded());
+  useEffect(() => {
+    if (!needed || math) return;
+    let current = true;
+    mathChunk.load().then(
+      (plugin) => {
+        if (current) setMath(plugin);
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [needed, math]);
+  if (!math) return pendingPlugins;
+  mathPlugins ??= { cjk, math };
+  return mathPlugins;
+}
 
 /**
  * Streamdown's own default anchor is a plain `target="_blank"` `<a>` — the
@@ -44,6 +73,7 @@ export function MarkdownText({
 }: ComponentProps<typeof Streamdown>) {
   const markdown =
     typeof props.children === 'string' ? normalizeMathMarkdown(props.children) : props.children;
+  const plugins = useMathPlugins(typeof markdown !== 'string' || MATH_SYNTAX.test(markdown));
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,8 +104,10 @@ export function MarkdownText({
   return (
     <div className="contents" ref={rootRef}>
       <Streamdown
+        // Streamdown memoises blocks by content, so math arriving needs one remount.
+        key={plugins === pendingPlugins ? 'pending' : 'math'}
         components={{ ...streamdownComponents, ...components }}
-        plugins={streamdownPlugins}
+        plugins={plugins}
         parseMarkdownIntoBlocksFn={parseMathMarkdownBlocks}
         remarkPlugins={[
           ...(remarkPlugins ?? Object.values(defaultRemarkPlugins)),

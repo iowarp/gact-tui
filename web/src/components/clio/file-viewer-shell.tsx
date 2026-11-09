@@ -275,7 +275,8 @@ export function FileViewerShell({
     selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat();
   // Each mode states its own fact, as the frame spec does: Render what the renderer
   // draws (rows, pages), Source the bytes, Lineage the version and its graph.
-  const size = identity.size === undefined ? [] : [formatBytes(identity.size)];
+  // A viewer that names itself (a dashboard) shows its own facts, not the file's size.
+  const size = identity.size === undefined || titled ? [] : [formatBytes(identity.size)];
   const showingSource = frameActive
     ? isSourceMode({ value: selectedValue })
     : sourceMode !== undefined && renderer?.value === sourceMode.value;

@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { vocab } from '@/lib/brand-vocabulary';
+import { brand } from '@brand';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import { useUpdatePane } from './update-page-host';
 import { UpdatePage, UpdateRestartOverlay } from './update-restart-overlay';
@@ -43,7 +43,11 @@ describe('UpdateRestartOverlay', () => {
 
     render(<UpdateRestartOverlay />);
 
-    expect(screen.getByRole('status')).toHaveTextContent(`Updating ${vocab.product} to 0.9.5.0`);
+    expect(screen.getByRole('status')).toHaveTextContent(`Updating ${brand.wordmark} to 0.9.5.0`);
+    // One product name on the page: the title matches the header's wordmark.
+    expect(
+      screen.getByText(brand.wordmark, { selector: '[data-slot="brand-status-header"] *' }),
+    ).toBeVisible();
     // An agent-only update downloads nothing of its own.
     expect(screen.queryByText(/^Downloading/)).not.toBeInTheDocument();
     expect(within(currentStep()!).getByText('Installing')).toBeVisible();
@@ -92,6 +96,10 @@ describe('UpdateRestartOverlay', () => {
     render(<UpdateRestartOverlay />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('Update did not finish');
+    // The shared header stays above the error, in its error tone.
+    const header = document.querySelector('[data-slot="brand-status-header"]');
+    expect(header).toHaveAttribute('data-tone', 'error');
+    expect(header).toHaveTextContent('Not updated to 0.9.5.0');
     await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(
       within(screen.getByRole('dialog')).getByText(
