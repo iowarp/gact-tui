@@ -127,13 +127,14 @@ export function AskCard({
         handleAskCardKeys(event);
       }}
       className={cn(
-        '@container/ask relative min-w-0 rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // A surface may cap the card (--ask-card-max); AskBody then scrolls and the options stay.
+        '@container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
         EDGE[kind],
         className,
       )}
       {...props}
     >
-      <header className="flex min-h-[26px] min-w-0 items-center gap-[9px]">
+      <header className="flex min-h-[26px] min-w-0 shrink-0 items-center gap-[9px]">
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
@@ -172,6 +173,20 @@ export function AskCard({
 export function AskSection({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div className={cn('mt-2 ml-[25px] min-w-0 @max-[420px]/ask:ml-0', className)} {...props} />
+  );
+}
+
+/**
+ * What the reader weighs before answering (facts, a script). When the card is
+ * capped this part scrolls, so the options and Technical details stay in view.
+ */
+export function AskBody({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('clio-scrollbar -mr-1.5 min-h-0 flex-auto overflow-y-auto pr-1.5', className)}
+      data-slot="ask-body"
+      {...props}
+    />
   );
 }
 
@@ -215,12 +230,12 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
   );
 }
 
-/** The options row: numbered buttons on one line, labels cut before they wrap; stacked when narrow. */
+/** The options row: full-size numbered buttons that wrap when there is no room; stacked when narrow. */
 export function AskOptions({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+        'mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
         className,
       )}
       data-slot="ask-options"
@@ -238,14 +253,13 @@ export interface AskButtonProps extends Omit<ComponentProps<typeof Button>, 'siz
   primary?: boolean;
 }
 
-/** One 28px option button with its keys inside; the ? and Esc buttons never cut their label. */
+/** One 28px option button with its keys inside; it never shrinks or cuts its label. */
 export function AskButton({
   number,
   hint,
   primary,
   children,
   className,
-  title,
   ...props
 }: AskButtonProps) {
   const keys = [...(number ? [String(number)] : []), ...(hint ? [hint] : [])];
@@ -253,13 +267,11 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
         !primary && 'border-input bg-transparent',
-        primary || hint ? 'shrink-0' : 'min-w-14 shrink',
         className,
       )}
       data-slot="ask-button"
-      title={title ?? (typeof children === 'string' ? children : undefined)}
       size="sm"
       variant={primary ? 'default' : 'outline'}
       {...props}
@@ -382,10 +394,11 @@ export function AskDetails({
   hint?: string;
 }) {
   return (
-    <AskSection className="mt-2">
+    // Opened under a cap, the details share the height with the body and scroll.
+    <AskSection className="mt-2 flex min-h-0 flex-col">
       <TechnicalDetails
-        className="text-[11.5px] text-muted-foreground"
-        contentClassName="mt-1"
+        className="flex min-h-0 flex-col text-[11.5px] text-muted-foreground"
+        contentClassName="clio-scrollbar mt-1 min-h-0 overflow-y-auto"
         hint={hint}
         shortcut="D"
         summaryClassName="h-6 font-normal"
@@ -495,7 +508,10 @@ export function AskCode({
   return (
     <AskSection
       aria-label={label}
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      className={cn(
+        'shrink-0 overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="ask-code"
       role="group"
     >

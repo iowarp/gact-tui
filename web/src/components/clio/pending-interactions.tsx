@@ -179,7 +179,13 @@ export function ClioPendingInteractions({
         }}
       >
         <AskPagerContext.Provider value={pager}>
-          <div className="flex min-w-0 flex-col gap-2">
+          <div
+            className={cn(
+              'flex min-w-0 flex-col gap-2',
+              // A card past the cap scrolls its body; its options stay in view.
+              !hasInteractiveSurface && '[--ask-card-max:45dvh]',
+            )}
+          >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
             {pending.map((interaction) => (
               <div

@@ -2,6 +2,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import {
+  AskBody,
   AskButton,
   AskCard,
   AskCode,
@@ -106,31 +107,31 @@ export function PermissionResponse({
       icon={ShieldQuestionIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="permission"
-      meta={flowTrust ? undefined : toolName}
-      metaMono
       title={title}
       titleText={title}
     >
-      {flowTrust ? (
-        <AskSection className="mt-1">
-          <FlowTrustDetails request={flowTrust} />
-        </AskSection>
-      ) : (
-        <PermissionOperationDetails
-          extraFacts={owner}
-          interaction={interaction}
-          pathsInline={false}
-          title={title}
-        />
-      )}
-      {script ? (
-        <AskCode
-          code={script.code}
-          label="Script"
-          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
-          name="Script"
-        />
-      ) : null}
+      <AskBody>
+        {flowTrust ? (
+          <AskSection className="mt-1">
+            <FlowTrustDetails request={flowTrust} />
+          </AskSection>
+        ) : (
+          <PermissionOperationDetails
+            extraFacts={owner}
+            interaction={interaction}
+            pathsInline={false}
+            title={title}
+          />
+        )}
+        {script ? (
+          <AskCode
+            code={script.code}
+            label="Script"
+            meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
+            name="Script"
+          />
+        ) : null}
+      </AskBody>
       <AskError error={responseError} />
       <AskOptions aria-label="Decision">
         {scopes.map((scope, index) => (
@@ -162,6 +163,11 @@ export function PermissionResponse({
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint="raw arguments, as the agent sent them">
           <div className="grid gap-1.5">
+            {toolName && !flowTrust ? (
+              <p className="min-w-0 truncate" title={toolName}>
+                Tool <span className="font-mono text-foreground/90">{toolName}</span>
+              </p>
+            ) : null}
             {(toolName === 'web_fetch' || toolName === 'web_search') &&
             interaction.payload?.execution?.cwd ? (
               <p className="break-all">Working folder: {interaction.payload.execution.cwd}</p>

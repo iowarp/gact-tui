@@ -194,6 +194,16 @@ function catalogue({ settings, infrastructure }) {
     ),
     s(
       'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Technical details');
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
+    s(
+      'session',
       'transcript-outline',
       SESSION,
       async (page) => {
@@ -494,7 +504,7 @@ async function newContext(browser, stack, { theme, width, connected = true }) {
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -511,7 +521,11 @@ async function newContext(browser, stack, { theme, width, connected = true }) {
         // Opaque-origin frames have no storage.
       }
     },
-    { theme, endpoint: connected === true ? stack.endpoint : connected || null },
+    {
+      // notebook-dark / notebook-light: the Notebook palette under that OS scheme.
+      theme: theme.startsWith('notebook-') ? 'notebook' : theme,
+      endpoint: connected === true ? stack.endpoint : connected || null,
+    },
   );
   return context;
 }
