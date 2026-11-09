@@ -25,6 +25,22 @@ export async function openConversationRail(page: Page): Promise<Locator> {
 }
 
 /**
+ * Close open notifications the way a user would. The fixture world always has
+ * a session waiting for a response, so opening any other session raises a
+ * top-center "Response needed" toast over the start of the transcript, and
+ * sonner keeps a hovered toast open: a pointer action that lands under it
+ * retries against the toast until the test times out.
+ */
+export async function closeNotifications(page: Page): Promise<void> {
+  const notifications = page.getByRole('region', { name: /^Notifications/ });
+  await expect(async () => {
+    const close = notifications.getByRole('button', { name: 'Close toast' }).first();
+    if ((await close.count()) > 0) await close.click({ timeout: 1_000 });
+    await expect(notifications.getByRole('listitem')).toHaveCount(0, { timeout: 500 });
+  }).toPass({ timeout: 10_000 });
+}
+
+/**
  * Open the workspace canvas and show one of its lists (Files, Sources,
  * Artifacts, Activity, ?) from the strip on its outer edge.
  */

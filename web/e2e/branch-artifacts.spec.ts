@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openConversationRail, showWorkbenchList } from './workspace-setup';
+import { closeNotifications, openConversationRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -52,6 +52,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${worker.id}`);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation.getByText('Baseline complete.', { exact: true })).toBeVisible();
+  await closeNotifications(page);
   await conversation.getByText('Baseline complete.', { exact: true }).hover();
   await expect(
     page.getByRole('button', { name: 'Fork into a new conversation', exact: true }),
@@ -61,7 +62,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   ).toBeVisible();
   await expect(page.getByRole('combobox', { name: /^Ask / })).toHaveCount(0);
   await page.getByRole('button', { name: `Actions for ${worker.title}`, exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Branch into a new session' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Fork into a new conversation' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('subagent-actions.png') });
   await page.keyboard.press('Escape');

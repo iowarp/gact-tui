@@ -18,6 +18,11 @@ function focusSafeButton(event: Event) {
   target.focus();
 }
 
+/** The lone confirm takes focus when it replaces the buttons of an open frame. */
+function focusOnMount(element: HTMLButtonElement | null) {
+  element?.focus();
+}
+
 function FrameClose({ className }: { className?: string }) {
   return (
     <DialogPrimitive.Close asChild>
@@ -33,6 +38,15 @@ function FrameClose({ className }: { className?: string }) {
   );
 }
 
+/** The key chip inside a footer button; the sheet below 600 px drops it. */
+function FooterKey({ keys, className }: { keys: readonly string[]; className?: string }) {
+  return (
+    <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+      <ShortcutKeys className={className} keys={keys} variant="inline" />
+    </span>
+  );
+}
+
 export interface DialogFrameConfirm {
   label: string;
   onConfirm: () => void;
@@ -41,6 +55,11 @@ export interface DialogFrameConfirm {
   disabled?: boolean;
   /** Ctrl+Enter (⌘↩) confirms; on by default. */
   keyboard?: boolean;
+  /**
+   * `Enter`: a plain Enter confirms too (outside fields and other buttons), and
+   * the button shows the key. For an acknowledgement such as Got it.
+   */
+  key?: 'Enter';
 }
 
 export interface DialogFrameProps {
@@ -53,8 +72,13 @@ export interface DialogFrameProps {
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
   confirm?: DialogFrameConfirm;
-  /** Label of the safe button that closes the frame (Cancel, Close, Got it). */
-  cancelLabel?: string;
+  /**
+   * Label of the safe button that closes the frame (Cancel, Close, Got it).
+   * `null` leaves the confirm as the one button, focused (Share's Done).
+   */
+  cancelLabel?: string | null;
+  /** The left side of the footer (a quiet link such as Release history). */
+  footerStart?: ReactNode;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
   /** Controls in the title row before × (a mode switch such as URL | Command). */
@@ -77,17 +101,24 @@ export const DialogFrame = memo(function DialogFrame({
   description,
   children,
   confirm,
-  cancelLabel = confirm ? 'Cancel' : 'Close',
+  cancelLabel: cancelProp,
   secondary,
+  footerStart,
   titleActions,
   help,
   className,
 }: DialogFrameProps) {
+  const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
+  const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
-      if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+      if (event.key !== 'Enter') return;
+      const plain =
+        confirm.key === 'Enter' &&
+        !(event.target as Element).closest('input, textarea, select, button, a, [contenteditable]');
+      if (!plain && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       confirm.onConfirm();
     },
@@ -147,34 +178,38 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="mt-1.5 flex min-w-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
-          <span
-            aria-hidden="true"
-            className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
-          >
-            <ShortcutKeys keys={['Esc']} variant="caps" />
-            <span className="truncate">{cancelLabel}</span>
-            {confirmKeys && confirm ? (
-              <>
-                <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
-                <span className="truncate">{confirm.label}</span>
-              </>
-            ) : null}
-          </span>
+          {footerStart ? (
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
+              {footerStart}
+            </div>
+          ) : null}
           {secondary}
-          <DialogPrimitive.Close asChild>
-            <Button variant="ghost" data-initial-focus="">
-              {cancelLabel}
-            </Button>
-          </DialogPrimitive.Close>
+          {confirmOnly ? null : (
+            <DialogPrimitive.Close asChild>
+              <Button variant="ghost" data-initial-focus="">
+                {cancelLabel ?? 'Close'}
+                <FooterKey className="text-muted-foreground" keys={['Esc']} />
+              </Button>
+            </DialogPrimitive.Close>
+          )}
           {confirm ? (
             <Button
+              key={confirmOnly ? 'only' : 'confirm'}
               variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
               disabled={confirm.disabled}
               onClick={confirm.onConfirm}
+              data-initial-focus={confirmOnly ? '' : undefined}
+              ref={confirmOnly ? focusOnMount : undefined}
             >
               {confirm.label}
+              {confirmKeys ? (
+                <FooterKey
+                  className="border-current/45"
+                  keys={[confirm.key === 'Enter' ? 'Enter' : 'Ctrl+Enter']}
+                />
+              ) : null}
             </Button>
           ) : null}
         </div>
