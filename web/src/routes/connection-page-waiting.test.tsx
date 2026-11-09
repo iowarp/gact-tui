@@ -2,7 +2,8 @@
  * A saved service that is starting, or that has not answered yet (started together with
  * this page), is waited for and opened by itself; it is not shown as a failure.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -114,7 +115,7 @@ beforeEach(() => {
   });
 });
 
-it('waits for a service that has not answered yet and opens it by itself once it is up', async () => {
+it('shows a service that has not answered as failed, and still opens it by itself once it is up', async () => {
   mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Lab' }];
   mocks.resolveConnection.mockImplementation(async (candidate: { endpoint: string }) => candidate);
   let up = false;
@@ -143,8 +144,9 @@ it('waits for a service that has not answered yet and opens it by itself once it
   );
 
   await user.click(screen.getByRole('button', { name: 'Open workspace' }));
-  expect(await screen.findByText('Waiting for the service to start')).toBeVisible();
-  expect(screen.queryByText("Can't connect")).not.toBeInTheDocument();
+  expect(await screen.findByText("Can't connect: no answer from 127.0.0.1:17999")).toBeVisible();
+  // Nothing says it is starting, so there is no waiting spinner.
+  expect(screen.queryByText('Waiting for the service to start')).not.toBeInTheDocument();
 
   up = true; // the service binds its port; the next probe sees it
   await waitFor(() => expect(mocks.connect).toHaveBeenCalled(), { timeout: 5_000 });

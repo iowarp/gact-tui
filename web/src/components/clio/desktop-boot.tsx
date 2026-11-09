@@ -1,61 +1,43 @@
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { brand } from '@brand';
-import { CheckIcon, SearchIcon } from 'lucide-react';
-import { useReducedMotionConfig } from 'motion/react';
+import { ChevronRightIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Shimmer } from '@/components/ai-elements/shimmer';
-import { Button } from '@/components/ui/button';
+import { BrandIcon } from '@/components/clio/brand-icon';
+import { ConnectStatusLine } from '@/components/clio/connect-frame';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { DesktopBootStage } from '@/lib/desktop-boot-stage';
 
-const desktopBootCopy: Record<DesktopBootStage, { detail: string; label: string }> = {
-  checking_existing: {
-    label: 'Checking this device',
-    detail: `Looking for a local ${vocab.agent} service`,
-  },
-  starting_service: {
-    label: 'Starting local service',
-    detail: 'Loading the bundled scientific workspace',
-  },
-  installing_runtime: {
-    label: 'Installing local runtime',
-    detail: `Preparing ${vocab.agent} for first use`,
-  },
-  opening_workspace: {
-    label: 'Opening workspace',
-    detail: 'Restoring your local workspace',
-  },
+const STARTUP_STEPS = [
+  'Checking the local service',
+  'Preparing the local runtime and packages',
+  'Starting the local service',
+  'Opening the workspace',
+] as const;
+
+const STAGE_STEP: Record<DesktopBootStage, number> = {
+  checking_existing: 0,
+  installing_runtime: 1,
+  starting_service: 2,
+  opening_workspace: 3,
 };
 
-export function HomeSearchButton() {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      aria-label="Search everywhere"
-      onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
-    >
-      <SearchIcon aria-hidden="true" /> Search{' '}
-      <ShortcutKeys id="search" className="ml-2 text-[10px]" />
-    </Button>
-  );
-}
+const STAGE_DETAIL: Record<DesktopBootStage, string> = {
+  checking_existing: `Looking for a local ${vocab.agent} service`,
+  installing_runtime: `Preparing ${vocab.agent} for first use`,
+  starting_service: 'Loading the bundled scientific workspace',
+  opening_workspace: 'Restoring your local workspace',
+};
 
+/** The local startup splash: the brand, one status line per step, and the details on request. */
 export function DesktopBoot({
   detail,
-  logoSource,
   stage,
 }: {
   /** What the service says it is still loading, in place of the stage's own detail. */
   detail?: string;
-  logoSource: string | null;
   stage: DesktopBootStage;
 }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const reducedMotion = useReducedMotionConfig();
-  const copy = desktopBootCopy[stage];
-  const activeStep = stage === 'checking_existing' ? 0 : stage === 'opening_workspace' ? 2 : 1;
+  const current = STAGE_STEP[stage];
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -66,97 +48,35 @@ export function DesktopBoot({
   }, []);
 
   return (
-    <main className="relative grid h-full min-h-0 overflow-hidden bg-background text-foreground">
-      <div className="absolute right-4 top-4 z-10">
-        <HomeSearchButton />
-      </div>
-      <div aria-hidden="true" className="clio-landing-background absolute inset-0 opacity-70" />
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 top-1/2 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/8 blur-3xl"
-      />
-      <section className="relative grid place-items-center px-6 py-16 text-center">
-        <div className="grid justify-items-center">
-          <div className="relative grid size-56 place-items-center sm:size-64">
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full border border-primary/15 shadow-[0_0_80px_color-mix(in_oklch,var(--primary)_15%,transparent)]"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-7 rounded-full border border-primary/25"
-            />
-            <div className="relative grid size-36 place-items-center overflow-hidden rounded-[2.25rem] border border-primary/30 bg-card p-4 shadow-2xl sm:size-40">
-              {logoSource ? (
-                <img
-                  alt=""
-                  className="size-full object-contain"
-                  data-testid="desktop-boot-logo"
-                  src={logoSource}
-                />
-              ) : (
-                <span className="font-heading text-6xl font-semibold text-primary">
-                  {brand.markGlyph}
-                </span>
-              )}
-            </div>
-          </div>
-          {reducedMotion ? (
-            <h1 className="mt-7 font-heading text-2xl font-semibold tracking-[-0.035em]">
-              {`Starting ${brand.name}`}
-            </h1>
-          ) : (
-            <Shimmer
-              as="h1"
-              className="mt-7 font-heading text-2xl font-semibold tracking-[-0.035em]"
-              duration={1.7}
-            >
-              {`Starting ${brand.name}`}
-            </Shimmer>
-          )}
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your local scientific workspace is getting ready.
-          </p>
-        </div>
-      </section>
-
-      <aside
-        aria-live="polite"
-        className="absolute bottom-6 right-6 w-[min(22rem,calc(100%-3rem))] rounded-2xl border border-border/80 bg-card p-4 text-left shadow-xl"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-              Local startup
-            </p>
-            <p className="mt-1 truncate text-sm font-medium">{copy.label}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{detail ?? copy.detail}</p>
-          </div>
-          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {elapsedSeconds}s
-          </span>
-        </div>
-        <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="Startup progress">
-          {['Check', stage === 'installing_runtime' ? 'Install' : 'Start', 'Open'].map(
-            (label, index) => (
-              <li className="flex min-w-0 items-center gap-1.5 text-[11px]" key={label}>
-                <span
-                  className="grid size-4 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground data-[active=true]:border-primary data-[active=true]:text-primary data-[done=true]:border-success/50 data-[done=true]:bg-success/10 data-[done=true]:text-success"
-                  data-active={index === activeStep}
-                  data-done={index < activeStep}
-                >
-                  {index < activeStep ? (
-                    <CheckIcon aria-hidden="true" className="size-2.5" />
-                  ) : (
-                    index + 1
-                  )}
-                </span>
-                <span className="truncate text-muted-foreground">{label}</span>
-              </li>
-            ),
-          )}
+    <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
+      <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center gap-1 px-6 py-16">
+        <h1 className="mb-2.5 flex items-center gap-2.5 font-heading text-[16px] font-semibold">
+          <BrandIcon className="size-[22px] shrink-0 text-primary" />
+          {`Starting ${brand.name}`}
+        </h1>
+        <ol aria-label="Startup progress" aria-live="polite" className="m-0 list-none p-0">
+          {STARTUP_STEPS.map((label, index) => (
+            <li key={label}>
+              <ConnectStatusLine
+                meta={index === current ? `${elapsedSeconds}s` : undefined}
+                tone={index < current ? 'done' : index === current ? 'working' : 'pending'}
+              >
+                {label}
+              </ConnectStatusLine>
+            </li>
+          ))}
         </ol>
-      </aside>
+        <details className="group mt-1.5 -mx-2 text-[12.5px] text-muted-foreground">
+          <summary className="flex min-h-[30px] cursor-pointer list-none items-center gap-2 rounded-[6px] px-2 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            />
+            Startup details
+          </summary>
+          <p className="m-0 px-2 pt-1 pl-[30px] text-[12px]">{detail ?? STAGE_DETAIL[stage]}</p>
+        </details>
+      </section>
     </main>
   );
 }

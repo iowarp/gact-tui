@@ -54,8 +54,6 @@ type Detail =
   | { kind: 'mcp'; name: string }
   | { kind: 'discover'; key: string };
 
-const ROW_SLOT = 92;
-
 /** The private local marketplace before anything is saved to it. */
 const LOCAL_PLACEHOLDER: PluginMarketplace = {
   name: LOCAL_MARKETPLACE,
@@ -329,7 +327,6 @@ function ExtensionLibraryContents({
           onExplore={() => open(target)}
           selected={isOpen(target)}
           aligned
-          slotWidth={ROW_SLOT}
           status={entry.status}
           actions={
             marketplace && marketplace.name !== LOCAL_MARKETPLACE ? (
@@ -378,7 +375,6 @@ function ExtensionLibraryContents({
           onExplore={() => open(target)}
           selected={isOpen(target)}
           aligned
-          slotWidth={ROW_SLOT}
           status={entry.status}
         />
       );
@@ -400,7 +396,6 @@ function ExtensionLibraryContents({
             placeholder ? undefined : marketplaceSlot(marketplace, entry.pendingUpdates, manager)
           }
           aligned
-          slotWidth={ROW_SLOT}
           status={entry.status}
           title={entry.title}
           actions={
@@ -449,7 +444,6 @@ function ExtensionLibraryContents({
         onExplore={() => open(target)}
         selected={isOpen(target)}
         aligned
-        slotWidth={ROW_SLOT}
         status={entry.status}
         slot={
           retry ? (
@@ -526,7 +520,6 @@ function ExtensionLibraryContents({
           </SlotButton>
         }
         aligned
-        slotWidth={ROW_SLOT}
       />
     );
   };

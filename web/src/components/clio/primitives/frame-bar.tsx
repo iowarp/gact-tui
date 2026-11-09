@@ -131,7 +131,7 @@ export const FrameBar = memo(function FrameBar({
         {what ? (
           <div
             data-frame-fit=""
-            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-faint group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
           </div>

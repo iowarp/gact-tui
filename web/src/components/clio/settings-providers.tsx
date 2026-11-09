@@ -1,36 +1,37 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/clio/settings-frame';
-import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
-import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
 import { ClioModelPicker } from './model-picker';
-import { resolveActivePreset } from './settings-models-form';
+import type { ProviderGroup } from './model-picker-model';
+import { ListDetailLayout } from './primitives/detail-pane';
+import { ItemList } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
 import { SettingsAddServerDialog } from './settings-add-server-dialog';
-import { SettingsLocalServerCard } from './settings-local-server-card';
+import { ModelServerDetails } from './settings-model-server-details';
+import { ModelServerRow } from './settings-model-server-row';
+import { resolveActivePreset } from './settings-models-form';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /**
- * Settings > Providers: manage model servers
- * that run on this computer or the person's own machines. Each local server
- * is a card with its status and its address, edited in place, saved on the
- * service (which probes it from then on) and checked at once; "Add a
- * server" saves any OpenAI-compatible address. Cloud and
- * subscription providers are set up in the model picker, which this page
- * opens on the provider asked for.
+ * Settings > Providers: the model servers on this computer or the person's
+ * own machines, one item row each (status, hover actions, one slot button),
+ * with details beside the list. Cloud and subscription providers are set up
+ * in the model picker, which this page opens, on the provider asked for when
+ * the page was reached with `?provider=`.
  */
 export function ProvidersSettings() {
   const [searchParams] = useSearchParams();
   const requestedProvider = searchParams.get('provider');
-  const requestedControl = useRef<HTMLDivElement | HTMLButtonElement | null>(null);
+  const requestedControl = useRef<HTMLElement | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [detailsId, setDetailsId] = useState<string>();
   const { catalog, configuration, groups, options, presets } = useProviderGroups();
   const { servers } = useSavedServers();
   const saved = servers.data ?? [];
@@ -44,8 +45,8 @@ export function ProvidersSettings() {
     requestedControl.current.focus({ preventScroll: true });
   }, [loading, requestedProvider]);
   const active = configuration.data ? resolveActivePreset(configuration.data) : undefined;
-  const locals = presets.filter(isLocalServerPreset);
-  const others = presets.filter((preset) => !isLocalServerPreset(preset));
+  const runtimes = presets.filter(isLocalServerPreset);
+  const cloud = presets.filter((preset) => !isLocalServerPreset(preset));
   const customs = saved.filter((server) => server.custom);
   const customPreset = presets.find((preset) => preset.id === CUSTOM_SERVER_PRESET_ID);
   const activeAddress = configuration.data?.api_base ?? '';
@@ -60,6 +61,40 @@ export function ProvidersSettings() {
       : catalog.error && !catalog.data
         ? 'error'
         : 'ready';
+
+  // A runtime is listed once it is in use, saved, found running, or asked for;
+  // the others are added from + with their kind.
+  const rows = [
+    ...runtimes
+      .filter((preset) => {
+        const group = groups.find((item) => item.id === preset.id);
+        return (
+          (preset.id === active?.id && !defaultCustom) ||
+          saved.some((server) => server.id === preset.id) ||
+          foundRunning(group) ||
+          preset.id === requestedProvider
+        );
+      })
+      .map((preset) => ({
+        id: preset.id,
+        preset,
+        saved: saved.find((server) => server.id === preset.id),
+        isDefault: preset.id === active?.id && !defaultCustom,
+      })),
+    ...(customPreset
+      ? customs.map((server) => ({
+          id: server.id,
+          preset: customPreset,
+          saved: server,
+          isDefault: server.id === defaultCustom?.id,
+        }))
+      : []),
+  ];
+  const running = rows.filter((row) => {
+    const group = groups.find((item) => item.id === row.preset.id);
+    return row.saved?.check ? row.saved.check.reachable : !row.saved?.custom && foundRunning(group);
+  }).length;
+  const opened = rows.find((row) => row.id === detailsId);
 
   function adoptServer(preset: LanguageModelPreset, address: string, model: string | undefined) {
     const staying = preset.id === active?.id;
@@ -94,116 +129,144 @@ export function ProvidersSettings() {
     });
   }
 
-  return (
-    <div className="grid gap-6">
-      <SettingsSectionHeading
-        info="Model servers on this computer or your own machines. Cloud and subscription providers are set up from the model picker."
-        title="Providers"
-      />
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
-      ) : loading ? (
-        <Skeleton aria-label="Loading providers" className="h-64 w-full max-w-3xl" role="status" />
+  const requestedCloud = cloud.find((preset) => preset.id === requestedProvider);
+
+  const list = (
+    <div className="max-w-[760px] pb-4">
+      <SettingsGroupLabel
+        addLabel="Add server"
+        info="Model servers on this computer or your own machines."
+        onAdd={() => setAdding(true)}
+      >
+        Model servers
+      </SettingsGroupLabel>
+      {rows.length ? (
+        <ItemList
+          className="border-t border-border/70"
+          label={`Model servers, ${running} of ${rows.length} running`}
+        >
+          {rows.map((row) => (
+            <div
+              className="contents"
+              key={row.id}
+              ref={
+                row.id === requestedProvider
+                  ? (node) => {
+                      requestedControl.current =
+                        node?.querySelector<HTMLElement>('[data-slot="model-server-row"]') ?? null;
+                    }
+                  : undefined
+              }
+            >
+              <ModelServerRow
+                applying={apply.isPending}
+                group={groups.find((group) => group.id === row.preset.id)}
+                isDefault={row.isDefault}
+                onDetails={() => setDetailsId(row.id)}
+                onUse={(address, model) => adoptServer(row.preset, address, model)}
+                preset={row.preset}
+                saved={row.saved}
+                selected={row.id === detailsId}
+              />
+            </div>
+          ))}
+        </ItemList>
       ) : (
-        <>
-          <Frame className="max-w-3xl" data-slot="local-servers" stacked>
-            <FrameHeader className="flex-row items-center justify-between gap-3">
-              <FrameTitle>Model servers</FrameTitle>
-              <SettingsAddServerDialog />
-            </FrameHeader>
-            {locals.map((preset) => (
-              <FramePanel
-                key={preset.id}
-                aria-label={`${preset.label} provider settings`}
-                tabIndex={-1}
+        <StateView
+          action={{ label: 'Add server', onClick: () => setAdding(true) }}
+          kind="empty"
+          size="row"
+          title="No model servers yet"
+        />
+      )}
+      {apply.error ? (
+        <p
+          className="mt-2 truncate text-xs text-destructive"
+          role="alert"
+          title={apply.error.message}
+        >
+          {apply.error.message}
+        </p>
+      ) : null}
+      <SettingsGroupLabel className="mt-6">Cloud and subscription providers</SettingsGroupLabel>
+      <div className="@container" data-slot="cloud-providers">
+        <SettingsRow
+          info="Cloud and subscription providers are set up from the model picker."
+          title="Keys and sign-ins"
+        >
+          <ClioModelPicker
+            catalogStatus={catalogStatus}
+            onChange={chooseModel}
+            onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+            options={options}
+            provider={requestedCloud?.id ?? active?.id}
+            trigger={
+              <Button
                 ref={
-                  preset.id === requestedProvider
+                  requestedCloud
                     ? (node) => {
                         requestedControl.current = node;
                       }
                     : undefined
                 }
+                size="sm"
+                type="button"
+                variant="outline"
               >
-                <SettingsLocalServerCard
-                  applying={apply.isPending}
-                  catalogEntry={catalog.data?.providers.find((entry) => entry.id === preset.id)}
-                  group={groups.find((group) => group.id === preset.id)}
-                  isDefault={preset.id === active?.id && !defaultCustom}
-                  onUse={(address, model) => adoptServer(preset, address, model)}
-                  preset={preset}
-                  saved={saved.find((server) => server.id === preset.id)}
-                />
-              </FramePanel>
-            ))}
-            {customPreset
-              ? customs.map((server) => (
-                  <FramePanel key={server.id}>
-                    <SettingsLocalServerCard
-                      applying={apply.isPending}
-                      catalogEntry={undefined}
-                      group={undefined}
-                      isDefault={server.id === defaultCustom?.id}
-                      onUse={(address, model) => adoptServer(customPreset, address, model)}
-                      preset={customPreset}
-                      saved={server}
-                    />
-                  </FramePanel>
-                ))
-              : null}
-          </Frame>
-          {apply.error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {apply.error.message}
-            </p>
-          ) : null}
-          <section aria-labelledby="cloud-providers" className="grid max-w-3xl gap-3">
-            <div className="flex flex-col gap-0.5">
-              <h2 className="text-sm font-semibold" id="cloud-providers">
-                Cloud and subscription providers
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Keys and sign-ins live in the model picker.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2" data-slot="cloud-providers">
-              {others.map((preset) => (
-                <ClioModelPicker
-                  catalogStatus={catalogStatus}
-                  key={preset.id}
-                  onChange={chooseModel}
-                  onRetryCatalog={(id) => catalog.refreshCatalog(id)}
-                  options={options}
-                  provider={preset.id}
-                  trigger={
-                    <Button
-                      className="h-9 gap-2 ps-1.5"
-                      type="button"
-                      variant="outline"
-                      ref={
-                        preset.id === requestedProvider
-                          ? (node) => {
-                              requestedControl.current = node;
-                            }
-                          : undefined
-                      }
-                    >
-                      <IconTile aria-hidden="true" size="xs" variant="outline">
-                        <ModelSelectorLogo
-                          className="size-4"
-                          provider={providerLogoId(preset.id)}
-                        />
-                      </IconTile>
-                      {providerDisplayName(preset)}
-                    </Button>
-                  }
-                />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+                Open model picker
+              </Button>
+            }
+          />
+        </SettingsRow>
+      </div>
     </div>
+  );
+
+  return (
+    <div className="flex flex-col" data-slot="providers-settings">
+      <SettingsSectionHeading title="Providers" />
+      {error ? (
+        <StateView
+          action={{
+            label: 'Retry',
+            onClick: () => {
+              void configuration.refetch();
+              void servers.refetch();
+            },
+          }}
+          kind="error"
+          size="row"
+          title={error.message}
+        />
+      ) : loading ? (
+        <StateView kind="loading" title="Loading providers" />
+      ) : (
+        <ListDetailLayout
+          detail={
+            opened ? (
+              <ModelServerDetails
+                catalogEntry={catalog.data?.providers.find(
+                  (entry) => entry.id === opened.preset.id,
+                )}
+                group={groups.find((group) => group.id === opened.preset.id)}
+                isDefault={opened.isDefault}
+                onClose={() => setDetailsId(undefined)}
+                preset={opened.preset}
+                saved={opened.saved}
+              />
+            ) : undefined
+          }
+          list={list}
+        />
+      )}
+      <SettingsAddServerDialog onOpenChange={setAdding} open={adding} runtimes={runtimes} />
+    </div>
+  );
+}
+
+/** The service's catalog found this runtime answering with models. */
+function foundRunning(group: ProviderGroup | undefined): boolean {
+  return (
+    Boolean(group?.choices.length) && (group?.health === 'healthy' || group?.health === 'checking')
   );
 }

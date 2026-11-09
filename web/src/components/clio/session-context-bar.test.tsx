@@ -1,9 +1,13 @@
 import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as renderBare, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioSessionContextBar } from './session-context-bar';
+
+const render = (ui: ReactElement) => renderBare(<TooltipProvider>{ui}</TooltipProvider>);
 const downloads = vi.hoisted(() => ({ open: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: downloads.open }));
 vi.mock('./session-agent-control', () => ({

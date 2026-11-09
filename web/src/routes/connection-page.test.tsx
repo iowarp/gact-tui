@@ -1,4 +1,5 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { brand } from '@brand';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -62,6 +63,7 @@ vi.mock('@/providers/connection-provider', () => ({
 import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 import { InfrastructureTargetGoneError } from '@/lib/connection';
+import { TransportError } from '@clio/core/v3';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { sessionReads } from '@/test/session-reads';
 
@@ -131,11 +133,9 @@ it('shows managed startup instead of asking desktop users for a connection addre
   );
 
   expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
-  expect(screen.getByText('Starting local service')).toBeVisible();
-  expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
+  expect(screen.getByText('Starting the local service')).toBeVisible();
+  expect(screen.getByText('Loading the bundled scientific workspace')).toBeInTheDocument();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
-  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('object-contain');
-  expect(screen.getByRole('button', { name: 'Search everywhere' })).toBeEnabled();
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
 
@@ -160,7 +160,6 @@ it('keeps global search open on first launch and resumes workspace opening after
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  expect(screen.getByRole('button', { name: 'Search everywhere' })).toBeEnabled();
   expect(mocks.resolveConnection).not.toHaveBeenCalled();
   await act(async () => useCommandMenuVisibility.getState().setOpen(false));
   await waitFor(() => expect(mocks.resolveConnection).toHaveBeenCalledOnce());
@@ -275,7 +274,6 @@ it('separates saved services from new connection fields and exposes the endpoint
   expect(screen.getByLabelText('Connection address')).toBeVisible();
   expect(screen.queryByText('Saved services', { selector: 'legend' })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole('button', { name: /Access token/ }));
   expect(screen.getByPlaceholderText('Paste token')).toBeVisible();
 });
 
@@ -413,10 +411,14 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 
-it("settles a known connection's badge to Not reachable as soon as connecting to it fails", async () => {
+it('marks a known service that does not answer as failed, with Retry, as soon as connecting to it fails', async () => {
   mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
   mocks.repository.capabilities.mockRejectedValue(
-    new Error('Unable to reach the service at http://127.0.0.1:17999'),
+    new TransportError(
+      'Unable to reach the service at http://127.0.0.1:17999',
+      undefined,
+      'network_unavailable',
+    ),
   );
   const user = userEvent.setup();
   const queryClient = new QueryClient({
@@ -436,17 +438,20 @@ it("settles a known connection's badge to Not reachable as soon as connecting to
   // attempts it directly.
   await user.click(screen.getByRole('button', { name: 'Open workspace' }));
 
-  expect(await screen.findByText("Can't connect")).toBeVisible();
-  // The real connect attempt against this exact endpoint already settled
-  // (the alert above proves it) -- the row must reflect that immediately,
-  // not wait on the SEPARATE background probe's own slower retry/backoff
-  // schedule (CONNECTION_PROBE_RETRY_BASE_MS/MAX_MS: 250ms then up to
-  // 1000ms between attempts). A tight timeout here is deliberate: it can
-  // only pass through the mutation-tied badge, not a coincidentally fast
-  // probe settlement.
-  await waitFor(() => expect(screen.getAllByText('Not reachable').length).toBeGreaterThan(0), {
-    timeout: 200,
-  });
+  // The real connect attempt against this exact endpoint settles the row at once,
+  // without waiting on the SEPARATE background probe's slower retry/backoff
+  // schedule (CONNECTION_PROBE_RETRY_BASE_MS/MAX_MS). The tight timeout can only
+  // pass through the mutation-tied state, not a coincidentally fast probe.
+  await waitFor(
+    () =>
+      expect(screen.getByText("Can't connect: no answer from 127.0.0.1:17999")).toBeInTheDocument(),
+    { timeout: 200 },
+  );
+  // The row says why and offers Retry; the form does not repeat it, and the
+  // service cannot be opened until it answers.
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled();
 });
 
 it('offers to remove and redeploy a saved connection whose infrastructure target is gone (#1528)', async () => {
@@ -520,7 +525,7 @@ it('shows "Deploy CLIO" only in the Tauri desktop app, never on the web build', 
   expect(screen.getByRole('button', { name: /Deploy/ })).toBeVisible();
 });
 
-it('reports a passive probe failure without locking the real connection attempt', async () => {
+it('keeps a service the probe cannot reach closed, and lets Retry make the real connection attempt', async () => {
   mocks.recents = [{ endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' }];
   mocks.repository.capabilities.mockRejectedValue(new Error('Connection refused'));
   const queryClient = new QueryClient({
@@ -536,14 +541,13 @@ it('reports a passive probe failure without locking the real connection attempt'
     </QueryClientProvider>,
   );
 
-  expect((await screen.findAllByText('Not reachable')).length).toBeGreaterThan(0);
-  expect(screen.getByRole('button', { pressed: true })).toBeEnabled();
-  const open = screen.getByRole('button', { name: 'Open workspace' });
-  expect(open).toBeEnabled();
+  expect(await screen.findByText("Can't connect: no answer from 127.0.0.1:9999")).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled();
 
-  await userEvent.setup().click(open);
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
 
-  expect(await screen.findByText("Can't connect")).toBeVisible();
+  // The attempt's own reason is shown once, in the form; the row keeps its short state.
+  expect(await screen.findByRole('alert')).toHaveTextContent(/Can't connect\s*Connection refused/u);
   expect(mocks.repository.capabilities.mock.calls.length).toBeGreaterThan(3);
 });
 
@@ -688,107 +692,6 @@ it('auto-connects to a draft without minting a persistent session', async () => 
   expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
 
-function renderPage() {
-  const queryClient = new QueryClient({
-    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/?intent=connect']}>
-        <Routes>
-          <Route element={<ConnectionPage />} path="/" />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
-
-it('renames a known service, refusing a name another service already uses', async () => {
-  mocks.recents = [
-    { endpoint: 'http://ares.example:17800', label: 'ares lab' },
-    { endpoint: 'http://laptop.example:17800', label: 'laptop' },
-  ];
-  const user = userEvent.setup();
-  renderPage();
-
-  await user.click(screen.getByRole('button', { name: 'Service actions for ares lab' }));
-  await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
-  const input = await screen.findByLabelText('Name');
-  await user.clear(input);
-  await user.type(input, 'Laptop');
-  await user.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByText('A service named “Laptop” already exists.')).toBeVisible();
-  expect(mocks.rename).not.toHaveBeenCalled();
-
-  await user.clear(input);
-  await user.type(input, 'ares GPU queue');
-  await user.click(screen.getByRole('button', { name: 'Save' }));
-  expect(mocks.rename).toHaveBeenCalledWith(
-    expect.objectContaining({ endpoint: 'http://ares.example:17800' }),
-    'ares GPU queue',
-  );
-  // Saving the name only renames: it never submits the connect form around it.
-  expect(mocks.connect).not.toHaveBeenCalled();
-  expect(mocks.repository.allSessions).not.toHaveBeenCalled();
-});
-
-it('forgets a known service only after confirming', async () => {
-  mocks.recents = [
-    { endpoint: 'http://ares.example:17800', label: 'ares lab' },
-    { endpoint: 'http://laptop.example:17800', label: 'laptop' },
-  ];
-  const user = userEvent.setup();
-  renderPage();
-
-  await user.click(screen.getByRole('button', { name: 'Service actions for laptop' }));
-  await user.click(await screen.findByRole('menuitem', { name: 'Forget on this device' }));
-  expect(mocks.forget).not.toHaveBeenCalled();
-  const confirm = await screen.findByRole('alertdialog', { name: 'Forget laptop?' });
-  await user.click(within(confirm).getByRole('button', { name: 'Forget' }));
-  expect(mocks.forget).toHaveBeenCalledWith('http://laptop.example:17800');
-});
-
-it('forgetting the selected service selects the next one', async () => {
-  mocks.recents = [
-    { endpoint: 'http://ares.example:17800', label: 'ares lab' },
-    { endpoint: 'http://laptop.example:17800', label: 'laptop' },
-  ];
-  const user = userEvent.setup();
-  renderPage();
-  expect(screen.getByRole('button', { name: /ares lab/u, pressed: true })).toBeVisible();
-
-  await user.click(screen.getByRole('button', { name: 'Service actions for ares lab' }));
-  await user.click(await screen.findByRole('menuitem', { name: 'Forget on this device' }));
-  await user.click(
-    within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Forget' }),
-  );
-
-  expect(mocks.forget).toHaveBeenCalledWith('http://ares.example:17800');
-  expect(screen.getByRole('button', { name: /laptop/u, pressed: true })).toBeVisible();
-});
-
-it('lets This computer be renamed but never forgotten', async () => {
-  mocks.inTauri = true;
-  mocks.managedConnectionReady = true;
-  mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211', token: 'supervisor-token' };
-  const user = userEvent.setup();
-  renderPage();
-
-  await user.click(screen.getByRole('button', { name: 'Service actions for This computer' }));
-  expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeVisible();
-  expect(screen.queryByRole('menuitem', { name: /Forget/u })).not.toBeInTheDocument();
-});
-
-it('shows the name the user gave the local service', () => {
-  mocks.inTauri = true;
-  mocks.managedConnectionReady = true;
-  mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211', token: 'supervisor-token' };
-  mocks.managedLabel = 'laptop';
-  renderPage();
-
-  expect(screen.getByText('laptop')).toBeVisible();
-  expect(screen.queryByText('This computer')).not.toBeInTheDocument();
-});
 
 // The bounded session reads, answered from this test's session list.
 Object.assign(

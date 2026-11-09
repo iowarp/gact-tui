@@ -5,7 +5,6 @@ import {
   CircleDotIcon,
   CpuIcon,
   DatabaseIcon,
-  FileTextIcon,
   FolderIcon,
   FolderLockIcon,
   GitForkIcon,
@@ -24,7 +23,7 @@ import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/ke
 import { InfraRow } from '@/components/clio/infrastructure-row';
 import { InfraRowChevron, InfraRowToggle } from '@/components/clio/infrastructure-row-toggle';
 import { TechnicalDetails } from '@/components/clio/technical-details';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import {
   foundationSummary,
@@ -69,11 +68,11 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   const nextStep = integration.next_action || action?.description;
   const facts: KeyValueItem[] = [
     {
-      label: 'Required',
+      label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
-      value: integration.required === false ? 'Optional' : 'Required for use',
+      value: integration.required === false ? 'No' : 'Yes',
+      mono: true,
     },
-    ...(nextStep ? [{ label: 'Next step', icon: <FileTextIcon />, value: nextStep }] : []),
     ...(integration.endpoint
       ? [{ label: 'Endpoint', icon: <PlugIcon />, value: integration.endpoint, mono: true }]
       : []),
@@ -88,6 +87,19 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
         ]
       : []),
   ];
+  // The raw health record stands in when the server gave no summary, so the
+  // row always offers its technical details beside the fix.
+  const technical =
+    [integration.summary, integration.detail].filter(Boolean).join('\n') ||
+    JSON.stringify(integration, null, 2);
+  const actionLink = action ? (
+    <Button asChild size="sm" variant="outline">
+      <Link to={action.to}>
+        <AdjustIcon aria-hidden="true" />
+        {action.label}
+      </Link>
+    </Button>
+  ) : null;
   return (
     <InfraRow
       className="cursor-pointer"
@@ -95,23 +107,23 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
       details={
         expanded ? (
           <>
-            <KeyValueGrid items={facts} />
-            {action ? (
-              <div className="flex min-w-0 items-center gap-1">
-                <Button asChild size="sm" variant="outline">
-                  <Link to={action.to}>
-                    <AdjustIcon aria-hidden="true" />
-                    {action.label}
-                  </Link>
-                </Button>
-              </div>
+            {nextStep ? (
+              <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
-            {integration.summary || integration.detail ? (
-              <TechnicalDetails className="text-[12px]" title="Technical details">
+            <KeyValueGrid items={facts} />
+            {technical ? (
+              <TechnicalDetails
+                beside={actionLink}
+                className="text-[12px]"
+                summaryClassName={buttonVariants({ size: 'sm', variant: 'outline' })}
+                title="Technical details"
+              >
                 <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
-                  {[integration.summary, integration.detail].filter(Boolean).join('\n')}
+                  {technical}
                 </pre>
               </TechnicalDetails>
+            ) : actionLink ? (
+              <div className="flex min-w-0 items-center gap-1">{actionLink}</div>
             ) : null}
           </>
         ) : undefined
