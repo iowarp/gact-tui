@@ -330,6 +330,16 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'tab', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s(
+      'session',
+      'dialog-allow-folder',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Allow opal');
+        await overlay(page);
+      },
+      { route: 'sandbox-blocked' },
+    ),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -820,6 +830,36 @@ async function capture(browser, stack, shot, { theme, width }) {
         await route.fulfill({ json: listing });
       },
     );
+  }
+  if (shot.route === 'sandbox-blocked') {
+    // The catalog search becomes a script the sandbox stopped from writing outside the workspace.
+    await page.route('**/v1/sessions/*/messages*', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const transcript = await (await route.fetch()).json();
+      transcript.tools = (transcript.tools ?? []).map((tool) =>
+        tool.id === 'tool_earthscope'
+          ? {
+              ...tool,
+              name: 'shell_bash',
+              title: 'Run',
+              state: 'failed',
+              input: { command: 'python qc_sites.py' },
+              error: 'Permission denied: /scratch/jc/opal/sites.csv',
+              output: {
+                boundary: {
+                  kind: 'write_denied',
+                  confidence: 'confirmed',
+                  paths: ['/scratch/jc/opal/sites.csv'],
+                  request_roots: ['/scratch/jc/opal'],
+                  message:
+                    "CLIO's sandbox blocked this write. /scratch/jc/opal is not a permitted folder.",
+                },
+              },
+            }
+          : tool,
+      );
+      await route.fulfill({ json: transcript });
+    });
   }
   if (shot.route === 'degraded-health') {
     // One error and one warning, so the hosts tab shows every group.
