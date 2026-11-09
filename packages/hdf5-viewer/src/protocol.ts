@@ -38,7 +38,7 @@ export type ViewerMessage =
       kind: 'dataset' | 'group' | 'other';
       /** A dataset's dimensions; empty for a scalar. */
       shape?: number[];
-      /** A dataset's element type in numpy terms, e.g. loat32. */
+      /** A dataset's element type in numpy terms, e.g. `float32`. */
       dtype?: string;
     }
   | {

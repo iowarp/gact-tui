@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   Artifact as ArtifactEntity,
   BrowserPage,
   SubagentRun,
