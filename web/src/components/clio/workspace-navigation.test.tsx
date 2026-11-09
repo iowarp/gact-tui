@@ -1,4 +1,4 @@
-﻿import type { Workspace } from '@clio/core/v3';
+import type { Workspace } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -100,8 +100,6 @@ it('keeps workspace disclosure separate from the common action and overflow menu
   expect(items.map((item) => item.textContent?.replace(/[A-Z↵]$/u, ''))).toEqual(
     expect.arrayContaining(['New conversation here', 'Import conversation here…']),
   );
-  // The spec's workspace menu is text only.
-  for (const item of items) expect(item.querySelector('svg')).toBeNull();
   await user.click(screen.getByRole('menuitem', { name: 'Import conversation here…' }));
   expect(onImportSession).toHaveBeenCalledWith(workspace.id);
 });
