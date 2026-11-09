@@ -261,6 +261,11 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'New conversation', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s('session', 'held-keys', SESSION, async (page) => {
+      // Holding the command key alone shows each control's shortcut badge.
+      await page.keyboard.down('Control');
+      await page.waitForTimeout(900);
+    }),
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', 'New workspace', { exact: true });
       await page.waitForTimeout(300);

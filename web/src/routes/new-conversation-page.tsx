@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { ChevronDownIcon, ChevronRightIcon, MessageSquareIcon } from 'lucide-react';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -15,6 +16,7 @@ import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
 import { ClioWorkbench } from '@/components/clio/workbench';
+import { WorkspaceMark } from '@/components/clio/workspace-mark';
 import {
   WorkspaceActionAlerts,
   WorkspaceUnavailable,
@@ -182,25 +184,41 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         />
       }
       contextBar={
-        <div className="flex min-w-0 items-center gap-2">
-          <label className="flex min-w-0 items-center gap-2 text-sm">
-            <span className="max-sm:sr-only">New conversation in</span>
-            <select
-              aria-label="Conversation workspace"
-              className="min-w-0 rounded-md border border-border bg-background px-2 py-1"
-              value={workspaceId}
-              disabled={send.isPending}
-              onChange={(event) =>
-                void navigate(newConversationRoute(event.target.value), { replace: true })
-              }
-            >
-              {(data.workspaces.data ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.display_name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex min-w-0 flex-1 items-center gap-0.5 text-[13px]"
+          >
+            <MessageSquareIcon
+              aria-hidden="true"
+              className="mr-1 ml-1 size-[15px] shrink-0 text-faint"
+            />
+            {/* Until the composer's In chip lands, the workspace crumb also switches it. */}
+            <label className="relative flex h-7 min-w-0 max-w-44 shrink-[2] items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground hover:bg-hover hover:text-foreground focus-within:ring-1 focus-within:ring-ring">
+              <WorkspaceMark id={workspaceId} />
+              <select
+                aria-label="Conversation workspace"
+                className="min-w-0 cursor-pointer appearance-none truncate bg-transparent pr-4 outline-none"
+                value={workspaceId}
+                disabled={send.isPending}
+                onChange={(event) =>
+                  void navigate(newConversationRoute(event.target.value), { replace: true })
+                }
+              >
+                {(data.workspaces.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.display_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="pointer-events-none absolute right-1.5 size-3 text-faint"
+              />
+            </label>
+            <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
+            <h1 className="truncate px-1.5 font-semibold italic">New conversation</h1>
+          </nav>
           <ConversationAgentControls
             agents={data.installedAgents.data}
             agentsError={data.installedAgents.error?.message}
