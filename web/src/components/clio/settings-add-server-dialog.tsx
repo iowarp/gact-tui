@@ -79,7 +79,7 @@ export function SettingsAddServerDialog({
         </p>
       ) : (
         <form
-          className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 text-[0.8125rem]"
+          className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 text-[0.8125rem]"
           data-slot="add-server-dialog"
           onSubmit={(event) => {
             event.preventDefault();

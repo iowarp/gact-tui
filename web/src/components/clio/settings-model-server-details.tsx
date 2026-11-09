@@ -7,6 +7,7 @@ import { DetailPane } from './primitives/detail-pane';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel } from './settings-row';
+import { TechnicalDetails } from './technical-details';
 
 export interface ModelServerDetailsProps {
   preset: LanguageModelPreset;
@@ -19,9 +20,9 @@ export interface ModelServerDetailsProps {
 
 /**
  * One model server's details beside the list: its status and address, the
- * models it reports, and the technical facts (what the service last
- * reported, when, and the raw reason) for when something breaks and
- * someone needs to say exactly what.
+ * models it reports, and, behind a collapsed disclosure, the technical facts
+ * (what the service last reported, when, and the raw reason) for when
+ * something breaks and someone needs to say exactly what.
  */
 export function ModelServerDetails({
   preset,
@@ -52,9 +53,11 @@ export function ModelServerDetails({
     { label: 'Kind', value: custom ? 'OpenAI-compatible server' : preset.label },
     { label: 'Default model', value: isDefault ? 'New work uses this server' : 'Not in use' },
   ];
+  const endpoint = catalogEntry?.endpoint || group?.endpoint || preset.api_base;
   const facts: Array<[string, string | undefined]> = [
     ['Provider id', custom && saved ? saved.id : preset.id],
-    ['Endpoint', catalogEntry?.endpoint || group?.endpoint || preset.api_base],
+    // Only when the catalog reaches it somewhere other than the Address above.
+    ['Endpoint', endpoint && endpoint !== address ? endpoint : undefined],
     ['Catalog health', catalogEntry?.health],
     ['Connection', catalogEntry ? providerConnectionLabel(catalogEntry.connectivity) : undefined],
     [
@@ -102,8 +105,16 @@ export function ModelServerDetails({
               : 'Models appear here once it answers.'}
           </p>
         )}
-        <SettingsGroupLabel className="mt-3">Technical details</SettingsGroupLabel>
-        <KeyValueGrid items={technical} />
+        {technical.length ? (
+          <TechnicalDetails
+            className="mt-3"
+            contentClassName="pt-1"
+            summaryClassName="text-xs font-normal"
+            title="Technical details"
+          >
+            <KeyValueGrid items={technical} />
+          </TechnicalDetails>
+        ) : null}
       </div>
     </DetailPane>
   );
