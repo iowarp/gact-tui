@@ -7,8 +7,7 @@ import {
   SEGMENT_HEAT_LEVELS,
 } from '@/lib/attention-segment-heat';
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
-import { bytesToHex } from '@noble/hashes/utils.js';
-import { sha256 } from '@noble/hashes/sha2.js';
+import { contentRevision } from '@/lib/content-revision';
 
 /** Every unit paints levels 1..9 of SPOTTER's ramp; level 0 stays unpainted. */
 const SEGMENT_HIGHLIGHT_NAMES = Array.from(
@@ -107,11 +106,7 @@ export function useAttentionHighlights(
       const selectedRanges = data.selected_references?.flatMap((reference) => {
         if (reference.field !== 'text') return [];
         const source = findTextPartSource(messages, reference.message_id, reference.part_id);
-        if (
-          !source ||
-          bytesToHex(sha256(new TextEncoder().encode(source))) !== reference.content_revision
-        )
-          return [];
+        if (!source || contentRevision(source) !== reference.content_revision) return [];
         if (reference.selection.kind !== 'text' && reference.selection.kind !== 'whole') return [];
         const selection =
           reference.selection.kind === 'text'
