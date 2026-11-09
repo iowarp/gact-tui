@@ -18,13 +18,38 @@ function text(node: HastNode): string {
   return (node.children ?? []).map(text).join('');
 }
 
+// KaTeX sets math at 1.21 times the surrounding text.
+const KATEX_SCALE = 1.21;
+
 /** About how many characters wide KaTeX draws a TeX source: each command is one glyph. */
 export function renderedMathWidth(tex: string): number {
   const glyphs = tex
-    .replace(/\\(?:left|right|big|Big|bigg|Bigg|displaystyle|mathrm|text|operatorname)\b/gu, '')
+    .replace(
+      /\\(?:left|right|big|Big|bigg|Bigg|displaystyle|mathrm|text|operatorname|bar|hat|tilde|vec|dot|ddot|overline)\b/gu,
+      '',
+    )
     .replace(/\\[a-zA-Z]+/gu, 'x')
     .replace(/[{}^_\s]/gu, '');
-  return Math.max(1, glyphs.length);
+  return Math.round(Math.max(1, glyphs.length) * KATEX_SCALE * 10) / 10;
+}
+
+// Display limits stack above and below these; integral limits sit beside the sign.
+const STACKED_LIMITS = /\\(?:sum|prod|coprod|bigcup|bigcap|lim|max|min|sup|inf)\s*[_^]/u;
+const INTEGRAL = /\\(?:int|iint|oint)(?![a-zA-Z])/u;
+const FRACTION = /\\(?:frac|dfrac|tfrac|binom|cfrac)(?![a-zA-Z])/u;
+
+/** About how tall KaTeX draws one display line, in ems of the surrounding text. */
+function displayLineHeight(line: string): number {
+  if (STACKED_LIMITS.test(line)) return 3.8;
+  if (INTEGRAL.test(line)) return 3;
+  if (FRACTION.test(line)) return 2.6;
+  return 1.45;
+}
+
+/** About how tall KaTeX draws display math, in ems of the surrounding text. */
+export function renderedMathHeight(tex: string): number {
+  const height = tex.split(/\\\\/u).reduce((sum, line) => sum + displayLineHeight(line), 0);
+  return Math.round(height * 10) / 10;
 }
 
 function inlinePlaceholder(tex: string): HastNode {
@@ -42,8 +67,6 @@ function inlinePlaceholder(tex: string): HastNode {
 }
 
 function blockPlaceholder(tex: string): HastNode {
-  const lines = tex.split(/\\\\/u).length;
-  const tall = /\\(?:frac|dfrac|sum|int|prod|begin)/u.test(tex) ? 0.9 : 0;
   return {
     type: 'element',
     tagName: 'div',
@@ -51,7 +74,7 @@ function blockPlaceholder(tex: string): HastNode {
       ariaHidden: 'true',
       className: ['rounded-[3px]', 'bg-muted-foreground/10'],
       dataMathPending: 'display',
-      style: `margin:1em auto;height:${(lines * 1.2 + tall).toFixed(1)}em;width:min(100%,${renderedMathWidth(tex)}ch)`,
+      style: `margin:1em auto;height:${renderedMathHeight(tex)}em;width:min(100%,${renderedMathWidth(tex)}ch)`,
     },
     children: [],
   };
@@ -59,7 +82,9 @@ function blockPlaceholder(tex: string): HastNode {
 
 function isMath(node: HastNode | undefined): boolean {
   const own = node?.tagName === 'code' ? classes(node) : [];
-  return own.includes('language-math') || own.includes('math-inline') || own.includes('math-display');
+  return (
+    own.includes('language-math') || own.includes('math-inline') || own.includes('math-display')
+  );
 }
 
 // As rehype-katex reads it: math code inside a `pre` is display math, anywhere else inline.
