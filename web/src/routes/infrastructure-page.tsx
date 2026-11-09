@@ -215,19 +215,10 @@ export function InfrastructurePage() {
         />
       </div>
       <InfraTabActionsProvider value={tabActions}>
-        {/* Overview's connection map fills the tab below its rows. */}
-        <div
-          className={cn(
-            'mx-auto max-w-5xl px-2 sm:px-3',
-            currentSection === 'overview' && 'flex min-h-[calc(100%-2.75rem)] flex-col',
-          )}
-        >
+        <div className="mx-auto max-w-5xl px-2 sm:px-3">
           <section
             aria-label={sectionDefinition.label}
-            className={cn(
-              'min-w-0 pt-1.5',
-              currentSection === 'overview' ? 'flex flex-1 flex-col pb-3' : 'pb-12',
-            )}
+            className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
           >
             {error ? (
               <StateView

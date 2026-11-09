@@ -292,7 +292,11 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-version-status', 'button', /^Version status/u),
+    menu(
+      'menu-version-status',
+      'button',
+      /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u,
+    ),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
@@ -401,7 +405,11 @@ function catalogue({ settings, infrastructure }) {
       '/runs',
       async (page) => {
         await page.locator('[data-run-state] button[type="button"]').first().click();
-        await page.locator('aside[aria-label^="Run: "]').filter({ visible: true }).first().waitFor();
+        await page
+          .locator('aside[aria-label^="Run: "]')
+          .filter({ visible: true })
+          .first()
+          .waitFor();
         await page.waitForTimeout(500);
       },
       { ready: '[data-run-state]' },

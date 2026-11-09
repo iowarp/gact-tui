@@ -191,7 +191,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                 return (
                   <Link
                     aria-label={`${session.title}: ${summary.words}`}
-                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight"
+                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight [&:is(:focus-visible,:has([data-selected]))_.text-link]:text-accent-foreground [&:is(:focus-visible,:has([data-selected]))_.text-muted-foreground]:text-foreground"
                     key={session.id}
                     onClick={() => setOpen(false)}
                     to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
