@@ -21,15 +21,8 @@ test('opens children in tabs from the pinned rail and uses Shift for the center'
   ).json();
   await page.goto(workspaceUrl);
   const evidence = await openConversationRail(page);
-  const child = evidence.getByRole('button', {
-    name: 'Open child conversation Station analysis worker',
-    exact: true,
-  });
-  await expect(child).not.toBeVisible();
-  await evidence.getByRole('button', { name: 'Completed work', exact: true }).click();
-  await evidence
-    .getByRole('button', { name: 'Task details: Station analysis worker', exact: true })
-    .click();
+  // The rail's Running section lists the conversation's runs; a row opens its child as a tab.
+  const child = evidence.getByRole('button', { name: 'Station analysis worker', exact: true });
   await expect(child).toBeVisible();
   await child.click();
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
@@ -42,15 +35,6 @@ test('opens children in tabs from the pinned rail and uses Shift for the center'
   ).toBeVisible();
   // Pinned: the rail stays open while the canvas opens and closes.
   await expect(evidence).toBeVisible();
-  const reopenedDetails = evidence.getByRole('button', {
-    name: 'Task details: Station analysis worker',
-    exact: true,
-  });
-  await reopenedDetails.click({ trial: true });
-  if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
-    await reopenedDetails.click();
-  }
-  await expect(reopenedDetails).toHaveAttribute('aria-expanded', 'true');
   await expect(child).toBeVisible();
   await child.click({ modifiers: ['Shift'] });
   await expect(page).toHaveURL(new RegExp(`/sessions/${worker.id}$`));

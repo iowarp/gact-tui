@@ -30,6 +30,7 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   page.on('pageerror', (error) => errors.push(error.message));
   await openSession(page);
   const panel = await openConversationRail(page);
+  await panel.getByRole('button', { name: 'Expand Connected sources', exact: true }).click();
   await expect(panel.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
   await expect(panel.locator('[data-slot="artifact"]')).toHaveCount(0);
   for (const row of await panel.locator('[data-slot="artifact-rail-row"]').all())
@@ -88,6 +89,7 @@ test('rail links survive technical-dialog dismissal and open source details on m
   await expect(technical).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: 'Expand Connected sources', exact: true }).click();
   await panel.getByRole('button', { name: 'Open Sensor repository' }).click();
   await expect(
     page

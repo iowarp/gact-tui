@@ -1,10 +1,10 @@
-import type { ConnectedSourceState } from '@clio/core/v3';
+import type { ConnectedSourceState, UsageSnapshot } from '@clio/core/v3';
 import { CalendarClockIcon, DatabaseIcon, ExternalLinkIcon, GlobeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
 import { openHumanQuestions } from '@/lib/inline-question';
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
-import { contextUsedSummary } from './context-composition-model';
+import { contextTokens, contextUsedSummary } from './context-composition-model';
 import { ContextCompositionBar, ContextUsage } from './context-usage';
 import { RailRuns } from './rail-runs';
 import { sessionEvidenceItems } from './session-evidence-items';
@@ -100,6 +100,7 @@ export function SessionRailContent({
       content: (
         <>
           <ContextUsage compact bare context={evidence.context} messages={evidence.messages} />
+          <ConversationSpend usage={evidence.usage} />
           {evidence.contextError ? <p role="alert">{evidence.contextError}</p> : null}
           {evidence.onOpenCanvas ? (
             <Button
@@ -236,4 +237,30 @@ export function SessionRailContent({
       )),
     });
   return <SessionRail items={[...inventory, ...items]} header={header} />;
+}
+
+/** What the conversation has used so far, which the rail carries for the top bar. */
+function ConversationSpend({ usage }: { usage?: UsageSnapshot }) {
+  const sent = usage?.input_tokens ?? 0;
+  const received = usage?.output_tokens ?? 0;
+  const rows: Array<[string, string]> = [
+    ['Used so far', `${contextTokens(sent + received)} tokens`],
+    ['Sent and received', `${contextTokens(sent)} in, ${contextTokens(received)} out`],
+    [
+      'Cost',
+      usage?.cost_usd === undefined
+        ? 'Not reported'
+        : `$${usage.cost_usd < 0.01 && usage.cost_usd > 0 ? usage.cost_usd.toFixed(4) : usage.cost_usd.toFixed(2)}`,
+    ],
+  ];
+  return (
+    <dl aria-label="Conversation usage" className="mt-1 grid gap-0.5 border-t pt-2 text-xs">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex min-h-6 items-center justify-between gap-3">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="truncate text-right tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }

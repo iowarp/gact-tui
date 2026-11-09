@@ -92,9 +92,12 @@ it.each([false, true])(
     };
     const view = render(<ClioEvidenceView {...props} section="data" />);
     expect(screen.queryByRole('button', { name: 'Completed work' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Background (work|tasks),/ })).toBeNull();
+    const workGroup = compact ? /^Running,/ : /^Background (work|tasks),/;
+    expect(screen.queryByRole('button', { name: workGroup })).toBeNull();
     view.rerender(<ClioEvidenceView {...props} section="work" />);
-    const group = screen.getByRole('button', { name: /^Background (work|tasks), none running$/ });
+    const group = screen.getByRole('button', {
+      name: compact ? 'Running, none running' : /^Background (work|tasks), none running$/,
+    });
     if (group.getAttribute('aria-expanded') === 'false') await userEvent.click(group);
     expect(screen.getByRole('button', { name: 'Completed work' })).toBeVisible();
     expect(screen.queryByText('No session evidence or recorded activity is available.')).toBeNull();

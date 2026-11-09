@@ -63,7 +63,9 @@ for (const width of [1920, 1280, 390]) {
     const before = await composer.boundingBox();
     const toggle = conversationRailButton(page);
     const rail = await openConversationRail(page);
-    await expect(rail.getByRole('heading', { name: 'This conversation' })).toBeVisible();
+    await expect(
+      rail.getByRole('heading', { name: 'This conversation', exact: true }),
+    ).toBeVisible();
     for (const section of ['Context', 'Artifacts'])
       await expect(
         rail.getByRole('region', { name: `${section} section`, exact: true }),
@@ -185,6 +187,6 @@ test('an empty bounded history does not leave a Completed work category', async 
   const panel = await openConversationRail(page);
   await expect.poll(() => readHistory).toBe(true);
   await expect(panel.getByRole('button', { name: 'Completed work', exact: true })).toHaveCount(0);
-  await expect(panel.getByRole('region', { name: 'Tasks section', exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('region', { name: 'Running section', exact: true })).toHaveCount(0);
   await panel.screenshot({ path: testInfo.outputPath('empty-work-history.png') });
 });

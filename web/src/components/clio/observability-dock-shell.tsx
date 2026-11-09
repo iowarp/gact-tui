@@ -18,15 +18,25 @@ import type {
   SubagentRun,
   Task,
   ToolInvocation,
+  UsageSnapshot,
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
   WorkspaceResource,
   WorkspaceSourceFolder,
 } from '@clio/core/v3';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
-import { BoxesIcon, PanelRightOpenIcon, PanelRightDashedIcon } from 'lucide-react';
-import { useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
+import {
+  BoxesIcon,
+  LoaderCircleIcon,
+  MessageCircleQuestionIcon,
+  PanelRightOpenIcon,
+  PanelRightDashedIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
+import { useId, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { failedWorkCount, railButtonLook, type RailButtonLook } from './rail-button-look';
 import {
   Popover,
   PopoverContent,
@@ -75,6 +85,8 @@ export interface ClioObservabilityDockProps {
   runs: readonly Run[];
   subagents: readonly SubagentRun[];
   context?: ContextSnapshot;
+  /** What this conversation has used so far: tokens sent and received, and cost. */
+  usage?: UsageSnapshot;
   contextError?: string;
   contextFilesError?: string;
   contextFilesPending?: boolean;
@@ -196,7 +208,19 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     <div className="flex min-w-0 items-center gap-1" data-slot="composer-evidence">
       <ConversationRail evidence={props}>
         {(rail) => (
-          <RailButton rail={rail} toolbar={props.toolbar}>
+          <RailButton
+            rail={rail}
+            toolbar={props.toolbar}
+            failedCount={failedWorkCount(props.processes, props.subagents)}
+            look={(seenFailed) =>
+              railButtonLook({
+                processes: props.processes,
+                subagents: props.subagents,
+                interactions: props.interactions,
+                seenFailed,
+              })
+            }
+          >
             <span
               className={
                 props.toolbar
@@ -328,13 +352,22 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
 function RailButton({
   rail,
   toolbar,
+  look,
+  failedCount,
   children,
 }: {
   rail: ConversationRailControl;
   toolbar?: boolean;
+  look: (seenFailed: number) => RailButtonLook;
+  failedCount: number;
   children: ReactNode;
 }) {
   const { open, setOpen, buttonRef, panelId, panelRef } = rail;
+  // Failed work stays red until the person has had the rail open on it.
+  const [seenFailed, setSeenFailed] = useState(0);
+  if ((open || failedCount < seenFailed) && seenFailed !== failedCount) setSeenFailed(failedCount);
+  const current = look(seenFailed);
+  const describedBy = useId();
   useShortcut('conversation-runs', () => {
     if (open) return setOpen(false);
     setOpen(true);
@@ -355,15 +388,47 @@ function RailButton({
     <Button
       ref={buttonRef}
       aria-label="Conversation rail"
+      aria-describedby={toolbar ? describedBy : undefined}
       aria-expanded={open}
       aria-controls={open ? panelId : undefined}
       onClick={() => setOpen(!open)}
-      className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
-      size={toolbar ? 'icon-sm' : 'sm'}
-      title={open ? 'Close the conversation rail' : 'Open the conversation rail'}
+      className={cn(
+        'h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground',
+        // Fixed slots, so the button keeps its width whatever it shows.
+        toolbar && 'w-[3.25rem] justify-end gap-1 px-1.5',
+      )}
+      data-rail-look={toolbar ? current.kind : undefined}
+      size="sm"
+      title={`${toolbar ? `${current.label}. ` : ''}${open ? 'Close' : 'Open'} the conversation rail`}
       type="button"
       variant="ghost"
     >
+      {toolbar ? (
+        <>
+          <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
+            {current.kind === 'running' ? (
+              <LoaderCircleIcon className="size-3 text-primary motion-safe:animate-spin" />
+            ) : current.kind === 'waiting' ? (
+              <MessageCircleQuestionIcon className="size-3 text-warning" />
+            ) : current.kind === 'failed' ? (
+              <TriangleAlertIcon className="size-3 text-destructive" />
+            ) : null}
+          </span>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
+              current.kind === 'waiting' && 'text-warning',
+              current.kind === 'failed' && 'text-destructive',
+            )}
+          >
+            {current.count ? (current.count > 99 ? '99+' : current.count) : ''}
+          </span>
+          <span className="sr-only" id={describedBy}>
+            {current.label}
+          </span>
+        </>
+      ) : null}
       <PanelRightDashedIcon aria-hidden="true" />
       {children}
     </Button>

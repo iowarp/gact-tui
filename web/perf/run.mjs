@@ -25,6 +25,7 @@ import {
   exploreJourney,
   fileViewerJourney,
   headerJourney,
+  railJourney,
   idle,
   loadEarlier,
   marks,
@@ -137,6 +138,7 @@ async function runInteractions(browser, stack) {
     log(`interactions round ${round_ + 1}/${repeat}`);
     await shellJourney(r);
     await headerJourney(r);
+    await railJourney(r);
     await composerJourney(r);
   }
   await transcriptJourney(r);

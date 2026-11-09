@@ -77,12 +77,12 @@ export function RailRuns({
   const canStop = (run: RailRun) =>
     run.row.cancellable && !run.row.cancelRequested && Boolean(run.entry.process && onCancelTask);
   const canRetry = (run: RailRun) => run.retryable && Boolean(run.entry.process && onControlTask);
-  const open = (run: RailRun) => {
+  const open = (run: RailRun, target: 'canvas' | 'conversation' = 'canvas') => {
     const { process, subagent } = run.entry;
     if (process?.flow && onOpenFlow) return onOpenFlow(run.row.taskId, run.row.label);
     const conversation =
       subagent ?? (process ? mergeSessionSubagents([], [process])[0] : undefined);
-    if (conversation?.child_session_id) onOpenSubagent?.(conversation, 'canvas');
+    if (conversation?.child_session_id) onOpenSubagent?.(conversation, target);
   };
   const keys = (run: RailRun) => (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Delete' && canStop(run)) {
@@ -103,7 +103,7 @@ export function RailRuns({
           cancelRequested={run.row.cancelRequested ?? false}
           showWorkspace={false}
           density="rail"
-          onOpen={() => open(run)}
+          onOpen={(event) => open(run, event.shiftKey ? 'conversation' : 'canvas')}
           onTitleKeyDown={keys(run)}
           actions={
             canStop(run) ? (

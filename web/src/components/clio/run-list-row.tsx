@@ -1,4 +1,4 @@
-import { memo, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { RunState } from '@clio/core/v3';
@@ -109,7 +109,7 @@ export interface RunListRowProps {
   /** Hide the workspace column (a conversation's own rail). */
   showWorkspace?: boolean;
   /** Open the run in place (a workbench tab) instead of following its conversation link. */
-  onOpen?: () => void;
+  onOpen?: (event: MouseEvent<HTMLButtonElement>) => void;
   /** Keys on the run's name while it has focus (the rail's Delete and Shift+Enter). */
   onTitleKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
   /**
@@ -225,11 +225,13 @@ export const RunListRow = memo(function RunListRow({
         </>
       }
       meta={
-        <MetaValue>
-          <time dateTime={row.updatedAt} title={fullWhen(row.updatedAt)}>
-            {compactWhen(row.updatedAt)}
-          </time>
-        </MetaValue>
+        rail && !row.updatedAt ? undefined : (
+          <MetaValue>
+            <time dateTime={row.updatedAt} title={fullWhen(row.updatedAt)}>
+              {compactWhen(row.updatedAt)}
+            </time>
+          </MetaValue>
+        )
       }
       actions={actions ?? null}
       actionsWidth={rail ? 28 : RUN_ACTIONS_WIDTH}
