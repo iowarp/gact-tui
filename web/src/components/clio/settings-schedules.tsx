@@ -155,7 +155,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   const serviceTimezone = scheduledTurns.data?.timezone ?? '';
 
   return (
-    <div className="grid min-w-0" ref={rootRef}>
+    <div className="min-w-0" ref={rootRef}>
       <SettingsSectionHeading
         actions={
           sessionOptions.length ? (
