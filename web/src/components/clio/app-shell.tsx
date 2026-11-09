@@ -154,13 +154,10 @@ export function ClioAppShell({
   // Side by side needs the 400 px conversation, the 320 px workbench and the
   // folded 56 px left bar; under 900 px the workbench slides over at 86%.
   const desktopWorkbench = useMediaQuery(SPLIT_WORKBENCH_QUERY);
-  const workbenchShareRef = useRef<number>(undefined);
-  workbenchShareRef.current ??= storedWorkbenchShare();
+  const [initialWorkbenchShare] = useState(storedWorkbenchShare);
+  const workbenchShareRef = useRef(initialWorkbenchShare);
   const [conversationCrowded, setConversationCrowded] = useState(() =>
-    conversationNeedsFoldedNavigation(
-      workbenchShareRef.current ?? DEFAULT_WORKBENCH_SHARE,
-      currentWindowWidth(),
-    ),
+    conversationNeedsFoldedNavigation(initialWorkbenchShare, currentWindowWidth()),
   );
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
@@ -177,11 +174,10 @@ export function ClioAppShell({
   // until the window itself resizes (below), so folding the left bar widens
   // the conversation rather than the workbench.
   const [workbenchDefaultSize] = useState(
-    () =>
-      `${Math.round(workbenchWidth(workbenchShareRef.current ?? DEFAULT_WORKBENCH_SHARE, currentWindowWidth()))}px`,
+    () => `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`,
   );
   const applyWorkbenchShare = useCallback(() => {
-    const share = workbenchShareRef.current ?? DEFAULT_WORKBENCH_SHARE;
+    const share = workbenchShareRef.current;
     const width = currentWindowWidth();
     setConversationCrowded(conversationNeedsFoldedNavigation(share, width));
     const panel = workbenchPanelRef.current;
