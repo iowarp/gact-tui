@@ -94,7 +94,7 @@ describe('SandboxBoundaryNotice', () => {
 
 it('marks a blocked call row with the folder in words', () => {
   render(<SandboxBoundaryBadge boundary={sandboxBoundary({ boundary: denied })!} />);
-  expect(screen.getByText('Sandbox: Desktop')).toBeVisible();
+  expect(screen.getByLabelText('Sandbox: Desktop')).toHaveTextContent('Blocked');
 });
 
 describe('TurnSandboxNotices', () => {

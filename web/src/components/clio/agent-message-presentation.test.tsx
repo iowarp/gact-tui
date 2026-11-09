@@ -1,5 +1,5 @@
 import type { SubagentRun, ToolInvocation } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
@@ -67,9 +67,14 @@ it('opens a retained sent message even when its recipient conversation is unavai
     />,
   );
   const row = screen.getByRole('button', { name: 'Sent message to Source analyst' });
-  expect(screen.queryByText('Keep the original units and date range.')).toBeNull();
+  expect(row).toHaveAttribute('aria-expanded', 'false');
+  // The row previews the message; opening it adds the complete body.
+  expect(screen.getAllByText('Keep the original units and date range.')).toHaveLength(1);
   await userEvent.click(row);
-  expect(await screen.findByText('Keep the original units and date range.')).toBeVisible();
+  expect(row).toHaveAttribute('aria-expanded', 'true');
+  await waitFor(() =>
+    expect(screen.getAllByText('Keep the original units and date range.')).toHaveLength(2),
+  );
 });
 
 it('expands the sent message before offering separate conversation navigation', async () => {
@@ -89,8 +94,8 @@ it('expands the sent message before offering separate conversation navigation', 
   );
   await userEvent.click(screen.getByRole('button', { name: 'Sent message to Evidence reviewer' }));
   expect(open).not.toHaveBeenCalled();
-  expect(await screen.findByText('Check both sources.')).toBeVisible();
-  await userEvent.click(screen.getByRole('button', { name: 'Open conversation' }));
+  await waitFor(() => expect(screen.getAllByText('Check both sources.')).toHaveLength(2));
+  await userEvent.click(screen.getByRole('button', { name: /^Open / }));
   expect(open).toHaveBeenCalledWith(child, 'canvas');
 });
 

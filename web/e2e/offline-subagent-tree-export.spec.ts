@@ -71,8 +71,7 @@ test('an exported subagent tree reaches every descendant from its spawn and back
   ];
   for (const edge of edges) {
     const parent = section(page, edge.parent);
-    const activity = parent.getByRole('button', { name: /^Activity:/ }).first();
-    if ((await activity.getAttribute('aria-expanded')) !== 'true') await activity.click();
+    // Activity rows are always visible: the spawn is reachable without opening anything.
     await parent.getByRole('button', { name: edge.link, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${edge.child}$`, 'u'));
     const child = section(page, edge.child);

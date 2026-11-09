@@ -18,10 +18,13 @@ export function PresentationLink({
   block,
   compact = false,
   iconOnly = false,
+  className: extraClassName,
 }: {
   block: ToolPresentationBlock;
   compact?: boolean;
   iconOnly?: boolean;
+  /** Restyles the label, e.g. as an activity row's mono argument. */
+  className?: string;
 }) {
   const navigation = useContext(PresentationNavigation);
   const hasRouter = useInRouterContext();
@@ -46,7 +49,11 @@ export function PresentationLink({
   );
   const className = iconOnly
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
-    : cn('text-sm', compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words');
+    : cn(
+        'text-sm',
+        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        extraClassName,
+      );
   const withTooltip = (element: React.ReactElement) =>
     compact ? (
       <TooltipProvider>

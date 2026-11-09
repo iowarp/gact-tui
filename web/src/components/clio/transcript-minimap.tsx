@@ -14,6 +14,7 @@ import { type AttentionMinimapMark, attentionMinimapMarks } from '@/lib/attentio
 import { formatSharePercent } from '@/lib/attention-text';
 import { magnifyRows } from '@/lib/minimap-magnify';
 import { cn } from '@/lib/utils';
+import { ListRow } from './primitives/list-row';
 import { TranscriptMessagePreview } from './transcript-message-preview';
 
 interface ClioTranscriptMinimapProps {
@@ -107,7 +108,7 @@ function TranscriptOutline({
           'flex w-80 min-w-64 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col resize overflow-hidden p-2',
           onlyMarked ? 'min-h-24' : 'h-80 min-h-48',
         )}
-        style={onlyMarked ? { height: Math.min(320, 40 + 72 * count) } : undefined}
+        style={onlyMarked ? { height: Math.min(320, 40 + OUTLINE_ROW_HEIGHT * count) } : undefined}
         side="right"
       >
         <div className="mb-1 flex shrink-0 items-center justify-between px-2">
@@ -156,11 +157,12 @@ function TranscriptOutlineList({
       ),
     [messages, onlyMarked, marks.markedMessageIds],
   );
+  const anyMarked = indices.some((index) => marks.markedMessageIds?.has(messages[index]?.id ?? ''));
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
     count: indices.length,
-    estimateSize: () => 72,
+    estimateSize: () => OUTLINE_ROW_HEIGHT,
     getItemKey: (index) => messages[indices[index] ?? -1]?.id ?? index,
     getScrollElement: () => listRef.current,
     overscan: 6,
@@ -186,21 +188,18 @@ function TranscriptOutlineList({
           const message = messages[index];
           if (!message) return null;
           return (
-            <div
-              className="absolute top-0 left-0 w-full pr-1"
-              data-index={row.index}
+            <TranscriptOutlineItem
+              active={index === activeIndex}
+              iconColumn={anyMarked}
+              index={index}
               key={row.key}
-              style={{ height: row.size, transform: `translateY(${row.start}px)` }}
-            >
-              <TranscriptOutlineItem
-                active={index === activeIndex}
-                index={index}
-                message={message}
-                onJump={onJump}
-                previews={previews}
-                {...marks}
-              />
-            </div>
+              message={message}
+              onJump={onJump}
+              position={row.index}
+              previews={previews}
+              start={row.start}
+              {...marks}
+            />
           );
         })}
       </div>
@@ -208,25 +207,45 @@ function TranscriptOutlineList({
   );
 }
 
+const OUTLINE_ROW_HEIGHT = 28;
+
+/**
+ * One 28px outline line: the message's name, then its muted context cut with
+ * an ellipsis; the full text is the hover preview. A bookmark glyph names a
+ * marked message and the current message says "Here" as well as highlighting.
+ */
 function TranscriptOutlineItem({
   active,
+  iconColumn,
   index,
   message,
   onJump,
+  position,
   previews,
+  start,
   markedMessageIds,
   markingMessageId,
   onMarkMessage,
 }: Pick<NavigationProps, 'previews' | 'markedMessageIds' | 'markingMessageId' | 'onMarkMessage'> & {
   active: boolean;
+  /** Reserve the bookmark column on every row once any listed message is marked. */
+  iconColumn: boolean;
   index: number;
   message: Message;
   onJump: (index: number) => void;
+  /** Virtual row index and offset. */
+  position: number;
+  start: number;
 }) {
   const preview = previews.get(message.id)!;
   const marked = markedMessageIds?.has(message.id) ?? false;
   const previewDismissedRef = useRef(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const jump = () => {
+    previewDismissedRef.current = true;
+    setPreviewOpen(false);
+    onJump(index);
+  };
   return (
     <HoverCard
       onOpenChange={(open) => {
@@ -236,38 +255,41 @@ function TranscriptOutlineItem({
       open={previewOpen}
       openDelay={120}
     >
-      <div className="grid h-full rounded-md">
-        <HoverCardTrigger asChild>
-          <Button
-            aria-current={active ? 'location' : undefined}
-            aria-label={`Jump to ${message.role} message ${index + 1}`}
-            className="h-full w-full [grid-area:1/1]"
-            onClick={() => {
-              previewDismissedRef.current = true;
-              setPreviewOpen(false);
-              onJump(index);
-            }}
-            onPointerLeave={() => {
-              previewDismissedRef.current = false;
-            }}
-            variant={active ? 'secondary' : 'ghost'}
-          />
-        </HoverCardTrigger>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none overflow-hidden px-2 py-1.5 [grid-area:1/1]"
-        >
-          <p className="flex min-w-0 items-center gap-1 text-left text-xs font-semibold">
-            {marked ? <BookmarkIcon className="size-3 shrink-0" fill="currentColor" /> : null}
-            <span className="truncate">{preview.title}</span>
-          </p>
-          {preview.body ? (
-            <p className="line-clamp-2 text-left text-xs leading-4 text-muted-foreground">
-              {preview.body}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <HoverCardTrigger asChild>
+        <ListRow
+          aria-current={active ? 'location' : undefined}
+          aria-label={`Jump to ${message.role} message ${index + 1}${marked ? ', marked' : ''}`}
+          className="absolute top-0 right-1 left-0 cursor-pointer text-[12.5px] text-foreground"
+          data-index={position}
+          data-slot="transcript-outline-row"
+          description={preview.body ? preview.body.replaceAll(/\s+/gu, ' ') : undefined}
+          icon={
+            iconColumn ? (
+              marked ? (
+                <BookmarkIcon className="size-3.5" fill="currentColor" />
+              ) : (
+                <span />
+              )
+            ) : undefined
+          }
+          meta={<span className="text-[11px] text-muted-foreground">{active ? 'Here' : null}</span>}
+          onClick={jump}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            jump();
+          }}
+          onPointerLeave={() => {
+            previewDismissedRef.current = false;
+          }}
+          role="button"
+          selected={active}
+          style={{ transform: `translateY(${start}px)` }}
+          tabIndex={0}
+          title={preview.title}
+        />
+      </HoverCardTrigger>
       <HoverCardContent
         align="start"
         aria-label={`${message.role} message ${index + 1} preview`}
