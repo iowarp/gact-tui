@@ -135,6 +135,12 @@ function chooseStudyMode(study: string, mode: LogMode): void {
   }
 }
 
+/** A message can reference files, artifacts and sessions, not a study's entries. */
+const NO_MESSAGE_REFERENCE = {
+  reason: 'Science log entries cannot be added to a message yet',
+  onSelect: () => undefined,
+};
+
 const DASHBOARD_ARTIFACT = /^artifact_[A-Za-z0-9_-]+$/u;
 
 /** The log and its graph share the selected entry; the study list narrows both to a topic. */
@@ -316,6 +322,7 @@ export function ScienceLogView({
       <FrameBar
         actions={
           <FrameTalkTake
+            addToMessage={NO_MESSAGE_REFERENCE}
             comments={<FrameCommentsUnavailable reason="Not available for the science log" />}
             copy={take.copy}
             open={take.open}

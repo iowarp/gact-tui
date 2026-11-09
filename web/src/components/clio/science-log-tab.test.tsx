@@ -2,6 +2,7 @@ import { scienceLogSchema, type ScienceStudy } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   cleanup,
+  fireEvent,
   render as renderBare,
   screen,
   waitFor,
@@ -253,9 +254,13 @@ describe('Science log tab', () => {
     expect(
       within(tree).getByRole('button', { name: 'Step: Linear trial, completed, 3 entries' }),
     ).toBeVisible();
-    expect(
-      within(tree).getByRole('button', { name: 'Step: Quadratic trial, running' }),
-    ).toBeVisible();
+    const quadratic = within(tree).getByRole('button', { name: 'Step: Quadratic trial, running' });
+    expect(quadratic).toBeVisible();
+    // A third level opens under its picked topic.
+    expect(quadratic).toHaveAttribute('aria-expanded', 'false');
+    expect(within(tree).queryByRole('button', { name: /^Fork: Cubic trial/u })).toBeNull();
+    fireEvent.click(quadratic);
+    expect(quadratic).toHaveAttribute('aria-expanded', 'true');
     // The fork says what it forks, its note and what it derives from on hover.
     const fork = within(tree).getByRole('button', { name: 'Fork: Cubic trial, running, 1 entry' });
     const hover = fork.closest('[role="listitem"]')!.getAttribute('title');

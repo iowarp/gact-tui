@@ -1,6 +1,6 @@
 import type { ScienceView } from '@clio/core/v3';
 import { LayoutGridIcon } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
+import { useMemo, type KeyboardEvent } from 'react';
 import { StudyNodeIcon } from './science-log-icons';
 import type { StudyNode, StudyTopic } from './science-log-model';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
@@ -57,10 +57,37 @@ export interface StudyTreeProps {
   onOpenView?: (view: ScienceView) => void;
 }
 
+/** The tree's selected row: the accent fill, as the workbench file tree marks its row. */
+const SELECTED_ROW =
+  'data-selected:bg-accent data-selected:text-accent-foreground data-selected:hover:bg-accent data-selected:[&_[aria-hidden=true]]:text-accent-foreground';
+
+/**
+ * The rows the tree shows: the study and its first level always; a deeper row
+ * only under the picked topic, so the list opens two levels deep.
+ */
+function visibleTopics(topics: readonly StudyTopic[], selected: string | undefined): StudyTopic[] {
+  const open = new Set<string>();
+  const trail: StudyTopic[] = [];
+  for (const topic of topics) {
+    trail.length = topic.depth;
+    trail.push(topic);
+    if (topic.node.key === selected) for (const row of trail) open.add(row.node.key);
+  }
+  const shown: StudyTopic[] = [];
+  const parents: StudyTopic[] = [];
+  for (const topic of topics) {
+    parents.length = topic.depth;
+    const parent = parents.at(-1);
+    if (topic.depth < 2 || (parent && open.has(parent.node.key))) shown.push(topic);
+    parents.push(topic);
+  }
+  return shown;
+}
+
 /**
  * The study beside the tabs: the study itself, then its hypotheses and branches
  * with how many entries each holds, then the dashboards it attached. Picking a
- * topic narrows the log to it; picking a view opens it.
+ * topic narrows the log to it and opens its own topics; picking a view opens it.
  */
 export function StudyTree({
   name,
@@ -70,21 +97,30 @@ export function StudyTree({
   views = [],
   onOpenView,
 }: StudyTreeProps) {
+  const shown = useMemo(() => visibleTopics(topics, selected), [topics, selected]);
   return (
     <div
       aria-label="Study tree"
-      className="grid min-w-0 content-start gap-0.5 px-1.5 py-1"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-0.5 px-1.5 py-1"
       role="group"
     >
       <h3 className="sr-only" id="study-tree-study">
         Study
       </h3>
-      <div aria-labelledby="study-tree-study" className="grid min-w-0" role="list">
-        {topics.map((topic) => {
+      <div
+        aria-labelledby="study-tree-study"
+        className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
+        role="list"
+      >
+        {shown.map((topic, index) => {
           const { node, depth } = topic;
           const root = node.kind === 'question' && depth === 0;
           const title = root ? name : node.title;
           const count = topic.entries.length;
+          const nested =
+            !root && topic.node.children.length > 0
+              ? shown[index + 1]?.depth === topic.depth + 1
+              : undefined;
           const label = root
             ? `Study: ${name}, ${count} ${count === 1 ? 'entry' : 'entries'}`
             : `${studyKindLabel(node)}: ${node.title}, ${node.state.label}${count ? `, ${count} ${count === 1 ? 'entry' : 'entries'}` : ''}`;
@@ -97,9 +133,10 @@ export function StudyTree({
               title={tooltip(node)}
             >
               <ListRow
+                aria-expanded={nested}
                 aria-label={label}
                 aria-pressed={selected === node.key}
-                className="cursor-default"
+                className={`cursor-default ${SELECTED_ROW}`}
                 icon={<StudyNodeIcon node={node} />}
                 meta={!root && count ? <MetaValue>{count}</MetaValue> : undefined}
                 onClick={() => onSelectTopic(topic)}
@@ -119,7 +156,11 @@ export function StudyTree({
           <ListGroupLabel className="mt-2" id="study-tree-views">
             Views
           </ListGroupLabel>
-          <div aria-labelledby="study-tree-views" className="grid min-w-0" role="list">
+          <div
+            aria-labelledby="study-tree-views"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
+            role="list"
+          >
             {views.map((view) => {
               const key = `view:${view.entry}`;
               const title = view.title || 'Untitled view';
@@ -129,7 +170,7 @@ export function StudyTree({
                     aria-disabled={onOpenView ? undefined : true}
                     aria-label={`View: ${title}`}
                     aria-pressed={selected === key}
-                    className="cursor-default"
+                    className={`cursor-default ${SELECTED_ROW}`}
                     icon={<LayoutGridIcon />}
                     onClick={() => onOpenView?.(view)}
                     onKeyDown={(event) => activateOnKey(event, () => onOpenView?.(view))}

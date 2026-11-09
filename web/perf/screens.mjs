@@ -218,9 +218,10 @@ async function openVault(page) {
     .filter({ visible: true })
     .first()
     .click();
-  const dialog = page.getByRole('dialog').filter({ visible: true }).first();
-  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().click();
-  await dialog.getByRole('button', { name: 'Open knowledge' }).click();
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Your sources', visible: true }).last();
+  // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
+  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
+  await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
   // The vault opens as a tab under the Sources list; close the list to show it.
   const sources = page
     .getByRole('toolbar', { name: 'Workbench lists' })

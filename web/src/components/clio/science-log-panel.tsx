@@ -60,7 +60,13 @@ export function ScienceLogList({
 }: ScienceLogListProps) {
   const links: ScienceCallLinks = { onViewCall, fileHref, titles };
   return (
-    <ol aria-label="Science log entries" className="min-w-0 py-1">
+    // One grid for the whole log: the state column is as wide as the widest state, so every
+    // title takes the rest and the states line up. The first track holds the row's inset
+    // (6px margin, 8px padding) and its 14px icon: a subgrid's edge spacing comes out of it.
+    <ol
+      aria-label="Science log entries"
+      className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)_max-content] gap-x-2.5 py-1"
+    >
       {entries.map((entry) => {
         const selected = entry.id === selectedEntry;
         const name = `${ENTRY_TYPE_LABELS[entry.type]}: ${entrySummary(entry) || entry.id}`;
@@ -68,7 +74,7 @@ export function ScienceLogList({
         return (
           <li
             aria-label={name}
-            className="min-w-0 scroll-mt-2 outline-none"
+            className="col-span-3 grid min-w-0 scroll-mt-2 grid-cols-subgrid outline-none"
             data-focused={selected || undefined}
             id={scienceEntryDomId(entry.id)}
             key={entry.id}
@@ -78,18 +84,28 @@ export function ScienceLogList({
               aria-expanded={selected}
               aria-label={`${name}, ${state.label}`}
               className={cn(
-                'grid min-h-8 w-full min-w-0 grid-cols-[14px_minmax(0,1fr)_88px] items-center gap-x-2.5 px-3 py-1.5 text-left text-[12.5px] leading-5 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                selected && 'bg-menu-highlight hover:bg-menu-highlight',
+                'col-span-3 mx-1.5 grid h-8 min-w-0 grid-cols-subgrid items-center rounded-md px-2 text-left text-[12.5px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                selected && 'bg-accent text-accent-foreground hover:bg-accent',
               )}
               data-entry-row=""
               onClick={() => onPickEntry(entry.id)}
               type="button"
             >
-              <EntryKindIcon className="text-muted-foreground" type={entry.type} />
-              <span className={cn('min-w-0', selected ? '[overflow-wrap:anywhere]' : 'truncate')}>
+              <EntryKindIcon
+                className={selected ? 'text-accent-foreground' : 'text-muted-foreground'}
+                type={entry.type}
+              />
+              <span className="min-w-0 truncate" title={entrySummary(entry) || undefined}>
                 {entrySummary(entry) || ENTRY_TYPE_LABELS[entry.type]}
               </span>
-              <ScienceStatus state={state} />
+              <ScienceStatus
+                className={
+                  selected && state.tone !== 'supported' && state.tone !== 'refuted'
+                    ? 'text-accent-foreground'
+                    : undefined
+                }
+                state={state}
+              />
             </button>
             {selected ? (
               <EntryDetails
@@ -128,19 +144,18 @@ function EntryDetails({
   const reference = (id: string) => {
     const target = byId.get(id);
     const elsewhere = target && target.branch !== entry.branch;
+    const text = entryReference(target, id);
+    const branch = elsewhere ? ` (in ${titles.get(target.branch) || target.branch})` : '';
     return (
       <button
-        className="min-w-0 text-left text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+        className="min-w-0 truncate text-left text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
         key={id}
         onClick={() => onSelectEntry(id)}
+        title={`${text}${branch}`}
         type="button"
       >
-        {entryReference(target, id)}
-        {elsewhere ? (
-          <span className="text-muted-foreground">
-            {` (in ${titles.get(target.branch) || target.branch})`}
-          </span>
-        ) : null}
+        {text}
+        {branch ? <span className="text-muted-foreground">{branch}</span> : null}
       </button>
     );
   };
@@ -166,15 +181,24 @@ function EntryDetails({
       </time>,
     ]);
   return (
-    <div className="mr-3 mb-2 ml-[30px] min-w-0 border-l pl-3">
+    <div className="col-span-3 mt-0.5 mr-3 mb-1.5 ml-[34px] min-w-0 border-l pl-3">
       <dl
         aria-label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`}
-        className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-x-3 gap-y-1 py-1.5 text-xs leading-5"
+        className="grid min-w-0 grid-cols-[74px_minmax(0,1fr)] gap-x-2.5 py-0.5 text-xs leading-[22px] font-normal"
       >
         {rows.map(([label, value]) => (
           <Fragment key={label}>
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className="min-w-0 [overflow-wrap:anywhere]">{value}</dd>
+            <dt className="truncate text-muted-foreground">{label}</dt>
+            {/* One line each: a fact ellipsizes with its full text on hover; never a broken word. */}
+            <dd className="min-w-0 text-foreground/90">
+              {typeof value === 'string' ? (
+                <span className="block truncate" title={value}>
+                  {value}
+                </span>
+              ) : (
+                value
+              )}
+            </dd>
           </Fragment>
         ))}
       </dl>
@@ -189,9 +213,9 @@ function edgeList(
   reference: (id: string) => ReactNode,
 ) {
   return (
-    <ul className="grid min-w-0 gap-0.5">
+    <ul className="grid min-w-0">
       {edges.map((edge, index) => (
-        <li className="flex min-w-0 items-baseline gap-1.5" key={index}>
+        <li className="flex min-w-0 items-baseline gap-1 whitespace-nowrap" key={index}>
           <span className="shrink-0 text-muted-foreground">
             {edge.relation.replaceAll('_', ' ')}
           </span>
@@ -345,14 +369,17 @@ function citeRows(
   return [
     [
       'Cites',
-      <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5" key="cites">
+      <span
+        className="flex min-w-0 items-baseline gap-x-3 overflow-hidden whitespace-nowrap"
+        key="cites"
+      >
         {runs.map((row, index) => {
           const script = scripts.get(row.callId);
           const label = `${script ? basename(script) : row.tool || row.callId} run`;
           return links.onViewCall && row.session ? (
             <button
               aria-label={`${label}: view call ${row.callId} in transcript`}
-              className="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+              className="shrink-0 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
               key={`${row.callId}:${index}`}
               onClick={() => links.onViewCall!(row.session, row.callId)}
               type="button"

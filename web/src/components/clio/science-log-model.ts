@@ -49,7 +49,8 @@ export function entryState(entry: Pick<ScienceEntry, 'status' | 'type'>): Scienc
   if (status === 'superseded') return { label: 'superseded', tone: 'superseded' };
   if (RUNNING.has(status)) return { label: 'running', tone: 'running' };
   if (status) return { label: status.replaceAll('_', ' '), tone: 'neutral' };
-  return { label: entry.type === 'hypothesis' ? 'open' : 'recorded', tone: 'neutral' };
+  if (entry.type === 'hypothesis') return { label: 'open', tone: 'neutral' };
+  return { label: entry.type === 'question' ? 'question' : 'recorded', tone: 'neutral' };
 }
 
 /**
