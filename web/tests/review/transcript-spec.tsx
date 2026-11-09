@@ -571,7 +571,7 @@ const STATES: State[] = [
               source: 'summarization',
               trigger: 'auto',
               compaction_id: 'cmp_done',
-              text: 'The SMAP L3 search, the 0.25? grid choice, and the 14 Opal sites to check.',
+              text: 'The SMAP L3 search, the 0.25\u00b0 grid choice, and the 14 Opal sites to check.',
             },
             {
               id: 'compaction-failed',
@@ -627,6 +627,51 @@ const STATES: State[] = [
       sessionId: SESSION,
       preparation: { sessionState: 'completed', activeTurnId: 'run_done' },
       ...handlers,
+    }),
+  },
+  {
+    // The agent's question waits on the card below: one row, never two lines.
+    id: 'waiting',
+    title: 'Waiting for you',
+    height: 360,
+    props: () => ({
+      messages: [userMessage('prompt', PROMPT), liveTurn([toolBlock('ask')])],
+      tools: record({
+        id: 'ask',
+        session_id: SESSION,
+        name: 'ask_user',
+        title: 'Ask user',
+        state: 'running',
+        input: { question: 'Regrid to 0.25\u00b0 or keep the native 36 km grid?' },
+        started_at: ago(8),
+      }),
+      interactions: [
+        {
+          id: 'question:grid',
+          kind: 'question',
+          owner_session_id: SESSION,
+          attended_session_id: SESSION,
+          status: 'pending',
+          title: 'Question from agent',
+          prompt: 'Regrid to 0.25\u00b0 or keep the native 36 km grid?',
+          source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'ask' },
+          created_at: ago(8),
+          payload: {
+            question_kind: 'choice',
+            options: [
+              { label: 'Regrid to 0.25\u00b0', value: 'regrid' },
+              { label: 'Keep 36 km', value: 'native' },
+            ],
+          },
+          actions: ['answer', 'cancel'],
+        },
+      ],
+      subagents: {},
+      tasks: {},
+      artifacts: {},
+      surfaces: {},
+      sessionId: SESSION,
+      preparation: { sessionState: 'running', activeTurnId: 'run_opal' },
     }),
   },
 ];

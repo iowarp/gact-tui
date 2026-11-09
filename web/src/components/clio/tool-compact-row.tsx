@@ -36,10 +36,13 @@ export function ToolCompactRow({
   onOpenFlow,
   onExpandedChange,
   info,
+  waiting,
 }: {
   tool: ToolInvocation;
   operation: ToolOperation;
   attention?: ReactNode;
+  /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
+  waiting?: ReactNode;
   /** The 58px badge column: Sandbox or Blocked. */
   badge?: ReactNode;
   duration?: number;
@@ -137,9 +140,10 @@ export function ToolCompactRow({
     </span>
   ) : null;
   const outcome =
-    metadata || failureWord ? (
+    waiting || metadata || failureWord ? (
       <span className="flex items-center gap-2">
         {metadata}
+        {waiting}
         {failureWord ? (
           <span
             data-slot="tool-outcome"

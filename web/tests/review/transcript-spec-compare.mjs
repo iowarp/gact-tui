@@ -28,6 +28,7 @@ const STATES = [
   'narrow',
   'narrow-fifth',
   'compaction',
+  'waiting',
 ];
 
 function option(name, fallback) {
@@ -123,7 +124,7 @@ function specBox(state) {
     return [...column.children].filter((child) => !child.matches('.xdk, .xcp, .xa'));
   };
   let nodes = [];
-  if (state === 'conversation') {
+  if (state === 'conversation' || state === 'waiting') {
     const heading = [...document.querySelectorAll('.sect2')].find(
       (node) => node.textContent?.trim() === 'In a conversation',
     );
