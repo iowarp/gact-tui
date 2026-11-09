@@ -13,7 +13,9 @@ type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 /** Says who started a compaction: the service on its threshold, or the user. */
 export function CompactionTriggerLabel({ trigger }: { trigger: CompactionTrigger }) {
   return (
-    <span className="shrink-0 text-faint">{trigger === 'auto' ? 'Automatic' : 'Requested'}</span>
+    <span className="shrink-0 text-muted-foreground">
+      {trigger === 'auto' ? 'Automatic' : 'Requested'}
+    </span>
   );
 }
 

@@ -3,6 +3,7 @@ import { AGENT_PROSE_CLASS } from './agent-prose';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { TranscriptReasoning } from './transcript-reasoning';
 import { TranscriptReasoningPassage } from './transcript-reasoning-passage';
+import { cn } from '@/lib/utils';
 
 /** Keep the complete recorded reasoning distinct from public progress text. */
 export function IterationReasoningText({ iteration }: { iteration: ConversationIteration }) {
@@ -27,19 +28,31 @@ export function TranscriptIterationText({
   iteration: ConversationIteration;
   showReasoning?: boolean;
 }) {
-  if ((!showReasoning || !iteration.thinking.length) && !iteration.nextThoughts.length) return null;
+  const reasoning = showReasoning && iteration.thinking.length > 0;
+  if (!reasoning && !iteration.nextThoughts.length) return null;
   return (
-    <div className="min-w-0 space-y-1" data-slot="transcript-text-entry">
-      {showReasoning ? <IterationReasoningText iteration={iteration} /> : null}
-      {iteration.nextThoughts.map((thought, index) => (
-        <TranscriptReasoning
-          key={`${iteration.id}:response:${index}`}
-          text={thought}
-          source={iteration.nextThoughtSources?.[index]}
-        >
-          <GroundedMessageResponse className={AGENT_PROSE_CLASS}>{thought}</GroundedMessageResponse>
-        </TranscriptReasoning>
-      ))}
-    </div>
+    <>
+      {/* Thought rows are a run of activity rows: they butt against the next run. */}
+      {reasoning ? (
+        <div className="min-w-0" data-row-run="" data-slot="transcript-thought-run">
+          <IterationReasoningText iteration={iteration} />
+        </div>
+      ) : null}
+      {iteration.nextThoughts.length ? (
+        <div className="min-w-0 space-y-1" data-slot="transcript-text-entry">
+          {iteration.nextThoughts.map((thought, index) => (
+            <TranscriptReasoning
+              key={`${iteration.id}:response:${index}`}
+              text={thought}
+              source={iteration.nextThoughtSources?.[index]}
+            >
+              <GroundedMessageResponse className={cn(AGENT_PROSE_CLASS, 'mt-1.5 mb-1')}>
+                {thought}
+              </GroundedMessageResponse>
+            </TranscriptReasoning>
+          ))}
+        </div>
+      ) : null}
+    </>
   );
 }
