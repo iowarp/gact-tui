@@ -10,9 +10,11 @@ const repository = vi.hoisted(() => ({
   agents: vi.fn(),
   capabilities: vi.fn(),
   deleteUserAgent: vi.fn(),
+  localLibrary: vi.fn(),
   resolveAgent: vi.fn(),
   plugins: vi.fn(),
   saveUserAgent: vi.fn(),
+  sessionDefaults: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -64,6 +66,29 @@ beforeEach(() => {
     gact_versions: [],
   });
   repository.agents.mockResolvedValue([standard, mine]);
+  repository.sessionDefaults.mockResolvedValue({
+    agent_ref: '',
+    default_agent_ref: 'clio/standard',
+  });
+  repository.localLibrary.mockResolvedValue({
+    root: 'C:/clio',
+    agents_directory: 'C:/clio/agents',
+    plugins_directory: 'C:/clio/plugins',
+    agents: [
+      {
+        ref: mine.ref,
+        path: 'C:/clio/agents/my-analyst.json',
+        definition: {
+          id: mine.id,
+          name: mine.name,
+          description: '',
+          extends: 'clio/standard',
+          add: ['clio/hdf5'],
+          remove: ['xlsx'],
+        },
+      },
+    ],
+  });
   repository.plugins.mockResolvedValue({
     plugins: [
       pluginEntrySchema.parse({
@@ -112,36 +137,72 @@ afterEach(() => {
 });
 
 describe('AgentSettings', () => {
-  it('lists your agents apart from installed ones and deletes yours only on confirm', async () => {
+  it('lists your agents apart from installed ones, tags the default and deletes on confirm', async () => {
     const user = userEvent.setup();
     repository.deleteUserAgent.mockResolvedValue(undefined);
     renderSettings();
-    const yours = await screen.findByRole('region', { name: 'Your agents' });
+    const yours = await screen.findByRole('group', { name: 'Your agents' });
     expect(await within(yours).findByText('My analyst')).toBeVisible();
-    const installed = screen.getByRole('region', { name: 'Installed agents' });
+    expect(within(yours).getByText('Based on CLIO and clio/hdf5, without xlsx')).toBeVisible();
+    expect(within(yours).getByText('0 plugins')).toBeVisible();
+    const installed = screen.getByRole('group', { name: 'Installed agents' });
     expect(within(installed).getByText('CLIO')).toBeVisible();
+    expect(await within(installed).findByText('Default')).toBeVisible();
     expect(within(installed).queryByRole('button', { name: /^Delete / })).toBeNull();
     await user.click(within(yours).getByRole('button', { name: 'Delete My analyst' }));
-    const dialog = await screen.findByRole('alertdialog');
+    const dialog = await screen.findByRole('dialog', { name: 'Delete My analyst?' });
     expect(repository.deleteUserAgent).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Delete agent' }));
+    await user.click(within(dialog).getByRole('button', { name: /Delete agent/u }));
     await waitFor(() => expect(repository.deleteUserAgent).toHaveBeenCalledWith('my-analyst'));
   });
 
-  it('says so when the service does not compose agents from plugins', async () => {
+  it('says in one line when the service does not offer agents', async () => {
     repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
     renderSettings();
-    expect(await screen.findByText('Plugins are not available on this service')).toBeVisible();
+    expect(await screen.findByText('This service does not offer agents')).toBeVisible();
     expect(repository.agents).not.toHaveBeenCalled();
+  });
+
+  it('offers a retry in plain words when agents cannot be listed', async () => {
+    const user = userEvent.setup();
+    repository.agents.mockRejectedValueOnce(new Error('Request failed with 503'));
+    renderSettings();
+    expect(await screen.findByText('Could not load agents')).toBeVisible();
+    expect(screen.queryByText(/503/u)).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Retry/u }));
+    expect(await screen.findByRole('group', { name: 'Your agents' })).toBeVisible();
+  });
+
+  it('shows an intentional empty row when only installed agents exist', async () => {
+    const user = userEvent.setup();
+    repository.agents.mockResolvedValue([standard]);
+    renderSettings();
+    const yours = await screen.findByRole('group', { name: 'Your agents' });
+    expect(within(yours).getByText('No agents of your own yet')).toBeVisible();
+    await user.click(within(yours).getByRole('button', { name: 'New agent' }));
+    const pane = await screen.findByRole('complementary', { name: 'CLIO' });
+    expect(await within(pane).findByRole('button', { name: 'Save local variation' })).toBeEnabled();
+  });
+
+  it('shows the saved file of your agent from its more menu', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(await screen.findByRole('button', { name: 'More actions for My analyst' }));
+    await user.click(await screen.findByRole('menuitem', { name: /View saved file/u }));
+    const dialog = await screen.findByRole('dialog', { name: 'My analyst: saved file' });
+    expect(await within(dialog).findByText('C:/clio/agents/my-analyst.json')).toBeVisible();
   });
 });
 
-it('opens the full agent row, resolves draft changes and saves a new local variation', async () => {
+it('explores an agent beside the list, resolves draft changes and saves a new local variation', async () => {
   const user = userEvent.setup();
   renderSettings();
-  await user.click(await screen.findByRole('button', { name: 'CLIO 1 plugin' }));
   await user.click(await screen.findByRole('button', { name: 'Explore CLIO' }));
-  const explorer = await screen.findByRole('dialog', { name: 'CLIO' });
+  const explorer = await screen.findByRole('complementary', { name: 'CLIO' });
+  expect(screen.getByRole('button', { name: 'Explore CLIO' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await user.click(await within(explorer).findByRole('button', { name: 'Add plugin' }));
   await user.click(await screen.findByRole('option', { name: /hdf5/u }));
   await waitFor(() =>
@@ -168,14 +229,11 @@ it('opens the full agent row, resolves draft changes and saves a new local varia
   );
 });
 
-it('lets a person save an unchanged agent as a local starting point and collapse marketplaces', async () => {
+it('opens an agent from its row and closes the pane', async () => {
   const user = userEvent.setup();
   renderSettings();
-  const installed = await screen.findByRole('region', { name: 'Installed agents' });
-  await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
-  expect(within(installed).queryByRole('button', { name: 'Explore CLIO' })).not.toBeInTheDocument();
-  await user.click(within(installed).getByRole('button', { name: /clio 1/u }));
-  await user.click(within(installed).getByRole('button', { name: 'CLIO 1 plugin' }));
-  await user.click(within(installed).getByRole('button', { name: 'Explore CLIO' }));
-  expect(await screen.findByRole('button', { name: 'Save local variation' })).toBeEnabled();
+  await user.click(await screen.findByText('My analyst'));
+  const pane = await screen.findByRole('complementary', { name: 'My analyst' });
+  await user.click(within(pane).getByRole('button', { name: 'Close' }));
+  expect(screen.queryByRole('complementary')).toBeNull();
 });

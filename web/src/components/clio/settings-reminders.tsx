@@ -1,11 +1,26 @@
 import type { PromptDefinition } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
+import { BellIcon } from 'lucide-react';
+import { EditIcon } from '@/lib/icon-vocabulary';
+import type { KeyboardEvent } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
-import { reminderMeta } from '@/lib/reminder-meta';
-import { ClioInteractiveRow } from './interactive-row';
+import { reminderMeta, type ReminderMeta } from '@/lib/reminder-meta';
+import { MetaLine } from './extension-parts';
+import { IconButton } from './primitives/icon-button';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator } from './primitives/status-indicator';
+
+function metaParts(prompt: PromptDefinition, meta: ReminderMeta) {
+  const params = Object.entries(meta.params).map(([name, value]) => `${name} = ${value}`);
+  return [
+    meta.trigger ? `When ${meta.trigger}` : (prompt.description ?? ''),
+    params.join(', '),
+    { text: meta.variables.map((name) => `{{${name}}}`).join(' '), mono: true },
+  ];
+}
 
 /** Reminders CLIO adds to what the agent reads: each can be switched off or edited. */
 export function RemindersList({
@@ -35,7 +50,7 @@ export function RemindersList({
       toast.success(active ? 'Reminder turned on' : 'Reminder turned off');
       onChanged();
     },
-    onError: (error) => toast.error(error.message),
+    onError: () => toast.error('The reminder wasn’t changed. Try again.'),
   });
   const reminders = prompts.flatMap((prompt) => {
     const meta = reminderMeta(prompt);
@@ -43,60 +58,65 @@ export function RemindersList({
   });
   if (!reminders.length)
     return (
-      <p className="p-5 text-sm text-muted-foreground">
-        This server reports no reminders. Update the agent to edit them here.
-      </p>
+      <ItemList label="Reminders">
+        <StateView kind="empty" size="row" title="This service reports no reminders" />
+      </ItemList>
     );
   return (
-    <div className="grid gap-1">
-      {reminders.map(({ prompt, meta }) => (
-        <ClioInteractiveRow key={prompt.id} onClick={() => onEdit(prompt)} role="button">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium">{prompt.title || prompt.id}</p>
-                <Badge variant="outline">
-                  {meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
-                </Badge>
-                <Badge variant="outline">{prompt.scope}</Badge>
-              </div>
-              {prompt.description ? (
-                <p className="mt-1 text-sm text-muted-foreground">{prompt.description}</p>
-              ) : null}
-              {meta.trigger ? (
-                <p className="mt-1 text-xs text-muted-foreground">When: {meta.trigger}</p>
-              ) : null}
-              {meta.required ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Cannot be turned off: {meta.required}
-                </p>
-              ) : null}
-              {Object.keys(meta.params).length ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Settings:{' '}
-                  {Object.entries(meta.params)
-                    .map(([name, value]) => `${name} = ${value}`)
-                    .join(', ')}
-                </p>
-              ) : null}
-              {meta.variables.length ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Variables: {meta.variables.map((name) => `{{${name}}}`).join(', ')}
-                </p>
-              ) : null}
-            </div>
-            {meta.required ? null : (
-              <Switch
-                aria-label={`${prompt.title || prompt.id} on`}
-                checked={meta.active}
-                disabled={toggle.isPending}
-                onClick={(event) => event.stopPropagation()}
-                onCheckedChange={(active) => toggle.mutate({ prompt, active })}
+    <ItemList label="Reminders">
+      {reminders.map(({ prompt, meta }) => {
+        const name = prompt.title || prompt.id;
+        const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.target !== event.currentTarget || event.key !== 'Enter') return;
+          event.preventDefault();
+          onEdit(prompt);
+        };
+        return (
+          <ItemRow
+            actions={
+              <IconButton
+                icon={<EditIcon />}
+                label={`Edit ${name}`}
+                onClick={() => onEdit(prompt)}
               />
-            )}
-          </div>
-        </ClioInteractiveRow>
-      ))}
-    </div>
+            }
+            actionsWidth={30}
+            icon={<BellIcon />}
+            key={prompt.id}
+            meta={<MetaLine parts={metaParts(prompt, meta)} />}
+            onClick={(event) => {
+              if ((event.target as Element).closest('button, [role="switch"]')) return;
+              onEdit(prompt);
+            }}
+            onKeyDown={onKeyDown}
+            slot={
+              meta.required ? null : (
+                <Switch
+                  aria-label={`${name} on`}
+                  checked={meta.active}
+                  disabled={toggle.isPending}
+                  onCheckedChange={(active) => toggle.mutate({ prompt, active })}
+                />
+              )
+            }
+            slotWidth={44}
+            status={
+              <span
+                className="flex min-w-0"
+                title={meta.required ? `Cannot be turned off: ${meta.required}` : undefined}
+              >
+                <StatusIndicator
+                  label={meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
+                  tone={meta.active ? 'success' : 'idle'}
+                />
+              </span>
+            }
+            statusWidth={96}
+            tabIndex={0}
+            title={name}
+          />
+        );
+      })}
+    </ItemList>
   );
 }

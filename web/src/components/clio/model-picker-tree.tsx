@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { IconTile } from '@/components/reui/icon-tile';
+import { ProviderLogoMark } from './provider-logo-mark';
 import { type ModelCapabilityTag } from '@/lib/model-capability-tags';
 import { type ModelFactSummary } from '@/lib/model-facts';
 import { type ModelFilterToken } from '@/lib/model-filter-tokens';
@@ -111,11 +110,7 @@ export function useModelPickerTree(
         value: providerNodeValue(group.id),
         label: group.name,
         description: providerSearchDescription(group),
-        icon: (
-          <IconTile aria-hidden="true" size="sm" variant="outline">
-            <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
-          </IconTile>
-        ),
+        icon: <ProviderLogoMark provider={providerLogoId(group.id)} />,
         hasChildren: true,
         // A count means "this many usable models" (a provider whose latest
         // check failed shows none). While filters hide some, the row shows

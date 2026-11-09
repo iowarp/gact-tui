@@ -97,6 +97,30 @@
   }
 }
 
+/*
+ * The spec type scale (docs/design/visual-language/README.md#type-scale). Sizes
+ * are in rem so the interface-size preference scales them. Use these instead of
+ * arbitrary `text-[Npx]` values; `cn()` knows them as font sizes.
+ */
+@theme {
+  --text-caption: 0.6875rem; /* 11px: key chips, counts, timestamps */
+  --text-caption--line-height: 1.35;
+  --text-label: 0.71875rem; /* 11.5px: group labels, subtitles */
+  --text-label--line-height: 1.35;
+  --text-meta: 0.75rem; /* 12px: secondary text, status words */
+  --text-meta--line-height: 1.4;
+  --text-menu: 0.78125rem; /* 12.5px: menu rows, buttons, list rows */
+  --text-menu--line-height: 1.4;
+  --text-ui: 0.8125rem; /* 13px: body UI text */
+  --text-ui--line-height: 1.4;
+  --text-h3: 0.9375rem; /* 15px: section headings */
+  --text-h3--line-height: 1.35;
+  --text-title: 1.0625rem; /* 17px: Literata page and card titles */
+  --text-title--line-height: 1.3;
+  --text-welcome: 1.125rem; /* 18px: the welcome title */
+  --text-welcome--line-height: 1.3;
+}
+
 @theme inline {
   --font-heading: var(--typeface-heading);
   --font-sans: var(--typeface-ui);
@@ -506,47 +530,6 @@
   mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 
-.clio-landing-background {
-  background: radial-gradient(
-      circle at 18% 12%,
-      color-mix(in oklch, var(--primary) 14%, transparent),
-      transparent 29rem
-    ),
-    radial-gradient(
-      circle at 86% 84%,
-      color-mix(in oklch, var(--action) 8%, transparent),
-      transparent 25rem
-    ),
-    linear-gradient(
-      to right,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    );
-  background-size:
-    100% 100%,
-    100% 100%,
-    40px 40px,
-    40px 40px;
-  mask-image: linear-gradient(115deg, black 0%, black 52%, transparent 92%);
-}
-
-.clio-landing-background::after {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(
-    115deg,
-    transparent 42%,
-    color-mix(in oklch, var(--primary) 5%, transparent) 42.2%,
-    transparent 42.5%
-  );
-  content: '';
-}
-
 .clio-scrollbar {
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 36%, transparent) transparent;
   scrollbar-gutter: stable;
@@ -663,6 +646,39 @@ div.maplibregl-map {
 
 .clio-stream-cursor {
   animation: stream-cursor 1.1s ease-in-out infinite;
+}
+
+/* The setting a search opened: briefly marked, then reads as usual. */
+@keyframes search-arrival {
+  0%,
+  40% {
+    background-color: var(--highlight);
+    box-shadow: 0 0 0 4px var(--highlight);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.clio-search-arrival {
+  border-radius: 0.25rem;
+  animation: search-arrival 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clio-search-arrival {
+    animation: none !important;
+    background-color: var(--highlight);
+    box-shadow: 0 0 0 4px var(--highlight);
+  }
+}
+
+html[data-clio-motion='reduced'] .clio-search-arrival {
+  animation: none !important;
+  background-color: var(--highlight);
+  box-shadow: 0 0 0 4px var(--highlight);
 }
 
 @media (prefers-reduced-motion: reduce) {

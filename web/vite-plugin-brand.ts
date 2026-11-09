@@ -41,12 +41,7 @@ interface RawBrand {
   };
   workspace?: {
     greeting?: string;
-    description?: string;
   };
-  starterPrompts?: Array<{
-    eyebrow?: string;
-    label?: string;
-  }>;
 }
 
 export interface ResolvedBrand {
@@ -73,12 +68,7 @@ export interface ResolvedBrand {
   };
   workspace: {
     greeting: string;
-    description: string;
   };
-  starterPrompts: Array<{
-    eyebrow: string;
-    label: string;
-  }>;
   logoSvg: string | null;
   logoImage: string | null;
   iconSvg: string | null;
@@ -160,17 +150,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
         raw.landing?.description?.trim() || raw.tagline?.trim() || 'Open your agent workspace.',
     },
     workspace: {
-      greeting: raw.workspace?.greeting?.trim() || `What would you like to do with ${name}?`,
-      description:
-        raw.workspace?.description?.trim() ||
-        'Start with a question, a workspace resource, or one of these examples.',
+      greeting: raw.workspace?.greeting?.trim() || 'What can I help you with?',
     },
-    starterPrompts: (raw.starterPrompts ?? [])
-      .map((prompt) => ({
-        eyebrow: prompt.eyebrow?.trim() || '',
-        label: prompt.label?.trim() || '',
-      }))
-      .filter((prompt) => prompt.label.length > 0),
     logoSvg: readAsset(profileDirectory, raw.logoSvg, true),
     logoImage: readAsset(profileDirectory, raw.logoImage, false),
     iconSvg: readAsset(profileDirectory, raw.iconSvg, true),

@@ -4,10 +4,11 @@ import { useMemo } from 'react';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { mcpServiceEntries } from '@/lib/mcp-service-entries';
-import { serviceTitle } from '@/lib/mcp-service-presentation';
-import { reconnectableNamespace } from '@/lib/mcp-preparation';
+import { serviceEntryTitle, serviceTitle } from '@/lib/mcp-service-presentation';
+import { mcpServerPreparation, reconnectableNamespace } from '@/lib/mcp-preparation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { McpServerPreparationNote } from './mcp-server-preparation';
 import { McpServiceList } from './settings-mcp-services';
 
 /**
@@ -59,15 +60,26 @@ export function ConversationMcpServers({
         </p>
       </div>
       <McpServiceList
-        defaultOpen={false}
         entries={entries}
+        label="MCP servers in this conversation"
         onDisconnect={() => undefined}
         onReconnect={() => undefined}
         onReconnectSession={(server) => reconnect.mutate(server)}
         onRemoveSaved={() => undefined}
         reconnecting={reconnect.isPending ? reconnect.variables?.id : undefined}
-        showConnection={false}
       />
+      {entries.map((entry) =>
+        mcpServerPreparation(entry.server) ? (
+          <div className="grid gap-0.5 px-2" key={entry.key}>
+            <p className="text-xs font-medium">{serviceEntryTitle(entry)}</p>
+            <McpServerPreparationNote
+              className="mt-0"
+              server={entry.server}
+              title={serviceEntryTitle(entry)}
+            />
+          </div>
+        ) : null,
+      )}
     </section>
   );
 }

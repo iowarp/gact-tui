@@ -1,4 +1,8 @@
-import { RemoveIcon } from '@/lib/icon-vocabulary';
+import { AdjustIcon, RemoveIcon } from '@/lib/icon-vocabulary';
+import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { NamedTooltip } from './primitives/icon-button';
+import { quickFilterChips } from '@/lib/model-quick-filters';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
@@ -72,6 +76,7 @@ export function ModelPickerSearch({
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
+  const quickChips = quickFilterChips(facetTabs);
 
   function addToken(token: ModelFilterToken) {
     onTokensChange(addModelFilterToken(tokens, token));
@@ -143,39 +148,12 @@ export function ModelPickerSearch({
 
   return (
     <div
-      className="relative flex w-full min-w-0 flex-col gap-1.5"
+      className="@container/picker-search relative flex w-full min-w-0 flex-col gap-1.5"
       data-slot="model-picker-search"
       ref={rootRef}
     >
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-1">
-        {tokens.length ? (
-          <div
-            className="flex max-w-full basis-full flex-wrap items-center gap-1 sm:max-w-[70%] sm:basis-auto"
-            data-slot="filter-tokens"
-          >
-            {tokens.map((token) => (
-              <Badge
-                className="gap-0.5 pe-0.5 font-mono font-normal"
-                data-token={token}
-                key={token}
-                radius="full"
-                size="lg"
-                variant="primary-light"
-              >
-                {token}
-                <button
-                  aria-label={`Remove ${token}`}
-                  className="inline-flex size-4 items-center justify-center rounded-full outline-none hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring/50"
-                  onClick={() => onTokensChange(tokens.filter((item) => item !== token))}
-                  type="button"
-                >
-                  <RemoveIcon aria-hidden="true" className="size-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-        <div className="min-w-32 flex-1">
+      <div className="flex w-full min-w-0 items-center gap-1">
+        <div className="min-w-0 flex-1">
           {onSearch ? (
             <Input
               id={inputId}
@@ -197,31 +175,107 @@ export function ModelPickerSearch({
         </div>
         <span
           aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
-          className="shrink-0 px-1 text-xs text-muted-foreground tabular-nums"
+          className="shrink-0 px-1 text-xs whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
           {shown} / {total}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
-      </div>
-      {suggestions.length ? (
-        <div
-          className="flex flex-wrap items-center gap-1 px-1 pb-1"
-          data-slot="filter-token-suggestions"
-        >
-          {suggestions.map((token) => (
-            <Badge asChild key={token} radius="full" size="lg" variant="outline">
-              <button
-                className="cursor-pointer font-mono font-normal hover:bg-accent"
-                onClick={() => addToken(token)}
+        {facetTabs.some((tab) => tab.chipCount > 0) ? (
+          <TooltipProvider disableHoverableContent>
+            <NamedTooltip label="Filters" shortcut="menu-filters">
+              <Button
+                aria-expanded={facetsOpen}
+                aria-label={tokens.length ? `Filters, ${tokens.length} on` : 'Filters'}
+                className="h-7 shrink-0 gap-1 px-2 text-xs"
+                data-slot="model-filters-button"
+                onClick={() => onFacetsOpenChange(!facetsOpen)}
+                size="sm"
                 type="button"
+                variant={facetsOpen ? 'secondary' : 'ghost'}
               >
-                {token}
-              </button>
-            </Badge>
-          ))}
+                <AdjustIcon aria-hidden="true" />
+                <span className="hidden @[30rem]/picker-search:inline">Filters</span>
+                {tokens.length ? (
+                  <span className="rounded-full bg-primary/15 px-1.5 text-[11px] text-primary tabular-nums">
+                    {tokens.length}
+                  </span>
+                ) : null}
+              </Button>
+            </NamedTooltip>
+          </TooltipProvider>
+        ) : null}
+      </div>
+      {tokens.length || suggestions.length || quickChips.length ? (
+        // Row 2, one line: the filters that are on, then what typing completes to,
+        // or else the quick filters. It scrolls sideways instead of wrapping.
+        <div
+          className="flex min-w-0 items-center gap-1 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none]"
+          data-slot="model-picker-row-2"
+        >
+          {tokens.length ? (
+            <div className="flex shrink-0 items-center gap-1" data-slot="filter-tokens">
+              {tokens.map((token) => (
+                <Badge
+                  className="shrink-0 gap-0.5 pe-0.5 font-mono font-normal"
+                  data-token={token}
+                  key={token}
+                  radius="full"
+                  size="lg"
+                  variant="primary-light"
+                >
+                  {token}
+                  <button
+                    aria-label={`Remove ${token}`}
+                    className="inline-flex size-4 items-center justify-center rounded-full outline-none hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring/50"
+                    onClick={() => onTokensChange(tokens.filter((item) => item !== token))}
+                    type="button"
+                  >
+                    <RemoveIcon aria-hidden="true" className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          {suggestions.length ? (
+            <div className="flex shrink-0 items-center gap-1" data-slot="filter-token-suggestions">
+              {suggestions.map((token) => (
+                <Badge asChild key={token} radius="full" size="lg" variant="outline">
+                  <button
+                    className="shrink-0 cursor-pointer font-mono font-normal hover:bg-accent"
+                    onClick={() => addToken(token)}
+                    type="button"
+                  >
+                    {token}
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : quickChips.length ? (
+            // The quick filters fold into the Filters button when the picker is narrow.
+            <div
+              className="hidden shrink-0 items-center gap-1 @[37.5rem]/picker-search:flex"
+              data-slot="quick-filters"
+            >
+              {quickChips.map((chip) => (
+                <Badge asChild key={chip.token} radius="full" size="lg" variant="outline">
+                  <button
+                    aria-label={`${chip.label}: ${chip.count} ${chip.count === 1 ? 'model' : 'models'}`}
+                    className="shrink-0 cursor-pointer gap-1 font-normal text-foreground/85 hover:bg-accent"
+                    data-token={chip.token}
+                    onClick={() => toggleChip(chip)}
+                    title={chip.token}
+                    type="button"
+                  >
+                    {chip.label}
+                    <span className="text-xs text-muted-foreground tabular-nums">{chip.count}</span>
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      ) : null}{' '}
       {facetsOpen ? (
         <ModelPickerFacetPanel
           onToggleChip={toggleChip}

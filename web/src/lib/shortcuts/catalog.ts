@@ -51,6 +51,7 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
+  def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),
   def('new-conversation', 'New conversation', 'anywhere', ['Ctrl+N'], { host: 'desktop' }),
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',
@@ -72,7 +73,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('composer-focus', 'Back to the composer', 'anywhere', ['Shift+Esc']),
   def('next-region', 'Next region', 'anywhere', ['F6']),
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
-  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: ['Shift+Cmd+/'] }),
+  // On a Mac the menu bar is the app menu, and ⇧⌘/ searches it; the app takes no key.
+  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: [] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
   def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
   // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.
@@ -83,12 +85,16 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('zoom-in', 'Zoom in', 'anywhere', ['Ctrl+='], { host: 'desktop' }),
   def('zoom-out', 'Zoom out', 'anywhere', ['Ctrl+-'], { host: 'desktop' }),
   def('zoom-reset', 'Actual size', 'anywhere', ['Ctrl+0'], { host: 'desktop' }),
+  // The desktop webview has no browser reload or downloads keys of its own.
+  def('reload', 'Reload workspace', 'anywhere', ['Ctrl+R'], { host: 'desktop' }),
+  def('downloads', 'Downloads', 'anywhere', ['Ctrl+J'], { host: 'desktop' }),
 
   def('send', 'Send', 'composer', ['Enter']),
   def('steer', 'Steer while it runs', 'composer', ['Ctrl+Enter']),
   def('new-line', 'New line', 'composer', ['Shift+Enter']),
   def('mention', 'Mention a file or agent', 'composer', ['@']),
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
+  def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],
@@ -105,7 +111,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('maximize', 'Maximize', 'tab', ['Alt+Enter']),
   def('previous-tab', 'Previous tab', 'tab', ['Alt+Left']),
   def('next-tab', 'Next tab', 'tab', ['Alt+Right']),
-  def('close-tab', 'Close the tab', 'tab', ['Delete']),
+  // A Mac's ⌫ key sends Backspace, and a bare one would delete in place.
+  def('close-tab', 'Close the tab', 'tab', ['Delete'], { mac: ['Cmd+Backspace'] }),
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
 
@@ -113,6 +120,16 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-close', 'Close', 'menu', ['Esc']),
+  def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-columns', 'Providers and models column', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-all-results', 'All results', 'menu', ['Ctrl+Enter']),
+  def('menu-all-types', 'Back to all types, in an empty search', 'menu', ['Backspace']),
+  def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
+  def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
 
   def('graph-move', 'Move between nodes', 'graph', ['Left', 'Right', 'Up', 'Down'], {
     joiner: 'pair',

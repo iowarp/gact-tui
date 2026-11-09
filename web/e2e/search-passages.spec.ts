@@ -16,7 +16,9 @@ test('search orders sessions first, highlights snippets, and focuses the actual 
     page.getByRole('option', { name: /Plant study review.*Open matching passage/u }),
   ).toBeVisible();
   const headings = await page.locator('[cmdk-group-heading]').allTextContents();
-  expect(headings.indexOf('Sessions')).toBeLessThan(headings.indexOf('Workspace files'));
+  const group = (label: string) => headings.findIndex((heading) => heading.startsWith(label));
+  expect(group('Conversations')).toBeGreaterThanOrEqual(0);
+  expect(group('Conversations')).toBeLessThan(group('Files'));
   await expect(
     page.getByRole('option', { name: /notes\/plant-study.md/u }).locator('mark'),
   ).toHaveText('plant');
@@ -78,22 +80,19 @@ test('search switches modes in both directions with its draft and a single compa
   const input = page.getByPlaceholder('Search work, files, artifacts, or actions…');
   await expect(input).toBeFocused();
   await page.keyboard.type('Keep my draft');
-  const shortcut = page.getByRole('button', { name: /^Ask .+ Search Tab$/u });
+  const shortcut = page.getByRole('button', { name: /^Ask .+ Tab$/u });
   await expect(shortcut).toBeVisible();
+  // The Ask shortcut is a footer hint; the search input keeps one compact row.
   expect(
-    await shortcut.evaluate((button) => {
-      const group = button.closest('[data-slot="input-group"]');
-      const input = group?.querySelector('input');
-      if (!group || !input) return false;
-      const bounds = button.getBoundingClientRect();
-      const row = group.getBoundingClientRect();
-      return (
-        bounds.top >= row.top &&
-        bounds.bottom <= row.bottom &&
-        bounds.left >= input.getBoundingClientRect().right
-      );
-    }),
+    await shortcut.evaluate((button) => Boolean(button.closest('[data-slot="picker-footer"]'))),
   ).toBe(true);
+  expect(
+    await input.evaluate(
+      (element) =>
+        (element.closest('[data-slot="input-group"]') ??
+          element.parentElement)!.getBoundingClientRect().height,
+    ),
+  ).toBeLessThan(56);
   const assistant = page.getByRole('textbox', { name: /^Ask .+ Search$/u });
   await page.keyboard.press('Tab');
   await expect(assistant).toBeFocused();

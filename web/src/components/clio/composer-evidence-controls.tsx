@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 
-/** Keep session evidence beside the pills, with optional detail when space permits. */
+/**
+ * Session evidence in the composer row, just left of the model. It never wraps
+ * the row: the summary appears only on wide composers and the activity control
+ * only once there is room beside the other controls.
+ */
 export function ClioComposerEvidenceControls({
   activityControl,
   workSummary,
@@ -8,12 +12,17 @@ export function ClioComposerEvidenceControls({
   activityControl?: ReactNode;
   workSummary?: ReactNode;
 }) {
+  if (!activityControl && !workSummary) return null;
   return (
-    <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1">
+    <div className="flex min-w-0 shrink items-center gap-1 overflow-hidden whitespace-nowrap">
       {workSummary ? (
-        <div className="hidden min-w-0 max-w-48 @min-[60rem]/composer:block">{workSummary}</div>
+        <div className="hidden max-w-48 min-w-0 truncate @min-[60rem]/composer:block">
+          {workSummary}
+        </div>
       ) : null}
-      {activityControl ? <div className="min-w-0 max-w-60">{activityControl}</div> : null}
+      {activityControl ? (
+        <div className="hidden max-w-40 min-w-0 @min-[36rem]/composer:block">{activityControl}</div>
+      ) : null}
     </div>
   );
 }

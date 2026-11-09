@@ -48,19 +48,14 @@ describe('Composer delivery keys and visible action', () => {
   ] as const)('%s with modifier=%s delivers %s', async (state, modifier, delivery) => {
     const user = userEvent.setup();
     const submit = show(state);
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/u });
+    const editor = screen.getByRole('combobox', { name: /^Ask /u });
     await user.type(editor, 'Keep this request');
     if (modifier) await user.keyboard('{Control>}');
     expect(
       screen.getByRole('button', {
-        name:
-          delivery === 'queued'
-            ? 'Queue message'
-            : delivery === 'steer'
-              ? 'Steer current work'
-              : 'Submit',
+        name: delivery === 'queued' ? 'Queue' : delivery === 'steer' ? 'Steer' : 'Send',
       }),
-    ).toHaveTextContent(delivery === 'queued' ? 'Queue' : delivery === 'steer' ? 'Steer' : 'Send');
+    ).toBeEnabled();
     await user.keyboard('{Enter}');
     if (modifier) await user.keyboard('{/Control}');
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
@@ -70,18 +65,15 @@ describe('Composer delivery keys and visible action', () => {
   it('updates the button on modifier release and clears a held modifier when the window loses focus', async () => {
     const user = userEvent.setup();
     const submit = show('running');
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/u }),
-      'Queued request',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask /u }), 'Queued request');
     fireEvent.keyDown(window, { key: 'Control', ctrlKey: true });
-    expect(screen.getByRole('button', { name: 'Steer current work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Steer' })).toBeVisible();
     fireEvent.keyUp(window, { key: 'Control', ctrlKey: false });
-    expect(screen.getByRole('button', { name: 'Queue message' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeVisible();
     fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
-    expect(screen.getByRole('button', { name: 'Steer current work' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Steer' })).toBeVisible();
     fireEvent.blur(window);
-    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+    await user.click(screen.getByRole('button', { name: 'Queue' }));
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
     expect(submit.mock.calls[0]?.[0]).toMatchObject({ delivery: 'queued' });
   });

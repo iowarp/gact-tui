@@ -42,6 +42,8 @@ export class Recorder {
       this.steps.push({ ...step, skipped: 'control not found' });
       return step;
     }
+    // Overlays already open (a Settings window) stay open when this step closes its own.
+    const baseline = await this.page.evaluate(countOverlays).catch(() => 0);
     try {
       await this.page.evaluate(() =>
         document
@@ -79,21 +81,21 @@ export class Recorder {
     if (typeof step.cls === 'number') step.cls = round(step.cls, 4);
     if (typeof step.clsWithInput === 'number') step.clsWithInput = round(step.clsWithInput, 4);
     this.steps.push(step);
-    if (close) await this.close(close);
+    if (close) await this.close(close, baseline);
     return step;
   }
 
-  async close(close) {
+  async close(close, baseline = 0) {
     try {
       if (close === 'Escape') {
         await this.page.keyboard.press('Escape');
         await this.page
           .waitForFunction(
-            () =>
-              ![
+            (open) =>
+              [
                 ...document.querySelectorAll('[role="menu"],[role="dialog"],[role="listbox"]'),
-              ].some((element) => element.getClientRects().length > 0),
-            undefined,
+              ].filter((element) => element.getClientRects().length > 0).length <= open,
+            baseline,
             { timeout: 2000, polling: 100 },
           )
           .catch(async () => {
@@ -125,6 +127,12 @@ export class Recorder {
       ...extra,
     });
   }
+}
+
+function countOverlays() {
+  return [...document.querySelectorAll('[role="menu"],[role="dialog"],[role="listbox"]')].filter(
+    (element) => element.getClientRects().length > 0,
+  ).length;
 }
 
 async function waitIdle(page, ms = 600) {
@@ -556,12 +564,15 @@ export async function settingsJourney(r) {
     { css: 'h1', text: 'General' },
     { control: link },
   );
-  const nav = await page.locator('nav a[href^="/settings/"]').all();
+  // Settings is a window over the workspace: scope to its own nav and content.
+  const windowNav = 'nav[aria-label="Settings sections"]';
+  const content = '[data-frame="window"] main';
+  const nav = await page.locator(`${windowNav} a[href^="/settings/"]`).all();
   const names = [];
   for (const item of nav) names.push(((await item.textContent()) ?? '').trim());
   for (const name of names) {
     if (!name || name === 'General') continue;
-    const item = page.locator('nav a[href^="/settings/"]', { hasText: name }).first();
+    const item = page.locator(`${windowNav} a[href^="/settings/"]`, { hasText: name }).first();
     // Not every settings page has an h1 yet (see the baseline report), so the
     // route commit is the nav's current-page mark plus the first content.
     const step = await r.measure(
@@ -570,13 +581,13 @@ export async function settingsJourney(r) {
       () => item.click(),
       {
         all: [
-          { css: 'nav a[aria-current="page"]', text: name },
-          { css: 'main', changed: true },
+          { css: `${windowNav} a[aria-current="page"]`, text: name },
+          { css: content, changed: true },
         ],
       },
       { control: item, timeoutMs: 8000 },
     );
-    step.headings = await page.locator('main h1').filter({ visible: true }).count();
+    step.headings = await page.locator(`${content} h1`).filter({ visible: true }).count();
     await waitIdle(page, 200);
     if (name === 'Models') {
       await r.overlay('default model picker', 'button', 'Change', { category: 'picker' });
@@ -585,6 +596,10 @@ export async function settingsJourney(r) {
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {
     category: 'picker',
   });
+  if (await page.locator('[data-frame="window"]').isVisible()) {
+    await page.keyboard.press('Escape');
+    await waitIdle(page);
+  }
 }
 
 export async function exploreJourney(r) {
