@@ -409,7 +409,12 @@ function catalogue({ settings, infrastructure }) {
         .filter({ visible: true })
         .getByRole('button', { name: 'File actions' })
         .first();
-      if (!(await more.click({ timeout: 2000 }).then(() => true, () => false))) {
+      if (
+        !(await more.click({ timeout: 2000 }).then(
+          () => true,
+          () => false,
+        ))
+      ) {
         await page
           .getByRole('toolbar', { name: 'Workbench lists' })
           .locator('button[aria-pressed="true"]')
