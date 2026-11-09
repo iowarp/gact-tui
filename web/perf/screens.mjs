@@ -177,11 +177,12 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(600);
     }),
     s('session', 'activity-expanded', SESSION, async (page) => {
-      await page
-        .getByRole('button', { name: /^Activity: / })
-        .filter({ visible: true })
-        .last()
-        .click();
+      // Old transcript: an "Activity: …" accordion. v24 transcript: per-row disclosures.
+      const accordion = page.getByRole('button', { name: /^Activity: / }).filter({ visible: true });
+      const target = (await accordion.count())
+        ? accordion.last()
+        : page.locator('[data-slot="activity-disclosure"]').filter({ visible: true }).first();
+      await target.click();
       await page.waitForTimeout(600);
     }),
     s('session', 'attention-technical-details', SESSION, async (page) => {
