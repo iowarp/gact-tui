@@ -152,6 +152,7 @@ export const ListRow = memo(
     return (
       <div
         ref={ref}
+        data-slot="list-row"
         data-selected={selected || undefined}
         data-layout={layout}
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
@@ -162,8 +163,6 @@ export const ListRow = memo(
           className,
         )}
         {...rest}
-        // After the spread so wrappers such as HoverCardTrigger keep the row's slot.
-        data-slot="list-row"
       >
         {status !== undefined ? (
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
