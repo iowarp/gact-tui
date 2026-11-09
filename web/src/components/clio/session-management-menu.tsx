@@ -1,6 +1,4 @@
 import type { Session } from '@clio/core/v3';
-import { ArchiveIcon, PinIcon, PinOffIcon } from 'lucide-react';
-import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 
@@ -22,18 +20,16 @@ export function SessionOrganizeMenuItems({
   return (
     <>
       <KeyMenuItem
-        icon={session.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
         label={session.pinned ? 'Unpin' : 'Pin'}
         menuKey="P"
         onSelect={() =>
           onAction(
             () => actions.setSessionPinned(session.id, !session.pinned),
-            session.pinned ? 'Session unpinned' : 'Session pinned',
+            session.pinned ? 'Conversation unpinned' : 'Conversation pinned',
           )
         }
       />
       <KeyMenuItem
-        icon={<EditIcon aria-hidden="true" />}
         label="Rename"
         menuKey="R"
         onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
@@ -52,13 +48,11 @@ export function SessionLifecycleMenuItems({
   return (
     <>
       <KeyMenuItem
-        icon={<ArchiveIcon aria-hidden="true" />}
         label="Archive"
         menuKey="A"
-        onSelect={() => onAction(() => actions.archiveSession(session.id), 'Session archived')}
+        onSelect={() => onAction(() => actions.archiveSession(session.id), 'Conversation archived')}
       />
       <KeyMenuItem
-        icon={<DeleteIcon aria-hidden="true" />}
         label="Delete…"
         menuKey="D"
         onSelect={() => onDelete({ kind: 'session', id: session.id, label: session.title })}

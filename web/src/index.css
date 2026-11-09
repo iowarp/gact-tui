@@ -255,6 +255,11 @@
     ) {
     cursor: default;
   }
+  /* A hover name is never interactive: a name held open by focus must not
+     block a click on what it covers. Radix positions it in a wrapper. */
+  [data-radix-popper-content-wrapper]:has(> [data-name-tooltip]) {
+    pointer-events: none;
+  }
   input[type='file']:not(:disabled)::file-selector-button {
     cursor: pointer;
   }
