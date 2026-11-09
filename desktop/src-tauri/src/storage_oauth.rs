@@ -127,6 +127,10 @@ fn receive(pending: Arc<Pending>, expected_state: String) -> Result<String, Stri
     while Instant::now() < deadline && !pending.cancelled.load(Ordering::Relaxed) {
         match listener.accept() {
             Ok((mut stream, _)) => {
+                // The listener polls without blocking; macOS and Windows hand
+                // that mode to accepted streams, which would then read nothing
+                // from a browser that has not sent its request yet.
+                let _ = stream.set_nonblocking(false);
                 let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
                 let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
                 let mut request = Vec::new();
@@ -262,6 +266,25 @@ mod tests {
         assert!(receive(pending, "expected-state-123".into())
             .unwrap_err()
             .contains("already"));
+    }
+
+    #[test]
+    fn a_request_sent_after_connecting_is_still_read() {
+        let pending = pending_receiver();
+        let address = tauri::Url::parse(&pending.redirect).unwrap();
+        let receiver = pending.clone();
+        let task = std::thread::spawn(move || receive(receiver, "expected-state-123".into()));
+        let mut socket = TcpStream::connect(("127.0.0.1", address.port().unwrap())).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        // Browsers may connect before sending; the accepted stream must wait.
+        std::thread::sleep(Duration::from_millis(400));
+        socket.write_all(b"GET /clio-storage-return?state=expected-state-123&code=private-code HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+        let mut response = String::new();
+        socket.read_to_string(&mut response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+        assert!(task.join().unwrap().unwrap().contains("code=private-code"));
     }
 
     #[test]

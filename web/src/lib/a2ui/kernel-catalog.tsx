@@ -272,6 +272,7 @@ function MetricView(props: {
   };
   if (dashboard) {
     // A dashboard stat: an 18px figure over an 11px label, inline with its row.
+    // In a narrow dashboard the stats stack and each reads figure then label.
     // A unit the label already names is not repeated.
     const unit =
       props.unit && !props.label.toLowerCase().includes(props.unit.toLowerCase())
@@ -282,20 +283,21 @@ function MetricView(props: {
     return (
       <div
         {...a2uiAccessibilityProps(props.accessibility)}
-        className="group relative min-w-0"
+        className="group relative min-w-0 @max-[24rem]/dashboard:flex @max-[24rem]/dashboard:items-baseline @max-[24rem]/dashboard:gap-2 @max-[24rem]/dashboard:pe-16"
         data-slot="a2ui-stat"
         role="group"
         style={dataViewFlexStyle(props.weight)}
         title={[`${props.label}: ${value}`, note].filter(Boolean).join('\n')}
       >
         <SurfaceToolbar capabilities={metricCapabilities} />
-        <p className="truncate text-[18px] font-semibold leading-tight tabular-nums text-foreground">
+        <p className="truncate text-[18px] font-semibold leading-tight tabular-nums text-foreground @max-[24rem]/dashboard:shrink-0">
           {String(props.value)}
           {unit ? (
             <span className="ml-1 text-[11px] font-normal text-muted-foreground">{unit}</span>
           ) : null}
         </p>
-        <p className="truncate text-[11px] text-muted-foreground">
+        {/* A narrow cell wraps the label between words rather than cutting it. */}
+        <p className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
           {props.label}
           {note ? <span className="sr-only">, {note}</span> : null}
         </p>

@@ -133,5 +133,13 @@ describe('ClioSessionActions', () => {
     expect(screen.getByDisplayValue('http://127.0.0.1/v1/shared/shr_test')).toHaveAttribute(
       'readonly',
     );
+    // The link carries its expiry, so it is no longer a choice.
+    expect(screen.getByRole('combobox', { name: 'Link expires' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Link expires' })).toHaveTextContent('In 7 days');
+
+    // Done is the lone button and takes plain Enter.
+    expect(screen.getByRole('button', { name: /^Done/ })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

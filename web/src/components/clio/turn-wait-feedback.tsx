@@ -1,5 +1,5 @@
 import type { SubagentRun, Task, ToolInvocation } from '@clio/core/v3';
-import { useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { BrainIcon, ServerIcon } from 'lucide-react';
 import { useNow } from '@/hooks/use-now';
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
@@ -64,51 +64,50 @@ export function ClioTurnWaitFeedback({
   return <ResponseWait key={activeTurnId ?? current.at(-1)?.id} />;
 }
 
-/** The live row while the model has said nothing yet: "Thinking…", its time, a spinner. */
-function ResponseWait() {
+const THINKING_ICON = <BrainIcon aria-hidden="true" />;
+const WAITING_STATUS = (
+  <StatusIndicator tone="running" label="Waiting for response" display="column" mark="glyph" />
+);
+
+/**
+ * The live row while the model has said nothing yet: "Thinking…", its time, a spinner.
+ * Only the elapsed readout follows the clock, so the once-a-second tick re-renders a
+ * text leaf rather than the row, its tooltip and status.
+ */
+const ResponseWait = memo(function ResponseWait() {
   const [started] = useState(() => Date.now());
-  const now = useNow(true);
-  const seconds = Math.max(0, Math.floor((now - started) / 1000));
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setRevealed(true), 1_000);
+    return () => window.clearTimeout(timer);
+  }, []);
   // Keep quick handoffs quiet while making sustained waits continuously visible. The quiet
   // second still reserves the row's height so revealing it doesn't shift a latest-pinned
   // transcript (and whatever the pointer was over) a row upward.
-  if (seconds < 1)
+  if (!revealed)
     return (
       <div
         aria-hidden="true"
         data-slot="turn-response-wait-reserve"
         style={{ visibility: 'hidden' }}
       >
-        <ActivityRow
-          icon={<BrainIcon aria-hidden="true" />}
-          name="Thinking…"
-          elapsed="0s"
-          status={
-            <StatusIndicator
-              tone="running"
-              label="Waiting for response"
-              display="column"
-              mark="glyph"
-            />
-          }
-        />
+        <ActivityRow icon={THINKING_ICON} name="Thinking…" elapsed="0s" status={WAITING_STATUS} />
       </div>
     );
   return (
     <div role="status" data-slot="turn-response-wait">
       <ActivityRow
-        icon={<BrainIcon aria-hidden="true" />}
+        icon={THINKING_ICON}
         name="Thinking…"
-        elapsed={`${seconds}s`}
-        status={
-          <StatusIndicator
-            tone="running"
-            label="Waiting for response"
-            display="column"
-            mark="glyph"
-          />
-        }
+        elapsed={<ResponseWaitElapsed started={started} />}
+        status={WAITING_STATUS}
       />
     </div>
   );
+});
+
+function ResponseWaitElapsed({ started }: { started: number }) {
+  const now = useNow(true);
+  // Revealed only after a full second, so a clock reading from just before reveal still says 1s.
+  return `${Math.max(1, Math.floor((now - started) / 1000))}s`;
 }

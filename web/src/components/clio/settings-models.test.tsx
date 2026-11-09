@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
 import {
@@ -12,6 +12,7 @@ import {
   codexCatalog,
 } from '@/test-fixtures/provider-catalog';
 import { ModelsSettings } from './settings-models';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 const { configuration, repository } = vi.hoisted(() => {
   const configuration = {
@@ -132,6 +133,9 @@ function renderModels(
 
 /** Every label a stacked form row would carry: none may appear on the main view. */
 const TECHNICAL_WORDS = /Endpoint|Configuration|Credentials|Catalog|Handshake|Probe|Parallel/iu;
+
+// The picker's catalog loads on first open; warm it once so each open renders it at once.
+beforeAll(() => modelPickerCatalog.load());
 
 describe('ModelsSettings', () => {
   it('shows the default model as one row: name and provider, with no note while it works', async () => {

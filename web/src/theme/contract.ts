@@ -40,6 +40,9 @@ export const COLOR_TOKENS = [
   'primary',
   'primary-foreground',
   'action',
+  // The agent's question to you: the ask card's edge and icon. A brand accent may restyle
+  // `action`, never this.
+  'question',
   // Sidebar
   'sidebar',
   'sidebar-foreground',
