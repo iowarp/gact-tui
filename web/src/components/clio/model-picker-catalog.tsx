@@ -43,6 +43,7 @@ import {
   type ProviderGroup,
 } from './model-picker-model';
 import { useProviderPanel } from './model-picker-provider-panel';
+import { ModelPickerHighlightSeed } from './model-picker-highlight-seed';
 import { ProviderManageRow } from './model-picker-manage-row';
 import { ModelPickerSearch } from './model-picker-search';
 import { PickerRowLabel } from './model-picker-row-label';
@@ -476,6 +477,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             <CascaderList className="w-full flex-1" maxHeight="100%">
               <CascaderVirtualItems />
             </CascaderList>
+            <ModelPickerHighlightSeed />
             {/* Each group's manage row carries its actions and, for a provider
                 that is not usable yet, its fix. */}
             {activeGroup && loadingModels ? loadingPanel : null}

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -305,6 +305,27 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: /^Codex/ }));
     expect(screen.getByText('Luna')).toBeVisible();
+  });
+
+  it('one column opens with the chosen model highlighted, and the keyboard moves it', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        model="gpt-5.6-luna"
+        onChange={vi.fn()}
+        options={options}
+        provider="codex"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const highlighted = () => document.querySelector('[role="option"][data-highlighted]');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Luna'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(highlighted()).not.toHaveTextContent('Luna'));
+    expect(highlighted()).not.toBeNull();
   });
 
   it('one column lists a few models per provider, keeps the chosen one, and "N more" opens the rest', async () => {

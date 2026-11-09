@@ -11,7 +11,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
 import { THEMES } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
-import { ShortcutKeys } from './primitives/key-chip';
+import { KeyCap, ShortcutKeys } from './primitives/key-chip';
 import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
 
 /**
@@ -71,7 +71,8 @@ export function ResultTrail({ children }: { children?: ReactNode }) {
         aria-hidden="true"
         className="hidden group-data-[selected=true]/command-item:inline-flex"
       >
-        <ShortcutKeys id="menu-pick" variant="inline" />
+        {/* #825's KeyCap `row` size; S7 folds it into ShortcutKeys `row`. */}
+        <KeyCap className="h-5 min-w-5 px-1.5 text-[11px]">↵</KeyCap>
       </span>
     </span>
   );
