@@ -107,8 +107,7 @@ function renderComposer() {
 }
 
 async function openSource(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Add context' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Attach' }));
+  await user.click(screen.getByRole('button', { name: 'Attach files' }));
   await user.click(await screen.findByRole('button', { name: 'Your sources' }));
   await user.click(screen.getByRole('button', { name: /^Research inputs/ }));
 }
@@ -155,10 +154,7 @@ describe('source attachments in the composer', () => {
     await openSource(user);
     await user.click(screen.getByRole('button', { name: 'Link folder' }));
     await screen.findByRole('group', { name: 'Attached sources' });
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/ }),
-      'Inspect this{Enter}',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask / }), 'Inspect this{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(repository.finishSourceDraft).not.toHaveBeenCalled();
     expect(screen.getByRole('group', { name: 'Attached sources' })).toBeVisible();
@@ -237,10 +233,7 @@ describe('source attachments in the composer', () => {
       'draft_test',
     );
     expect(repository.attachSourceFolder).not.toHaveBeenCalled();
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/ }),
-      'Read this{Enter}',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask / }), 'Read this{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -258,7 +251,7 @@ describe('source attachments in the composer', () => {
     expect(within(tray).getByText('Research inputs')).toBeVisible();
     expect(within(tray).getByText('Linked folder')).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Attach' })).toBeNull();
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     expect(editor).not.toHaveTextContent('Research inputs');
     await user.type(editor, 'Inspect this folder{Enter}');
     await waitFor(() =>
@@ -288,7 +281,7 @@ describe('source attachments in the composer', () => {
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
     ).toHaveTextContent('Research inputs');
     expect(screen.queryByRole('dialog', { name: 'Attach' })).toBeNull();
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     await user.type(editor, 'Inspect the download{Enter}');
     expect(onSubmit).not.toHaveBeenCalled();
     repository.sourceOperations.mockResolvedValue([
@@ -327,7 +320,7 @@ describe('source attachments in the composer', () => {
     await waitFor(() => expect(finish).toBeDefined());
     await user.click(screen.getByRole('button', { name: 'Remove attachment Research inputs' }));
     finish?.(resource);
-    const editor = screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+    const editor = screen.getByRole('combobox', { name: /^Ask / });
     await user.type(editor, 'Just this text{Enter}');
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(

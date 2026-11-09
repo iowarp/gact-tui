@@ -13,13 +13,8 @@ import { ExternalLink } from '@/components/ui/external-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { LogInIcon } from 'lucide-react';
+import { DialogFrame } from './primitives/dialog-frame';
 
 const TERMINAL = new Set(['connected', 'denied', 'expired', 'failed', 'cancelled']);
 
@@ -195,108 +190,111 @@ export function McpSignInDialog({
   }
 
   const pending = preparing || (flow && !TERMINAL.has(flow.state));
+  const canStart = !pending && flow?.state !== 'connected';
   return (
-    <Dialog
-      open={scope === initiatingScope}
+    <DialogFrame
+      cancelLabel={flow?.state === 'connected' ? 'Done' : 'Cancel'}
+      className="w-[clamp(360px,40vw,600px)]"
+      confirm={
+        canStart
+          ? { label: flow ? 'Try signing in again' : 'Sign in', onConfirm: () => void start() }
+          : undefined
+      }
+      description="Sign in with the service. Your credentials stay with this connection."
+      icon={<LogInIcon />}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
+      open={scope === initiatingScope}
+      title={`Connect ${title || name}`}
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Connect {title || name}</DialogTitle>
-          <DialogDescription>
-            Sign in with the service. Your credentials stay with this connection.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          {pending ? (
-            <p role="status">
-              {flow?.state === 'authorizing'
-                ? 'Finish signing in in the browser window.'
-                : flow?.state === 'connecting'
-                  ? 'Checking the MCP connection…'
-                  : 'Preparing sign-in…'}
-            </p>
-          ) : null}
-          {flow?.authorization_url ? (
-            <ExternalLink href={flow.authorization_url} className="text-sm underline">
-              Continue signing in
-            </ExternalLink>
-          ) : null}
-          {flow?.state === 'connected' ? (
-            <p role="status">
-              Connected, {flow.tools.length} {flow.tools.length === 1 ? 'tool' : 'tools'} available
-            </p>
-          ) : null}
-          {error || flow?.error || state.error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error || flow?.error || state.error?.message}
-            </p>
-          ) : null}
-          {!pending && flow?.state !== 'connected' ? (
-            <>
-              <details className="text-sm">
-                <summary className="cursor-pointer">Advanced sign-in settings</summary>
-                <div className="grid gap-3 pt-3">
-                  <p className="text-muted-foreground">
-                    Automatic registration is used when the server supports it. Enter a registered
-                    client or a published client metadata URL only if your server requires one.
-                  </p>
-                  <Label>
-                    Client ID
-                    <Input
-                      value={clientId}
-                      onChange={(event) => setClientId(event.target.value)}
-                      autoComplete="off"
-                    />
-                  </Label>
-                  <Label>
-                    Client secret
-                    <Input
-                      type="password"
-                      value={clientSecret}
-                      onChange={(event) => setClientSecret(event.target.value)}
-                      autoComplete="new-password"
-                    />
-                  </Label>
-                  <Label>
-                    Published client metadata URL
-                    <Input
-                      type="url"
-                      value={metadataUrl}
-                      onChange={(event) => setMetadataUrl(event.target.value)}
-                    />
-                  </Label>
-                </div>
-              </details>
-              <Button onClick={() => void start()}>
-                {flow ? 'Try signing in again' : 'Sign in'}
-              </Button>
-            </>
-          ) : null}
-          {flow?.state === 'authorizing' && !inTauri() ? (
-            <details className="text-sm">
-              <summary className="cursor-pointer">Finish with a return URL</summary>
-              <div className="grid gap-2 pt-2">
-                <Label htmlFor="mcp-return-url">Browser return URL</Label>
+      <div className="grid gap-3">
+        {pending ? (
+          <p role="status">
+            {flow?.state === 'authorizing'
+              ? 'Finish signing in in the browser window.'
+              : flow?.state === 'connecting'
+                ? 'Checking the MCP connection…'
+                : 'Preparing sign-in…'}
+          </p>
+        ) : null}
+        {flow?.authorization_url ? (
+          <ExternalLink href={flow.authorization_url} className="text-sm underline">
+            Continue signing in
+          </ExternalLink>
+        ) : null}
+        {flow?.state === 'connected' ? (
+          <p role="status">
+            Connected, {flow.tools.length} {flow.tools.length === 1 ? 'tool' : 'tools'} available
+          </p>
+        ) : null}
+        {error || flow?.error || state.error ? (
+          <p className="text-destructive" role="alert">
+            {error || flow?.error || state.error?.message}
+          </p>
+        ) : null}
+        {canStart ? (
+          <details>
+            <summary className="cursor-pointer text-muted-foreground">
+              Advanced sign-in settings
+            </summary>
+            <div className="grid gap-3 pt-3">
+              <p className="text-muted-foreground">
+                Automatic registration is used when the server supports it. Enter a registered
+                client or a published client metadata URL only if your server requires one.
+              </p>
+              <Label>
+                Client ID
                 <Input
-                  id="mcp-return-url"
-                  value={callbackUrl}
-                  onChange={(event) => setCallbackUrl(event.target.value)}
+                  value={clientId}
+                  onChange={(event) => setClientId(event.target.value)}
                   autoComplete="off"
                 />
-                <Button disabled={!callbackUrl.trim()} onClick={() => void complete(callbackUrl)}>
-                  Finish signing in
-                </Button>
-              </div>
-            </details>
-          ) : null}
-          <Button variant="outline" onClick={onClose}>
-            {flow?.state === 'connected' ? 'Done' : 'Cancel'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </Label>
+              <Label>
+                Client secret
+                <Input
+                  type="password"
+                  value={clientSecret}
+                  onChange={(event) => setClientSecret(event.target.value)}
+                  autoComplete="new-password"
+                />
+              </Label>
+              <Label>
+                Published client metadata URL
+                <Input
+                  type="url"
+                  value={metadataUrl}
+                  onChange={(event) => setMetadataUrl(event.target.value)}
+                />
+              </Label>
+            </div>
+          </details>
+        ) : null}
+        {flow?.state === 'authorizing' && !inTauri() ? (
+          <details>
+            <summary className="cursor-pointer text-muted-foreground">
+              Finish with a return URL
+            </summary>
+            <div className="grid gap-2 pt-2">
+              <Label htmlFor="mcp-return-url">Browser return URL</Label>
+              <Input
+                id="mcp-return-url"
+                value={callbackUrl}
+                onChange={(event) => setCallbackUrl(event.target.value)}
+                autoComplete="off"
+              />
+              <Button
+                className="w-fit"
+                disabled={!callbackUrl.trim()}
+                onClick={() => void complete(callbackUrl)}
+              >
+                Finish signing in
+              </Button>
+            </div>
+          </details>
+        ) : null}
+      </div>
+    </DialogFrame>
   );
 }

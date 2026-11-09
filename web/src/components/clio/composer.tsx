@@ -21,11 +21,8 @@ import {
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { brand } from '@brand';
-import {
-  PromptInput,
-  PromptInputFooter,
-  PromptInputTools,
-} from '@/components/ai-elements/prompt-input';
+import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
 import { ClioModelPicker } from './model-picker';
@@ -65,7 +62,7 @@ import type { CommentAttachment } from '@clio/core/v3';
 import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
-import { ComposerAddContextButton } from './composer-add-context-button';
+import { ComposerAddContextButtons } from './composer-add-context-button';
 import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
 import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
@@ -159,6 +156,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
   onAnnotationsChange?: (annotations: readonly CommentAttachment[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
+  /**
+   * Hint shown in the empty editor. Defaults to steering copy in a conversation
+   * and to the open invitation on the welcome page.
+   */
+  placeholder?: string;
 }
 
 export function ClioComposer({
@@ -210,6 +212,9 @@ export function ClioComposer({
   onAnnotationsChange,
   focusRequestKey,
   variant = 'docked',
+  placeholder = variant === 'welcome'
+    ? `Ask ${brand.name} anything, or describe a task…`
+    : 'Reply, or steer the run',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
   const { selectedOption, selectModel } = useComposerModelSelection(modelOptions, provider, model);
@@ -321,7 +326,8 @@ export function ClioComposer({
     attachments ? () => setFileUploadOpen(true) : undefined,
     sessionId,
   );
-  const popoverOpen = showCommands || showReferences;
+  const [commandMenuOpen, setCommandMenuOpen] = useState(true);
+  const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
@@ -399,30 +405,26 @@ export function ClioComposer({
             setInput(`${command.id} `);
             window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
           }}
+          onOpenChange={setCommandMenuOpen}
           popoverId={commandPopoverId}
           query={commandQuery}
         />
       ) : null}
       {showReferences && !showCommands ? (
-        <div
-          className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
-          id={composerReferences.popoverId}
-        >
-          <ClioComposerReferenceMenu
-            activeReferenceId={composerReferences.activeReferenceId}
-            onActiveOptionChange={composerReferences.onActiveOptionChange}
-            onActiveReferenceChange={composerReferences.onActiveReferenceChange}
-            onDismiss={composerReferences.dismiss}
-            onReferencesChange={composerReferences.onOptionsChange}
-            onRestoreFocus={composerReferences.restoreEditorFocus}
-            onSelect={composerReferences.select}
-            onQueryChange={composerReferences.onQueryChange}
-            query={composerReferences.query}
-            searchInput={composerReferences.pickerOpen}
-            summons={summonRows}
-            workspaceId={workspaceId}
-          />
-        </div>
+        // Portals into the overlay container above the composer box; the popup
+        // carries `popoverId`, the editor's aria-controls target.
+        <ClioComposerReferenceMenu
+          handleRef={composerReferences.menuRef}
+          key={composerReferences.pickerOpen ? 'picker' : 'mention'}
+          onDismiss={composerReferences.dismiss}
+          onRestoreFocus={composerReferences.restoreEditorFocus}
+          onSelect={composerReferences.select}
+          popoverId={composerReferences.popoverId}
+          query={composerReferences.query}
+          searchInput={composerReferences.pickerOpen}
+          summons={summonRows}
+          workspaceId={workspaceId}
+        />
       ) : null}
       {pendingInteractions}
       {connectedSources.picker}
@@ -447,7 +449,7 @@ export function ClioComposer({
       <PromptInput
         data-evidence-composer
         data-slot="clio-composer"
-        className="mx-auto max-w-4xl shrink-0 rounded-2xl bg-composer shadow-sm"
+        className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[9px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[7px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
         maxFileSize={COMPOSER_ATTACHMENT_MAX_BYTES}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
@@ -590,13 +592,15 @@ export function ClioComposer({
         <ComposerInlineReferenceEditor
           attachmentsEnabled={attachments}
           activeOptionId={composerReferences.activeOptionId}
+          ariaLabel={`Ask ${brand.name}`}
+          className="min-h-[22px] p-0 text-[13px] leading-[22px]"
           disabled={disabled}
           expanded={popoverOpen}
           onCaretChange={composerReferences.onCaretChange}
           onChange={setInput}
           onOpenReference={onOpenReference}
           onReferencesChange={sourceAttachments.setInlineReferences}
-          placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
+          placeholder={placeholder}
           popoverId={showCommands ? commandPopoverId : composerReferences.popoverId}
           ref={inputRef}
           references={sourceAttachments.inlineReferences}
@@ -612,12 +616,16 @@ export function ClioComposer({
             form?.requestSubmit();
           }}
         />
-        <PromptInputFooter className="@container/composer flex-wrap gap-y-1">
-          <PromptInputTools className="min-w-0 flex-wrap">
+        <TooltipProvider delayDuration={450}>
+          <PromptInputFooter
+            className="@container/composer -ml-1.5 w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 pt-1 font-normal"
+            data-slot="composer-toolbar"
+          >
             {attachments || contextReferences ? (
-              <ComposerAddContextButton
+              <ComposerAddContextButtons
                 attachments={attachments}
                 contextReferences={contextReferences}
+                disabled={disabled}
                 onOpenFileUpload={() => setFileUploadOpen(true)}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
@@ -625,6 +633,12 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
+              beforeModel={
+                <ClioComposerEvidenceControls
+                  activityControl={activityControl}
+                  workSummary={workSummary}
+                />
+              }
               spotterAvailability={spotterAvailability}
               spotterModelControl={
                 <ComposerSpotterModel
@@ -655,12 +669,12 @@ export function ClioComposer({
                   provider={selectedOption?.providerId}
                   trigger={
                     <ComposerModelButton
+                      appearance="text"
                       aria-label="Change model"
-                      className="min-w-0 max-w-48 text-foreground @min-[48rem]/composer:max-w-64"
+                      className="max-w-56 @min-[48rem]/composer:max-w-72"
                       option={selectedOption}
-                      size="sm"
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                     />
                   }
                 />
@@ -668,14 +682,11 @@ export function ClioComposer({
               onChange={choose}
               unrecognizedEffort={unrecognizedEffort}
             />
-          </PromptInputTools>
-          <ClioComposerEvidenceControls
-            activityControl={activityControl}
-            workSummary={workSummary}
-          />
-          <div className="flex shrink-0 items-center gap-2">
             {catalogPreparing && state !== 'running' ? (
-              <span className="text-xs text-muted-foreground" role="status">
+              <span
+                className="shrink-0 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
+                role="status"
+              >
                 Preparing views…
               </span>
             ) : null}
@@ -690,8 +701,8 @@ export function ClioComposer({
               }}
               onStop={onStop}
             />
-          </div>
-        </PromptInputFooter>
+          </PromptInputFooter>
+        </TooltipProvider>{' '}
       </PromptInput>
     </div>
   );

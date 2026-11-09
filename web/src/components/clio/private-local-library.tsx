@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { AgentEntry } from '@clio/core/v3';
+import type { AgentEntry, PluginEntry } from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -8,15 +8,22 @@ import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
 import { AgentPreviewDialog, AgentRow } from './agent-library-row';
 import { InstalledPluginList } from './installed-plugin-list';
+import { ItemList } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
 import { LocalMarketplaceDetails, SavedAgentFile } from './private-local-details';
 
 /** Browse host-local content even when no plugin marketplace has been created yet. */
 export function PrivateLocalLibrary({
   detailsOpen,
   onDetailsClose,
+  onExplore,
+  selected,
 }: {
   detailsOpen: boolean;
   onDetailsClose: () => void;
+  /** Explore one of your plugins beside the list. */
+  onExplore?: (plugin: PluginEntry) => void;
+  selected?: string;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -41,28 +48,30 @@ export function PrivateLocalLibrary({
   return (
     <div className="grid min-w-0 gap-2">
       <section aria-label="Saved items" className="min-w-0">
-        {agents.isPending ? <p role="status">Loading agents…</p> : null}
-        {agents.error ? <p role="alert">{agents.error.message}</p> : null}
-        <ul className="min-w-0">
-          {mine.map((agent) => (
-            <AgentRow
-              key={agent.ref}
-              agent={agent}
-              agents={agents.data ?? []}
-              onPreview={() => setPreviewing(agent)}
-              onViewSource={() => setSourceAgent(agent)}
-              metadata="Agent"
-            />
-          ))}
-        </ul>
+        {agents.isPending ? <StateView kind="loading" size="row" title="Loading agents…" /> : null}
+        {agents.error ? <StateView kind="error" size="row" title={agents.error.message} /> : null}
+        {mine.length ? (
+          <ItemList label="Your agents">
+            {mine.map((agent) => (
+              <AgentRow
+                key={agent.ref}
+                agent={agent}
+                agents={agents.data ?? []}
+                onPreview={() => setPreviewing(agent)}
+                onViewSource={() => setSourceAgent(agent)}
+                metadata="Agent"
+              />
+            ))}
+          </ItemList>
+        ) : null}
         {plugins.length || catalog.isPending || catalog.error ? (
           <InstalledPluginList
-            flat
-            hideFilter
-            hideHeading
+            label="Your plugins"
             plugins={plugins}
             pending={catalog.isPending}
             error={catalog.error?.message}
+            onExplore={onExplore}
+            selected={selected}
           />
         ) : null}
         {!agents.isPending &&
@@ -71,7 +80,7 @@ export function PrivateLocalLibrary({
         !catalog.error &&
         !mine.length &&
         !plugins.length ? (
-          <p className="py-2 text-muted-foreground">Nothing saved here yet.</p>
+          <StateView kind="empty" size="row" title="Nothing saved here yet." />
         ) : null}
       </section>
       {previewing ? (

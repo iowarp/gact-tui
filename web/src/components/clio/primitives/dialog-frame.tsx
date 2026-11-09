@@ -57,6 +57,8 @@ export interface DialogFrameProps {
   cancelLabel?: string;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
+  /** Controls in the title row before × (a mode switch such as URL | Command). */
+  titleActions?: ReactNode;
   /** Explanation behind the ⓘ in the title row. */
   help?: ReactNode;
   className?: string;
@@ -77,6 +79,7 @@ export const DialogFrame = memo(function DialogFrame({
   confirm,
   cancelLabel = confirm ? 'Cancel' : 'Close',
   secondary,
+  titleActions,
   help,
   className,
 }: DialogFrameProps) {
@@ -124,6 +127,7 @@ export const DialogFrame = memo(function DialogFrame({
               {help}
             </InfoTip>
           ) : null}
+          {titleActions}
           <FrameClose />
         </div>
         {description ? (
