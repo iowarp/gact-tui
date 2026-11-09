@@ -100,18 +100,18 @@ for (const width of [1920, 1280, 390]) {
   });
 }
 
-test('the rail and its collapsed sections persist across canvas and reload', async ({ page }) => {
+test('the rail and its expanded sections persist across canvas and reload', async ({ page }) => {
   await openSession(page, 1920, 900, true);
   const rail = await openConversationRail(page);
-  await rail.getByRole('button', { name: 'Collapse Todos', exact: true }).click();
+  await rail.getByRole('button', { name: 'Expand Todos', exact: true }).click();
   await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(rail).toBeVisible();
-  await expect(rail.getByRole('button', { name: 'Expand Todos', exact: true })).toBeVisible();
+  await expect(rail.getByRole('button', { name: 'Collapse Todos', exact: true })).toBeVisible();
   await page.reload();
   await expect(conversationRail(page)).toBeVisible();
   await expect(
-    conversationRail(page).getByRole('button', { name: 'Expand Todos', exact: true }),
+    conversationRail(page).getByRole('button', { name: 'Collapse Todos', exact: true }),
   ).toBeVisible();
   await conversationRailButton(page).click();
   await page.reload();

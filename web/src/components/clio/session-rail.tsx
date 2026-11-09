@@ -89,10 +89,10 @@ function RailGroupBlock({ group, children }: { group: RailGroup; children: React
 
 /** One section: a 28px row (chevron, icon, name, count) and its content under a guide line. */
 function RailSection({ id, item }: { id: SessionRailSectionId; item?: SessionRailItem }) {
-  const { label, icon: Icon, group } = railSection(id);
+  const { label, icon: Icon } = railSection(id);
   const [open, setOpen] = useEvidenceDisclosure(
     `conversation-rail:${id}`,
-    item?.defaultOpen ?? group === 'now',
+    item?.defaultOpen ?? id === 'running',
   );
   const tally = item ? (item.summary ?? item.count?.toLocaleString()) : '0';
   return (

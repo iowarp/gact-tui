@@ -142,6 +142,7 @@ describe('session showcase inventory', () => {
         </QuestionAnswerContext.Provider>
       </QueryClientProvider>,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Questions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
     expect(openQuestion).toHaveBeenCalledWith(interaction);
     client.clear();
@@ -179,6 +180,8 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
     expect(await screen.findByText('Check the report')).toBeVisible();
     expect(await screen.findByText('Review tomorrow')).toBeVisible();
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
@@ -242,6 +245,7 @@ describe('session showcase inventory', () => {
       </QueryClientProvider>,
     );
     const plan = await screen.findByRole('region', { name: 'Plan section' });
+    fireEvent.click(within(plan).getByRole('button', { name: 'Expand Plan' }));
     expect(await within(plan).findByText('Find the regression.')).toBeVisible();
     const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
     expect(regions.indexOf('Plan section')).toBeLessThan(regions.indexOf('Todos section'));
@@ -335,6 +339,8 @@ describe('session showcase inventory', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Sensor repository' }));
     expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'source' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Review tomorrow' }));
     expect(onOpenWork).toHaveBeenCalledTimes(2);

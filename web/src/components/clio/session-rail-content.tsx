@@ -18,7 +18,7 @@ import { sessionSources } from './observability-evidence-sources';
 import { OpenQuestionList } from './open-question-list';
 import { useQuestionAnswer } from './question-answer-context';
 import { SessionRail } from './session-rail';
-import { railSection, type SessionRailItem } from './session-rail-layout';
+import type { SessionRailItem } from './session-rail-layout';
 import { SessionSummaryRow } from './session-summary-row';
 import { useSessionConnectedSources, useSessionSchedules } from './session-inventory-queries';
 import { useSessionWork } from './use-session-work';
@@ -74,7 +74,7 @@ export function SessionRailContent({
     backgroundProcesses: evidence.processes,
   }).map((item) =>
     // The rail lists runs in the Runs page row; older ones are under All runs.
-    // What happens now opens by default; the inventory waits to be asked for.
+    // Only Running opens by default; every other row waits to be asked for.
     item.id === 'running'
       ? {
           ...item,
@@ -89,7 +89,7 @@ export function SessionRailContent({
             />
           ),
         }
-      : { ...item, defaultOpen: railSection(item.id).group === 'now' },
+      : { ...item, defaultOpen: false },
   );
   const inventory: SessionRailItem[] = [
     {
@@ -160,7 +160,6 @@ export function SessionRailContent({
     inventory.push({
       id: 'plan',
       summary: planStatusLabel(work.data.plan.status),
-      defaultOpen: true,
       content: <SessionPlanBody plan={work.data.plan} sessionId={evidence.sessionId} />,
     });
   if (todos.length)
