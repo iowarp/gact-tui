@@ -212,7 +212,7 @@ function McpServiceRow({
                 onClick={onDetails}
               />
             ) : null}
-            {onReconnect ? (
+            {onReconnect && !slot ? (
               <IconButton
                 aria-busy={reconnecting}
                 disabled={reconnecting}
