@@ -52,6 +52,7 @@ import {
   isContinuousAxis,
 } from './chart-view-helpers';
 import { buildSpec, distinctFieldValues } from './chart-spec-build';
+import { useDashboardChartSpec, useDashboardPresentation } from './dashboard-presentation';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
 import { dataViewFlexStyle } from './data-view-layout';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
@@ -297,16 +298,18 @@ export function ClioChart(props: ClioChartProps) {
     return () => observer.disconnect();
   }, [fullscreen, boxplotWidthLimit]);
   const renderer = useMemo<ChartRenderer>(() => (canvasAvailable() ? 'canvas' : 'svg'), []);
+  const dashboard = useDashboardPresentation();
+  const presented = useDashboardChartSpec(built.spec);
   const spec = useMemo(
     () =>
-      built.spec
+      presented.spec
         ? preset === 'trajectories' || preset === 'spectra'
           ? withChartLinePointTargets(
-              withChartPointSelection(built.spec, param, markSelectionField),
+              withChartPointSelection(presented.spec, param, markSelectionField),
             )
-          : withChartPointSelection(built.spec, param, selectionField)
+          : withChartPointSelection(presented.spec, param, selectionField)
         : undefined,
-    [built.spec, markSelectionField, param, preset, selectionField],
+    [presented.spec, markSelectionField, param, preset, selectionField],
   );
   const hasRows = rows !== undefined;
   const boxSelectionInjection = useMemo(
@@ -697,12 +700,28 @@ export function ClioChart(props: ClioChartProps) {
       style={dataViewFlexStyle(weight)}
     >
       <div className="mb-2 flex min-w-0 items-start gap-3">
-        <h3
-          className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
-          title={heading}
-        >
-          {heading}
-        </h3>
+        {dashboard ? (
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-[13px] font-medium leading-snug" title={heading}>
+              {heading}
+            </h3>
+            {presented.caption ? (
+              <p
+                className="truncate text-[11.5px] leading-snug text-muted-foreground"
+                title={presented.caption}
+              >
+                {presented.caption}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <h3
+            className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+            title={heading}
+          >
+            {heading}
+          </h3>
+        )}
         <div className="flex shrink-0 items-center gap-0.5">
           {renderBoxSelectAction()}
           {renderZoomActions()}

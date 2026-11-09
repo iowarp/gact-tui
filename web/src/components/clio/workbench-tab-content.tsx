@@ -21,7 +21,7 @@ import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
-import { FlowRunView } from './flow-run-view';
+import { WorkbenchFlowTab } from './workbench-flow-tab';
 import { ScienceLogTab } from './science-log-tab';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
@@ -356,14 +356,7 @@ export function WorkbenchTabContent({
         />
       );
     case 'flow':
-      return (
-        <FlowRunView
-          handle={tab.handle}
-          label={tab.label}
-          onOpenSubagent={onOpenSubagent}
-          sessionId={tab.sessionId}
-        />
-      );
+      return <WorkbenchFlowTab onOpenSubagent={onOpenSubagent} tab={tab} />;
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     case 'browser':

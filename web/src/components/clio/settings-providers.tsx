@@ -135,6 +135,7 @@ export function ProvidersSettings() {
     <div className="max-w-[760px] pb-4">
       <SettingsGroupLabel
         addLabel="Add server"
+        className="mt-2"
         info="Model servers on this computer or your own machines."
         onAdd={() => setAdding(true)}
       >
@@ -227,18 +228,20 @@ export function ProvidersSettings() {
     <div className="flex flex-col" data-slot="providers-settings">
       <SettingsSectionHeading title="Providers" />
       {error ? (
-        <StateView
-          action={{
-            label: 'Retry',
-            onClick: () => {
-              void configuration.refetch();
-              void servers.refetch();
-            },
-          }}
-          kind="error"
-          size="row"
-          title={error.message}
-        />
+        <div className="max-w-[760px]">
+          <StateView
+            action={{
+              label: 'Retry',
+              onClick: () => {
+                void configuration.refetch();
+                void servers.refetch();
+              },
+            }}
+            kind="error"
+            size="row"
+            title={error.message}
+          />
+        </div>
       ) : loading ? (
         <StateView kind="loading" title="Loading providers" />
       ) : (
@@ -251,6 +254,8 @@ export function ProvidersSettings() {
                 )}
                 group={groups.find((group) => group.id === opened.preset.id)}
                 isDefault={opened.isDefault}
+                applying={apply.isPending}
+                onUse={(address, model) => adoptServer(opened.preset, address, model)}
                 onClose={() => setDetailsId(undefined)}
                 preset={opened.preset}
                 saved={opened.saved}

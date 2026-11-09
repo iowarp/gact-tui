@@ -1,6 +1,16 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+/** Open the full conversation view from the pinned top-bar rail, which may already be open. */
+async function openFullConversationView(page: Page) {
+  const rail = page.getByRole('button', { name: 'Conversation rail', exact: true });
+  if ((await rail.getAttribute('aria-expanded')) !== 'true') await rail.click();
+  await page
+    .getByRole('region', { name: 'This conversation', exact: true })
+    .getByRole('button', { name: 'Open full view', exact: true })
+    .click();
+}
 
 /** Real CLIO and real recorded model responses; no route interception or injected transcript. */
 test('fork checkpoint, family Gantt, relationship navigation and output lineage', async ({
@@ -76,8 +86,7 @@ test('fork checkpoint, family Gantt, relationship navigation and output lineage'
   await checkpoint.scrollIntoViewIfNeeded();
   await expect(checkpoint).toHaveCount(1);
   await page.goto(`/workspaces/${state.workspace}/sessions/${state.sessions['Offset comparison']}`);
-  await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-  await page.getByRole('button', { name: 'Open full details', exact: true }).click();
+  await openFullConversationView(page);
   await page.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
   await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
   const gantt = page.getByRole('region', { name: 'Conversation family Gantt' });
@@ -270,8 +279,7 @@ test('fork checkpoint, family Gantt, relationship navigation and output lineage'
   await page.goto(
     `/workspaces/${reference.workspace}/sessions/${reference.sessions['Offset comparison']}`,
   );
-  await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-  await page.getByRole('button', { name: 'Open full details', exact: true }).click();
+  await openFullConversationView(page);
   await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
   const toRelationships = page.getByRole('button', { name: 'Switch to Relationships' });
   if (await toRelationships.isVisible()) await toRelationships.click();
@@ -298,8 +306,7 @@ test('fork checkpoint, family Gantt, relationship navigation and output lineage'
   await expect(page.getByRole('combobox', { name: /^Ask .+ to investigate/ })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('combobox', { name: /^Ask .+ to investigate/ })).toBeVisible();
-  await page.getByRole('button', { name: /^Evidence layout:/ }).click();
-  await page.getByRole('button', { name: 'Open full details', exact: true }).click();
+  await openFullConversationView(page);
   await page.getByRole('tab', { name: 'Gantt', exact: true }).click();
   const switchBack = page.getByRole('button', { name: 'Switch to Gantt' });
   if (await switchBack.isVisible()) await switchBack.click();

@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { AlertTriangleIcon, BanIcon, CopyIcon, EyeOffIcon, SearchIcon } from 'lucide-react';
+import { SquareSlashIcon } from 'lucide-react';
 import {
   memo,
   useCallback,
@@ -11,24 +11,22 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { commandGroups, commandMatches, commandSource } from '@/lib/command-table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ShortcutKeys } from './primitives/key-chip';
 import { publishActiveOption } from './composer-reference-controller-active-option';
-import { ComposerSuggestionPopup } from './composer-suggestion-popup';
+import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
 
-function StatusNote({ icon, label, detail }: { icon: ReactNode; label: string; detail: string }) {
+function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge className="shrink-0 gap-1" variant="outline">
-            {icon}
-            <span>{label}</span>
-          </Badge>
+          <span className="shrink-0 rounded-[4px] bg-muted px-[5px] py-px text-[10.5px] font-medium text-muted-foreground">
+            {label}
+          </span>
         </TooltipTrigger>
         <TooltipContent>{detail}</TooltipContent>
       </Tooltip>
@@ -43,7 +41,6 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
     return (
       <StatusNote
         detail={detail || 'Another command file of the same name wins.'}
-        icon={<EyeOffIcon aria-hidden="true" />}
         label="Shadowed"
       />
     );
@@ -51,23 +48,16 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
     return (
       <StatusNote
         detail={detail || 'A built-in command already has this name.'}
-        icon={<BanIcon aria-hidden="true" />}
         label="Reserved name"
       />
     );
   if (!command.enabled)
-    return (
-      <StatusNote
-        detail={detail || 'This command cannot run.'}
-        icon={<BanIcon aria-hidden="true" />}
-        label="Unavailable"
-      />
-    );
+    // A specific reason reads inline in the row; only a bare one gets the tag.
+    return detail ? null : <StatusNote detail="This command cannot run." label="Unavailable" />;
   if (command.ambiguous)
     return (
       <StatusNote
         detail={`Another source also has ${command.name}; this one runs as ${command.qualified_id}.`}
-        icon={<CopyIcon aria-hidden="true" />}
         label="Same name elsewhere"
       />
     );
@@ -75,7 +65,6 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
     return (
       <StatusNote
         detail={`This file’s ${command.unsupported_fields.join(', ')} settings are not used.`}
-        icon={<AlertTriangleIcon aria-hidden="true" />}
         label="Some fields ignored"
       />
     );
@@ -93,9 +82,16 @@ const KEY_HINTS = [
 const commandKey = (command: CommandDefinition) =>
   `${command.kind}:${command.qualified_id}:${command.source}`;
 
+const NAMED_STATES = new Set(['command_shadowed', 'command_name_reserved']);
+
 /** The faint words after a command's id: its title, or what it does. */
 function commandDetail(command: CommandDefinition): string {
-  if (!command.enabled) return command.disabled_detail || command.disabled_reason || 'Unavailable';
+  // Shadowed and reserved rows say so in their tag, with the reason on hover;
+  // any other unavailable command gives its reason here.
+  if (!command.enabled)
+    return NAMED_STATES.has(command.disabled_reason ?? '')
+      ? ''
+      : command.disabled_detail || command.disabled_reason || '';
   if (command.title && command.title !== command.id) return command.title;
   return command.description || command.argument_hint || '';
 }
@@ -112,14 +108,18 @@ const CommandOption = memo(function CommandOption({
   command,
   id,
   onPick,
+  query,
 }: {
   active: boolean;
   command: CommandDefinition;
   id: string;
   onPick: (command: CommandDefinition) => void;
+  /** What follows the typed `/`, marked in the name. */
+  query: string;
 }) {
   const source = commandSource(command);
   const detail = commandDetail(command);
+  const status = CommandStatus({ command });
   return (
     // The editor keeps focus and the keys; a press only picks.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -129,7 +129,7 @@ const CommandOption = memo(function CommandOption({
       aria-selected={active}
       className={cn(
         'flex h-[30px] min-w-0 cursor-default items-center gap-[9px] rounded-[7px] px-2 whitespace-nowrap',
-        command.enabled ? 'hover:bg-hover' : 'opacity-60',
+        command.enabled && 'hover:bg-hover',
         active && 'bg-menu-highlight hover:bg-menu-highlight',
       )}
       id={id}
@@ -138,13 +138,20 @@ const CommandOption = memo(function CommandOption({
       role="option"
       title={commandSummary(command) || undefined}
     >
-      <span className="shrink-0 font-mono text-foreground">{command.id}</span>
-      <CommandStatus command={command} />
+      <span
+        className={cn(
+          'shrink-0 font-mono text-[12px]',
+          command.enabled ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <Highlighted query={query} text={command.id.replace(/^\//u, '')} />
+      </span>
       {detail ? (
         <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
       ) : null}
-      {source || active ? (
+      {status || source || active ? (
         <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
+          {status}
           {source ? <span>{source}</span> : null}
           {active ? <ShortcutKeys id="menu-pick" variant="inline" /> : null}
         </span>
@@ -253,14 +260,15 @@ export function ClioComposerCommandMenu({
   return (
     <ComposerSuggestionPopup onDismiss={dismiss} popupId={popoverId}>
       <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 pr-2 pl-3">
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
+        <SquareSlashIcon
+          aria-hidden="true"
+          className="size-[15px] shrink-0 text-muted-foreground"
+        />
         <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
-          <span className="font-mono text-foreground">{query}</span>
+          <span className="text-foreground">{query}</span>
           {query === '/' ? <span className="text-faint"> type to search</span> : null}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">
-          {total === 1 ? '1 match' : `${total} matches`}
-        </span>
+        <MatchCount total={total} />
       </div>
       <div
         aria-label="Suggestions"
@@ -287,6 +295,7 @@ export function ClioComposerCommandMenu({
                 id={optionId(command)}
                 key={commandKey(command)}
                 onPick={onPick}
+                query={query.replace(/^\//u, '')}
               />
             ))}
           </div>

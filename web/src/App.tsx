@@ -175,9 +175,8 @@ export default function App() {
           <Route element={<SettingsWindow />} path="/settings/:section" />
         </Routes>
       ) : null}
-      <Toaster closeButton richColors />
-      {/* Fixed + full-viewport, so it covers the desktop title bar's own
-          connection pill too -- not just the routed content below. */}
+      <Toaster />
+      {/* The update page where no app shell hosts it in its content pane. */}
       <UpdateRestartOverlay />
       {/* One toolbar for every selectable surface; actions register per page. */}
       <ClioSelectionActionToolbar />

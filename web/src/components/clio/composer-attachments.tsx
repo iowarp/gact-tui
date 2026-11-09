@@ -25,7 +25,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RetryIcon } from '@/lib/icon-vocabulary';
-import { AttachmentQueueRow } from './attachment-queue-row';
+import { ComposerAttachmentChip } from './composer-attachment-chip';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -207,7 +207,7 @@ export function ClioComposerAttachments({
       >
         <Attachments
           aria-label="Pending attachments"
-          className="w-full min-w-0 flex-wrap justify-start gap-2 p-3"
+          className="w-full min-w-0 flex-wrap items-center justify-start gap-1.5 px-0 pt-0.5 pb-1"
           role="group"
           variant="composer"
         >
@@ -231,7 +231,7 @@ export function ClioComposerAttachments({
               <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
                 <AttachmentHoverCardTrigger asChild>
                   {!visual ? (
-                    <AttachmentQueueRow
+                    <ComposerAttachmentChip
                       name={filename}
                       mediaType={file.mediaType || ''}
                       size={(file as UploadableFilePart).file?.size ?? resource?.declared_size}
