@@ -23,7 +23,7 @@ const PARSES_INCOMING_TEXT = {
     'model-written markdown may separate source links with the dot; they are regrouped',
   'web/src/components/clio/storage-tool-presentation.ts':
     'agent tool summaries use the dot; the UI rewrites it to a comma',
-  'web/src/components/clio/workbench.tsx':
+  'web/src/components/clio/workbench-tab-storage.ts':
     'workbench tabs saved by older builds end in a dotted suffix that is stripped on load',
 };
 

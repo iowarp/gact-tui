@@ -66,8 +66,19 @@ for (const theme of ['light', 'dark'] as const) {
     const files = page.getByRole('menuitem', { name: 'Workspace files', exact: true });
     await expect(files).toHaveCSS('cursor', 'pointer');
     await files.click();
+    const filesList = page
+      .getByRole('toolbar', { name: 'Workbench lists', exact: true })
+      .getByRole('button', { name: 'Files', exact: true });
+    await expect(filesList).toHaveAttribute('aria-pressed', 'true');
+    await expect(filesList).toHaveCSS('cursor', 'pointer');
+    const tree = page.getByRole('region', { name: 'Workspace file tree', exact: true });
+    await tree.getByRole('button', { name: 'Expand folder results', exact: true }).click();
+    await tree.getByRole('treeitem', { name: /stations\.csv/ }).first().click();
     // Canvas tabs are also reorder handles: retain their explicit grab cursor.
-    await expect(page.getByRole('tab', { name: 'Files', exact: true })).toHaveCSS('cursor', 'grab');
+    await expect(page.getByRole('tab', { name: /stations\.csv/ }).first()).toHaveCSS(
+      'cursor',
+      'grab',
+    );
     const resize = page.getByRole('separator', { name: 'Resize navigation', exact: true });
     await resize.hover();
     await expect(resize).not.toHaveCSS('cursor', 'pointer');

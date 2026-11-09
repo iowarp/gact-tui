@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime exceptions for executables in Resources/gact-runtime
+  (python3.x, uv, packaged CLI tools, git). Applied by
+  desktop/scripts/macos-sign-runtime.sh. Libraries are signed without
+  entitlements because entitlements only apply to the process's main
+  executable.
+
+  disable-library-validation: Python loads extension modules that this team
+    did not sign: wheels that the runtime installs into user storage after
+    first launch, and anything a user pip-installs. Library validation would
+    reject every one of them.
+  allow-unsigned-executable-memory: cffi and ctypes callbacks and some
+    native wheels allocate writable+executable pages without MAP_JIT.
+
+  Deliberately omitted:
+  allow-jit: nothing in the runtime uses MAP_JIT (no numba/llvmlite/V8).
+    Add it only together with such a package.
+  allow-dyld-environment-variables: only clio_run needs it; see
+    runtime-dyld.entitlements.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>

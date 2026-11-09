@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mergeScienceEntries } from '@/lib/streaming/science-log-updates';
 import { ScienceLogView } from './science-log-tab';
 import { ClioWorkbench } from './workbench';
+import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -183,19 +184,25 @@ function renderWorkbench(inStudy: boolean | undefined) {
 
 describe('Science log tab', () => {
   it('is absent when the session is in no study and present beside the others when it is', async () => {
+    const restoreTimeline = () =>
+      saveWorkbenchState('workspace_1', {
+        tabs: [sessionTab],
+        activeTabId: sessionTab.id,
+        listView: 'files',
+        pinnedIds: [],
+      });
+    restoreTimeline();
     const { unmount } = renderWorkbench(false);
-    expect(screen.getByRole('tab', { name: 'Observability' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Science log' })).not.toBeInTheDocument();
     unmount();
     window.localStorage.clear();
 
+    restoreTimeline();
     renderWorkbench(true);
     expect(await screen.findByRole('tab', { name: 'Science log' })).toBeVisible();
     // Offered beside the others, without taking focus from the open tab.
-    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('offers no Views tab of its own: a view is a dashboard attached to a study', () => {

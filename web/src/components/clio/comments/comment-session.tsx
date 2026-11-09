@@ -43,6 +43,8 @@ export interface CommentSessionValue {
   mode: CommentMode;
   setMode: (mode: CommentMode) => void;
   marks: readonly DraftMark[];
+  /** Sent threads and notes on this surface (drafts are counted as marks). */
+  threadCount: number;
   editing?: string;
   setEditing: (label?: string) => void;
   start: () => void;
@@ -83,6 +85,7 @@ export function CommentSessionProvider({
   prepareImages,
   onSent,
   initiallyActive = false,
+  threadList,
 }: {
   surface: CommentSurface;
   children: ReactNode;
@@ -90,6 +93,8 @@ export function CommentSessionProvider({
   initiallyActive?: boolean;
   prepareImages?: (marks: readonly DraftMark[]) => Promise<CommentAttachment['images']>;
   onSent?: () => void;
+  /** The surface's earlier threads, reachable from the open controls. */
+  threadList?: ReactNode;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -271,6 +276,8 @@ export function CommentSessionProvider({
     surface.title,
   ]);
 
+  const threadCount =
+    threads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
   const value = useMemo<CommentSessionValue>(
     () => ({
       surface,
@@ -279,6 +286,7 @@ export function CommentSessionProvider({
       mode,
       setMode,
       marks,
+      threadCount,
       editing,
       setEditing,
       start: () => {
@@ -301,6 +309,7 @@ export function CommentSessionProvider({
       active,
       mode,
       marks,
+      threadCount,
       editing,
       stop,
       addMark,
@@ -315,13 +324,19 @@ export function CommentSessionProvider({
   return (
     <CommentSessionContext.Provider value={value}>
       {children}
-      {open ? <CommentSessionControls session={value} /> : null}
+      {open ? <CommentSessionControls session={value} threadList={threadList} /> : null}
     </CommentSessionContext.Provider>
   );
 }
 
 /** The shared comment controls and, for the mark being edited, its editor. */
-function CommentSessionControls({ session }: { session: CommentSessionValue }) {
+function CommentSessionControls({
+  session,
+  threadList,
+}: {
+  session: CommentSessionValue;
+  threadList?: ReactNode;
+}) {
   const { surface, marks } = session;
   const artifact = surface.destination.kind === 'artifact';
   const count = marks.length;
@@ -350,7 +365,9 @@ function CommentSessionControls({ session }: { session: CommentSessionValue }) {
             : `Add ${count} ${count === 1 ? 'mark' : 'marks'} to message`
         }
         title={surface.title}
-      />
+      >
+        {threadList}
+      </CommentControls>
       {editing ? (
         <CommentEditor
           comment={editing.comment}

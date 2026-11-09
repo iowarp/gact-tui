@@ -1,6 +1,7 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
+import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
   Sheet,
@@ -12,6 +13,7 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -35,6 +37,8 @@ export interface ClioAppShellProps {
   children: ReactNode;
   workbench: ReactNode;
   workbenchRevealKey?: string;
+  /** Open requests that reveal the canvas; read here so the page need not re-render. */
+  workbenchReveal?: WorkbenchRequestSource;
   /** Recovery, work needing inspection and usage, shown in the top bar's trailing group. */
   statusStrip: ReactNode;
 }
@@ -112,15 +116,28 @@ function DesktopNavigationLayout({
   );
 }
 
+const WORKBENCH_SHARE_KEY = 'clio.workbench-share.v1';
+const DEFAULT_WORKBENCH_SHARE = 0.4;
+
+/** The workbench width as a share of the window: 40% to start, then what the user dragged. */
+function storedWorkbenchShare(): number {
+  if (typeof window === 'undefined') return DEFAULT_WORKBENCH_SHARE;
+  const value = Number(window.localStorage.getItem(WORKBENCH_SHARE_KEY));
+  return Number.isFinite(value) && value >= 0.15 && value <= 0.7 ? value : DEFAULT_WORKBENCH_SHARE;
+}
+
 export function ClioAppShell({
   navigation,
   contextBar,
   toolbarActions,
   children,
   workbench,
-  workbenchRevealKey,
+  workbenchRevealKey: revealKeyProp,
+  workbenchReveal,
   statusStrip,
 }: ClioAppShellProps) {
+  const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
+  const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // The split workbench needs enough room for both its 400 px conversation
   // panel and 320 px canvas after the desktop navigation rail is accounted for.
@@ -138,6 +155,19 @@ export function ClioAppShell({
   const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
   const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
+  const workbenchSheetRef = useRef<HTMLDivElement>(null);
+  // Read once: the panel keeps its share of the group as the window resizes.
+  const [workbenchDefaultSize] = useState(
+    () =>
+      `${Math.max(320, Math.round(storedWorkbenchShare() * (typeof window === 'undefined' ? 1280 : window.innerWidth)))}px`,
+  );
+  const rememberWorkbenchWidth = useCallback((size: PanelSize) => {
+    if (size.inPixels < 320 || typeof window === 'undefined' || !window.innerWidth) return;
+    window.localStorage.setItem(
+      WORKBENCH_SHARE_KEY,
+      String(Math.round((size.inPixels / window.innerWidth) * 1000) / 1000),
+    );
+  }, []);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
       setWorkbenchPreference(open);
@@ -168,6 +198,27 @@ export function ClioAppShell({
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
 
+  // A strip chord with the pocket closed opens it at that strip item. The
+  // desktop panel keeps the workbench mounted (it handles the chord itself);
+  // the closed Sheet does not, so the shell holds the position until it mounts.
+  const [pendingStripPosition, setPendingStripPosition] = useState<number>();
+  useShortcut(
+    'strip-position',
+    (_event, position) => {
+      setPendingStripPosition(position);
+      setWorkbenchOpen(true);
+    },
+    { enabled: hasWorkbench && !desktopWorkbench && !workbenchOpen },
+  );
+  const workbenchControl = useMemo(
+    () => ({
+      show: () => setWorkbenchOpen(true),
+      pendingStripPosition,
+      clearPendingStripPosition: () => setPendingStripPosition(undefined),
+    }),
+    [pendingStripPosition, setWorkbenchOpen],
+  );
+
   const sessionSurface = (
     <section
       className="flex h-full min-w-0 flex-col bg-background"
@@ -193,7 +244,7 @@ export function ClioAppShell({
   );
 
   const visibleWorkbench = (
-    <WorkspaceCanvasVisibilityProvider visible={workbenchOpen}>
+    <WorkspaceCanvasVisibilityProvider control={workbenchControl} visible={workbenchOpen}>
       {workbench}
     </WorkspaceCanvasVisibilityProvider>
   );
@@ -209,7 +260,12 @@ export function ClioAppShell({
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>
             <ResizableHandle
               aria-label="Resize workspace canvas"
-              className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
+              // Collapsed, the handle sits on the window edge and its 12 px grip
+              // would cover the toolbar's last button; the toolbar toggle opens it.
+              className={cn(
+                'z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60',
+                !workbenchOpen && 'pointer-events-none',
+              )}
               onKeyUp={synchronizeWorkbenchPanel}
               onPointerUp={synchronizeWorkbenchPanel}
             />
@@ -217,9 +273,10 @@ export function ClioAppShell({
             <ResizablePanel
               collapsedSize="0px"
               collapsible
-              defaultSize="420px"
+              defaultSize={workbenchDefaultSize}
               maxSize="70%"
               minSize="320px"
+              onResize={rememberWorkbenchWidth}
               panelRef={workbenchPanelRef}
             >
               {visibleWorkbench}
@@ -250,7 +307,15 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            className="w-[min(92vw,480px)] p-0 [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Under the split breakpoint the workbench slides over the conversation at 86%.
+            className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Land on the sheet itself, announced by its title, rather than on whichever icon
+            // button comes first (which would also pop its tooltip).
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              workbenchSheetRef.current?.focus();
+            }}
+            ref={workbenchSheetRef}
             showCloseButton={false}
             side="right"
           >
