@@ -82,9 +82,11 @@ Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Ma
 The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
-Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
-100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
-confirm, the confirm button has no chip. The body is marked
+The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap). Below
+600 px it becomes a full-width bottom sheet and drops the chips (spec: dialogs grow to 100%
+and drop the key hints before anything else folds). A section that needs a wider dialog
+passes its own `w-[clamp(...)]`. With `keyboard: false` or a disabled confirm, the confirm
+button has no chip. The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
@@ -99,11 +101,28 @@ a right-aligned 12.5 px value that keeps one line while it fits and wraps only w
 dialog is too narrow for it.
 
 **`WindowShell`** (same file)
-`{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
+`{ open, onOpenChange, title, navigation?, rail?, picker?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
 The full window frame. Only the Settings window uses it today. The window
-narrows in the spec's order: from 1024 px `navigation` shows; at 768–1023 px
-`rail` replaces it; below 768 px both hide and a `toolbar` picker takes over.
-Without a `rail`, `navigation` shows from 768 px.
+folds in the spec's order ("notes and ⓘ tooltips hide, rows stack, the nav folds
+to a rail, the rail becomes a picker"). The spec gives proportions, not widths, so
+the viewport thresholds are ours:
+
+| Viewport  | Fold                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| ≥ 1024 px | `navigation`, notes and ⓘ, two-column rows                                                                                                    |
+| < 1024 px | notes and ⓘ hide, rows stack (`NARROW_HIDDEN` in `lib/settings-fold.ts`)                                                                      |
+| < 880 px  | `rail` replaces `navigation`                                                                                                                  |
+| < 600 px  | the window fills the screen, the rail hides and `picker` takes the title's place (the title stays for screen readers); search becomes an icon |
+
+Without a `rail`, `navigation` shows from 600 px. `toolbar` holds other title-row
+controls before the ×.
+
+**`SettingsSectionPicker`** `components/clio/settings-navigation.tsx`
+The `picker` for Settings: a bordered chip with the current section's icon, name and
+a chevron (the spec's `.mpk`). It opens the one searchable Picker (Popover, Command,
+`PickerFooter`) with Search everywhere first, Show every section while a search
+filters the list, then the sections grouped by scope with their counts and a check on
+the current one.
 
 **`SettingsNavRail`** `components/clio/settings-nav-rail.tsx`
 Takes the same props as `SettingsNavigation`. It is one named icon per scope
