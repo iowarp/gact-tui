@@ -118,6 +118,16 @@ export const surfaces = [
       { app: 'canvas--file-csv-source', spec: [...ln(2), ...fb(5)] },
       { app: 'canvas--file-csv-lineage', spec: [...ln(2, 3)] },
       { app: 'scale--large-csv', spec: [...fb(4, 8), ...ln(4)] },
+      // S11's per-format viewer states (specFiles scenario).
+      { app: 'viewer--table', spec: [...fb(4, 2)] },
+      { app: 'viewer--(markdown|code)', spec: [...fb(5, 2)] },
+      { app: 'viewer--image', spec: [...fb(7, 2)] },
+      { app: 'viewer--mermaid', spec: [...fb(3, 7)] },
+      { app: 'viewer--array', spec: [...fb(2, 8)] },
+      { app: 'viewer--document', spec: [...fb(10)] },
+      { app: 'viewer--(no-preview|state-.*)', spec: [...fb(8)] },
+      { app: 'viewer--activity', spec: [...fb(9)] },
+      { app: 'viewer--browser-pages', spec: [...rp(1)] },
     ],
   },
   {
