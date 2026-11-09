@@ -78,7 +78,6 @@ export function ClioArchivedSessionsDialog({
   return (
     <>
       <DialogFrame
-        className="w-[clamp(460px,36vw,560px)]"
         // The delete confirm takes the list's place rather than stacking on it.
         open={open && !deleteTarget}
         onOpenChange={onOpenChange}
@@ -139,7 +138,6 @@ export function ClioArchivedSessionsDialog({
         )}
       </DialogFrame>
       <DialogFrame
-        className="w-[clamp(460px,36vw,560px)]"
         open={Boolean(deleteTarget)}
         onOpenChange={(next) => {
           if (!next && !pendingId) setDeleteTarget(undefined);

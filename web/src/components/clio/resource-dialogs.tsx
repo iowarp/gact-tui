@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -511,9 +512,14 @@ export function RenameResourceDialog({
       open
       title={`Rename ${target.kind}`}
     >
-      <SettingsRow htmlFor="rename-resource" title="Name">
+      {/* Label over a full-width field (spec .xf), so the current name reads in full. */}
+      <div className="grid gap-1.5">
+        <Label htmlFor="rename-resource" className="text-xs font-normal text-muted-foreground">
+          Name
+        </Label>
         <Input
           autoFocus
+          className="h-[30px] text-[12.5px] md:text-[12.5px]"
           id="rename-resource"
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -523,7 +529,7 @@ export function RenameResourceDialog({
           }}
           value={value}
         />
-      </SettingsRow>
+      </div>
       {error ? (
         <p className="mt-2 text-[12.5px] text-destructive" role="alert">
           {error}
