@@ -47,7 +47,7 @@ export function NewConversationDraft({
   return (
     <section
       aria-label={`${brand.name} new conversation`}
-      className="mx-auto flex w-full max-w-2xl flex-col items-center"
+      className="@container/draft mx-auto flex w-full max-w-2xl flex-col items-center"
     >
       <BrandIcon className="size-9 text-primary" />
       <h1 className="mt-4 text-center font-heading text-[26px] leading-tight font-semibold tracking-[-0.01em] text-balance">

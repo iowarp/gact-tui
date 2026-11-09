@@ -177,7 +177,7 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:[&_.text-muted-foreground]:text-accent-foreground',
           selectedTone === 'accent'
             ? 'data-selected:bg-accent data-selected:hover:bg-accent'
             : 'data-selected:bg-menu-highlight',

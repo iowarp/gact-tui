@@ -20,7 +20,7 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
-import { InfraRow } from '@/components/clio/infrastructure-row';
+import { INFRA_FACTS_GRID, InfraRow } from '@/components/clio/infrastructure-row';
 import { InfraRowChevron, InfraRowToggle } from '@/components/clio/infrastructure-row-toggle';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -93,7 +93,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
     [integration.summary, integration.detail].filter(Boolean).join('\n') ||
     JSON.stringify(integration, null, 2);
   const actionLink = action ? (
-    <Button asChild size="sm" variant="outline">
+    <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">
       <Link to={action.to}>
         <AdjustIcon aria-hidden="true" />
         {action.label}
@@ -110,12 +110,16 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
             {nextStep ? (
               <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
-            <KeyValueGrid items={facts} />
+            <KeyValueGrid className={INFRA_FACTS_GRID} items={facts} />
             {technical ? (
               <TechnicalDetails
                 beside={actionLink}
                 className="text-[12px]"
-                summaryClassName={buttonVariants({ size: 'sm', variant: 'outline' })}
+                summaryClassName={buttonVariants({
+                  className: 'px-[9px] text-[11.5px] text-foreground',
+                  size: 'xs',
+                  variant: 'ghost',
+                })}
                 title="Technical details"
               >
                 <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
