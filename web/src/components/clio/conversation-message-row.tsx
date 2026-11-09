@@ -21,7 +21,11 @@ import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { completionFooterShown, MessageCompletionFooter } from './message-completion-footer';
-import { MessageRowActions, PendingCancelButton } from './message-row-actions';
+import {
+  DeferredMessageActions,
+  MessageRowActions,
+  PendingCancelButton,
+} from './message-row-actions';
 import { Tag } from './primitives/tag';
 import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
@@ -134,7 +138,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   }
   const marked = entities.markedMessageIds?.has(message.id) ?? false;
   const actions = (
-    <MessageRowActions active={active} canRetry={canRetry} entities={entities} message={message} />
+    <DeferredMessageActions keep={message.role !== 'assistant' || marked || canRetry}>
+      <MessageRowActions
+        active={active}
+        canRetry={canRetry}
+        entities={entities}
+        message={message}
+      />
+    </DeferredMessageActions>
   );
   if (
     injectionsGrouped ||
