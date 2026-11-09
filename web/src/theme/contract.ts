@@ -91,6 +91,7 @@ export const COLOR_TOKENS = [
   'scale-low',
   'scale-mid',
   'scale-high',
+  'on-category',
   // Terminals and logs
   'terminal',
   'terminal-foreground',
@@ -142,7 +143,7 @@ export const CATEGORY_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('
 export const CHART_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('chart-'));
 
 /** A theme's id, which `themes.css` selects with `:root[data-theme='<id>']`. */
-export type ThemeId = 'light' | 'dark' | 'notebook' | 'debug';
+export type ThemeId = 'light' | 'dark' | 'classic-light' | 'classic-dark' | 'debug';
 /** What the person picks. `system` follows the OS between Light and Dark. */
 export type ThemePreference = 'system' | ThemeId;
 
@@ -158,7 +159,8 @@ export interface ThemeDefinition {
 export const THEMES: readonly ThemeDefinition[] = [
   { id: 'light', label: 'Light', scheme: 'light' },
   { id: 'dark', label: 'Dark', scheme: 'dark' },
-  { id: 'notebook', label: 'Notebook', scheme: 'system' },
+  { id: 'classic-light', label: 'Cool', scheme: 'light' },
+  { id: 'classic-dark', label: 'Neutral', scheme: 'dark' },
   { id: 'debug', label: 'Debug', scheme: 'system', development: true },
 ];
 
