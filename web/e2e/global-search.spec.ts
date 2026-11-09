@@ -9,7 +9,9 @@ test('home search uses the default backend without selecting a connection, works
 }) => {
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto('/?intent=connect');
-  await page.getByRole('button', { name: 'Search everywhere', exact: true }).click();
+  await expect(page.locator('#connect-form')).toBeVisible();
+  // The connect page has no search button (spec); the shortcut opens search.
+  await page.keyboard.press('ControlOrMeta+KeyK');
   const input = page.getByPlaceholder(placeholder);
   await expect(input).toBeFocused();
   await input.fill('Find the reviewer handoff');

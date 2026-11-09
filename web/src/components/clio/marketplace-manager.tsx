@@ -191,7 +191,7 @@ export function marketplaceSlot(
         label={`Trust the update from ${marketplace.name}`}
         onClick={() => manager.requestTrust(marketplace)}
       >
-        Trust update
+        Trust
       </SlotButton>
     );
   return (

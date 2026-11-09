@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
-import { anyServerPreparing, reconnectableNamespace } from '@/lib/mcp-preparation';
+import {
+  anyServerPreparing,
+  mcpServerPreparation,
+  reconnectableNamespace,
+} from '@/lib/mcp-preparation';
 import { mcpServiceEntries, type McpServiceEntry } from '@/lib/mcp-service-entries';
 import {
   serviceEntryTitle,
@@ -402,6 +406,8 @@ function McpServerDetailPane({
         }))
       : (server?.tools ?? []).map((name) => ({ name }));
   const failure = detail.error ?? toolInventory.error ?? resourceInventory.error;
+  const connectionError = server?.error && !mcpServerPreparation(server) ? server.error : undefined;
+  const technical = [connectionError, failure?.message].filter(Boolean) as string[];
 
   return (
     <DetailPane
@@ -430,17 +436,20 @@ function McpServerDetailPane({
           title={title}
         />
       ) : null}
-      {server?.error && !server.preparation ? (
-        <p className="mb-2 text-xs break-words text-destructive">{server.error}</p>
+      {connectionError && view !== 'connection' ? (
+        <p className="mb-2 text-xs text-muted-foreground">
+          The service didn’t connect.{' '}
+          <button
+            className="text-link underline-offset-2 outline-none hover:underline focus-visible:underline"
+            onClick={() => setView('connection')}
+            type="button"
+          >
+            Show the error
+          </button>
+        </p>
       ) : null}
-      {failure ? (
-        <StateView
-          className="mb-2"
-          detail={failure.message}
-          kind="error"
-          size="row"
-          title="Some contents are unavailable"
-        />
+      {failure && view !== 'connection' ? (
+        <StateView className="mb-2" kind="error" size="row" title="Some contents are unavailable" />
       ) : null}
       {view === 'tools' ? (
         <InventoryRows
@@ -475,6 +484,19 @@ function McpServerDetailPane({
           ) : null}
           {entry.saved?.always_load ? (
             <p className="text-xs text-muted-foreground">Available in every conversation</p>
+          ) : null}
+          {technical.length ? (
+            <div className="min-w-0 border-t border-border/70 pt-2" data-slot="technical-details">
+              <p className="text-xs font-medium text-muted-foreground">Technical details</p>
+              {technical.map((text) => (
+                <p
+                  className="mt-1 font-mono text-[0.71875rem] break-words text-muted-foreground"
+                  key={text}
+                >
+                  {text}
+                </p>
+              ))}
+            </div>
           ) : null}
         </div>
       )}

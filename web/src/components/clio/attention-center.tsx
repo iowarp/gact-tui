@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
-import { ConfigureIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
@@ -25,7 +25,6 @@ import {
 } from '@/providers/notification-preferences-provider';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
-import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
@@ -36,12 +35,6 @@ interface AttentionProps {
 
 const notifiedAttentionIds = new Set<string>();
 const lastAttentionNoticeAt = new Map<string, number>();
-
-const BELL_HINTS = [
-  { id: 'menu-move', label: 'move' },
-  { id: 'menu-pick', label: 'open' },
-  { id: 'notifications', label: 'close' },
-] as const;
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -141,13 +134,13 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           <SidebarMenuButton
             aria-keyshortcuts={shortcut?.aria}
             aria-label={`${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`}
-            className="relative size-8 text-action hover:text-action"
+            className="relative size-8 overflow-visible text-muted-foreground hover:text-foreground"
             tooltip={shortcut ? `${label} (${shortcut.text})` : label}
             type="button"
           >
             <BellRingIcon aria-hidden="true" />
             <Badge
-              className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[9px]"
+              className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
               variant="default"
             >
               {responseCount > 9 ? '9+' : responseCount}
@@ -156,9 +149,9 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="w-[440px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
           onOpenAutoFocus={(event) => {
-            // Start on the first notification, not the settings gear.
+            // Start on the first notification, not the settings button.
             const first = listRef.current?.querySelector<HTMLElement>('a[href]');
             if (!first) return;
             event.preventDefault();
@@ -167,10 +160,10 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           side="bottom"
         >
           <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
-            <PopoverTitle className="text-[13px] font-semibold">Notifications</PopoverTitle>
+            <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
             <IconButton
               className="ml-auto"
-              icon={<ConfigureIcon />}
+              icon={<AdjustIcon />}
               label="Notification settings"
               onClick={() => {
                 setOpen(false);
@@ -181,11 +174,11 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           </div>
           <section aria-labelledby="attention-needs-you" className="p-1">
             <h3
-              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-medium text-muted-foreground"
+              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-semibold text-muted-foreground"
               id="attention-needs-you"
             >
               <span>Needs you</span>
-              <span className="font-mono tabular-nums">{responseCount}</span>
+              <span className="text-warning tabular-nums">{responseCount}</span>
             </h3>
             <div
               className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
@@ -198,7 +191,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                 return (
                   <Link
                     aria-label={`${session.title}: ${summary.words}`}
-                    className="block rounded-[6px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight"
                     key={session.id}
                     onClick={() => setOpen(false)}
                     to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
@@ -210,12 +203,12 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                       meta={
                         <span className="flex flex-col items-end leading-[1.3]">
                           <ClioRelativeTime
-                            className="text-[11px] text-faint"
+                            className="text-[11px] text-muted-foreground"
                             compact
                             label="Updated"
                             timestamp={session.last_interaction_at ?? session.updated_at}
                           />
-                          <span className="text-[11.5px] font-medium text-action">
+                          <span className="text-[12px] font-medium text-link">
                             {summary.kind.action}
                           </span>
                         </span>
@@ -223,7 +216,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                       selected={session.id === activeSessionId}
                       title={
                         <span title={`${session.title} ${summary.kind.verb}`}>
-                          <span className="font-medium">{session.title}</span>{' '}
+                          <span className="font-semibold">{session.title}</span>{' '}
                           <span className="text-muted-foreground">{summary.kind.verb}</span>
                         </span>
                       }
@@ -233,7 +226,6 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
               })}
             </div>
           </section>
-          <MenuKeyHints hints={BELL_HINTS} />
         </PopoverContent>
       </Popover>
     </SidebarMenuItem>

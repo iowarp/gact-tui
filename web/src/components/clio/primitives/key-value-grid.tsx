@@ -29,16 +29,19 @@ export interface KeyValueItem {
  */
 export const KeyValueGrid = memo(function KeyValueGrid({
   items,
+  actionColumn = false,
   className,
   variant = 'compact',
   'aria-label': ariaLabel,
 }: {
   items: readonly KeyValueItem[];
+  /** Keep the action column when no row has an action, to line up with sibling rows. */
+  actionColumn?: boolean;
   className?: string;
   variant?: 'compact' | 'rows' | 'facts';
   'aria-label'?: string;
 }) {
-  const hasAction = items.some((item) => item.action);
+  const hasAction = actionColumn || items.some((item) => item.action);
   const facts = variant === 'facts';
   if (variant === 'rows') {
     return (
@@ -120,9 +123,11 @@ export const KeyValueGrid = memo(function KeyValueGrid({
           </dt>
           <dd
             className={cn(
-              'min-w-0 truncate whitespace-nowrap text-foreground',
-              facts ? 'flex items-center gap-[7px] text-left text-foreground/90' : 'text-right',
-              item.mono && 'font-mono text-[11px] tabular-nums',
+              'min-w-0 truncate whitespace-nowrap',
+              facts
+                ? 'flex items-center gap-[7px] text-left text-foreground/90'
+                : 'text-right text-foreground/85',
+              item.mono && 'font-mono text-[11.5px] tabular-nums',
               facts && item.mono && 'text-[12px]',
             )}
             title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
