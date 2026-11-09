@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from 'lucide-react';
-import type { ComponentType } from 'react';
+import { useRef, type ComponentType } from 'react';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NamedTooltip } from './primitives/icon-button';
+import { useFrameModes } from './primitives/frame-modes';
 import { ToolbarAction } from './viewer-toolbar';
 
 export interface FileMode {
@@ -23,7 +24,9 @@ export interface FileMode {
 /**
  * The frame bar's Format: a file's representations as one segmented group of
  * named icons. When the frame bar folds @ away it folds too, to the active
- * icon with a chevron that lists them all.
+ * icon with a chevron that lists them all; narrowest, they move into the
+ * frame's … menu as a checked list (workbench-lineage step 6), when it has one
+ * (`data-frame-modes-menu`).
  */
 export function FileModeControls({
   modes,
@@ -36,10 +39,12 @@ export function FileModeControls({
   onChange: (value: string) => void;
   label?: string;
 }) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  useFrameModes(anchor, modes.length < 2 ? null : { modes, value, onChange, label });
   if (modes.length < 2) return null;
   const ActiveIcon = modes.find((mode) => mode.value === value)?.icon ?? modes[0].icon;
   return (
-    <>
+    <span ref={anchor} className="contents">
       <TooltipProvider delayDuration={200}>
         <TabsList
           aria-label={label}
@@ -67,7 +72,7 @@ export function FileModeControls({
           <ToolbarAction
             label={label}
             data-modes-folded=""
-            className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex"
+            className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex [[data-fold-modes-menu]:has([data-frame-modes-menu])_&]:hidden"
           >
             <ActiveIcon aria-hidden="true" />
             <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
@@ -84,6 +89,6 @@ export function FileModeControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+    </span>
   );
 }

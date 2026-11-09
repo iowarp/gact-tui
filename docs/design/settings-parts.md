@@ -81,9 +81,14 @@ for typed values only. It binds Ctrl S / ⌘S.
 `{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard?, key?: 'Enter' }, cancelLabel?: string | null, secondary?, help?, footerStart?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
-The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
+The description sits under the title text (aligned with it when there is an icon) at 12.5 px and
+wraps; it is never cut. The footer follows conversation-states `.xd .ftr`, which settings.html
+`.xdf` now matches: padding 10/12/10/18 above a rule, buttons on the right at the spec's `.xb`
+28 px (the confirm's face fills the full height; Cancel is a quiet bordered button).
+The key chips sit inside the buttons as 18 px `.xk` caps: `Cancel Esc` on the safe button
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
+The overlay is the theme's `--scrim`; Notebook dark uses the spec's `rgba(10,9,8,.62)`.
 The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap) and a
 full-width bottom sheet below 600 px. Narrowing drops the chips first (spec: dialogs "drop the
 key hints before anything else"): the footer is a container and the chips hide once it is
