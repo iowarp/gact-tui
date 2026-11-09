@@ -1,10 +1,8 @@
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { brand } from '@brand';
-import { ChevronRightIcon, SearchIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrandIcon } from '@/components/clio/brand-icon';
 import { ConnectStatusLine } from '@/components/clio/connect-frame';
-import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { DesktopBootStage } from '@/lib/desktop-boot-stage';
 
@@ -29,21 +27,6 @@ const STAGE_DETAIL: Record<DesktopBootStage, string> = {
   opening_workspace: 'Restoring your local workspace',
 };
 
-export function HomeSearchButton() {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      aria-label="Search everywhere"
-      onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
-    >
-      <SearchIcon aria-hidden="true" /> Search{' '}
-      <ShortcutKeys id="search" className="ml-2 text-[10px]" />
-    </Button>
-  );
-}
-
 /** The local startup splash: the brand, one status line per step, and the details on request. */
 export function DesktopBoot({
   detail,
@@ -66,9 +49,6 @@ export function DesktopBoot({
 
   return (
     <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
-      <div className="absolute top-3 right-3">
-        <HomeSearchButton />
-      </div>
       <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center gap-1 px-6 py-16">
         <h1 className="mb-2.5 flex items-center gap-2.5 font-heading text-[16px] font-semibold">
           <BrandIcon className="size-[22px] shrink-0 text-primary" />
