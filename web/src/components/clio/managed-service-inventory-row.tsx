@@ -304,7 +304,7 @@ export function ManagedServiceInventoryRow({
       icon={<ServiceGroupIcon category={service.category} />}
       meta={
         port ? (
-          <span className="text-faint" title={`Port ${port}`}>
+          <span className="text-muted-foreground" title={`Port ${port}`}>
             port {port}
           </span>
         ) : undefined

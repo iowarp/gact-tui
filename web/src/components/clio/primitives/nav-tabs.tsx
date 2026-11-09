@@ -14,7 +14,7 @@ export interface NavTab {
 
 /**
  * Places within one page, as links: icon only, and the open tab adds its
- * name. Every closed tab keeps its name on hover and as its accessible name,
+ * name over a 2px primary underline; tabs fill the bar's height. Every closed tab keeps its name on hover and as its accessible name,
  * so the strip never wraps and nothing is unexplained. Pair it with the
  * catalog's previous-tab and next-tab keys on the page that owns it.
  */
@@ -34,7 +34,10 @@ export const NavTabs = memo(function NavTabs({
     <nav
       aria-label={label}
       data-slot="nav-tabs"
-      className={cn('flex min-w-0 shrink-0 items-center gap-0.5 whitespace-nowrap', className)}
+      className={cn(
+        'flex min-w-0 shrink-0 items-stretch gap-0.5 self-stretch whitespace-nowrap',
+        className,
+      )}
     >
       {tabs.map(({ id, label: tabLabel, icon: Icon, to, state }) => {
         const current = id === active;
@@ -43,8 +46,9 @@ export const NavTabs = memo(function NavTabs({
             aria-current={current ? 'page' : undefined}
             aria-label={tabLabel}
             className={cn(
-              'flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-[7px] text-[12.5px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
-              current && 'bg-hover pr-2.5 font-medium text-foreground',
+              'relative flex shrink-0 items-center gap-1.5 rounded-sm px-[7px] text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+              current &&
+                'pr-2.5 font-medium text-foreground after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary',
             )}
             key={id}
             state={state}
