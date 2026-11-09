@@ -155,11 +155,16 @@ export function ClioAppShell({
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // Read once: the panel keeps its share of the group as the window resizes.
   const [workbenchDefaultSize] = useState(workbenchWidth);
-  const rememberWorkbenchWidth = useCallback((size: PanelSize) => {
-    if (size.inPixels < 320 || typeof window === 'undefined' || !window.innerWidth) return;
+  // Only a resize the user made is remembered. The panel also resizes while the
+  // layout settles on load (rendered open at its default share of a wider group,
+  // then collapsed), and storing that width made the next open come up narrow.
+  const rememberWorkbenchWidth = useCallback((panel: PanelImperativeHandle) => {
+    if (panel.isCollapsed() || typeof window === 'undefined' || !window.innerWidth) return;
+    const { inPixels } = panel.getSize();
+    if (inPixels < 320) return;
     window.localStorage.setItem(
       WORKBENCH_SHARE_KEY,
-      String(Math.round((size.inPixels / window.innerWidth) * 1000) / 1000),
+      String(Math.round((inPixels / window.innerWidth) * 1000) / 1000),
     );
   }, []);
   const setWorkbenchOpen = useCallback(
@@ -177,8 +182,9 @@ export function ClioAppShell({
   const synchronizeWorkbenchPanel = useCallback(() => {
     const panel = workbenchPanelRef.current;
     if (!panel) return;
+    rememberWorkbenchWidth(panel);
     setWorkbenchOpen(!panel.isCollapsed());
-  }, [setWorkbenchOpen]);
+  }, [rememberWorkbenchWidth, setWorkbenchOpen]);
   // 'toggle-inspector' used to also be reachable via the native View menu
   // (removed — see menu_spec.rs's application-menu trim); the Ctrl+Shift+B
   // shortcut and the PanelRightIcon button below already call
@@ -292,7 +298,6 @@ export function ClioAppShell({
               defaultSize={workbenchDefaultSize}
               maxSize="70%"
               minSize="320px"
-              onResize={rememberWorkbenchWidth}
               panelRef={workbenchPanelRef}
             >
               {visibleWorkbench}
