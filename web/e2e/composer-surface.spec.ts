@@ -65,7 +65,9 @@ for (const theme of ['dark', 'light'] as const) {
           pointerEvents: style.pointerEvents,
         };
       });
-      expect(backdrop.blur).toMatch(/^blur\(/);
+      // The fade alone softens the gutter; a backdrop blur re-samples the
+      // streaming transcript every frame on WebKit (#739 B5).
+      expect(backdrop.blur).toBe('none');
       expect(backdrop.mask).toContain('linear-gradient');
       expect(backdrop.pointerEvents).toBe('none');
       await page.mouse.move(8, 8);

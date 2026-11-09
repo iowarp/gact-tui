@@ -84,6 +84,13 @@ export const RUNS_POLL_MS = 5_000;
 export const MANAGED_BACKEND_POLL_MS = 150;
 
 /**
+ * Readiness poll cadence while the desktop prepares the bundled runtime (first-use
+ * package preparation). Unit: milliseconds. Preparation takes tens of seconds, so a
+ * tight poll only adds supervisor round trips without making the wait shorter.
+ */
+export const MANAGED_BACKEND_PREPARE_POLL_MS = 500;
+
+/**
  * Re-probe cadence for each remembered service on the connection picker.
  * Unit: milliseconds. One request per saved connection per interval, against
  * services the person is not connected to, so it sits at the slow end: it
@@ -109,6 +116,17 @@ export const CONNECTION_PROBE_FAST_ATTEMPTS = 120;
  * Unit: milliseconds.
  */
 export const CONNECTION_WAIT_FOR_START_MS = 120_000;
+
+/**
+ * First delay before a connect attempt that failed because the service is still starting
+ * (503 `task_runtime_starting`, or nothing answered) is retried. Doubles per retry.
+ * Unit: milliseconds. Never zero: an immediate retry against a starting service is a
+ * tight request loop that also slows the service down.
+ */
+export const CONNECTION_RETRY_MIN_MS = 250;
+
+/** Longest delay between automatic connect retries. Unit: milliseconds. */
+export const CONNECTION_RETRY_MAX_MS = 2_000;
 
 /**
  * Poll cadence while waiting out a sandbox setup already in flight

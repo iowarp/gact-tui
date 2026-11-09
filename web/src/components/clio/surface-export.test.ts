@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   copyTextToClipboard,
@@ -46,11 +47,11 @@ describe('browser download helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     nativeDownloads.mockClear();
-    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+    clearDesktopHost();
   });
 
   it('leaves automatic desktop Downloads opening to the actual native transfer event', () => {
-    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    mockDesktopHost();
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     downloadBytes('activity,hours\nCoding,30', 'text/csv', 'sample.csv');
     expect(click).toHaveBeenCalledTimes(1);

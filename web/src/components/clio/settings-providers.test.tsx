@@ -48,7 +48,7 @@ const downCheck = {
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('@/tauri/secure-credentials', () => ({
   storeProviderCredential: vi.fn().mockResolvedValue(undefined),

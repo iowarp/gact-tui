@@ -22,6 +22,7 @@ export type ClioQueryNamespace =
   | 'commands'
   | 'summon-targets'
   | 'connection-availability'
+  | 'served-endpoint-probe'
   | 'document-content'
   | 'document-editor-health'
   | 'comment-crop'

@@ -9,6 +9,7 @@ import '../../../src/index.css';
 
 // Test-only host flag: menu selections are recorded here and never launch programs.
 window.isTauri = true;
+Object.assign(window, { __CLIO_DESKTOP__: { version: 'review' } });
 const inventory: Record<string, DocumentApplication[]> = await fetch('./native-apps.json').then(
   (response) => response.json(),
 );

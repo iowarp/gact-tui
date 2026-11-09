@@ -17,7 +17,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
-    settings: { endpoint: 'http://node:8787', label: 'Delta CLIO' },
+    settings: { endpoint: 'http://node', label: 'Delta CLIO' },
   }),
 }));
 afterEach(() => {

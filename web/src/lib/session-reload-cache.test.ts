@@ -7,7 +7,7 @@ import {
 } from './session-reload-cache';
 import { SESSION_CACHE_POLICY } from './session-cache-retention';
 
-const ENDPOINT = 'http://127.0.0.1:8787';
+const ENDPOINT = 'http://127.0.0.1';
 
 beforeEach(() => window.sessionStorage.clear());
 afterEach(() => vi.useRealTimers());

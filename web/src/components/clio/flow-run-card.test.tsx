@@ -17,7 +17,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 // jsdom reports no intersections; these cards render as if on screen, so their runs load.
 vi.mock('@/hooks/use-near-viewport', () => ({ useNearViewport: () => true }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('@/hooks/use-session-agent', () => ({
   useSessionAgent: () => ({ agent: { data: { resolution: { agent: { ref: 'clio/standard' } } } } }),

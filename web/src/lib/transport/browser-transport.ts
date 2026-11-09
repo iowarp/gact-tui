@@ -7,6 +7,7 @@ import {
   type TransportFrame,
   type TransportRequest,
 } from '@clio/core/v3';
+import { retryAfterMs } from './retry-after';
 
 const GACT_ACCEPT = PROTOCOL_VERSION;
 const A2UI_ACCEPT = A2UI_VERSION;
@@ -74,18 +75,14 @@ export class BrowserClioTransport implements ClioTransport {
     for (const [name, value] of Object.entries(request.headers ?? {})) {
       headers.set(name, value);
     }
-    const rawBody = request.rawBody
-      ? Uint8Array.from(request.rawBody).buffer
-      : undefined;
+    const rawBody = request.rawBody ? Uint8Array.from(request.rawBody).buffer : undefined;
     let response: Response;
     try {
       response = await this.fetcher(endpointUrl(this.endpoint, request.path), {
         method: request.method,
         signal: request.signal,
         headers,
-        body:
-          rawBody ??
-          (request.body === undefined ? undefined : JSON.stringify(request.body)),
+        body: rawBody ?? (request.body === undefined ? undefined : JSON.stringify(request.body)),
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;
@@ -102,6 +99,7 @@ export class BrowserClioTransport implements ClioTransport {
         response.status,
         error.code,
         error.details,
+        retryAfterMs(response.headers.get('Retry-After'), error.retryAfterS),
       );
     }
     const value =
@@ -204,11 +202,17 @@ export class BrowserClioTransport implements ClioTransport {
 
 async function decodeErrorResponse(
   response: Response,
-): Promise<{ code?: string; message?: string; details?: unknown }> {
+): Promise<{ code?: string; message?: string; details?: unknown; retryAfterS?: unknown }> {
   try {
+    type Envelope = {
+      error?: unknown;
+      message?: unknown;
+      details?: unknown;
+      retry_after_s?: unknown;
+    };
     const value = (await response.clone().json()) as {
-      detail?: { error?: { error?: unknown; message?: unknown; details?: unknown } };
-      error?: { error?: unknown; message?: unknown; details?: unknown };
+      detail?: { error?: Envelope };
+      error?: Envelope;
     };
     const envelope = value.error ?? value.detail?.error;
     if (!envelope || typeof envelope !== 'object') return {};
@@ -216,6 +220,7 @@ async function decodeErrorResponse(
       code: typeof envelope.error === 'string' ? envelope.error : undefined,
       message: typeof envelope.message === 'string' ? envelope.message : undefined,
       details: envelope.details,
+      retryAfterS: envelope.retry_after_s,
     };
   } catch {
     return {};

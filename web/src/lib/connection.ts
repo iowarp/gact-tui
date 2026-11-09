@@ -1,5 +1,6 @@
 import { ClioRepository } from '@clio/core/v3';
 import { BrowserClioTransport } from './transport/browser-transport';
+import { brand } from '@brand';
 import { inTauri } from './transport/tauri-runtime';
 import { TauriClioTransport } from './transport/tauri-transport';
 
@@ -60,7 +61,59 @@ export class InfrastructureTargetGoneError extends Error {
   }
 }
 
-export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';
+/**
+ * Where an agent serves its API and web UI when nothing else says so: the brand's
+ * default port (`backend.portConfig.default`). The port itself is the agent's
+ * configuration, so prefer `defaultEndpoint()`, which honours what Desktop resolved.
+ */
+export const DEFAULT_ENDPOINT = `http://127.0.0.1:${brand.agentPort}`;
+
+export interface PageHost {
+  desktop: boolean;
+  /** A Vite dev server is serving this page. */
+  dev: boolean;
+  location?: Pick<Location, 'origin' | 'port' | 'protocol'>;
+}
+
+/**
+ * The agent's address when the agent itself served this page: the page's own origin.
+ * Undefined in the desktop app, under a Vite dev server, or for a non-http page.
+ */
+export function servedEndpointFor({ desktop, dev, location }: PageHost): string | undefined {
+  if (desktop || dev || !location) return undefined;
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return undefined;
+  return location.origin;
+}
+
+/** This page's origin when an agent served it (#739 B7). */
+export function servedEndpoint(): string | undefined {
+  return servedEndpointFor({
+    desktop: inTauri(),
+    dev: import.meta.env.DEV,
+    location: typeof window === 'undefined' ? undefined : window.location,
+  });
+}
+
+/**
+ * The agent address the desktop host resolved from the agent's port configuration
+ * (`gact.port` in the user config, `CLIO_PORT`, then the brand default) and reported in
+ * its `__CLIO_DESKTOP__` marker. Undefined outside the desktop app.
+ */
+function desktopAgentEndpoint(): string | undefined {
+  if (!inTauri()) return undefined;
+  const marker = (window as { __CLIO_DESKTOP__?: { agentEndpoint?: unknown } }).__CLIO_DESKTOP__;
+  const endpoint = marker?.agentEndpoint;
+  return typeof endpoint === 'string' && endpoint.trim() ? endpoint.trim() : undefined;
+}
+
+/**
+ * The address a new connection starts from: the agent that served this page, else the
+ * address the desktop host resolved from the agent's port configuration, else the
+ * brand default.
+ */
+export function defaultEndpoint(): string {
+  return servedEndpoint() ?? desktopAgentEndpoint() ?? DEFAULT_ENDPOINT;
+}
 
 /** Explicit remote routes take precedence over a direct loopback connection. */
 export function connectionIsLocal(settings: ConnectionSettings, managed = false): boolean {

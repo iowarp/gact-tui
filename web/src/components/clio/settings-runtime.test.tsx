@@ -7,7 +7,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 const repository = vi.hoisted(() => ({ runtimeSettings: vi.fn(), updateRuntimeSettings: vi.fn() }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 import { RuntimeSettingsPanel } from './settings-runtime';
 

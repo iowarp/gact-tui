@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import { AppProviders } from '@/providers/app-providers';
 import { RouteErrorBoundary } from '@/components/clio/route-error-boundary';
+import { RevealDesktopWindow } from '@/components/clio/reveal-desktop-window';
 import { removeLegacyCredentialStorage } from '@/lib/legacy-credential-storage';
 import { holdModalBodyPointerEvents } from '@/components/ui/overlay-container';
 
@@ -19,6 +20,7 @@ try {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <RevealDesktopWindow />
     <BrowserRouter>
       <AppProviders>
         <RouteErrorBoundary />

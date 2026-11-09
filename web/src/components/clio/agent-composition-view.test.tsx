@@ -24,7 +24,7 @@ vi.mock(
   async () => (await import('@/test-fixtures/agent-tab')).providerGroupsMock,
 );
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('@/hooks/use-session-message-count', async () => {
   const { agentTranscript } = await import('@/test-fixtures/agent-tab');

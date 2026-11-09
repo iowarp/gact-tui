@@ -1,3 +1,4 @@
+import { mockDesktopHost } from '@/test/desktop-host';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,7 +96,7 @@ beforeEach(() => {
   xterm.MockFitAddon.instances = [];
   resizeObserverMock.TestResizeObserver.instances = [];
   vi.stubGlobal('ResizeObserver', resizeObserverMock.TestResizeObserver);
-  Object.assign(window, { __TAURI_INTERNALS__: {} });
+  mockDesktopHost();
 });
 
 afterEach(() => {

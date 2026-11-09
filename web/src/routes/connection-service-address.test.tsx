@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/hooks/use-known-connections', () => ({ useKnownConnections: () => [] }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
-    settings: { endpoint: 'http://127.0.0.1:8787', label: 'Local research service' },
+    settings: { endpoint: 'http://127.0.0.1', label: 'Local research service' },
     recents: [],
     credentialsReady: true,
     managedConnectionReady: false,
@@ -27,6 +27,7 @@ vi.mock('@/lib/connection', async (importOriginal) => {
 });
 
 import { ConnectionPage } from './connection-page';
+import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
@@ -56,7 +57,7 @@ it('explains a missing service address and retains the HTTP failure for inspecti
   );
   renderConnection();
   expect(screen.getByLabelText('Connection address')).toHaveAccessibleDescription(
-    /Use the agent service address, for example http:\/\/127\.0\.0\.1:8787/,
+    expect.stringContaining(`Use the agent service address, for example ${DEFAULT_ENDPOINT}.`),
   );
   await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
   expect(await screen.findByText(/No agent service was found at this address/)).toBeVisible();

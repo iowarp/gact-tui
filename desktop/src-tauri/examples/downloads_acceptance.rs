@@ -202,7 +202,7 @@ mod acceptance {
         tauri::Builder::default()
             .plugin(downloads::plugin())
             .setup(move |app| {
-                downloads::create_configured_windows(app, &startup_windows)?;
+                downloads::create_configured_windows(app, &startup_windows, |_, builder| builder)?;
                 let window = app.get_webview_window("download-proof").expect("configured window");
                 let counter = started.clone();
                 let hidden_entries = hidden.clone();

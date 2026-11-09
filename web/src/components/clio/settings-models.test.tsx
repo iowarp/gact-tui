@@ -96,7 +96,7 @@ const { configuration, repository } = vi.hoisted(() => {
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 beforeEach(() => {
@@ -213,7 +213,7 @@ describe('ModelsSettings', () => {
     );
     await waitFor(() =>
       expect(
-        queryClient.isFetching({ queryKey: queryKeys.providerCatalog('http://127.0.0.1:8787') }),
+        queryClient.isFetching({ queryKey: queryKeys.providerCatalog('http://127.0.0.1') }),
       ).toBe(1),
     );
     await waitFor(() => expect(screen.queryByText('Saving…')).not.toBeInTheDocument());
@@ -393,7 +393,7 @@ describe('ModelsSettings', () => {
   });
 
   it('choosing a model in the picker applies it and retires stale session state', async () => {
-    const endpoint = 'http://127.0.0.1:8787';
+    const endpoint = 'http://127.0.0.1';
     const staleSession = {
       id: 'session-1',
       workspace_id: 'workspace-1',
@@ -447,10 +447,10 @@ describe('ModelsSettings', () => {
     ).toBeVisible();
 
     act(() => {
-      queryClient.setQueryData(
-        queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787'),
-        { ...configuration, model: 'gpt-5.5' },
-      );
+      queryClient.setQueryData(queryKeys.key('language-model-configuration', 'http://127.0.0.1'), {
+        ...configuration,
+        model: 'gpt-5.5',
+      });
     });
 
     expect(

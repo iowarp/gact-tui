@@ -68,9 +68,9 @@ describe('useKnownConnections', () => {
     const { result } = renderHook(() => useKnownConnections(), { wrapper });
 
     await waitFor(() =>
-      expect(result.current.find((c) => c.endpoint === 'http://127.0.0.1:8788')?.availability.state).toBe(
-        'healthy',
-      ),
+      expect(
+        result.current.find((c) => c.endpoint === 'http://127.0.0.1:8788')?.availability.state,
+      ).toBe('healthy'),
     );
     expect(result.current).toEqual([
       expect.objectContaining({
@@ -81,22 +81,48 @@ describe('useKnownConnections', () => {
     ]);
   });
 
-  it('lists the desktop-managed local service once it is resolved', () => {
+  it('lists the desktop-managed local service once it is resolved', async () => {
     mocks.inTauri = true;
     mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211', token: 'supervisor-token' };
     mocks.managedConnectionReady = true;
 
     const { result } = renderHook(() => useKnownConnections(), { wrapper });
 
+    await waitFor(() => expect(result.current[0]?.availability.state).toBe('healthy'));
     expect(result.current).toEqual([
       expect.objectContaining({
         endpoint: 'http://127.0.0.1:53211',
         token: 'supervisor-token',
         label: 'This computer',
         source: 'managed',
-        availability: expect.objectContaining({ state: 'healthy' }),
+        availability: expect.objectContaining({ state: 'healthy', label: 'Ready' }),
       }),
     ]);
+  });
+
+  it('keeps the managed service starting until /v1/health reports it ready (#739)', async () => {
+    mocks.inTauri = true;
+    mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211' };
+    mocks.managedConnectionReady = true;
+    mocks.repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      overall_status: 'ready',
+      readiness: 'starting',
+      starting: ['task_runtime'],
+    });
+
+    const { result } = renderHook(() => useKnownConnections(), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current[0]?.availability).toEqual(
+        expect.objectContaining({
+          state: 'checking',
+          label: 'Starting',
+          starting: true,
+          detail: expect.stringContaining('conversations and tasks'),
+        }),
+      ),
+    );
   });
 
   it('marks the managed service as starting, not ready, before the boot handshake finishes', () => {
@@ -128,9 +154,7 @@ describe('useKnownConnections', () => {
     ]);
     mocks.repository.managedServiceCatalog.mockResolvedValue({
       facts: {},
-      services: [
-        { id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:43123' },
-      ],
+      services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:43123' }],
     });
 
     const { result } = renderHook(() => useKnownConnections(), { wrapper });
@@ -146,7 +170,10 @@ describe('useKnownConnections', () => {
         infrastructure: { targetId: 'homelab', serviceId: 'clio_agent' },
       }),
     );
-    expect(mocks.repository.managedServiceCatalog).toHaveBeenCalledWith('homelab', expect.anything());
+    expect(mocks.repository.managedServiceCatalog).toHaveBeenCalledWith(
+      'homelab',
+      expect.anything(),
+    );
   });
 
   it('never fetches a catalog for a target that still needs reauthentication', async () => {
@@ -166,7 +193,13 @@ describe('useKnownConnections', () => {
 
   it('does not duplicate an infrastructure CLIO already present as a recent connection', async () => {
     mocks.inTauri = true;
-    mocks.recents = [{ endpoint: 'http://127.0.0.1:43123', label: 'Homelab', infrastructure: { targetId: 'homelab', serviceId: 'clio_agent' } }];
+    mocks.recents = [
+      {
+        endpoint: 'http://127.0.0.1:43123',
+        label: 'Homelab',
+        infrastructure: { targetId: 'homelab', serviceId: 'clio_agent' },
+      },
+    ];
     mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211' };
     mocks.managedConnectionReady = true;
     mocks.repository.infrastructureTargets.mockResolvedValue([
