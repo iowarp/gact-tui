@@ -760,11 +760,15 @@ export function ZoomPan({
             {children}
           </div>
 
-          {isLoading && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50">
-              {loadingFallback || <Loader2 className="size-8 animate-spin text-muted-foreground" />}
-            </div>
-          )}
+          {isLoading ? (
+            loadingFallback ? (
+              <div className="absolute inset-0 z-50 bg-background">{loadingFallback}</div>
+            ) : (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              </div>
+            )
+          ) : null}
           {error || imageError ? (
             <div
               className="absolute inset-0 z-40 grid place-items-center bg-background/95 p-6 text-center"
