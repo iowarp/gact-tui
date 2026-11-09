@@ -116,7 +116,7 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate text-[14px] leading-7 [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[14px] leading-7 font-semibold [overflow-wrap:normal]">
             {title}
           </DialogTitle>
           {help ? (
@@ -137,7 +137,7 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">{children}</div>
+          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">{children}</div>
         ) : null}
         <div
           data-slot="dialog-frame-footer"
@@ -239,7 +239,7 @@ export const WindowShell = memo(function WindowShell({
             ?.focus({ preventScroll: true });
         }}
         className={cn(
-          'top-1/2 flex h-[min(720px,calc(100dvh-2rem))] w-[min(980px,calc(100vw-2rem))] max-w-none -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:max-w-none',
+          'top-1/2 flex h-[min(720px,calc(100dvh-2rem))] w-[min(980px,calc(100vw-2rem))] max-w-none -translate-y-1/2 flex-col gap-0 overflow-hidden bg-background p-0 sm:max-w-none',
           'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none',
           className,
         )}
@@ -252,7 +252,7 @@ export const WindowShell = memo(function WindowShell({
           ) : null}
           <DialogTitle
             className={cn(
-              'min-w-0 truncate text-sm font-semibold [overflow-wrap:normal]',
+              'min-w-0 truncate font-sans text-sm font-semibold [overflow-wrap:normal]',
               !search && 'flex-1',
             )}
           >

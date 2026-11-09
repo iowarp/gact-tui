@@ -11,13 +11,28 @@ test('appearance settings stay within narrow windows and apply the theme', async
   await expect(page.getByRole('radiogroup', { name: 'Theme' })).toBeVisible();
   for (const width of [1280, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const overflow = await page
-      .locator('[data-slot="settings-control"]')
-      .evaluateAll((controls) =>
-        controls.map((control) => control.scrollWidth - control.clientWidth),
-      );
-    expect(overflow.length).toBeGreaterThan(0);
-    for (const value of overflow) expect(value).toBeLessThanOrEqual(1);
+    const metrics = await page.locator('[data-slot="settings-control"]').evaluateAll((controls) =>
+      controls.map((control) => {
+        const box = control.getBoundingClientRect();
+        const input = control.querySelector('[role="radiogroup"], input, [role="switch"]');
+        const inner = input?.getBoundingClientRect();
+        const wide =
+          getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u).length >
+          1;
+        return {
+          centre: box.x + box.width / 2,
+          // Two-column rows end their control at the row's trailing edge; stacked rows start it.
+          edgeGap: inner ? (wide ? box.right - inner.right : inner.left - box.left) : 0,
+          overflow: control.scrollWidth - control.clientWidth,
+        };
+      }),
+    );
+    expect(metrics.length).toBeGreaterThan(0);
+    for (const metric of metrics) {
+      expect(metric.overflow).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.centre - metrics[0]!.centre)).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.edgeGap)).toBeLessThanOrEqual(1);
+    }
     const pane = page.getByRole('region', { name: 'Settings content' });
     expect(
       await pane.evaluate((element) => element.scrollWidth - element.clientWidth),

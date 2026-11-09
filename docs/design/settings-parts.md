@@ -25,7 +25,11 @@ page renders exactly one `level={1}` heading, the page h1.
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
 `{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. `dirty` marks a value that is still waiting in the save bar.
+switch. `dirty` marks a value that is still waiting in the save bar. The description sits
+behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
+from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
+number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,
+12.5 px, 6 px radius; number inputs are right-aligned mono. Don't restyle them per section.
 
 **`SettingsGroupLabel`** (same file)
 `{ children, onAdd?, addLabel?, actions?, className? }`. A small group caption
@@ -42,7 +46,8 @@ A choice that applies at once, so it never reaches the save bar.
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
-a word), never a bare dot.
+a word), never a bare dot. `ItemList` caps the list at 760 px (the spec pane width), so
+sections don't set their own max width.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
 and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,
@@ -59,7 +64,9 @@ for typed values only. It binds Ctrl S / ⌘S.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
 The footer carries the key hints on the left (Esc and the cancel label, Ctrl ↵ and the
-confirm label) and plain Cancel and confirm buttons on the right.
+confirm label) and plain Cancel and confirm buttons on the right. The body is marked
+`data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
+`in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
 **`WindowShell`** (same file)
 `{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
@@ -94,8 +101,11 @@ Takes the same props as `SettingsNavigation`. It is one named icon per scope
 - To keep Esc from closing the window, mark any other nested scope with
   `data-escape-scope` and handle Esc there.
 
-Other primitives (status indicator, tags, split button, segmented control, key
-chips) are in `components/clio/primitives/` and
+`SegmentedControl` (`primitives/segmented-control.tsx`) follows the spec `.xsg`: a 28 px
+muted track without a border, 24 px items at 12 px, and the selected item raised. Use it
+for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
+
+Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and
 `docs/design/visual-language/components.md`.
 
 ## Rules for section bodies

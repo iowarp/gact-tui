@@ -75,8 +75,8 @@ export function SettingsNavigation({
               aria-current={id === current ? 'page' : undefined}
               className={cn(
                 'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
-                'hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-accent text-foreground',
+                'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+                id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
               state={linkState}
@@ -109,7 +109,7 @@ export function SettingsSearchButton() {
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-left max-[599px]:hidden">Search</span>
-      <ShortcutKeys id="search" className="shrink-0 text-[10px] max-[599px]:hidden" />
+      <ShortcutKeys id="search" variant="inline" className="max-[599px]:hidden" />
     </button>
   );
 }
@@ -176,7 +176,7 @@ export function SettingsSectionPicker({
             {items.map(({ id, label, icon: Icon }) => (
               <DropdownMenuItem
                 asChild
-                className="aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+                className="aria-[current=page]:bg-menu-highlight aria-[current=page]:text-foreground"
                 key={id}
               >
                 <Link

@@ -226,7 +226,7 @@ it('shows a load failure and retries instead of remaining on a loading message',
   await screen.findByRole('spinbutton', { name: 'Model request timeout' });
 });
 
-it('places the setting description, provenance and effect in the info tip', async () => {
+it('places setting descriptions, provenance and effect in the info tip', async () => {
   const user = userEvent.setup();
   const defaults = {
     ...initial.settings[0]!,
@@ -249,7 +249,8 @@ it('places the setting description, provenance and effect in the info tip', asyn
   });
   showSettings();
 
-  await screen.findByRole('spinbutton', { name: 'Model request timeout' });
+  await screen.findByRole('button', { name: 'About Model request timeout' });
+  expect(screen.queryByText('Maximum time for a request.')).not.toBeInTheDocument();
   expect(screen.queryByText('Applies to subsequent model requests.')).not.toBeInTheDocument();
   expect(screen.queryByText(/ default$/iu)).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'About Model request timeout' }));

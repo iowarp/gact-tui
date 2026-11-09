@@ -47,7 +47,7 @@ function SegmentedControlImpl<Value extends string>({
         if (next) onValueChange(next as Value);
       }}
       data-slot="segmented-control"
-      className={cn('h-7 shrink-0 gap-px rounded-[7px] border border-input p-[2px]', className)}
+      className={cn('h-7 shrink-0 gap-px rounded-[7px] bg-muted p-[2px]', className)}
     >
       {options.map((option) => {
         const item = (
@@ -57,8 +57,8 @@ function SegmentedControlImpl<Value extends string>({
             aria-label={iconOnly ? option.label : undefined}
             disabled={option.disabled}
             className={cn(
-              'h-[22px] min-w-0 rounded-[5px]! border-0 px-2 text-[12px] font-medium whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground [&_svg:not([class*=size-])]:size-3.5',
-              iconOnly && 'w-[26px] px-0',
+              'h-6 min-w-0 gap-1.5 rounded-[5px]! border-0 px-2.5 text-[12px] font-normal whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground [&_svg:not([class*=size-])]:size-3.5',
+              iconOnly && 'w-[27px] px-0',
             )}
           >
             {option.icon}
