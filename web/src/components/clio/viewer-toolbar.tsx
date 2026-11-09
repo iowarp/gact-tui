@@ -26,18 +26,26 @@ export function ToolbarAction({
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const pressed = props['aria-pressed'];
-  useFrameTool(button, {
-    label,
-    icon: children,
-    disabled: Boolean(props.disabled) || Boolean(props.disabledReason),
-    reason: props.disabledReason,
-    checked: pressed === undefined ? undefined : pressed === true || pressed === 'true',
-  });
+  // A menu or popover trigger (`asChild` gives it a ref) stays in the bar: a
+  // row clicking its hidden button could not anchor what it opens.
+  const trigger = 'ref' in props && Boolean(props.ref);
+  useFrameTool(
+    button,
+    trigger
+      ? null
+      : {
+          label,
+          icon: children,
+          disabled: Boolean(props.disabled) || Boolean(props.disabledReason),
+          reason: props.disabledReason,
+          checked: pressed === undefined ? undefined : pressed === true || pressed === 'true',
+        },
+  );
   return (
     <TooltipProvider delayDuration={200}>
       <IconButton
         ref={button}
-        data-frame-tool=""
+        data-frame-tool={trigger ? undefined : ''}
         label={label}
         icon={children}
         size={size === 'icon-xs' ? 'sm' : 'default'}

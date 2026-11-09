@@ -4,6 +4,12 @@ import { CodeIcon, EyeIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tabs } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DocumentViewControls } from './document-view-controls';
 import { FileModeControls } from './file-mode-controls';
 import { FrameTalkTake } from './file-viewer-take';
@@ -180,6 +186,35 @@ describe('the renderer’s Format icons at the narrowest fold', () => {
       render(<Frame onChange={() => {}} tools={<Zoom onIn={() => {}} />} />);
       const more = screen.getByRole('button', { name: 'More actions' });
       expect(more.closest('[data-slot="frame-format"]')).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('keeps a menu or popover trigger in the bar, out of the … menu', async () => {
+    const restore = narrowFrameBars();
+    try {
+      render(
+        <Frame
+          onChange={() => {}}
+          tools={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ToolbarAction label="Source file: main.tex">
+                  <CodeIcon aria-hidden="true" />
+                </ToolbarAction>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>main.tex</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />,
+      );
+      const trigger = screen.getByRole('button', { name: 'Source file: main.tex' });
+      expect(trigger.hasAttribute('data-frame-tool')).toBe(false);
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      expect(screen.queryByRole('menuitem', { name: /Source file/ })).toBeNull();
     } finally {
       restore();
     }

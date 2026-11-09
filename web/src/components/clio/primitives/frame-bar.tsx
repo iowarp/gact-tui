@@ -28,7 +28,8 @@ import { cn } from '@/lib/utils';
  * the modes move into the … menu as a checked list (`modes-menu`; see
  * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
  * group rules go: only the name, comments and the … menu remain (Download stays
- * so the original bytes are one click away). Then the gaps tighten. Children hide
+ * so the original bytes are one click away). Modes and icons leave only a bar
+ * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten. Children hide
  * on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
@@ -146,7 +147,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 group-data-[fold-modes-menu]/frame:[&_[data-frame-tool]]:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
         >
           <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           {format}
