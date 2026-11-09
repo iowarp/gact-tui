@@ -2,8 +2,8 @@ import { queryKeys } from '@/lib/query-keys';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
 import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlertIcon } from 'lucide-react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { MessagesSquareIcon } from 'lucide-react';
+import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { CommentCapture, CommentToggle } from './comments/comment-capture';
 import type { CommentSurface } from './comments/comment-model';
@@ -12,49 +12,51 @@ import {
   commentThreadsKey,
   useCommentSession,
 } from './comments/comment-session';
+import { DocumentRefreshAction } from './document-refresh-action';
 import { CommentThreadList } from './comments/comment-thread-list';
+import { useInFrameComments } from './comments/frame-comments-slot';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import { HtmlFileInBrowser } from './html-in-browser';
 import { LatexWorkspace } from './latex-workspace';
 import { isScientificDocument } from '@/lib/scientific-document';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { CodeBlock } from '@/components/ai-elements/code-block';
-import { badgeVariants } from '@/components/reui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { DocumentViewControls } from './document-view-controls';
-import { ViewerToolbarContent } from './viewer-toolbar';
-import { FileViewerInformation } from './file-viewer-information';
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { documentApplications, revealFileBytes } from '@/tauri/documents';
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import { downloadBytes } from './surface-export';
-import { DocumentOpenMenu, type DocumentOpenTarget } from './document-open-menu';
-import { DocumentRefreshAction } from './document-refresh-action';
-import { ClioPdfPreview } from './pdf-preview';
-import { TechnicalDetails } from './technical-details';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
-import { FileReadView } from './file-text-view';
-import { DocumentSourceView } from './document-source-view';
+import { revealFileBytes } from '@/tauri/documents';
+import { DocumentViewControls } from './document-view-controls';
+import { useDocumentOpenActions, type DocumentOpenTarget } from './document-open-menu';
+import { openDocumentTarget } from './document-launch';
 import { isDocumentSourceProfile } from './document-open-policy';
 import { prepareDocumentPdf } from './document-pdf';
-import { openDocumentTarget } from './document-launch';
+import { DocumentSourceView } from './document-source-view';
+import { WorkingCopyState } from './document-working-copy';
+import { type FileViewerAction, useFileViewerActions } from './file-viewer-action-context';
+import { FileViewerInformationHost } from './file-viewer-context';
+import { useFileViewerFacts } from './file-viewer-facts';
+import { FileViewerInformation } from './file-viewer-information';
+import { FrameOpenButton } from './file-viewer-take';
+import { useOpenTake } from './file-viewer-take-hooks';
+import { FileReadView } from './file-text-view';
+import { ClioPdfPreview } from './pdf-preview';
+import { StateView } from './primitives/state-view';
+import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { downloadBytes } from './surface-export';
 import { TextFileCopyAction } from './text-file-copy-action';
-import { DocumentDownloadActions } from './document-download-actions';
-import { DocumentPolicy, WorkingCopyStatus } from './document-working-copy';
+import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 
+/**
+ * A document under the frame bar: its modes in Format, Comments in the
+ * frame's place and its apps, working copy and PDF in the frame's Open ▾; the
+ * body is only the document. On its own (a document outside a file viewer) it
+ * keeps one row with the same controls, Copy and an Open ▾.
+ */
 export function ClioDocumentWorkspace({
   artifact,
   fallbackPreview,
@@ -67,6 +69,12 @@ export function ClioDocumentWorkspace({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
+  const framed = useContext(FileViewerInformationHost) !== undefined;
+  const inFrameComments = useInFrameComments();
+  const outerHost = useContext(ViewerToolbarHost);
+  const [localHost, setLocalHost] = useState<HTMLDivElement | null>(null);
+  const ownRow = !framed && !outerHost;
+  const toolbarHost = ownRow ? localHost : outerHost;
   const previewRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState('');
   const [documentView, setDocumentView] = useState('preview');
@@ -100,37 +108,16 @@ export function ClioDocumentWorkspace({
     () => documentCommentSurface(artifact, effectiveManifest, manifest.data),
     [artifact, effectiveManifest, manifest.data],
   );
-  const commentThreads = useQuery({
-    queryKey: commentThreadsKey(settings.endpoint, artifact.id),
-    queryFn: ({ signal }) => repository.commentThreads(artifact.id, artifact.session_id, signal),
-    enabled: Boolean(manifest.data),
-  });
-  const commentCount =
-    commentThreads.data?.threads.filter((row) => row.status !== 'draft').length ?? 0;
-  const refreshComments = () => commentThreads.refetch();
   const content = useQuery({
     queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
     enabled: Boolean(effectiveManifest && directProfiles.has(effectiveManifest.profile)),
   });
-  const applications = useQuery({
-    queryKey: ['document-applications', artifact.name, artifact.media_type],
-    queryFn: () => documentApplications(artifact.name, artifact.media_type),
-    enabled: inTauri(),
-    staleTime: 60_000,
-  });
-  const pdfApplications = useQuery({
-    queryKey: ['document-applications', 'file.pdf', 'application/pdf'],
-    queryFn: () => documentApplications('file.pdf', 'application/pdf'),
-    enabled:
-      inTauri() &&
-      Boolean(
-        manifest.data?.rendition_formats.includes('pdf') ||
-          manifest.data?.pdf_rendition_artifact_id,
-      ),
-    staleTime: 60_000,
-  });
 
+  const announce = (message: string) => {
+    setStatus(message);
+    toast.success(message);
+  };
   const preparePdf = () => queryClient.fetchQuery(pdfOptions);
   const rendition = useMutation({
     mutationFn: async () => {
@@ -145,29 +132,25 @@ export function ClioDocumentWorkspace({
       openDocumentTarget(repository, manifest.data, artifact.session_id, preparePdf, target),
     onSuccess: (result) => {
       setWorkingCopy(result.desktopCopy ? undefined : result.copy);
-      const message = `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
-        result.desktopCopy
-          ? ' Opened a desktop copy; edits are local to this copy.'
-          : result.copy?.auto_checkpoint
-            ? ' Stable saves become immutable revisions.'
-            : ''
-      }`;
-      setStatus(message);
-      toast.success(message);
+      announce(
+        `${result.isPdf ? 'PDF' : artifact.name} opened in ${result.appName}.${
+          result.desktopCopy
+            ? ' Opened a desktop copy; edits are local to this copy.'
+            : result.copy?.auto_checkpoint
+              ? ' Stable saves become immutable revisions.'
+              : ''
+        }`,
+      );
     },
+    onError: (error: Error) => toast.error(error.message),
   });
   const closeWorkingCopy = useMutation({
     mutationFn: () => repository.closeDocumentWorkingCopy(workingCopy!.id),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      setStatus('Working copy closed. The immutable artifact history remains available.');
+      announce('Working copy closed. Its saved revisions remain.');
     },
-  });
-  const downloadSource = useMutation({
-    mutationFn: async () => {
-      const bytes = await repository.readArtifactBytesFor(artifact);
-      downloadBytes(bytes, artifact.media_type, artifact.name);
-    },
+    onError: (error: Error) => toast.error(error.message),
   });
   const revealSource = useMutation({
     mutationFn: async () =>
@@ -175,7 +158,7 @@ export function ClioDocumentWorkspace({
         artifact.name.split(/[\\/]/u).at(-1)!,
         await repository.documentContent(artifact.id),
       ),
-    onSuccess: () => toast.success('Desktop copy shown in its folder.'),
+    onSuccess: () => announce('Desktop copy shown in its folder.'),
     onError: (error: Error) => toast.error(error.message),
   });
   const resolveConflict = useMutation({
@@ -186,9 +169,33 @@ export function ClioDocumentWorkspace({
       }),
     onSuccess: (copy) => {
       setWorkingCopy(copy);
-      setStatus('Working-copy conflict resolved against the confirmed artifact head.');
+      announce('Working-copy conflict resolved against the confirmed artifact head.');
     },
+    onError: (error: Error) => toast.error(error.message),
   });
+
+  const { mutate: openCopy } = createWorkingCopy;
+  const { mutate: reveal } = revealSource;
+  const { mutateAsync: renderPdf } = rendition;
+  const { mutate: closeCopy } = closeWorkingCopy;
+  const onOpen = useCallback((target: DocumentOpenTarget) => openCopy(target), [openCopy]);
+  const onReveal = useCallback(() => reveal(), [reveal]);
+  const onPdf = useCallback(() => renderPdf(), [renderPdf]);
+  const onCloseWorkingCopy = useCallback(() => closeCopy(), [closeCopy]);
+  const openActions = useDocumentOpenActions({
+    artifact,
+    manifest: manifest.data,
+    openPending: createWorkingCopy.isPending,
+    pdfPending: rendition.isPending,
+    revealPending: revealSource.isPending,
+    workingCopyActive: workingCopy?.status === 'active',
+    closePending: closeWorkingCopy.isPending,
+    onOpen,
+    onReveal,
+    onPdf,
+    onCloseWorkingCopy,
+  });
+  useFileViewerActions(openActions);
 
   const textContent = useMemo(
     () =>
@@ -212,243 +219,255 @@ export function ClioDocumentWorkspace({
             ? 'latex'
             : undefined;
   const activeView = documentView;
+  const copyable = Boolean(sourceProfile) && (activeView === 'raw' || activeView === 'preview');
+  const readText = useCallback(
+    () =>
+      activeView === 'raw' || sourceProfile === 'html-static'
+        ? textContent
+        : renderedFileText(previewRef.current),
+    [activeView, sourceProfile, textContent],
+  );
+  // Without its registered revision the saved result is still readable, but only as a preview.
+  const previewOnly = manifest.isError ? 'Preview only' : undefined;
+  useFileViewerFacts(previewOnly ? [previewOnly] : undefined);
+  const decision =
+    workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? workingCopy : undefined;
+
+  const copy = copyable ? (
+    <TextFileCopyAction
+      name={artifact.name}
+      disabled={textContent === undefined}
+      readText={readText}
+    />
+  ) : null;
+  const information = (
+    <FileViewerInformation label="Document information">
+      <p className="text-sm font-medium">{profileLabel(manifest.data ?? effectiveManifest)}</p>
+      {needsPdfPreview && pdfPreview.data ? (
+        <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+      ) : null}
+      <p className="break-all font-mono text-xs text-muted-foreground">
+        {effectiveManifest
+          ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
+          : manifest.error
+            ? 'Comments, revision history and editing are unavailable: its registered revision could not be loaded.'
+            : 'Checking document capabilities…'}
+      </p>
+      {workingCopy?.status === 'active' ? (
+        <p className="text-xs text-muted-foreground">
+          A working copy is open; stable saves become revisions.
+        </p>
+      ) : null}
+    </FileViewerInformation>
+  );
+  const modes = (
+    <DocumentViewControls
+      value={activeView}
+      markdown={sourceProfile === 'markdown'}
+      html={sourceProfile === 'html-static'}
+      latex={sourceProfile === 'latex'}
+      paper={paper}
+      onChange={setDocumentView}
+    />
+  );
+  const threads = <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />;
+  const refresh = (
+    <DocumentRefreshAction
+      refreshing={manifest.isFetching || pdfPreview.isFetching || content.isFetching}
+      onReviews={() =>
+        queryClient.invalidateQueries({
+          queryKey: commentThreadsKey(settings.endpoint, artifact.id),
+        })
+      }
+    />
+  );
 
   return withComments(
     commentSurface,
+    inFrameComments ? <EarlierThreads>{threads}</EarlierThreads> : undefined,
     <section
       aria-label="Document workspace"
       className="@container/viewer flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
     >
-      <Tabs
-        className="flex h-full min-h-0 min-w-0 flex-col gap-0 overflow-hidden"
-        value={activeView}
-        onValueChange={setDocumentView}
-      >
-        <ViewerToolbarContent>
-          <div className="flex min-w-0 shrink-0 items-center gap-0.5" data-slot="document-controls">
-            <FileViewerInformation label="Document information">
-              <p className="text-sm font-medium">
-                {profileLabel(manifest.data ?? effectiveManifest)}
-              </p>
-              {needsPdfPreview && pdfPreview.data ? (
-                <p className="text-xs text-muted-foreground">Saved PDF preview</p>
+      <ViewerToolbarHost.Provider value={toolbarHost}>
+        <Tabs
+          className="flex h-full min-h-0 min-w-0 flex-col gap-0 overflow-hidden"
+          value={activeView}
+          onValueChange={setDocumentView}
+        >
+          {ownRow ? (
+            <div
+              className="flex h-[34px] shrink-0 items-center gap-px border-b border-border px-1.5"
+              data-slot="document-controls"
+            >
+              <div className="flex shrink-0 items-center gap-px" ref={setLocalHost} />
+              {previewOnly ? (
+                <span className="truncate px-1.5 text-[11px] text-muted-foreground">
+                  {previewOnly}
+                </span>
               ) : null}
-              <p className="break-all font-mono text-xs text-muted-foreground">
-                {effectiveManifest
-                  ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256}`
-                  : manifest.error
-                    ? 'Saved content is readable.'
-                    : 'Checking document capabilities…'}
-              </p>
-              {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
-              <WorkingCopyStatus
-                closePending={closeWorkingCopy.isPending}
-                copy={workingCopy}
-                onClose={() => closeWorkingCopy.mutate()}
-                onResolve={(resolution) => resolveConflict.mutate(resolution)}
-                resolvePending={resolveConflict.isPending}
-              />
-            </FileViewerInformation>
-            <div className="flex shrink-0 items-center gap-0.5">
-              {manifest.error ? (
-                <Popover>
-                  <PopoverTrigger
-                    aria-label="Preview only: document features unavailable"
-                    className={badgeVariants({
-                      variant: 'warning-light',
-                      radius: 'full',
-                      size: 'lg',
-                      className: 'h-8 cursor-pointer px-2.5',
-                    })}
-                  >
-                    <CircleAlertIcon aria-hidden="true" />
-                    <span className="@max-[480px]/viewer:sr-only">Preview only</span>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-80">
-                    <PopoverHeader>
-                      <PopoverTitle className="flex items-center gap-1.5 text-warning-foreground dark:text-warning">
-                        <CircleAlertIcon aria-hidden="true" className="size-4" />
-                        Document features unavailable
-                      </PopoverTitle>
-                      <PopoverDescription>
-                        This saved result remains readable, but comments, revision history, and
-                        editing are unavailable because its original registered revision could not
-                        be loaded.
-                      </PopoverDescription>
-                    </PopoverHeader>
-                    <TechnicalDetails
-                      className="text-xs text-muted-foreground"
-                      summaryClassName="text-foreground"
-                      title="Technical details"
-                    >
-                      <code className="mt-1 block break-all">{manifest.error.message}</code>
-                    </TechnicalDetails>
-                  </PopoverContent>
-                </Popover>
-              ) : null}
-              <DocumentViewControls
-                value={activeView}
-                markdown={sourceProfile === 'markdown'}
-                html={sourceProfile === 'html-static'}
-                latex={sourceProfile === 'latex'}
-                paper={paper}
-                reviewCount={commentCount}
-                onChange={setDocumentView}
-              />
+              <span className="min-w-0 flex-1" />
+              {copy}
+              <CommentToggle />
+              {inFrameComments ? null : <DocumentCommentThreads>{threads}</DocumentCommentThreads>}
+              {information}
+              {refresh}
+              <StandaloneDocumentOpen artifact={artifact} actions={openActions} />
             </div>
-            {sourceProfile && (activeView === 'raw' || activeView === 'preview') ? (
-              <TextFileCopyAction
-                name={artifact.name}
-                disabled={textContent === undefined}
-                readText={() =>
-                  activeView === 'raw' || sourceProfile === 'html-static'
-                    ? textContent
-                    : renderedFileText(previewRef.current)
-                }
-              />
-            ) : null}
-            <CommentToggle />
-            {manifest.data ? (
-              <DocumentOpenMenu
-                artifact={artifact}
-                manifest={manifest.data}
-                applications={applications.data ?? []}
-                pdfApplications={pdfApplications.data ?? []}
-                applicationsPending={applications.isPending && inTauri()}
-                applicationsError={applications.error?.message}
-                pdfApplicationsPending={pdfApplications.isPending && inTauri()}
-                pdfApplicationsError={pdfApplications.error?.message}
-                openPending={createWorkingCopy.isPending}
-                pdfPending={rendition.isPending}
-                onOpen={(target) => createWorkingCopy.mutate(target)}
-                onReveal={() => revealSource.mutate()}
-                revealPending={revealSource.isPending}
-              />
-            ) : null}
-            {manifest.data ? (
-              <DocumentDownloadActions
-                name={artifact.name}
-                mediaType={artifact.media_type}
-                pdf={
-                  manifest.data.profile !== 'pdf' &&
-                  (Boolean(manifest.data.pdf_rendition_artifact_id) ||
-                    manifest.data.rendition_formats.includes('pdf'))
-                }
-                pdfPending={rendition.isPending || createWorkingCopy.isPending}
-                onPdf={rendition.mutateAsync}
-                onDownload={downloadSource.mutateAsync}
-              />
-            ) : null}
-            <DocumentRefreshAction
-              refreshing={manifest.isFetching || pdfPreview.isFetching || content.isFetching}
-              onReviews={refreshComments}
+          ) : (
+            <>
+              {copy}
+              <CommentToggle />
+              {information}
+              {refresh}
+            </>
+          )}
+          {toolbarHost ? <ViewerToolbarContent>{modes}</ViewerToolbarContent> : null}
+          {status ? (
+            <p className="sr-only" role="status">
+              {status}
+            </p>
+          ) : null}
+          {decision ? (
+            <WorkingCopyState
+              copy={decision}
+              pending={resolveConflict.isPending}
+              onResolve={(resolution) => resolveConflict.mutate(resolution)}
+              onDismiss={() => setWorkingCopy(undefined)}
             />
-          </div>
-        </ViewerToolbarContent>
-        {status ? (
-          <p className="sr-only" role="status">
-            {status}
-          </p>
-        ) : null}
-        {createWorkingCopy.error || rendition.error || downloadSource.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Document action failed</AlertTitle>
-            <AlertDescription>
-              {(createWorkingCopy.error ?? rendition.error ?? downloadSource.error)?.message}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? (
-          <WorkingCopyStatus
-            closePending={closeWorkingCopy.isPending}
-            copy={workingCopy}
-            onClose={() => closeWorkingCopy.mutate()}
-            onResolve={(resolution) => resolveConflict.mutate(resolution)}
-            resolvePending={resolveConflict.isPending}
-          />
-        ) : null}
-        <TabsContent
-          className="m-0 min-h-0 min-w-0 overflow-hidden"
-          value="preview"
-          aria-label="Document preview"
-          aria-labelledby={undefined}
-        >
-          <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
-            {sourceProfile === 'latex' ? (
-              // A paper: source and compiled PDF side by side, built by the server.
-              <LatexWorkspace artifactId={artifact.id} sessionId={artifact.session_id ?? ''} />
-            ) : (
-              <CommentCapture
-                regionAnchor={effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined}
-                sourcePath={effectiveManifest?.name}
+          ) : (
+            <>
+              <TabsContent
+                className="m-0 min-h-0 min-w-0 overflow-hidden"
+                value="preview"
+                aria-label="Document preview"
+                aria-labelledby={undefined}
               >
-                <DocumentPreview
-                  content={content.data}
-                  fallback={
-                    sourceProfile === 'html-static' && textContent !== undefined ? (
-                      <HtmlFileInBrowser
-                        artifactId={artifact.id}
-                        content={textContent}
-                        name={artifact.name}
-                        openOnShow
+                <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
+                  {sourceProfile === 'latex' ? (
+                    // A paper: source and compiled PDF side by side, built by the server.
+                    <LatexWorkspace
+                      artifactId={artifact.id}
+                      sessionId={artifact.session_id ?? ''}
+                    />
+                  ) : (
+                    <CommentCapture
+                      regionAnchor={
+                        effectiveManifest?.profile === 'pdf' ? pdfRegionAnchor : undefined
+                      }
+                      sourcePath={effectiveManifest?.name}
+                    >
+                      <DocumentPreview
+                        content={content.data}
+                        fallback={
+                          sourceProfile === 'html-static' && textContent !== undefined ? (
+                            <HtmlFileInBrowser
+                              artifactId={artifact.id}
+                              content={textContent}
+                              name={artifact.name}
+                              openOnShow
+                            />
+                          ) : (
+                            fallbackPreview
+                          )
+                        }
+                        fit="page"
+                        manifest={effectiveManifest}
+                        previewError={
+                          (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
+                          (effectiveManifest?.profile === 'pdf'
+                            ? content.error?.message
+                            : undefined)
+                        }
+                        previewPending={
+                          needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)
+                        }
+                        previewLabel={
+                          manifest.data?.pdf_rendition_artifact_id
+                            ? 'Loading PDF preview…'
+                            : 'Rendering PDF preview…'
+                        }
+                        onRetryPreview={() => {
+                          if (pdfPreview.isError) void pdfPreview.refetch();
+                          else void content.refetch();
+                        }}
+                        text={textContent}
                       />
-                    ) : (
-                      fallbackPreview
-                    )
-                  }
-                  fit="page"
-                  manifest={effectiveManifest}
-                  previewError={
-                    (needsPdfPreview ? pdfPreview.error?.message : undefined) ??
-                    (effectiveManifest?.profile === 'pdf' ? content.error?.message : undefined)
-                  }
-                  previewPending={
-                    needsPdfPreview && (pdfPreview.isPending || pdfPreview.isFetching)
-                  }
-                  previewLabel={
-                    manifest.data?.pdf_rendition_artifact_id
-                      ? 'Loading PDF preview…'
-                      : 'Rendering PDF preview…'
-                  }
-                  onRetryPreview={() => {
-                    if (pdfPreview.isError) void pdfPreview.refetch();
-                    else void content.refetch();
-                  }}
-                  text={textContent}
-                />
-              </CommentCapture>
-            )}
-          </div>
-        </TabsContent>
-        {sourceProfile ? (
-          <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="raw">
-            <DocumentSourceView
-              content={textContent}
-              name={artifact.name}
-              profile={sourceProfile}
-            />
-          </TabsContent>
-        ) : null}
-        <TabsContent
-          className="m-0 min-h-0 min-w-0 overflow-auto p-3"
-          value="reviews"
-          aria-label="Comments"
-          aria-labelledby={undefined}
-        >
-          <h2 className="mb-3 text-base font-semibold">Comments</h2>
-          <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />
-        </TabsContent>
-        <TabsContent
-          className="m-0 min-h-0 min-w-0 overflow-auto p-3"
-          value="policy"
-          aria-label="Document safety"
-          aria-labelledby={undefined}
-        >
-          <h2 className="mb-3 text-base font-semibold">Document safety</h2>
-          <DocumentPolicy workingCopy={workingCopy} />
-        </TabsContent>
-      </Tabs>
+                    </CommentCapture>
+                  )}
+                </div>
+              </TabsContent>
+              {sourceProfile ? (
+                <TabsContent className="m-0 min-h-0 min-w-0 overflow-hidden" value="raw">
+                  <DocumentSourceView
+                    content={textContent}
+                    name={artifact.name}
+                    profile={sourceProfile}
+                  />
+                </TabsContent>
+              ) : null}
+            </>
+          )}
+        </Tabs>
+      </ViewerToolbarHost.Provider>
     </section>,
+  );
+}
+
+/** Open ▾ for a document outside a file viewer, with the same rows the frame would show. */
+function StandaloneDocumentOpen({
+  artifact,
+  actions,
+}: {
+  artifact: Artifact;
+  actions: readonly FileViewerAction[];
+}) {
+  const take = useOpenTake(
+    { kind: 'artifact', artifact, workspaceId: artifact.workspace_id ?? '' },
+    actions.filter((action) => action.kind === 'download'),
+    { otherApps: false, rows: actions.filter((action) => action.kind === 'open') },
+  );
+  return <FrameOpenButton take={take} />;
+}
+
+/** The sent threads beside Comments, for a document outside a frame. */
+function DocumentCommentThreads({ children }: { children: ReactNode }) {
+  const session = useCommentSession();
+  if (!session?.open) return null;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <ToolbarAction label="Comment threads">
+          <MessagesSquareIcon aria-hidden="true" />
+        </ToolbarAction>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** The sent threads inside the frame's comment panel. */
+function EarlierThreads({ children }: { children: ReactNode }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button className="mt-2 w-full" size="sm" variant="ghost">
+          <MessagesSquareIcon aria-hidden="true" />
+          Earlier threads
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="z-[95] max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -477,21 +496,16 @@ function DocumentPreview({
   if (!manifest) return fallback;
   if (previewError && !previewPending) {
     return (
-      <div className="space-y-3 p-4" role="alert">
-        <ResourceUnavailable label="PDF preview failed" detail={previewError} />
-        <Button onClick={onRetryPreview} size="sm" variant="outline">
-          Retry preview
-        </Button>
-      </div>
+      <StateView
+        action={{ label: 'Retry preview', onClick: onRetryPreview }}
+        detail={previewError}
+        kind="error"
+        size="viewer"
+        title="PDF preview failed"
+      />
     );
   }
-  if (previewPending && !content) {
-    return (
-      <div className="p-4">
-        <ResourceLoading label={previewLabel} />
-      </div>
-    );
-  }
+  if (previewPending && !content) return <ResourceLoading label={previewLabel} />;
   if (manifest.profile === 'pdf') {
     return (
       // The viewer owns its own scroll region so it can mount only the pages in
@@ -603,6 +617,10 @@ function documentCommentSurface(
   };
 }
 
-function withComments(surface: CommentSurface, node: ReactNode) {
-  return <CommentSessionProvider surface={surface}>{node}</CommentSessionProvider>;
+function withComments(surface: CommentSurface, threadList: ReactNode, node: ReactNode) {
+  return (
+    <CommentSessionProvider surface={surface} threadList={threadList}>
+      {node}
+    </CommentSessionProvider>
+  );
 }

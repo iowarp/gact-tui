@@ -1,18 +1,120 @@
 import type { Workspace } from '@clio/core/v3';
-import { Label } from '@/components/ui/label';
+import { CheckIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { memoryScopeOptions, type MemoryPickerOption } from './memory-document-helpers';
+import { SettingsSelectField } from './model-select-field';
+import { PickerFooter } from './primitives/picker-footer';
 
 export interface MemoryScopeOptions {
   workspaces: Workspace[];
   workspacesLoading?: boolean;
   workspacesError?: string;
   onRetryWorkspaces?: () => void;
+}
+
+/** A select-shaped field that opens the one searchable Picker. */
+export function MemoryPicker({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  searchPlaceholder,
+  emptyLabel = 'Nothing matches',
+  placeholder,
+  status,
+}: {
+  id?: string;
+  /** The field's accessible name ("Remember in"). */
+  label: string;
+  value: string;
+  options: readonly MemoryPickerOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  searchPlaceholder: string;
+  emptyLabel?: string;
+  /** Shown when no option is chosen (or the field stands for a fixed answer). */
+  placeholder?: string;
+  /** A loading or failure line inside the picker, above the options. */
+  status?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const chosen = options.find((option) => option.value === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <SettingsSelectField
+          aria-label={label}
+          disabled={disabled}
+          icon={chosen?.icon}
+          id={id}
+          placeholder={placeholder}
+          title={chosen?.label ?? placeholder}
+          value={chosen?.label}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-(--radix-popover-trigger-width) min-w-64 gap-0 overflow-hidden p-0"
+      >
+        <Command
+          filter={(itemValue, search) =>
+            (options.find((option) => option.value === itemValue)?.label ?? itemValue)
+              .toLowerCase()
+              .includes(search.trim().toLowerCase())
+              ? 1
+              : 0
+          }
+          label={label}
+        >
+          <CommandInput placeholder={searchPlaceholder} />
+          {status}
+          <CommandList className="max-h-64">
+            <CommandEmpty>{emptyLabel}</CommandEmpty>
+            {options.map((option) => (
+              <CommandItem
+                data-checked={option.value === value || undefined}
+                key={option.value}
+                onSelect={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                value={option.value}
+              >
+                {option.icon ? (
+                  <span aria-hidden="true" className="grid shrink-0 text-muted-foreground">
+                    {option.icon}
+                  </span>
+                ) : null}
+                <span className="min-w-0 flex-1 truncate" title={option.label}>
+                  {option.label}
+                </span>
+                {option.value === value ? (
+                  <CheckIcon aria-hidden="true" className="ml-auto shrink-0" />
+                ) : null}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+        <PickerFooter
+          hints={[
+            { label: 'Move', shortcut: 'menu-move' },
+            { label: 'Choose', shortcut: 'menu-pick' },
+            { label: 'Close', shortcut: 'menu-close', onSelect: () => setOpen(false) },
+          ]}
+        />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /** One account/workspace destination picker for manual memories and imports. */
@@ -26,42 +128,44 @@ export function MemoryScopePicker({
   workspacesError,
   onRetryWorkspaces,
 }: MemoryScopeOptions & {
-  id: string;
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>Remember in</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="user">Account (across workspaces)</SelectItem>
-          {workspaces
-            .filter((workspace) => workspace.id !== 'ws_global')
-            .map((workspace) => (
-              <SelectItem key={workspace.id} value={`project/${workspace.id}`}>
-                {workspace.name}
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
-      {workspacesLoading ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading workspaces…
-        </p>
-      ) : null}
-      {workspacesError ? (
-        <p role="alert" className="text-sm text-destructive">
-          Could not load workspaces: {workspacesError}{' '}
-          <button type="button" className="underline" onClick={onRetryWorkspaces}>
-            Retry
-          </button>
-        </p>
-      ) : null}
-    </div>
+    <MemoryPicker
+      disabled={disabled}
+      emptyLabel="No workspace matches"
+      id={id}
+      label="Remember in"
+      onChange={onChange}
+      options={memoryScopeOptions(workspaces)}
+      searchPlaceholder="Search workspaces…"
+      status={
+        workspacesLoading ? (
+          <p className="px-3 py-1.5 text-xs text-muted-foreground" role="status">
+            Loading workspaces…
+          </p>
+        ) : workspacesError ? (
+          <p
+            className="flex min-w-0 items-center gap-2 px-3 py-1.5 text-xs text-destructive"
+            role="alert"
+          >
+            <span className="min-w-0 truncate" title={workspacesError}>
+              Workspaces could not be loaded. {workspacesError}
+            </span>
+            <button
+              className="shrink-0 text-foreground underline-offset-4 hover:underline"
+              onClick={onRetryWorkspaces}
+              type="button"
+            >
+              Retry
+            </button>
+          </p>
+        ) : null
+      }
+      value={value}
+    />
   );
 }

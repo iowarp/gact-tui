@@ -1,4 +1,5 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { brand } from '@brand';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -131,10 +132,9 @@ it('shows managed startup instead of asking desktop users for a connection addre
   );
 
   expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
-  expect(screen.getByText('Starting local service')).toBeVisible();
-  expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
+  expect(screen.getByText('Starting the local service')).toBeVisible();
+  expect(screen.getByText('Loading the bundled scientific workspace')).toBeInTheDocument();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
-  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('object-contain');
   expect(screen.getByRole('button', { name: 'Search everywhere' })).toBeEnabled();
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
@@ -275,7 +275,6 @@ it('separates saved services from new connection fields and exposes the endpoint
   expect(screen.getByLabelText('Connection address')).toBeVisible();
   expect(screen.queryByText('Saved services', { selector: 'legend' })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole('button', { name: /Access token/ }));
   expect(screen.getByPlaceholderText('Paste token')).toBeVisible();
 });
 

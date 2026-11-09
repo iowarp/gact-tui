@@ -36,10 +36,10 @@ export class HostBridge {
     this.host.postMessage(message, this.hostOrigin);
   }
 
-  /** Handle a host message; returns the `init` message for the caller to apply. */
-  receive(data: unknown): Extract<HostMessage, { type: 'init' }> | undefined {
+  /** Handle a host message; returns `init` and `show` messages for the caller to apply. */
+  receive(data: unknown): Extract<HostMessage, { type: 'init' | 'show' }> | undefined {
     if (!isHostMessage(data)) return undefined;
-    if (data.type === 'init') return data;
+    if (data.type === 'init' || data.type === 'show') return data;
     const pending = this.pending.get(data.id);
     if (!pending) return undefined;
     this.pending.delete(data.id);
