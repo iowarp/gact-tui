@@ -82,6 +82,8 @@ async function dropDefault(user: ReturnType<typeof userEvent.setup>, token: stri
   if (!document.querySelector('[data-slot="facet-panel"]')) {
     await user.click(screen.getByRole('button', { name: /^Filters/u }));
   }
+  const fold = document.querySelector<HTMLElement>('[data-slot="facet-fold"]');
+  if (fold) await user.click(fold);
   const panel = document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
   const chip = panel.querySelector(`[data-token="${token}"]`);
   if (!(chip instanceof HTMLElement))

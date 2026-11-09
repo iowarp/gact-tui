@@ -54,7 +54,7 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
-  def('model-picker', 'Change model', 'anywhere', ["Ctrl+'"], {
+  def('model-picker', 'Open the model picker', 'anywhere', ["Ctrl+'"], {
     when: 'In a conversation',
   }),
   def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),

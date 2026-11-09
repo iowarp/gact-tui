@@ -19,6 +19,7 @@ import {
   type FacetGroup,
   type FacetTab,
 } from '@/lib/model-facets';
+import { DEFAULT_FILTER_TOKENS } from '@/lib/model-filter-tokens';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { tagIcon } from './model-capability-tag-icons';
@@ -29,6 +30,8 @@ import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 
 /** A group with more rows than this shows its leading ones and "Show all". */
 const COLLAPSED_ROWS = 6;
+/** The row that holds the groups after the ranges until it is opened. */
+const FOLD_KEY = 'fold';
 
 type FilterRow =
   | { kind: 'chip'; key: string; chip: FacetChip }
@@ -50,6 +53,7 @@ type FilterRow =
       expanded: boolean;
       onSelect: () => void;
     }
+  | { kind: 'fold'; key: string; label: string; onSelect: () => void }
   | { kind: 'label'; key: string; label: string };
 
 interface FilterSection {
@@ -115,7 +119,7 @@ const FOOTER_HINTS: readonly PickerHint[] = [
 ];
 
 /** The spec's `.pcb`: a 13px box, filled with a check while on. */
-function FilterCheck({ checked }: { checked: boolean }) {
+function FilterCheck({ checked, disabled = false }: { checked: boolean; disabled?: boolean }) {
   return (
     <span
       aria-hidden="true"
@@ -124,6 +128,7 @@ function FilterCheck({ checked }: { checked: boolean }) {
         checked
           ? 'border-primary bg-primary text-primary-foreground'
           : 'border-muted-foreground/55',
+        disabled && 'opacity-50',
       )}
     >
       {checked ? <CheckIcon className="size-2.5" strokeWidth={3.5} /> : null}
@@ -158,17 +163,31 @@ const ROW_CLASS = 'h-[30px] gap-[9px] rounded-[7px] px-2 text-[13px]';
  * The model picker's Filters, as the spec draws them: every filter as a row
  * over the list. Capabilities as checkbox rows with their counts, then the
  * Context / Size / Cost / Released sliders with what each also lets in, then
- * Tasks, Input, Output, Providers and Other, each showing its leading rows
+ * Tasks, Input, Output, Providers and Other, folded into one row until PgDn
+ * or ↵ opens them, each then showing its leading rows
  * and "Show all" for the rest (a large group gets a name filter). Every row
  * comes from the catalog's own tags and toggles its token in the search bar.
- * Focus stays in the search field: ↑↓ move, Space or ↵ toggle, PgDn jumps a
+ * Focus stays in the search field, on the first row as the panel opens: ↑↓
+ * move, Space or ↵ toggle, PgDn jumps a
  * group, ←→ slide, Esc goes back to the list.
  */
 export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFacetPanelProps>(
   function ModelPickerFacetPanel({ tabs, onToggleChip, ranges = [], onClose }, handle) {
     const rootRef = useRef<HTMLDivElement>(null);
-    const [active, setActive] = useState<string | null>(null);
+    // `undefined` until a key or pointer moves it: the panel opens on its first row.
+    const [chosen, setActive] = useState<string | null | undefined>(undefined);
     const [expanded, setExpanded] = useState<string | null>(null);
+    // The groups after the ranges fold into one row, unless one of them is on
+    // (beyond the defaults every search starts with).
+    const [restOpen, setRestOpen] = useState(() =>
+      tabs.some(
+        (tab) =>
+          tab.id !== 'capabilities' &&
+          tab.groups.some((group) =>
+            group.chips.some((chip) => chip.active && !DEFAULT_FILTER_TOKENS.includes(chip.token)),
+          ),
+      ),
+    );
     const [nameFilter, setNameFilter] = useState('');
     const [height, setHeight] = useState<number>();
 
@@ -272,8 +291,27 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
       sections.push({ key: `range/${range.id}`, label: range.slider.label, rows });
     }
     const afterRanges = sections.length;
-    for (const cluster of clusters) {
-      if (cluster.tab !== 'capabilities') sections.push(clusterSection(cluster));
+    const rest = clusters
+      .filter((cluster) => cluster.tab !== 'capabilities')
+      .map((cluster) => ({ cluster, section: clusterSection(cluster) }));
+    const firstRest = rest.flatMap(({ section }) => section.rows).find(navigable)?.key;
+    function unfold(): void {
+      setRestOpen(true);
+      setActive(firstRest ?? null);
+    }
+    if (restOpen || !rest.length || afterRanges === 0) {
+      for (const { section } of rest) sections.push(section);
+    } else {
+      // The spec's "Tasks, Input, Output, Providers, Other · PgDn": one row
+      // so the panel ends at a predictable height.
+      const label = [
+        ...new Set(rest.map(({ cluster }) => tabs.find((tab) => tab.id === cluster.tab)!.label)),
+      ].join(', ');
+      sections.push({
+        key: FOLD_KEY,
+        label,
+        rows: [{ kind: 'fold', key: FOLD_KEY, label, onSelect: unfold }],
+      });
     }
     // The spec's group hints: on the first group of each kind.
     if (sections[0] && !sections[0].key.startsWith('range/')) {
@@ -291,7 +329,7 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
         </>
       );
     }
-    if (ranges.length && sections[afterRanges]) {
+    if (ranges.length && sections[afterRanges] && sections[afterRanges].key !== FOLD_KEY) {
       sections[afterRanges].hint = (
         <ShortcutKeys className="font-mono text-[10.5px] text-faint" id="menu-next-group" />
       );
@@ -300,12 +338,13 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
     const order = sections.flatMap((section) =>
       section.rows.filter(navigable).map((row) => ({ row, section: section.key })),
     );
+    const active = chosen === undefined ? (order[0]?.row.key ?? null) : chosen;
     const activeIndex = active ? order.findIndex((item) => item.row.key === active) : -1;
 
     function activate(row: FilterRow): void {
       if (row.kind === 'chip') onToggleChip(row.chip);
       else if (row.kind === 'option') row.onToggle();
-      else if (row.kind === 'more') row.onSelect();
+      else if (row.kind === 'more' || row.kind === 'fold') row.onSelect();
     }
 
     function jumpGroup(direction: 1 | -1): boolean {
@@ -317,6 +356,11 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
         current === undefined
           ? keys[direction > 0 ? 0 : keys.length - 1]
           : keys[Math.min(keys.length - 1, Math.max(0, at + direction))];
+      // Paging onto the fold, or on from it, opens the groups it holds.
+      if (target === FOLD_KEY && (direction > 0 || current === FOLD_KEY)) {
+        unfold();
+        return true;
+      }
       setActive(order.find((item) => item.section === target)!.row.key);
       return true;
     }
@@ -442,6 +486,45 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
           </div>
         );
       }
+      if (row.kind === 'fold') {
+        return (
+          <div
+            aria-expanded={false}
+            aria-label={`Show ${row.label} filters`}
+            className={cn(
+              'cursor-pointer rounded-[7px] outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+              highlighted && 'bg-menu-highlight hover:bg-menu-highlight',
+            )}
+            data-row-key={row.key}
+            data-selected={highlighted || undefined}
+            data-slot="facet-fold"
+            key={row.key}
+            onClick={row.onSelect}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                row.onSelect();
+              }
+            }}
+            onPointerMove={hover}
+            role="button"
+            tabIndex={0}
+            title={`Show ${row.label}`}
+          >
+            <ListGroupLabel
+              action={
+                <span className="flex items-center gap-[11px] font-mono text-[10.5px] text-faint">
+                  <ShortcutKeys id="menu-next-group" />
+                  {highlighted ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
+                </span>
+              }
+              className="h-[30px] items-center px-2 pb-0"
+            >
+              {row.label}
+            </ListGroupLabel>
+          </div>
+        );
+      }
       if (row.kind === 'more') {
         const Icon = row.expanded ? ChevronUpIcon : ChevronDownIcon;
         return (
@@ -480,7 +563,11 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
               name: chipLabel(row.chip),
               hint: `${row.chip.token}${row.chip.replaces.length ? ` (replaces ${row.chip.replaces.join(', ')})` : ''}`,
             }
-          : { ...row, name: row.label, hint: row.token };
+          : {
+              ...row,
+              name: row.label,
+              hint: row.disabled ? `${row.token} (narrow the range first)` : row.token,
+            };
       const { checked, disabled } = item;
       const toggle = () => {
         if (!disabled) activate(row);
@@ -517,10 +604,12 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
           onPointerMove={hover}
           role="checkbox"
           selected={highlighted}
-          status={<FilterCheck checked={checked} />}
+          status={<FilterCheck checked={checked} disabled={disabled} />}
           tabIndex={0}
           title={
-            <span className={cn(disabled && 'text-muted-foreground')} title={item.hint}>
+            // Every name keeps the spec's one foreground tone; only an empty
+            // filter (no listed model has it) reads muted, like the spec's `.dim`.
+            <span className={cn(chip && disabled && 'text-muted-foreground')} title={item.hint}>
               {item.label}
             </span>
           }
@@ -545,22 +634,28 @@ export const ModelPickerFacetPanel = forwardRef<FacetPanelHandle, ModelPickerFac
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pt-0.5 pb-1.5" data-slot="facet-rows">
           {sections.length ? (
-            sections.map((section) => (
-              <section aria-label={section.label} data-group={section.key} key={section.key}>
-                <ListGroupLabel
-                  action={
-                    section.hint ? (
-                      <span className="font-mono text-[10.5px] text-faint">{section.hint}</span>
-                    ) : undefined
-                  }
-                  className="h-auto px-2 pt-[9px] pb-[3px]"
-                >
-                  {section.label}
-                </ListGroupLabel>
-                {section.before}
-                {section.rows.map(renderRow)}
-              </section>
-            ))
+            sections.map((section) =>
+              section.key === FOLD_KEY ? (
+                <section aria-label={section.label} data-group={section.key} key={section.key}>
+                  {section.rows.map(renderRow)}
+                </section>
+              ) : (
+                <section aria-label={section.label} data-group={section.key} key={section.key}>
+                  <ListGroupLabel
+                    action={
+                      section.hint ? (
+                        <span className="font-mono text-[10.5px] text-faint">{section.hint}</span>
+                      ) : undefined
+                    }
+                    className="h-auto px-2 pt-[9px] pb-[3px]"
+                  >
+                    {section.label}
+                  </ListGroupLabel>
+                  {section.before}
+                  {section.rows.map(renderRow)}
+                </section>
+              ),
+            )
           ) : (
             <p className="px-2 py-3 text-[12.5px] text-muted-foreground">
               No model matches this search.

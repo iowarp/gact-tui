@@ -586,6 +586,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             }
             hints={footerHints(showColumns, searchColumns)}
             hintsAlign={showColumns ? 'end' : 'start'}
+            keysOnlyNarrow
             start={
               <>
                 {showColumns && panel.column.bar ? (

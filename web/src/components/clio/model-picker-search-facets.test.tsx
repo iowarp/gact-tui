@@ -247,6 +247,13 @@ function highlighted(): HTMLElement | null {
   return panel()!.querySelector('[data-row-key][data-selected]');
 }
 
+/** Opens the panel and its folded groups (Tasks onward). */
+async function openAllFilters(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(searchField());
+  const fold = document.querySelector<HTMLElement>('[data-slot="facet-fold"]');
+  if (fold) await user.click(fold);
+}
+
 describe('ClioModelPicker filter panel', () => {
   it('opens under the field when it is pressed, every filter a row in the spec order', async () => {
     const user = await openPicker();
@@ -254,6 +261,15 @@ describe('ClioModelPicker filter panel', () => {
     expect(panel()).toBeNull();
 
     await user.click(searchField());
+    // The groups after the ranges start folded into one row.
+    expect(sectionNames()).toEqual([
+      'Capabilities',
+      'Context',
+      'Cost',
+      'Released',
+      'Tasks, Input, Output, Providers, Other',
+    ]);
+    await user.click(document.querySelector<HTMLElement>('[data-slot="facet-fold"]')!);
 
     // Capabilities, the sliders, then the tag groups. No model states its size: no Size.
     expect(sectionNames()).toEqual([
@@ -276,7 +292,7 @@ describe('ClioModelPicker filter panel', () => {
 
   it('a row toggles its token in the search bar, and the results follow', async () => {
     const user = await openPicker();
-    await user.click(searchField());
+    await openAllFilters(user);
 
     await user.click(filterRow(/^Free: /u));
 
@@ -292,7 +308,7 @@ describe('ClioModelPicker filter panel', () => {
 
   it('a row hidden only by a default token counts what it would list and swaps that default', async () => {
     const user = await openPicker();
-    await user.click(searchField());
+    await openAllFilters(user);
 
     const image = filterRow(/^Text-to-Image: 1 model \(replaces output:text\)$/u);
     expect(image).not.toHaveAttribute('aria-disabled');
@@ -304,7 +320,7 @@ describe('ClioModelPicker filter panel', () => {
 
   it('a row that would list nothing cannot be toggled', async () => {
     const user = await openPicker();
-    await user.click(searchField());
+    await openAllFilters(user);
     await user.click(filterRow(/^Free: /u));
 
     // sdxl is not free, and "free" is the person's own token: nothing to swap.
@@ -331,7 +347,7 @@ describe('ClioModelPicker filter panel', () => {
 
   it('typing keeps it open and narrows its rows to what matches', async () => {
     const user = await openPicker();
-    await user.click(searchField());
+    await openAllFilters(user);
     expect(filterRow(/^PDF: /u)).toBeVisible();
 
     await user.type(searchField(), 'son');
@@ -358,7 +374,7 @@ describe('ClioModelPicker filter panel', () => {
       ),
     ];
     const user = await openPicker(many);
-    await user.click(searchField());
+    await openAllFilters(user);
     const tasksSection = () => within(panel()!).getByRole('region', { name: 'Tasks' });
     expect(within(tasksSection()).getAllByRole('checkbox')).toHaveLength(6);
 
@@ -377,14 +393,18 @@ describe('ClioModelPicker filter panel', () => {
     expect(within(tasksSection()).getAllByRole('checkbox')).toHaveLength(6);
   }, 15_000);
 
-  it('from the field: ↓ enters the rows, Space toggles, PgDn jumps a group, → slides', async () => {
+  it('from the field: opens on the first row, Space toggles, PgDn jumps a group, → slides', async () => {
     const user = await openPicker();
     await user.click(searchField());
 
-    await user.keyboard('{ArrowDown}');
+    // The spec opens Filters with its first row focused and showing ↵.
     const first = highlighted()!;
     expect(first).toHaveAttribute('role', 'checkbox');
     expect(first.closest('section')).toHaveAttribute('aria-label', 'Capabilities');
+    await user.keyboard('{ArrowDown}');
+    expect(highlighted()).not.toBe(first);
+    await user.keyboard('{ArrowUp}');
+    expect(highlighted()).toBe(first);
     await user.keyboard(' ');
     expect(first).toHaveAttribute('aria-checked', 'true');
     expect(tokens()).toContain(first.getAttribute('data-token'));
@@ -403,6 +423,24 @@ describe('ClioModelPicker filter panel', () => {
     expect(highlighted()).toBeNull();
     expect(searchField()).toHaveValue('s');
     expect(searchField()).toHaveFocus();
+  }, 15_000);
+
+  it('folds the groups after the ranges into one row that PgDn opens', async () => {
+    const user = await openPicker();
+    await user.click(searchField());
+    const fold = within(panel()!).getByRole('button', { name: /^Show Tasks, .* filters$/u });
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+    expect(within(panel()!).queryByRole('region', { name: 'Providers' })).toBeNull();
+
+    // PgDn walks the groups; the one after the last range opens the fold.
+    for (let step = 0; step < 6 && document.querySelector('[data-slot="facet-fold"]'); step += 1) {
+      await user.keyboard('{PageDown}');
+    }
+    expect(document.querySelector('[data-slot="facet-fold"]')).toBeNull();
+    const row = highlighted()!;
+    expect(row).toHaveAttribute('role', 'checkbox');
+    expect(row.closest('section')).toHaveAttribute('aria-label', 'Tasks');
+    expect(within(panel()!).getByRole('region', { name: 'Providers' })).toBeVisible();
   }, 15_000);
 
   it('Escape closes the panel first and the picker second; a press outside closes it too', async () => {
@@ -432,7 +470,7 @@ describe('ClioModelPicker filter panel', () => {
 
   it('a provider row keeps one provider’s models', async () => {
     const user = await openPicker();
-    await user.click(searchField());
+    await openAllFilters(user);
 
     await user.click(
       within(within(panel()!).getByRole('region', { name: 'Providers' })).getByRole('checkbox', {
