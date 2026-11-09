@@ -153,7 +153,7 @@ describe('ClioDocumentWorkspace', () => {
     const { container } = renderWorkspace();
     await screen.findByRole('heading', { name: 'Agenda' });
     const copy = screen.getByRole('button', { name: 'Copy evidence.md' });
-    expect(copy.closest('[data-slot="document-controls"]')).not.toBeNull();
+    expect(copy.closest('[data-slot="frame-bar"]')).not.toBeNull();
     await user.click(copy);
     await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.\n'));
     vi.mocked(copyText).mockClear();
@@ -162,9 +162,7 @@ describe('ClioDocumentWorkspace', () => {
     expect(raw.querySelector('button')).toBeNull();
     expect(raw).not.toHaveTextContent('evidence.md');
     expect(
-      container.querySelectorAll(
-        '[data-slot="document-controls"] button[aria-label="Copy evidence.md"]',
-      ),
+      container.querySelectorAll('[data-slot="frame-bar"] button[aria-label="Copy evidence.md"]'),
     ).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: 'Copy evidence.md' }));
     await waitFor(() => expect(copyText).toHaveBeenCalledWith(source));
@@ -397,7 +395,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
   });
   it.each([
     ['notes.md', 'markdown', 'Source', 'Raw Markdown for notes.md'],
-    ['article.tex', 'latex', 'Source', 'LaTeX source for article.tex'],
+    ['article.tex', 'latex', 'Source', 'Source of article.tex'],
   ] as const)(
     'opens the original source from the %s menu',
     async (name, profile, action, region) => {

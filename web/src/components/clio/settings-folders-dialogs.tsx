@@ -5,64 +5,42 @@ import { Input } from '@/components/ui/input';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
+import { SettingsRow } from './settings-row';
 import { folderName, folderPathProblem, samePath } from './settings-folders-model';
 
-/** A dialog row: the label left, its value or field right, always one line. */
-function DialogRow({
-  title,
-  htmlFor,
-  error,
-  children,
-}: {
-  title: string;
-  htmlFor?: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  const Label = htmlFor ? 'label' : 'span';
-  return (
-    <div className="border-b border-border/70" data-slot="dialog-row">
-      <div className="flex min-h-11 min-w-0 items-center gap-4 whitespace-nowrap">
-        <Label className="shrink-0 text-[0.8125rem] text-foreground" htmlFor={htmlFor}>
-          {title}
-        </Label>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">{children}</div>
-      </div>
-      {error ? (
-        <p
-          className="-mt-1.5 truncate pb-2 text-right text-xs text-destructive"
-          id={`${htmlFor}-error`}
-        >
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+/**
+ * The spec's dialog frame is 44% of the window up to 600 px. These dialogs keep at least
+ * 440 px, so each value stays on one line beside its label until the frame becomes a sheet.
+ */
+const FOLDER_DIALOG_WIDTH = 'w-[clamp(440px,44vw,600px)]';
 
-/** A plain value row of a dialog. */
-function ValueRow({ title, children }: { title: string; children: string }) {
+/** A plain value row (the spec's `.zv`): right-aligned, wrapping only when it doesn't fit. */
+function ValueRow({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <DialogRow title={title}>
-      <span className="min-w-0 truncate text-[0.78125rem] text-foreground" title={children}>
+    <SettingsRow fullWidth title={title}>
+      <span className="min-w-0 text-right text-[0.78125rem] whitespace-normal text-foreground">
         {children}
       </span>
-    </DialogRow>
+    </SettingsRow>
   );
 }
 
-/** A typed folder path; desktop adds its native folder picker. */
+/**
+ * A typed folder path; desktop adds its native folder picker. The error sits under the field.
+ * Adding from Settings has no blocked path to show, and a remote agent's folders can't be
+ * browsed from here, so the path is typed.
+ */
 function FolderPathField({
   id,
   value,
   onChange,
-  invalid,
+  error,
   disabled,
 }: {
   id: string;
   value: string;
   onChange: (path: string) => void;
-  invalid?: boolean;
+  error?: string;
   disabled?: boolean;
 }) {
   const browse = async () => {
@@ -71,30 +49,38 @@ function FolderPathField({
     if (typeof selected === 'string') onChange(selected);
   };
   return (
-    <>
-      <Input
-        aria-describedby={invalid ? `${id}-error` : undefined}
-        aria-invalid={invalid || undefined}
-        autoComplete="off"
-        className="h-[1.875rem] min-w-0 flex-1 font-mono text-xs md:text-xs"
-        data-initial-focus=""
-        disabled={disabled}
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="Type or paste a folder path"
-        spellCheck={false}
-        title={value || undefined}
-        value={value}
-      />
-      {inTauri() ? (
-        <IconButton
+    <span className="grid min-w-0 flex-1 gap-1">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Input
+          aria-describedby={error ? `${id}-error` : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-label="Folder"
+          autoComplete="off"
+          className="min-w-0 flex-1 font-mono md:text-[0.78125rem]"
+          data-initial-focus=""
           disabled={disabled}
-          icon={<FolderOpenIcon />}
-          label="Browse for a folder"
-          onClick={() => void browse()}
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Type or paste a folder path"
+          spellCheck={false}
+          title={value || undefined}
+          value={value}
         />
+        {inTauri() ? (
+          <IconButton
+            disabled={disabled}
+            icon={<FolderOpenIcon />}
+            label="Browse for a folder"
+            onClick={() => void browse()}
+          />
+        ) : null}
+      </span>
+      {error ? (
+        <span className="text-xs whitespace-normal text-destructive" id={`${id}-error`}>
+          {error}
+        </span>
       ) : null}
-    </>
+    </span>
   );
 }
 
@@ -127,8 +113,8 @@ function DialogError({ children }: { children?: ReactNode }) {
 }
 
 /**
- * "Allow writing to <folder>?": the folder, what allowing it means, for whom and
- * for how long, as plain value rows. Confirming grants it at once. Give it a new
+ * "Allow writing to <folder>?": the folder, what allowing it means, for whom, for how
+ * long and what happens next, as plain value rows. Confirming grants it at once. Give it a new
  * key each time it opens so the field starts empty.
  */
 export function AllowFolderDialog({
@@ -158,6 +144,7 @@ export function AllowFolderDialog({
         onConfirm: () => void allow(),
         disabled: request.pending || !path.trim() || Boolean(problem),
       }}
+      className={FOLDER_DIALOG_WIDTH}
       icon={<ShieldIcon className="size-4" />}
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}
@@ -166,18 +153,19 @@ export function AllowFolderDialog({
       }
     >
       <div data-slot="allow-folder">
-        <DialogRow error={problem} htmlFor="folders-allow-path" title="Folder">
+        <SettingsRow fullWidth htmlFor="folders-allow-path" title="Folder">
           <FolderPathField
             disabled={request.pending}
+            error={problem}
             id="folders-allow-path"
-            invalid={Boolean(problem)}
             onChange={setPath}
             value={path}
           />
-        </DialogRow>
+        </SettingsRow>
         <ValueRow title="What you allow">Create, change and delete files in it and below</ValueRow>
         <ValueRow title="Who">Commands and scripts in every conversation here</ValueRow>
         <ValueRow title="How long">Until you remove it in Settings, Folders</ValueRow>
+        <ValueRow title="Then">The blocked command isn’t rerun. Ask again.</ValueRow>
         <DialogError>{request.error}</DialogError>
       </div>
     </DialogFrame>
@@ -210,20 +198,21 @@ export function ChangePrimaryDialog({
         onConfirm: () => void change(),
         disabled: request.pending || unchanged,
       }}
+      className={FOLDER_DIALOG_WIDTH}
       icon={<FolderIcon className="size-4" />}
       onOpenChange={(next) => !request.pending && onOpenChange(next)}
       open={open}
       title="Change the primary folder?"
     >
       <div data-slot="change-primary-folder">
-        <DialogRow htmlFor="folders-primary-path" title="Folder">
+        <SettingsRow fullWidth htmlFor="folders-primary-path" title="Folder">
           <FolderPathField
             disabled={request.pending}
             id="folders-primary-path"
             onChange={setPath}
             value={path}
           />
-        </DialogRow>
+        </SettingsRow>
         <ValueRow title="Conversations">Start in this folder from now on</ValueRow>
         <ValueRow title="Files">Nothing is moved or copied</ValueRow>
         <ValueRow title="Before you change it">Let running conversations finish</ValueRow>

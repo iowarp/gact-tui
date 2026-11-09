@@ -111,23 +111,10 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   const { view, overlay, onHide } = props;
   const title = WORKBENCH_LIST_TITLES[view];
   const renderHeader = (actions: ReactNode) => (
-    <ListHeader actions={actions} onHide={onHide} title={title} />
+    <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
   );
   return (
-    <section
-      aria-label={`${title} list`}
-      data-slot="workbench-list"
-      data-overlay={overlay || undefined}
-      className={cn(
-        'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
-        // Too narrow for both: the list is a sheet over the whole tab area, its
-        // header in the tab row's place (never half of it, which would clip the
-        // tab), and a pick closes it.
-        overlay
-          ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : 'h-full w-[36%] min-w-[180px]',
-      )}
-    >
+    <WorkbenchListSection overlay={overlay} title={title} wide={view === 'activity'}>
       {view === 'activity' ? (
         <WorkbenchActivityList
           activeTabId={props.activeTabId}
@@ -150,17 +137,50 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         <SourcesList {...props} renderHeader={renderHeader} />
       ) : (
         <>
-          <ListHeader onHide={onHide} title={title} />
+          <WorkbenchListHeader onHide={onHide} title={title} />
           <div className="min-h-0 flex-1 overflow-hidden">
             <ListBody {...props} />
           </div>
         </>
       )}
-    </section>
+    </WorkbenchListSection>
   );
 });
 
-function ListHeader({
+/** The column beside the tabs: a strip's list, or the open tab's own (a study tree). */
+export function WorkbenchListSection({
+  title,
+  overlay,
+  wide = false,
+  children,
+}: {
+  title: string;
+  overlay: boolean;
+  /** Activity's wider rows: spec `.bc.w`, 46% rather than `.bc`'s 36%. */
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      aria-label={`${title} list`}
+      data-slot="workbench-list"
+      data-overlay={overlay || undefined}
+      className={cn(
+        'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
+        // Too narrow for both: the list is a sheet over the whole tab area, its
+        // header in the tab row's place (never half of it, which would clip the
+        // tab), and a pick closes it.
+        overlay
+          ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
+          : cn('h-full min-w-[180px]', wide ? 'w-[46%]' : 'w-[36%]'),
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function WorkbenchListHeader({
   title,
   actions,
   onHide,
@@ -244,14 +264,20 @@ function FilesList({
           selectedPath={selectedPath}
           sessionId={sessionId}
           workspaceId={workspaceId}
+          legend={
+            changedPaths.size ? (
+              <>
+                <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
+                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
+                  <span className="truncate">
+                    <span className="text-changed">Teal</span>: changed in this conversation
+                  </span>
+                </p>
+              </>
+            ) : null
+          }
         />
       </div>
-      {changedPaths.size ? (
-        <p className="flex h-7 shrink-0 items-center gap-1.5 truncate border-t border-border px-2.5 text-[11px] whitespace-nowrap text-faint">
-          <span className="font-medium text-changed">Teal</span>
-          <span className="truncate">changed in this conversation</span>
-        </p>
-      ) : null}
     </div>
   );
 }

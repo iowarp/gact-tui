@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-keys';
 import type { MemoryEvent, Session, SessionMemoryStatistics } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
@@ -199,13 +201,13 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
             <SelectContent>
               {primarySessions.map((session) => (
                 <SelectItem key={session.id} value={session.id}>
-                  {sessionLabel(session)}
+                  <span className="min-w-0 truncate">{sessionLabel(session)}</span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         }
-        className="w-full @3xl:w-[60%]"
+        className={cn('w-full', SETTINGS_COLUMN)}
         info="Context usage, retention and compaction for one conversation, as the service reports them."
       >
         Session retention
