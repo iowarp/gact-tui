@@ -5,7 +5,7 @@ import type {
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { CheckIcon } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useCatalogModel } from '@/hooks/use-catalog-model';
@@ -38,14 +38,12 @@ import {
   settingsForChosenModel,
 } from './settings-models-form';
 import { SettingsProviderOptions } from './settings-provider-options';
-import { responseSettingError, SettingsResponseSettings } from './settings-response-settings';
+import { responseSettingError } from './settings-response-setting-error';
+import { SettingsResponseSettings } from './settings-response-settings';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
-import {
-  useWorkingContext,
-  WorkingContextRow,
-  type WorkingContextState,
-} from './settings-working-context';
+import { WorkingContextRow } from './settings-working-context';
+import { useWorkingContext, type WorkingContextState } from './use-working-context';
 
 /**
  * Settings > Models: setting rows. The default model is a select-shaped field
@@ -99,7 +97,6 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
   const [dirty, setDirty] = useState<ReadonlySet<string>>(() => new Set());
   const edited = dirty.size > 0;
   const [saving, setSaving] = useState<SavedRow>();
-  const savingRow = useRef<SavedRow>(undefined);
   const [saved, setSaved] = useState<SavedRow>();
   const [seenConfiguration, setSeenConfiguration] = useState(configuration);
   if (configuration !== seenConfiguration) {
@@ -129,11 +126,7 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     configuration.resolved_model_id,
   );
 
-  const apply = useApplyModelConfiguration(() => {
-    setDirty(new Set());
-    setSaved(savingRow.current);
-    setSaving(undefined);
-  });
+  const apply = useApplyModelConfiguration();
   const save = {
     isPending: apply.isPending,
     error: apply.error,
@@ -147,9 +140,17 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         values: next,
       });
       setSaved(undefined);
-      savingRow.current = row;
       setSaving(row);
-      apply.mutate({ update, requiresKey: preset.requires_api_key });
+      apply.mutate(
+        { update, requiresKey: preset.requires_api_key },
+        {
+          onSuccess: () => {
+            setDirty(new Set());
+            setSaved(row);
+            setSaving(undefined);
+          },
+        },
+      );
     },
   };
 
