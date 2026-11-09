@@ -13,6 +13,9 @@ function fractionFormat(digits: number): Intl.NumberFormat {
 /** The display text of one data cell: short decimals, readable UTC timestamps. */
 export function formatDataCell(value: unknown, key: string): string {
   if (value === undefined || value === null || value === '') return 'Unavailable';
+  // CSV dynamic typing turns ISO text into Date; show it as the timestamp it was.
+  if (value instanceof Date)
+    return Number.isNaN(value.getTime()) ? 'Unavailable' : formatDataCell(value.toISOString(), key);
   if (typeof value === 'number' && Number.isFinite(value)) {
     if (/(?:^|_)(?:id|year)(?:$|_)/iu.test(key) && Number.isInteger(value)) return String(value);
     // CSV readers can expose binary float noise (for example -0.360000014
@@ -46,6 +49,7 @@ export function formatDataCell(value: unknown, key: string): string {
 /** The exact stored text of one data cell, for its title; empty cells have none. */
 export function exactDataCell(value: unknown): string | undefined {
   if (value === undefined || value === null || value === '') return undefined;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }

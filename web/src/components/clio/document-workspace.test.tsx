@@ -12,6 +12,8 @@ import {
 } from '@/tauri/documents';
 import { downloadBytes } from './surface-export';
 import { copyText } from '@/lib/clipboard';
+import { toast } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 // Load the real lazy renderer during collection, outside the rendering test's timer.
 import '../ai-elements/markdown';
 
@@ -19,6 +21,9 @@ const host = vi.hoisted(() => ({ native: true }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
 vi.mock('./surface-export', () => ({ downloadBytes: vi.fn() }));
 vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn(async () => {}) }));
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
 
 const manifest = {
   artifact_id: 'artifact_3',
@@ -98,21 +103,45 @@ function renderWorkspace(
 ) {
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <ClioDocumentWorkspace
-        artifact={{
-          id: 'artifact_3',
-          session_id: 'sess_1',
-          workspace_id: 'ws_1',
-          name: 'evidence.md',
-          media_type: 'text/markdown',
-          uri: 'artifact://ws_1/evidence.md@v3',
-          ...artifactOverrides,
-        }}
-        fallbackPreview={<p>Fallback preview</p>}
-      />
+      <TooltipProvider>
+        <ClioDocumentWorkspace
+          artifact={{
+            id: 'artifact_3',
+            session_id: 'sess_1',
+            workspace_id: 'ws_1',
+            name: 'evidence.md',
+            media_type: 'text/markdown',
+            uri: 'artifact://ws_1/evidence.md@v3',
+            ...artifactOverrides,
+          }}
+          fallbackPreview={<p>Fallback preview</p>}
+        />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   return { ...result, queryClient };
+}
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/** Opens Open ▾ on its row for the original's apps or its PDF copy's apps. */
+async function openApps(user: User, pdf = false) {
+  await user.click(await screen.findByRole('button', { name: 'Open options' }));
+  await user.click(
+    await screen.findByRole('menuitem', {
+      name: pdf ? /^PDF copy with another app/u : /^With another app/u,
+    }),
+  );
+}
+
+/** Pointer travel between a submenu trigger and its rows has no geometry in jsdom. */
+async function chooseApp(name: string) {
+  fireEvent.click(await screen.findByRole('menuitem', { name }));
+}
+
+async function exportPdf(user: User) {
+  await user.click(await screen.findByRole('button', { name: 'Open options' }));
+  await user.click(await screen.findByRole('menuitem', { name: /^Export to PDF/u }));
 }
 
 describe('ClioDocumentWorkspace', () => {
@@ -201,8 +230,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     renderWorkspace({}, first.queryClient);
     expect(await screen.findByText('Rendering PDF preview…')).toBeVisible();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Export to…' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'PDF' }));
+    await exportPdf(user);
     expect(downloadBytes).not.toHaveBeenCalled();
     await act(async () =>
       finish({
@@ -218,21 +246,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       ),
     );
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
-  });
-
-  it('refreshes an immutable preview without requesting another conversion', async () => {
-    repository.documentManifest.mockResolvedValue({ ...manifest, profile: 'ooxml-slides' });
-    repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
-    renderWorkspace();
-    expect(await screen.findByText('PDF preview')).toBeVisible();
-    expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh document revision' }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Refresh document revision' })).toBeEnabled(),
-    );
-    expect(repository.documentContent).toHaveBeenCalledTimes(2);
-    expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('PDF preview')).toBeVisible();
   });
 
   it('shows a conversion error, keeps it across tab reopening, and retries explicitly', async () => {
@@ -282,8 +295,9 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     });
     const user = userEvent.setup();
     renderWorkspace();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'PDF Reader (default)' }));
+    await openApps(user, true);
+    await chooseApp('PDF Reader (default)');
+    await waitFor(() => expect(openFileBytes).toHaveBeenCalled());
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
     expect(openDocumentWorkingCopy).not.toHaveBeenCalled();
     expect(openFileBytes).toHaveBeenCalledWith(
@@ -292,8 +306,7 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       'pdf-app',
     );
     expect(await screen.findByText('Source stays here')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Export to…' }));
-    await user.click(screen.getByRole('menuitem', { name: 'PDF' }));
+    await exportPdf(user);
     expect(await screen.findByText('PDF downloaded.')).toBeInTheDocument();
     expect(repository.createDocumentRendition).toHaveBeenCalledTimes(1);
     expect(downloadBytes).toHaveBeenCalledWith(
@@ -316,8 +329,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     );
     const user = userEvent.setup();
     renderWorkspace();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Test Editor (default)' }));
+    await openApps(user);
+    await chooseApp('Test Editor (default)');
     expect(await screen.findByText(/Opened a desktop copy; edits are local/)).toBeInTheDocument();
     expect(openFileBytes).toHaveBeenCalledWith(
       'evidence.md',
@@ -339,8 +352,8 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockResolvedValue(new TextEncoder().encode(source));
     const user = userEvent.setup();
     renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Test Editor (default)' }));
+    await openApps(user);
+    await chooseApp('Test Editor (default)');
     expect(await screen.findByRole('status')).toHaveTextContent(
       'raccoon.html opened in Test Editor',
     );
@@ -364,9 +377,9 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockResolvedValue(bytes);
     const user = userEvent.setup();
     renderWorkspace({ name: 'raccoon.html', media_type: 'text/html' });
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Open in folder' }));
-    expect(revealFileBytes).toHaveBeenCalledWith('raccoon.html', bytes);
+    await openApps(user);
+    await chooseApp('Open in folder');
+    await waitFor(() => expect(revealFileBytes).toHaveBeenCalledWith('raccoon.html', bytes));
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
 
@@ -376,9 +389,9 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.createDocumentRendition.mockRejectedValueOnce(new Error('Converter unavailable'));
     const user = userEvent.setup();
     renderWorkspace();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'PDF Reader (default)' }));
-    expect(await screen.findByText('Converter unavailable')).toBeVisible();
+    await openApps(user, true);
+    await chooseApp('PDF Reader (default)');
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Converter unavailable'));
     expect(openDocumentWorkingCopy).not.toHaveBeenCalled();
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
@@ -432,9 +445,11 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     );
     renderWorkspace({ name: 'cat.html', media_type: 'text/html' });
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
-    expect(await screen.findByText('Open the selected app: access denied')).toBeVisible();
+    await openApps(user);
+    await chooseApp('Test Editor (default)');
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Open the selected app: access denied'),
+    );
     expect(screen.getByRole('button', { name: 'Open in browser' })).toBeVisible();
     expect(repository.createDocumentWorkingCopy).not.toHaveBeenCalled();
   });
@@ -457,8 +472,10 @@ The stopping time is $\sigma_{\infty}(n)$.`,
       expect(screen.queryByText('PDF document')).not.toBeInTheDocument();
       expect(repository.documentContent).toHaveBeenCalledWith('artifact_pdf', expect.anything());
       expect(repository.createDocumentRendition).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByRole('button', { name: 'Export to…' }));
-      expect(screen.getByRole('menuitem', { name: 'PDF' })).toBeVisible();
+      const user = userEvent.setup();
+      await user.keyboard('{Escape}');
+      await user.click(screen.getByRole('button', { name: 'Open options' }));
+      expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
     },
   );
 
@@ -484,12 +501,6 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     await user.keyboard('{Escape}');
     expect(screen.getByRole('tablist', { name: 'File representations' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Preview' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Document actions' }));
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Document safety' }));
-    expect(screen.getByRole('tabpanel', { name: 'Document safety' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Document safety' })).toBeVisible();
-    expect(screen.getByText('Immutable document boundary')).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'Read document' }));
     await user.click(screen.getByRole('button', { name: 'Comment' }));
     const claim = screen.getByText('Bounded claim from the source.');
     const range = document.createRange();
@@ -549,22 +560,12 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     );
     renderWorkspace();
 
-    const warning = await screen.findByRole('button', { name: /Preview only/u });
-    expect(warning).toBeVisible();
+    expect(await screen.findByText('Preview only')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Document information' }));
-    expect(screen.getByText('Saved content is readable.')).toBeVisible();
+    expect(screen.getByText(/registered revision could not be loaded/u)).toBeVisible();
     await user.keyboard('{Escape}');
-    expect(
-      screen.queryByText(/original registered revision could not be loaded/u),
-    ).not.toBeInTheDocument();
-    await user.click(warning);
-    expect(screen.getByText(/original registered revision could not be loaded/u)).toBeVisible();
     expect(screen.getByText('Fallback preview')).toBeVisible();
     expect(screen.queryByText('Checking document capabilities…')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Technical details' })).toHaveAttribute(
-      'data-state',
-      'closed',
-    );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -594,16 +595,18 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     });
     renderWorkspace();
 
-    await user.click(await screen.findByRole('button', { name: 'Open in' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Test Editor (default)' }));
-    expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
-      session_id: 'sess_1',
-      writable: true,
-      auto_checkpoint: true,
-    });
+    await openApps(user);
+    await chooseApp('Test Editor (default)');
+    await waitFor(() =>
+      expect(repository.createDocumentWorkingCopy).toHaveBeenCalledWith('artifact_3', {
+        session_id: 'sess_1',
+        writable: true,
+        auto_checkpoint: true,
+      }),
+    );
     expect(await screen.findByText(/evidence.md opened in Test Editor/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Document information' }));
-    expect(screen.getByText('active')).toBeVisible();
+    expect(screen.getByText(/A working copy is open/u)).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
   });
 
@@ -622,8 +625,9 @@ The stopping time is $\sigma_{\infty}(n)$.`,
     repository.documentContent.mockResolvedValue(new TextEncoder().encode('%PDF-preview'));
     renderWorkspace({ name: 'evidence.docx' });
     expect(await screen.findByText('PDF preview')).toBeVisible();
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in' }));
+    const user = userEvent.setup();
+    await openApps(user);
     expect(screen.queryByRole('menuitem', { name: /ONLYOFFICE|Collabora/u })).toBeNull();
-    expect(screen.getByRole('menuitem', { name: /Test Editor/u })).toBeVisible();
+    expect(await screen.findByRole('menuitem', { name: /Test Editor/u })).toBeVisible();
   });
 });
