@@ -12,6 +12,8 @@ export interface SegmentedOption<Value extends string> {
   disabled?: boolean;
   /** A count beside the icon of an icon-only option ("3" running); the name stays the hover name. */
   count?: number;
+  /** A small count after the label (Under review 4). Part of the name. */
+  badge?: ReactNode;
 }
 
 export interface SegmentedControlProps<Value extends string> {
@@ -78,6 +80,7 @@ function SegmentedControlImpl<Value extends string>({
                 {option.count}
               </span>
             ) : null}
+            {bare ? null : option.badge}
           </ToggleGroupItem>
         );
         return bare ? (

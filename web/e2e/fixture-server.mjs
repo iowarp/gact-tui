@@ -25,6 +25,7 @@ import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createSettingsFixture } from './settings-fixture.mjs';
 import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
 
@@ -1434,6 +1435,13 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const settingsFixture = createSettingsFixture({
+  sendJson,
+  readJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+});
 const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
@@ -1916,6 +1924,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    settingsFixture.reset();
     agentFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
@@ -1959,6 +1968,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (await settingsCatalog.handle(request, response, url, { sendJson, readJson })) return;
+  if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {

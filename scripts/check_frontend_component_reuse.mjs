@@ -157,9 +157,10 @@ const requiredImports = {
     '@/components/clio/run-actions',
   ],
   'web/src/components/clio/run-list-row.tsx': ['@/components/clio/primitives/list-row'],
+  // The default model is chosen through the shared Settings picker field, which names it.
   'web/src/components/clio/settings-session-defaults.tsx': [
     '@/components/ui/select',
-    './composer-model-label',
+    './model-select-field',
   ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],

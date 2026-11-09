@@ -1,11 +1,22 @@
 import type { MemoryCreationRun } from '@clio/core/v3';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { MessageSquareIcon, UploadIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
+import { EditIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { memoryTime } from './memory-document-helpers';
+import { MemoryErrorLine } from './memory-error-line';
+import { IconButton } from './primitives/icon-button';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { SettingsGroupLabel } from './settings-row';
 
 const STATES: Record<string, string> = {
   extracting: 'Reading conversation',
@@ -19,6 +30,19 @@ const STATES: Record<string, string> = {
   missing: 'Run unavailable',
   unknown: 'Outcome unknown',
   skipped: 'Skipped',
+};
+const TONES: Record<string, StatusTone> = {
+  extracting: 'running',
+  curating: 'running',
+  running: 'running',
+  completed: 'success',
+  no_candidates: 'idle',
+  failed: 'error',
+  error: 'error',
+  cancelled: 'stopped',
+  missing: 'error',
+  unknown: 'warning',
+  skipped: 'idle',
 };
 const REASONS: Record<string, string> = {
   too_few_new_messages: 'Waiting for more conversation messages',
@@ -67,18 +91,47 @@ function BackgroundBlocked({ reason, roles }: { reason?: string; roles?: string[
   );
 }
 
-const time = (stamp: string) =>
-  stamp && !Number.isNaN(Date.parse(stamp))
-    ? new Date(stamp).toLocaleString()
-    : 'Time not recorded';
+function runDetails(run: MemoryCreationRun): KeyValueItem[] {
+  const items: KeyValueItem[] = [
+    { label: 'Extraction model', value: run.models.extract?.model_id || 'Not recorded' },
+    { label: 'Curator model', value: run.models.curator?.model_id || 'Not started' },
+    {
+      label: 'Total model usage',
+      value:
+        run.usage.input_tokens !== null || run.usage.output_tokens !== null
+          ? `${run.usage.input_tokens?.toLocaleString() ?? 'Unknown'} input, ${run.usage.output_tokens?.toLocaleString() ?? 'unknown'} output tokens`
+          : 'Token usage unavailable',
+    },
+    {
+      label: 'Total cost',
+      value:
+        run.usage.cost_known && run.usage.cost_usd !== null
+          ? `$${run.usage.cost_usd.toFixed(4)}`
+          : 'Cost unavailable',
+    },
+  ];
+  if (run.extract) {
+    const excluded = Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0);
+    items.push({
+      label: 'Candidate facts',
+      value: `${run.extract.kept} kept of ${run.extract.returned}${excluded ? `, ${excluded} excluded` : ''}`,
+    });
+  }
+  if (run.completed_at) items.push({ label: 'Finished', value: memoryTime(run.completed_at) });
+  return items;
+}
 
 function Run({
   run,
+  expanded,
+  onToggle,
   sessionHref,
   sessionTitle,
   targetLabel,
 }: {
   run: MemoryCreationRun;
+  expanded: boolean;
+  onToggle: () => void;
   sessionHref: (id: string) => string | undefined;
   sessionTitle: (id: string) => string;
   targetLabel: (name: string) => string;
@@ -91,11 +144,10 @@ function Run({
   const source = runHref(run.source_session);
   const curator = runHref(run.curator_session);
   const manual = run.origin === 'manual';
-  const title = manual
-    ? 'Manual entry'
-    : run.origin.startsWith('import:')
-      ? 'Imported text'
-      : sessionTitle(run.source_session);
+  const imported = run.origin.startsWith('import:');
+  const title =
+    (manual ? 'Manual entry' : imported ? 'Imported text' : sessionTitle(run.source_session)) ||
+    'Memory creation';
   const counts = run.proposal_counts;
   const result = [
     counts.accepted
@@ -106,111 +158,87 @@ function Run({
   ]
     .filter(Boolean)
     .join(', ');
+  const summary = manual
+    ? run.targets[0]?.split('/').at(-1)?.replaceAll('-', ' ') || 'Saved without a model call'
+    : result || (run.extract ? `${run.extract.kept} candidate facts` : 'View run details');
   const failed = ['failed', 'error', 'missing'].includes(run.state);
+  const state = run.reason === 'no_candidates' ? 'no_candidates' : run.state;
+  const Icon = manual ? EditIcon : imported ? UploadIcon : MessageSquareIcon;
+  const link = 'text-primary underline-offset-4 hover:underline';
   return (
-    <li className="border-b last:border-b-0">
-      <details className="group">
-        <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 py-3 sm:flex sm:flex-wrap sm:gap-x-4 [&::-webkit-details-marker]:hidden">
-          <span className="col-span-3 min-w-0 sm:flex-1">
-            <span className="block truncate font-medium">{title || 'Memory creation'}</span>
-            <span className="text-sm text-muted-foreground">
-              {manual
-                ? run.targets[0]?.split('/').at(-1)?.replaceAll('-', ' ') ||
-                  'Saved without a model call'
-                : result ||
-                  (run.extract ? `${run.extract.kept} candidate facts` : 'View run details')}
-            </span>
+    <div>
+      <ItemRow
+        icon={<Icon />}
+        meta={
+          <span className="flex min-w-0 gap-3">
+            <span className="min-w-0 truncate">{summary}</span>
+            <time className="shrink-0" dateTime={run.started_at}>
+              {memoryTime(run.started_at)}
+            </time>
           </span>
-          <span className={failed ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
-            {run.reason === 'no_candidates'
-              ? 'Nothing to remember'
-              : (STATES[run.state] ?? run.state.replaceAll('_', ' '))}
-          </span>
-          <time className="text-xs text-muted-foreground" dateTime={run.started_at}>
-            {time(run.started_at)}
-          </time>
-          <span aria-hidden="true" className="text-muted-foreground group-open:rotate-90">
-            ›
-          </span>
-        </summary>
-        <div className="grid gap-3 pb-4 text-sm">
+        }
+        selected={expanded}
+        status={
+          <StatusIndicator
+            label={STATES[state] ?? state.replaceAll('_', ' ')}
+            tone={TONES[state] ?? 'info'}
+          />
+        }
+        title={
+          <button
+            aria-expanded={expanded}
+            className="max-w-full truncate text-left outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+            onClick={onToggle}
+            title={title}
+            type="button"
+          >
+            {title}
+          </button>
+        }
+      />
+      {expanded ? (
+        <div className="grid min-w-0 gap-3 border-b border-border/70 py-3 pr-2 pl-10 text-[12.5px]">
           {run.reason ? (
             <p className={failed ? 'text-destructive' : 'text-muted-foreground'}>
               {REASONS[run.reason] ?? run.reason}
             </p>
           ) : null}
-          {!manual ? (
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-1.5 [&_dd]:min-w-0 [&_dd]:break-words">
-              <dt className="text-muted-foreground">Extraction model</dt>
-              <dd>{run.models.extract?.model_id || 'Not recorded'}</dd>
-              <dt className="text-muted-foreground">Curator model</dt>
-              <dd>{run.models.curator?.model_id || 'Not started'}</dd>
-              <dt className="text-muted-foreground">Total model usage</dt>
-              <dd>
-                {run.usage.input_tokens !== null || run.usage.output_tokens !== null
-                  ? `${run.usage.input_tokens?.toLocaleString() ?? '—'} input, ${run.usage.output_tokens?.toLocaleString() ?? '—'} output tokens`
-                  : 'Token usage unavailable'}
-              </dd>
-              <dt className="text-muted-foreground">Total cost</dt>
-              <dd>
-                {run.usage.cost_known && run.usage.cost_usd !== null
-                  ? `$${run.usage.cost_usd.toFixed(4)}`
-                  : 'Cost unavailable'}
-              </dd>
-              {run.extract ? (
-                <>
-                  <dt className="text-muted-foreground">Candidate facts</dt>
-                  <dd>
-                    {run.extract.kept} kept of {run.extract.returned}
-                    {Object.values(run.extract.dropped).some(Boolean)
-                      ? `, ${Object.values(run.extract.dropped).reduce((sum, n) => sum + n, 0)} excluded`
-                      : ''}
-                  </dd>
-                </>
-              ) : null}
-              {run.completed_at ? (
-                <>
-                  <dt className="text-muted-foreground">Finished</dt>
-                  <dd>{time(run.completed_at)}</dd>
-                </>
-              ) : null}
-            </dl>
-          ) : null}
-          <div className="flex flex-wrap gap-4">
+          {!manual ? <KeyValueGrid className="max-w-md" items={runDetails(run)} /> : null}
+          <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
             {source ? (
-              <Link className="text-primary hover:underline" to={source}>
+              <Link className={link} to={source}>
                 Source conversation
               </Link>
             ) : null}
             {curator ? (
-              <Link className="text-primary hover:underline" to={curator}>
+              <Link className={link} to={curator}>
                 Curator conversation
               </Link>
             ) : null}
             {run.targets.map((target) => (
               <Link
+                className={link}
                 key={target}
-                className="text-primary hover:underline"
                 to={`/settings/memory?${new URLSearchParams({ view: 'log', doc: target })}`}
               >
                 {targetLabel(target)}
               </Link>
             ))}
             {counts.pending ? (
-              <Link className="text-primary hover:underline" to="/settings/memory?view=review">
+              <Link className={link} to="/settings/memory?view=review">
                 Review proposed changes
               </Link>
             ) : null}
           </div>
           {run.source_session && !source ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="min-w-0 truncate text-muted-foreground" title={run.source_session}>
               Source conversation is not loaded:{' '}
-              <span className="break-all font-mono">{run.source_session}</span>
+              <span className="font-mono">{run.source_session}</span>
             </p>
           ) : null}
         </div>
-      </details>
-    </li>
+      ) : null}
+    </div>
   );
 }
 
@@ -229,6 +257,7 @@ export function MemoryCreationLog({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const [open, setOpen] = useState<string>();
   const log = useInfiniteQuery({
     queryKey: ['memory', 'creation-runs', connectionScope(settings)],
     initialPageParam: undefined as string | undefined,
@@ -243,27 +272,27 @@ export function MemoryCreationLog({
   const background = log.data?.pages[0]?.background;
   const waiting = Object.entries(background?.skipped ?? {}).filter(([reason]) => REASONS[reason]);
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Memory creation attempts, including background model runs and memories you save directly.
-        </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void log.refetch()}
-          disabled={log.isFetching}
-        >
-          Refresh
-        </Button>
-      </div>
+    <div className="grid min-w-0">
+      <SettingsGroupLabel
+        actions={
+          <IconButton
+            disabled={log.isFetching}
+            icon={<RefreshIcon />}
+            label="Refresh"
+            onClick={() => void log.refetch()}
+            size="sm"
+          />
+        }
+      >
+        Background memory
+      </SettingsGroupLabel>
       {background ? (
-        <div className="text-sm text-muted-foreground">
+        <div className="grid gap-1 pb-3 text-[12.5px] text-muted-foreground">
           <p>
             {background.off
               ? 'Background memory is off.'
               : background.last_tick
-                ? `Last checked ${time(background.last_tick)}`
+                ? `Last checked ${memoryTime(background.last_tick)}`
                 : 'No background check recorded yet.'}
           </p>
           <BackgroundBlocked reason={background.skipped_reason} roles={background.roles} />
@@ -272,36 +301,39 @@ export function MemoryCreationLog({
           ) : null}
         </div>
       ) : null}
-      {log.isPending ? <p role="status">Loading creation log…</p> : null}
+      <SettingsGroupLabel>Runs</SettingsGroupLabel>
+      {log.isPending ? <Skeleton className="h-24 w-full" /> : null}
       {log.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Could not load memory creation runs: {log.error.message}
-        </p>
+        <MemoryErrorLine
+          error={log.error}
+          onRetry={() => void log.refetch()}
+          what="Memory creation runs could not be loaded."
+        />
       ) : null}
       {!log.isPending && !log.error && !runs.length ? (
-        <p className="py-4 text-sm text-muted-foreground">
-          No memory creation runs recorded yet. Runs appear here even when they find nothing to
-          remember.
-        </p>
+        <StateView kind="empty" size="row" title="No memory creation runs recorded yet" />
       ) : null}
       {runs.length ? (
-        <ul aria-label="Memory creation runs">
+        <ItemList label="Memory creation runs">
           {runs.map((run) => (
             <Run
+              expanded={open === run.id}
               key={run.id}
+              onToggle={() => setOpen((current) => (current === run.id ? undefined : run.id))}
               run={run}
               sessionHref={sessionHref}
               sessionTitle={sessionTitle}
               targetLabel={targetLabel}
             />
           ))}
-        </ul>
+        </ItemList>
       ) : null}
       {log.hasNextPage ? (
-        <div>
+        <div className="pt-3">
           <Button
-            onClick={() => void log.fetchNextPage()}
             disabled={log.isFetchingNextPage}
+            onClick={() => void log.fetchNextPage()}
+            size="sm"
             variant="outline"
           >
             Load earlier runs
