@@ -28,7 +28,7 @@ The label column sits on the left and the control on the right. Use `inlineContr
 switch. A row takes 60% of a wide page; `fullWidth` keeps the whole width for a wide control
 (a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
 behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
-from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
+from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. In the Settings window below 1024 px (rail or picker) they follow the spec's fold order: notes and the ⓘ beside rows, group labels and the page heading hide, and every row stacks, before the nav folds (`NARROW_HIDDEN` in `lib/settings-fold.ts`). Dialogs keep both. Text and
 number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,
 12.5 px, 6 px radius; number inputs are right-aligned mono. Don't restyle them per section.
 
@@ -47,7 +47,7 @@ A choice that applies at once, so it never reaches the save bar.
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
-a word), never a bare dot. `ItemList` caps the list at 760 px (the spec pane width), so
+a word), never a bare dot. Below 36rem of list width the status column narrows to at most 10rem (still one width for every row) and hover actions float over the row. `ItemList` caps the list at 760 px (the spec pane width), so
 sections don't set their own max width.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
@@ -77,7 +77,7 @@ narrows in the spec's order: from 1024 px `navigation` shows; at 768–1023 px
 Without a `rail`, `navigation` shows from 768 px.
 
 **`SettingsNavRail`** `components/clio/settings-nav-rail.tsx`
-Takes the same props as `SettingsNavigation`. It is one named icon per scope
+Takes the same props as `SettingsNavigation`. It is one named line icon per scope
 (App, workspace, agent) with the waiting-change count. Hover, click, Enter or
 → opens that scope's sections beside the rail.
 
