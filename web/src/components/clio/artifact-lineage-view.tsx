@@ -74,8 +74,8 @@ export function ArtifactLineageView({
             </EmptyMedia>
             <EmptyTitle>Couldn't read its lineage</EmptyTitle>
             <EmptyDescription>
-              The service didn't return where this file came from. The file is unchanged and
-              Render and Source still show it.
+              The service didn't return where this file came from. The file is unchanged and Render
+              and Source still show it.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>

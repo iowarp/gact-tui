@@ -12,7 +12,6 @@ import { useCatalogModel } from '@/hooks/use-catalog-model';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
-import { displayedTags, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
 import {
   findSelectedModelOption,
   matchesConfiguredModel,
@@ -21,10 +20,10 @@ import {
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ModelCapabilityTags } from './model-capability-tags';
 import { providerGroupStatus, type ProviderGroup } from './model-picker-model';
 import { ModelSelectField } from './model-select-field';
 import { SaveBar } from './primitives/save-bar';
+import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ReasoningLevelSegmented } from './reasoning-level-segmented';
 import {
@@ -40,7 +39,7 @@ import {
 import { SettingsProviderOptions } from './settings-provider-options';
 import { responseSettingError } from './settings-response-setting-error';
 import { SettingsResponseSettings } from './settings-response-settings';
-import { SettingsRow } from './settings-row';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { WorkingContextRow } from './settings-working-context';
 import { useWorkingContext, type WorkingContextState } from './use-working-context';
@@ -62,15 +61,18 @@ export function ModelsSettings() {
   return (
     <div className="flex flex-col">
       <SettingsSectionHeading
-        info="The model new work starts with. Changing it also makes it the service's default."
+        info="The model new work starts with, and how it answers."
         title="Models"
       />
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {configuration.error.message}
-        </p>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
+          kind="error"
+          size="row"
+          title={configuration.error.message}
+        />
       ) : (
         <Skeleton
           aria-label="Loading models"
@@ -200,9 +202,9 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     <div className="flex flex-col" data-slot="models-panel">
       <div data-slot="default-model-card">
         <SettingsRow
-          description="The model new work starts with. Changing it also makes it the service's default."
+          info="Model for new work. Also the service default."
           htmlFor="settings-default-model"
-          note={<DefaultModelState group={group} option={option} />}
+          note={defaultModelProblem(group, Boolean(configuration.model))}
           title="Default model"
         >
           {marker('model')}
@@ -224,8 +226,8 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       </div>
       {reasoning?.levels.length ? (
         <SettingsRow
-          description="How hard the model thinks before it answers. Default is the model's own level."
-          title="Thinking"
+          info="How hard the model thinks before it answers. Default is the model's own level."
+          title="Reasoning effort"
         >
           {marker('effort')}
           <ReasoningLevelSegmented
@@ -324,9 +326,9 @@ function ModelsBody({
   );
   return (
     <>
-      {context ? <WorkingContextRow state={context} /> : null}
       {responseSettingsVisible(catalogModel?.accepted_parameters, values.settings) ? (
         <SettingsResponseSettings
+          leading={context ? <WorkingContextRow state={context} /> : null}
           dirty={dirty}
           disabled={save.isPending}
           onEdit={(name, value) => {
@@ -339,6 +341,11 @@ function ModelsBody({
           parameters={catalogModel?.accepted_parameters}
           settings={values.settings}
         />
+      ) : context ? (
+        <section aria-label="Response settings" data-slot="response-settings">
+          <SettingsGroupLabel>Response</SettingsGroupLabel>
+          <WorkingContextRow state={context} />
+        </section>
       ) : null}
       {activePreset?.configuration_fields?.length ? (
         <SettingsProviderOptions
@@ -375,29 +382,14 @@ function ModelsBody({
   );
 }
 
-/** The default model's provider state and capability tags, on the row's note line. */
-function DefaultModelState({
-  group,
-  option,
-}: {
-  group: ProviderGroup | undefined;
-  option: ClioModelOption | undefined;
-}) {
-  const tags = option ? displayedTags(modelCapabilityTagsFromOption(option)) : [];
-  const working = group?.health === 'healthy' || group?.health === 'checking';
+/** Only a problem shows under the default model: a provider that is not working, or no model yet. */
+function defaultModelProblem(group: ProviderGroup | undefined, chosen: boolean): ReactNode {
+  if (!chosen) return <span>Choose a model to start new work with</span>;
+  if (!group) return null;
+  if (group.health === 'healthy' || group.health === 'checking') return null;
   return (
-    <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-      {group ? (
-        <span className="shrink-0" data-slot="default-model-status">
-          <StatusIndicator
-            label={working ? 'Working' : providerGroupStatus(group).label}
-            tone={working ? 'success' : 'warning'}
-          />
-        </span>
-      ) : (
-        <span>Choose a model to start new work with</span>
-      )}
-      <ModelCapabilityTags className="flex-nowrap overflow-hidden" size="sm" tags={tags} />
+    <span className="inline-flex min-w-0" data-slot="default-model-status">
+      <StatusIndicator label={providerGroupStatus(group).label} tone="warning" />
     </span>
   );
 }

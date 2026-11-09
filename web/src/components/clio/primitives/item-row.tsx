@@ -16,6 +16,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actionsVisible?: boolean;
   /** Right slot: one button (Use, Retry, Update, Trust) or a toggle. */
   slot?: ReactNode;
+  /**
+   * An inline confirmation ("Remove this rule?", Keep, Remove). It replaces
+   * status, actions and slot with one right-aligned cell across those columns.
+   */
+  confirm?: ReactNode;
   /** Column widths in px; one value for every row of a list. 0 drops the column. */
   statusWidth?: number;
   actionsWidth?: number;
@@ -47,6 +52,7 @@ export const ItemRow = memo(
       actions,
       actionsVisible = false,
       slot,
+      confirm,
       statusWidth = 158,
       actionsWidth = 104,
       slotWidth = 84,
@@ -68,12 +74,14 @@ export const ItemRow = memo(
       <div
         ref={ref}
         data-slot="item-row"
+        data-confirm={confirm ? '' : undefined}
         data-selected={selected || undefined}
         style={columns}
         className={cn(
           'group/item-row relative grid min-w-0 grid-cols-[1.25rem_minmax(0,1fr)_var(--item-status)_var(--item-actions)_var(--item-slot)] items-center gap-x-2.5 border-b border-border/70 px-2 whitespace-nowrap outline-none',
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
+          'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
           actionsVisible
             ? '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-actions)_var(--item-slot)]'
             : '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-slot)]',
@@ -126,22 +134,33 @@ export const ItemRow = memo(
             </span>
           ) : null}
         </span>
-        <span className="flex min-w-0 items-center overflow-hidden" data-slot="item-row-status">
-          {status}
-        </span>
-        <span
-          className={cn(
-            'flex min-w-0 items-center justify-end gap-px',
-            !actionsVisible &&
-              'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+1.125rem)] @max-xl:bg-hover @max-xl:w-[min(var(--item-status),7.5rem)] @max-xl:min-w-max',
-          )}
-          data-slot="item-row-actions"
-        >
-          {actions}
-        </span>
-        <span className="flex min-w-0 items-center justify-end gap-2" data-slot="item-row-slot">
-          {slot}
-        </span>
+        {confirm ? (
+          <span
+            className="col-[3/-1] flex min-w-0 items-center justify-end gap-2"
+            data-slot="item-row-confirm"
+          >
+            {confirm}
+          </span>
+        ) : (
+          <>
+            <span className="flex min-w-0 items-center overflow-hidden" data-slot="item-row-status">
+              {status}
+            </span>
+            <span
+              className={cn(
+                'flex min-w-0 items-center justify-end gap-px',
+                !actionsVisible &&
+                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+1.125rem)] @max-xl:bg-hover @max-xl:w-[min(var(--item-status),7.5rem)] @max-xl:min-w-max',
+              )}
+              data-slot="item-row-actions"
+            >
+              {actions}
+            </span>
+            <span className="flex min-w-0 items-center justify-end gap-2" data-slot="item-row-slot">
+              {slot}
+            </span>
+          </>
+        )}
       </div>
     );
   }),

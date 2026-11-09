@@ -170,11 +170,11 @@ it('downloads the artifact with its evidence as one ZIP', async () => {
     downloaded = blob as Blob;
     return 'blob:evidence';
   });
-  const click = vi
-    .spyOn(HTMLAnchorElement.prototype, 'click')
-    .mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe('Drafts-result.csv.crate.zip');
-    });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    expect(this.download).toBe('Drafts-result.csv.crate.zip');
+  });
   const [artifact] = sources;
   if (artifact?.kind !== 'artifact') throw new Error('Expected an artifact source');
   mount({ ...artifact, artifact: { ...artifact.artifact, name: 'Drafts / π result.csv' } });
@@ -205,6 +205,6 @@ it('offers evidence only for recorded artifacts', async () => {
   mount(sources[1]);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Download$|^Download D/u })).toBeVisible();
+  expect(await screen.findByRole('menuitem', { name: /^Download(?! with)/u })).toBeVisible();
   expect(screen.queryByRole('menuitem', { name: /^Download with evidence/u })).toBeNull();
 });

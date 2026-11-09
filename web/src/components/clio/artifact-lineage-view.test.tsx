@@ -95,11 +95,12 @@ it('draws the recorded lineage and opens the producing action in Activity', asyn
     { direction: 'both', depth: 5 },
     expect.any(AbortSignal),
   );
-  expect(client.getQueryCache().findAll().map((query) => query.queryKey)).toContainEqual([
-    'artifact-detail',
-    'http://127.0.0.1:8790',
-    'artifact_2',
-  ]);
+  expect(
+    client
+      .getQueryCache()
+      .findAll()
+      .map((query) => query.queryKey),
+  ).toContainEqual(['artifact-detail', 'http://127.0.0.1:8790', 'artifact_2']);
   await userEvent.click(action);
   expect(onOpenActivity).toHaveBeenCalledWith({
     callId: 'call_2',
@@ -126,7 +127,7 @@ it('keeps a service error behind a plain-language state', async () => {
   mount();
   expect(await screen.findByText("Couldn't read its lineage")).toBeVisible();
   expect(screen.getByText(/Render and Source still show it/u)).toBeVisible();
-  expect(screen.queryByText('lineage index missing for artifact_internal_123')).not.toBeVisible();
+  expect(screen.queryByText('lineage index missing for artifact_internal_123')).toBeNull();
   await userEvent.click(screen.getByText('Technical details'));
   expect(screen.getByText('lineage index missing for artifact_internal_123')).toBeVisible();
 });

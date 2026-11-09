@@ -46,7 +46,7 @@ for (const width of [1280, 390]) {
     expect(rowCount).toBeGreaterThan(11);
     await grid.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expect(grid.locator(`[role="row"][aria-rowindex="${rowCount}"]`)).toBeVisible();
-    for (const name of ['Versions', 'Lineage', 'Preview']) {
+    for (const name of ['Lineage', 'Preview']) {
       await selectFileView(page, viewer, name);
     }
     await expect(grid).toBeVisible();

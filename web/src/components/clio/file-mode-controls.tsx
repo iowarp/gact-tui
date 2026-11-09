@@ -132,7 +132,9 @@ export function FileModeControls({
 }) {
   const slot = useContext(FileViewerModeSlotContext);
   if (slot)
-    return <LiftedModes slot={slot} modes={modes} value={value} onChange={onChange} label={label} />;
+    return (
+      <LiftedModes slot={slot} modes={modes} value={value} onChange={onChange} label={label} />
+    );
   if (modes.length < 2) return null;
   return (
     <>
@@ -140,7 +142,10 @@ export function FileModeControls({
         <TabsList
           aria-label={label}
           data-slot="viewer-modes"
-          className={cn(MODE_SEGMENT_CLASS, 'group-data-horizontal/tabs:h-7 group-data-[fold-talk]/frame:hidden')}
+          className={cn(
+            MODE_SEGMENT_CLASS,
+            'group-data-horizontal/tabs:h-7 group-data-[fold-talk]/frame:hidden',
+          )}
         >
           {modes.map((mode) => (
             <FileModeTrigger key={mode.value} mode={mode} />

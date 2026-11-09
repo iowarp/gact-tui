@@ -102,7 +102,8 @@ export function layoutArtifactLineage(
   if (!root) placed.push(selfFallback(artifact, lineage.root, earlier));
   const edges = lineage.edges
     .filter(
-      (edge) => edge.type !== 'revision_of' && !versionIds.has(edge.from) && !versionIds.has(edge.to),
+      (edge) =>
+        edge.type !== 'revision_of' && !versionIds.has(edge.from) && !versionIds.has(edge.to),
     )
     .map((edge) => ({ from: edge.from, to: edge.to }));
   if (!edges.length && placed.length === 1) {
@@ -264,7 +265,13 @@ export function layoutNodes(
   links: readonly { from: string; to: string }[],
 ): LineageGraphLayout {
   const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({ rankdir: 'LR', nodesep: ROW_GAP, ranksep: RANK_GAP, marginx: MARGIN, marginy: 12 });
+  graph.setGraph({
+    rankdir: 'LR',
+    nodesep: ROW_GAP,
+    ranksep: RANK_GAP,
+    marginx: MARGIN,
+    marginy: 12,
+  });
   const widths = new Map(placed.map((node) => [node.id, nodeWidth(node)]));
   for (const node of placed)
     graph.setNode(node.id, { width: widths.get(node.id), height: LINEAGE_NODE_HEIGHT });
@@ -340,4 +347,3 @@ function numberField(node: ArtifactLineageNode, key: string): number | undefined
   const value = node[key];
   return typeof value === 'number' ? value : undefined;
 }
-

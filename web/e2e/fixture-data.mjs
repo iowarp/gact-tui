@@ -176,6 +176,208 @@ export const providerCatalog = {
   ],
 };
 
+/** The cloud preset `/v1/providers/lm` always reports: the active model by default. */
+export const codexPreset = {
+  id: 'codex',
+  label: 'Codex',
+  provider: 'codex',
+  api_base: 'codex://direct',
+  suggested_model: 'gpt-5.6-luna',
+  requires_api_key: false,
+  is_authenticated: true,
+  supports_live_catalog: true,
+  supports_vision: true,
+};
+
+function localPreset({ id, label, provider, litellmPrefix, apiBase, suggested, description }) {
+  return {
+    id,
+    provider_id: id,
+    label,
+    provider,
+    litellm_prefix: litellmPrefix,
+    api_base: apiBase,
+    suggested_model: suggested,
+    requires_api_key: false,
+    auth_method: 'none',
+    auth_label: '',
+    is_authenticated: true,
+    description,
+    status: 'ready',
+    status_message: '',
+    supports_live_catalog: true,
+    supports_vision: false,
+    configuration_fields: [],
+    supports_runtime_sizing: false,
+    managed_service_id: '',
+    supports_logout: false,
+  };
+}
+
+/**
+ * The model servers a person runs on their own hardware, as the service's
+ * presets report them: no key, no sign-in, an http address. `vllm` is also the
+ * preset every custom OpenAI-compatible server is reached through. The server
+ * fills `status`/`status_message` from whether the runtime answers right now.
+ */
+export const localServerPresets = [
+  localPreset({
+    id: 'ollama',
+    label: 'Ollama',
+    provider: 'ollama',
+    litellmPrefix: 'ollama_chat',
+    apiBase: 'http://localhost:11434/v1',
+    suggested: 'qwen3:32b',
+    description: 'Locally-hosted models via Ollama.',
+  }),
+  localPreset({
+    id: 'lmstudio',
+    label: 'LM Studio',
+    provider: 'lm_studio',
+    litellmPrefix: 'lm_studio',
+    apiBase: 'http://localhost:1234/v1',
+    suggested: 'qwen3-30b',
+    description: 'Locally-hosted models via LM Studio.',
+  }),
+  localPreset({
+    id: 'llama_cpp',
+    label: 'llama.cpp',
+    provider: 'openai',
+    litellmPrefix: 'openai',
+    apiBase: 'http://localhost:8080/v1',
+    suggested: 'Qwen3-8B-Q4_K_M.gguf',
+    description: 'A llama.cpp server (llama-server) on this computer.',
+  }),
+  {
+    ...localPreset({
+      id: 'vllm',
+      label: 'vLLM or other OpenAI-compatible server',
+      provider: 'openai',
+      litellmPrefix: 'hosted_vllm',
+      apiBase: 'http://localhost:8000/v1',
+      suggested: '',
+      description: 'Any OpenAI-compatible server: vLLM, SGLang, TGI or your own.',
+    }),
+    supports_vision: true,
+  },
+];
+
+/** What each local runtime serves while it runs, with each model's context window. */
+export const localRuntimeModels = {
+  ollama: [
+    { id: 'qwen3:32b', context_window: 40960 },
+    { id: 'qwen3:8b', context_window: 40960 },
+    { id: 'llama3.3:70b', context_window: 131072 },
+    { id: 'gemma3:27b', context_window: 131072 },
+    { id: 'nomic-embed-text', context_window: 8192 },
+    { id: 'mistral-small3.2', context_window: 131072 },
+  ],
+  lmstudio: [
+    { id: 'qwen3-30b', context_window: 262144 },
+    { id: 'text-embedding-nomic-embed-text-v1.5', context_window: 2048 },
+  ],
+  llama_cpp: [{ id: 'Qwen3-8B-Q4_K_M.gguf', context_window: 40960 }],
+};
+
+const noReasoning = { supported: false, parameter: '', levels: [], default: '', source: '' };
+
+/** Ollama answering with its six models: the default model in the settings spec. */
+export const ollamaCatalogEntry = {
+  id: 'ollama',
+  name: 'Ollama',
+  kind: 'ollama',
+  endpoint: 'http://localhost:11434/v1',
+  configuration_url: '/settings/providers?provider=ollama',
+  connectivity: 'ok',
+  auth: 'not_required',
+  health: 'ready',
+  freshness: { generated_at: observedAt, source: 'live_handshake' },
+  failure: '',
+  models: localRuntimeModels.ollama.map(({ id, context_window }) =>
+    providerCatalogModel({
+      provider_id: 'ollama',
+      provider_kind: 'ollama',
+      endpoint: 'http://localhost:11434/v1',
+      model_id: id,
+      context_window,
+      loaded_context_window: id === 'qwen3:32b' ? 32768 : null,
+      output_limit: null,
+      availability: id === 'nomic-embed-text' ? 'not_chat' : 'available',
+      chat_selectable: id === 'nomic-embed-text' ? false : undefined,
+      native_tool_calling: id !== 'nomic-embed-text',
+      reasoning: id.startsWith('qwen3')
+        ? {
+            supported: true,
+            parameter: 'think',
+            levels: ['low', 'medium', 'high'],
+            default: 'medium',
+            source: 'ollama_show',
+          }
+        : noReasoning,
+      accepted_parameters:
+        id === 'nomic-embed-text'
+          ? []
+          : [
+              acceptedParameter(
+                'temperature',
+                'Temperature',
+                'sampling',
+                'number',
+                0,
+                2,
+                0.05,
+                0.7,
+              ),
+              acceptedParameter('top_p', 'Top P', 'sampling', 'number', 0, 1, 0.01),
+              acceptedParameter(
+                'max_tokens',
+                'Longest reply',
+                'length',
+                'integer',
+                1,
+                context_window,
+                256,
+              ),
+              acceptedParameter('parallel', 'Replies at once', 'advanced', 'integer', 1, 8, 1),
+            ],
+      evidence: {
+        source: 'live_handshake',
+        generated_at: observedAt,
+        live: true,
+        context_source: 'ollama_show',
+      },
+      context_controls:
+        id === 'nomic-embed-text'
+          ? undefined
+          : {
+              semantics: 'model',
+              maximum: context_window,
+              maximum_reason: 'Reported by Ollama for this model.',
+              minimum: 256,
+              current: id === 'qwen3:32b' ? 32768 : context_window,
+              current_choice: id === 'qwen3:32b' ? 'number' : 'max',
+              current_reason: id === 'qwen3:32b' ? 'Set in Settings.' : 'The model’s maximum.',
+              fit_to_gpu: {
+                available: false,
+                reason: 'CLIO binds this model but does not run it.',
+                strategy: '',
+                strategies: [],
+              },
+            },
+    }),
+  ),
+};
+
+/** LM Studio saved but not running: it answered nothing at its address. */
+export const lmStudioNotRunningCatalogEntry = {
+  ...providerCatalog.providers[0],
+  endpoint: 'http://localhost:1234/v1',
+  connectivity: 'unreachable',
+  health: 'unavailable',
+  failure: 'No answer at http://localhost:1234/v1',
+  models: [],
+};
+
 /**
  * One compaction record: a `summarization` injection carrying the summary the
  * agent received. Compaction APPENDS it to the transcript rather than replacing
@@ -249,3 +451,121 @@ export const readyResource = {
     updated_at: observedAt,
   },
 };
+
+const spend = (tokens, cost) => ({
+  tokens_input: Math.round(tokens * 0.7),
+  tokens_cached: Math.round(tokens * 0.2),
+  tokens_output: Math.round(tokens * 0.1),
+  tokens,
+  cost_usd: cost,
+  turns_without_cost: 0,
+  turns: Math.max(1, Math.round(tokens / 40_000)),
+});
+
+/** Settings > Usage: one account of each billing kind, resets relative to now. */
+export function settingsUsageAccounts(now = Date.now()) {
+  const at = (minutes) => new Date(now + minutes * 60_000).toISOString();
+  const observed = new Date(now - 3 * 60_000).toISOString();
+  const usage = (account, extra) => ({
+    account,
+    state: 'metered',
+    observed_at: observed,
+    source: 'provider',
+    windows: [],
+    balance: null,
+    status: '',
+    read_failure: '',
+    read_failed_at: '',
+    ...extra,
+  });
+  return [
+    {
+      id: 'openai-codex',
+      label: 'ChatGPT Pro',
+      provider_kind: 'codex',
+      billing: 'subscription',
+      health: 'ready',
+      failure: '',
+      endpoint: '',
+      usage: usage('openai-codex', {
+        windows: [
+          { name: '5 hour', used_percent: 62, resets_at: at(134), window_minutes: 300 },
+          {
+            name: 'Weekly',
+            used_percent: 31,
+            resets_at: at(3 * 1440 + 300),
+            window_minutes: 10080,
+          },
+        ],
+      }),
+      usage_missing_reason: '',
+      spend: spend(1_840_000, 0),
+      delegation_allowed: true,
+    },
+    {
+      id: 'github-copilot',
+      label: 'GitHub Copilot',
+      provider_kind: 'copilot',
+      billing: 'subscription',
+      health: 'ready',
+      failure: '',
+      endpoint: '',
+      usage: usage('github-copilot', {
+        windows: [
+          {
+            name: 'Premium requests',
+            used_percent: 86,
+            resets_at: at(9 * 1440),
+            window_minutes: null,
+          },
+        ],
+        read_failure: 'timed out',
+        read_failed_at: observed,
+      }),
+      usage_missing_reason: '',
+      spend: spend(420_000, 0),
+      delegation_allowed: false,
+    },
+    {
+      id: 'openrouter',
+      label: 'OpenRouter',
+      provider_kind: 'openai-compatible',
+      billing: 'credit',
+      health: 'ready',
+      failure: '',
+      endpoint: 'https://openrouter.ai/api/v1',
+      usage: usage('openrouter', {
+        balance: { remaining: 18.42, limit: 50, used: 31.58, currency: 'USD' },
+      }),
+      usage_missing_reason: '',
+      spend: spend(960_000, 4.18),
+      delegation_allowed: true,
+    },
+    {
+      id: 'anthropic',
+      label: 'Anthropic API',
+      provider_kind: 'anthropic',
+      billing: 'metered',
+      health: 'unauthorized',
+      failure: '401 invalid x-api-key',
+      endpoint: 'https://api.anthropic.com',
+      usage: null,
+      usage_missing_reason: 'not_supported',
+      spend: spend(210_000, 2.71),
+      delegation_allowed: false,
+    },
+    {
+      id: 'ollama',
+      label: 'Ollama',
+      provider_kind: 'ollama',
+      billing: 'free',
+      health: 'ready',
+      failure: '',
+      endpoint: 'http://127.0.0.1:11434',
+      usage: usage('ollama', { state: 'unmetered', source: 'local' }),
+      usage_missing_reason: '',
+      spend: spend(3_200_000, 0),
+      delegation_allowed: true,
+    },
+  ];
+}

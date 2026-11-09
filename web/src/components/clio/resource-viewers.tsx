@@ -8,25 +8,16 @@ import {
 import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
-import { brand } from '@brand';
 import { useQuery } from '@tanstack/react-query';
-import {
-  CopyIcon,
-  ExternalLinkIcon,
-  EyeIcon,
-  FileCode2Icon,
-} from 'lucide-react';
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { EyeIcon } from 'lucide-react';
+import { lazy, Suspense, useMemo } from 'react';
 
 import { FileTextView } from './file-text-view';
 import { textFileFormat } from '@/lib/file-presentation';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { formatBytes } from '@/lib/format';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 
@@ -44,8 +35,14 @@ import { HtmlFileInBrowser } from './html-in-browser';
 import { isHtmlFile } from '@/lib/html-in-browser';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import {
+  ResourceLoading,
+  ViewerNoPreview,
+  ViewerReadError,
+  ViewerTooLarge,
+} from './resource-states';
 import { FileViewerShell } from './file-viewer-shell';
+import type { FileViewerSource } from './file-viewer-source';
 
 import { ImageResourceView } from './image-resource-view';
 import { StreamArtifactView } from './stream-artifact-view';
@@ -83,48 +80,61 @@ export function WorkspaceFileView({
   const hdf5Viewer = useHdf5ViewerSupported();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
-  const preview =
-    detected === 'application/pdf' ? (
-      <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
-    ) : detected.startsWith('image/') ? (
-      <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
-    ) : html ? (
-      <WorkspaceTextView
-        html={{ openOnShow: !embedded }}
-        path={path}
-        size={size}
-        workspaceId={workspaceId}
-        mediaType={detected}
-      />
-    ) : isTextMediaType(detected) ? (
-      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
-    ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
-      <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />}>
-        <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
-      </Suspense>
-    ) : officeMediaType(path) ? (
-      <WorkspaceDocumentView
-        documentView={(artifact) => (
-          <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
-        )}
-        fallback={
-          <WorkspaceBinaryView
-            mediaType={detected}
-            path={path}
-            size={size}
-            workspaceId={workspaceId}
-          />
-        }
-        mediaType={officeMediaType(path)!}
-        path={path}
-        workspaceId={workspaceId}
-      />
-    ) : (
-      <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
-    );
+  const source: FileViewerSource = {
+    kind: 'workspace',
+    workspaceId,
+    path,
+    mediaType: detected,
+    size,
+  };
+  // PDFs and images are read whole, so past the inline cap they are offered, not read.
+  const tooLarge =
+    (detected === 'application/pdf' || detected.startsWith('image/')) &&
+    size !== undefined &&
+    size > INLINE_PREVIEW_MAX_BYTES;
+  const preview = tooLarge ? (
+    <ViewerTooLarge size={size} source={source} />
+  ) : detected === 'application/pdf' ? (
+    <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+  ) : detected.startsWith('image/') ? (
+    <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
+  ) : html ? (
+    <WorkspaceTextView
+      html={{ openOnShow: !embedded }}
+      path={path}
+      size={size}
+      workspaceId={workspaceId}
+      mediaType={detected}
+    />
+  ) : isTextMediaType(detected) ? (
+    <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
+  ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
+    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+      <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
+    </Suspense>
+  ) : officeMediaType(path) ? (
+    <WorkspaceDocumentView
+      documentView={(artifact) => (
+        <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+      )}
+      fallback={
+        <WorkspaceBinaryView
+          mediaType={detected}
+          path={path}
+          size={size}
+          workspaceId={workspaceId}
+        />
+      }
+      mediaType={officeMediaType(path)!}
+      path={path}
+      workspaceId={workspaceId}
+    />
+  ) : (
+    <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+  );
   return (
     <FileViewerShell
-      source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
+      source={source}
       showIdentity={!embedded}
       tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
     />
@@ -165,6 +175,7 @@ function WorkspacePdfView({
           error={content.error?.message}
           initialPage={initialPage}
           name={fileName(path)}
+          onRetry={() => void content.refetch()}
         />
       </div>
     </WorkspaceFileComments>
@@ -199,6 +210,7 @@ function WorkspaceImageView({
         error={content.error?.message}
         mediaType={mediaType}
         name={fileName(path)}
+        onRetry={() => void content.refetch()}
       />
     </WorkspaceFileComments>
   );
@@ -215,50 +227,7 @@ function WorkspaceBinaryView({
   mediaType: string;
   size?: number;
 }) {
-  const repository = useRepository();
-  const [busy, setBusy] = useState(false);
-
-  const open = async () => {
-    setBusy(true);
-    try {
-      const bytes = await repository.readWorkspaceFileBytes(workspaceId, path);
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(bytes).buffer], { type: mediaType }),
-      );
-      window.open(url, '_blank', 'noopener,noreferrer');
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Could not open ${fileName(path)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="grid h-full place-items-center p-6">
-      <Empty className="max-w-lg">
-        <EmptyHeader>
-          <EmptyTitle>No inline preview</EmptyTitle>
-          <EmptyDescription>
-            {mediaType}, {size === undefined ? 'Size unavailable' : formatBytes(size)}
-          </EmptyDescription>
-          <div className="flex flex-wrap justify-center gap-2 pt-2">
-            <Button disabled={busy} onClick={() => void open()} size="sm">
-              <ExternalLinkIcon aria-hidden="true" />
-              {busy ? 'Opening…' : 'Open'}
-            </Button>
-            <Button
-              onClick={() => void navigator.clipboard.writeText(path)}
-              size="sm"
-              variant="outline"
-            >
-              <CopyIcon aria-hidden="true" /> Copy path
-            </Button>
-          </div>
-        </EmptyHeader>
-      </Empty>
-    </div>
-  );
+  return <ViewerNoPreview source={{ kind: 'workspace', workspaceId, path, mediaType, size }} />;
 }
 
 type ArtifactViewProps = {
@@ -371,9 +340,21 @@ function ArtifactFileView({
         Open current workspace file
       </Button>
     ) : null;
+  const source: FileViewerSource = {
+    kind: 'artifact',
+    artifact,
+    workspaceId,
+    verifiedWorkspacePath: text.data?.recovered
+      ? text.data.recoveredPath
+      : image.data?.recovered
+        ? image.data.recoveredPath
+        : undefined,
+    unavailable:
+      payloadError instanceof ArtifactRecoveryError || isMissingArtifactPayload(payloadError),
+  };
   const preview = canPreviewText ? (
     !canLoadInline ? (
-      <LargeResourceNotice name={artifact.name} size={previewSize} />
+      <ViewerTooLarge size={previewSize} source={source} />
     ) : text.data ? (
       artifact.producer?.['designation'] === 'dashboard-report' ||
       artifact.name.endsWith('.dashboard.json') ? (
@@ -397,13 +378,13 @@ function ArtifactFileView({
         </ArtifactVersionComments>
       )
     ) : text.error ? (
-      <ResourceUnavailable
-        detail={
+      <ViewerReadError
+        error={
           text.error instanceof ArtifactRecoveryError
             ? text.error.message
-            : 'The service remembers this result, but its saved content is no longer available. Custody and provenance remain visible below.'
+            : 'The service remembers this result, but its saved content is no longer available. Lineage and Versions still show where it came from.'
         }
-        label="Saved content unavailable"
+        onRetry={() => void text.refetch()}
       />
     ) : (
       <ResourceLoading label={`Loading ${artifact.name}`} />
@@ -426,28 +407,14 @@ function ArtifactFileView({
         />
       </ArtifactVersionComments>
     ) : (
-      <LargeResourceNotice name={artifact.name} size={previewSize} />
+      <ViewerTooLarge size={previewSize} source={source} />
     )
   ) : (
-    <ResourceUnavailable
-      detail="The service does not advertise an inline renderer for this media type."
-      label="Preview unavailable"
-    />
+    <ViewerNoPreview source={source} />
   );
   return (
     <FileViewerShell
-      source={{
-        kind: 'artifact',
-        artifact,
-        workspaceId,
-        verifiedWorkspacePath: text.data?.recovered
-          ? text.data.recoveredPath
-          : image.data?.recovered
-            ? image.data.recoveredPath
-            : undefined,
-        unavailable:
-          payloadError instanceof ArtifactRecoveryError || isMissingArtifactPayload(payloadError),
-      }}
+      source={source}
       hasDocumentActions={
         !canPreviewImage && isDocumentArtifact(artifact.media_type, artifact.name)
       }
@@ -528,6 +495,8 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'json',
       'jsx',
       'md',
+      'mmd',
+      'mermaid',
       'py',
       'rs',
       'sh',
@@ -596,24 +565,6 @@ function isDocumentArtifact(mediaType: string, name: string): boolean {
   ].includes(name.split('.').at(-1)?.toLowerCase() ?? '');
 }
 
-function LargeResourceNotice({ name, size }: { name: string; size?: number }) {
-  return (
-    <ResourceUnavailable
-      detail={
-        size === undefined
-          ? `The service did not report a size, so ${brand.name} did not download this file into the browser. Use a bounded analysis or visualization action to inspect it.`
-          : `${formatBytes(size)} exceeds the ${formatBytes(INLINE_PREVIEW_MAX_BYTES)} inline-read budget. ${brand.name} left the source untouched; use a bounded analysis or visualization action to inspect it.`
-      }
-      icon={FileCode2Icon}
-      label={
-        size === undefined
-          ? `${name} has no verified preview size`
-          : `${name} is too large for an inline preview`
-      }
-    />
-  );
-}
-
 function imageMediaType(path: string): string {
   const extension = path.split('.').at(-1)?.toLowerCase();
   if (extension === 'svg') return 'image/svg+xml';
@@ -630,6 +581,7 @@ function inferredWorkspaceMediaType(path: string): string {
   if (isImagePath(path)) return imageMediaType(path);
   if (extension === 'json') return 'application/json';
   if (extension === 'xml') return 'application/xml';
+  if (extension === 'mmd' || extension === 'mermaid') return 'text/vnd.mermaid';
   // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is
   // usually HDF4.
   if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;

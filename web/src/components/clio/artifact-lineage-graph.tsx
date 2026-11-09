@@ -57,7 +57,11 @@ export function ArtifactLineageGraph({
     if (node.folds) setUnfolded((value) => !value);
     else if (node.artifact) onOpenArtifact?.(node.artifact);
     else if (node.callId)
-      onOpenActivity?.({ callId: node.callId, tool: node.tool ?? node.name, sessionId: node.sessionId });
+      onOpenActivity?.({
+        callId: node.callId,
+        tool: node.tool ?? node.name,
+        sessionId: node.sessionId,
+      });
   };
   return (
     <LineageGraph
@@ -210,4 +214,3 @@ function LineageGraph({
     </div>
   );
 }
-
