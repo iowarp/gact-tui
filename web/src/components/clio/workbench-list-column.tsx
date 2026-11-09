@@ -248,9 +248,12 @@ function FilesList({
             changedPaths.size ? (
               <>
                 <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
-                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
+                <p
+                  className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint"
+                  title="Teal: changed in this conversation"
+                >
                   <span className="truncate">
-                    <span className="text-changed">Teal</span>: changed in this conversation
+                    <span className="text-changed">Teal</span>: changed by the agent
                   </span>
                 </p>
               </>
