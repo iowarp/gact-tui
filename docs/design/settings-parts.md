@@ -50,7 +50,7 @@ status, actions and slot columns have fixed widths that every row in an `ItemLis
 a word), never a bare dot. Settings lists keep the default widths (status 158, actions 104,
 slot 84 px) so the status word sits at the same x on every page; don't pass per-section
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
-aligned. Below 42rem of list width the status column narrows to at most 7.5rem and hover
+aligned. Below 42rem of list width the status column narrows to at most 9rem and hover
 actions float over the row instead of reserving their column. Sections don't set their
 own max width. `confirm` swaps status, actions and slot for one right-aligned inline
 confirmation ("Remove this rule?", Keep, Remove) and tints the row.
