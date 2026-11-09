@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useCommandKeyHeld, useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { useClioMenuRequest } from '@/lib/clio-menu-request';
+import { isSettingsRoute } from '@/lib/settings-window-route';
 import { cn } from '@/lib/utils';
 import { AgentConnectionIdentity } from './agent-connection-identity';
 import { ClioMenuContent } from './clio-menu';
@@ -64,6 +66,8 @@ export function NavigationHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
+  // Behind Settings the CLIO menu is covered, so the request falls through.
+  useClioMenuRequest(() => setMenuOpen(true), !isSettingsRoute(currentPath));
 
   return (
     <SidebarHeader className="gap-1 px-2 pb-2 pt-2">

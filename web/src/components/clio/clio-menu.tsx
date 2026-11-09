@@ -123,6 +123,40 @@ function focusFirstItem(from: HTMLElement) {
 }
 
 /**
+ * A saved agent to switch to: its name, address and state. Shared by the CLIO
+ * menu and the desktop title bar's Agent menu.
+ */
+export function SwitchAgentItem({
+  availability,
+  connection,
+  onConnect,
+}: {
+  availability: ConnectionAvailability;
+  connection: ConnectionSettings;
+  onConnect: (connection: ConnectionSettings) => void | Promise<void>;
+}) {
+  const saved = agentIdentity(connection.endpoint, connection.label, connection.location);
+  const unavailable = availability.state === 'unavailable';
+  return (
+    <DropdownMenuItem
+      className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
+      disabled={unavailable}
+      onSelect={() => void onConnect(connection)}
+      title={`${connection.endpoint}. ${availability.label}: ${availability.detail}`}
+    >
+      <MenuRow
+        className="gap-[9px]"
+        detail={saved.address}
+        icon={KIND_ICON[saved.kind]}
+        label={saved.name}
+        muted={unavailable}
+        status={availabilityStatus(availability, false)}
+      />
+    </DropdownMenuItem>
+  );
+}
+
+/**
  * The CLIO menu: who the interface is talking to and its details, the other
  * saved agents, the ways to add one, and the way to Infrastructure.
  */
@@ -266,31 +300,14 @@ export function ClioMenuContent({
           </DropdownMenuItem>
         </div>
         {others.length ? (
-          others.map(({ connection, saved }) => {
-            const availability = connectionAvailability(
-              connectionAvailabilities,
-              connection.endpoint,
-            );
-            const unavailable = availability.state === 'unavailable';
-            return (
-              <DropdownMenuItem
-                className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
-                disabled={unavailable}
-                key={connection.endpoint}
-                onSelect={() => void onConnect(connection)}
-                title={`${connection.endpoint}. ${availability.label}: ${availability.detail}`}
-              >
-                <MenuRow
-                  className="gap-[9px]"
-                  detail={saved.address}
-                  icon={KIND_ICON[saved.kind]}
-                  label={saved.name}
-                  muted={unavailable}
-                  status={availabilityStatus(availability, false)}
-                />
-              </DropdownMenuItem>
-            );
-          })
+          others.map(({ connection }) => (
+            <SwitchAgentItem
+              availability={connectionAvailability(connectionAvailabilities, connection.endpoint)}
+              connection={connection}
+              key={connection.endpoint}
+              onConnect={onConnect}
+            />
+          ))
         ) : (
           <p className="truncate px-2 py-1.5 text-[12px] text-muted-foreground">
             {needle ? 'No saved agent matches' : 'No other saved agents'}
