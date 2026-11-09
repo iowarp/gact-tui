@@ -287,7 +287,7 @@ function ViewerState({
       {detail ? (
         <span
           title={detail}
-          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-faint"
+          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-muted-foreground"
         >
           {detail}
         </span>
@@ -305,7 +305,7 @@ function ViewerState({
               <IconButton
                 key={entry.label}
                 className={cn(
-                  'size-[30px] shrink-0 rounded-[6px] text-faint [&_svg:not([class*=size-])]:size-5',
+                  'size-[30px] shrink-0 rounded-[6px] text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-5',
                 )}
                 disabled={entry.disabled}
                 icon={entry.icon}

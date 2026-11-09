@@ -96,6 +96,73 @@ async function alignLatestActivityAtTop(page: Page) {
   await alignTranscriptAnchorAtTop(page, activityLane);
 }
 
+/**
+ * Each region keeps the former whole-page pixel budget. Text anti-aliasing
+ * jitter does not shrink with the region, and a regression confined to one
+ * surface must still move as many pixels as it did on the whole page.
+ */
+const desktopMaxDiffPixels = 3500;
+const mobileMaxDiffPixels = 1500;
+
+type ScreenshotBudget = { animations: 'allow' | 'disabled'; maxDiffPixels: number };
+
+/**
+ * Compare one surface against its own baseline. A soft assertion lets one run
+ * report every changed region.
+ */
+async function expectRegionScreenshot(
+  region: Locator,
+  name: string,
+  { animations, maxDiffPixels, mask = [] }: ScreenshotBudget & { mask?: Locator[] },
+) {
+  await expect(region).toBeVisible();
+  await expect.soft(region).toHaveScreenshot(name, {
+    animations,
+    mask,
+    maskColor: '#ff00ff',
+    maxDiffPixels,
+  });
+}
+
+type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer' | 'status';
+
+/**
+ * Review each workspace surface against its own baseline, so restyling one
+ * surface does not invalidate the others. The composer stack (attention tray
+ * and composer) floats over the transcript, so each shot masks the surface it
+ * does not own.
+ */
+async function expectWorkspaceRegions(
+  page: Page,
+  prefix: string,
+  regions: readonly WorkspaceRegion[],
+  budget: ScreenshotBudget,
+) {
+  const attention = page.getByRole('region', { name: 'Agent needs your attention' });
+  const composerStack = page.locator('[data-slot="clio-composer-stack"]');
+  const surfaces: Record<WorkspaceRegion, { region: Locator; mask: Locator[] }> = {
+    'left-bar': {
+      region: page.getByRole('navigation', { name: 'Workspace navigation' }),
+      mask: [],
+    },
+    header: { region: page.locator('[data-slot="workspace-header"]'), mask: [] },
+    transcript: {
+      region: page.locator('[data-slot="session-transcript"]'),
+      mask: [composerStack],
+    },
+    attention: { region: attention, mask: [] },
+    composer: { region: composerStack, mask: [attention] },
+    status: {
+      region: page.locator('section[aria-label="Conversation workspace"] > footer'),
+      mask: [],
+    },
+  };
+  for (const name of regions) {
+    const { region, mask } = surfaces[name];
+    await expectRegionScreenshot(region, `${prefix}-${name}.png`, { ...budget, mask });
+  }
+}
+
 setupWorkspaceBrowser();
 
 test('opens the unresolved task from the status strip in the actual task view', async ({
@@ -496,15 +563,18 @@ test('grows transcript landmarks only within the available margin', async ({ pag
   await expect(conversation).toBeVisible();
 });
 
-test('renders dense flat-NDP semantics with accessible interactions', async ({
-  page,
-}, testInfo) => {
+async function openDenseFlatNdp(page: Page) {
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
-
   await expect(page.getByText('EarthScope NDP evidence review').first()).toBeVisible();
-  await expect(page.getByText('flat-NDP').first()).toBeVisible();
   await waitForArtifactPreview(page);
+}
+
+test('renders and answers dense flat-NDP attention requests over the transcript', async ({
+  page,
+}, testInfo) => {
+  await openDenseFlatNdp(page);
+  await expect(page.getByText('flat-NDP').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
@@ -515,11 +585,6 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await pendingResponses.getByRole('button', { name: 'Previous request' }).click();
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
-  // The minimap is a landmark index, not a scrollbar — it has no drag and no
-  // proportional thumb — so the native scrollbar stays even while it is shown.
-  await expect(conversation).toHaveCSS('scrollbar-width', 'thin');
-  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
   const composerStack = page.locator('[data-slot="clio-composer-stack"]');
   await expect(composerStack).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(composerStack).toHaveCSS('background-image', 'none');
@@ -530,21 +595,12 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
     .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(responseSurface).not.toBe('rgba(0, 0, 0, 0)');
   const expandedConversationBounds = await conversation.boundingBox();
-  const expandedMinimapBounds = await minimap.boundingBox();
   const expandedComposerBounds = await composerStack.boundingBox();
   expect(expandedConversationBounds).not.toBeNull();
-  expect(expandedMinimapBounds).not.toBeNull();
   expect(expandedComposerBounds).not.toBeNull();
   expect(expandedComposerBounds?.y ?? 0).toBeLessThan(
     (expandedConversationBounds?.y ?? 0) + (expandedConversationBounds?.height ?? 0),
   );
-  expect(
-    Math.abs(
-      (expandedMinimapBounds?.y ?? 0) +
-        (expandedMinimapBounds?.height ?? 0) -
-        ((expandedConversationBounds?.y ?? 0) + (expandedConversationBounds?.height ?? 0)),
-    ),
-  ).toBeLessThanOrEqual(16);
   await expect
     .poll(async () => {
       const composer = await composerStack.boundingBox();
@@ -570,7 +626,61 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
       );
     })
     .toBe(true);
+
+  // Re-settle the native scroll container, then pin the final semantic block
+  // to the viewport edge so the screenshots cannot alternate between the
+  // attachment and Activity rows above it.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await settleConversationAtLatest(page);
+  await expect(
+    page.getByRole('button', { name: 'Jump to assistant message 1001' }),
+  ).toHaveAttribute('aria-current', 'location');
+  await alignLatestActivityAtTop(page);
+  await page.mouse.move(600, 30);
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await alignLatestActivityAtTop(page);
+  // The reviewed baselines reflect reader-controlled collapsed activity and the
+  // completion footer's separate fields. The budget absorbs sub-row
+  // anti-aliasing at the latest-anchored transcript's top edge and the live
+  // ubuntu-22.04 runner's font-rasterization drift, which the official
+  // mcr.microsoft.com/playwright:v1.62.1-jammy image does not reproduce. A real
+  // layout regression moves orders of magnitude more.
+  await page.screenshot({ path: testInfo.outputPath('workspace-desktop-reviewed.png') });
+  await expectWorkspaceRegions(
+    page,
+    'workspace-desktop-dark',
+    ['left-bar', 'header', 'transcript', 'attention', 'composer', 'status'],
+    { animations: 'allow', maxDiffPixels: desktopMaxDiffPixels },
+  );
+
+  await page.getByRole('button', { name: 'Allow once' }).click();
+  await expect(page.getByText('Read the station evidence table')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Station table/ }).click();
+  await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
+});
+
+test('indexes the dense flat-NDP transcript in its minimap rail', async ({ page }) => {
+  await openDenseFlatNdp(page);
+  await settleConversationAtLatest(page);
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
+  // The minimap is a landmark index, not a scrollbar — it has no drag and no
+  // proportional thumb — so the native scrollbar stays even while it is shown.
+  await expect(conversation).toHaveCSS('scrollbar-width', 'thin');
+  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
+  const conversationBounds = await conversation.boundingBox();
+  const expandedMinimapBounds = await minimap.boundingBox();
+  expect(conversationBounds).not.toBeNull();
+  expect(expandedMinimapBounds).not.toBeNull();
+  expect(
+    Math.abs(
+      (expandedMinimapBounds?.y ?? 0) +
+        (expandedMinimapBounds?.height ?? 0) -
+        ((conversationBounds?.y ?? 0) + (conversationBounds?.height ?? 0)),
+    ),
+  ).toBeLessThanOrEqual(16);
   // #1339 appended a compaction checkpoint message to the shared fixture
   // transcript, shifting every landmark after it by one (999 -> the
   // checkpoint itself, 1000 -> the fixture request, 1001 -> the active
@@ -620,7 +730,24 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
 
   const minimapBounds = await minimap.boundingBox();
   expect(minimapBounds).not.toBeNull();
-  const conversationScrollTop = await conversation.evaluate((element) => element.scrollTop);
+  // Rail input must not move the reader. Measure the reader's distance from the
+  // latest edge rather than raw scrollTop: a dense row re-measuring above the
+  // viewport, or the latest-anchored log growing, shifts scrollTop by tens of
+  // pixels without the reader moving (CI saw 177897 -> 177941), whereas a leaked
+  // wheel or a landmark jump moves it by thousands.
+  const readerOffsetFromLatest = () =>
+    conversation.evaluate((element) =>
+      Math.round(element.scrollHeight - element.clientHeight - element.scrollTop),
+    );
+  let settledOffset = Number.NaN;
+  await expect
+    .poll(async () => {
+      const previous = settledOffset;
+      settledOffset = await readerOffsetFromLatest();
+      return settledOffset === previous;
+    })
+    .toBe(true);
+  const conversationOffsetFromLatest = settledOffset;
   if (minimapBounds) {
     await page.mouse.move(
       minimapBounds.x + minimapBounds.width / 2,
@@ -645,49 +772,33 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(railPreviewTitle).toHaveCSS('font-weight', '600');
   await expect(railPreview).toContainText('Sanitized evidence ledger entry 2.');
   await expect(railPreview.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
-  await expect
-    .poll(() => conversation.evaluate((element) => element.scrollTop))
-    .toBe(conversationScrollTop);
+  await expect.poll(readerOffsetFromLatest).toBe(conversationOffsetFromLatest);
   if (minimapBounds) await page.mouse.wheel(0, 50_000);
   // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
-  // marker only proves that the minimap itself is present; it does not prove
-  // the transcript finished returning to its latest anchor. Re-settle the
-  // native scroll container, then pin the final semantic block to the viewport
-  // edge so the screenshot cannot alternate between the attachment and Activity
-  // rows above it.
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // marker only proves that the minimap itself is present; re-settle the
+  // native scroll container before checking the rail returned to the latest
+  // turn.
   await settleConversationAtLatest(page);
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
-  await alignLatestActivityAtTop(page);
-  await page.mouse.move(600, 30);
-  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await alignLatestActivityAtTop(page);
-  // The reviewed baseline reflects reader-controlled collapsed activity and
-  // the completion footer's separate fields. Keep the existing pixel budget.
-  // maxDiffPixels absorbs sub-row anti-aliasing jitter at the latest-anchored
-  // transcript's top edge (~400px originally observed); a real layout
-  // regression moves orders of magnitude more (tens of thousands of pixels,
-  // not low thousands). Widened from 1500: the #1533 coordinator review's
-  // detached-surface spacing fix shifts this exact region on purpose, and
-  // live CI (github.com/iowarp/gact-tui/actions, ubuntu-22.04) showed up to
-  // ~2858px of font-rasterization drift here even against a baseline
-  // regenerated on a real Linux box (WSL Ubuntu 24.04, then the official
-  // mcr.microsoft.com/playwright:v1.62.1-jammy image) — both of which
-  // independently render this exact capture with ZERO diff against the
-  // current baseline, so the extra drift is specifically the live runner's
-  // own apt-installed font packages moving between when an image is built
-  // and when `playwright install --with-deps` runs, not a baseline chosen
-  // to paper over a real difference.
-  await page.screenshot({ path: testInfo.outputPath('workspace-desktop-reviewed.png') });
-  await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
-    animations: 'allow',
-    maxDiffPixels: 3500,
-  });
+});
 
+/** Open the canvas pocket on the dense session; it starts on the Activity list. */
+async function openDenseFlatNdpCanvas(page: Page) {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openDenseFlatNdp(page);
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
+  await expect(canvas.getByRole('list', { name: 'Activity' })).toBeVisible();
+  return canvas;
+}
+
+test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ page }) => {
+  const canvas = await openDenseFlatNdpCanvas(page);
+  await expectRegionScreenshot(canvas, 'workspace-desktop-dark-canvas.png', {
+    animations: 'allow',
+    maxDiffPixels: desktopMaxDiffPixels,
+  });
   // A fresh pocket opens on the Activity list; Timeline is one button away.
   await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
   const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
@@ -714,15 +825,21 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   expect(Math.abs((canvasBounds?.height ?? 0) - (viewport?.height ?? 0))).toBeLessThanOrEqual(1);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
+});
 
+test('audits the dense flat-NDP workspace with its canvas open and requests pending', async ({
+  page,
+}) => {
+  const canvas = await openDenseFlatNdpCanvas(page);
+  await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
+  await expect(canvas.getByRole('tab', { name: 'Timeline' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+
+  // axe walks the whole dense transcript, so this test does nothing else.
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
-
-  await page.getByRole('button', { name: 'Allow once' }).click();
-  await expect(page.getByText('Read the station evidence table')).toHaveCount(0);
-
-  await page.getByRole('button', { name: /Station table/ }).click();
-  await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
 test('keeps a pending EarthScope map flat, resizable, and centered when expanded', async ({
@@ -873,10 +990,12 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await settleConversationAtLatest(page);
   await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="delegate"]').first());
   await page.screenshot({ path: testInfo.outputPath('workspace-mobile-reviewed.png') });
-  await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
-    animations: 'disabled',
-    maxDiffPixels: 1500,
-  });
+  await expectWorkspaceRegions(
+    page,
+    'workspace-mobile-light-reduced',
+    ['header', 'transcript', 'attention', 'composer', 'status'],
+    { animations: 'disabled', maxDiffPixels: mobileMaxDiffPixels },
+  );
 
   await page.getByRole('button', { name: 'Open transcript outline' }).click();
   const outline = page.getByRole('dialog', { name: 'Transcript outline' });

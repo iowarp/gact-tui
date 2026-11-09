@@ -424,7 +424,7 @@ function CascaderVirtualColumnRows({
             indeterminate={isIndeterminate(node)}
             {...getCascaderMoreProps(node, loadStates)}
             data-open={open || undefined}
-            className={open ? 'bg-accent/60 text-accent-foreground' : undefined}
+            className={open ? 'bg-menu-highlight text-foreground' : undefined}
             /* Only the listbox column may carry an index or listbox metadata.
                A trail row is a `role="button"`, which allows neither. */
             {...(column.active

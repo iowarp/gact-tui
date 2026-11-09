@@ -175,11 +175,12 @@ it.each([
   );
 });
 
-it('exports the PDF copy beside the original download', async () => {
+it('exports the PDF copy, leaving the original download to the frame', async () => {
   const calls = menu();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Download/u })).toBeVisible();
+  expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
+  expect(screen.queryByRole('menuitem', { name: /^Download/u })).not.toBeInTheDocument();
   await user.click(screen.getByRole('menuitem', { name: /^Export to PDF/u }));
   await waitFor(() => expect(calls.onPdf).toHaveBeenCalledOnce());
 });

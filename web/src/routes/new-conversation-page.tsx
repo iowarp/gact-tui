@@ -278,7 +278,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               : undefined)
           }
         />
-        <ClioConversationWelcome disabled={send.isPending} onSelectPrompt={draft.onValueChange}>
+        <ClioConversationWelcome>
           <ClioComposer
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
