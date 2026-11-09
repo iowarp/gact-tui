@@ -45,13 +45,17 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-it.each(['desktop', 'sheet'] as const)(
+it.each(['desktop', 'sheet', 'workspace'] as const)(
   'maximizes over the shell and restores with Escape in %s',
   async (host) => {
     const user = userEvent.setup();
     const handle = createRef<ClioWorkbenchHandle>();
     render(
-      <div data-slot={host === 'sheet' ? 'sheet-content' : undefined} data-testid="canvas-host">
+      <div
+        data-slot={host === 'sheet' ? 'sheet-content' : undefined}
+        data-testid="canvas-host"
+        data-workbench-maximize-host={host === 'workspace' ? '' : undefined}
+      >
         <ClioWorkbench
           artifacts={[]}
           diffs={[]}
@@ -88,9 +92,8 @@ it.each(['desktop', 'sheet'] as const)(
     expect(
       screen.getByRole('button', { name: 'Restore canvas beside conversation' }),
     ).toBeVisible();
-    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveClass('fixed');
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' }).parentElement).toBe(
-      host === 'sheet' ? screen.getByTestId('canvas-host') : document.body,
+      host === 'desktop' ? document.body : screen.getByTestId('canvas-host'),
     );
 
     const restoreEvent = new KeyboardEvent('keydown', {

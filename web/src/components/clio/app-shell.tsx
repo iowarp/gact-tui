@@ -266,9 +266,11 @@ export function ClioAppShell({
   const workspace = (
     <SidebarInset
       asChild
-      className="h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
+      className="relative isolate h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
-      <section aria-label="Session workspace">
+      {/* The maximized canvas covers this section (the conversation), not the
+          left bar; `isolate` keeps it under popovers such as the rail. */}
+      <section aria-label="Session workspace" data-workbench-maximize-host="">
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
             <ResizablePanel minSize="400px">{sessionSurface}</ResizablePanel>

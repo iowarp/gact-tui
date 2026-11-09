@@ -84,7 +84,7 @@ function DraftConversationRow({ topLevel }: { topLevel: boolean }) {
         topLevel ? 'pl-2.5' : 'pl-[34px]',
       )}
       data-draft-row=""
-      meta={<span className="text-[11px] text-accent-foreground/80">now</span>}
+      meta={<span className="text-[11px] italic text-accent-foreground/80">now</span>}
       selected
       title={<span className="truncate italic">New conversation</span>}
     />

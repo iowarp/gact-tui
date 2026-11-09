@@ -24,16 +24,17 @@ export function PluginToolSettings({ reference }: { reference: string }) {
   });
   const editor = useToolSettingsEditor();
   const [mode, setMode] = useState('');
-  if (view.isPending) return <StateView kind="loading" size="row" title="Reading tool settings" />;
+  if (view.isPending) return <StateView kind="loading" size="row" title="Loading tool settings…" />;
   if (view.error) {
     return (
-      <StateView
-        action={{ label: 'Retry', onClick: () => void view.refetch() }}
-        detail={view.error.message}
-        kind="error"
-        size="row"
-        title="Tool settings could not be loaded"
-      />
+      <div title={view.error.message}>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void view.refetch() }}
+          kind="error"
+          size="row"
+          title="Tool settings couldn’t be loaded."
+        />
+      </div>
     );
   }
   const data = view.data;
