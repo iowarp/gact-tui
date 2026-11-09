@@ -266,7 +266,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
       state: 'unavailable',
       label: 'Incompatible',
       detail: new ServiceVersionError(PROTOCOL_VERSION, []).message,
-      diagnostics: JSON.stringify({ message: error.message, ...error.details }, null, 2),
+      diagnostics: JSON.stringify({ message: error.message, details: error.details }, null, 2),
       reason: 'incompatible',
     };
   }
@@ -276,7 +276,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
       label: 'Service error',
       detail: error.message || 'The service reported an error.',
       diagnostics: JSON.stringify(
-        { status: error.status, code: error.code, ...error.details },
+        { status: error.status, code: error.code, details: error.details },
         null,
         2,
       ),
