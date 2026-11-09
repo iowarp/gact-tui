@@ -23,14 +23,14 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
       const label = content.getByRole('heading', { name: 'Interface size', exact: true });
       expect(
         await label.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
-      ).toBeCloseTo((14 * size) / 100, 1);
+      ).toBeCloseTo((13 * size) / 100, 1);
       if (width >= 1280) {
         const navigation = page.getByRole('link', { name: 'General', exact: true });
         expect(
           await navigation.evaluate((element) =>
             Number.parseFloat(getComputedStyle(element).fontSize),
           ),
-        ).toBeCloseTo((13 * size) / 100, 1);
+        ).toBeCloseTo((12.5 * size) / 100, 1);
       }
       expect(
         await content.evaluate((element) => element.scrollWidth - element.clientWidth),

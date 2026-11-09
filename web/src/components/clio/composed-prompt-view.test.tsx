@@ -64,12 +64,12 @@ it('uses the shared readable/source modes and copies the active representation',
   await user.click(screen.getByRole('button', { name: 'See all' }));
   const dialog = screen.getByRole('dialog');
   await within(dialog).findByRole('heading', { name: 'Rendered prompt' });
-  await user.click(within(dialog).getByRole('button', { name: 'Copy Researcher system prompt' }));
+  await user.click(within(dialog).getByRole('button', { name: 'Copy contents' }));
   await waitFor(() => expect(write).toHaveBeenCalled());
   expect(write.mock.calls[0][0]).toContain('Keep the exact source.');
   expect(write.mock.calls[0][0]).not.toContain('**Keep**');
   await user.click(within(dialog).getByRole('tab', { name: 'Source' }));
-  await user.click(within(dialog).getByRole('button', { name: 'Copy Researcher system prompt' }));
+  await user.click(within(dialog).getByRole('button', { name: 'Copy contents' }));
   await waitFor(() => expect(write).toHaveBeenLastCalledWith(text));
 });
 

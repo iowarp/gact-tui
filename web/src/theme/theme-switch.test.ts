@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { switchTheme } from './preference';
+import { followSystemScheme, switchTheme } from './preference';
 
 const transitionsPaused = () =>
   Array.from(document.head.querySelectorAll('style')).some((style) =>
@@ -27,5 +27,28 @@ describe('switchTheme', () => {
     expect(transitionsPaused()).toBe(true);
     vi.advanceTimersToNextFrame();
     expect(transitionsPaused()).toBe(false);
+  });
+});
+
+describe('followSystemScheme', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.head.replaceChildren();
+  });
+
+  it('switches <html> while the OS scheme change is dispatched, before any render (#739)', () => {
+    const query = new EventTarget();
+    vi.stubGlobal('matchMedia', () => query);
+    const root = document.documentElement;
+    switchTheme(root, { id: 'light', dark: false });
+    const stop = followSystemScheme(() => 'system');
+
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: true }));
+    expect(root.classList.contains('dark')).toBe(true);
+    expect(root.dataset.theme).toBe('dark');
+
+    stop();
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: false }));
+    expect(root.dataset.theme).toBe('dark');
   });
 });

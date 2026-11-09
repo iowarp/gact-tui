@@ -12,6 +12,8 @@ import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-foote
 import { providerActionError } from './provider-setup-state';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
 import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { NamedTooltip } from './primitives/icon-button';
 import { Link, useInRouterContext } from 'react-router-dom';
 
 export interface ProviderPanelColumn {
@@ -90,28 +92,28 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   }, [open, groupId, needsCheck, providerBusy]);
 
   if (!group) return { column: {} satisfies ProviderPanelColumn, stage };
+  const settingsHref = `/settings/providers?provider=${encodeURIComponent(group.id)}`;
+  const settingsIcon = <SettingsIcon aria-hidden="true" />;
   const settings = (
-    <Button asChild className="px-1" size="xs" type="button" variant="ghost">
-      {inRouter ? (
-        <Link
-          aria-label="Provider settings"
-          to={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
-          onClick={onClose}
-        >
-          <SettingsIcon aria-hidden="true" />
-          Settings
-        </Link>
-      ) : (
-        <a
-          aria-label="Provider settings"
-          href={`/settings/providers?provider=${encodeURIComponent(group.id)}`}
-          onClick={onClose}
-        >
-          <SettingsIcon aria-hidden="true" />
-          Settings
-        </a>
-      )}
-    </Button>
+    <NamedTooltip label="Provider settings" side="top">
+      <Button
+        asChild
+        className="shrink-0 text-muted-foreground hover:bg-hover hover:text-foreground"
+        size="icon-xs"
+        type="button"
+        variant="ghost"
+      >
+        {inRouter ? (
+          <Link aria-label="Provider settings" to={settingsHref} onClick={onClose}>
+            {settingsIcon}
+          </Link>
+        ) : (
+          <a aria-label="Provider settings" href={settingsHref} onClick={onClose}>
+            {settingsIcon}
+          </a>
+        )}
+      </Button>
+    </NamedTooltip>
   );
   const setup = (
     <>
@@ -150,7 +152,11 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
         footer: (
           <>
             {setup}
-            <div className="flex shrink-0 border-t px-2 py-1.5">{settings}</div>
+            <TooltipProvider disableHoverableContent>
+              <div className="flex h-9 shrink-0 items-center justify-end border-t px-1.5">
+                {settings}
+              </div>
+            </TooltipProvider>
           </>
         ),
       };

@@ -10,7 +10,6 @@ import {
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconButton } from '@/components/clio/primitives/icon-button';
-import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { Button } from '@/components/ui/button';
 import {
@@ -251,14 +250,6 @@ function SessionRow({
                 </span>
               ) : null}
               {session.title || 'Untitled session'}
-              {active ? (
-                <HeldKeyBadge
-                  closest="[data-session-row]"
-                  id="previous-conversation"
-                  pairWith="next-conversation"
-                  placement="end"
-                />
-              ) : null}
             </Link>
           }
         />

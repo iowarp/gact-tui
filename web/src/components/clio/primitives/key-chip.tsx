@@ -1,8 +1,7 @@
-import { memo, useLayoutEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { memo } from 'react';
 import { useCommandKeyHeld, useKeyPlatform, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import type { ShortcutDefinition } from '@/lib/shortcuts/catalog';
-import { detectHost, shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
+import { shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
 /** One key cap: `Ctrl`, `⌘`, `L`. */
@@ -104,92 +103,32 @@ export const ShortcutKeys = memo(function ShortcutKeys({
 });
 
 /**
- * The badge a control shows while Ctrl (\u2318) is held: the rest of the key,
- * since the held key is already down. Place it inside the control; it takes no
- * space and is drawn above the dimmed page. `below` centres it under an icon
- * button, `end` sits inside a row's right end, `above` and `left` sit outside
- * that edge. It always stays inside the window. `pairWith` names a sibling key
- * whose last cap joins this one: `Alt ↑↓`. `closest` measures an ancestor
- * (a whole row) instead of the badge's parent.
+ * The badge a control shows while Ctrl (⌘) is held: the whole key, ⌘
+ * included. Place it inside a `relative` control; it does not take space.
  */
-export type HeldKeyPlacement = 'below' | 'end' | 'above' | 'left';
-
-const EDGE = 4;
-
 export function HeldKeyBadge({
   id,
-  placement = 'below',
-  pairWith,
-  closest,
+  position,
   className,
 }: {
   id: string;
-  placement?: HeldKeyPlacement;
-  pairWith?: string;
-  closest?: string;
+  /** One key of a range shortcut. */
+  position?: number;
   className?: string;
 }) {
   const held = useCommandKeyHeld();
-  const platform = useKeyPlatform();
-  const presentation = useShortcutPresentation(held ? id : undefined);
-  const anchor = useRef<HTMLSpanElement>(null);
-  const badge = useRef<HTMLSpanElement>(null);
-  const pair = useShortcutPresentation(held ? pairWith : undefined);
-  const definition = presentation?.definition;
-  const pairCap = pair?.labels[0]?.at(-1);
-  const text =
-    definition && (!definition.host || definition.host === detectHost())
-      ? `${heldKeyText(presentation.labels[0] ?? [], platform)}${pairCap ?? ''}`
-      : undefined;
-  useLayoutEffect(() => {
-    const control = closest
-      ? anchor.current?.closest(closest)
-      : anchor.current?.parentElement;
-    const node = badge.current;
-    if (!control || !node) return;
-    const rect = control.getBoundingClientRect();
-    if (!rect.width) {
-      node.hidden = true;
-      return;
-    }
-    const width = node.offsetWidth;
-    const height = node.offsetHeight;
-    const middle = rect.top + rect.height / 2 - height / 2;
-    const [left, top] =
-      placement === 'end'
-        ? [rect.right - width - 6, middle]
-        : placement === 'left'
-          ? [rect.left - width - 8, middle]
-          : placement === 'above'
-            ? [rect.left + rect.width / 2 - width / 2, rect.top - height - 2]
-            : [rect.left + rect.width / 2 - width / 2, rect.bottom + 2];
-    node.style.left = `${Math.max(EDGE, Math.min(window.innerWidth - width - EDGE, left))}px`;
-    node.style.top = `${Math.max(EDGE, Math.min(window.innerHeight - height - EDGE, top))}px`;
-  }, [closest, placement, text]);
+  const presentation = useShortcutPresentation(held ? id : undefined, position);
+  if (!presentation) return null;
   return (
-    <span aria-hidden="true" className="hidden" ref={anchor}>
-      {text
-        ? createPortal(
-            <span
-              data-slot="held-key-badge"
-              ref={badge}
-              className={cn(
-                'pointer-events-none fixed z-[91] rounded-[4px] bg-foreground px-[5px] py-[3px] font-mono text-[10.5px] leading-none font-semibold whitespace-nowrap text-background shadow-[0_2px_8px_rgb(0_0_0/0.5)]',
-                className,
-              )}
-            >
-              {text}
-            </span>,
-            document.body,
-          )
-        : null}
+    <span
+      aria-hidden="true"
+      data-slot="held-key-badge"
+      className={cn(
+        'pointer-events-none absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 translate-y-1/2 rounded-[4px] bg-foreground px-1 py-px font-mono text-[10.5px] leading-[14px] font-semibold whitespace-nowrap text-background shadow-sm',
+        className,
+      )}
+    >
+      {presentation.text}
     </span>
   );
-}
-
-/** A chord's caps without the held command key: `Shift O`, `\u21e7O`, `B`. */
-function heldKeyText(caps: readonly string[], platform: 'mac' | 'windows'): string {
-  const command = platform === 'mac' ? '\u2318' : 'Ctrl';
-  const rest = caps.includes(command) ? caps.filter((cap) => cap !== command) : caps;
-  return rest.join(platform === 'mac' ? '' : ' ');
 }

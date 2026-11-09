@@ -222,7 +222,7 @@ describe('SettingsWorkingContext', () => {
       <SettingsWorkingContext modelId="claude-x" providerId="anthropic" seed={seed} />,
     );
     expect(screen.queryByRole('combobox', { name: 'Fit to GPU' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     const input = screen.getByLabelText('Context length');
     await user.clear(input);
     await user.type(input, '300000');

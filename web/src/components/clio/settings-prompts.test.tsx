@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
@@ -62,7 +63,11 @@ const resolved = {
 
 function renderSettings(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -125,7 +130,7 @@ describe('prompt and command settings', () => {
     expect(within(dialog).getByText(/packaged definition stays untouched/i)).toBeVisible();
     expect(within(dialog).getByLabelText('Instructions')).toHaveValue(prompt.profiles.heavy.text);
     expect(await within(dialog).findByText(prompt.source_path)).toBeVisible();
-    expect(within(dialog).getByRole('button', { name: 'Save service override' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: /^Save service override/ })).toBeEnabled();
   });
 
   it('validates and saves a workspace override through the authoritative service routes', async () => {
@@ -147,7 +152,7 @@ describe('prompt and command settings', () => {
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('combobox', { name: 'Prompt save scope' }));
     await user.click(screen.getByRole('option', { name: 'Selected workspace' }));
-    await user.click(within(dialog).getByRole('button', { name: 'Save workspace override' }));
+    await user.click(within(dialog).getByRole('button', { name: /^Save workspace override/ }));
 
     await waitFor(() => expect(repository.savePrompt).toHaveBeenCalled());
     expect(repository.validatePrompt).toHaveBeenCalledWith(prompt.id, {
@@ -167,21 +172,24 @@ describe('prompt and command settings', () => {
 
     await user.click(await screen.findByRole('button', { name: /Planner instructions/ }));
     const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('tab', { name: 'Rendered preview' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'Preview' }));
     await user.click(within(dialog).getByRole('button', { name: 'Render effective prompt' }));
     expect(await within(dialog).findByText(/live station specialist/)).toBeVisible();
     expect(repository.renderPrompt).toHaveBeenCalledWith(prompt.id, { profile: 'heavy' });
 
     await user.keyboard('{Escape}');
-    await user.click(screen.getByRole('tab', { name: 'Commands' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'Commands' }));
     await user.click(await screen.findByRole('button', { name: /Review evidence/ }));
-    const commandDialog = screen.getByRole('dialog');
-    expect(within(commandDialog).getByText('/review <artifact>')).toBeVisible();
+    const pane = screen.getByRole('complementary');
+    expect(within(pane).getByRole('heading', { name: 'Review evidence' })).toBeVisible();
+    expect(within(pane).getByText('/review <artifact>')).toBeVisible();
     // Commands are listed by kind and source; agents do not run commands.
-    expect(within(commandDialog).getByText('Command file')).toBeVisible();
-    expect(within(commandDialog).getByText('evidence')).toBeVisible();
-    expect(within(commandDialog).getByText('Some fields ignored')).toBeVisible();
-    expect(within(commandDialog).queryByText('For agents')).not.toBeInTheDocument();
-    expect(within(commandDialog).getByText(/Also available as \/inspect/)).toBeVisible();
+    expect(within(pane).getByText('Command file')).toBeVisible();
+    expect(within(pane).getByText('evidence')).toBeVisible();
+    expect(within(pane).getByText('Some fields ignored')).toBeVisible();
+    expect(within(pane).queryByText('For agents')).not.toBeInTheDocument();
+    expect(within(pane).getByText('Also available as')).toBeVisible();
+    expect(within(pane).getByText('/inspect')).toBeVisible();
   });
 });

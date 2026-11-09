@@ -1,4 +1,5 @@
-import { memo, type ReactNode } from 'react';
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { memo, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface KeyValueItem {
@@ -18,47 +19,119 @@ export interface KeyValueItem {
  * Details as label-left, value-right rows on one shared grid, so every label
  * and value starts at the same x. Each value stays on one line and ends in
  * an ellipsis; the action slot keeps its width whether or not a row has one.
+ *
+ * `facts` is the ask card's form: a fixed 96px label column, 24px rows and
+ * left-aligned values. In a narrow container the labels give way to their icons.
+ *
+ * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
+ * label, a left-aligned value, a separator under each row, and a row that
+ * highlights when its value is a `KeyValueRowButton`.
  */
 export const KeyValueGrid = memo(function KeyValueGrid({
   items,
   className,
+  variant = 'compact',
+  'aria-label': ariaLabel,
 }: {
   items: readonly KeyValueItem[];
   className?: string;
+  variant?: 'compact' | 'rows' | 'facts';
+  'aria-label'?: string;
 }) {
   const hasAction = items.some((item) => item.action);
+  const facts = variant === 'facts';
+  if (variant === 'rows') {
+    return (
+      <dl
+        aria-label={ariaLabel}
+        data-slot="key-value-grid"
+        data-variant="rows"
+        className={cn('grid min-w-0 text-[12px]', className)}
+      >
+        {items.map((item) => (
+          <div
+            className={cn(
+              'relative grid min-h-8 min-w-0 items-center gap-x-2.5 border-b border-border px-3.5 py-[7px] has-[[data-slot=key-value-row-button]:enabled]:hover:bg-hover has-[[data-slot=key-value-row-button]:focus-visible]:bg-hover',
+              hasAction
+                ? 'grid-cols-[118px_minmax(0,1fr)_auto]'
+                : 'grid-cols-[118px_minmax(0,1fr)]',
+            )}
+            data-slot="key-value-row"
+            key={item.label}
+          >
+            <dt className="truncate whitespace-nowrap text-muted-foreground">{item.label}</dt>
+            <dd
+              className={cn(
+                'flex min-w-0 items-center gap-[7px] truncate whitespace-nowrap text-left text-foreground',
+                item.mono && 'font-mono text-[11px] tabular-nums',
+              )}
+              title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
+            >
+              {item.value}
+            </dd>
+            {hasAction ? <dd className="relative z-10 flex justify-end">{item.action}</dd> : null}
+          </div>
+        ))}
+      </dl>
+    );
+  }
   return (
     <dl
+      aria-label={ariaLabel}
       data-slot="key-value-grid"
+      data-variant={variant}
       className={cn(
-        'grid items-center gap-x-3 gap-y-1 text-[12px]',
-        hasAction
-          ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
-          : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
+        facts
+          ? 'grid auto-rows-[24px] items-center gap-x-2.5 text-[12.5px]'
+          : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
+        facts
+          ? hasAction
+            ? 'grid-cols-[96px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
+            : 'grid-cols-[96px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+          : hasAction
+            ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
+            : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
         className,
       )}
     >
       {items.map((item) => (
         <div className="contents" key={item.label}>
-          <dt className="flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground">
+          <dt
+            className={cn(
+              'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
+              facts && 'text-[12px]',
+            )}
+            title={facts ? item.label : undefined}
+          >
             {item.icon ? (
               <span
                 aria-hidden="true"
-                className="grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5"
+                className={cn(
+                  "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
+                  facts && 'hidden @max-[420px]:grid',
+                )}
               >
                 {item.icon}
               </span>
             ) : null}
-            <span className="truncate">{item.label}</span>
+            <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
+              {item.label}
+            </span>
           </dt>
           <dd
             className={cn(
-              'min-w-0 truncate whitespace-nowrap text-right text-foreground',
+              'min-w-0 truncate whitespace-nowrap text-foreground',
+              facts ? 'flex items-center gap-[7px] text-left text-foreground/90' : 'text-right',
               item.mono && 'font-mono text-[11px] tabular-nums',
+              facts && item.mono && 'text-[12px]',
             )}
             title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
           >
-            {item.value}
+            {facts && typeof item.value === 'string' ? (
+              <span className="min-w-0 truncate">{item.value}</span>
+            ) : (
+              item.value
+            )}
           </dd>
           {hasAction ? <dd className="flex justify-end">{item.action}</dd> : null}
         </div>
@@ -66,3 +139,52 @@ export const KeyValueGrid = memo(function KeyValueGrid({
     </dl>
   );
 });
+
+/**
+ * A `rows` value that opens something: the whole row is its target, the
+ * value stays on one line, and a trailing chevron says whether it opens a
+ * choice (`down`) or a view (`right`). A value changed from its baseline is
+ * teal and says so in words.
+ */
+export function KeyValueRowButton({
+  chevron,
+  changed = false,
+  changedLabel = 'changed',
+  icon,
+  children,
+  className,
+  ...props
+}: ComponentProps<'button'> & {
+  chevron: 'down' | 'right';
+  changed?: boolean;
+  /** Read after the value when `changed`, e.g. "changed for this conversation". */
+  changedLabel?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  const Chevron = chevron === 'down' ? ChevronDownIcon : ChevronRightIcon;
+  return (
+    <button
+      type="button"
+      data-slot="key-value-row-button"
+      data-changed={changed || undefined}
+      className={cn(
+        'flex w-full min-w-0 items-center gap-[7px] text-left outline-none after:absolute after:inset-0 disabled:cursor-default',
+        changed ? 'text-changed' : 'text-foreground',
+        className,
+      )}
+      {...props}
+    >
+      {icon ? (
+        <span aria-hidden="true" className="flex size-3.5 shrink-0 items-center [&_svg]:size-3.5">
+          {icon}
+        </span>
+      ) : null}
+      <span className="min-w-0 truncate">
+        {children}
+        {changed ? <span className="sr-only">, {changedLabel}</span> : null}
+      </span>
+      <Chevron aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-faint" />
+    </button>
+  );
+}

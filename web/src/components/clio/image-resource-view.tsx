@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { OverlayContainer } from '@/components/ui/overlay-container';
 import { FileViewerInformationHost } from './file-viewer-context';
+import { useFileViewerFacts } from './file-viewer-facts';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { downloadBytes } from './surface-export';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
@@ -65,6 +66,7 @@ export function ImageResourceView({
     return () => document.removeEventListener('fullscreenchange', update);
   }, []);
   const loaded = Boolean(url && bytes && image.bytes === bytes && image.width && image.height);
+  useFileViewerFacts(loaded ? [`${image.width} × ${image.height}`] : undefined);
   const fit = loaded
     ? Math.min(
         Math.max(1, viewport.width - 32) / image.width,

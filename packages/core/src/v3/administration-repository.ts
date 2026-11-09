@@ -106,6 +106,21 @@ const memoryEventSchema = z.object({
   arc_status: z.string().default('unknown'),
   metadata: recordSchema.default({}),
 });
+const optionalText = z
+  .string()
+  .nullish()
+  .transform((value) => (value ? value : undefined));
+const optionalFlag = z
+  .boolean()
+  .nullish()
+  .transform((value) => value ?? undefined);
+/** The `sandbox` row's acknowledgement verdict; null on every other `/v1/health` row. */
+const sandboxVerdictFields = {
+  reason: optionalText,
+  active: optionalFlag,
+  acknowledgement_required: optionalFlag,
+  warning: optionalText,
+};
 const serviceHealthSchema = z.object({
   healthy: z.boolean(),
   uptime_s: z.number().int().nonnegative(),
@@ -135,6 +150,7 @@ const serviceHealthSchema = z.object({
         .nullish()
         .transform((value) => value ?? undefined),
       required: z.boolean().default(true),
+      ...sandboxVerdictFields,
     }),
   ),
   tool_hooks_installed: z
@@ -178,10 +194,9 @@ const sandboxStatusSchema = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   required: z.boolean().default(true),
-  reason: z
-    .string()
-    .nullish()
-    .transform((value) => (value ? value : undefined)),
+  ...sandboxVerdictFields,
+  resolved: optionalFlag,
+  mechanism: optionalText,
   setup_in_progress: z.boolean().default(false),
   setup_progress: z
     .object({

@@ -1,6 +1,6 @@
 import type { ReasoningEffort } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -49,7 +49,7 @@ const reasoningModel = {
 };
 
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 function renderComposer({
@@ -116,8 +116,8 @@ describe('ClioComposer model selection', () => {
     await user.unhover(pill);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-    await user.click(composerEditor());
-    await user.tab();
+    // The row puts the model after the left-hand controls, so focus it directly.
+    act(() => pill.focus());
     expect(pill).toHaveFocus();
     expect(await screen.findByRole('tooltip')).toHaveTextContent(`${providerName} / ${model}`);
   });
@@ -157,7 +157,7 @@ describe('ClioComposer model selection', () => {
     renderComposer({ effort: '', modelOptions: [reasoningModel], onSubmit });
 
     await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'high' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'High' }));
     await user.type(composerEditor(), 'Same as default, but chosen.{Enter}');
 
     await waitFor(() =>
@@ -187,9 +187,10 @@ describe('ClioComposer model selection', () => {
 
     await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
     expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
-      'low',
-      'medium',
-      'high',
+      'Model default (High)',
+      'Low',
+      'Medium',
+      'High',
       'Extra high',
     ]);
     await user.click(screen.getByRole('menuitemradio', { name: 'Extra high' }));
@@ -266,14 +267,15 @@ describe('ClioComposer model selection', () => {
 
     await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
     expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
-      'off',
-      'low',
-      'medium',
-      'high',
+      'Model default (High)',
+      'Off',
+      'Low',
+      'Medium',
+      'High',
       'Extra high',
-      'max',
+      'Max',
     ]);
-    await user.click(screen.getByRole('menuitemradio', { name: 'max' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Max' }));
     await user.type(composerEditor(), 'Think as hard as you can.{Enter}');
 
     await waitFor(() =>
@@ -304,7 +306,7 @@ describe('ClioComposer model selection', () => {
 
     // The session's user-sourced effort resolves after mount, without a remount.
     rerenderWith({ effort: 'low' });
-    expect(await screen.findByRole('button', { name: 'Reasoning effort: low' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Reasoning effort: Low' })).toBeVisible();
     await user.type(composerEditor(), 'After the session loads.{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
     expect(onSubmit.mock.calls[1]?.[0].behavior.reasoning_effort).toBe('low');
@@ -371,11 +373,11 @@ describe('ClioComposer model selection', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'medium' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Medium' }));
     // The session's stored effort arrives only now.
     rerenderWith({ effort: 'low' });
 
-    expect(await screen.findByRole('button', { name: 'Reasoning effort: medium' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Reasoning effort: Medium' })).toBeVisible();
     await user.type(composerEditor(), 'Keep my pick.{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBe('medium');

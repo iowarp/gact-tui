@@ -132,6 +132,29 @@ function SidebarProvider({
   );
 }
 
+// The pointer is still over the navigation when it is over the preview panel
+// or over a popup (menu, dialog) that one of its controls has open.
+function pointerStillOverSidebar(
+  element: HTMLElement,
+  { clientX, clientY }: { clientX: number; clientY: number },
+  over: EventTarget | null,
+) {
+  const target = over instanceof Node ? over : null;
+  if (target && element.contains(target)) return true;
+  for (const trigger of element.querySelectorAll('[aria-expanded="true"][aria-controls]')) {
+    const popup = document.getElementById(trigger.getAttribute('aria-controls')!);
+    if (target && popup?.contains(target)) return true;
+  }
+  const panel = element.querySelector('[data-slot="sidebar-container"]') ?? element;
+  const bounds = panel.getBoundingClientRect();
+  return (
+    clientX > bounds.left &&
+    clientX < bounds.right &&
+    clientY > bounds.top &&
+    clientY < bounds.bottom
+  );
+}
+
 function Sidebar({
   side = 'left',
   variant = 'sidebar',
@@ -151,6 +174,13 @@ function Sidebar({
   const { isMobile, state, openMobile, setOpenMobile } = context;
   const [hovered, setHovered] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
+  // A modal menu or overlay opened from the preview disables pointer events
+  // under a pointer that has not moved, so the sidebar reports a leave.
+  // Collapsing then moves the menu's anchor and can drop the menu under the
+  // pointer, which re-enters through the portal: the preview oscillates.
+  // Such a leave waits until the pointer really moves away.
+  const [leaveDeferred, setLeaveDeferred] = React.useState(false);
+  const containedRef = React.useRef<HTMLDivElement>(null);
   const pointerFocus = React.useRef(false);
   React.useEffect(() => {
     const keyboardNavigation = (event: KeyboardEvent) => {
@@ -171,7 +201,19 @@ function Sidebar({
     cancelHover();
     setHovered(false);
     setFocused(false);
+    setLeaveDeferred(false);
   }, [state, isMobile, cancelHover]);
+  React.useEffect(() => {
+    const element = containedRef.current;
+    if (!leaveDeferred || !hovered || !element) return;
+    const move = (event: PointerEvent) => {
+      if (pointerStillOverSidebar(element, event, event.target)) return;
+      setHovered(false);
+      setLeaveDeferred(false);
+    };
+    document.addEventListener('pointermove', move, true);
+    return () => document.removeEventListener('pointermove', move, true);
+  }, [leaveDeferred, hovered]);
   const preview =
     contained && collapsible === 'icon' && state === 'collapsed' && (hovered || focused);
   const displayState = preview ? 'expanded' : state;
@@ -220,6 +262,7 @@ function Sidebar({
   if (contained) {
     return (
       <div
+        ref={containedRef}
         className={cn(
           'group relative flex h-full min-w-0 w-full text-sidebar-foreground',
           preview && 'z-50',
@@ -232,13 +275,16 @@ function Sidebar({
         data-slot="sidebar"
         tabIndex={-1}
         onPointerEnter={(event) => {
+          setLeaveDeferred(false);
           if (state !== 'collapsed' || event.pointerType === 'touch') return;
           cancelHover();
           hoverTimer.current = window.setTimeout(() => setHovered(true), SIDEBAR_HOVER_INTENT_MS);
         }}
-        onPointerLeave={() => {
+        onPointerLeave={(event) => {
           cancelHover();
-          setHovered(false);
+          if (preview && pointerStillOverSidebar(event.currentTarget, event, event.relatedTarget))
+            setLeaveDeferred(true);
+          else setHovered(false);
         }}
         onPointerDownCapture={() => {
           cancelHover();

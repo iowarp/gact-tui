@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the desktop shell and its launcher sidecar
+  (Contents/MacOS/*). Tauri applies this file to the main executable and to
+  every externalBin whenever a signing identity is configured
+  (APPLE_SIGNING_IDENTITY, or "-" for ad-hoc builds).
+
+  The shell is not sandboxed. It needs no runtime exceptions: WKWebView JIT
+  runs in WebKit's own processes and the shell loads only system frameworks.
+  The network keys only document intent; they take effect if the app sandbox
+  is ever enabled. The bundled Python runtime is signed separately with
+  runtime.entitlements by desktop/scripts/macos-sign-runtime.sh.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+</dict>
+</plist>

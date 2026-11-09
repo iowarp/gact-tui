@@ -388,11 +388,13 @@ function ArtifactFileView({
       ) : isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <FileReadView name={artifact.name} content={text.data.content} format="markdown" />
       ) : (
-        <FileTextView
-          name={artifact.name}
-          content={text.data.content}
-          mediaType={artifact.media_type}
-        />
+        <ArtifactVersionComments artifact={artifact} text>
+          <FileTextView
+            name={artifact.name}
+            content={text.data.content}
+            mediaType={artifact.media_type}
+          />
+        </ArtifactVersionComments>
       )
     ) : text.error ? (
       <ResourceUnavailable
@@ -408,7 +410,7 @@ function ArtifactFileView({
     )
   ) : canPreviewImage ? (
     canLoadInline ? (
-      <ArtifactImageComments
+      <ArtifactVersionComments
         artifact={artifact}
         svg={
           isSvg(artifact.media_type || imageMediaType(artifact.name))
@@ -422,7 +424,7 @@ function ArtifactFileView({
           mediaType={artifact.media_type || imageMediaType(artifact.name)}
           name={artifact.name}
         />
-      </ArtifactImageComments>
+      </ArtifactVersionComments>
     ) : (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     )
@@ -658,22 +660,25 @@ function isSvg(mediaType: string): boolean {
   return mediaType.split(';', 1)[0]?.trim() === 'image/svg+xml';
 }
 
-function ArtifactImageComments({
+/** An artifact takes comments when its version is known: text marks, or regions (and SVG elements) on an image. */
+function ArtifactVersionComments({
   artifact,
   svg,
+  text = false,
   children,
 }: {
   artifact: Artifact;
   /** An SVG's bytes, so element marks can pick its elements. */
   svg?: Uint8Array;
+  text?: boolean;
   children: ReactNode;
 }) {
   if (!artifact.sha256 || !artifact.version) return <>{children}</>;
   return (
     <ArtifactComments
       artifact={{ ...artifact, sha256: artifact.sha256, version: artifact.version }}
-      modes={svg ? ['region', 'element'] : ['region']}
-      regionAnchor={imageRegionAnchor}
+      modes={text ? ['text'] : svg ? ['region', 'element'] : ['region']}
+      regionAnchor={text ? undefined : imageRegionAnchor}
       svg={svg}
     >
       {children}

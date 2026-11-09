@@ -188,7 +188,7 @@ export function ClioNavigation({
                 to="/settings/general"
               >
                 <SlidersHorizontalIcon aria-hidden="true" className="size-[15px]" />
-                <HeldKeyBadge id="settings" placement="above" />
+                <HeldKeyBadge id="settings" />
               </Link>
             </NamedTooltip>
           </SidebarFooter>

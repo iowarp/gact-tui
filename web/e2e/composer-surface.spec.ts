@@ -110,14 +110,12 @@ for (const theme of ['dark', 'light'] as const) {
     const input = composer.locator('form > [data-slot="input-group"]');
     const question = page.getByRole('region', { name: 'Agent needs your attention', exact: true });
     await expect(question).toBeVisible();
-    await expect(question.getByRole('radio', { name: 'Table', exact: true })).toBeVisible();
-    await expect(
-      question.getByRole('button', { name: 'Send response', exact: true }),
-    ).toBeDisabled();
+    await expect(question.getByRole('button', { name: /Table/ })).toBeVisible();
+    // The ask card is its own block, 8px above the composer, not fused to it.
+    const cardBox = await question.locator('[data-slot="ask-card"]:visible').boundingBox();
+    const inputBox = await input.boundingBox();
+    expect(cardBox && inputBox && inputBox.y - (cardBox.y + cardBox.height)).toBeGreaterThan(4);
     const background = await input.evaluate((node) => getComputedStyle(node).backgroundColor);
-    await expect
-      .poll(() => question.evaluate((node) => getComputedStyle(node).backgroundColor))
-      .toBe(background);
     await composer.screenshot({ path: testInfo.outputPath(`question-${theme}.png`) });
     expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
     await page.reload();
@@ -261,6 +259,9 @@ for (const theme of ['dark', 'light'] as const) {
         .poll(() => surface.evaluate((node) => getComputedStyle(node).backgroundColor))
         .toBe(colors.cssSurface);
       await page.keyboard.press('Tab');
+      // Tab leaves the editor for the first toolbar control; the model sits on the right.
+      await expect(composer.locator('[data-slot="composer-toolbar"] button').first()).toBeFocused();
+      await composer.getByRole('button', { name: 'Change model' }).focus();
       await expect(composer.getByRole('button', { name: 'Change model' })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
@@ -272,3 +273,35 @@ for (const theme of ['dark', 'light'] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test('a paste in the composer joins the browser undo stack', async ({ page }) => {
+  expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+  await page.addInitScript((endpoint) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+  }, endpoint);
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  const editor = page
+    .locator('[data-slot="clio-composer-stack"]')
+    .getByRole('combobox', { name: /^Ask / });
+  await editor.click();
+  await page.keyboard.type('keep cut');
+  for (let step = 0; step < 3; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Delete');
+  const paste = (text: string) =>
+    editor.evaluate((node, value) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData('text/plain', value);
+      node.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
+      );
+    }, text);
+  await paste('cut');
+  await paste('cut');
+  await expect(editor).toHaveText('keep cutcut');
+  // Undo takes back the pastes; it must never restore the removed text on top of
+  // them. Chromium may group the Delete with the pastes into one typing step.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toHaveText(/^keep (cut)?$/u);
+  if ((await editor.textContent()) === 'keep ') await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toHaveText('keep cut');
+});
