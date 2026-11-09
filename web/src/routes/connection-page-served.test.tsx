@@ -3,7 +3,8 @@
  * connects to its own origin by itself; when nothing answers there the person gets the
  * manual form, starting from that origin. Under a Vite dev server nothing changes (#739 B7).
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
