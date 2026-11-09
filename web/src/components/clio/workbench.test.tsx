@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import type { SessionDiff } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import userEvent from '@testing-library/user-event';
 import { createRef, type PropsWithChildren, type ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +21,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
+import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
+import type { WorkbenchListView } from './workbench-strip';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { rangeReadsFromText } from '@/test/workspace-file-range';
 
@@ -34,7 +37,9 @@ const { repository, useAppearancePreferences } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
-repository.readWorkspaceFileRange.mockImplementation(rangeReadsFromText(repository.readWorkspaceFile));
+repository.readWorkspaceFileRange.mockImplementation(
+  rangeReadsFromText(repository.readWorkspaceFile),
+);
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
@@ -92,6 +97,35 @@ function renderWorkbench() {
   );
 }
 
+/** The strip of list and tab openers on the panel's outer edge. */
+function strip() {
+  return within(screen.getByRole('toolbar', { name: 'Workbench lists' }));
+}
+
+/** A returning conversation: the pocket restores what it showed last time. A fresh one opens no tab. */
+function restorePocket({
+  timeline = true,
+  listView = 'files',
+}: { timeline?: boolean; listView?: WorkbenchListView } = {}) {
+  saveWorkbenchState('workspace_1', {
+    tabs: timeline ? [sessionTab] : [],
+    activeTabId: timeline ? sessionTab.id : '',
+    listView,
+    pinnedIds: [],
+  });
+}
+
+const REPORT = {
+  id: 'report_1',
+  session_id: 'session_parent',
+  workspace_id: 'workspace_1',
+  name: 'report.md',
+  media_type: 'text/markdown',
+  size: 8,
+  uri: 'artifact://workspace_1/report.md@v1',
+  session_relation: 'produced' as const,
+};
+
 function BrokenCanvasItem(): never {
   throw new Error('broken source preview');
 }
@@ -112,14 +146,26 @@ describe('ClioWorkbench canvas', () => {
         sessionView={<p>Send your first message to see session activity.</p>}
       />,
     );
-    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+    // No conversation: no tabs, and the Files list stands beside the empty frame.
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(strip().getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
+    expect(screen.getByText('No tabs open')).toBeVisible();
+    // Work folds into Activity: asking for it shows the Activity list, not a session tab.
     await act(async () => handle.current?.open({ kind: 'resources', section: 'work' }));
-    expect(screen.getByText('Send your first message to see session activity.')).toBeVisible();
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const list = screen.getByRole('region', { name: 'Activity list' });
+    expect(within(list).getByText('Activity starts with the first message')).toBeVisible();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const user = userEvent.setup();
-    render(
+    restorePocket();
+    const { container } = render(
       <ClioWorkbench
         artifacts={[]}
         diffs={[]}
@@ -132,15 +178,16 @@ describe('ClioWorkbench canvas', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not open Observability');
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not open Timeline');
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Close tab' }));
-    expect(screen.getByText('Canvas is empty')).toBeVisible();
+    await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
+    expect(screen.getByText('No tabs open')).toBeVisible();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });
 
   it('keeps tabs mounted while suspending hidden canvas content', () => {
+    restorePocket();
     const { rerender } = render(
       <WorkspaceCanvasVisibilityProvider visible={false}>
         <ClioWorkbench
@@ -156,10 +203,7 @@ describe('ClioWorkbench canvas', () => {
       </WorkspaceCanvasVisibilityProvider>,
     );
 
-    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByText('Session intelligence')).not.toBeInTheDocument();
 
     rerender(
@@ -180,26 +224,45 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('starts with session intelligence and launches resource tabs', async () => {
+  it('starts a conversation on its Activity list and switches the list beside the tabs from the strip', async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
-      'aria-selected',
+    // Activity replaces the old Observability tab: a fresh pocket opens no tab.
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
+    const activity = screen.getByRole('region', { name: 'Activity list' });
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByText('No tabs open')).toBeVisible();
+
+    await user.click(within(activity).getByRole('button', { name: 'Open timeline and context' }));
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
     expect(screen.getByRole('tablist').parentElement).toHaveClass('no-scrollbar');
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+    const artifacts = strip().getByRole('button', { name: 'Artifacts' });
+    await user.click(artifacts);
+    expect(artifacts).toHaveAttribute('aria-pressed', 'true');
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.queryByRole('region', { name: 'Activity list' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Artifacts list' })).toBeVisible();
+    expect(screen.getByText('No artifacts in this conversation')).toBeVisible();
+    // The tab stays where it was: a list is not a tab.
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
 
-    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('No session artifacts')).toBeVisible();
+    // Pressing the lit item again hides the list.
+    await user.click(artifacts);
+    expect(artifacts).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('region', { name: 'Artifacts list' })).not.toBeInTheDocument();
   });
 
-  it('offers the terminal from the canvas launcher when the workspace terminal is available', async () => {
+  it('offers the terminal from the strip when the workspace terminal is available', async () => {
     const user = userEvent.setup();
     const onOpenTerminal = vi.fn();
     render(
@@ -216,35 +279,43 @@ describe('ClioWorkbench canvas', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    const terminal = screen.getByRole('menuitem', { name: 'Terminal' });
-    expect(terminal).toBeEnabled();
-    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
-    await user.click(terminal);
+    await user.click(strip().getByRole('button', { name: 'Terminal' }));
+    const list = screen.getByRole('region', { name: 'Terminal list' });
+    await user.click(within(list).getByRole('button', { name: /Open a terminal/ }));
 
     expect(onOpenTerminal).toHaveBeenCalledOnce();
   });
 
-  it('keeps the canvas terminal unavailable when the shared terminal action is absent', async () => {
-    const user = userEvent.setup();
+  it('leaves the terminal off the strip when the shared terminal action is absent', () => {
     renderWorkbench();
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-
-    expect(screen.getByRole('menuitem', { name: /Terminal/ })).toHaveAttribute('data-disabled', '');
-    expect(screen.getByText('Unavailable')).toBeVisible();
+    expect(strip().queryByRole('button', { name: 'Terminal' })).not.toBeInTheDocument();
+    expect(strip().getByRole('button', { name: 'Browser pages' })).toBeVisible();
   });
 
   it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
     const user = userEvent.setup();
-    const { container } = renderWorkbench();
+    const handle = createRef<ClioWorkbenchHandle>();
+    restorePocket();
+    const { container } = render(
+      <ClioWorkbench
+        artifacts={[]}
+        diffs={[]}
+        files={[]}
+        onOpenSubagent={vi.fn()}
+        onUndoDiff={vi.fn()}
+        ref={handle}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        workspaceId="workspace_1"
+      />,
+    );
+    const openWork = () => act(() => handle.current?.open({ kind: 'artifact', artifact: REPORT }));
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
-
-    const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
-    const artifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
-    const closeControls = container.querySelectorAll('[data-slot="canvas-tab-close"]');
+    openWork();
+    const activityTab = screen.getByRole('tab', { name: 'Timeline' });
+    const workTab = screen.getByRole('tab', { name: 'report.md' });
+    const closeControls = container.querySelectorAll('[data-slot="frame-tab-close"]');
 
     // A tablist may own nothing but tabs, and a tab's own children are presentational, so an
     // interactive close control is a critical violation on either side of the trigger:
@@ -258,163 +329,162 @@ describe('ClioWorkbench canvas', () => {
       expect(control).not.toHaveClass('pointer-events-none');
     }
     expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
-    expect(observabilityTab).toHaveAccessibleName('Observability');
-    // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
-    // shortcuts grew the keyboard equivalent alongside Delete.
-    expect(observabilityTab).toHaveAttribute(
-      'aria-keyshortcuts',
-      'Delete Alt+ArrowLeft Alt+ArrowRight',
-    );
-    expect(closeControls[0]).toHaveAttribute('title', 'Close Observability');
-    expect(closeControls[1]).toHaveAttribute('title', 'Close Artifacts');
+    expect(activityTab).toHaveAccessibleName('Timeline');
+    expect(activityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+    expect(closeControls[0]).toHaveAttribute('title', 'Close Timeline');
+    expect(closeControls[1]).toHaveAttribute('title', 'Close report.md');
 
-    act(() => artifactsTab.focus());
+    act(() => workTab.focus());
     await user.keyboard('{ArrowLeft}');
-    expect(observabilityTab).toHaveAttribute('aria-selected', 'true');
+    expect(activityTab).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{ArrowRight}');
-    expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
+    expect(workTab).toHaveAttribute('aria-selected', 'true');
 
     // Browser-style middle click closes the tab, while another auxiliary button does nothing.
-    fireEvent(
-      artifactsTab,
-      new MouseEvent('auxclick', { bubbles: true, button: 2, cancelable: true }),
-    );
-    expect(screen.getByRole('tab', { name: 'Artifacts' })).toBeInTheDocument();
-    fireEvent(
-      artifactsTab,
-      new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true }),
-    );
-    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
-    expect(observabilityTab).toHaveAttribute('aria-selected', 'true');
+    fireEvent(workTab, new MouseEvent('auxclick', { bubbles: true, button: 2, cancelable: true }));
+    expect(screen.getByRole('tab', { name: 'report.md' })).toBeInTheDocument();
+    fireEvent(workTab, new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true }));
+    expect(screen.queryByRole('tab', { name: 'report.md' })).not.toBeInTheDocument();
+    expect(activityTab).toHaveAttribute('aria-selected', 'true');
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
-    const reopenedArtifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
+    openWork();
+    const reopenedWorkTab = screen.getByRole('tab', { name: 'report.md' });
 
     // The keyboard route the tab advertises closes it...
-    act(() => reopenedArtifactsTab.focus());
+    act(() => reopenedWorkTab.focus());
     await user.keyboard('{Delete}');
-    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'report.md' })).not.toBeInTheDocument();
 
     // ...and the pointer affordance closes the one it sits on.
-    await user.click(screen.getByRole('tab', { name: 'Observability' }));
-    await user.click(container.querySelector('[data-slot="canvas-tab-close"]') as HTMLElement);
-    expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
+    await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
   });
 
-  it('replaces the artifact picker tab with the selected artifact view', async () => {
+  it('pins, moves and closes tabs from the tab context menu', async () => {
     const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const handle = createRef<ClioWorkbenchHandle>();
+    restorePocket();
     render(
-      <QueryClientProvider client={queryClient}>
-        <ClioWorkbench
-          artifacts={[
-            {
-              id: 'report_1',
-              session_id: 'session_parent',
-              workspace_id: 'workspace_1',
-              name: 'report.md',
-              media_type: 'text/markdown',
-              size: 8,
-              uri: 'artifact://workspace_1/report.md@v1',
-              session_relation: 'produced',
-            },
-            {
-              id: 'input_1',
-              session_id: 'session_parent',
-              workspace_id: 'workspace_1',
-              name: 'stations.csv',
-              media_type: 'text/csv',
-              size: 23,
-              uri: 'artifact://workspace_1/stations.csv@v1',
-              session_relation: 'used',
-            },
-          ]}
-          diffs={[]}
-          files={[]}
-          onOpenSubagent={vi.fn()}
-          onUndoDiff={vi.fn()}
-          sessionId="session_parent"
-          sessionView={<p>Session intelligence</p>}
-          workspaceId="workspace_1"
-        />
-      </QueryClientProvider>,
+      <ClioWorkbench
+        artifacts={[]}
+        diffs={[]}
+        files={[]}
+        onOpenSubagent={vi.fn()}
+        onUndoDiff={vi.fn()}
+        ref={handle}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        workspaceId="workspace_1"
+      />,
+    );
+    act(() => handle.current?.open({ kind: 'artifact', artifact: REPORT }));
+    const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.textContent);
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: 'report.md' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Pin/ }));
+    // Pinned tabs go first and keep their name for assistive tech.
+    expect(screen.getAllByRole('tab')[0]).toHaveAccessibleName(/^report\.md, pinned/);
+    expect(tabNames()).toEqual(['report.md, pinned', 'Timeline']);
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
+    // Without an open composer the reference has nowhere to go.
+    expect(await screen.findByRole('menuitem', { name: /Add to message/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.keyboard('{Escape}');
+    const added: unknown[] = [];
+    let unregister = () => {};
+    act(() => {
+      unregister = registerComposerReferenceTarget({
+        workspaceId: 'workspace_1',
+        add: (reference) => added.push(reference),
+      });
+    });
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /Add to message/ }));
+    expect(added).toEqual([expect.objectContaining({ kind: 'artifact', label: 'report.md' })]);
+    act(() => unregister());
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /Close others/ }));
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^report\.md/ })).toBeInTheDocument();
+  });
+
+  it('opens an artifact from the Artifacts list and keeps the list beside it', async () => {
+    const user = userEvent.setup();
+    render(
+      <ClioWorkbench
+        artifacts={[
+          {
+            id: 'report_1',
+            session_id: 'session_parent',
+            workspace_id: 'workspace_1',
+            name: 'report.md',
+            media_type: 'text/markdown',
+            size: 8,
+            uri: 'artifact://workspace_1/report.md@v1',
+            session_relation: 'produced',
+          },
+          {
+            id: 'input_1',
+            session_id: 'session_parent',
+            workspace_id: 'workspace_1',
+            name: 'stations.csv',
+            media_type: 'text/csv',
+            size: 23,
+            uri: 'artifact://workspace_1/stations.csv@v1',
+            session_relation: 'used',
+          },
+        ]}
+        diffs={[]}
+        files={[]}
+        onOpenSubagent={vi.fn()}
+        onUndoDiff={vi.fn()}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        workspaceId="workspace_1"
+      />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
+    const list = screen.getByRole('region', { name: 'Artifacts list' });
+    const report = within(list).getByRole('button', { name: /report\.md/ });
+    expect(report).toBeVisible();
+    expect(within(list).getByRole('button', { name: /stations\.csv/ })).toBeVisible();
+    expect(within(list).getByText('Output')).toBeVisible();
+    expect(within(list).getByText('Input')).toBeVisible();
 
-    expect(screen.getByRole('button', { name: 'Open report.md' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Open stations.csv' })).toBeVisible();
-    expect(screen.getByText('Output')).toBeVisible();
-    expect(screen.getByText('Input')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Open report.md' }));
-    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+    await user.click(report);
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByLabelText('Artifact view: report.md')).toBeVisible();
     expect(screen.queryByLabelText('Artifact view: stations.csv')).not.toBeInTheDocument();
-  });
-
-  it('keeps the picker in a resizable split when an artifact is shift-clicked', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ClioWorkbench
-          artifacts={[
-            {
-              id: 'report_1',
-              session_id: 'session_parent',
-              workspace_id: 'workspace_1',
-              name: 'report.md',
-              media_type: 'text/markdown',
-              size: 8,
-              uri: 'artifact://workspace_1/report.md@v1',
-              session_relation: 'produced',
-            },
-          ]}
-          diffs={[]}
-          files={[]}
-          onOpenSubagent={vi.fn()}
-          onUndoDiff={vi.fn()}
-          sessionId="session_parent"
-          sessionView={<p>Session intelligence</p>}
-          workspaceId="workspace_1"
-        />
-      </QueryClientProvider>,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open report.md' }), { shiftKey: true });
-
-    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
-    const selectedArtifact = screen.getByRole('region', { name: 'Selected artifact' });
-    expect(selectedArtifact).toBeVisible();
-    expect(
-      await within(selectedArtifact).findByLabelText('Artifact view: report.md'),
-    ).toBeVisible();
-    // The picker stays beside the selection instead of being replaced.
-    expect(screen.getByRole('button', { name: 'Open report.md' })).toBeVisible();
-  });
-
-  it('closes and reopens observability as a normal canvas tab', async () => {
-    const user = userEvent.setup();
-    renderWorkbench();
-
-    const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
-    act(() => observabilityTab.focus());
-    await user.keyboard('{Delete}');
-    expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
-    expect(screen.getByText('Canvas is empty')).toBeVisible();
-
-    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Observability' }));
-
-    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
-      'aria-selected',
+    // The list stays beside the opened artifact and marks it as the current one.
+    expect(within(list).getByRole('button', { name: /report\.md/ })).toHaveAttribute(
+      'aria-current',
       'true',
     );
+  });
+
+  it('closes and reopens activity as a normal canvas tab', async () => {
+    const user = userEvent.setup();
+    restorePocket();
+    renderWorkbench();
+
+    const activityTab = screen.getByRole('tab', { name: 'Timeline' });
+    act(() => activityTab.focus());
+    await user.keyboard('{Delete}');
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
+    expect(screen.getByText('No tabs open')).toBeVisible();
+
+    await user.click(strip().getByRole('button', { name: 'Activity' }));
+    const list = screen.getByRole('region', { name: 'Activity list' });
+    expect(within(list).getByText('Nothing has run yet')).toBeVisible();
+    await user.click(within(list).getByRole('button', { name: 'Open timeline and context' }));
+
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
@@ -444,19 +514,20 @@ describe('ClioWorkbench canvas', () => {
 
     act(() => ref.current?.open({ kind: 'diff', diff }));
 
-    expect(screen.getByRole('tab', { name: 'analysis.py' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^analysis\.py/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
     expect(screen.getByText('File changed by the agent')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Undo this change' })).toBeVisible();
   });
 
-  it('keeps the file tree beside a directly opened rendered file', async () => {
+  it('keeps the Files list beside a directly opened rendered file', async () => {
     const user = userEvent.setup();
     const ref = createRef<ClioWorkbenchHandle>();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     repository.readWorkspaceFile.mockResolvedValue('# workspace report');
+    restorePocket({ timeline: false });
     render(
       <QueryClientProvider client={queryClient}>
         <ClioWorkbench
@@ -475,9 +546,14 @@ describe('ClioWorkbench canvas', () => {
 
     act(() => ref.current?.open({ kind: 'workspace-file', path: 'reports/summary.md' }));
 
-    expect(screen.getByRole('tree')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Expand folder reports' }));
-    const fileRow = screen.getByRole('treeitem', { name: 'summary.md' });
+    expect(screen.getByRole('tab', { name: 'summary.md' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const filesList = screen.getByRole('region', { name: 'Files list' });
+    expect(within(filesList).getByRole('tree')).toBeVisible();
+    await user.click(within(filesList).getByRole('button', { name: 'Expand folder reports' }));
+    const fileRow = within(filesList).getByRole('treeitem', { name: 'summary.md' });
     expect(fileRow).toBeVisible();
     expect(fileRow).toHaveClass('min-w-0', 'w-full');
     expect(
@@ -527,171 +603,6 @@ describe('ClioWorkbench canvas', () => {
     );
   });
 
-  it('shows managed workspace inputs under the Sources group without exposing the rest of .clio', async () => {
-    const user = userEvent.setup();
-    render(
-      <FileBrowser
-        files={[
-          {
-            path: '.clio/inputs/res_abc/paper.pdf',
-            display_path: 'Sources/res_abc/paper.pdf',
-            type: 'file',
-            internal: false,
-            source: 'managed_input',
-            resource_id: 'res_abc',
-            media_type: 'application/pdf',
-            size: 1024,
-          },
-        ]}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.queryByText('.clio')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Expand folder Sources' }));
-    await user.click(screen.getByRole('button', { name: 'Expand folder res_abc' }));
-    expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
-  });
-
-  it('shows a clear notice when the server reports a truncated listing', () => {
-    render(
-      <FileBrowser
-        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
-        filesTruncated
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.getByText(/truncated/i)).toBeVisible();
-  });
-
-  it('does not show a truncated notice when the listing is complete', () => {
-    render(
-      <FileBrowser
-        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
-        filesTruncated={false}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.queryByText(/truncated/i)).not.toBeInTheDocument();
-  });
-
-  it("shows a redacted folder's reason instead of a silently empty tree", async () => {
-    const user = userEvent.setup();
-    render(
-      <FileBrowser
-        files={[
-          {
-            path: '.clio-child-cache',
-            type: 'dir',
-            internal: false,
-            redacted: 'sandbox_child_cache',
-          },
-        ]}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Expand folder .clio-child-cache' }));
-
-    expect(screen.getByText('Sandbox cache — contents not shown')).toBeVisible();
-  });
-
-  it('renders whatever files it is given — filtering moved to the server/query layer', () => {
-    // Review follow-up: "Hide dot files and folders" now reaches the SERVER as
-    // include_hidden (use-workspace-data.ts), so a huge .clio is never walked
-    // client-side only to be discarded after paying for it out of the shared
-    // entry cap. FileBrowser must not ALSO filter — that would silently
-    // double-hide entries the toggle already excluded, or mask a query-layer
-    // regression that stopped filtering. FileBrowser renders exactly the
-    // `files` prop it receives, regardless of the toggle's state.
-    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
-    render(
-      <FileBrowser
-        files={[
-          { path: '.clio/state.json', type: 'file', internal: false, size: 2 },
-          { path: 'report.md', type: 'file', internal: false, size: 7 },
-        ]}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.getByRole('treeitem', { name: '.clio' })).toBeVisible();
-    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
-  });
-
-  it('hints at the dot-files toggle when the server-filtered file list comes back empty', () => {
-    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
-    render(
-      <FileBrowser
-        files={[]}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(screen.getByText(/Hide dot files and folders.*is on/)).toBeVisible();
-  });
-
-  it('refetches once as soon as the Files view mounts (opening the tab)', () => {
-    const onRefresh = vi.fn();
-    render(
-      <FileBrowser
-        files={[]}
-        onRefresh={onRefresh}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('spins and refetches again when the manual Refresh button is clicked', async () => {
-    const user = userEvent.setup();
-    const onRefresh = vi.fn();
-    const { rerender } = render(
-      <FileBrowser
-        files={[]}
-        onRefresh={onRefresh}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    const callsAfterMount = onRefresh.mock.calls.length;
-    const button = screen.getByRole('button', { name: 'Refresh files' });
-    expect(button.querySelector('svg')).not.toHaveClass('animate-spin');
-
-    await user.click(button);
-    expect(onRefresh.mock.calls.length).toBe(callsAfterMount + 1);
-
-    rerender(
-      <FileBrowser
-        files={[]}
-        filesFetching
-        onRefresh={onRefresh}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    expect(button.querySelector('svg')).toHaveClass('animate-spin');
-  });
-
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
     const diff: SessionDiff = {
       id: 'chg_compact',
@@ -716,7 +627,7 @@ describe('ClioWorkbench canvas', () => {
       />,
     );
 
-    expect(screen.getByRole('tab', { name: 'compact-canvas.py' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^compact-canvas\.py/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );

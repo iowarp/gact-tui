@@ -25,6 +25,8 @@ import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
+import { createAgentFixture } from './agent-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -1211,6 +1213,24 @@ function sendJson(response, body, status = 200) {
   response.end(JSON.stringify(body));
 }
 
+function initialFleetSettings() {
+  return {
+    revision: 'fleet_1',
+    search: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+    spotter: null,
+    judges: {
+      goals: null,
+      variants: null,
+      permissions: null,
+      memory_extract: null,
+      memory_consolidate: null,
+      explore: null,
+    },
+    explore_nudge: { enabled: true, after: 6 },
+  };
+}
+let fleetSettings = initialFleetSettings();
+
 /** Read one bounded JSON request body from the local browser fixture. */
 async function readJson(request) {
   const chunks = [];
@@ -1414,6 +1434,7 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
 // Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
@@ -1856,6 +1877,9 @@ const modelRegistry = new Map(
     ),
   ].map((details) => [details.repository, details]),
 );
+const settingsCatalog = createSettingsCatalog(
+  process.env.CLIO_FIXTURE_SETTINGS_CATALOG?.trim() || 'off',
+);
 const infrastructure = createInfrastructureFixture({
   sendJson,
   readJson,
@@ -1892,6 +1916,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    agentFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
@@ -1926,11 +1951,14 @@ const server = createServer(async (request, response) => {
     transcriptActivityTools = [];
     nextCursor = 1;
     queuedMessages = [];
+    fleetSettings = initialFleetSettings();
+    settingsCatalog.reset();
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
     return;
   }
+  if (await settingsCatalog.handle(request, response, url, { sendJson, readJson })) return;
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
@@ -2412,8 +2440,10 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
+        x_clio_agent_plugins: true,
         ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
+        ...settingsCatalog.capabilities(request),
       },
     });
     return;
@@ -2896,6 +2926,20 @@ const server = createServer(async (request, response) => {
     sendJson(response, resources.get(resourcePath(url.pathname)).record);
     return;
   }
+  // Helper models: search on Codex, the judges inheriting the conversation model.
+  if (url.pathname === '/v1/settings/fleet' && ['GET', 'PATCH'].includes(request.method)) {
+    if (request.method === 'PATCH') {
+      const patch = await readJson(request);
+      fleetSettings = {
+        ...fleetSettings,
+        ...patch,
+        judges: { ...fleetSettings.judges, ...patch.judges },
+        revision: `fleet_${Number(fleetSettings.revision.split('_')[1]) + 1}`,
+      };
+    }
+    sendJson(response, fleetSettings);
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
     sendJson(response, providerCatalog);
     return;
@@ -3079,6 +3123,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/v1/providers/lm') {
     sendJson(response, {
       configured: true,
+      provider_id: 'codex',
       provider: 'codex',
       api_base: 'codex://direct',
       model: 'gpt-5.6-luna',
@@ -3454,37 +3499,8 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agents') {
-    sendJson(response, {
-      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
-    });
-    return;
-  }
-  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
-    sendJson(response, { plugins: [], default_marketplace_error: null });
-    return;
-  }
-  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
-    sendJson(response, {
-      session_id: url.pathname.split('/')[3],
-      delta: { add: [], remove: [] },
-      subagent: false,
-      resolution: {
-        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
-        plugins: [
-          {
-            id: 'core',
-            kind: 'plugin',
-            marketplace: 'clio-builtin',
-            provenance: { source: 'core', via: 'core', label: 'core' },
-            removable: false,
-          },
-        ],
-        prompt: { sections: [] },
-      },
-    });
-    return;
-  }
+  // Agents, the plugin catalog and each session's composable agent.
+  if (await agentFixture.handle(request, url, response)) return;
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {
     response.writeHead(204, commonHeaders());
     response.end();

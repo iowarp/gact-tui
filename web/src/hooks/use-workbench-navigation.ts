@@ -17,16 +17,15 @@ import {
   type OpenBrowserPageDetail,
   type OpenFileInBrowserDetail,
 } from '@/lib/html-in-browser';
+import {
+  createWorkbenchRequestStore,
+  type WorkbenchRequest,
+  type WorkbenchRequestSource,
+} from '@/lib/workbench-request-store';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
   workspaceId: string;
-}
-
-interface WorkbenchRequest {
-  endpoint: string;
-  key: string;
-  request: ClioWorkbenchOpenRequest;
 }
 
 /** Owns central-versus-canvas navigation for workspace resources and child sessions. */
@@ -36,17 +35,19 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const workspacePath = useLiveStore((state) => state.entities.workspaces[workspaceId]?.path);
-  const [workbenchRequest, setWorkbenchRequest] = useState<WorkbenchRequest>();
+  // Requests live outside React state so opening a tab does not re-render the
+  // page (conversation, composer, navigation); only their readers update.
+  const [requestStore] = useState(createWorkbenchRequestStore);
 
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {
-      setWorkbenchRequest({
+      requestStore.set({
         endpoint: settings.endpoint,
         key: `${request.kind}:${Date.now()}`,
         request,
       });
     },
-    [settings.endpoint],
+    [requestStore, settings.endpoint],
   );
   const searchRequest = useMemo<WorkbenchRequest | undefined>(() => {
     const pending = location.state?.globalSearchResource;
@@ -190,8 +191,16 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [allSessions, navigate, workspaceId],
   );
 
-  const activeRequest =
-    workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest : searchRequest;
+  const requests = useMemo<WorkbenchRequestSource>(
+    () => ({
+      subscribe: requestStore.subscribe,
+      get: () => {
+        const explicit = requestStore.get();
+        return explicit?.endpoint === settings.endpoint ? explicit : searchRequest;
+      },
+    }),
+    [requestStore, searchRequest, settings.endpoint],
+  );
 
   const repository = useRepository();
   const openWebPage = useCallback(
@@ -230,7 +239,8 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   );
 
   return {
-    activeRequest,
+    /** The open request to deliver; read it with `useWorkbenchRequest`. */
+    requests,
     conversationNavigation,
     openArtifact,
     openDiff,

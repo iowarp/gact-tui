@@ -134,17 +134,17 @@ function renderModels(
 const TECHNICAL_WORDS = /Endpoint|Configuration|Credentials|Catalog|Handshake|Probe|Parallel/iu;
 
 describe('ModelsSettings', () => {
-  it('shows the default model as one card: name, provider, working state, capability tags', async () => {
+  it('shows the default model as one row: name, provider, working state, capability tags', async () => {
     renderModels();
 
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
     const panel = document.querySelector('[data-slot="default-model-card"]') as HTMLElement;
     expect(within(panel).getByText('Codex')).toBeVisible();
     expect(await within(panel).findByText('Working')).toBeVisible();
     expect(await within(panel).findByText('Reasoning')).toBeVisible();
-    expect(within(panel).getByRole('button', { name: 'Change' })).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Default model' })).toBeVisible();
     // No stacked form rows on the main view: no selects, no endpoint, no temperature.
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByText(TECHNICAL_WORDS)).toBeNull();
@@ -233,7 +233,7 @@ describe('ModelsSettings', () => {
     });
     renderModels();
 
-    expect(await screen.findByRole('button', { name: 'Change' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Default model' })).toBeVisible();
     await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
     expect(document.querySelector('[data-slot="reasoning-level"]')).toBeNull();
   });
@@ -244,7 +244,7 @@ describe('ModelsSettings', () => {
     );
     renderModels();
 
-    expect(await screen.findByRole('button', { name: 'Change' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Default model' })).toBeVisible();
     await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
     expect(screen.queryByText('Response settings')).toBeNull();
     expect(document.querySelector('[data-slot="response-settings"]')).toBeNull();
@@ -368,7 +368,7 @@ describe('ModelsSettings', () => {
     expect(payload).not.toHaveProperty('thinking_level');
   });
 
-  it('a provider that needs setup reads so on the card, and Change is where it is fixed', async () => {
+  it('a provider that needs setup reads so on the row, and its field is where it is fixed', async () => {
     repository.providerCatalog.mockResolvedValue({
       authoritative: 'live_handshake',
       providers: [],
@@ -383,7 +383,7 @@ describe('ModelsSettings', () => {
     });
     renderModels();
 
-    const card = (await screen.findByRole('button', { name: 'Change' })).closest(
+    const card = (await screen.findByRole('button', { name: 'Default model' })).closest(
       '[data-slot="default-model-card"]',
     ) as HTMLElement;
     const status = card.querySelector('[data-slot="default-model-status"]');
@@ -423,7 +423,7 @@ describe('ModelsSettings', () => {
     const user = userEvent.setup();
     renderModels(queryClient);
 
-    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.click(await screen.findByRole('button', { name: 'Default model' }));
     await user.click(await screen.findByRole('option', { name: /gpt-5\.6-sol/ }));
 
     await waitFor(() =>
@@ -443,7 +443,7 @@ describe('ModelsSettings', () => {
   it('adopts a configuration the service changed', async () => {
     const queryClient = renderModels();
     expect(
-      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
 
     act(() => {
@@ -454,7 +454,7 @@ describe('ModelsSettings', () => {
     });
 
     expect(
-      await screen.findByText('gpt-5.5', { selector: '[data-slot="default-model-name"]' }),
+      await screen.findByText('gpt-5.5', { selector: '[data-slot="model-select-name"]' }),
     ).toBeVisible();
   });
 });

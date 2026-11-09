@@ -51,6 +51,7 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
+  def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),
   def('new-conversation', 'New conversation', 'anywhere', ['Ctrl+N'], { host: 'desktop' }),
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',
@@ -89,6 +90,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('new-line', 'New line', 'composer', ['Shift+Enter']),
   def('mention', 'Mention a file or agent', 'composer', ['@']),
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
+  def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],
@@ -100,6 +102,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('lineage', 'Lineage', 'tab', ['Ctrl+Shift+L']),
   def('add-to-message', 'Add to message', 'tab', ['Ctrl+Shift+Enter']),
   def('comment', 'Comment on the selection', 'tab', ['Ctrl+Alt+M'], { mac: ['Alt+Cmd+A'] }),
+  def('comments', 'Comments', 'tab', ['Ctrl+Shift+K']),
   def('copy', 'Copy, with nothing selected', 'tab', ['Ctrl+C']),
   def('maximize', 'Maximize', 'tab', ['Alt+Enter']),
   def('previous-tab', 'Previous tab', 'tab', ['Alt+Left']),
@@ -112,6 +115,16 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-close', 'Close', 'menu', ['Esc']),
+  def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-columns', 'Providers and models column', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+  }),
+  def('menu-all-results', 'All results', 'menu', ['Ctrl+Enter']),
+  def('menu-all-types', 'Back to all types, in an empty search', 'menu', ['Backspace']),
+  def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
+  def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
 
   def('graph-move', 'Move between nodes', 'graph', ['Left', 'Right', 'Up', 'Down'], {
     joiner: 'pair',
