@@ -2,6 +2,7 @@ import {
   AtSignIcon,
   ClipboardCopyIcon,
   CopyIcon,
+  DownloadIcon,
   ExternalLinkIcon,
   FileTextIcon,
   LoaderCircleIcon,
@@ -117,6 +118,17 @@ export function FrameContentsCopyButton({
   );
 }
 
+/** Open's rows without Download, which the frame shows as its own button. */
+function otherOpenRows(rows: readonly TakeRow[]): TakeRow[] {
+  const index = rows.findIndex((row) => row.id === 'download');
+  if (index < 0) return [...rows];
+  const rest = rows.filter((_, position) => position !== index);
+  const next = rest[index];
+  if (next && rows[index].separatorBefore) rest[index] = { ...next, separatorBefore: true };
+  return rest;
+}
+
+/** Open ?: the face opens the file; the menu holds the other places and Export to?. */
 export function FrameOpenButton({ take, className }: { take: OpenTake; className?: string }) {
   return (
     <SplitButton
@@ -127,8 +139,23 @@ export function FrameOpenButton({ take, className }: { take: OpenTake; className
       disabled={take.busy}
       className={className}
     >
-      <TakeMenuRows rows={take.rows} />
+      <TakeMenuRows rows={otherOpenRows(take.rows)} />
     </SplitButton>
+  );
+}
+
+/** The file's one download of its original bytes, beside Open ?. */
+export function FrameDownloadButton({ take }: { take: OpenTake }) {
+  const row = take.rows.find((candidate) => candidate.id === 'download');
+  if (!row) return null;
+  return (
+    <IconButton
+      label="Download"
+      icon={<DownloadIcon aria-hidden="true" />}
+      disabledReason={row.reason ?? (take.busy ? 'Working on it' : undefined)}
+      className="[&_svg]:size-3.5"
+      onClick={() => row.onSelect?.()}
+    />
   );
 }
 
@@ -152,7 +179,7 @@ export function FoldedTakeRows({ copy, open }: { copy?: CopyTake; open?: OpenTak
             <MenuRow icon={<ExternalLinkIcon />} label="Open" submenu />
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-56">
-            <TakeMenuRows rows={open.rows} />
+            <TakeMenuRows rows={otherOpenRows(open.rows)} />
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       ) : null}
@@ -167,8 +194,9 @@ function folded(element: HTMLElement | null) {
 
 /**
  * Talk and Take, the end of every frame bar: @ Add to message, Comments,
- * Copy ▾, Open ▾ and the … menu. As the frame narrows, Open, Copy and @ fold
- * into the … menu in that order; the comments and the … menu never leave.
+ * Copy ▾, Download, Open ▾ and the … menu. As the frame narrows, Open, Copy
+ * and @ fold into the … menu in that order; Download, the comments and the …
+ * menu never leave, so the original bytes are always one click away.
  * Without menu rows of its own the … menu shows only while something is folded.
  */
 export function FrameTalkTake({
@@ -216,6 +244,7 @@ export function FrameTalkTake({
           <FrameCopyButton take={copy} />
         </span>
       ) : null}
+      {open ? <FrameDownloadButton take={open} /> : null}
       {open ? (
         <span ref={openRef} className="contents group-data-[fold-open]/frame:hidden">
           <FrameOpenButton take={open} />
