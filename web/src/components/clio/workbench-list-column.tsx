@@ -6,6 +6,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
+  DatabaseIcon,
   GlobeIcon,
   ListFilterIcon,
   PanelRightCloseIcon,
@@ -35,6 +36,7 @@ import { formatCompactBytes, formatResourceSize } from '@/lib/format';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ArtifactTypeIcon } from './artifact-type-icon';
+import { ConnectedSourcePicker } from './connected-source-picker';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
@@ -117,11 +119,12 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
       data-overlay={overlay || undefined}
       className={cn(
         'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
-        // Too narrow for both: the list is a sheet over the whole tab body
-        // (never half of it, which would clip the tab), and a pick closes it.
+        // Too narrow for both: the list is a sheet over the whole tab area, its
+        // header in the tab row's place (never half of it, which would clip the
+        // tab), and a pick closes it.
         overlay
-          ? 'absolute top-10 right-11 bottom-0 left-0 z-20 border-t border-l-0'
-          : 'h-full w-[clamp(200px,34%,280px)]',
+          ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
+          : 'h-full w-[36%] min-w-[180px]',
       )}
     >
       {view === 'activity' ? (
@@ -142,6 +145,8 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         <FilesList {...props} renderHeader={renderHeader} />
       ) : view === 'artifacts' ? (
         <ArtifactsList {...props} renderHeader={renderHeader} />
+      ) : view === 'sources' ? (
+        <SourcesList {...props} renderHeader={renderHeader} />
       ) : (
         <>
           <ListHeader onHide={onHide} title={title} />
@@ -185,9 +190,8 @@ function ListBody(props: WorkbenchListColumnProps) {
     case 'files':
     case 'artifacts':
     case 'activity':
-      return null;
     case 'sources':
-      return <SourcesList {...props} />;
+      return null;
     case 'terminal':
       return <TerminalList {...props} />;
     case 'browser':
@@ -273,9 +277,58 @@ function SourcesList({
   resourcesPending,
   resourcesError,
   onOpenResource,
+  onRefreshFiles,
   tabs,
   activeTabId,
-}: WorkbenchListColumnProps) {
+  workspaceId,
+  sessionId,
+  renderHeader,
+}: WorkbenchListColumnProps & { renderHeader: (actions: ReactNode) => ReactNode }) {
+  const [managing, setManaging] = useState(false);
+  return (
+    <>
+      {renderHeader(
+        <IconButton
+          icon={<DatabaseIcon />}
+          label="Manage sources"
+          onClick={() => setManaging(true)}
+          size="sm"
+          tooltipSide="bottom"
+        />,
+      )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <SourceRows
+          activeTabId={activeTabId}
+          onOpenResource={onOpenResource}
+          resources={resources}
+          resourcesError={resourcesError}
+          resourcesPending={resourcesPending}
+          tabs={tabs}
+        />
+      </div>
+      <ConnectedSourcePicker
+        manageOnly
+        onChanged={onRefreshFiles}
+        onOpenChange={setManaging}
+        open={managing}
+        sessionId={sessionId}
+        workspaceId={workspaceId}
+      />
+    </>
+  );
+}
+
+function SourceRows({
+  resources,
+  resourcesPending,
+  resourcesError,
+  onOpenResource,
+  tabs,
+  activeTabId,
+}: Pick<
+  WorkbenchListColumnProps,
+  'resources' | 'resourcesPending' | 'resourcesError' | 'onOpenResource' | 'tabs' | 'activeTabId'
+>) {
   if (resourcesPending && !resources.length)
     return <StateView className="p-4" kind="loading" size="panel" title="Loading sources" />;
   if (!resources.length)

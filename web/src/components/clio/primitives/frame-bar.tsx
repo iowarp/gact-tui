@@ -335,7 +335,10 @@ export const FrameTab = memo(
         data-changed={changed || undefined}
         data-pinned={pinned || undefined}
         className={cn(
-          'group/frame-tab relative flex h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:bg-hover data-active:text-foreground data-active:shadow-[inset_0_-2px_0_var(--primary)] data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+          // Spec .tab.on: foreground text over a 2px primary line, no fill. The
+          // line is its own layer so the trigger's background never covers it,
+          // and the tab fills the row above its border so nothing clips it.
+          'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
           iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
           className,
         )}

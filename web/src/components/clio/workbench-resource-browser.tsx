@@ -27,9 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -230,11 +228,6 @@ export function FileBrowser({
           >
             Dot files and folders
           </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setSourcesOpen(true)}>
-            <DatabaseIcon />
-            Manage sources…
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <RefreshAction
@@ -272,7 +265,7 @@ export function FileBrowser({
                   closeSearch();
                 }
               }}
-              placeholder={filterLabel}
+              placeholder="Filter files"
               value={query}
             />
           </div>
@@ -319,12 +312,18 @@ export function FileBrowser({
         </div>
       )}
       {filesTruncated && filesNextOffset === undefined ? (
-        <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
-          <TriangleAlertIcon className="size-3.5" />
-          <AlertDescription className="text-xs">
-            This list is truncated — the workspace has more files than can be shown at once.
-          </AlertDescription>
-        </Alert>
+        headed ? (
+          <p className="shrink-0 truncate px-3.5 pt-1.5 text-[11px] text-faint">
+            Showing part of this workspace; filter to find the rest.
+          </p>
+        ) : (
+          <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
+            <TriangleAlertIcon className="size-3.5" />
+            <AlertDescription className="text-xs">
+              This list is truncated — the workspace has more files than can be shown at once.
+            </AlertDescription>
+          </Alert>
+        )
       ) : null}
       <ScrollArea className="min-h-0 flex-1 p-2">
         {directory !== undefined || filesNextOffset !== undefined ? (

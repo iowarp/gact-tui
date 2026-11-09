@@ -1,4 +1,12 @@
-import { AtSignIcon, ChevronDownIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  AtSignIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  FolderIcon,
+  PinIcon,
+  PinOffIcon,
+  XIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useEffect,
@@ -290,7 +298,7 @@ export function WorkbenchTabRow({
                 disabled={menuPath === undefined}
                 onSelect={() => onShowInFiles(menuTab)}
               >
-                <MenuRow accelerator="F" label="Show in Files" />
+                <MenuRow accelerator="F" icon={<FolderIcon />} label="Show in Files" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="Y"
@@ -299,11 +307,11 @@ export function WorkbenchTabRow({
                   if (menuPath) void navigator.clipboard?.writeText(menuPath);
                 }}
               >
-                <MenuRow accelerator="Y" label="Copy path" />
+                <MenuRow accelerator="Y" icon={<CopyIcon />} label="Copy path" />
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem data-accelerator="C" onSelect={() => onClose(menuTab.id)}>
-                <MenuRow accelerator="C" label="Close" />
+                <MenuRow accelerator="C" icon={<XIcon />} label="Close" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="O"

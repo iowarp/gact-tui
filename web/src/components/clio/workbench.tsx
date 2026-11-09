@@ -108,9 +108,10 @@ export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
 }
 
-// Beside the tabs only while the open tab keeps ~340px after the strip and
-// the list (34% of the panel); narrower, the list is a sheet over the tab.
-const LIST_OVERLAY_BELOW = 600;
+// Beside the tabs down to the spec's laptop width (a 40% panel at 1280 keeps
+// ~280px for the tab after the strip and the 36% list); narrower, the list is
+// a sheet over the tab body.
+const LIST_OVERLAY_BELOW = 440;
 const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
 
 function parentDirectory(path: string): string {
