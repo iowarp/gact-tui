@@ -170,7 +170,6 @@ describe('ClioConversation harness injection', () => {
       expect(wake.queryByRole('button', { name: 'Rewind to here' })).toBeNull();
       expect(wake.queryByRole('button', { name: /Mark message/u })).toBeNull();
       expect(screen.queryByText(/The report is incomplete/u)).toBeNull();
-      await user.click(screen.getByRole('button', { name: /^Activity:/u }));
       const continued = within(
         container.querySelector<HTMLElement>('[data-message-id="continued"]')!,
       );
@@ -186,7 +185,7 @@ describe('ClioConversation harness injection', () => {
     },
   );
 
-  it('keeps a tool-scoped addition inside Activity, expanding to the exact text', async () => {
+  it('shows a tool-scoped addition as an activity row, expanding to the exact text', async () => {
     const user = userEvent.setup();
     const text =
       "[clio: path_hint]\nargument 'path': 'a.csv' does not exist. Did you mean 'data/a.csv'?";
@@ -211,8 +210,6 @@ describe('ClioConversation harness injection', () => {
       />,
     );
 
-    expect(screen.queryByText('Path suggestion')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Activity:/u }));
     await waitFor(() => expect(screen.getByText('Path suggestion')).toBeVisible());
     expect(screen.queryByText(/Did you mean/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Injection Path suggestion/u }));
@@ -288,29 +285,16 @@ describe('ClioConversation harness injection', () => {
         />,
       );
       await waitFor(() => expect(screen.getByText('The manifest is available.')).toBeVisible());
-      if (mode === 'chain') {
-        expect(container.querySelector('[data-slot="harness-injection"]')).toBeNull();
-        await user.click(screen.getByRole('button', { name: /^Activity:/u }));
-      }
       expect(
         [...container.querySelectorAll('[data-turn-activity]')].map((item) =>
           item.getAttribute('data-turn-activity'),
         ),
       ).toEqual(['tool:call_read', 'injection:spill', 'tool:call_run', 'injection:warning']);
       expect(container.querySelectorAll('[data-slot="harness-injection"]')).toHaveLength(2);
-      let spill = container.querySelector<HTMLElement>('[data-turn-activity="injection:spill"]')!;
+      const spill = container.querySelector<HTMLElement>('[data-turn-activity="injection:spill"]')!;
       expect(spill).toHaveAttribute('data-call-id', 'call_read');
       await user.click(within(spill).getByRole('button', { name: /^Injection/u }));
       expect(spill.querySelector('pre')?.textContent).toBe(text);
-      if (mode === 'chain') {
-        const chain = screen.getByRole('button', { name: /^Activity:/u });
-        await user.click(chain);
-        await user.click(chain);
-        expect(
-          container.querySelector('[data-turn-activity="injection:spill"] pre')?.textContent,
-        ).toBe(text);
-        spill = container.querySelector<HTMLElement>('[data-turn-activity="injection:spill"]')!;
-      }
       await user.click(
         within(spill).getByRole('button', {
           name: 'Technical details for Large result saved to a file',
@@ -320,7 +304,7 @@ describe('ClioConversation harness injection', () => {
     },
   );
 
-  it('keeps turn-wide context inside the collapsed activity chain', async () => {
+  it('shows turn-wide context as an activity row in the chain', async () => {
     const user = userEvent.setup();
     const { container } = renderConversation(
       <ClioConversation
@@ -355,23 +339,16 @@ describe('ClioConversation harness injection', () => {
         }}
       />,
     );
-    expect(screen.queryByText('Plan mode')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-turn-activity="injection:reminder"]')).toBeNull();
-    expect(screen.getByRole('button', { name: /^Activity:/u })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    await user.click(screen.getByRole('button', { name: /^Activity:/u }));
+    expect(screen.queryByRole('button', { name: /^Activity/u })).toBeNull();
     const reminder = container.querySelector<HTMLElement>(
       '[data-turn-activity="injection:reminder"]',
     )!;
-    expect(within(reminder).getByText('Plan mode')).toBeVisible();
+    await waitFor(() => expect(within(reminder).getByText('Plan mode')).toBeVisible());
     await user.click(within(reminder).getByRole('button', { name: /^Injection/u }));
     expect(within(reminder).getByText('Inspect before executing.')).toBeVisible();
   });
 
-  it('names an unlisted source plainly', async () => {
-    const user = userEvent.setup();
+  it('names an unlisted source plainly', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -390,7 +367,6 @@ describe('ClioConversation harness injection', () => {
         tools={{}}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /^Activity:/u }));
     expect(screen.getByText('New fix')).toBeInTheDocument();
   });
 });

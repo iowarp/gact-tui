@@ -1,5 +1,6 @@
 import { type ClioRepository, type Message as DomainMessage } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { domAnimation, LazyMotion } from 'motion/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -45,9 +46,13 @@ afterEach(() => {
 
 function renderConversation(element: ReactElement) {
   return render(
-    <AppearanceProvider>
-      <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
-    </AppearanceProvider>,
+    // Message rows use motion's lazy `m.div`; load the same animation features
+    // as the app so their initial opacity settles before visibility assertions.
+    <LazyMotion features={domAnimation}>
+      <AppearanceProvider>
+        <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
+      </AppearanceProvider>
+    </LazyMotion>,
   );
 }
 
@@ -354,7 +359,7 @@ describe('ClioConversation recovery actions', () => {
     expect(before.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('renders an accepted steer as the real human message and permits cancellation before claim', () => {
+  it('renders an accepted steer as the real human message and permits cancellation before claim', async () => {
     const onCancelPendingSteer = vi.fn();
 
     renderConversation(
@@ -380,14 +385,15 @@ describe('ClioConversation recovery actions', () => {
     );
 
     expect(screen.getByText('Use the newer evidence.').closest('.border-dashed')).toBeNull();
-    expect(screen.getByText('Queued')).toBeVisible();
+    // The latest rows fade in; wait for the fade before judging visibility.
+    await waitFor(() => expect(screen.getByText('Queued')).toBeVisible());
     expect(screen.queryByText(/steering|safe boundary/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel pending message' }));
     expect(onCancelPendingSteer).toHaveBeenCalledWith('message_pending');
   });
 
-  it('keeps a claimed steer visually pending without offering an invalid cancellation', () => {
+  it('keeps a claimed steer visually pending without offering an invalid cancellation', async () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -409,7 +415,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Inspect the alternate station.')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Inspect the alternate station.')).toBeVisible());
     expect(screen.getByText('Queued')).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Cancel pending message' }),

@@ -1,5 +1,5 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 // The plan review renders Markdown through a React.lazy boundary. Importing the
@@ -66,7 +66,7 @@ describe('ConversationTurn incomplete state', () => {
     expect(screen.getByText('Interrupted')).toBeVisible();
   });
 
-  it('shows the interrupted state on the collapsed chain summary', () => {
+  it('shows the interrupted state in the chain activity lane', () => {
     render(
       <ConversationTurn
         answerStarted
@@ -76,10 +76,8 @@ describe('ConversationTurn incomplete state', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /^Activity:.*Interrupted/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    expect(screen.getByRole('group', { name: /^Activity:.*Interrupted/ })).toBeVisible();
+    expect(screen.getByText('Interrupted')).toBeVisible();
   });
 
   it('does not mark a normally completed iteration as interrupted', () => {
@@ -156,11 +154,6 @@ describe('ConversationTurn correlated work placement', () => {
       fireEvent.click(executeChoice);
       expect(executeChoice).toBeChecked();
       expect(clearContext).toBeEnabled();
-      if (mode === 'chain') {
-        fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-        expect(screen.getByText('Review execution plan')).toBeVisible();
-        expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
-      }
     },
   );
 
@@ -192,7 +185,7 @@ describe('ConversationTurn correlated work placement', () => {
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
   });
 
-  it('renders child start and return as separate navigable ledger rows', () => {
+  it('renders child start and return as separate navigable ledger rows', async () => {
     const child = {
       id: 'task_researcher',
       session_id: 'session_1',
@@ -246,10 +239,19 @@ describe('ConversationTurn correlated work placement', () => {
       'tool:call_read',
       'subagent:handoff_returned',
     ]);
-    expect(screen.queryByText(child.task)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Delegate' }));
-    expect(screen.getByText(child.task)).toBeVisible();
+    expect(lane.querySelector('[data-turn-activity="subagent:handoff_started"]')).toHaveTextContent(
+      'Delegate',
+    );
+    expect(
+      lane.querySelector('[data-turn-activity="subagent:handoff_returned"]'),
+    ).toHaveTextContent('Subagent turn ended');
+    // Both rows preview the assignment; only the return carries the result.
+    expect(screen.getAllByText(child.task)).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
+    expect(screen.getAllByText(child.task)).toHaveLength(3);
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Subagent turn ended' }));
+    expect(await screen.findByText(child.result)).toBeVisible();
   });
 
   it('keeps the active MCP App visible after its collapsed chain summary', () => {
@@ -331,7 +333,6 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
     expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
     expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
@@ -621,9 +622,8 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     const line = document.querySelector('[data-turn-activity="task:task_permission"]');
-    expect(line).toHaveTextContent('Permission needed');
+    expect(line).toHaveTextContent(/permission needed/iu);
     expect(line).not.toHaveTextContent('waiting_permission');
   });
 
@@ -653,8 +653,9 @@ describe('ConversationTurn announced state', () => {
     expect(line).not.toBeNull();
     expect(line).not.toHaveAttribute('aria-label');
     expect(line).toHaveTextContent('Review station quality');
-    expect(line).toHaveTextContent('Completed');
-    expect(line).toHaveTextContent('Evidence retained with source identity.');
+    expect(within(line as HTMLElement).getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
+    expect(screen.getByText('Evidence retained with source identity.')).toBeVisible();
   });
 
   it('does not leave a task with no detail as an unexplained status row', () => {
@@ -676,7 +677,8 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    const line = document.querySelector('[data-turn-activity="task:task_without_detail"]');
-    expect(line).toHaveTextContent('No detail reported');
+    expect(document.querySelector('[data-turn-activity="task:task_without_detail"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
+    expect(screen.getByText('No task detail was reported.')).toBeVisible();
   });
 });

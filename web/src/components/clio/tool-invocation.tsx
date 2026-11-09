@@ -1,6 +1,6 @@
 import { toolResultRecord, asRecord } from './tool-result-shared';
 import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
-import { lazy, Suspense, useContext, useEffect, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
@@ -73,6 +73,13 @@ export function ClioToolInvocation({
     (state) => state.entities.sessions[sentMessage?.sessionId ?? sentMessage?.target ?? '']?.title,
   );
   const [open, setOpen] = useState(false);
+  const infoRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  // The dialog has no Radix trigger, so closing it returns focus to the ⓘ that opened it.
+  useEffect(() => {
+    if (wasOpen.current && !open) infoRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
   const [resultOpen, setResultOpen] = useState(
     defaultOpen ?? (!compact && !['cancelled', 'interrupted'].includes(tool?.state ?? '')),
   );
@@ -206,6 +213,7 @@ export function ClioToolInvocation({
           }
           info={
             <ActivityInfoButton
+              ref={infoRef}
               label={`Technical details for ${actionLabel}`}
               onClick={() => setOpen(true)}
             />

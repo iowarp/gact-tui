@@ -6,7 +6,7 @@ import {
   type ToolInvocation,
   type TransportFrame,
 } from '@clio/core/v3';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,7 +77,6 @@ describe('ClioConversation variant runs', () => {
     const block = within(row).getByRole('group', { name: 'Alternative drafts' });
     expect(within(block).getByRole('status')).toHaveTextContent('Draft 3 selected');
     // The turn keeps its own injection; the try's advice moved into the try's tab.
-    fireEvent.click(within(row).getByRole('button', { name: /^Activity:/u }));
     expect(within(row).getAllByText('Drafting alternatives')).toHaveLength(1);
     const advice = within(row).getAllByText('Advice for this draft');
     expect(advice).toHaveLength(1);

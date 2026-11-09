@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSubagentCard, ClioSubagentLifecycleLine } from './subagent-card';
 import { PresentationNavigation } from './presentation-navigation';
@@ -20,8 +20,9 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(screen.getByText('Unknown')).toBeVisible();
-    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Unknown' })).toBeInTheDocument();
+    expect(screen.getByText('unknown')).toBeVisible();
+    expect(screen.queryByRole('img', { name: 'Completed' })).not.toBeInTheDocument();
   });
 
   it('names the model a child runs on beside its name', () => {
@@ -45,7 +46,8 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(screen.getByText('claude-haiku-5-5')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Technical details for Delegate' }));
+    expect(within(screen.getByRole('dialog')).getByText('claude-haiku-5-5')).toBeVisible();
   });
 
   it('keeps an interrupted child interrupted instead of relabeling it failed', () => {
@@ -62,8 +64,10 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(screen.getByText('Interrupted')).toBeVisible();
-    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Interrupted' })).toBeInTheDocument();
+    expect(screen.getByText('interrupted')).toBeVisible();
+    expect(screen.queryByRole('img', { name: 'Failed' })).not.toBeInTheDocument();
+    expect(screen.queryByText('failed')).not.toBeInTheDocument();
   });
 
   it('treats an event-order gap as connecting instead of a failed child', () => {
@@ -74,7 +78,7 @@ describe('ClioSubagentCard', () => {
     expect(screen.queryByText('Child agent unavailable')).not.toBeInTheDocument();
   });
 
-  it('shows authoritative child-agent work without another disclosure layer', () => {
+  it('reads as one delegate row whose body holds the returned result', () => {
     const onOpen = vi.fn();
     render(
       <ClioSubagentCard
@@ -94,14 +98,21 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
+    expect(screen.getByText('Delegate')).toBeVisible();
     expect(screen.getByText('Ground the requested region before catalog search.')).toBeVisible();
-    expect(screen.getByText('Resolved the region with authoritative coordinates.')).toBeVisible();
+    expect(
+      screen.queryByText('Resolved the region with authoritative coordinates.'),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Open conversation')).not.toBeInTheDocument();
+    expect(screen.queryByText('main', { exact: true })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open child conversation geospatial #1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
+    expect(screen.getByText('Resolved the region with authoritative coordinates.')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open geospatial' }));
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open child conversation geospatial #1' }), {
+    fireEvent.click(screen.getByRole('button', { name: 'Open geospatial' }), {
       shiftKey: true,
     });
     expect(onOpen).toHaveBeenLastCalledWith(
@@ -156,16 +167,20 @@ describe('ClioSubagentLifecycleLine', () => {
     return onOpen;
   }
 
-  it('names the agent and keeps its assignment in the normal tool disclosure', () => {
+  it('names the agent as a link with its assignment as the argument', () => {
     const onOpen = show('delegate.started');
+    expect(screen.getByText('Delegate')).toBeVisible();
     expect(screen.getByText('researcher')).toBeVisible();
-    // The accepted delegation's mark carries its outcome; the row repeats no status recap.
-    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
-    expect(screen.queryByText(child.task)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Delegate' }));
+    // The mark carries the outcome; the row repeats no status recap.
+    expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+    expect(screen.queryByText('completed')).not.toBeInTheDocument();
     expect(screen.getByText(child.task)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
+    expect(screen.getByRole('region', { name: 'Delegate researcher' })).toHaveTextContent(
+      child.task,
+    );
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open child conversation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open researcher' }));
     expect(onOpen).toHaveBeenCalledWith(child, 'canvas');
   });
 
@@ -173,13 +188,13 @@ describe('ClioSubagentLifecycleLine', () => {
     show('delegate.completed');
     expect(screen.getByText('Subagent turn ended')).toBeVisible();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Subagent turn ended' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Subagent turn ended' }));
     expect(screen.getByText(child.result)).toBeVisible();
   });
 
   it('keeps continuations distinct from returned results', () => {
     show('delegate.superseded');
-    expect(screen.getByRole('button', { name: 'Show result for Continue subagent' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Expand Continue subagent' })).toBeVisible();
     expect(screen.queryByText(/turn ended/i)).not.toBeInTheDocument();
   });
 });

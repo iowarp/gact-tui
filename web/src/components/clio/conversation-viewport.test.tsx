@@ -727,7 +727,7 @@ describe('ClioConversation transcript viewport', () => {
     await waitFor(() => expect(document.activeElement).toHaveAttribute('id', 'message-message_1'));
   });
 
-  it('does not rebuild the turn projection when only the activity disclosure changes', () => {
+  it('does not rebuild the turn projection when only a row disclosure changes', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -761,8 +761,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });

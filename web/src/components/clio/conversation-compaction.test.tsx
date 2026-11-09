@@ -142,14 +142,12 @@ function conversation(
   {
     interactions,
     surfaces = {},
-    expandActivity = true,
   }: {
     interactions?: PendingInteraction[];
     surfaces?: Record<string, A2UISurface>;
-    expandActivity?: boolean;
   } = {},
 ) {
-  const view = renderConversation(
+  return renderConversation(
     <ClioConversation
       artifacts={{}}
       compactions={compactions}
@@ -161,14 +159,6 @@ function conversation(
       tools={{}}
     />,
   );
-  // Content and ownership checks inspect the disclosure the user opens.
-  // The default-state test opts out and verifies the collapsed experience.
-  if (expandActivity) {
-    for (const button of screen.queryAllByRole('button', { name: /^Activity:/u })) {
-      if (button.getAttribute('aria-expanded') === 'false') fireEvent.click(button);
-    }
-  }
-  return view;
 }
 
 function progressRow(): HTMLElement | null {
@@ -176,14 +166,13 @@ function progressRow(): HTMLElement | null {
 }
 
 describe('ClioConversation summarization injection', () => {
-  it('keeps a reloaded summary inside Activity and discloses its exact text', async () => {
+  it('marks a reloaded summary in place and discloses its exact text', async () => {
     const user = userEvent.setup();
-    conversation([userMessage, summaryMessage], undefined, { expandActivity: false });
+    conversation([userMessage, summaryMessage]);
 
     expect(
       document.querySelector('[data-slot="harness-injection"][data-source="summarization"]'),
-    ).toBeNull();
-    await user.click(screen.getByRole('button', { name: /^Activity:/u }));
+    ).not.toBeNull();
     expect(screen.getByText('Automatic')).toBeInTheDocument();
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
 
@@ -191,7 +180,7 @@ describe('ClioConversation summarization injection', () => {
       name: 'Compacted here, earlier context summarized',
     });
     await user.click(disclosure);
-    expect(screen.getByText(/unique-marker-tail/u).textContent).toBe(summary);
+    expect(screen.getByText(/unique-marker-tail/u).textContent?.trim()).toBe(summary);
     await user.click(disclosure);
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
   });
@@ -228,9 +217,9 @@ describe('ClioConversation summarization injection', () => {
     await user.click(
       screen.getByRole('button', { name: 'Compacted here, earlier context summarized' }),
     );
-    expect(screen.getByText(/call recall_context to retrieve it/u).textContent).toBe(
-      `${summary}\n\n${recall}`,
-    );
+    const recallLine = screen.getByText(/call recall_context to retrieve it/u);
+    expect(recallLine.textContent?.trim()).toBe(recall);
+    expect(recallLine.closest('[data-source="summarization"]')).toHaveTextContent(summary);
   });
 
   it('labels a user-requested summary distinctly from an automatic one', () => {
@@ -294,7 +283,7 @@ describe('ClioConversation compaction progress', () => {
       ],
     );
     expect(progressRow()).toBeNull();
-    expect(screen.getByText('Summarization')).toBeInTheDocument();
+    expect(screen.getByText('Compacted here, earlier context summarized')).toBeInTheDocument();
   });
 
   it('shows the typed error in place of the shimmer when the compaction fails', () => {

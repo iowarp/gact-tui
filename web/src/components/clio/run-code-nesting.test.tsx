@@ -72,9 +72,9 @@ describe('run_code nesting', () => {
       />,
     );
     expect(
-      screen.getByText('10 tool calls from this script (1 failed, 1 running)'),
+      screen.getByRole('group', { name: '10 tool calls from this script (1 failed, 1 running)' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByTestId('child')).toHaveLength(8);
+    expect(screen.getAllByTestId('child')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Show all 10' }));
     expect(screen.getAllByTestId('child')).toHaveLength(10);
   });
@@ -97,7 +97,9 @@ describe('run_code nesting', () => {
       tool('12', { parent_call_id: 'run' }),
     ]);
     render(<NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />);
-    expect(screen.getByText('13 tool calls from this script')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: '13 tool calls from this script' }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/^Called 12 times/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Called \d+ times/)).toHaveLength(1);
   });
@@ -115,7 +117,7 @@ describe('run_code nesting', () => {
         <NestedToolCalls parentId="run" renderCall={(child) => <span>{child.id}</span>} />
       </PresentationNavigation.Provider>,
     );
-    expect(screen.getByText('1 tool call from this script')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '1 tool call from this script' })).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument();
   });
 
