@@ -29,7 +29,9 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * Item row (D): icon and name with a meta line, then fixed columns for status,
  * hover actions and a slot. Every row of a list shares the column widths, so
  * status words and buttons line up. Below 36rem of list width the status column
- * shrinks to its mark and words, and the slot keeps its width.
+ * narrows to at most 7.5rem (still one width for every row), the slot keeps its
+ * width, and hover actions float over the row's right side instead of reserving
+ * a column, so the name keeps the room.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -68,7 +70,9 @@ export const ItemRow = memo(
           'group/item-row relative grid min-w-0 grid-cols-[1.25rem_minmax(0,1fr)_var(--item-status)_var(--item-actions)_var(--item-slot)] items-center gap-x-2.5 border-b border-border/70 px-2 whitespace-nowrap outline-none',
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
-          '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_auto_var(--item-actions)_var(--item-slot)]',
+          actionsVisible
+            ? '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-actions)_var(--item-slot)]'
+            : '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),7.5rem)_var(--item-slot)]',
           size === 'sm' ? 'min-h-[2.125rem] py-0.5' : 'min-h-[2.875rem] py-[0.1875rem]',
           className,
         )}
@@ -105,7 +109,7 @@ export const ItemRow = memo(
           className={cn(
             'flex min-w-0 items-center justify-end gap-px',
             !actionsVisible &&
-              'invisible group-focus-within/item-row:visible group-hover/item-row:visible',
+              'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+1.125rem)] @max-xl:bg-hover @max-xl:w-[min(var(--item-status),7.5rem)] @max-xl:min-w-max',
           )}
           data-slot="item-row-actions"
         >
@@ -131,7 +135,11 @@ export function ItemList({
   label?: string;
 }) {
   return (
-    <div aria-label={label} className={cn('@container min-w-0', className)} role={label ? 'group' : undefined}>
+    <div
+      aria-label={label}
+      className={cn('@container min-w-0', className)}
+      role={label ? 'group' : undefined}
+    >
       {children}
     </div>
   );
