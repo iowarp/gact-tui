@@ -140,7 +140,7 @@ export const ListRow = memo(
             <span
               data-slot="list-row-actions"
               style={{ width: actionsWidth }}
-              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
+              className="invisible flex shrink-0 items-center justify-end group-hover/list-row:visible group-has-[:focus-visible]/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
             >
               {actions}
             </span>

@@ -142,7 +142,7 @@ export const StateView = memo(function StateView({
       className={cn(
         'flex min-w-0 text-muted-foreground',
         row
-          ? 'h-7 items-center gap-2 px-1.5 text-[12.5px] whitespace-nowrap'
+          ? 'h-7 items-center gap-2 px-2 text-[12.5px] whitespace-nowrap'
           : 'flex-col items-center justify-center gap-2.5 px-4 text-center text-[13px]',
         size === 'panel' && 'min-h-[170px] py-6',
         size === 'page' && 'min-h-[50vh] py-10',
@@ -159,9 +159,14 @@ export const StateView = memo(function StateView({
         )}
       >
         {kind === 'loading' && !icon ? (
-          <Spinner className={cn(row ? 'size-3.5' : 'size-[18px]', 'motion-reduce:animate-none')} />
+          row ? (
+            // The activity rows' running ring, so a loading line reads as work in progress.
+            <span className="block size-3 rounded-full border-2 border-primary/40 border-t-primary motion-safe:animate-spin" />
+          ) : (
+            <Spinner className="size-[18px] motion-reduce:animate-none" />
+          )
         ) : IconComponent ? (
-          <IconComponent className={row ? 'size-3.5' : 'size-[22px]'} />
+          <IconComponent className={row ? 'size-[15px]' : 'size-[22px]'} />
         ) : (
           <BoxIcon className="size-[22px]" />
         )}
@@ -209,8 +214,13 @@ export const StateView = memo(function StateView({
             size={row ? 'xs' : 'default'}
             disabled={action.disabled}
             onClick={action.onClick}
+            className={cn(
+              row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input text-foreground',
+            )}
           >
-            {kind === 'error' ? <RetryIcon aria-hidden="true" /> : null}
+            {kind === 'error' ? (
+              <RetryIcon aria-hidden="true" className={row ? 'size-3.5' : undefined} />
+            ) : null}
             {actionLabel}
           </Button>
         </span>
