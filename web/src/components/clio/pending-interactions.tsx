@@ -152,6 +152,8 @@ export function ClioPendingInteractions({
     onNext: () => navigate(index + 1),
   };
 
+  // A script ask shows its first lines whole (the spec's 8-line preview), not two.
+  const scriptCap = Boolean(selected?.payload?.script);
   return (
     <section
       aria-label="Agent needs your attention"
@@ -166,8 +168,13 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation; a visual answer gets more.
-          hasInteractiveSurface ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[45dvh]',
+          // The card stops at 45% of the conversation; a script's preview and a visual
+          // answer get more.
+          hasInteractiveSurface
+            ? 'max-h-[calc(100dvh-12rem)]'
+            : scriptCap
+              ? 'max-h-[min(62dvh,34rem)]'
+              : 'max-h-[45dvh]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -192,7 +199,8 @@ export function ClioPendingInteractions({
             className={cn(
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface && '[--ask-card-max:45dvh]',
+              !hasInteractiveSurface &&
+                (scriptCap ? '[--ask-card-max:min(62dvh,34rem)]' : '[--ask-card-max:45dvh]'),
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
