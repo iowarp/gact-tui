@@ -236,9 +236,6 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      d3-force:
-        specifier: 3.0.0
-        version: 3.0.0
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
@@ -381,9 +378,6 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.6
         version: 14.6.6(@testing-library/dom@10.4.1)
-      '@types/d3-force':
-        specifier: 3.0.10
-        version: 3.0.10
       '@types/geojson':
         specifier: ^7946.0.16
         version: 7946.0.16

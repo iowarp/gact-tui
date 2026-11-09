@@ -26,6 +26,9 @@ const STATES = [
   'message',
   'inline-states',
   'narrow',
+  'narrow-fifth',
+  'compaction',
+  'waiting',
 ];
 
 function option(name, fallback) {
@@ -46,12 +49,10 @@ const only = list(option('only', STATES.join(',')));
 const widths = list(option('widths', '1280,768')).map(Number);
 const themes = list(option('themes', 'dark,light'));
 const port = Number(process.env.CLIO_REVIEW_PORT ?? 5261);
-// Notebook is the RC1 default theme and the spec's own palette; `--palette default` checks the plain one.
-const palette = option('palette', 'notebook');
 // The spec page is not responsive: below these widths its mocks overlap or clip their own rows.
 // Its mocks are fixed-size drawings, so they are laid out at least this wide unless
 // --spec-at-width asks for the literal viewport.
-const SPEC_LAYOUT = { narrow: 1600 };
+const SPEC_LAYOUT = { narrow: 1600, 'narrow-fifth': 1600 };
 const specLayoutMin = 1280;
 const specAtWidth = process.argv.includes('--spec-at-width');
 const specWidth = (state, width) =>
@@ -63,10 +64,8 @@ for (const theme of themes)
 /** Our light tokens, written over the spec's dark :root so its token-driven parts flip. */
 async function lightOverride() {
   const css = await readFile(resolve(web, 'src/theme/themes.css'), 'utf8');
-  const selector =
-    palette === 'notebook'
-      ? /:root\[data-theme='notebook'\]\s*\{([\s\S]*?)\n\}/u
-      : /:root,\s*:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/u;
+  // The default light theme is the Notebook palette, the spec's own.
+  const selector = /:root,\s*:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/u;
   const block = css.match(selector)?.[1] ?? '';
   const tokens = new Map(
     [...block.matchAll(/--([\w-]+):\s*([^;]+);/gu)].map((match) => [match[1], match[2].trim()]),
@@ -108,6 +107,7 @@ async function lightOverride() {
  */
 function specBox(state) {
   const pad = 8;
+  const NARROW_CAPTION = { narrow: 'A third of the window', 'narrow-fifth': 'A fifth' };
   const caption = (text) =>
     [...document.querySelectorAll('.cap2')].find(
       (node) => node.querySelector('b')?.textContent?.trim() === text,
@@ -124,7 +124,7 @@ function specBox(state) {
     return [...column.children].filter((child) => !child.matches('.xdk, .xcp, .xa'));
   };
   let nodes = [];
-  if (state === 'conversation') {
+  if (state === 'conversation' || state === 'waiting') {
     const heading = [...document.querySelectorAll('.sect2')].find(
       (node) => node.textContent?.trim() === 'In a conversation',
     );
@@ -135,9 +135,10 @@ function specBox(state) {
   else if (state === 'info-dialog') nodes = after(caption('ⓘ opened'));
   else if (state === 'right-edge') nodes = after(caption('The right edge')).slice(0, 1);
   else if (state === 'message') nodes = after(caption('A message'));
-  else if (state === 'inline-states') nodes = after(caption('Inline, in the transcript'));
-  else if (state === 'narrow') {
-    const mock = caption('A third of the window')?.nextElementSibling;
+  else if (state === 'inline-states' || state === 'compaction')
+    nodes = after(caption('Inline, in the transcript'));
+  else if (state === 'narrow' || state === 'narrow-fifth') {
+    const mock = caption(NARROW_CAPTION[state])?.nextElementSibling;
     nodes = mock?.querySelector('.xct') ? transcriptOf(mock) : mock ? [mock] : [];
   }
   // Descendants too: column guides and badges overflow their row boxes.
@@ -171,10 +172,9 @@ function specBox(state) {
   const ceiling = nodes[0]?.previousElementSibling?.matches('.cap2')
     ? nodes[0].previousElementSibling.getBoundingClientRect().bottom
     : -Infinity;
-  const narrow =
-    state === 'narrow'
-      ? caption('A third of the window')?.nextElementSibling?.getBoundingClientRect().width
-      : undefined;
+  const narrow = NARROW_CAPTION[state]
+    ? caption(NARROW_CAPTION[state])?.nextElementSibling?.getBoundingClientRect().width
+    : undefined;
   const first = Math.max(top - pad, ceiling);
   return {
     x: Math.max(0, left - pad + window.scrollX),
@@ -240,6 +240,8 @@ async function captureSpec(page, state, width, theme, light) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto(pathToFileURL(specFile).href);
   if (theme === 'light') await page.addStyleTag({ content: light });
+  // The spec's narrow mocks float a toast over their transcript; it isn't a transcript state.
+  if (state.startsWith('narrow')) await page.addStyleTag({ content: '.fr .xt{display:none}' });
   await waitForFonts(page);
   const box = await page.evaluate(specBox, state);
   if (!box) throw new Error(`Spec state not found: ${state}`);
@@ -273,7 +275,7 @@ async function captureImplementation(page, state, width, theme, narrow) {
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme: theme });
   await page.goto(
-    `http://127.0.0.1:${port}/tests/review/transcript-spec.html?theme=${theme}&palette=${palette}&state=${state}`,
+    `http://127.0.0.1:${port}/tests/review/transcript-spec.html?theme=${theme}&state=${state}`,
     { waitUntil: 'domcontentloaded' },
   );
   const section = page.locator(`[data-spec-state="${state}"]`);
@@ -287,7 +289,7 @@ async function captureImplementation(page, state, width, theme, narrow) {
     () =>
       `${document.documentElement.dataset.theme}:${document.documentElement.classList.contains('dark') ? 'dark' : 'light'}`,
   );
-  const expected = `${palette === 'notebook' ? 'notebook' : theme}:${theme}`;
+  const expected = `${theme}:${theme}`;
   if (applied !== expected)
     throw new Error(`[${state}] page shows ${applied}, expected ${expected}`);
   if (narrow) {
@@ -388,7 +390,7 @@ try {
         const laidOut = specWidth(state, width);
         const spec = await captureSpec(specPage, state, laidOut, theme, light);
         const implementation = await captureImplementation(page, state, width, theme, spec.narrow);
-        const title = `${state}, ${width}, ${palette} ${theme} — spec | implementation`;
+        const title = `${state}, ${width}, ${theme} — spec | implementation`;
         const note = [
           laidOut !== width ? `Spec page laid out at ${laidOut}px; its mocks do not reflow.` : '',
           theme === 'light'

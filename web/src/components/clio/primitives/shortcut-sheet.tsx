@@ -57,6 +57,8 @@ const PAIRS: Readonly<Record<string, { with: string; name: string }>> = {
 interface SheetRow {
   id: string;
   name: string;
+  /** When the key does this, if not always: the row's hover title. */
+  when?: string;
   group: ShortcutDefinition['group'];
   ids: readonly string[];
   pair?: readonly [ShortcutDefinition, ShortcutDefinition];
@@ -89,6 +91,7 @@ function sheetRows(shortcuts: readonly ShortcutDefinition[], platform: KeyPlatfo
             id: definition.id,
             group: definition.group,
             name: definition.name,
+            when: definition.when,
             ids: [definition.id],
           },
         ];
@@ -222,8 +225,14 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                           aria-hidden="true"
                           className={cn('size-1.5 shrink-0 rounded-full', here && 'bg-primary')}
                         />
-                        <span className="min-w-0 flex-1 truncate" title={row.name}>
+                        <span
+                          className="min-w-0 flex-1 truncate"
+                          title={row.when ? `${row.name}: ${row.when.toLowerCase()}` : row.name}
+                        >
                           {row.name}
+                          {row.when ? (
+                            <span className="sr-only">, {row.when.toLowerCase()}</span>
+                          ) : null}
                           {here ? (
                             <span className="sr-only">, {WORKS_HERE.toLowerCase()}</span>
                           ) : null}
