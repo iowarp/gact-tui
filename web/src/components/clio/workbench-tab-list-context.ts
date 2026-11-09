@@ -3,6 +3,8 @@ import { createContext, useContext } from 'react';
 export interface TabListSlot {
   /** Where the list renders; null while the column is not shown. */
   host: HTMLElement | null;
+  /** The column header's actions, beside its title; null while the column is not shown. */
+  actionsHost?: HTMLElement | null;
   /** The active tab's list title ("Study", "Outline"), once a tab claims the column. */
   title?: string;
   shown: boolean;

@@ -4,7 +4,30 @@ import type { LatexOutlineNode } from '@clio/core/v3';
 import type { LatexOutlineRow, LatexPlace, LatexProblem } from './latex-model';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 
-/** Where a problem is: its line in the entry file, or its file and line elsewhere. */
+/**
+ * Where a problem is: its line in the entry file, or its file and line elsewhere.
+ * The line always shows; a long file name truncates before it.
+ */
+function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string }) {
+  const file = problem.file && problem.file !== entry ? problem.file : '';
+  const line = problem.line ? `line ${problem.line}` : '';
+  if (!file && !line) return null;
+  return (
+    <span
+      className="flex max-w-[55%] min-w-0 shrink-0 items-baseline text-[12px] text-muted-foreground"
+      data-slot="latex-problem-place"
+    >
+      {file ? (
+        <span className="min-w-0 truncate">
+          {file}
+          {line ? ',\u00a0' : ''}
+        </span>
+      ) : null}
+      {line ? <span className="shrink-0 tabular-nums">{line}</span> : null}
+    </span>
+  );
+}
+
 function problemPlace(problem: LatexProblem, entry: string): string {
   const file = problem.file && problem.file !== entry ? problem.file : '';
   const line = problem.line ? `line ${problem.line}` : '';
@@ -101,7 +124,7 @@ export function LatexListSections({
                     aria-disabled={problem.file ? undefined : true}
                     aria-label={`${severity}: ${problem.title}${where ? `, ${where}` : ''}`}
                     className={problem.file ? 'cursor-pointer' : 'cursor-default'}
-                    description={where || undefined}
+                    columns={<ProblemPlace entry={entry} problem={problem} />}
                     icon={
                       <Icon
                         className={

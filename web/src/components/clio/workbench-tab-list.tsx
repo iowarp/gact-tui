@@ -1,5 +1,5 @@
 import { PanelRightOpenIcon } from 'lucide-react';
-import { useContext, useLayoutEffect, type ReactNode } from 'react';
+import { Fragment, useContext, useLayoutEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from './primitives/icon-button';
 import { WorkbenchTabListSlot, type TabListSlot } from './workbench-tab-list-context';
@@ -19,11 +19,26 @@ export function WorkbenchTabListProvider({
  * "Vault", "Outline"). Outside the workbench, or while the column is hidden,
  * it renders nothing: the tab must stay usable without it.
  */
-export function WorkbenchTabList({ title, children }: { title: string; children: ReactNode }) {
+export function WorkbenchTabList({
+  title,
+  actions,
+  children,
+}: {
+  title: string;
+  /** Icon buttons for the column header, beside the title (a search toggle). */
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   const slot = useContext(WorkbenchTabListSlot);
   const claim = slot?.claim;
   useLayoutEffect(() => claim?.(title), [claim, title]);
-  return slot?.host ? createPortal(children, slot.host) : null;
+  if (!slot?.host) return null;
+  return (
+    <Fragment>
+      {createPortal(children, slot.host)}
+      {actions && slot.actionsHost ? createPortal(actions, slot.actionsHost) : null}
+    </Fragment>
+  );
 }
 
 /** For a frame bar: brings the tab's hidden list back. Absent while it shows. */

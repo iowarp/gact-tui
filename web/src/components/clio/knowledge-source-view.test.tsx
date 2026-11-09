@@ -35,9 +35,7 @@ vi.mock('./knowledge-graph', () => ({
     </div>
   ),
 }));
-vi.mock('./file-text-view', () => ({
-  FileReadView: ({ content }: { content: string }) => <article>{content}</article>,
-}));
+
 vi.mock('./file-source-view', () => ({
   FileSourceView: ({ content, label }: { content: string; label: string }) => (
     <pre aria-label={label}>{content}</pre>
@@ -210,7 +208,7 @@ it('shares one selection across graph, list and note, follows links and adds the
   );
   await user.click(within(frame).getByRole('tab', { name: 'Note' }));
   expect(await screen.findByText('Content of a.md')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '→ b.md#Topic' }));
+  await user.click(screen.getByRole('button', { name: /^Links to .+, Topic$/ }));
   expect(await screen.findByText('Content of b.md')).toBeInTheDocument();
   expect(within(host).getByRole('button', { name: 'Beta, 1 link' })).toHaveAttribute(
     'aria-pressed',
@@ -242,6 +240,53 @@ it('shares one selection across graph, list and note, follows links and adds the
   await waitFor(() =>
     expect(repository.knowledgeGraph.mock.calls.at(-1)?.[2]).toMatchObject({ focus: 'a.md' }),
   );
+}, 15_000);
+
+it('renders wiki links as note links and keeps the link list compact', async () => {
+  const backlinks = Array.from({ length: 6 }, (_, index) => ({
+    source: `notes/n${index}.md`,
+    target: 'a.md',
+    status: 'resolved',
+    kind: 'link',
+  }));
+  repository.knowledgeOpen.mockImplementation((_wid: string, _sid: string, path: string) =>
+    Promise.resolve({
+      source_id: 'vault',
+      note: { path, title: path === 'a.md' ? 'Alpha' : 'Beta', kind: 'note', revision: 'n' },
+      text:
+        path === 'a.md'
+          ? 'See [[b]] and [[Gamma|the gamma note]], not `[[b]]` in code.'
+          : `Content of ${path}`,
+      properties: {},
+      links:
+        path === 'a.md'
+          ? [{ source: 'a.md', target: 'b.md', status: 'resolved', kind: 'link' }, ...backlinks]
+          : [],
+      resource: { id: `resource:${path}`, workspace_id: 'w', name: path, revision: 1 },
+      access: 'read_only',
+      link_revision: 'link1',
+    }),
+  );
+  const { frame } = renderView();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Graph a.md' }));
+  await user.click(within(frame).getByRole('tab', { name: 'Note' }));
+  const wiki = await screen.findByRole('link', { name: 'b' });
+  expect(wiki).toHaveAttribute('title', 'b.md');
+  const missing = screen.getByText('the gamma note');
+  expect(missing).toHaveAttribute('title', 'Not in this vault');
+  expect(missing.closest('a')).toBeNull();
+  expect(screen.getByText('[[b]]').tagName).toBe('CODE');
+
+  const links = screen.getByRole('region', { name: 'Links 1 · Backlinks 6' });
+  expect(within(links).getAllByRole('listitem')).toHaveLength(5);
+  expect(within(links).getByRole('button', { name: 'Linked from n0' })).toBeInTheDocument();
+  expect(within(links).getByText('n0')).toHaveAttribute('title', 'notes/n0.md');
+  await user.click(within(links).getByRole('button', { name: '2 more' }));
+  expect(within(links).getAllByRole('listitem')).toHaveLength(7);
+
+  await user.click(wiki);
+  expect(await screen.findByText('Content of b.md')).toBeInTheDocument();
 }, 15_000);
 
 it('shows reader failures without fabricating note contents', async () => {

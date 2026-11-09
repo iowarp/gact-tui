@@ -11,6 +11,10 @@ import { MetaValue } from './primitives/tag';
 
 const PAGE = 200;
 
+function folderOf(path: string) {
+  return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+}
+
 /**
  * The vault's files beside the tabs: a search shared with the note graph and
  * one row per note with its link count. Pages of 200 keep large vaults bounded.
@@ -55,6 +59,11 @@ export function KnowledgeVaultFiles({
     [snapshot.data],
   );
   const data = snapshot.data;
+  // A folder shared by every listed note says nothing, so rows name a folder only when they differ.
+  const folders = useMemo(
+    () => new Set((data?.notes ?? []).map((note) => folderOf(note.path))),
+    [data],
+  );
   const paged = Boolean(data && (offset > 0 || data.next_offset != null));
   return (
     <div className="flex h-full min-h-0 flex-col" data-slot="knowledge-vault-files">
@@ -84,9 +93,7 @@ export function KnowledgeVaultFiles({
           <div role="list" aria-label="Vault files">
             {data.notes.map((note) => {
               const count = degrees.get(note.path) ?? 0;
-              const folder = note.path.includes('/')
-                ? note.path.slice(0, note.path.lastIndexOf('/'))
-                : undefined;
+              const folder = folders.size > 1 ? folderOf(note.path) : undefined;
               const open = () => onPick(note.path);
               return (
                 <div role="listitem" key={note.path}>
@@ -98,8 +105,16 @@ export function KnowledgeVaultFiles({
                     selected={selected === note.path}
                     className="cursor-pointer"
                     icon={note.kind === 'attachment' ? <PaperclipIcon /> : <FileTextIcon />}
-                    title={note.title}
-                    description={folder}
+                    title={<span title={note.path}>{note.title}</span>}
+                    description={
+                      folder ? (
+                        // The folder wraps onto a clipped second line when it does not fit, so it is dropped whole, never cut mid-word.
+                        <span className="flex h-[1lh] flex-wrap overflow-hidden">
+                          <span aria-hidden="true">{'\u200b'}</span>
+                          <span className="shrink-0">{folder}</span>
+                        </span>
+                      ) : undefined
+                    }
                     meta={<MetaValue>{count}</MetaValue>}
                     onClick={open}
                     onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {

@@ -17,6 +17,7 @@ import { useFileViewerFacts, useFileViewerTitle } from './file-viewer-facts';
 import { cn } from '@/lib/utils';
 import { DashboardCaptureAction } from './dashboard-capture-action';
 import { dashboardTabCount } from './dashboard-tabs';
+import { DashboardPresentationContext } from './dashboard-presentation';
 
 /** Open a compiled dashboard through the ordinary side-panel artifact viewer. */
 export function DashboardResourceView({
@@ -160,57 +161,63 @@ export function DashboardView({
     [reference, report.id],
   );
   return (
-    <ArtifactReferenceContext.Provider value={reference}>
-      <A2uiRegionCaptureProvider surface={surface}>
-        <article
-          ref={setRoot}
-          data-slot="a2ui-dashboard"
-          className={cn(
-            'group relative min-w-0 bg-background px-4 py-3 text-foreground',
-            !framed && 'space-y-3',
-          )}
-        >
-          {framed ? (
-            offline ? null : (
-              <DashboardCaptureAction
-                target={root}
-                title={report.title}
-                reference={captureReference}
-              />
-            )
-          ) : (
-            // Without the file frame the page still needs its name and tools.
-            <header className="flex min-w-0 items-center gap-2">
-              <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{report.title}</h1>
-              {!offline && (
-                <SurfaceToolbar
-                  floating={false}
-                  capabilities={{
-                    captureWholeSurface: true,
-                    captureComponentId: 'root',
-                    imageAttention: true,
-                    buildReference: wholeDashboard,
-                    exportFormats,
-                  }}
+    <DashboardPresentationContext.Provider value>
+      <ArtifactReferenceContext.Provider value={reference}>
+        <A2uiRegionCaptureProvider surface={surface}>
+          <article
+            ref={setRoot}
+            data-slot="a2ui-dashboard"
+            className={cn(
+              'group relative min-w-0 bg-background px-4 py-3 text-foreground',
+              // A grid of stats is one row; each stat truncates rather than wrapping.
+              '[&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))]:flex [&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))>div]:flex-1 [&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))>div]:basis-0',
+              !framed && 'space-y-3',
+            )}
+          >
+            {framed ? (
+              offline ? null : (
+                <DashboardCaptureAction
+                  target={root}
+                  title={report.title}
+                  reference={captureReference}
                 />
-              )}
-            </header>
-          )}
-          <ClioA2UISurface
-            surface={surface}
-            catalogRegistry={catalogRegistry}
-            readOnly
-            captureArtifactId={artifactId}
-            visualFeedback={!offline && Boolean(artifactId)}
-            onRemoteAction={async ({ action }) => {
-              // Modal opens locally. Its trigger Button's required action is
-              // not a command against a live chat surface for this saved artifact.
-              if (modalTriggers.has(action.sourceComponentId)) return;
-              throw new Error('Reference this dashboard in the conversation to ask the agent.');
-            }}
-          />
-        </article>
-      </A2uiRegionCaptureProvider>
-    </ArtifactReferenceContext.Provider>
+              )
+            ) : (
+              // Without the file frame the page still needs its name and tools.
+              <header className="flex min-w-0 items-center gap-2">
+                <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                  {report.title}
+                </h1>
+                {!offline && (
+                  <SurfaceToolbar
+                    floating={false}
+                    capabilities={{
+                      captureWholeSurface: true,
+                      captureComponentId: 'root',
+                      imageAttention: true,
+                      buildReference: wholeDashboard,
+                      exportFormats,
+                    }}
+                  />
+                )}
+              </header>
+            )}
+            <ClioA2UISurface
+              surface={surface}
+              catalogRegistry={catalogRegistry}
+              readOnly
+              captureArtifactId={artifactId}
+              visualFeedback={!offline && Boolean(artifactId)}
+              onRemoteAction={async ({ action }) => {
+                // Modal opens locally. Its trigger Button's required action is
+                // not a command against a live chat surface for this saved artifact.
+                if (modalTriggers.has(action.sourceComponentId)) return;
+                throw new Error('Reference this dashboard in the conversation to ask the agent.');
+              }}
+            />
+          </article>
+        </A2uiRegionCaptureProvider>
+      </ArtifactReferenceContext.Provider>
+    </DashboardPresentationContext.Provider>
   );
 }

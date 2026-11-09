@@ -10,13 +10,20 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { EntryKindIcon, ScienceStatus } from './science-log-icons';
 import { ENTRY_TYPE_LABELS } from './science-log-model';
-import { STUDY_GRAPH_NODE, type StudyGraphLayout } from './study-graph-layout';
+import { fitColumns, topLeftViewport, usePaneSize } from './graph-fit';
+import {
+  STUDY_GRAPH_NODE,
+  studyGraphColumns,
+  withColumnGap,
+  type StudyGraphLayout,
+} from './study-graph-layout';
 import type { StudyGraphNode } from './study-graph-model';
 
 interface EntryNodeData extends Record<string, unknown> {
@@ -27,9 +34,6 @@ interface EntryNodeData extends Record<string, unknown> {
 type EntryNode = Node<EntryNodeData, 'science-entry'>;
 const nodeTypes = { 'science-entry': EntryCard };
 const { width, height } = STUDY_GRAPH_NODE;
-const FIT = { padding: 0.15, minZoom: 0.12, maxZoom: 1 };
-/** Below this a card's title is unreadable: start at the question instead of fitting it all. */
-const READABLE_ZOOM = 0.75;
 
 export interface StudyGraphProps {
   graph: StudyGraphLayout;
@@ -37,23 +41,27 @@ export interface StudyGraphProps {
   onSelectEntry: (id: string) => void;
 }
 
-/** The study's recorded links, left to right from the question to its conclusions, full-bleed. */
+/**
+ * The study's recorded links, left to right from the question to its conclusions,
+ * full-bleed and laid out from the top-left. The column gap and then the scale
+ * shrink to fit the pane, never below a readable size; the rest is a pan away.
+ */
 export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphProps) {
   const container = useRef<HTMLDivElement>(null);
-  const nodes = useMemo<EntryNode[]>(
-    () =>
-      graph.nodes.map(({ entry, ...node }) => ({
-        ...node,
-        data: {
-          entry,
-          selected:
-            node.id === selectedEntry ||
-            Boolean(selectedEntry && entry.members?.includes(selectedEntry)),
-          onSelect: onSelectEntry,
-        },
-      })),
-    [graph.nodes, selectedEntry, onSelectEntry],
-  );
+  const size = usePaneSize(container);
+  const fit = fitColumns(size?.w, studyGraphColumns(graph.nodes), width);
+  const placed = withColumnGap(graph.nodes, fit.gap);
+  const nodes: EntryNode[] = placed.map(({ entry, ...node }) => ({
+    ...node,
+    data: {
+      entry,
+      selected:
+        node.id === selectedEntry ||
+        Boolean(selectedEntry && entry.members?.includes(selectedEntry)),
+      onSelect: onSelectEntry,
+    },
+  }));
+  const viewport = topLeftViewport(fit.zoom);
   return (
     <section
       aria-label="Study relationship graph"
@@ -62,6 +70,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
     >
       <ReactFlow<EntryNode, Edge>
         key={graph.focused ? `entry:${graph.focused}` : 'study'}
+        defaultViewport={viewport}
         nodes={nodes}
         edges={graph.edges}
         nodeTypes={nodeTypes}
@@ -72,7 +81,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
       >
-        <FitOnResize container={container} nodes={graph.nodes} />
+        <ApplyViewport viewport={viewport} />
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
         <Controls
           aria-label="Study graph controls"
@@ -85,54 +94,13 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
   );
 }
 
-/**
- * Fit the study on mount and on pane resize, never below a readable size: a
- * study too wide for the pane starts at its question, the rest a pan away.
- * Ordinary selection updates keep the reader's zoom.
- */
-function FitOnResize({
-  container,
-  nodes,
-}: {
-  container: RefObject<HTMLDivElement | null>;
-  nodes: StudyGraphLayout['nodes'];
-}) {
-  const { fitView, setViewport } = useReactFlow();
+/** Re-anchor when the pane's fit changes; selection keeps the reader's zoom and pan. */
+function ApplyViewport({ viewport }: { viewport: Viewport }) {
+  const { setViewport } = useReactFlow();
+  const { x, y, zoom } = viewport;
   useEffect(() => {
-    const element = container.current;
-    if (!element || !nodes.length) return;
-    const left = Math.min(...nodes.map((node) => node.position.x));
-    const right = Math.max(...nodes.map((node) => node.position.x)) + width;
-    const top = Math.min(...nodes.map((node) => node.position.y));
-    const bottom = Math.max(...nodes.map((node) => node.position.y)) + height;
-    let frame = 0;
-    const fit = () => {
-      const w = element.clientWidth;
-      const h = element.clientHeight;
-      if (!w || !h) return;
-      const pad = 1 + FIT.padding * 2;
-      const whole = Math.min(w / ((right - left) * pad), h / ((bottom - top) * pad), FIT.maxZoom);
-      if (whole >= READABLE_ZOOM) {
-        void fitView(FIT);
-        return;
-      }
-      const zoom = READABLE_ZOOM;
-      void setViewport({
-        x: 24 - left * zoom,
-        y: h / 2 - ((top + bottom) / 2) * zoom,
-        zoom,
-      });
-    };
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(fit);
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [container, fitView, nodes, setViewport]);
+    void setViewport({ x, y, zoom });
+  }, [setViewport, x, y, zoom]);
   return null;
 }
 

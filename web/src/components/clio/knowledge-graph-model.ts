@@ -3,13 +3,18 @@ import { knowledgeDegrees } from './knowledge-vault-stats';
 
 /** A note card, in graph units: it zooms with the canvas. */
 export const KNOWLEDGE_NODE = { width: 120, height: 40 } as const;
-/** At most this many rows per side, the counted rest included. */
-export const KNOWLEDGE_SIDE_LIMIT = 5;
-export const KNOWLEDGE_COLUMN = KNOWLEDGE_NODE.width + 56;
+/** The spec's notes per side; the rest are counted in one card. */
+export const KNOWLEDGE_SIDE_LIMIT = 3;
 /** Row pitch: a card plus the spec's 60px gap. */
 export const KNOWLEDGE_ROW = KNOWLEDGE_NODE.height + 60;
-const COLUMN = KNOWLEDGE_COLUMN;
 const ROW = KNOWLEDGE_ROW;
+
+export interface KnowledgeGraphFit {
+  /** Rows that fit the pane's height, the counted rest included. */
+  rows?: number;
+  /** Gap between the three columns. */
+  gap?: number;
+}
 
 export type KnowledgeGraphSide = 'in' | 'focus' | 'out';
 
@@ -50,8 +55,9 @@ export interface KnowledgeNeighborhood {
 export function knowledgeNeighborhood(
   snapshot: Pick<KnowledgeSnapshot, 'notes' | 'links'>,
   selected: string,
-  rows = KNOWLEDGE_SIDE_LIMIT,
+  { rows = KNOWLEDGE_SIDE_LIMIT + 1, gap = 56 }: KnowledgeGraphFit = {},
 ): KnowledgeNeighborhood {
+  const COLUMN = KNOWLEDGE_NODE.width + gap;
   const notes = new Map(snapshot.notes.map((note) => [note.path, note]));
   const { degrees } = knowledgeDegrees(snapshot);
   const linksOf = (path: string) => degrees.get(path) ?? 0;
@@ -72,14 +78,26 @@ export function knowledgeNeighborhood(
   const cards: KnowledgeGraphCard[] = [];
   const more: KnowledgeGraphMore[] = [];
   const edges: KnowledgeGraphEdge[] = [];
-  const column = (paths: ReadonlySet<string>, side: 'in' | 'out') => {
+  const fits = Math.max(1, rows);
+  const plan = (paths: ReadonlySet<string>) => {
     const sorted = [...paths].sort(weight);
-    const fits = Math.max(1, rows);
-    const shown = sorted.slice(0, sorted.length > fits ? Math.max(1, fits - 1) : fits);
-    const hidden = sorted.length - shown.length;
-    const count = shown.length + (hidden ? 1 : 0);
+    const limit = Math.min(KNOWLEDGE_SIDE_LIMIT, fits);
+    const shown = sorted.slice(
+      0,
+      sorted.length > limit ? Math.max(1, Math.min(limit, fits - 1)) : limit,
+    );
+    return { shown, hidden: sorted.length - shown.length };
+  };
+  const sides = { in: plan(incoming), out: plan(outgoing) };
+  const count = (side: 'in' | 'out') => sides[side].shown.length + (sides[side].hidden ? 1 : 0);
+  // Top-anchored: the tallest column starts at 0 and the others centre on it.
+  const tallest = Math.max(1, count('in'), count('out'));
+  const middle = ((tallest - 1) * ROW) / 2;
+  const column = (side: 'in' | 'out') => {
+    const { shown, hidden } = sides[side];
+    const rowsHere = count(side);
     const x = side === 'in' ? 0 : COLUMN * 2;
-    const y = (index: number) => (index - (count - 1) / 2) * ROW - KNOWLEDGE_NODE.height / 2;
+    const y = (index: number) => middle + (index - (rowsHere - 1) / 2) * ROW;
     shown.forEach((path, index) => {
       cards.push({ id: path, title: title(path), links: linksOf(path), side, x, y: y(index) });
       edges.push(
@@ -96,9 +114,9 @@ export function knowledgeNeighborhood(
     links: linksOf(focus),
     side: 'focus',
     x: COLUMN,
-    y: -KNOWLEDGE_NODE.height / 2,
+    y: middle,
   });
-  column(incoming, 'in');
-  column(outgoing, 'out');
+  column('in');
+  column('out');
   return { focus, cards, more, edges };
 }

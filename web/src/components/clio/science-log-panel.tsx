@@ -1,4 +1,5 @@
 import type { ScienceEntry } from '@clio/core/v3';
+import { ChevronRightIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { EntryKindIcon, ScienceStatus } from './science-log-icons';
@@ -200,8 +201,12 @@ function EntryDetails({
     <div className="col-span-3 mt-0.5 mr-3 mb-1.5 ml-[34px] min-w-0 border-l pl-3">
       <FactGrid label={`Details of ${ENTRY_TYPE_LABELS[entry.type]}`} rows={rows} />
       {more.length || sources ? (
-        <details className="min-w-0 text-xs" data-slot="science-entry-more">
-          <summary className="w-fit cursor-pointer leading-[22px] text-muted-foreground hover:text-foreground">
+        <details className="group/more min-w-0 text-xs" data-slot="science-entry-more">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1 leading-[22px] text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon
+              aria-hidden
+              className="size-3 motion-safe:transition-transform group-open/more:rotate-90"
+            />
             More
           </summary>
           {more.length ? (

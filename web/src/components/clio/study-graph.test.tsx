@@ -22,7 +22,7 @@ vi.mock('@xyflow/react', () => ({
   Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
   BackgroundVariant: { Dots: 'dots' },
   MarkerType: { ArrowClosed: 'closed' },
-  useReactFlow: () => ({ fitView: () => Promise.resolve(true) }),
+  useReactFlow: () => ({ setViewport: () => Promise.resolve(true) }),
   Handle: () => null,
   Background: () => null,
   Controls: () => null,

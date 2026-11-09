@@ -13,7 +13,9 @@ import userEvent from '@testing-library/user-event';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mergeScienceEntries } from '@/lib/streaming/science-log-updates';
+import { studyTopics } from './science-log-model';
 import { ScienceLogView } from './science-log-tab';
+import { StudyTree } from './study-tree';
 import { ClioWorkbench } from './workbench';
 import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -267,6 +269,21 @@ describe('Science log tab', () => {
     expect(hover).toContain('fork of Quadratic trial');
     expect(hover).toContain('Note: pursue the cubic law instead');
     expect(hover).toContain('Derived from Linear trial');
+  });
+
+  it('searches the study at any depth, keeping the rows above each match', () => {
+    const props = {
+      name: 'Decay study',
+      onSelectTopic: () => undefined,
+      topics: studyTopics(study),
+    };
+    const { rerender } = render(<StudyTree {...props} query="cubic" />);
+    const tree = screen.getByRole('group', { name: 'Study tree' });
+    expect(within(tree).getByRole('button', { name: /^Fork: Cubic trial/u })).toBeVisible();
+    expect(within(tree).getByRole('button', { name: /^Step: Quadratic trial/u })).toBeVisible();
+    expect(within(tree).queryByRole('button', { name: /^Step: Linear trial/u })).toBeNull();
+    rerender(<StudyTree {...props} query="nothing like it" />);
+    expect(screen.getByText('Nothing in this study matches')).toBeVisible();
   });
 
   it('narrows the log to a picked topic and opens its task and folder', async () => {

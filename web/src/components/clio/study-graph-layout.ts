@@ -1,7 +1,8 @@
 import type { ScienceStudy } from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
-import { MarkerType, type Edge, type Node } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 import { useMemo } from 'react';
+import { GRAPH_ARROW, GRAPH_EDGE_STYLE, GRAPH_GAP } from './graph-fit';
 import {
   studyGraph,
   studyGraphNeighborhood,
@@ -10,8 +11,8 @@ import {
   type StudyGraphNode,
 } from './study-graph-model';
 
-/** Each drawn entry's box, in graph units. */
-export const STUDY_GRAPH_NODE = { width: 184, height: 52 };
+/** Each drawn entry's box, in graph units: the spec's 120 x 40 card. */
+export const STUDY_GRAPH_NODE = { width: 120, height: 40 };
 const { width, height } = STUDY_GRAPH_NODE;
 
 type PositionedEntry = Pick<Node, 'id' | 'position' | 'style'> & {
@@ -72,7 +73,8 @@ function layoutStudyGraph(model: StudyGraphModel): Pick<StudyGraphLayout, 'nodes
   // question on the left and what cites it to its right; the arrow is drawn at the
   // citing end so the study reads left to right without reversing any relation.
   const dag = new graphlib.Graph({ multigraph: true }).setDefaultEdgeLabel(() => ({}));
-  dag.setGraph({ rankdir: 'RL', nodesep: 20, ranksep: 56, marginx: 24, marginy: 24 });
+  // The narrowest gap; the drawing widens it to fit the pane (`withColumnGap`).
+  dag.setGraph({ rankdir: 'RL', nodesep: 24, ranksep: GRAPH_GAP.min, marginx: 0, marginy: 0 });
   for (const node of model.nodes) dag.setNode(node.id, { width, height });
   for (const edge of model.edges) dag.setEdge(edge.source, edge.target, {}, edge.id);
   layout(dag);
@@ -93,13 +95,34 @@ function layoutStudyGraph(model: StudyGraphModel): Pick<StudyGraphLayout, 'nodes
       target: edge.target,
       ariaLabel: edge.count && edge.count > 1 ? `${edge.relation} (${edge.count})` : edge.relation,
       data: { count: edge.count ?? 1 },
-      markerStart: {
-        type: MarkerType.ArrowClosed,
-        color: 'var(--muted-foreground)',
-        width: 14,
-        height: 14,
-      },
-      style: { stroke: 'var(--muted-foreground)', strokeWidth: 1 },
+      markerStart: GRAPH_ARROW,
+      style: GRAPH_EDGE_STYLE,
     })),
   };
+}
+
+/** How many columns (ranks) the drawing has. */
+export function studyGraphColumns(nodes: readonly Pick<Node, 'position'>[]): number {
+  return new Set(nodes.map((node) => Math.round(node.position.x))).size;
+}
+
+/**
+ * The drawing with its columns `gap` apart, from the top-left at 0, 0: the layout
+ * is made at the narrowest gap and each column keeps its rank.
+ */
+export function withColumnGap<T extends Pick<Node, 'position'>>(
+  nodes: readonly T[],
+  gap: number,
+): T[] {
+  const columns = [...new Set(nodes.map((node) => Math.round(node.position.x)))].sort(
+    (a, b) => a - b,
+  );
+  const top = Math.min(...nodes.map((node) => node.position.y));
+  return nodes.map((node) => ({
+    ...node,
+    position: {
+      x: columns.indexOf(Math.round(node.position.x)) * (width + gap),
+      y: node.position.y - top,
+    },
+  }));
 }

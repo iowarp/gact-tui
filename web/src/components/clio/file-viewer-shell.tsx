@@ -203,11 +203,14 @@ export function FileViewerShell({
                                     className="flex min-w-0 items-center gap-1.5"
                                     data-slot="viewer-identity"
                                   >
-                                    <FileTypeIcon
-                                      name={identity.name}
-                                      mediaType={identity.mediaType}
-                                      className="size-4 shrink-0"
-                                    />
+                                    {/* A viewer that names itself (a dashboard) is not read as a file type. */}
+                                    {titled ? null : (
+                                      <FileTypeIcon
+                                        name={identity.name}
+                                        mediaType={identity.mediaType}
+                                        className="size-4 shrink-0"
+                                      />
+                                    )}
                                     <FrameCrumbs parts={crumbs} />
                                   </span>
                                 ) : (

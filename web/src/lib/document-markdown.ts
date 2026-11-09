@@ -6,3 +6,7 @@ export const DOCUMENT_MARKDOWN_CLASS_NAME =
 export function normalizeConvertedMarkdown(markdown: string): string {
   return markdown.replace(CONVERTED_BULLET_MARKERS, '$1$2');
 }
+
+/** The viewers' one type scale: 13px body, headings on the brand's heading face, 12px code. */
+export const READ_TYPE_SCALE =
+  'text-[13px] leading-[1.55] [&_:is(h1,h2,h3,h4)]:!font-heading [&_:is(h1,h2,h3,h4)]:!font-semibold [&_h1]:!text-[18px] [&_h2]:!text-[17px] [&_h3]:!text-[15px] [&_h4]:!text-[13px] [&_code]:!text-[12px]';

@@ -14,11 +14,13 @@ import { CommentCapture } from './comments/comment-capture';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import type { PdfHighlight } from './document-pdf-viewer';
 import { FileViewerInformationHost } from './file-viewer-context';
-import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { FileViewerFactsRegistry, useFileViewerTitle } from './file-viewer-facts';
 import { LatexFacts, LatexFormat, LatexFrame } from './latex-frame-controls';
 import { LatexListSections } from './latex-list';
 import {
   builtAgo,
+  latexCrumbs,
+  latexDefaultView,
   latexModes,
   latexOutlineRows,
   latexProblems,
@@ -41,6 +43,8 @@ function entryFile(report: LatexReport): string {
 
 const NO_TEXTS: Record<string, string> = {};
 const PANE = 'm-0 min-h-0 min-w-0 flex-1';
+/** The section width below which Side by side gives way to one pane. */
+const BOTH_MIN_WIDTH = 480;
 
 /**
  * The LaTeX workspace (LaTeX plan): the compiled PDF (Render), its source with
@@ -87,13 +91,14 @@ export function LatexWorkspace({
   const ownFrame = !(framed ?? inViewer);
   const [chosen, setChosen] = useState<LatexPlace>();
   const [highlight, setHighlight] = useState<PdfHighlight>();
-  const [view, setView] = useState<LatexView>('both');
+  // Unset until chosen: the tab opens on the PDF once there is one, else the source.
+  const [view, setView] = useState<LatexView>();
   const [revealProblems, setRevealProblems] = useState(0);
   const [ownHost, setOwnHost] = useState<HTMLDivElement | null>(null);
   // The section mounts once; the width is observed once it exists.
   const [section, setSection] = useState<HTMLElement | null>(null);
   const sectionRef = useMemo(() => ({ current: section }), [section]);
-  const wide = useContainerQuery(sectionRef, 600);
+  const wide = useContainerQuery(sectionRef, BOTH_MIN_WIDTH);
   const data = report.data;
   const fallback = !data && (!sessionId || report.isError) ? source : undefined;
   const texts = useMemo(
@@ -101,6 +106,8 @@ export function LatexWorkspace({
     [data, fallback],
   );
   const entry = data ? entryFile(data) : (fallback?.name ?? '');
+  // In a file's frame, a paper at the workspace root reads "paper › its file".
+  useFileViewerTitle(entry.split('/').at(-1), 'paper');
   const file = chosen?.file ?? entry;
   const files = useMemo(
     () => (data ? data.files.filter((name) => /\.(tex|ltx|bib)$/iu.test(name)) : []),
@@ -108,9 +115,12 @@ export function LatexWorkspace({
   );
   const problems = useMemo(() => (data ? latexProblems(data) : []), [data]);
   const rows = useMemo(() => latexOutlineRows(data?.outline?.nodes ?? []), [data]);
+  const mode = view ?? latexDefaultView(Boolean(data?.build.pdf));
   // Side by side needs the width for both panes; narrower, the source shows instead.
-  const shown: LatexView = !wide && view === 'both' ? 'source' : view;
+  const shown: LatexView = !wide && mode === 'both' ? 'source' : mode;
   const building = Boolean(sessionId) && report.isFetching;
+  // The report is built on request: fetching it again is the rebuild.
+  const rebuild = sessionId ? () => void report.refetch() : undefined;
   const now = useSharedNow(Boolean(data) && !building, { periodMs: 30_000 });
   const fact = building
     ? 'building'
@@ -132,7 +142,7 @@ export function LatexWorkspace({
   // A place in the source: the PDF alone gives way to the source beside it.
   const goToSource = (place: LatexPlace) => {
     setChosen(place);
-    setView((current) => (current === 'pdf' ? 'both' : current));
+    setView(mode === 'pdf' ? 'both' : mode);
   };
   const sourceToPdf = async (line: number) => {
     setChosen({ file, line });
@@ -190,7 +200,7 @@ export function LatexWorkspace({
       list={slot ? undefined : (list ?? undefined)}
       modes={latexModes(wide)}
       onFile={(name) => setChosen({ file: name })}
-      onRebuild={sessionId ? () => void report.refetch() : undefined}
+      onRebuild={rebuild}
       onShowProblems={() => {
         setRevealProblems((count) => count + 1);
         slot?.setShown(true);
@@ -223,23 +233,29 @@ export function LatexWorkspace({
         />
       </div>
     </CommentCapture>
-  ) : data ? (
+  ) : data && (data.build.status === 'failed' || data.build.error) ? (
     <StateView
+      action={rebuild ? { label: 'Rebuild', onClick: rebuild } : undefined}
       detail={data.build.error}
       kind="error"
       size="viewer"
       title="No PDF: the build stopped before making one"
     />
+  ) : data || !sessionId ? (
+    <StateView
+      action={rebuild ? { label: 'Build', onClick: rebuild } : undefined}
+      detail={sessionId ? undefined : 'Open this paper from a conversation to build it.'}
+      kind="empty"
+      size="viewer"
+      title="Not built yet"
+    />
   ) : (
     <StateView
+      action={rebuild ? { label: 'Rebuild', onClick: rebuild } : undefined}
       detail={report.error?.message}
-      kind={sessionId ? 'error' : 'unavailable'}
+      kind="error"
       size="viewer"
-      title={
-        sessionId
-          ? 'The paper could not be built'
-          : 'Open this paper from a conversation to build it.'
-      }
+      title="The paper could not be built"
     />
   );
   let body: ReactNode;
@@ -301,7 +317,7 @@ export function LatexWorkspace({
         value={shown}
       >
         <LatexFrame
-          crumbs={data ? data.entry.split('/') : fallback ? [fallback.name] : []}
+          crumbs={data ? latexCrumbs(data.entry) : fallback ? latexCrumbs(fallback.name) : []}
           fact={fact}
           factInFormat={!ownFrame && !facts}
           format={format}

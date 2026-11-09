@@ -8,12 +8,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { FileModeControls, type FileMode } from './file-mode-controls';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
 import { plural, type LatexProblem, type LatexView } from './latex-model';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { WorkbenchTabListToggle } from './workbench-tab-list';
 
@@ -33,7 +35,10 @@ export function LatexFacts({ facts }: { facts: readonly string[] }) {
   return null;
 }
 
-/** The problems count: a warning (or error) mark with its number; the list opens on click. */
+/**
+ * The problems count in words ("2 problems") after a warning (or error) mark,
+ * so it never reads by colour alone; the list opens on click.
+ */
 function ProblemsButton({
   problems,
   onClick,
@@ -44,25 +49,25 @@ function ProblemsButton({
   if (!problems.length) return null;
   const errors = problems.filter((problem) => problem.severity === 'error').length;
   const Icon = errors ? CircleAlertIcon : TriangleAlertIcon;
+  const label = `${plural(problems.length, 'problem')}${errors ? `, ${plural(errors, 'error')}` : ''}`;
   return (
-    <ToolbarAction
-      label={`${plural(problems.length, 'problem')}${errors ? `, ${plural(errors, 'error')}` : ''}`}
-      data-slot="latex-problems"
-      onClick={onClick}
-    >
-      <Icon aria-hidden="true" />
-      <span
-        aria-hidden="true"
-        className={cn(
-          'absolute -top-0.5 -right-0.5 min-w-3.5 rounded-md px-[3px] text-[8.5px] leading-[11px] font-semibold tabular-nums',
-          errors
-            ? 'bg-destructive text-destructive-foreground'
-            : 'bg-warning text-warning-foreground',
-        )}
-      >
-        {problems.length > 99 ? '99+' : problems.length}
-      </span>
-    </ToolbarAction>
+    <TooltipProvider delayDuration={200}>
+      <NamedTooltip label={label}>
+        <button
+          aria-label={label}
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11.5px] whitespace-nowrap text-foreground tabular-nums outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+          data-slot="latex-problems"
+          onClick={onClick}
+          type="button"
+        >
+          <Icon
+            aria-hidden="true"
+            className={cn('size-3.5 shrink-0', errors ? 'text-destructive' : 'text-warning')}
+          />
+          {plural(problems.length, 'problem')}
+        </button>
+      </NamedTooltip>
+    </TooltipProvider>
   );
 }
 

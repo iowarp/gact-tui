@@ -21,6 +21,7 @@ export function useWorkbenchTabListSlot({
 }) {
   const [title, setTitle] = useState<string>();
   const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const [actionsHost, setActionsHost] = useState<HTMLSpanElement | null>(null);
   // Unset: the default for the width (beside when wide, hidden when narrow).
   const [open, setOpen] = useState<boolean>();
   const [openFor, setOpenFor] = useState({ tab: activeTabId, narrow });
@@ -44,13 +45,25 @@ export function useWorkbenchTabListSlot({
     if (narrow) setOpen(false);
   }, [narrow]);
   const slot = useMemo<TabListSlot>(
-    () => ({ host: shown ? host : null, title, shown, claim, setShown, picked }),
-    [claim, host, picked, setShown, shown, title],
+    () => ({
+      host: shown ? host : null,
+      actionsHost: shown ? actionsHost : null,
+      title,
+      shown,
+      claim,
+      setShown,
+      picked,
+    }),
+    [actionsHost, claim, host, picked, setShown, shown, title],
   );
   const column =
     shown && title ? (
       <WorkbenchListSection title={title} overlay={narrow === true}>
-        <WorkbenchListHeader title={title} onHide={() => setOpen(false)} />
+        <WorkbenchListHeader
+          title={title}
+          actions={<span ref={setActionsHost} className="contents" />}
+          onHide={() => setOpen(false)}
+        />
         <div
           ref={setHost}
           data-slot="workbench-tab-list"

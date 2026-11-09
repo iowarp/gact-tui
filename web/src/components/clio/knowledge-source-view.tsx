@@ -297,6 +297,7 @@ export function KnowledgeSourceView({
                       opened={opened}
                       workspaceId={workspaceId}
                       onSelect={setSelected}
+                      notes={graph.data?.notes}
                     />
                   ) : null)}
               </TabsContent>

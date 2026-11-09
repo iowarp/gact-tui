@@ -5,6 +5,7 @@ import { StudyNodeIcon } from './science-log-icons';
 import type { StudyNode, StudyTopic } from './science-log-model';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 import { MetaValue } from './primitives/tag';
+import { StateView } from './primitives/state-view';
 
 /** The node's kind in text, so a fork, a step and a reframe read differently without color. */
 function studyKindLabel(node: StudyNode): string {
@@ -55,6 +56,8 @@ export interface StudyTreeProps {
   views?: readonly ScienceView[];
   /** Open one of the study's views. */
   onOpenView?: (view: ScienceView) => void;
+  /** Show only the rows whose title holds this text (and the rows above them). */
+  query?: string;
 }
 
 /** The tree's selected row: the accent fill, as the workbench file tree marks its row. */
@@ -84,6 +87,18 @@ function visibleTopics(topics: readonly StudyTopic[], selected: string | undefin
   return shown;
 }
 
+/** The rows a search keeps: each match at any depth, with the rows it sits under. */
+function matchingTopics(topics: readonly StudyTopic[], needle: string): StudyTopic[] {
+  const keep = new Set<StudyTopic>();
+  const trail: StudyTopic[] = [];
+  for (const topic of topics) {
+    trail.length = topic.depth;
+    trail.push(topic);
+    if (topic.node.title.toLowerCase().includes(needle)) for (const row of trail) keep.add(row);
+  }
+  return topics.filter((topic) => keep.has(topic));
+}
+
 /**
  * The study beside the tabs: the study itself, then its hypotheses and branches
  * with how many entries each holds, then the dashboards it attached. Picking a
@@ -94,10 +109,20 @@ export function StudyTree({
   topics,
   selected,
   onSelectTopic,
-  views = [],
+  views: allViews = [],
   onOpenView,
+  query = '',
 }: StudyTreeProps) {
-  const shown = useMemo(() => visibleTopics(topics, selected), [topics, selected]);
+  const needle = query.trim().toLowerCase();
+  const shown = useMemo(
+    () => (needle ? matchingTopics(topics, needle) : visibleTopics(topics, selected)),
+    [needle, topics, selected],
+  );
+  const views = needle
+    ? allViews.filter((view) => (view.title || 'Untitled view').toLowerCase().includes(needle))
+    : allViews;
+  if (needle && !shown.length && !views.length)
+    return <StateView kind="empty" size="row" title="Nothing in this study matches" />;
   return (
     <div
       aria-label="Study tree"

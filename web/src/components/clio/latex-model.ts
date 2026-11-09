@@ -95,11 +95,27 @@ const SOURCE: FileMode = {
   title: 'Source (.tex)',
   icon: CodeXmlIcon,
 };
-const BOTH: FileMode = { value: 'both', label: 'Side by side', icon: Columns2Icon };
+const BOTH: FileMode = {
+  value: 'both',
+  label: 'Side by side',
+  title: 'Source and PDF side by side',
+  icon: Columns2Icon,
+};
 
 /** The modes; side by side only where both panes fit. */
 export function latexModes(wide: boolean): FileMode[] {
   return wide ? [RENDER, SOURCE, BOTH] : [RENDER, SOURCE];
+}
+
+/** What the tab opens on before a choice: the PDF once there is one, else the source. */
+export function latexDefaultView(hasPdf: boolean): LatexView {
+  return hasPdf ? 'pdf' : 'source';
+}
+
+/** The paper's own crumbs: its folders, or "paper" for one at the root, then its file. */
+export function latexCrumbs(path: string): string[] {
+  const parts = path.split('/').filter(Boolean);
+  return parts.length > 1 ? parts : ['paper', ...parts];
 }
 
 /** "built 2m ago": when the shown build finished ("failed 2m ago" when it stopped). */
