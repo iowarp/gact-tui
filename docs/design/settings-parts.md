@@ -38,24 +38,40 @@ alternatives, which has a right-aligned arrow.
 A choice that applies at once, so it never reaches the save bar.
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
-`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' }`
+`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
 a word), never a bare dot.
+
+The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
+and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,
+Infrastructure and dense Settings lists use it instead of cards, accordions or two-line
+rows. `default` (46 px, meta under the name) is for lists whose meta needs room, and
+`sm` (34 px) for nested lists.
 
 **`SaveBar`** (H) `components/clio/primitives/save-bar.tsx`
 `{ count, onSave, onDiscard, saving?, invalid?, error?, className? }`. One bar per page,
 for typed values only. It binds Ctrl S / ⌘S.
 
 **`DialogFrame`** (F) `components/clio/primitives/dialog-frame.tsx`
-`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, className? }`.
+`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, help?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
-`data-initial-focus`.
+`data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
+The footer carries the key hints on the left (Esc and the cancel label, Ctrl ↵ and the
+confirm label) and plain Cancel and confirm buttons on the right.
 
 **`WindowShell`** (same file)
-`{ open, onOpenChange, title, navigation?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
-The full window frame. Only the Settings window uses it today.
+`{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
+The full window frame. Only the Settings window uses it today. The window
+narrows in the spec's order: from 1024 px `navigation` shows; at 768–1023 px
+`rail` replaces it; below 768 px both hide and a `toolbar` picker takes over.
+Without a `rail`, `navigation` shows from 768 px.
+
+**`SettingsNavRail`** `components/clio/settings-nav-rail.tsx`
+Takes the same props as `SettingsNavigation`. It is one named icon per scope
+(App, workspace, agent) with the waiting-change count. Hover, click, Enter or
+→ opens that scope's sections beside the rail.
 
 **Picker field** `components/clio/model-select-field.tsx`
 

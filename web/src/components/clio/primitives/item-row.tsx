@@ -21,15 +21,19 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actionsWidth?: number;
   slotWidth?: number;
   selected?: boolean;
-  /** 34px rows for nested lists (a plugin's skills). */
-  size?: 'default' | 'sm';
+  /**
+   * `default` 46px name over meta; `sm` 34px for nested lists (a plugin's skills);
+   * `line` the 30px one-line row (name then muted meta) for pickers, menus and dense lists.
+   */
+  size?: 'default' | 'sm' | 'line';
 }
 
 /**
  * Item row (D): icon and name with a meta line, then fixed columns for status,
- * hover actions and a slot. Every row of a list shares the column widths, so
- * status words and buttons line up. Below 36rem of list width the status column
- * shrinks to its mark and words, and the slot keeps its width.
+ * hover actions and a slot. `size="line"` is the shared 30px one-line row
+ * (name, then muted meta that shrinks first). Every row of a list shares the
+ * column widths, so status words and buttons line up. Below 36rem of list width
+ * the status column shrinks to its mark and words, and the slot keeps its width.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -69,7 +73,11 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_auto_var(--item-actions)_var(--item-slot)]',
-          size === 'sm' ? 'min-h-[2.125rem] py-0.5' : 'min-h-[2.875rem] py-[0.1875rem]',
+          size === 'line'
+            ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
+            : size === 'sm'
+              ? 'min-h-[2.125rem] py-0.5'
+              : 'min-h-[2.875rem] py-[0.1875rem]',
           className,
         )}
         {...rest}
@@ -80,20 +88,36 @@ export const ItemRow = memo(
             'grid place-items-center text-muted-foreground',
             size === 'sm'
               ? "[&_svg:not([class*='size-'])]:size-3.5"
-              : "[&_svg:not([class*='size-'])]:size-4",
+              : size === 'line'
+                ? "[&_svg:not([class*='size-'])]:size-[0.9375rem]"
+                : "[&_svg:not([class*='size-'])]:size-4",
           )}
         >
           {icon}
         </span>
-        <span className="flex min-w-0 flex-col gap-0.5">
+        <span
+          className={cn(
+            'flex min-w-0',
+            size === 'line' ? 'items-baseline gap-[0.5625rem]' : 'flex-col gap-0.5',
+          )}
+        >
           <span
-            className="min-w-0 truncate text-[0.8125rem] font-medium text-foreground"
+            className={cn(
+              'min-w-0 truncate text-foreground',
+              size === 'line' ? 'shrink text-[0.78125rem]' : 'text-[0.8125rem] font-medium',
+            )}
             data-slot="item-row-title"
           >
             {title}
           </span>
           {meta ? (
-            <span className="min-w-0 truncate text-xs text-faint" data-slot="item-row-meta">
+            <span
+              className={cn(
+                'min-w-0 truncate text-faint',
+                size === 'line' ? 'shrink-[100] text-[0.71875rem]' : 'text-xs',
+              )}
+              data-slot="item-row-meta"
+            >
               {meta}
             </span>
           ) : null}
@@ -131,7 +155,11 @@ export function ItemList({
   label?: string;
 }) {
   return (
-    <div aria-label={label} className={cn('@container min-w-0', className)} role={label ? 'group' : undefined}>
+    <div
+      aria-label={label}
+      className={cn('@container min-w-0', className)}
+      role={label ? 'group' : undefined}
+    >
       {children}
     </div>
   );

@@ -104,8 +104,15 @@ func spawnEnv(rt *resolvedRuntime, args cliArgs) []string {
 		// output when a failing boot is killed after a no-progress stall — the
 		// "connection refused, zero backend output" symptom.
 		"PYTHONUNBUFFERED=1",
+		pythonNoBytecodeEnv,
 	)
 }
+
+// pythonNoBytecodeEnv stops every Python under the launcher from writing
+// __pycache__ next to its sources. Those sources live inside the signed,
+// read-only application bundle on macOS, where a written .pyc invalidates the
+// code signature (#739 C4). The bundle ships its bytecode precompiled.
+const pythonNoBytecodeEnv = "PYTHONDONTWRITEBYTECODE=1"
 
 func runChild(rt *resolvedRuntime, args cliArgs) int {
 	// On Windows the launcher owns a KILL_ON_JOB_CLOSE Job Object before it
@@ -206,7 +213,7 @@ func cleanupRuntimeAfterCrash(rt *resolvedRuntime) {
 	argv := crashCleanupArgv(rt)
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdout, cmd.Stderr = cleanupOutput(desktopParentExited)
-	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
+	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1", pythonNoBytecodeEnv)
 	for k, v := range rt.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
@@ -222,7 +229,7 @@ func startCrashCleanupAfterExit(rt *resolvedRuntime) {
 	argv := crashCleanupArgv(rt)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout, cmd.Stderr = cleanupOutput(desktopParentExited)
-	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
+	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1", pythonNoBytecodeEnv)
 	for k, v := range rt.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
