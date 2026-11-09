@@ -240,7 +240,7 @@ function ViewerState({
     return (
       <div
         {...liveRegion(kind)}
-        aria-label={title}
+        aria-label={typeof title === 'string' ? title : undefined}
         data-kind={kind}
         data-size="viewer"
         data-slot="state-view"
