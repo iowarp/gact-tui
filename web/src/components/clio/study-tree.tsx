@@ -76,7 +76,9 @@ export function StudyTree({
       className="grid min-w-0 content-start gap-0.5 px-1.5 py-1"
       role="group"
     >
-      <ListGroupLabel id="study-tree-study">Study</ListGroupLabel>
+      <h3 className="sr-only" id="study-tree-study">
+        Study
+      </h3>
       <div aria-labelledby="study-tree-study" className="grid min-w-0" role="list">
         {topics.map((topic) => {
           const { node, depth } = topic;

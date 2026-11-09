@@ -28,6 +28,8 @@ type EntryNode = Node<EntryNodeData, 'science-entry'>;
 const nodeTypes = { 'science-entry': EntryCard };
 const { width, height } = STUDY_GRAPH_NODE;
 const FIT = { padding: 0.15, minZoom: 0.12, maxZoom: 1 };
+/** Below this a card's title is unreadable: start at the question instead of fitting it all. */
+const READABLE_ZOOM = 0.75;
 
 export interface StudyGraphProps {
   graph: StudyGraphLayout;
@@ -63,8 +65,6 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         nodes={nodes}
         edges={graph.edges}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={FIT}
         minZoom={0.12}
         maxZoom={1.8}
         nodesDraggable={false}
@@ -72,7 +72,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
       >
-        <FitOnResize container={container} />
+        <FitOnResize container={container} nodes={graph.nodes} />
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
         <Controls
           aria-label="Study graph controls"
@@ -85,25 +85,54 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
   );
 }
 
-/** Refit on pane resize without resetting zoom for ordinary selection updates. */
-function FitOnResize({ container }: { container: RefObject<HTMLDivElement | null> }) {
-  const { fitView } = useReactFlow();
+/**
+ * Fit the study on mount and on pane resize, never below a readable size: a
+ * study too wide for the pane starts at its question, the rest a pan away.
+ * Ordinary selection updates keep the reader's zoom.
+ */
+function FitOnResize({
+  container,
+  nodes,
+}: {
+  container: RefObject<HTMLDivElement | null>;
+  nodes: StudyGraphLayout['nodes'];
+}) {
+  const { fitView, setViewport } = useReactFlow();
   useEffect(() => {
     const element = container.current;
-    if (!element) return;
+    if (!element || !nodes.length) return;
+    const left = Math.min(...nodes.map((node) => node.position.x));
+    const right = Math.max(...nodes.map((node) => node.position.x)) + width;
+    const top = Math.min(...nodes.map((node) => node.position.y));
+    const bottom = Math.max(...nodes.map((node) => node.position.y)) + height;
     let frame = 0;
+    const fit = () => {
+      const w = element.clientWidth;
+      const h = element.clientHeight;
+      if (!w || !h) return;
+      const pad = 1 + FIT.padding * 2;
+      const whole = Math.min(w / ((right - left) * pad), h / ((bottom - top) * pad), FIT.maxZoom);
+      if (whole >= READABLE_ZOOM) {
+        void fitView(FIT);
+        return;
+      }
+      const zoom = READABLE_ZOOM;
+      void setViewport({
+        x: 24 - left * zoom,
+        y: h / 2 - ((top + bottom) / 2) * zoom,
+        zoom,
+      });
+    };
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        void fitView(FIT);
-      });
+      frame = requestAnimationFrame(fit);
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [container, fitView]);
+  }, [container, fitView, nodes, setViewport]);
   return null;
 }
 

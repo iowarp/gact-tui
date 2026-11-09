@@ -165,35 +165,70 @@ async function pickMode(page, names) {
       }
     }
   }
+  // A narrow frame bar folds its modes to the active icon and a menu.
+  const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+  if (await folded.isVisible().catch(() => false)) {
+    await folded.click();
+    for (const name of names) {
+      const item = page.getByRole('menuitemradio', { name, exact: true }).first();
+      if (await item.isVisible().catch(() => false)) {
+        await item.click();
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+    await page.keyboard.press('Escape');
+  }
   throw new Error(`no mode control named ${names.join(' or ')}`);
+}
+
+/** Hide the strip list a scenario opened from, and show the tab's own list if it has one. */
+async function tabOnly(page, stripName, tabListTitle) {
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: stripName, exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await item.getAttribute('aria-pressed').catch(() => null)) === 'true') await item.click();
+  if (tabListTitle) {
+    const show = control(page, 'button', `Show ${tabListTitle}`, { exact: true });
+    if (await show.isVisible().catch(() => false)) await show.click();
+  }
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(800);
 }
 
 /** Open the study's science log from the workbench strip. */
 async function openScienceLog(page) {
   await stripList(page, 'Science log');
+  // A list left open on the strip covers the study's own; show the study.
+  const show = control(page, 'button', 'Show Study', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
   await showsText(page, 'Was 2022 below baseline?');
   await page.waitForTimeout(800);
 }
 
-/** Open the Opal vault: Files list, Sources, the connected source, Open knowledge. */
+/** Open the Opal vault: Sources list, Manage sources, the connected source, Open knowledge. */
 async function openVault(page) {
-  await stripList(page, 'Files');
+  await stripList(page, 'Sources');
   await page
-    .getByRole('region', { name: 'Files list' })
-    .getByRole('button', { name: 'Sources' })
+    .getByRole('region', { name: 'Sources list' })
+    .getByRole('button', { name: 'Manage sources' })
     .filter({ visible: true })
     .first()
     .click();
   const dialog = page.getByRole('dialog').filter({ visible: true }).first();
   await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().click();
   await dialog.getByRole('button', { name: 'Open knowledge' }).click();
-  // The vault opens as a tab under the Files list; close the list to show it.
-  const files = page
+  // The vault opens as a tab under the Sources list; close the list to show it.
+  const sources = page
     .getByRole('toolbar', { name: 'Workbench lists' })
-    .getByRole('button', { name: 'Files', exact: true })
+    .getByRole('button', { name: 'Sources', exact: true })
     .filter({ visible: true })
     .first();
-  if ((await files.getAttribute('aria-pressed').catch(() => null)) === 'true') await files.click();
+  if ((await sources.getAttribute('aria-pressed').catch(() => null)) === 'true')
+    await sources.click();
   await page
     .locator('[data-slot="knowledge-vault"], [aria-label="Knowledge source"]')
     .filter({ visible: true })
@@ -636,7 +671,16 @@ function catalogue({ settings, infrastructure }) {
     // Science views (design spec "Science views are viewers in the one tab"):
     // the fixture's Opal study, vault, dashboard and paper.
     ...[
-      ['science-log', openScienceLog],
+      [
+        'science-log',
+        async (page) => {
+          await openScienceLog(page);
+          // The spec opens one observation in place.
+          const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
+          if (await row.isVisible().catch(() => false)) await row.click();
+          await page.waitForTimeout(600);
+        },
+      ],
       [
         'study-graph',
         async (page) => {
@@ -658,7 +702,7 @@ function catalogue({ settings, infrastructure }) {
           await stripList(page, 'Artifacts');
           await control(page, 'button', /^Open (Opal sites|opal-sites)/u).click();
           await showsText(page, '2022 vs baseline');
-          await page.waitForTimeout(800);
+          await tabOnly(page, 'Artifacts');
         },
       ],
       [
@@ -670,7 +714,7 @@ function catalogue({ settings, infrastructure }) {
             'Overfull hbox',
             'SMAP L3 soil moisture',
           ]);
-          await page.waitForTimeout(800);
+          await tabOnly(page, 'Files', 'Outline');
         },
       ],
     ].map(([state, setup]) =>
