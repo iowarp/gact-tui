@@ -29,6 +29,7 @@ import {
   loadEarlier,
   marks,
   MESSAGE,
+  queueJourney,
   Recorder,
   SESSION_URL,
   settingsJourney,
@@ -144,6 +145,14 @@ async function runInteractions(browser, stack) {
   await fileViewerJourney(r, ['results/stations.csv']);
   await settingsJourney(r);
   await exploreJourney(r);
+  await queueJourney(r, {
+    reload: async () => {
+      await fetch(`${stack.fixtureEndpoint}/__test/queue-demo`, { method: 'POST' });
+      await r.page.goto(`${stack.baseURL}${SESSION_URL}`);
+      await r.visible(r.page.locator('[data-slot="composer-queue"]'), 15_000);
+    },
+    append: () => fetch(`${stack.fixtureEndpoint}/__test/queue-append`, { method: 'POST' }),
+  });
   const end = await cdpMetrics(cdp, { gc: true });
   const after = await sampleGroups(groups);
   const requests = requestSummary(await drainRequests(stack));

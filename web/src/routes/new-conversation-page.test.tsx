@@ -62,11 +62,13 @@ vi.mock('@/hooks/use-repository', () => ({
 }));
 vi.mock('@/hooks/use-composer-draft', () => ({
   useComposerDraft: () => ({
-    value: '',
+    readValue: () => '',
     references: [],
     onValueChange: vi.fn(),
     onReferencesChange: vi.fn(),
+    subscribeValue: () => () => {},
   }),
+  useComposerDraftValue: () => '',
 }));
 vi.mock('@/hooks/use-workspace-data', () => ({
   useWorkspaceData: () => ({

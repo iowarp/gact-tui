@@ -311,6 +311,93 @@ export async function composerJourney(r) {
   await r.overlay('reasoning effort', 'button', /^Reasoning effort/u);
   await r.overlay('execution mode', 'button', /^Execution mode/u);
   await r.overlay('confirmation policy', 'button', /^Confirmation policy/u);
+  await attachmentJourney(r);
+}
+
+const ATTACHMENT_CHIP = '[data-slot="composer-attachment-chip"]';
+
+/** Attach two files through the composer file input; ready when both chips show. */
+async function attachmentJourney(r) {
+  const { page } = r;
+  const input = page.locator('input[type="file"][multiple]').first();
+  if ((await input.count()) === 0) {
+    r.steps.push({
+      scenario: r.scenario,
+      name: 'attachment add',
+      category: 'toggle',
+      skipped: 'control not found',
+    });
+    return;
+  }
+  // setInputFiles emits no pointer/key event, so the step dispatches the
+  // change itself and marks that moment as the input.
+  await r.measure(
+    'attachment add',
+    'toggle',
+    () =>
+      input.evaluate((element) => {
+        const files = new DataTransfer();
+        files.items.add(
+          new File(['site,lat\nopal-01,1\n'], 'soil_sites.csv', { type: 'text/csv' }),
+        );
+        files.items.add(new File(['# Probe notes\n'], 'probe_notes.md', { type: 'text/markdown' }));
+        element.files = files.files;
+        window.__perf.state.lastInput = performance.now();
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      }),
+    { css: ATTACHMENT_CHIP, minCount: 2 },
+    {
+      close: async () => {
+        for (const name of ['soil_sites.csv', 'probe_notes.md']) {
+          await page
+            .getByRole('button', { name: `Remove ${name}` })
+            .first()
+            .click({ timeout: 2000 })
+            .catch(() => {});
+        }
+      },
+    },
+  );
+}
+
+/**
+ * Seeded queue: reload with six queued messages, then measure collapsing and
+ * expanding the list and a server-published row joining it.
+ */
+export async function queueJourney(r, { reload, append }) {
+  const { page } = r;
+  await reload();
+  const hide = r.control('button', 'Hide queued messages');
+  await r.measure(
+    'queue hide',
+    'toggle',
+    () => hide.click(),
+    { css: '[aria-label="Show queued messages"]' },
+    { control: hide },
+  );
+  const show = r.control('button', 'Show queued messages');
+  await r.measure(
+    'queue show',
+    'toggle',
+    () => show.click(),
+    { css: '[aria-label="Hide queued messages"]' },
+    { control: show },
+  );
+  const rows = '[data-slot="composer-queue"] [role="listitem"]';
+  const count = await page.locator(rows).count();
+  if (count === 0) return;
+  // Includes the fixture round trip, so it reports without a ready budget.
+  await r.measure(
+    'queue row arrives',
+    'server-event',
+    async () => {
+      await page.evaluate(() => {
+        window.__perf.state.lastInput = performance.now();
+      });
+      await append();
+    },
+    { css: rows, minCount: count + 1 },
+  );
 }
 
 export async function transcriptJourney(r) {
