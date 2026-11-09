@@ -21,9 +21,11 @@ export function SourceProviderLogo({
 }) {
   const detail = size === 'detail';
   const icon = size === 'icon';
-  const mark = icon ? 'size-4' : mark;
-  const wordmark = icon ? 'size-4' : wordmark;
-  const glyph = icon ? 'size-4' : detail ? 'size-10' : 'size-5';
+  const { mark, wordmark, glyph } = {
+    row: { mark: 'size-7', wordmark: 'w-14', glyph: 'size-5' },
+    detail: { mark: 'size-14', wordmark: 'w-full', glyph: 'size-10' },
+    icon: { mark: 'size-4', wordmark: 'size-4', glyph: 'size-4' },
+  }[size];
   return (
     <span
       className={cn(
