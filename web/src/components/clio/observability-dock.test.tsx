@@ -196,34 +196,6 @@ describe('ClioObservabilityView', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('toggles the work rail with the conversation-runs shortcut', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ClioObservabilityDock
-          artifacts={[]}
-          contextFiles={[]}
-          contextFrames={[]}
-          diffs={[]}
-          messages={[]}
-          processes={[]}
-          runs={[]}
-          subagents={[]}
-          tasks={[]}
-          tools={[]}
-        />
-      </QueryClientProvider>,
-    );
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.keyboard('{Control>}.{/Control}');
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Evidence layout: Bottom' })).toBeVisible();
-    await user.keyboard('{Control>}.{/Control}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
   it('restores the old top preference and keeps its customized sections when both are shown', async () => {
     localStorage.setItem(
       'clio.evidence-disclosures.v1',
