@@ -230,7 +230,7 @@ export function ClioMenuContent({
           </span>
           <span className="mr-[34px] flex min-w-[62px] shrink-0">
             <StatusIndicator
-              className="text-accent-foreground"
+              className="text-[11px] text-accent-foreground"
               label={activeStatus.label}
               tone={activeStatus.tone}
             />
@@ -310,7 +310,7 @@ export function ClioMenuContent({
             alignOffset={-7}
             sideOffset={12}
           >
-            <DropdownMenuItem asChild className="min-h-[30px] py-[3px]">
+            <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
               <Link to="/?intent=connect&mode=address">
                 <MenuRow
                   className="gap-[9px]"
@@ -320,7 +320,11 @@ export function ClioMenuContent({
                 />
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild className="min-h-[30px] py-[3px]" disabled={!desktop}>
+            <DropdownMenuItem
+              asChild
+              className="min-h-[30px] py-[3px] text-[12.5px]"
+              disabled={!desktop}
+            >
               <Link to="/?intent=connect&mode=deploy">
                 <MenuRow
                   className="gap-[9px]"
@@ -330,7 +334,11 @@ export function ClioMenuContent({
                 />
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild className="min-h-[30px] py-[3px]" disabled={!desktop}>
+            <DropdownMenuItem
+              asChild
+              className="min-h-[30px] py-[3px] text-[12.5px]"
+              disabled={!desktop}
+            >
               <Link to="/?intent=connect&mode=deploy">
                 <MenuRow
                   className="gap-[9px]"
