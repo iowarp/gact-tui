@@ -269,6 +269,8 @@ const RESERVED: Record<KeyPlatform, readonly string[]> = {
     'Cmd+Space',
     'Cmd+1–9',
     'Shift+Cmd+3–5',
+    // The Help menu's search over the menu bar.
+    'Shift+Cmd+/',
     'Alt+Cmd+M',
     'Alt+Cmd+I',
     'Alt+Cmd+J',
