@@ -1,9 +1,10 @@
-import type { ConnectedSourceState, WorkspaceReference } from '@clio/core/v3';
+import { TransportError, type ConnectedSourceState, type WorkspaceReference } from '@clio/core/v3';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import { SourceDownloadAttachment } from './source-download-attachment';
 import type { SourceDownloadSelection } from './source-download-selection';
+import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { useSourceDraftLifecycle } from './use-source-draft-lifecycle';
@@ -17,7 +18,32 @@ export function useComposerSources(
   sessionId?: string,
 ) {
   const { settings } = useConnectionSettings();
+  const repository = useRepository();
   const queryClient = useQueryClient();
+  // The shared source and provider lists tell whether this service offers
+  // connected data at all; with neither, the route would open onto a dead end.
+  const storageScope = connectionScope(settings);
+  const sourceProbe = useQuery({
+    queryKey: ['connected-storage', storageScope, workspaceId, 'sources'],
+    queryFn: ({ signal }) => repository.connectedSources(workspaceId, signal),
+    enabled: Boolean(workspaceId),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const providerProbe = useQuery({
+    queryKey: ['connected-storage', storageScope, 'accounts'],
+    queryFn: ({ signal }) => repository.storageProviders(signal),
+    enabled: Boolean(workspaceId),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const offers = (probe: { error: unknown }, count: number | undefined) =>
+    Boolean(count) ||
+    Boolean(probe.error && !(probe.error instanceof TransportError && probe.error.status === 404));
+  const offered =
+    Boolean(workspaceId) &&
+    (offers(sourceProbe, sourceProbe.data?.length) ||
+      offers(providerProbe, providerProbe.data?.providers.length));
   const lifecycle = useSourceDraftLifecycle(workspaceId);
   const [location, setLocation] = useState<{ folder: string; downloaded: boolean }>();
   const scope = `${connectionScope(settings)}:${workspaceId}:${sessionId ?? 'draft'}`;
@@ -83,7 +109,7 @@ export function useComposerSources(
         ))}
       </div>
     ) : null,
-    open: workspaceId ? () => setOpen(true) : undefined,
+    open: offered ? () => setOpen(true) : undefined,
     openReference: (reference: WorkspaceReference) => {
       queryClient.setQueryData(
         ['connected-storage-selection', connectionScope(settings), workspaceId],
@@ -95,7 +121,7 @@ export function useComposerSources(
       });
       setOpen(true);
     },
-    drop: workspaceId
+    drop: offered
       ? (files: File[]) => {
           setDroppedFolder(files);
           setOpen(true);

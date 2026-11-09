@@ -1,27 +1,35 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TransportError } from '@clio/core/v3';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer } from './composer';
 
-vi.mock('@/hooks/use-repository', () => ({
-  useRepository: () => ({
-    workspaceReferences: vi.fn().mockResolvedValue([]),
-    connectedSources: vi.fn().mockResolvedValue([]),
-    storageProviders: vi.fn().mockResolvedValue({ providers: [] }),
-    hostStorageSettings: vi
-      .fn()
-      .mockResolvedValue({ hostname: 'Test host', effective: { root: '/data' } }),
-  }),
+const repository = vi.hoisted(() => ({
+  workspaceReferences: vi.fn(),
+  connectedSources: vi.fn(),
+  storageProviders: vi.fn(),
+  hostStorageSettings: vi.fn(),
 }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
 }));
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
+beforeEach(() => {
+  repository.workspaceReferences.mockResolvedValue([]);
+  repository.connectedSources.mockResolvedValue([]);
+  repository.storageProviders.mockResolvedValue({
+    providers: [{ id: 'google_drive', name: 'Google Drive', configured: true }],
+  });
+  repository.hostStorageSettings.mockResolvedValue({
+    hostname: 'Test host',
+    effective: { root: '/data' },
+  });
+});
 afterEach(cleanup);
-
 function renderComposer(contextReferences = false) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -41,20 +49,48 @@ function renderComposer(contextReferences = false) {
   );
 }
 
+/** The + becomes a menu once the service shows it offers connected data. */
+const attachMenu = () =>
+  vi.waitFor(() => {
+    const button = screen.getByRole('button', { name: 'Attach files' });
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    return button;
+  });
+
 async function openDropSurface(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Attach files' }));
+  await user.click(await attachMenu());
   await user.click(screen.getByRole('menuitem', { name: 'From connected data…' }));
   await user.click(screen.getByRole('button', { name: 'Choose files' }));
 }
 
 describe('ClioComposer file upload surface', () => {
+  it('offers no connected-data route on a service without connected data', async () => {
+    const missing = () => new TransportError('Not Found', 404);
+    repository.connectedSources.mockRejectedValue(missing());
+    repository.storageProviders.mockRejectedValue(missing());
+    const user = userEvent.setup();
+    renderComposer();
+    const open = vi.spyOn(screen.getByLabelText('Upload files'), 'click');
+    await vi.waitFor(() => expect(repository.storageProviders).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const attach = screen.getByRole('button', { name: 'Attach files' });
+    expect(attach).not.toHaveAttribute('aria-haspopup');
+    await user.click(attach);
+
+    // Straight to the system picker: no menu, no dialog onto a dead end.
+    expect(open).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('opens the system file picker straight from the attach menu', async () => {
     const user = userEvent.setup();
     renderComposer();
     const picker = screen.getByLabelText('Upload files');
     const open = vi.spyOn(picker, 'click');
 
-    await user.click(screen.getByRole('button', { name: 'Attach files' }));
+    await user.click(await attachMenu());
     await user.click(screen.getByRole('menuitem', { name: 'Upload files…' }));
 
     expect(open).toHaveBeenCalledOnce();
