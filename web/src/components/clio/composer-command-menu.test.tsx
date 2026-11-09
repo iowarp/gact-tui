@@ -3,7 +3,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { matchingSummons, summonReferences, typedSummons } from '@/lib/composer-reference-domain';
 import { commandForName, commandGroups } from '@/lib/command-table';
-import { ClioComposerCommandMenu, CommandStatus } from './composer-command-menu';
+import {
+  ClioComposerCommandMenu,
+  CommandStatus,
+  type CommandListState,
+} from './composer-command-menu';
 import { ConversationSummonedWork } from './conversation-summoned-work';
 import { summonServerLabel } from './injection-presentation';
 
@@ -230,6 +234,11 @@ describe('the / menu surface', () => {
     const { editor, onPick, onRun } = renderMenu('/');
     const first = screen.getByRole('option', { selected: true });
     expect(first).toHaveAccessibleName(/\/goal/u);
+    const pick = first.querySelector('[data-slot="key-cap"]');
+    expect(pick).toHaveClass('bg-key', 'border-b-2', 'h-5');
+    expect(
+      screen.getAllByRole('option').filter((row) => row.querySelector('[data-slot="key-cap"]')),
+    ).toEqual([first]);
 
     fireEvent.keyDown(editor, { key: 'Tab' });
     expect(onPick).toHaveBeenCalledWith(commands[0]);
@@ -246,5 +255,34 @@ describe('the / menu surface', () => {
 
     fireEvent.keyDown(editor, { key: 'Escape' });
     expect(screen.queryByRole('listbox', { name: 'Suggestions' })).toBeNull();
+  });
+
+  it('says why the menu is empty', () => {
+    const empty = (list: readonly CommandDefinition[], query: string, state?: CommandListState) =>
+      render(
+        <ClioComposerCommandMenu
+          commands={list}
+          commandsState={state}
+          onPick={vi.fn()}
+          onRun={vi.fn()}
+          popoverId="cmds"
+          query={query}
+        />,
+      );
+    const listbox = () => screen.getByRole('listbox', { name: 'Suggestions' });
+
+    empty([], '/');
+    expect(listbox()).toHaveTextContent(
+      'This agent has no commands. Delete the / to send a message.',
+    );
+    cleanup();
+    empty([], '/', 'loading');
+    expect(listbox()).toHaveTextContent('Loading this agent’s commands…');
+    cleanup();
+    empty([], '/', 'failed');
+    expect(listbox()).toHaveTextContent('This agent’s commands couldn’t be loaded.');
+    cleanup();
+    empty(commands, '/zzz');
+    expect(listbox()).toHaveTextContent('No command matches zzz.');
   });
 });

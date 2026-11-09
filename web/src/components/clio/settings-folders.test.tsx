@@ -99,6 +99,8 @@ describe('folders settings', { timeout: 20_000 }, () => {
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Folder'), 'D:\\data\\sentinel-raw');
     expect(dialog).toHaveAccessibleName('Allow writing to sentinel-raw?');
+    const then = within(dialog).getByText('Then').closest('[data-slot="settings-row"]');
+    expect(then).toHaveTextContent('The blocked command isn’t rerun. Ask again.');
 
     await user.click(within(dialog).getByRole('button', { name: /Allow folder/ }));
 

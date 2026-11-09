@@ -98,8 +98,19 @@ describe('a failed service row', () => {
       "Can't connect: incompatible version",
     ],
     ['a local failure', new Error('Connection refused'), "Can't connect: Connection refused"],
+    [
+      'an unexpected exception',
+      new TypeError("Cannot read properties of undefined (reading 'invoke')"),
+      "Can't connect: unexpected error",
+    ],
   ])('reports %s as what happened', (_name, error, line) => {
     expect(row(error)).toBe(line);
     expect(row(error)).not.toMatch(/no answer|protocol|0\.\d/iu);
   });
+});
+
+it('keeps an unexpected exception for technical details, never as the reason', () => {
+  const availability = unavailableFromError(new TypeError('Cannot read properties of undefined'));
+  expect(availability.detail).toBe('unexpected error');
+  expect(availability.diagnostics).toBe('TypeError: Cannot read properties of undefined');
 });

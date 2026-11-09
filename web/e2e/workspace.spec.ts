@@ -124,7 +124,7 @@ async function expectRegionScreenshot(
   });
 }
 
-type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer' | 'status';
+type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer';
 
 /**
  * Review each workspace surface against its own baseline, so restyling one
@@ -148,14 +148,11 @@ async function expectWorkspaceRegions(
     header: { region: page.locator('[data-slot="workspace-header"]'), mask: [] },
     transcript: {
       region: page.locator('[data-slot="session-transcript"]'),
-      mask: [composerStack],
+      // The Thinking row counts seconds from mount, so its time differs per run.
+      mask: [composerStack, page.locator('[data-slot="turn-response-wait"]').getByText(/^\d+s$/)],
     },
     attention: { region: attention, mask: [] },
     composer: { region: composerStack, mask: [attention] },
-    status: {
-      region: page.locator('section[aria-label="Conversation workspace"] > footer'),
-      mask: [],
-    },
   };
   for (const name of regions) {
     const { region, mask } = surfaces[name];
@@ -301,32 +298,29 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(disclosure).toBeVisible();
   await waitForArtifactPreview(page);
   const newSession = page.getByRole('button', {
-    name: 'New session in flat-NDP',
+    name: 'New conversation in flat-NDP',
     exact: true,
     includeHidden: true,
   });
   const overflow = page.getByRole('button', {
     name: 'Workspace actions for flat-NDP',
     exact: true,
+    includeHidden: true,
   });
   const actions = newSession.locator('..');
   await page.mouse.move(1090, 790);
   await expect(actions).toHaveCSS('opacity', '0');
   await page.screenshot({ path: testInfo.outputPath('workspace-row-at-rest.png') });
+  await disclosure.hover();
   await newSession.hover();
   await expect(actions).toHaveCSS('opacity', '1');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
   await newSession.click();
-  const create = page.getByRole('dialog', { name: 'Create', exact: true });
-  await expect(create.getByRole('radio', { name: 'Session', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
-    'flat-NDP',
-  );
-  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // A new conversation is a draft in place in that workspace (full-picture/08).
+  await expect(page).toHaveURL(/\/workspaces\/ws_flat_ndp\/new$/u);
+  await expect(page.getByRole('dialog', { name: 'Create', exact: true })).toHaveCount(0);
+  await page.goBack();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
   await disclosure.click();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
@@ -345,10 +339,12 @@ test('reveals workspace creation and overflow actions without changing disclosur
     ),
     contentType: 'application/json',
   });
-  await expect(menu.getByRole('menuitem', { name: 'Edit workspace', exact: true })).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }),
+  ).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
+  await menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }).hover();
   await expect(actions).toHaveCSS('opacity', '1');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });
@@ -399,9 +395,9 @@ test('keeps same-named sessions on one line and reveals details on hover or focu
     await expect(row).not.toContainText(/messages|Started/u);
     expect(
       await row.evaluate(
-        (element) => element.closest('[class~="group/row"]')?.getBoundingClientRect().height,
+        (element) => element.closest('[data-slot="list-row"]')?.getBoundingClientRect().height,
       ),
-    ).toBe(32);
+    ).toBe(28);
   }
   await page.screenshot({ path: testInfo.outputPath('session-rows-single-line.png') });
   const card = page.locator('[data-slot="hover-card-content"]');
@@ -472,8 +468,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
     .locator('[data-interaction-kind="question"]')
     .filter({ hasText: 'Which fallback should the review use?' });
   await expect(fallback).toContainText('The specialist could not answer this, so it needs you.');
-  await fallback.getByText('Technical details').click();
-  await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
+  // A decision card opens its technical details in a dialog so its facts stay in view.
+  await fallback.getByRole('button', { name: 'Technical details' }).click();
+  const fallbackDetails = page.getByRole('dialog', { name: /Technical details/ });
+  await expect(fallbackDetails.getByText('agent_answer_timeout')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(fallbackDetails).toHaveCount(0);
 
   await settleConversationAtLatest(page);
   const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
@@ -650,7 +650,7 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   await expectWorkspaceRegions(
     page,
     'workspace-desktop-dark',
-    ['left-bar', 'header', 'transcript', 'attention', 'composer', 'status'],
+    ['left-bar', 'header', 'transcript', 'attention', 'composer'],
     { animations: 'allow', maxDiffPixels: desktopMaxDiffPixels },
   );
 
@@ -985,7 +985,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expectWorkspaceRegions(
     page,
     'workspace-mobile-light-reduced',
-    ['header', 'transcript', 'attention', 'composer', 'status'],
+    ['header', 'transcript', 'attention', 'composer'],
     { animations: 'disabled', maxDiffPixels: mobileMaxDiffPixels },
   );
 
@@ -1214,7 +1214,9 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Short as well as narrow. The queue has its own 136 px bound and the
   // pending-response stack has a responsive viewport bound, so both must keep
   // wheel and keyboard scrolling local when they compete for composer space.
-  await page.setViewportSize({ height: 600, width: 848 });
+  // A card gives up body height before its options, so the stack itself only
+  // overflows once the header, options and details line exceed 45dvh.
+  await page.setViewportSize({ height: 400, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
@@ -1227,16 +1229,14 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   await expect(queue).toHaveCount(1);
   const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
-  // One compact page replaces the stack. Expand its real technical details to
-  // exercise overflow; the normal short permission correctly needs no scrolling.
-  await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
-
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();
     expect(
       await viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeGreaterThan(0);
-    await viewport.hover();
+    // Over the sticky header rather than the centre: a capped card body is its own
+    // scroller and would take the wheel.
+    await viewport.hover({ position: { x: 24, y: 8 } });
     await page.mouse.wheel(0, 500);
     await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await viewport.evaluate((element) => {
@@ -1260,6 +1260,14 @@ test('scrolls pending responses and queued messages independently at a narrow vi
       return settled;
     })
     .toBe(true);
+  // Park the responses a third of the way down: once the queue scrolls, the
+  // composer gives both panels a few more pixels, which would clamp an offset
+  // parked at the end without anything having chained into it.
+  previousResponseScroll = await responseViewport.evaluate((element) => {
+    element.scrollTop = Math.floor((element.scrollHeight - element.clientHeight) / 3);
+    return element.scrollTop;
+  });
+  expect(previousResponseScroll).toBeGreaterThan(0);
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
@@ -1286,11 +1294,11 @@ test('shows summarization as one quiet line and discloses its exact received tex
   );
   await expect(compactionRow).toBeVisible();
   const disclosure = compactionRow.getByRole('button', {
-    name: 'Compacted here, earlier context summarized',
+    name: 'Compacted here, earlier messages summarized',
     exact: true,
   });
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await expect(compactionRow.getByText('Automatic')).toBeVisible();
+  await expect(disclosure).toHaveAccessibleDescription('Started automatically');
   await expect(compactionRow).not.toContainText('EarthScope station evidence ledger');
   // Scroll the row to the top of the viewport: it sits near the tail of the
   // transcript, close enough to the composer that the floating "Agent needs

@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
+import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import {
   AskBody,
@@ -30,6 +30,12 @@ const SCOPES = [
   },
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
+
+/** The tool's own arguments: CLIO's `_clio_*` annotations ride along but are not for people. */
+function agentArguments(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !key.startsWith('_clio_')));
+}
 
 function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
   const input = interaction.payload?.tool_call?.input;
@@ -62,7 +68,14 @@ function askedBy(
       label: 'Asked by',
       icon: <UserRoundIcon />,
       title: ownerLabel ?? `Requested by session ${interaction.owner_session_id}`,
-      value: ownerLabel ?? (
+      // Who asked moves into Technical details at a fifth of the window.
+      narrow: false,
+      value: ownerLabel ? (
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate text-accent-foreground">{ownerLabel}</span>
+        </span>
+      ) : (
         <span className="min-w-0 truncate text-muted-foreground">Session not listed yet</span>
       ),
     },
@@ -73,6 +86,7 @@ function askedBy(
 export function PermissionResponse({
   disabled,
   interaction,
+  onOpenScript,
   onResponse,
   ownerLabel,
   responseError,
@@ -80,6 +94,7 @@ export function PermissionResponse({
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
+  onOpenScript?: ClioPendingInteractionsProps['onOpenScript'];
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
   responseError?: Error;
@@ -120,19 +135,25 @@ export function PermissionResponse({
             extraFacts={owner}
             interaction={interaction}
             pathsInline={false}
+            showCommand={!script}
             title={title}
           />
         )}
       </AskBody>
       {script ? (
         // Under a cap the script gives up height first, down to two lines with its fade and
-        // footer, so the facts above (the command) stay whole.
+        // footer, so the facts above stay whole. The script stands in for the command line.
         <AskCode
           className="flex min-h-20 shrink-[100] flex-col"
           code={script.code}
+          copyLabel="Copy script"
+          icon={FileCode2Icon}
           label="Script"
-          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
+          language="python"
+          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
           name="Script"
+          onOpen={onOpenScript ? () => onOpenScript(interaction, script.call_id) : undefined}
+          wrapToggle
         />
       ) : null}
       <AskError error={responseError} />
@@ -164,8 +185,20 @@ export function PermissionResponse({
         ) : null}
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
-        <AskDetails hint="raw arguments, as the agent sent them">
+        <AskDetails description="The tool's arguments, as the agent sent them.">
           <div className="grid gap-1.5">
+            {owner.length ? (
+              <p
+                className="min-w-0 truncate"
+                data-slot="ask-details-owner"
+                title={owner[0]?.title}
+              >
+                Asked by{' '}
+                <span className="text-foreground/90">
+                  {ownerLabel ?? `session ${interaction.owner_session_id}`}
+                </span>
+              </p>
+            ) : null}
             {toolName && !flowTrust ? (
               <p className="min-w-0 truncate" title={toolName}>
                 Tool <span className="font-mono text-foreground/90">{toolName}</span>
@@ -179,7 +212,7 @@ export function PermissionResponse({
             {toolCall?.input === undefined ? null : (
               <AskCode
                 className="mt-0 ml-0"
-                code={JSON.stringify(toolCall.input, null, 2)}
+                code={JSON.stringify(agentArguments(toolCall.input), null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"

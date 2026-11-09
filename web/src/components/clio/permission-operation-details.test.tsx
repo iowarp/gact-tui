@@ -109,7 +109,11 @@ it('shows command, computer, folders, reason and real duration before technical 
     />,
   );
   expect(screen.getByText('Move-Item source destination')).toBeVisible();
-  expect(screen.getByText('Research PC')).toBeVisible();
+  // Wide and narrow values are both mounted; the container query picks one.
+  const [wideComputer, narrowComputer] = screen.getAllByText('Research PC');
+  expect(wideComputer).toBeVisible();
+  expect(wideComputer?.closest('[data-slot=key-value-narrow]')).toBeNull();
+  expect(narrowComputer?.closest('[data-slot=key-value-narrow]')).not.toBeNull();
   expect(screen.getByText('C:\\Users\\Alice\\Downloads')).toBeVisible();
   expect(screen.getByText('D:\\Research\\Results')).toBeVisible();
   expect(
@@ -120,6 +124,29 @@ it('shows command, computer, folders, reason and real duration before technical 
   expect(screen.queryByRole('button', { name: 'Allow for this session' })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Allow for this workspace' }));
   expect(respond).toHaveBeenCalledWith(request, { action: 'allow_workspace' });
+});
+
+it('at a fifth of the window keeps why, where and folders short and moves who asked into details', async () => {
+  const delegated = { ...request, owner_session_id: 'child', attended_session_id: 'session1' };
+  render(
+    <ClioPendingInteractions
+      interactions={[delegated]}
+      ownerLabels={{ child: 'Station evidence specialist' }}
+      viewedSessionId="session1"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  const narrow = Array.from(document.querySelectorAll('[data-slot=key-value-narrow]'));
+  // Runs on: the label is the server icon, so the value starts with the computer itself.
+  expect(narrow.some((node) => node.textContent === 'Research PCD:\\Research')).toBe(true);
+  expect(narrow.some((node) => node.textContent === 'writes to 2 folders')).toBe(true);
+  const askedBy = screen.getByText('Asked by');
+  expect(askedBy.closest('[data-narrow=drop]')).not.toBeNull();
+  expect(screen.getByText(/including after restart/)).toHaveClass('@max-[420px]/ask:truncate');
+  await userEvent.click(screen.getByRole('button', { name: /Technical details/ }));
+  expect(document.querySelector('[data-slot=ask-details-owner]')).toHaveTextContent(
+    'Asked by Station evidence specialist',
+  );
 });
 
 it('declines the original operation and retains an actionable response error', async () => {
@@ -203,6 +230,51 @@ it('pages multiple source approvals and removes the pager for the last request',
   rerender(<ClioPendingInteractions {...props} interactions={[second]} />);
   expect(screen.queryByRole('navigation', { name: 'Pending requests' })).not.toBeInTheDocument();
   expect(screen.getByText('Connect second dataset')).toBeVisible();
+});
+
+it('shows a script instead of its command and opens technical details in a dialog', async () => {
+  const user = userEvent.setup();
+  const script: PendingInteraction = {
+    ...request,
+    id: 'permission:qc-script',
+    title: 'Run the QC script',
+    actions: ['deny', 'allow'],
+    payload: {
+      tool_call: {
+        tool_name: 'shell_bash',
+        input: {
+          command: 'python qc_stations.py --strict --out results/qc',
+          _clio_task_description: 'Flag stations that fail QC',
+        },
+      },
+      script: { call_id: 'call_qc', code: 'import pandas as pd\nprint(pd.__version__)\n' },
+    },
+  };
+  render(
+    <ClioPendingInteractions
+      interactions={[script]}
+      viewedSessionId="session1"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  expect(screen.getByText('Flag stations that fail QC')).toBeVisible();
+  expect(screen.getByText('Python, 2 lines')).toBeVisible();
+  expect(screen.queryByText('Command to run')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  document.querySelector<HTMLElement>('[data-slot="ask-card"]')!.focus();
+  await user.keyboard('d');
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Run the QC script: Technical details',
+  });
+  expect(dialog).toHaveTextContent('python qc_stations.py --strict --out results/qc');
+  expect(dialog).not.toHaveTextContent('_clio_');
+  // The facts stay in the card; details never expand inline under them.
+  expect(document.querySelector('[data-slot="ask-card"]')).not.toContainElement(dialog);
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  // Focus goes back to the card D was pressed on, so its keys keep working.
+  expect(document.querySelector('[data-slot="ask-card"]')).toHaveFocus();
 });
 
 it('shows a readable title for retained requests with the old generic summary', () => {

@@ -16,7 +16,7 @@ import { SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { sandboxReasonLabel } from '@/components/clio/sandbox-acknowledgement';
-import { InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
+import { INFRA_FACTS_GRID, InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
 import {
   InfraRowChevron,
   InfraRowToggle,
@@ -234,7 +234,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                 {row.next_action}
               </p>
             ) : null}
-            <KeyValueGrid items={facts} />
+            <KeyValueGrid className={INFRA_FACTS_GRID} items={facts} />
             {setupOutcome ? (
               <p className="text-[12px] whitespace-normal text-foreground" role="status">
                 {setupOutcome}
@@ -243,7 +243,13 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
             {setupOffered || (pendingRestart && desktop) ? (
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {setupOffered ? (
-                  <Button disabled={working} onClick={startSetup} size="sm" variant="outline">
+                  <Button
+                    className="px-[9px] text-[11.5px]"
+                    disabled={working}
+                    onClick={startSetup}
+                    size="xs"
+                    variant="outline"
+                  >
                     {working ? (
                       <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
                     ) : (
@@ -254,9 +260,10 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                 ) : null}
                 {pendingRestart && desktop ? (
                   <Button
+                    className="px-[9px] text-[11.5px]"
                     disabled={restarting}
                     onClick={() => void restart()}
-                    size="sm"
+                    size="xs"
                     variant="outline"
                   >
                     <RetryIcon

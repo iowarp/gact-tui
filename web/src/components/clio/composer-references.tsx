@@ -178,12 +178,14 @@ const ReferenceOption = memo(function ReferenceOption({
         <Highlighted query={query} text={name} />
       </span>
       {detail ? (
-        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
+        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-muted-foreground">
+          {detail}
+        </span>
       ) : null}
       {drillable || active ? (
-        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-muted-foreground">
           {drillable ? <span>Tab to look inside</span> : null}
-          {active ? <ShortcutKeys id="menu-pick" variant="inline" /> : null}
+          {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
         </span>
       ) : null}
     </div>

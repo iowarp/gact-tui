@@ -125,6 +125,7 @@ export function useSessionMutations({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.queuedMessages(sessionId, signal),
     queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
+    notifyOnChangeProps: ['data'],
   });
   // Pending-steer events on the live stream invalidate this read.
   const streamHealthy = useLiveStreamHealthy();
@@ -132,8 +133,12 @@ export function useSessionMutations({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.pendingSteers(sessionId, signal),
     queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
+    // Read only as data; the transcript that reads it is absent on the welcome screen.
+    notifyOnChangeProps: ['data'],
     refetchInterval:
-      session?.state === 'running' ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy) : false,
+      session?.state === 'running'
+        ? livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy)
+        : false,
   });
 
   const invalidateComposerState = () => {
