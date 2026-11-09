@@ -1,5 +1,4 @@
 import { lazy, Suspense } from 'react';
-import type { DocumentAnchor } from '@clio/core/v3';
 import type { PdfHighlight } from './document-pdf-viewer';
 import { ResourceLoading, ViewerReadError } from './resource-states';
 
@@ -22,7 +21,6 @@ export function ClioPdfPreview({
   name,
   fit,
   initialPage,
-  onSelection,
   highlight,
   onPagePoint,
   onRetry,
@@ -35,7 +33,6 @@ export function ClioPdfPreview({
   /** Opens on this 1-based page instead of the first, when the caller already
    * knows which page matters (e.g. a view_pdf call's viewed page range). */
   initialPage?: number;
-  onSelection?: (anchor: DocumentAnchor) => void;
   /** Outlined and scrolled into view on its page. */
   highlight?: PdfHighlight;
   /** A double-click on a page (0-based) at x, y as fractions of the page. */
@@ -50,7 +47,6 @@ export function ClioPdfPreview({
         fit={fit}
         initialPage={initialPage}
         name={name}
-        onSelection={onSelection ?? (() => undefined)}
         highlight={highlight}
         onPagePoint={onPagePoint}
       />

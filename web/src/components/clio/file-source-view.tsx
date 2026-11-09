@@ -57,7 +57,7 @@ export function FileSourceView({
       language={language}
       showLineNumbers
       className={cn(
-        'h-full min-h-0 min-w-0 rounded-none border-0',
+        'h-full min-h-0 min-w-0 rounded-none border-0 [&_:is(pre,code)]:text-[11.5px] [&_pre]:leading-[1.65]',
         options?.wrap
           ? '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]'
           : '[&_pre]:w-max [&_pre]:min-w-full [&_pre]:whitespace-pre [&_pre]:[overflow-wrap:normal]',
