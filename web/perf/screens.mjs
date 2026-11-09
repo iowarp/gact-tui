@@ -144,6 +144,17 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -177,6 +188,16 @@ function seededSettingsShots() {
       '/settings/providers',
       async (page) => {
         await row(page, 'model-server-row', 'LM Studio').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
         await page.waitForTimeout(300);
       },
       { keepPointer: true },
@@ -221,10 +242,79 @@ function seededSettingsShots() {
   ];
 }
 
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen, boot }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++id,
+    unregisterCallback: () => undefined,
+    // Only the app version answers; everything else stays pending, as on a
+    // host that is still coming up.
+    invoke: (command) => {
+      if (command === 'plugin:app|version' && version) return Promise.resolve(version);
+      // Local startup: the service was found missing, and the runtime is being prepared.
+      if (boot && command === 'get_backend') {
+        const detail =
+          (boot.calls = (boot.calls ?? 0) + 1) > 1 ? 'installing_runtime' : 'checking_existing';
+        return Promise.resolve({ url: '', bearer_token: '', status: { kind: 'starting', detail } });
+      }
+      if (boot && command === 'read_logs')
+        return Promise.resolve(
+          '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
+        );
+      return new Promise(() => undefined);
+    },
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// connected?, route?, keepPointer?, platform?, initScript?: [fn, arg] run
+// before the app}. `platform: 'mac'` makes the page report a Mac, for its ? keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -237,6 +327,16 @@ function catalogue({ settings, infrastructure }) {
     });
   return [
     s('connect', 'first-run', '/', null, { connected: false, ready: 'main' }),
+    s('connect', 'local-startup', '/', null, {
+      connected: false,
+      ready: '[aria-label="Startup progress"] [aria-current="step"]',
+      allowLoading: true,
+      settleMs: 2500,
+      initScript: [
+        desktopStub,
+        { desktop: true, version: APP_VERSION, seen: APP_VERSION, boot: {} },
+      ],
+    }),
     s('connect', 'unreachable-service', '/', null, {
       connected: 'http://127.0.0.1:9',
       ready: 'main',
@@ -285,6 +385,41 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // Opening a file closes the list; show it again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
     menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
@@ -321,6 +456,13 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu(
       'menu-version-status',
       'button',
@@ -367,14 +509,84 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-rename-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Rename session', { exact: true });
+      await press(page, 'menuitem', 'Rename', { exact: true });
       await overlay(page);
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete session', { exact: true });
+      await press(page, 'menuitem', 'Delete?', { exact: true });
       await overlay(page);
     }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
+    }),
+    s(
+      'session',
+      'dialog-archived',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s(
+      'session',
+      'dialog-archived-delete',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
+        await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s('session', 'dialog-share', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+      await page.getByRole('dialog', { name: /^Share / }).waitFor();
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-share-link',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Actions for /u);
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+        await page.getByRole('button', { name: 'Create share link' }).click();
+        await page.getByRole('textbox', { name: 'Share link' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'share-link' },
+    ),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -425,6 +637,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    ...updateShots(),
     s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
       await press(page, 'button', 'Add folder', { exact: true });
       await overlay(page);
@@ -661,7 +874,11 @@ const SAVED_AGENTS = [
   { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
 ];
 
-async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
@@ -700,6 +917,11 @@ async function newContext(browser, stack, { theme, width, connected = true, save
       await route.fulfill({ response });
     });
     await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
   }
   return context;
 }
@@ -849,8 +1071,10 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
@@ -874,6 +1098,48 @@ async function capture(browser, stack, shot, { theme, width }) {
         for (const session of listing.sessions ?? []) session.state = 'idle';
         await route.fulfill({ json: listing });
       },
+    );
+  }
+  if (shot.route === 'archived-sessions') {
+    // The fixture archives nothing; three archived rows as the spec draws them.
+    const archived = [
+      ['sess_archived_regrid', 'Soil moisture regrid', '2026-08-30T10:00:00Z'],
+      ['sess_archived_smap', 'SMAP granule audit', '2026-08-26T10:00:00Z'],
+      ['sess_archived_probe', 'Probe calibration notes', '2026-08-11T10:00:00Z'],
+    ];
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        const template = listing.sessions?.find((row) => !row.parent_session_id);
+        if (template) {
+          for (const [id, title, at] of archived) {
+            listing.sessions.push({
+              ...template,
+              id,
+              title,
+              state: 'completed',
+              archived: true,
+              pinned: false,
+              updated_at: at,
+            });
+          }
+          listing.total = listing.sessions.length;
+        }
+        await route.fulfill({ json: listing });
+      },
+    );
+  }
+  if (shot.route === 'share-link') {
+    await page.route('**/v1/sessions/*/share', (route) =>
+      route.fulfill({
+        json: {
+          token: 'shr_7f3k9q2m',
+          session_id: 'sess_flat_ndp',
+          url: '/s/7f3k9q2m',
+          expires_at: '2026-09-08T15:00:00Z',
+        },
+      }),
     );
   }
   if (shot.route === 'degraded-health') {
