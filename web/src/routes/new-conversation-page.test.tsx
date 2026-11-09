@@ -86,6 +86,7 @@ vi.mock('@/hooks/use-workspace-data', () => ({
     attentionInteractions: [],
     workspaceFiles: {},
     workspaceResources: { data: [] },
+    modelCatalogStatus: { settled: 'ready', queryKeys: [['providers'], ['models']] },
     installedAgents: { data: mocks.agents },
     providerCatalog: {},
   }),

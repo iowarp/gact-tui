@@ -115,6 +115,7 @@ vi.mock('@/store/live-store', () => {
 });
 
 import { useWorkspaceData } from './use-workspace-data';
+import { useModelCatalogStatus } from './use-model-catalog-status';
 import { sessionReads } from '@/test/session-reads';
 
 const approval = {
@@ -632,7 +633,17 @@ describe('useWorkspaceData transcript recovery', () => {
 
 describe('useWorkspaceData background polls', () => {
   it('reports an explicit model catalog refresh while retaining its cached catalog', async () => {
-    const { result } = renderWorkspaceData();
+    const { result } = renderHook(
+      () => {
+        const data = useWorkspaceData({
+          contextTargetId: 'sess_1',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        });
+        return { ...data, modelCatalogStatus: useModelCatalogStatus(data.modelCatalogStatus) };
+      },
+      { wrapper: Wrapper },
+    );
     await waitFor(() => expect(result.current.modelCatalogStatus).toBe('ready'));
     const previous = result.current.providerCatalog.data;
     const payload = { providers: [] };

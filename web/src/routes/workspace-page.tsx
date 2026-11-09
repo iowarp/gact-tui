@@ -34,6 +34,7 @@ import { useScienceLog } from '@/hooks/use-science-log';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
@@ -125,12 +126,15 @@ export function WorkspacePage() {
   const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // Hydration can lag messageCount by a render. Check both to avoid remounting
   // the welcome composer and losing drafts or attachments during navigation.
-  const showConversationWelcome =
+  const welcomeCandidate =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
-    !transcript.isFetching &&
     !transcriptError &&
     !conversationStarted;
+  // Read at render for the first fetch; the leaf subscription catches later flips
+  // without re-rendering the page for a populated session's background refetches.
+  const transcriptFetching = useQueryFetching(data.transcriptKey, welcomeCandidate);
+  const showConversationWelcome = welcomeCandidate && !transcript.isFetching && !transcriptFetching;
 
   const workbench = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const { openArtifact, openFlow, openSubagent, revealWorkbench } = workbench;
