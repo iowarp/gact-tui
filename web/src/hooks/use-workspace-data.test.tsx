@@ -257,7 +257,7 @@ describe('useWorkspaceData interaction reads', () => {
       expect.objectContaining({ id: 'perm_1', attended_session_id: 'sess_1' }),
     ]);
     expect(mocks.repository.pendingApprovals).toHaveBeenCalledWith(undefined, expect.anything());
-    expect(mocks.repository.sessionsById).toHaveBeenCalledWith(['sess_1'], expect.anything());
+    expect(sessionReadMocks.sessionsById).toHaveBeenCalledWith(['sess_1'], expect.anything());
   });
 
   it('uses the unified read once the capability is advertised', async () => {

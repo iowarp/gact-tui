@@ -286,19 +286,21 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
               size="sm"
             />
           </div>
-          <section aria-labelledby="attention-needs-you" className="px-1.5 pb-2">
+          {rows.length === 0 ? (
+            <p className="px-4 pt-4 pb-3 text-[12.5px] text-muted-foreground">Nothing needs you.</p>
+          ) : null}
+          <section
+            aria-labelledby="attention-needs-you"
+            className="px-1.5 pb-2"
+            hidden={rows.length === 0}
+          >
             <h3
               className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
               id="attention-needs-you"
             >
               <span>Needs you</span>
-              {responseCount > 0 ? (
-                <span className="text-warning tabular-nums">{responseCount}</span>
-              ) : null}
+              <span className="text-warning tabular-nums">{responseCount}</span>
             </h3>
-            {rows.length === 0 ? (
-              <p className="px-2.5 pt-0.5 pb-1 text-[12px] text-faint">Nothing needs you.</p>
-            ) : null}
             <div
               className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
               onKeyDown={moveFocus}

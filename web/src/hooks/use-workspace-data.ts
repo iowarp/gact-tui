@@ -42,7 +42,8 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
-import { mergeKnownSessions, useKnownSessions } from './use-known-sessions';
+import { useKnownSessions } from './use-known-sessions';
+import { useLegacyRequestLedgers } from './use-legacy-request-ledgers';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -187,48 +188,12 @@ export function useWorkspaceData({
     : familyAwaitsPerson
       ? ACTIVE_SESSION_POLL_MS
       : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
-  const approvals = useQuery({
-    queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
+  const { approvals, questions, requestOwners } = useLegacyRequestLedgers({
     enabled: useLegacyInteractions,
-    refetchInterval: interactionPollMs,
+    pollMs: interactionPollMs,
+    family: sessions.data,
+    waiting: waitingSessions.data,
   });
-  // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
-  // pendingApprovals just above: a background session's question must reach
-  // this attention feed too, not only the currently active session's. Like
-  // approvals, that means polling rather than relying on the live stream,
-  // which only opens for the active session.
-  const questions = useQuery({
-    queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
-    enabled: useLegacyInteractions,
-    refetchInterval: interactionPollMs,
-  });
-  // A request names its conversation by id. One that neither the open family nor
-  // the waiting list holds yet (its state lags the request) is read by id, so
-  // its request is never dropped from the attention feed.
-  const requestOwnerIds = useMemo(() => {
-    const known = new Set(
-      mergeKnownSessions(sessions.data, waitingSessions.data)?.map((item) => item.id),
-    );
-    return [
-      ...new Set(
-        [...(approvals.data ?? []), ...(questions.data ?? [])]
-          .map((request) => request.session_id)
-          .filter((id) => id && !known.has(id)),
-      ),
-    ].toSorted();
-  }, [approvals.data, questions.data, sessions.data, waitingSessions.data]);
-  const requestOwnerQuery = useQuery({
-    queryKey: queryKeys.key('session-directory', settings.endpoint, ...requestOwnerIds),
-    queryFn: ({ signal }) => repository.sessionsById(requestOwnerIds, signal),
-    enabled: requestOwnerIds.length > 0,
-    placeholderData: (previous) => previous,
-  });
-  const requestOwners = useMemo(
-    () => requestOwnerQuery.data?.filter((item) => requestOwnerIds.includes(item.id)),
-    [requestOwnerIds, requestOwnerQuery.data],
-  );
   const allSessions = useKnownSessions(
     sessions,
     waitingSessions,
