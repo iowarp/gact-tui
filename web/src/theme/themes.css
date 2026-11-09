@@ -33,7 +33,8 @@
   --secondary: #ede7da;
   --secondary-foreground: #2b2a26;
   --muted: #ede7da;
-  --muted-foreground: #6b655a;
+  /* Muted text reaches 4.5:1 on every light surface, the menu highlight included. */
+  --muted-foreground: #675f53;
   --faint: #6f675b;
   --changed: #276a63;
   --hover: #ece6da;

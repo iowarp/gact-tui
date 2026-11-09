@@ -150,6 +150,7 @@ export function WorkspaceComposer({
             data.capabilities.data?.capabilities,
           )}
           commands={commands.commands}
+          commandsState={commands.commandsState}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={
             mutations.send.isPending || cancel.isPending || commands.isPending || hold.active
