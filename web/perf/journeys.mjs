@@ -612,7 +612,7 @@ export async function settingsJourney(r) {
     step.headings = await page.locator(`${content} h1`).filter({ visible: true }).count();
     await waitIdle(page, 200);
     if (name === 'Models') {
-      await r.overlay('default model picker', 'button', 'Change', { category: 'picker' });
+      await r.overlay('default model picker', 'button', /^Default model$/u, { category: 'picker' });
     }
   }
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {

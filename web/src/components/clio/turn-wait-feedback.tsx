@@ -69,8 +69,31 @@ function ResponseWait() {
   const [started] = useState(() => Date.now());
   const now = useNow(true);
   const seconds = Math.max(0, Math.floor((now - started) / 1000));
-  // Keep quick handoffs quiet while making sustained waits continuously visible.
-  if (seconds < 1) return null;
+  // Keep quick handoffs quiet while making sustained waits continuously visible. The quiet
+  // second still reserves the row's height so revealing it doesn't shift a latest-pinned
+  // transcript (and whatever the pointer was over) a row upward.
+  if (seconds < 1)
+    return (
+      <div
+        aria-hidden="true"
+        data-slot="turn-response-wait-reserve"
+        style={{ visibility: 'hidden' }}
+      >
+        <ActivityRow
+          icon={<BrainIcon aria-hidden="true" />}
+          name="Thinking…"
+          elapsed="0s"
+          status={
+            <StatusIndicator
+              tone="running"
+              label="Waiting for response"
+              display="column"
+              mark="glyph"
+            />
+          }
+        />
+      </div>
+    );
   return (
     <div role="status" data-slot="turn-response-wait">
       <ActivityRow

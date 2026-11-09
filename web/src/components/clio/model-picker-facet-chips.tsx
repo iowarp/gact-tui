@@ -37,13 +37,7 @@ export function FacetChipCluster({
         const empty = !chip.remote && !chip.active && chip.count === 0;
         const swap = chip.replaces.length ? ` (replaces ${chip.replaces.join(', ')})` : '';
         return (
-          <Badge
-            asChild
-            key={chip.token}
-            radius="default"
-            size="xl"
-            variant={chip.active ? 'primary-light' : 'outline'}
-          >
+          <Badge asChild key={chip.token} radius="default" size="xl" variant="outline">
             <button
               aria-label={
                 chip.remote
@@ -52,8 +46,10 @@ export function FacetChipCluster({
               }
               aria-pressed={chip.active}
               className={cn(
-                'cursor-pointer gap-1.5 font-normal hover:border-primary/40 hover:text-foreground',
-                !chip.active && 'text-foreground/85',
+                'cursor-pointer gap-1.5 font-normal hover:bg-hover hover:text-foreground',
+                chip.active
+                  ? 'border-transparent bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+                  : 'text-foreground/85',
                 empty &&
                   'cursor-not-allowed opacity-55 hover:border-border hover:text-foreground/85',
               )}
@@ -78,7 +74,7 @@ export function FacetChipCluster({
                 <span
                   className={cn(
                     'text-xs tabular-nums',
-                    chip.active ? 'text-primary/80' : 'text-muted-foreground',
+                    chip.active ? 'text-accent-foreground' : 'text-muted-foreground',
                   )}
                   data-slot="facet-chip-count"
                 >

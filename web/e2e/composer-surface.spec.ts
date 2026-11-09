@@ -224,6 +224,7 @@ for (const theme of ['dark', 'light'] as const) {
           surface,
           placeholder,
           surfaceContrast: contrast(surface, background),
+          borderContrast: contrast(sample(getComputedStyle(node).borderTopColor), background),
           placeholderContrast: contrast(placeholder, surface),
           border: getComputedStyle(node).borderColor,
           cssSurface: getComputedStyle(node).backgroundColor,
@@ -238,8 +239,9 @@ for (const theme of ['dark', 'light'] as const) {
         path: testInfo.outputPath(`${theme}-${width}-idle-composer.png`),
       });
       // Surface separation is a visual design threshold; text meets WCAG AA contrast.
-      // Notebook separates the composer by a warm card step, not a bright slab.
-      expect(colors.surfaceContrast).toBeGreaterThan(1.08);
+      // The spec's composer (.xcp) is one quiet step off the page; its border carries the edge.
+      expect(colors.surfaceContrast).toBeGreaterThan(1.04);
+      expect(colors.borderContrast).toBeGreaterThan(1.4);
       expect(colors.placeholderContrast).toBeGreaterThanOrEqual(4.5);
       await editor.click();
       await expect(editor).toBeFocused();
