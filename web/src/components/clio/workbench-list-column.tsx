@@ -114,7 +114,7 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
     <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
   );
   return (
-    <WorkbenchListSection overlay={overlay} title={title}>
+    <WorkbenchListSection overlay={overlay} title={title} wide={view === 'activity'}>
       {view === 'activity' ? (
         <WorkbenchActivityList
           activeTabId={props.activeTabId}
@@ -151,10 +151,13 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
 export function WorkbenchListSection({
   title,
   overlay,
+  wide = false,
   children,
 }: {
   title: string;
   overlay: boolean;
+  /** Activity's wider rows: spec `.bc.w`, 46% rather than `.bc`'s 36%. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -169,7 +172,7 @@ export function WorkbenchListSection({
         // tab), and a pick closes it.
         overlay
           ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : 'h-full w-[36%] min-w-[180px]',
+          : cn('h-full min-w-[180px]', wide ? 'w-[46%]' : 'w-[36%]'),
       )}
     >
       {children}
@@ -261,14 +264,20 @@ function FilesList({
           selectedPath={selectedPath}
           sessionId={sessionId}
           workspaceId={workspaceId}
+          legend={
+            changedPaths.size ? (
+              <>
+                <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
+                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
+                  <span className="truncate">
+                    <span className="text-changed">Teal</span>: changed in this conversation
+                  </span>
+                </p>
+              </>
+            ) : null
+          }
         />
       </div>
-      {changedPaths.size ? (
-        <p className="flex h-7 shrink-0 items-center gap-1.5 truncate border-t border-border px-2.5 text-[11px] whitespace-nowrap text-faint">
-          <span className="font-medium text-changed">Teal</span>
-          <span className="truncate">changed in this conversation</span>
-        </p>
-      ) : null}
     </div>
   );
 }
