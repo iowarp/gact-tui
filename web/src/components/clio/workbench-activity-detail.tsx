@@ -179,8 +179,8 @@ const ActivityDetailView = memo(function ActivityDetailView({
   );
   const fact = item.running
     ? `running${time ? ` ${time}` : ''}`
-    : time
-      ? `${item.status} ${time}`
+    : time && !item.status.includes(time)
+      ? `${item.status}, ${time}`
       : item.status;
   return (
     <DetailFrame

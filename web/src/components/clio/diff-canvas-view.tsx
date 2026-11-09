@@ -1,7 +1,6 @@
 import type { SessionDiff } from '@clio/core/v3';
 import { FileDiffIcon, Undo2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { CodeBlock } from '@/components/ai-elements/code-block';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +12,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { FrameCommentsUnavailable } from './comments/frame-comments';
+import { DiffLines } from './diff-lines';
 import { fileViewerReference } from './file-viewer-location';
 import type { FileViewerSource } from './file-viewer-source';
 import { FrameTalkTake } from './file-viewer-take';
@@ -27,6 +26,7 @@ import {
 } from './file-viewer-take-hooks';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 
 export interface DiffCanvasViewProps {
   diff: SessionDiff;
@@ -115,27 +115,33 @@ export function DiffCanvasView({
           }
         />
       </TooltipProvider>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="grid gap-3 p-3">
-          <h2 className="sr-only">
-            {diff.created ? 'File created by the agent' : 'File changed by the agent'}
-          </h2>
-          {error ? (
-            <Alert variant="destructive">
-              <AlertTitle>The change was not undone</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-          <CodeBlock
-            code={unified || 'Diff content unavailable.'}
-            language="diff"
-            showLineNumbers
-          />
-          {undoReason && !pending ? (
-            <p className="text-xs text-muted-foreground">{undoReason}</p>
-          ) : null}
-        </div>
-      </ScrollArea>
+      <h2 className="sr-only">
+        {diff.created ? 'File created by the agent' : 'File changed by the agent'}
+      </h2>
+      {error ? (
+        <Alert className="m-3 w-auto" variant="destructive">
+          <AlertTitle>The change was not undone</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {unified ? (
+        <DiffLines className="flex-1" unified={unified} />
+      ) : (
+        <StateView
+          className="flex-1 p-6"
+          kind="unavailable"
+          size="panel"
+          title="Diff content unavailable"
+        />
+      )}
+      {undoReason && !pending ? (
+        <p
+          className="shrink-0 truncate border-t px-3 py-1.5 text-xs text-muted-foreground"
+          title={undoReason}
+        >
+          {undoReason}
+        </p>
+      ) : null}
       <UndoChange
         diff={diff}
         open={undoOpen}
