@@ -134,8 +134,8 @@ describe('ClioSessionActions', () => {
       'readonly',
     );
     // The link carries its expiry, so it is no longer a choice.
-    expect(screen.queryByRole('combobox', { name: 'Link expires' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Link expiresIn 7 days');
+    expect(screen.getByRole('combobox', { name: 'Link expires' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Link expires' })).toHaveTextContent('In 7 days');
 
     // Done is the lone button and takes plain Enter.
     expect(screen.getByRole('button', { name: /^Done/ })).toHaveFocus();

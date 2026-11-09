@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { copyText } from '@/lib/clipboard';
+import { cn } from '@/lib/utils';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 
@@ -94,36 +95,36 @@ export function ClioShareSessionDialog({
     >
       <div className="grid gap-3">
         <div className="grid gap-1.5">
-          {shareUrl ? (
-            <>
-              <span className="text-xs text-muted-foreground">Link expires</span>
-              {/* The link is minted with its expiry, so it reads as a fact now. */}
-              <span className="flex h-[30px] items-center text-[12.5px] text-foreground">
-                {EXPIRY_OPTIONS.find((option) => option.value === ttlSeconds)?.label}
-              </span>
-            </>
-          ) : (
-            <>
-              <Label
-                htmlFor="session-share-expiry"
-                className="text-xs font-normal text-muted-foreground"
-              >
-                Link expires
-              </Label>
-              <Select disabled={pending} onValueChange={setTtlSeconds} value={ttlSeconds}>
-                <SelectTrigger className="h-[30px] w-full text-[12.5px]" id="session-share-expiry">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXPIRY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+          <Label
+            htmlFor="session-share-expiry"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Link expires
+          </Label>
+          {/* The link is minted with its expiry: afterwards the field keeps its box and
+              chevron with muted text (spec "Share, after the link"). */}
+          <Select
+            disabled={Boolean(shareUrl) || pending}
+            onValueChange={setTtlSeconds}
+            value={ttlSeconds}
+          >
+            <SelectTrigger
+              className={cn(
+                'h-[30px] w-full text-[12.5px]',
+                shareUrl && 'disabled:cursor-default disabled:opacity-100 text-muted-foreground',
+              )}
+              id="session-share-expiry"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EXPIRY_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {shareUrl ? (
           <div className="grid gap-1.5">

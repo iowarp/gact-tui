@@ -179,7 +179,9 @@ describe('new conversation reference navigation', () => {
     };
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <NewConversationPage />
+        <TooltipProvider>
+          <NewConversationPage />
+        </TooltipProvider>
       </QueryClientProvider>,
     );
     expect(await screen.findByRole('dialog', { name: 'Source connection' })).toHaveTextContent(
@@ -201,7 +203,9 @@ describe('new conversation reference navigation', () => {
     };
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <NewConversationPage />
+        <TooltipProvider>
+          <NewConversationPage />
+        </TooltipProvider>
       </QueryClientProvider>,
     );
     expect(screen.queryByRole('dialog', { name: 'Source connection' })).not.toBeInTheDocument();
@@ -209,7 +213,9 @@ describe('new conversation reference navigation', () => {
   it('keeps the header menu and bottom status available before sending', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <NewConversationPage />
+        <TooltipProvider>
+          <NewConversationPage />
+        </TooltipProvider>
       </QueryClientProvider>,
     );
     expect(await screen.findByText('live · Tokens: 0')).toBeVisible();
@@ -238,7 +244,9 @@ describe('new conversation reference navigation', () => {
   it('opens a selected file before a session has been created', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <NewConversationPage />
+        <TooltipProvider>
+          <NewConversationPage />
+        </TooltipProvider>
       </QueryClientProvider>,
     );
     await userEvent.click(await screen.findByRole('button', { name: 'Open notes reference' }));
@@ -250,7 +258,9 @@ describe('new conversation reference navigation', () => {
 function renderDraft() {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <NewConversationPage />
+      <TooltipProvider>
+        <NewConversationPage />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
