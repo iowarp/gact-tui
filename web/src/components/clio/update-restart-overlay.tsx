@@ -9,6 +9,7 @@ import {
   type UpdateDownloadProgress,
   type UpdateStep,
 } from '@/store/update-flow-store';
+import { BrandStatusHeader } from './brand-status-header';
 import { DialogFrame } from './primitives/dialog-frame';
 import { StateView } from './primitives/state-view';
 import { StepList, type StepListStep } from './primitives/step-list';
@@ -150,15 +151,17 @@ export function UpdatePage() {
   return (
     <div
       data-slot="update-page"
-      className="clio-scrollbar flex size-full min-h-0 flex-col items-center overflow-y-auto bg-background px-[12%] py-8"
+      className="clio-scrollbar grid size-full min-h-0 overflow-y-auto bg-background"
     >
-      <div className="my-auto flex w-full max-w-[34rem] flex-col">
+      {/* The local startup page's column, so both step lists read alike. */}
+      <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
+        <BrandStatusHeader status={version ? `Updating to ${version}` : 'Updating'} />
         <StateView kind="loading" title={title} className="min-h-0 py-0 pb-3" />
         <StepList
           label={title}
           steps={updateSteps({ step, action, progress, lines, stepStartedAt })}
         />
-      </div>
+      </section>
     </div>
   );
 }

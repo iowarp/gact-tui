@@ -67,7 +67,7 @@ export function SettingsAddServerDialog({
       confirm={
         added ? undefined : { label: 'Add', onConfirm: add, disabled: !address || save.isPending }
       }
-      description="A model server on this computer, another machine or a cluster node."
+      description="On this computer, another machine or a cluster node."
       icon={<ServerIcon className="size-4" />}
       onOpenChange={close}
       open={open}
@@ -102,7 +102,7 @@ export function SettingsAddServerDialog({
                 Name
               </Label>
               <Input
-                className="h-[1.875rem] text-[0.78125rem]"
+                className="h-[1.875rem] text-[0.78125rem] md:text-[0.78125rem]"
                 id="add-server-name"
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder="Optional"
@@ -116,7 +116,7 @@ export function SettingsAddServerDialog({
           <Input
             aria-label="Server address"
             autoComplete="url"
-            className="h-[1.875rem] font-mono text-[0.78125rem]"
+            className="h-[1.875rem] font-mono text-[0.78125rem] md:text-[0.78125rem]"
             data-initial-focus=""
             id="add-server-address"
             onChange={(event) => setDraft(event.target.value)}

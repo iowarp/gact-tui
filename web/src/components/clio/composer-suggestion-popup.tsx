@@ -10,6 +10,30 @@ const POPUP_GAP_PX = 6;
 /** Below this window width the menu spans the window instead of the composer. */
 const NARROW_WINDOW_PX = 480;
 
+/** The typed text inside a row's name, in the accent. */
+export function Highlighted({ text, query }: { text: string; query: string }): ReactNode {
+  const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="bg-transparent font-semibold text-accent-foreground">
+        {text.slice(at, at + query.length)}
+      </mark>
+      {text.slice(at + query.length)}
+    </>
+  );
+}
+/** The field's faint count, a bare number as drawn; the word is for screen readers. */
+export function MatchCount({ total }: { total: number }) {
+  return (
+    <span className="ml-1 shrink-0 font-mono text-[11px] text-faint tabular-nums">
+      {total}
+      <span className="sr-only">{total === 1 ? ' match' : ' matches'}</span>
+    </span>
+  );
+}
+
 /**
  * The composer box that `@` and `/` menus open above: the box around the
  * editor whose `aria-controls` names the popup, or the editor itself.

@@ -384,3 +384,47 @@ it('reaches the other pages from the folded switch', async () => {
   await user.click(await screen.findByRole('menuitemradio', { name: 'Remote tools' }));
   expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/settings/relays');
 });
+
+it('folds the other pages to icons that keep their names', () => {
+  renderTabs('/settings/tools');
+  const icons = within(document.querySelector<HTMLElement>('[data-fold="icons"]')!);
+  expect(icons.getAllByRole('radio')).toHaveLength(3);
+  expect(icons.getByRole('radio', { name: 'Remote tools' })).toBeInTheDocument();
+  expect(icons.getByRole('radio', { name: 'MCP servers' })).toHaveTextContent('MCP servers');
+});
+
+it('a summary row opens one picker for both choices and keeps the reason', async () => {
+  const user = userEvent.setup();
+  renderPage();
+  const write = await screen.findByRole('region', { name: 'Write and delete tools' });
+  // The sub line: the values a summary row shows, the outcomes, then the reason.
+  expect(within(write).getByText('Rule: allowed in one conversation')).toBeInTheDocument();
+  await user.click(
+    within(write).getByRole('button', { name: 'Permission and I/O: home_light_set' }),
+  );
+  await user.click(await screen.findByRole('option', { name: /^Both/u }));
+  expect(repository.updateToolSettings).toHaveBeenLastCalledWith({
+    tools: ['home_light_set'],
+    callers: 'both',
+  });
+  await user.click(
+    within(write).getByRole('button', { name: 'Permission and I/O: home_light_set' }),
+  );
+  await user.click(await screen.findByRole('option', { name: /^Blocked/u }));
+  expect(repository.updateToolSettings).toHaveBeenLastCalledWith({
+    tools: ['home_light_set'],
+    permission: 'deny',
+  });
+}, 15_000);
+
+it("a group's summary row sets the whole group", async () => {
+  const user = userEvent.setup();
+  renderPage();
+  await screen.findByRole('region', { name: 'Read-only tools' });
+  await user.click(screen.getByRole('button', { name: 'Permission and I/O: All read-only tools' }));
+  await user.click(await screen.findByRole('option', { name: /^Direct/u }));
+  expect(repository.updateToolSettings).toHaveBeenCalledWith({
+    tools: ['home_light_list'],
+    callers: 'direct',
+  });
+}, 15_000);

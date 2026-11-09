@@ -1,7 +1,7 @@
 import {
   ActivityIcon,
+  BookIcon,
   BotIcon,
-  BoxesIcon,
   BoxIcon,
   ChartNoAxesGanttIcon,
   FileCode2Icon,
@@ -19,7 +19,7 @@ import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { isChangedPath, type WorkbenchTab } from './workbench-shared';
 
 export const workbenchTabIcons = {
-  knowledge: BoxesIcon,
+  knowledge: BookIcon,
   work: ListChecksIcon,
   session: ChartNoAxesGanttIcon,
   activity: ActivityIcon,

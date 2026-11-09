@@ -144,6 +144,135 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Wait until a visible element shows `text` (body content, not a toolbar). */
+async function showsText(page, text, timeout = 15000) {
+  await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout });
+}
+
+async function showsAny(page, texts, timeout = 15000) {
+  await Promise.any(texts.map((text) => showsText(page, text, timeout)));
+}
+
+/** Switch a viewer mode by accessible name, trying each name as a tab, radio then button. */
+async function pickMode(page, names) {
+  for (const name of names) {
+    for (const role of ['tab', 'radio', 'button']) {
+      const target = control(page, role, name, { exact: true });
+      if (await target.isVisible().catch(() => false)) {
+        if ((await target.getAttribute('aria-selected')) !== 'true') await target.click();
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+  }
+  // A narrow frame bar folds its modes to the active icon and a menu.
+  const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+  if (await folded.isVisible().catch(() => false)) {
+    await folded.click();
+    for (const name of names) {
+      const item = page.getByRole('menuitemradio', { name, exact: true }).first();
+      if (await item.isVisible().catch(() => false)) {
+        await item.click();
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+    await page.keyboard.press('Escape');
+  }
+  throw new Error(`no mode control named ${names.join(' or ')}`);
+}
+
+/** Hide the strip list a scenario opened from, and show the tab's own list if it has one. */
+async function tabOnly(page, stripName, tabListTitle) {
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: stripName, exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await item.getAttribute('aria-pressed').catch(() => null)) === 'true') await item.click();
+  if (tabListTitle) {
+    const show = control(page, 'button', `Show ${tabListTitle}`, { exact: true });
+    if (await show.isVisible().catch(() => false)) await show.click();
+  }
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(800);
+}
+
+/** Open the study's science log from the workbench strip. */
+async function openScienceLog(page) {
+  await stripList(page, 'Science log');
+  // A list left open on the strip covers the study's own; show the study.
+  const show = control(page, 'button', 'Show Study', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  await showsText(page, 'Was 2022 below baseline?');
+  await page.waitForTimeout(800);
+}
+
+/** Open the Opal vault: Sources list, Manage sources, the connected source, Open knowledge. */
+async function openVault(page) {
+  await stripList(page, 'Sources');
+  await page
+    .getByRole('region', { name: 'Sources list' })
+    .getByRole('button', { name: 'Manage sources' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Your sources', visible: true }).last();
+  // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
+  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
+  await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
+  // The vault opens as a tab under the Sources list; close the list to show it.
+  const sources = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Sources', exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await sources.getAttribute('aria-pressed').catch(() => null)) === 'true')
+    await sources.click();
+  await page
+    .locator('[data-slot="knowledge-vault"], [aria-label="Knowledge source"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 15000 });
+  await Promise.any([
+    showsText(page, 'Opal sites'),
+    page
+      .locator('[aria-label="Note graph"]')
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 15000 }),
+  ]);
+}
+
+async function openVaultNote(page, title) {
+  await openVault(page);
+  // The vault's own file list sits beside the tab; its row picks the note and reads it.
+  const show = control(page, 'button', 'Show Vault', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  const name = new RegExp(`^${title}, \\d+ links?$`, 'u');
+  const row = page
+    .getByRole('list', { name: 'Vault files' })
+    .getByRole('button', { name })
+    .filter({ visible: true })
+    .first();
+  const node = control(page, 'button', new RegExp(`^Open ${title}, \\d+ links?`, 'u'));
+  const listed = await row
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (listed) await row.click();
+  else await node.click();
+  const body = page.getByText('The Opal network is 412').filter({ visible: true }).first();
+  const read = await body
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!read) await pickMode(page, ['Note']);
+  await showsText(page, 'The Opal network is 412');
+  await page.waitForTimeout(800);
+}
+
 /** Holds the command key past the half-second delay; the shot keeps it held. */
 async function holdCommandKey(page) {
   const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
@@ -246,7 +375,7 @@ function seededSettingsShots() {
 // pending-update marker and a stand-in for the desktop host's commands.
 const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
 
-function desktopStub({ version, marker, desktop, seen, boot }) {
+function desktopStub({ version, marker, desktop, seen, boot, update }) {
   try {
     if (marker)
       localStorage.setItem(
@@ -259,12 +388,46 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
   }
   if (desktop) window.__CLIO_DESKTOP__ = { version };
   let id = 0;
+  const callbacks = new Map();
+  // With `update`, the signed feed offers it and its download stops part way:
+  // the host owns no runtime, so the page shows only the app's own download.
+  const answers = update
+    ? {
+        'plugin:updater|check': () => ({
+          rid: 1,
+          currentVersion: version,
+          version: update.version,
+          date: '2026-11-04T00:00:00Z',
+          body: '',
+          rawJson: {},
+        }),
+        has_managed_runtime: () => false,
+        managed_runtime_update_mode: () => 'external',
+        // The desktop host's own service is the fixture this run connects to.
+        get_backend: () => ({
+          url: JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')[0],
+          bearer_token: '',
+          status: { kind: 'ready' },
+        }),
+        'plugin:updater|download': ({ onEvent }) => {
+          // Channel ordering is `index` in newer @tauri-apps/api, `id` in older.
+          const send = (index, message) =>
+            callbacks.get(onEvent.id)?.({ id: index, index, message });
+          send(0, { event: 'Started', data: { contentLength: update.total } });
+          send(1, { event: 'Progress', data: { chunkLength: update.downloaded } });
+          return new Promise(() => undefined);
+        },
+      }
+    : {};
   window.__TAURI_INTERNALS__ = {
-    transformCallback: () => ++id,
-    unregisterCallback: () => undefined,
-    // Only the app version answers; everything else stays pending, as on a
-    // host that is still coming up.
-    invoke: (command) => {
+    transformCallback: (callback) => {
+      callbacks.set(++id, callback);
+      return id;
+    },
+    unregisterCallback: (callbackId) => callbacks.delete(callbackId),
+    // Only the app version (and an offered update) answers; everything else
+    // stays pending, as on a host that is still coming up.
+    invoke: (command, args) => {
       if (command === 'plugin:app|version' && version) return Promise.resolve(version);
       // Local startup: the service was found missing, and the runtime is being prepared.
       if (boot && command === 'get_backend') {
@@ -276,6 +439,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
         return Promise.resolve(
           '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
         );
+      if (answers[command]) return Promise.resolve(answers[command](args ?? {}));
       return new Promise(() => undefined);
     },
   };
@@ -283,6 +447,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
 
 function updateShots() {
   const marker = { action: 'both', version: '0.11.4' };
+  const MB = 1024 * 1024;
   return [
     {
       surface: 'updates',
@@ -290,6 +455,29 @@ function updateShots() {
       url: SESSION,
       ready: '[data-slot="update-page"]',
       initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-downloading',
+      url: SESSION,
+      // The background check offers 0.11.4; its toast starts the update.
+      ready: '[data-sonner-toast] button',
+      setup: async (page) => {
+        await page
+          .locator('[data-sonner-toast] button')
+          .filter({ hasText: /^Update / })
+          .click();
+        await page.locator('[data-slot="step-list"]').getByText('41 of 66 MB').waitFor();
+      },
+      initScript: [
+        desktopStub,
+        {
+          desktop: true,
+          version: '0.11.3',
+          seen: '0.11.3',
+          update: { version: '0.11.4', total: 66 * MB, downloaded: 41 * MB },
+        },
+      ],
     },
     {
       surface: 'updates',
@@ -313,9 +501,11 @@ function updateShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?, platform?, decision?, initScript?: [fn, arg]
-// run before the app}. `platform: 'mac'` makes the page report a Mac, for its ?
-// keys. `decision` turns on one fixture decision card for the shot only.
+// fixtureDemo?, connected?, route?, keepPointer?, platform?, decision?,
+// initScript?: [fn, arg] run before the app}. `fixtureDemo` names a fixture
+// `POST /__test/<name>` switch applied after the scenario reset (for example
+// `science-views`). `platform: 'mac'` makes the page report a Mac, for its ? keys.
+// `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -365,7 +555,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'activity-expanded', SESSION, async (page) => {
       await page
-        .getByRole('button', { name: /^Activity: / })
+        .getByRole('button', { name: /^Expand / })
         .filter({ visible: true })
         .last()
         .click();
@@ -619,6 +809,32 @@ function catalogue({ settings, infrastructure }) {
         .click({ button: 'right' });
       await overlay(page);
     }),
+    // workbench-right-pocket "List hidden, tab menu open": the list's strip icon
+    // clicked again, a pinned tab first, the menu on the open middle tab.
+    s('canvas', 'tab-menu-list-hidden', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await openFile(page, 'results/vertical-displacement.png');
+      await stripList(page, 'Agent');
+      const tabs = page
+        .locator('[aria-label="Workspace canvas"] [role="tab"]')
+        .filter({ visible: true });
+      await tabs.filter({ hasText: 'stations.csv' }).first().click({ button: 'right' });
+      await overlay(page);
+      await page.getByRole('menuitem', { name: /^Pin/u }).click();
+      await page.waitForTimeout(300);
+      const image = tabs.filter({ hasText: 'vertical-displacement.png' }).first();
+      await image.click();
+      await page.waitForTimeout(300);
+      const lit = page
+        .getByRole('toolbar', { name: 'Workbench lists' })
+        .locator('button[aria-pressed="true"]')
+        .filter({ visible: true })
+        .first();
+      if (await lit.isVisible().catch(() => false)) await lit.click();
+      await page.waitForTimeout(400);
+      await image.click({ button: 'right' });
+      await overlay(page);
+    }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
@@ -628,13 +844,15 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // The former Work tab is now the Activity list's finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
-      await page
+      const show = page
         .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /^Work/u })
-        .first()
-        .click();
+        .getByRole('button', { name: 'Show finished work' })
+        .filter({ visible: true })
+        .first();
+      if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
@@ -806,6 +1024,58 @@ function catalogue({ settings, infrastructure }) {
     s('viewer', 'browser-pages', SESSION, (page) => stripList(page, 'Browser pages'), {
       scenario: { specFiles: true },
     }),
+    // Science views (design spec "Science views are viewers in the one tab"):
+    // the fixture's Opal study, vault, dashboard and paper.
+    ...[
+      [
+        'science-log',
+        async (page) => {
+          await openScienceLog(page);
+          // The spec opens one observation in place.
+          const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
+          if (await row.isVisible().catch(() => false)) await row.click();
+          await page.waitForTimeout(600);
+        },
+      ],
+      [
+        'study-graph',
+        async (page) => {
+          await openScienceLog(page);
+          await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
+        },
+      ],
+      ['knowledge', (page) => openVaultNote(page, 'Opal sites')],
+      [
+        'knowledge-graph',
+        async (page) => {
+          await openVault(page);
+          await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
+        },
+      ],
+      [
+        'dashboard',
+        async (page) => {
+          await stripList(page, 'Artifacts');
+          await control(page, 'button', /^Open (Opal sites|opal-sites)/u).click();
+          await showsText(page, '2022 vs baseline');
+          await tabOnly(page, 'Artifacts');
+        },
+      ],
+      [
+        'latex',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, [
+            'Citation smap008 undefined',
+            'Overfull hbox',
+            'SMAP L3 soil moisture',
+          ]);
+          await tabOnly(page, 'Files', 'Outline');
+        },
+      ],
+    ].map(([state, setup]) =>
+      s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
+    ),
   ];
 }
 
@@ -1357,11 +1627,16 @@ async function main() {
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
     const fixtureKey = (shot) =>
-      JSON.stringify([shot.scenario ?? {}, shot.settingsModels ?? 'default']);
+      JSON.stringify([
+        shot.scenario ?? {},
+        shot.settingsModels ?? 'default',
+        shot.fixtureDemo ?? '',
+      ]);
     const ordered = [...shots].sort(
       (a, b) =>
         Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
-        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)),
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)) ||
+        Number(Boolean(a.fixtureDemo)) - Number(Boolean(b.fixtureDemo)),
     );
     for (const shot of ordered) {
       const key = fixtureKey(shot);
@@ -1378,6 +1653,14 @@ async function main() {
             ),
           });
           if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
+        }
+        if (shot.fixtureDemo) {
+          const demo = await fetch(`${stack.fixtureEndpoint}/__test/${shot.fixtureDemo}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (!demo.ok) throw new Error(`${shot.fixtureDemo} seed failed: ${demo.status}`);
         }
         scenarioKey = key;
       }

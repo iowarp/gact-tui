@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { SearchIcon } from 'lucide-react';
+import { SquareSlashIcon } from 'lucide-react';
 import {
   memo,
   useCallback,
@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ShortcutKeys } from './primitives/key-chip';
 import { publishActiveOption } from './composer-reference-controller-active-option';
-import { ComposerSuggestionPopup } from './composer-suggestion-popup';
+import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
@@ -108,11 +108,14 @@ const CommandOption = memo(function CommandOption({
   command,
   id,
   onPick,
+  query,
 }: {
   active: boolean;
   command: CommandDefinition;
   id: string;
   onPick: (command: CommandDefinition) => void;
+  /** What follows the typed `/`, marked in the name. */
+  query: string;
 }) {
   const source = commandSource(command);
   const detail = commandDetail(command);
@@ -126,7 +129,7 @@ const CommandOption = memo(function CommandOption({
       aria-selected={active}
       className={cn(
         'flex h-[30px] min-w-0 cursor-default items-center gap-[9px] rounded-[7px] px-2 whitespace-nowrap',
-        command.enabled ? 'hover:bg-hover' : 'opacity-60',
+        command.enabled && 'hover:bg-hover',
         active && 'bg-menu-highlight hover:bg-menu-highlight',
       )}
       id={id}
@@ -135,7 +138,14 @@ const CommandOption = memo(function CommandOption({
       role="option"
       title={commandSummary(command) || undefined}
     >
-      <span className="shrink-0 font-mono text-foreground">{command.id}</span>
+      <span
+        className={cn(
+          'shrink-0 font-mono text-[12px]',
+          command.enabled ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <Highlighted query={query} text={command.id.replace(/^\//u, '')} />
+      </span>
       {detail ? (
         <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
       ) : null}
@@ -250,14 +260,15 @@ export function ClioComposerCommandMenu({
   return (
     <ComposerSuggestionPopup onDismiss={dismiss} popupId={popoverId}>
       <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 pr-2 pl-3">
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
+        <SquareSlashIcon
+          aria-hidden="true"
+          className="size-[15px] shrink-0 text-muted-foreground"
+        />
         <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
-          <span className="font-mono text-foreground">{query}</span>
+          <span className="text-foreground">{query}</span>
           {query === '/' ? <span className="text-faint"> type to search</span> : null}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">
-          {total === 1 ? '1 match' : `${total} matches`}
-        </span>
+        <MatchCount total={total} />
       </div>
       <div
         aria-label="Suggestions"
@@ -284,6 +295,7 @@ export function ClioComposerCommandMenu({
                 id={optionId(command)}
                 key={commandKey(command)}
                 onPick={onPick}
+                query={query.replace(/^\//u, '')}
               />
             ))}
           </div>

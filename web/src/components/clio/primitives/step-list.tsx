@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { CheckIcon, CircleAlertIcon, CircleIcon } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { RingSpinner } from './ring-spinner';
 
 export type StepState = 'done' | 'current' | 'todo' | 'failed';
 
@@ -26,8 +26,8 @@ const STATE_WORDS: Record<StepState, string> = {
 
 /**
  * The steps of a long operation (an update, the local startup): one 28px row
- * each, a check when done, a spinner on the current one, an open circle for
- * the rest. A bar and the latest output line can sit under a step.
+ * each, a check when done, a 12px teal ring on its track for the current one,
+ * an open circle for the rest. A bar and the latest output line can sit under a step.
  */
 export const StepList = memo(function StepList({
   steps,
@@ -61,7 +61,7 @@ export const StepList = memo(function StepList({
               {step.state === 'done' ? (
                 <CheckIcon className="size-3.5 text-primary" />
               ) : step.state === 'current' ? (
-                <Spinner className="size-3 text-primary motion-reduce:animate-none" />
+                <RingSpinner />
               ) : step.state === 'failed' ? (
                 <CircleAlertIcon className="size-3.5 text-destructive" />
               ) : (
