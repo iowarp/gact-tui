@@ -298,10 +298,14 @@ for (const layout of [
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
-        await expect(
-          page.getByRole('dialog', { name: 'Copy to another workspace', exact: true }),
-        ).toBeVisible();
+        const copyDialog = page.getByRole('dialog', {
+          name: 'Copy to another workspace',
+          exact: true,
+        });
+        await expect(copyDialog).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        // The closing dialog still hides the frame bar from the accessibility tree.
+        await expect(copyDialog).toBeHidden();
         const saved = await downloadFromFrame(page, toolbar);
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
