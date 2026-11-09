@@ -169,7 +169,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     <div
       className={cn(
         virtualized ? 'absolute left-0 top-0' : 'relative',
-        'w-full px-5 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8',
+        'w-full px-(--conversation-gutter) outline-none target:rounded-xl target:ring-2 target:ring-primary/50',
         responseContinued || userContinued ? 'pb-0' : 'pb-1',
       )}
       data-index={index}

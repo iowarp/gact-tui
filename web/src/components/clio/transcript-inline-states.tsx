@@ -20,7 +20,10 @@ export const EarlierMessagesRow = memo(function EarlierMessagesRow({
   className?: string;
 }) {
   return (
-    <div className={cn('mx-auto w-full px-5 pt-2 lg:px-8', className)} data-slot="earlier-messages">
+    <div
+      className={cn('mx-auto w-full px-(--conversation-gutter) pt-2', className)}
+      data-slot="earlier-messages"
+    >
       {earlier.loading ? (
         <StateView kind="loading" size="row" title="Loading earlier messages…" />
       ) : earlier.error ? (

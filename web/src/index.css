@@ -49,9 +49,14 @@
     @apply border-ring/65 bg-composer ring-2 ring-ring/15;
   }
   /* Let scrolled content recede behind the floating composer, including its
-     bottom gutter, without fading the editor or intercepting transcript input. */
+     bottom gutter, without fading the editor or intercepting transcript input.
+     Its pending cards and editor share the transcript rows' column: the
+     conversation publishes the column's edges, which include the transcript
+     scrollbar and outline gutter, and both add the same row gutter. */
   .clio-composer-docked {
     isolation: isolate;
+    padding-inline: calc(var(--conversation-column-left, 0px) + var(--conversation-gutter))
+      calc(var(--conversation-column-right, 0px) + var(--conversation-gutter));
   }
   .clio-composer-docked::before {
     content: '';
@@ -229,6 +234,15 @@
 }
 
 @layer base {
+  /* The transcript rows' horizontal gutter, shared with the docked composer. */
+  :root {
+    --conversation-gutter: 1.25rem;
+  }
+  @media (width >= 64rem) {
+    :root {
+      --conversation-gutter: 2rem;
+    }
+  }
   * {
     @apply border-border outline-ring/50;
   }

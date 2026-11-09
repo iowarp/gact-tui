@@ -43,6 +43,7 @@ import {
 import { PresentationNavigation } from './presentation-navigation';
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
+import { useConversationColumn } from './use-conversation-column';
 import {
   useTranscriptReadingPosition,
   useTranscriptWidth,
@@ -414,6 +415,7 @@ function ConversationBody({
   // viewport, a gutter keeps the text from scrolling under it.
   const outlineGutter =
     (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 < 32;
+  useConversationColumn(scrollRef, conversationWidth === 'wide' ? 1152 : 896);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -596,7 +598,7 @@ function ConversationBody({
         ) : emptyTranscript === 'preparing' ? null : emptyTranscript === 'empty' ? (
           <>
             {entities.forkOrigin?.message_count === 0 ? (
-              <div className="mx-auto max-w-4xl px-5 lg:px-8">
+              <div className="mx-auto max-w-4xl px-(--conversation-gutter)">
                 <ConversationForkCheckpoint
                   origin={entities.forkOrigin}
                   workspaceId={entities.workspaceId}
@@ -687,7 +689,7 @@ function ConversationBody({
         )}
         {preparation && emptyTranscript !== 'error' && emptyTranscript !== 'loading' ? (
           <div
-            className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto w-full px-(--conversation-gutter) ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             ref={autoscroll.observeContent}
           >
             <ClioTurnPreparation {...preparation} messages={sourceMessages} />
@@ -707,7 +709,7 @@ function ConversationBody({
         ) : null}
         {compactionPlacement.trailing.length > 0 ? (
           <div
-            className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-3 px-(--conversation-gutter) pb-4 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             data-slot="trailing-compactions"
             ref={autoscroll.observeContent}
           >
@@ -719,7 +721,7 @@ function ConversationBody({
         {detachedSurfaces.length > 0 ? (
           <div
             ref={autoscroll.observeContent}
-            className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-4 px-(--conversation-gutter) pb-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface
