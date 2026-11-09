@@ -1,0 +1,215 @@
+import { EyeIcon, TriangleAlertIcon } from 'lucide-react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { ExtensionMetaPart, ExtensionStatus } from '@/lib/extension-library-entries';
+import { MoreIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
+import { IconButton } from './primitives/icon-button';
+import { ItemRow } from './primitives/item-row';
+import { StatusIndicator } from './primitives/status-indicator';
+
+/** Meta parts separated by space alone; the whole line is the hover text when it is cut. */
+export function MetaLine({
+  parts,
+  className,
+}: {
+  parts: readonly (ExtensionMetaPart | string)[];
+  className?: string;
+}) {
+  const rows = parts
+    .map((part) => (typeof part === 'string' ? { text: part } : part))
+    .filter((part) => part.text);
+  return (
+    <span className={className} title={rows.map((part) => part.text).join(', ')}>
+      {rows.map((part, index) => (
+        <span
+          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.6875rem]')}
+          key={`${index}:${part.text}`}
+        >
+          {part.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A row's status column: the mark with its words. */
+export function EntryStatus({ status }: { status?: ExtensionStatus }) {
+  return status ? <StatusIndicator label={status.label} tone={status.tone} /> : undefined;
+}
+
+/** The outline button in a row's right slot: Update, Trust, Install. */
+export function SlotButton({
+  children,
+  label,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  /** The full name when the visible word needs its subject ("Trust the update from clio"). */
+  label?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      aria-label={label}
+      className="h-7 px-2.5 text-xs"
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      variant="outline"
+    >
+      {children}
+    </Button>
+  );
+}
+
+/**
+ * The warning line above a pane's tabs while a source waits for trust: what
+ * trusting allows, and the Trust button.
+ */
+export function TrustBanner({
+  message,
+  detail,
+  action,
+  error,
+}: {
+  message: string;
+  /** The longer explanation, on hover. */
+  detail?: string;
+  action: ReactNode;
+  error?: string;
+}) {
+  return (
+    <div className="mb-3 border-b border-border pb-2.5" data-slot="trust-banner">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
+        <p
+          className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5"
+          title={detail ? `${message} ${detail}` : message}
+        >
+          {message}
+        </p>
+        {action}
+      </div>
+      {error ? (
+        <p className="mt-1.5 pl-6.5 text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One extension as an item row. A click or Enter on the row explores it; the
+ * eye does the same for pointer and assistive technology. Further actions sit
+ * in the hover column, the rest in ⋯.
+ */
+export function ExtensionRow({
+  icon,
+  name,
+  title = name,
+  meta,
+  status,
+  onExplore,
+  exploreLabel = `Explore ${name}`,
+  actions,
+  menu,
+  slot,
+  selected = false,
+  size = 'default',
+  statusWidth,
+  slotWidth,
+  aligned = false,
+  className,
+}: {
+  icon: ReactNode;
+  /** The accessible subject of the row's actions. */
+  name: string;
+  title?: string;
+  meta?: readonly (ExtensionMetaPart | string)[];
+  status?: ExtensionStatus;
+  onExplore?: () => void;
+  exploreLabel?: string;
+  /** Icon buttons after the eye. */
+  actions?: ReactNode;
+  /** ⋯ menu items; the ⋯ appears only with some. */
+  menu?: ReactNode;
+  slot?: ReactNode;
+  selected?: boolean;
+  size?: 'default' | 'sm';
+  statusWidth?: number;
+  slotWidth?: number;
+  /** Keep the status and slot columns on a row without them, so a mixed list lines up. */
+  aligned?: boolean;
+  className?: string;
+}) {
+  const open = (event: MouseEvent<HTMLDivElement>) => {
+    // Buttons and menu items (portaled, but still bubbling through React) do their own thing.
+    if ((event.target as Element).closest('button, a, input, [role="menuitem"], [role="menu"]'))
+      return;
+    onExplore?.();
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || event.key !== 'Enter' || !onExplore) return;
+    event.preventDefault();
+    onExplore();
+  };
+  const hasActions = Boolean(onExplore || actions || menu);
+  return (
+    <ItemRow
+      aria-current={selected || undefined}
+      className={cn(
+        onExplore && 'cursor-default',
+        // Narrow lists give the name the actions' column; on hover they cover the status words.
+        hasActions &&
+          '@max-xl:[--item-actions:0px]! @max-xl:[&>[data-slot=item-row-actions]]:z-10 @max-xl:[&>[data-slot=item-row-actions]]:w-max @max-xl:[&>[data-slot=item-row-actions]]:justify-self-end @max-xl:[&>[data-slot=item-row-actions]]:rounded-md @max-xl:[&>[data-slot=item-row-actions]]:bg-background @max-xl:[&>[data-slot=item-row-actions]]:pl-1',
+        className,
+      )}
+      icon={icon}
+      meta={meta?.length ? <MetaLine parts={meta} /> : undefined}
+      onClick={onExplore ? open : undefined}
+      onKeyDown={onExplore ? onKeyDown : undefined}
+      selected={selected}
+      size={size}
+      slot={slot ?? (aligned ? null : undefined)}
+      slotWidth={slotWidth}
+      status={status ? <EntryStatus status={status} /> : aligned ? null : undefined}
+      statusWidth={statusWidth}
+      tabIndex={onExplore ? 0 : undefined}
+      title={<span title={title}>{title}</span>}
+      actions={
+        hasActions ? (
+          <>
+            {onExplore ? (
+              <IconButton
+                aria-pressed={selected}
+                icon={<EyeIcon />}
+                label={exploreLabel}
+                onClick={onExplore}
+              />
+            ) : null}
+            {actions}
+            {menu ? (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <IconButton icon={<MoreIcon />} label={`More actions for ${name}`} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-52">
+                  {menu}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </>
+        ) : undefined
+      }
+    />
+  );
+}
