@@ -1,7 +1,7 @@
 import { BrainIcon } from 'lucide-react';
 import { Link, useInRouterContext } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { IconButton } from './primitives/icon-button';
 
 interface MemoryUsed {
   read: string[];
@@ -57,9 +57,7 @@ export function MemoryUsedAction({ metadata }: { metadata?: Record<string, unkno
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button aria-label={label} size="icon-sm" title={label} type="button" variant="ghost">
-          <BrainIcon aria-hidden="true" className="size-3.5" />
-        </Button>
+        <IconButton icon={<BrainIcon aria-hidden="true" />} label={label} size="sm" type="button" />
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-72 gap-3">
         <p className="text-sm font-medium">{label}</p>

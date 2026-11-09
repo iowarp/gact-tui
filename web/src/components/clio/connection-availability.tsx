@@ -29,7 +29,10 @@ export function ConnectionAvailabilityIndicator({
           tabIndex={compact ? -1 : 0}
         >
           <ClioStatus
-            className={cn(compact && 'border-0 bg-transparent px-1 py-0 shadow-none')}
+            className={cn(
+              compact &&
+                'border-0 bg-transparent px-1 py-0 shadow-none group-data-selected/list-row:text-foreground',
+            )}
             detail={availability.detail}
             label={availability.label}
             value={value}

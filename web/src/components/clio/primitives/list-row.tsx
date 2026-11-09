@@ -46,6 +46,15 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * inventories whose names need a short explanation.
    */
   layout?: 'inline' | 'stacked';
+  /**
+   * `activity` is the transcript's activity row: a 12px disclosure column
+   * (`leading`) before the icon, 12.5px text, and the right edge ordered
+   * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
+   * the time it explains. Empty columns keep their width.
+   */
+  variant?: 'list' | 'activity';
+  /** The 12px column before the icon (an expand chevron) in `activity` rows. */
+  leading?: ReactNode;
   selected?: boolean;
   /** For virtualized lists: the absolute position the virtualizer assigns. */
   style?: CSSProperties;
@@ -72,6 +81,8 @@ export const ListRow = memo(
       actionsOverlay = false,
       info,
       layout = 'inline',
+      variant = 'list',
+      leading,
       selected = false,
       className,
       style,
@@ -79,6 +90,65 @@ export const ListRow = memo(
     },
     ref,
   ) {
+    if (variant === 'activity') {
+      return (
+        <div
+          ref={ref}
+          data-slot="list-row"
+          data-variant="activity"
+          data-selected={selected || undefined}
+          aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
+          style={style}
+          className={cn(
+            'group/list-row relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
+            className,
+          )}
+          {...rest}
+        >
+          <span className="-mr-0.5 grid w-3 shrink-0 place-items-center text-faint [&_svg:not([class*='size-'])]:size-3">
+            {leading}
+          </span>
+          {icon ? (
+            <span
+              aria-hidden="true"
+              className="grid size-3.5 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
+            >
+              {icon}
+            </span>
+          ) : null}
+          <span className="shrink-0 text-foreground max-[480px]:hidden">{title}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            {description}
+          </span>
+          {columns}
+          {badge !== undefined ? (
+            <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
+          ) : null}
+          {actions !== undefined ? (
+            <span
+              data-slot="list-row-actions"
+              style={{ width: actionsWidth }}
+              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden"
+            >
+              {actions}
+            </span>
+          ) : null}
+          {meta !== undefined ? (
+            <span className="flex w-11 shrink-0 justify-end max-[480px]:hidden">{meta}</span>
+          ) : null}
+          <span className="flex w-4 shrink-0 justify-center">{status}</span>
+          {primaryAction !== undefined ? (
+            <span
+              data-slot="list-row-primary-action"
+              className="flex w-[26px] shrink-0 justify-center"
+            >
+              {primaryAction}
+            </span>
+          ) : null}
+          <span className="-ml-1 flex w-[26px] shrink-0 justify-center">{info}</span>
+        </div>
+      );
+    }
     return (
       <div
         ref={ref}
@@ -111,7 +181,9 @@ export const ListRow = memo(
           <span data-slot="list-row-text" className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 truncate text-[11px] text-faint">{description}</span>
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {description}
+              </span>
             ) : null}
           </span>
         ) : (
@@ -189,7 +261,7 @@ export const ListGroupLabel = memo(function ListGroupLabel({
     <div
       data-slot="list-group-label"
       className={cn(
-        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11.5px] font-semibold whitespace-nowrap text-muted-foreground',
+        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground',
         className,
       )}
     >

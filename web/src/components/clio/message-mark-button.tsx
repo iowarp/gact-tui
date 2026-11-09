@@ -1,7 +1,7 @@
 import { BookmarkIcon, LoaderCircleIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { IconButton } from './primitives/icon-button';
 
 /** A saved navigation mark; it does not change or submit conversation content. */
 export function MessageMarkButton({
@@ -16,17 +16,19 @@ export function MessageMarkButton({
   className?: string;
 }) {
   const [saving, setSaving] = useState(false);
-  const label = marked ? 'Unmark message' : 'Mark message';
   return (
-    <Button
-      aria-label={label}
+    <IconButton
       aria-pressed={marked}
-      className={cn(
-        'size-6 shrink-0 text-muted-foreground',
-        marked && 'text-foreground',
-        className,
-      )}
+      className={cn(marked && 'text-foreground', className)}
       disabled={pending || saving}
+      icon={
+        saving ? (
+          <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+        ) : (
+          <BookmarkIcon aria-hidden="true" fill={marked ? 'currentColor' : 'none'} />
+        )
+      }
+      label={marked ? 'Unmark message' : 'Mark message'}
       onClick={() => {
         setSaving(true);
         void Promise.resolve()
@@ -36,20 +38,8 @@ export function MessageMarkButton({
           })
           .finally(() => setSaving(false));
       }}
-      size="icon-xs"
-      title={label}
+      size="sm"
       type="button"
-      variant="ghost"
-    >
-      {saving ? (
-        <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
-      ) : (
-        <BookmarkIcon
-          aria-hidden="true"
-          className="size-3.5"
-          fill={marked ? 'currentColor' : 'none'}
-        />
-      )}
-    </Button>
+    />
   );
 }

@@ -1,4 +1,3 @@
-import type { DocumentAnchor } from '@clio/core/v3';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -13,6 +12,8 @@ import {
   pdfRenderDensity,
 } from './document-pdf-window';
 import { StateView } from './primitives/state-view';
+import { useCommentSession } from './comments/comment-session';
+import { useSelectionMarkCommenter, type SelectionMark } from '@/hooks/use-selection-action-file';
 import { useFileViewerFacts } from './file-viewer-facts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -36,7 +37,6 @@ export function ClioDocumentPdfViewer({
   fit = 'page',
   initialPage,
   name,
-  onSelection,
   highlight,
   onPagePoint,
 }: {
@@ -46,13 +46,13 @@ export function ClioDocumentPdfViewer({
    * knows which page matters (e.g. a view_pdf call's viewed page range). */
   initialPage?: number;
   name: string;
-  onSelection: (anchor: DocumentAnchor) => void;
   /** Outlined on its page and scrolled into view when it changes (LaTeX click-through). */
   highlight?: PdfHighlight;
   /** A double-click on a page, as its 0-based index and the point as fractions of the page. */
   onPagePoint?: (page: number, x: number, y: number) => void;
 }) {
-  const hostRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
   const [hostWidth, setHostWidth] = useState(640);
@@ -208,52 +208,35 @@ export function ClioDocumentPdfViewer({
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
   useFileViewerFacts(pageFact ? [pageFact, ...(zoomFact ? [zoomFact] : [])] : undefined);
 
+  // The viewer makes its own text marks (pdf-quad): in a comment session's text mode a
+  // selection becomes one at once, and the selection menu's Comment makes one too.
+  const session = useCommentSession();
+  useSelectionMarkCommenter(hostElement, (selection) =>
+    hostElement ? pdfSelectionMark(selection, hostElement) : undefined,
+  );
   const captureSelection = () => {
     const selection = window.getSelection();
-    const host = hostRef.current;
-    if (!selection || selection.isCollapsed || !selection.rangeCount || !host) return;
-    const range = selection.getRangeAt(0);
-    // The page the selection starts on: a selection across pages is placed on its first.
-    const start =
-      range.startContainer instanceof Element
-        ? range.startContainer
-        : range.startContainer.parentElement;
-    const page = start?.closest<HTMLElement>('[data-page]');
-    if (!page || !host.contains(page)) return;
-    const exact = selection.toString().trim();
-    const pageRect = page.getBoundingClientRect();
-    if (!exact || !pageRect.width || !pageRect.height) return;
-    const quads = Array.from(range.getClientRects())
-      .filter((rect) => rect.width > 0 && rect.height > 0)
-      .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom)
-      .map((rect) => {
-        const left = bounded((rect.left - pageRect.left) / pageRect.width);
-        const right = bounded((rect.right - pageRect.left) / pageRect.width);
-        const top = bounded((rect.top - pageRect.top) / pageRect.height);
-        const bottom = bounded((rect.bottom - pageRect.top) / pageRect.height);
-        return [left, top, right, top, right, bottom, left, bottom];
-      });
-    if (!quads.length) return;
-    const pageIndex = Number(page.dataset.page);
-    onSelection({
-      profile: 'pdf-quad',
-      exact,
-      page_index: Number.isInteger(pageIndex) ? pageIndex : 0,
-      quads,
-    });
+    if (!session?.active || session.mode !== 'text' || !selection || !hostRef.current) return;
+    const mark = pdfSelectionMark(selection, hostRef.current);
+    if (!mark) return;
+    session.addMark(mark.anchor, mark.place);
+    selection.removeAllRanges();
   };
 
   return (
     <div
       className="flex h-full min-h-0 flex-col"
-      // The viewer makes its own text marks (pdf-quad), so a surrounding CommentCapture
-      // leaves selections in here alone; a mouse, touch or keyboard selection all reach it.
+      // A surrounding CommentCapture leaves selections in here to the viewer's own
+      // pdf-quad marks; a mouse, touch or keyboard selection all reach it.
       data-comment-text="own"
       onKeyUp={(event) => {
         if (event.shiftKey) captureSelection();
       }}
       onTouchEnd={captureSelection}
-      ref={hostRef}
+      ref={(element) => {
+        hostRef.current = element;
+        setHostElement(element);
+      }}
     >
       <ViewerZoomControls
         label="PDF zoom"
@@ -408,6 +391,54 @@ function PdfPage({
       ) : null}
     </div>
   );
+}
+
+/**
+ * A selection on a page as a pdf-quad mark: its text and its line boxes as fractions of
+ * the page it starts on (a selection across pages is placed on its first).
+ */
+function pdfSelectionMark(selection: Selection, host: HTMLElement): SelectionMark | undefined {
+  if (selection.isCollapsed || !selection.rangeCount) return undefined;
+  const range = selection.getRangeAt(0);
+  const start =
+    range.startContainer instanceof Element
+      ? range.startContainer
+      : range.startContainer.parentElement;
+  const page = start?.closest<HTMLElement>('[data-page]');
+  if (!page || !host.contains(page)) return undefined;
+  const exact = selection.toString().trim();
+  const pageRect = page.getBoundingClientRect();
+  if (!exact || !pageRect.width || !pageRect.height) return undefined;
+  const rects = Array.from(range.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .filter((rect) => rect.bottom > pageRect.top && rect.top < pageRect.bottom);
+  if (!rects.length) return undefined;
+  const quads = rects.map((rect) => {
+    const left = bounded((rect.left - pageRect.left) / pageRect.width);
+    const right = bounded((rect.right - pageRect.left) / pageRect.width);
+    const top = bounded((rect.top - pageRect.top) / pageRect.height);
+    const bottom = bounded((rect.bottom - pageRect.top) / pageRect.height);
+    return [left, top, right, top, right, bottom, left, bottom];
+  });
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const pageIndex = Number(page.dataset.page);
+  return {
+    anchor: {
+      profile: 'pdf-quad',
+      exact,
+      page_index: Number.isInteger(pageIndex) ? pageIndex : 0,
+      quads,
+    },
+    place: {
+      box: {
+        left,
+        top,
+        width: Math.max(...rects.map((rect) => rect.right)) - left,
+        height: Math.max(...rects.map((rect) => rect.bottom)) - top,
+      },
+    },
+  };
 }
 
 function bounded(value: number) {

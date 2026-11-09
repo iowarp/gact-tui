@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('About panel version rows', () => {
-  it('reports build/runtime version rows as unreported, honestly, when the connected service predates versions', async () => {
+  it('hides version rows the connected service does not report', async () => {
     repository.capabilities.mockResolvedValue({
       ...baseCapabilities,
       service: { name: 'clio-agent', version: '0.9.4' },
@@ -53,9 +53,9 @@ describe('About panel version rows', () => {
     renderAbout();
 
     expect(await screen.findByText('0.9.4')).toBeVisible();
-    expect(valueFor('Backend build')).toBe('Unreported by this service');
-    expect(valueFor('Python')).toBe('Unreported by this service');
-    expect(valueFor('Marketplace registry')).toBe('Unreported by this service');
+    expect(screen.queryByText('Backend build')).not.toBeInTheDocument();
+    expect(screen.queryByText('Python')).not.toBeInTheDocument();
+    expect(screen.queryByText('Marketplace registry')).not.toBeInTheDocument();
   });
 
   it('reports the marketplace row as not configured when versions are present but no source is pinned', async () => {

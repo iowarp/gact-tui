@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useContext } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   AttentionAvailabilityContext,
   hasAttentionCaptures,
@@ -57,15 +58,17 @@ function setup(capability?: SessionAttentionCapability) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = (value = capability) => (
     <QueryClientProvider client={client}>
-      <AttentionAvailabilityContext.Provider value={value}>
-        <SelectionActionsContext.Provider value={registry}>
-          <AttentionLookupPanel sessionId="s" />
-          <TranscriptContentPicker sessionId="s" messageId="m" />
-          <SurfaceAttentionProvider surface={surface}>
-            <SurfaceCapability />
-          </SurfaceAttentionProvider>
-        </SelectionActionsContext.Provider>
-      </AttentionAvailabilityContext.Provider>
+      <TooltipProvider>
+        <AttentionAvailabilityContext.Provider value={value}>
+          <SelectionActionsContext.Provider value={registry}>
+            <AttentionLookupPanel sessionId="s" />
+            <TranscriptContentPicker sessionId="s" messageId="m" />
+            <SurfaceAttentionProvider surface={surface}>
+              <SurfaceCapability />
+            </SurfaceAttentionProvider>
+          </SelectionActionsContext.Provider>
+        </AttentionAvailabilityContext.Provider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
   return { registry, view, ...render(view()) };

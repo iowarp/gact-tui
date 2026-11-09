@@ -1,30 +1,11 @@
 import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  BotIcon,
-  BookmarkIcon,
-  CopyIcon,
-  Globe2Icon,
-  LoaderCircleIcon,
-  MapIcon,
-  UserIcon,
-} from 'lucide-react';
-import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { AlertTriangleIcon, BookmarkIcon, GlobeIcon, MapIcon } from 'lucide-react';
 import { m } from 'motion/react';
 import { memo, useCallback } from 'react';
-import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { formatClockTime, formatDateTime } from '@/lib/locale-format';
-import {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-} from '@/components/ai-elements/message';
+import { Message, MessageContent } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { ClioMessageHistoryActions } from './message-history-actions';
-import { answerRevisions } from './answer-revisions';
 import { MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
@@ -39,18 +20,14 @@ import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
 import { turnModelExhausted } from '@/lib/turn-model-exhausted';
 import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
-import { brand } from '@brand';
-import { TranscriptContentPicker } from './transcript-content-picker';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
-import { MessageCompletionFooter } from './message-completion-footer';
-import { MemoryUsedAction } from './memory-used-action';
-import { ResponseRating } from './response-rating';
-import { MessageMarkButton } from './message-mark-button';
+import { completionFooterShown, MessageCompletionFooter } from './message-completion-footer';
+import { MessageRowActions } from './message-row-actions';
+import { Tag } from './primitives/tag';
 import { messageToolCallCounts } from './message-tool-call-counts';
 import { ConversationModelCheckpoint } from './conversation-model-boundary';
 import { modelBoundariesEqual } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
-import { ClioSubagentProgressLine } from './subagent-card';
 import { canGroupUserMessages, feedbackMessage } from './conversation-user-group';
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
@@ -98,10 +75,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
-  const retrying = entities.retryingMessageId === message.id;
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
-  const cancellablePendingSteer =
-    pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
+
   const turn = useConversationTurn(
     message,
     entities.tools,
@@ -153,96 +128,10 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       />
     );
   }
+  const marked = entities.markedMessageIds?.has(message.id) ?? false;
   const actions = (
-    <MessageActions
-      className={cn(
-        'shrink-0 opacity-100',
-        message.role !== 'assistant' &&
-          'ml-auto sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100',
-      )}
-    >
-      {cancellablePendingSteer ? (
-        <MessageAction
-          disabled={
-            entities.cancellingPendingMessageId === message.id || !entities.onCancelPendingSteer
-          }
-          label={
-            entities.cancellingPendingMessageId === message.id
-              ? 'Cancelling pending message'
-              : 'Cancel pending message'
-          }
-          onClick={() => void entities.onCancelPendingSteer?.(message.id)}
-          tooltip={
-            entities.cancellingPendingMessageId === message.id
-              ? 'Cancelling pending message'
-              : 'Cancel before delivery'
-          }
-        >
-          {entities.cancellingPendingMessageId === message.id ? (
-            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
-          ) : (
-            <CloseIcon aria-hidden="true" className="size-3.5" />
-          )}
-        </MessageAction>
-      ) : null}
-      {canRetry ? (
-        <MessageAction
-          disabled={retrying || !entities.onRetryMessage}
-          label={retrying ? 'Retrying response' : 'Retry response'}
-          onClick={() => void entities.onRetryMessage?.(message.id)}
-          tooltip={retrying ? 'Retrying response' : 'Retry response'}
-        >
-          {retrying ? (
-            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
-          ) : (
-            <RetryIcon aria-hidden="true" className="size-3.5" />
-          )}
-        </MessageAction>
-      ) : null}
-      {message.role === 'assistant' ? (
-        <TranscriptContentPicker sessionId={message.session_id} messageId={message.id} />
-      ) : null}
-      {message.role === 'assistant' ? <MemoryUsedAction metadata={message.metadata} /> : null}
-      <ResponseRating message={message} active={active} />
-      {entities.onMarkMessage ? (
-        <MessageMarkButton
-          marked={entities.markedMessageIds?.has(message.id) ?? false}
-          pending={entities.markingMessageId !== undefined}
-          onMark={(marked) => entities.onMarkMessage!(message.id, marked)}
-        />
-      ) : null}
-      {message.role === 'assistant' ? (
-        <ClioMessageHistoryActions
-          forking={entities.forkingMessageId === message.id}
-          onFork={
-            entities.onForkFromMessage ? () => entities.onForkFromMessage?.(message.id) : undefined
-          }
-          onRewind={
-            entities.onRewindToMessage ? () => entities.onRewindToMessage?.(message.id) : undefined
-          }
-          rewinding={entities.rewindingMessageId === message.id}
-        />
-      ) : null}
-      <MessageAction
-        label="Copy message"
-        onClick={() => {
-          // A hook's revision replaces the answer it revised; copy what is shown.
-          const revised = answerRevisions(message.blocks);
-          void copyText(
-            message.blocks
-              .flatMap((block) =>
-                block.type === 'text' && !revised.has(block.id) ? [block.text] : [],
-              )
-              .join('\n'),
-          );
-        }}
-        tooltip="Copy message"
-      >
-        <CopyIcon aria-hidden="true" className="size-3.5" />
-      </MessageAction>
-    </MessageActions>
+    <MessageRowActions active={active} canRetry={canRetry} entities={entities} message={message} />
   );
-
   if (
     injectionsGrouped ||
     (responseContinuation && turnPresentation?.segments.length === 0 && !message.error_info)
@@ -266,8 +155,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
       className={cn(
         virtualized ? 'absolute left-0 top-0' : 'relative',
         'w-full px-5 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8',
-        responseContinued ? 'pb-0' : userContinued ? 'pb-1' : 'pb-3',
-        responseContinuation || userContinuation ? 'pt-0' : 'pt-1',
+        responseContinued || userContinued ? 'pb-0' : 'pb-1',
       )}
       data-index={index}
       data-message-id={message.id}
@@ -317,72 +205,31 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           initial={{ opacity: recent ? 0 : 1 }}
           transition={{ duration: 0.16 }}
         >
-          <Message from={message.role === 'unknown' ? 'system' : message.role}>
-            {!responseContinuation && !userContinuation ? (
+          <Message
+            className={cn('gap-1', message.role === 'assistant' && 'group/reply')}
+            from={message.role === 'unknown' ? 'system' : message.role}
+          >
+            {message.role !== 'assistant' && message.role !== 'user' && !responseContinuation ? (
               <div
-                className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground"
+                className="mb-1 flex h-[22px] items-center gap-3 text-[11.5px] font-medium text-muted-foreground"
                 data-slot="conversation-message-sender"
               >
-                {message.role === 'user' ? (
-                  <UserIcon aria-hidden="true" className="size-3.5" />
-                ) : (
-                  <BotIcon aria-hidden="true" className="size-3.5 text-primary" />
-                )}
-                <span>
-                  {message.role === 'user'
-                    ? 'You'
-                    : message.role === 'assistant'
-                      ? entities.agentName || brand.name
-                      : message.role === 'system'
-                        ? 'System'
-                        : 'Unknown sender'}
-                </span>
-                {message.role === 'assistant' && message.model?.model_id ? (
-                  <span
-                    className="min-w-0 truncate font-normal"
-                    title={[message.model.provider_id, message.model.model_id]
-                      .filter(Boolean)
-                      .join('/')}
-                  >
-                    {message.model.model_id}
-                  </span>
-                ) : null}
-                {entities.markedMessageIds?.has(message.id) ? (
-                  <BookmarkIcon
-                    aria-label="Marked message"
-                    className="size-3 text-muted-foreground"
-                    fill="currentColor"
-                  />
-                ) : null}
-                {message.role !== 'assistant' ? (
-                  <time className="font-mono text-[0.625rem]" dateTime={message.created_at}>
-                    {formatClockTime(message.created_at)}
-                  </time>
-                ) : null}
-                {executionMode === 'plan' ? (
-                  <Badge aria-label="Sent in Plan mode" variant="outline">
-                    <MapIcon aria-hidden="true" data-icon="inline-start" />
-                    Plan
-                  </Badge>
-                ) : executionMode === 'deep_research' ? (
-                  <Badge aria-label="Sent in Deep research mode" variant="outline">
-                    <Globe2Icon aria-hidden="true" data-icon="inline-start" />
-                    Deep research
-                  </Badge>
-                ) : null}
-                {message.role !== 'assistant' && message.role !== 'user' ? actions : null}
+                <span>{message.role === 'system' ? 'System' : 'Unknown sender'}</span>
+                <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
+                  {formatClockTime(message.created_at)}
+                </time>
+                <div className="ml-auto">{actions}</div>
               </div>
             ) : null}
             <div
               className={
-                message.role === 'user' ? 'flex min-w-0 items-start justify-end gap-2' : undefined
+                message.role === 'user' ? 'group/prompt flex min-w-0 flex-col items-end' : undefined
               }
             >
               <MessageContent
                 className={cn(
-                  message.role === 'assistant' && 'w-full',
-                  pendingSteer &&
-                    'rounded-xl border border-dashed border-primary/60 bg-primary/[0.025] transition-[border-color,background-color] duration-150',
+                  message.role === 'assistant' && 'w-full gap-1',
+                  message.role === 'user' && 'max-w-[85%] sm:max-w-[72%]',
                 )}
               >
                 {message.blocks.length === 0 &&
@@ -537,36 +384,68 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 ) : null}
               </MessageContent>
               {message.role === 'user' ? (
-                <div className="shrink-0" title={formatDateTime(message.created_at)}>
-                  {userContinuation ? (
-                    <time className="sr-only" dateTime={message.created_at}>
-                      {formatClockTime(message.created_at)}
-                    </time>
+                <div
+                  className="mt-0.5 flex h-[22px] max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
+                  data-slot="user-message-actions"
+                >
+                  {pendingSteer ? (
+                    <Tag tone="info" width="auto">
+                      Queued
+                    </Tag>
                   ) : null}
-                  {userContinuation && entities.markedMessageIds?.has(message.id) ? (
+                  {executionMode ? (
+                    <span
+                      aria-label={
+                        executionMode === 'plan'
+                          ? 'Sent in Plan mode'
+                          : 'Sent in Deep research mode'
+                      }
+                      className="inline-flex"
+                      role="img"
+                    >
+                      <Tag width="auto">
+                        <span className="inline-flex items-center gap-1">
+                          {executionMode === 'plan' ? (
+                            <MapIcon aria-hidden="true" className="size-3" />
+                          ) : (
+                            <GlobeIcon aria-hidden="true" className="size-3" />
+                          )}
+                          {executionMode === 'plan' ? 'Plan' : 'Deep research'}
+                        </span>
+                      </Tag>
+                    </span>
+                  ) : null}
+                  {marked ? (
                     <BookmarkIcon
                       aria-label="Marked message"
-                      className="size-3 text-muted-foreground"
+                      className={cn(
+                        'size-3.5 shrink-0',
+                        entities.onMarkMessage &&
+                          'sm:group-focus-within/prompt:invisible sm:group-hover/prompt:invisible',
+                      )}
                       fill="currentColor"
+                      role="img"
                     />
                   ) : null}
-                  {actions}
+                  <div
+                    className={cn(
+                      'flex items-center gap-3',
+                      !pendingSteer &&
+                        'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
+                    )}
+                  >
+                    <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
+                      {formatClockTime(message.created_at)}
+                    </time>
+                    {actions}
+                  </div>
                 </div>
               ) : null}
             </div>
-            {message.role === 'assistant' &&
-            message.blocks.some((block) => block.type === 'text' && block.text.trim())
-              ? pendingChildIds.map((id) => (
-                  <ClioSubagentProgressLine
-                    key={id}
-                    subagent={entities.subagents[id]}
-                    onOpen={entities.onOpenSubagent}
-                  />
-                ))
-              : null}
             {message.role === 'assistant' ? (
               <MessageCompletionFooter
                 active={active || awaitingChild || responseContinued}
+                agentName={entities.agentName}
                 message={message}
                 {...messageToolCallCounts(message, entities.tools)}
               >
@@ -578,7 +457,19 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             !active &&
             !message.completed_at &&
             !message.stop_reason ? (
-              <div className="mt-3">{actions}</div>
+              <div className="flex h-6 items-center">{actions}</div>
+            ) : message.role === 'assistant' &&
+              marked &&
+              !completionFooterShown(message, active || awaitingChild || responseContinued) ? (
+              <div className="mb-1.5 flex h-6 items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                <BookmarkIcon
+                  aria-label="Marked message"
+                  className="size-3.5"
+                  fill="currentColor"
+                  role="img"
+                />
+                Marked
+              </div>
             ) : null}
           </Message>
         </m.div>

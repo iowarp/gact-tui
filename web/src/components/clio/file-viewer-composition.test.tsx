@@ -36,8 +36,7 @@ it('reads provided bundle source through the common download boundary without a 
   };
   expect(await readFileViewerBytes({} as never, source)).toEqual(bytes);
   renderComposition(source, 'SKILL.md', '# Skill\r\n', 'text/markdown');
-  await userEvent.click(await screen.findByRole('button', { name: 'Open options' }));
-  expect(await screen.findByRole('menuitem', { name: /^Download/ })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Download' })).toBeEnabled();
 });
 
 interface FormatCase {

@@ -134,7 +134,7 @@ function renderModels(
 const TECHNICAL_WORDS = /Endpoint|Configuration|Credentials|Catalog|Handshake|Probe|Parallel/iu;
 
 describe('ModelsSettings', () => {
-  it('shows the default model as one row: name, provider, working state, capability tags', async () => {
+  it('shows the default model as one row: name and provider, with no note while it works', async () => {
     renderModels();
 
     expect(
@@ -142,8 +142,8 @@ describe('ModelsSettings', () => {
     ).toBeVisible();
     const panel = document.querySelector('[data-slot="default-model-card"]') as HTMLElement;
     expect(within(panel).getByText('Codex')).toBeVisible();
-    expect(await within(panel).findByText('Working')).toBeVisible();
-    expect(await within(panel).findByText('Reasoning')).toBeVisible();
+    await screen.findByRole('radio', { name: 'High' });
+    expect(panel.querySelector('[data-slot="settings-note"]')).toBeNull();
     expect(within(panel).getByRole('button', { name: 'Default model' })).toBeVisible();
     // No stacked form rows on the main view: no selects, no endpoint, no temperature.
     expect(screen.queryByRole('combobox')).toBeNull();
@@ -156,7 +156,7 @@ describe('ModelsSettings', () => {
 
     await screen.findByRole('radio', { name: 'High' });
     const group = document.querySelector('[data-slot="reasoning-level"]') as HTMLElement;
-    expect(group).toHaveAccessibleName('Thinking');
+    expect(group).toHaveAccessibleName('Reasoning effort');
     expect(
       within(group)
         .getAllByRole('radio')
@@ -272,9 +272,9 @@ describe('ModelsSettings', () => {
     expect(screen.queryByRole('button', { name: /Response settings/u })).toBeNull();
     const temperature = within(section).getByRole('textbox', { name: 'Temperature' });
     expect(temperature).toHaveValue('');
-    expect(temperature).toHaveAttribute('placeholder', 'Default');
-    expect(within(section).getByText('Provider default')).toBeVisible();
-    expect(within(section).getByRole('slider', { name: 'Temperature' })).toBeVisible();
+    // No stated default: one field reading the provider default, no slider claiming a position.
+    expect(temperature).toHaveAttribute('placeholder', 'Provider default');
+    expect(within(section).queryByRole('slider', { name: 'Temperature' })).toBeNull();
     expect(within(section).getByRole('textbox', { name: 'Longest reply' })).toBeVisible();
     // Only what the model accepts: nothing else, and no connection fields.
     expect(within(section).queryByRole('textbox', { name: 'Top K' })).toBeNull();
@@ -386,9 +386,11 @@ describe('ModelsSettings', () => {
     const card = (await screen.findByRole('button', { name: 'Default model' })).closest(
       '[data-slot="default-model-card"]',
     ) as HTMLElement;
-    const status = card.querySelector('[data-slot="default-model-status"]');
-    await waitFor(() => expect(status).not.toHaveTextContent('Working'));
-    expect(status?.textContent).toMatch(/Unavailable|Needs sign-in/u);
+    await waitFor(() =>
+      expect(card.querySelector('[data-slot="default-model-status"]')?.textContent).toMatch(
+        /Unavailable|Needs sign-in/u,
+      ),
+    );
     expect(screen.queryByRole('link')).toBeNull();
   });
 

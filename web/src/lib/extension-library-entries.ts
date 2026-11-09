@@ -149,8 +149,8 @@ export function skillRow(plugin: PluginEntry, skill: string): ExtensionEntry {
     meta: own
       ? [{ text: 'Skill' }, { text: 'Yours' }]
       : [{ text: 'Skill' }, { text: plugin.id }, { text: sourceName(plugin.marketplace) }],
-    // A skill says nothing while its plugin is fine; trust and problems still show.
-    status: status.tone === 'success' ? undefined : status,
+    // A skill carries its plugin's trust, so every row of the list has a status word.
+    status,
   };
 }
 

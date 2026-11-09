@@ -68,6 +68,7 @@ export function InfrastructureHosts({
             <InfoTip label="About computers">
               Local is the connected {vocab.agent} computer. Other computers run services for this
               agent through Desktop SSH. Adding one does not switch your agent connection.
+              {onConnectComputer ? null : ' Add SSH computers in the Desktop app.'}
             </InfoTip>
             {onConnectComputer ? (
               <IconButton
@@ -76,9 +77,7 @@ export function InfrastructureHosts({
                 onClick={() => setConnectOpen(true)}
                 size="sm"
               />
-            ) : (
-              <span className="text-[11px] text-faint">Add SSH computers in Desktop</span>
-            )}
+            ) : null}
           </>
         }
         hover={52}

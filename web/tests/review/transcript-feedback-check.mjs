@@ -54,9 +54,11 @@ try {
       true,
     );
     await page.getByRole('button', { name: 'Finish recorded turn' }).click();
-    await expect(response.locator('[data-slot="message-completion-footer"]')).toContainText(
-      '8 (4 failed) tool calls',
+    await response.locator('[data-slot="message-reply-meta"]').hover();
+    await expect(page.getByRole('region', { name: 'This reply used' })).toContainText(
+      '8 tool calls, 4 failed',
     );
+    await page.mouse.move(0, 0);
     await expect(feedback).toHaveCount(1);
   }
   expect(errors).toEqual([]);

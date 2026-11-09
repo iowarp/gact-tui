@@ -158,9 +158,70 @@ async function typeInComposer(page, text) {
   await page.keyboard.type(text);
 }
 
+// Providers and Usage with the spec's servers and accounts (`settingsModels`
+// seeds the fixture), plus the states behind a hover or a click.
+function seededSettingsShots() {
+  const seeded = (state, url, setup, extra = {}) => ({
+    surface: 'settings',
+    state,
+    url,
+    setup,
+    settingsModels: 'spec',
+    ready: 'main',
+    settleMs: 1500,
+    ...extra,
+  });
+  const row = (page, slot, name) =>
+    page
+      .locator(`[data-slot="${slot}"]`)
+      .filter({ hasText: name })
+      .filter({ visible: true })
+      .first();
+  return [
+    seeded('providers-seeded', '/settings/providers'),
+    seeded(
+      'providers-row-actions',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'LM Studio').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    seeded('providers-remove-confirm', '/settings/providers', async (page) => {
+      const server = row(page, 'model-server-row', 'Workstation');
+      await server.hover();
+      await server.getByRole('button', { name: 'Remove', exact: true }).click();
+      await page.waitForTimeout(300);
+    }),
+    seeded('providers-details', '/settings/providers', async (page) => {
+      await row(page, 'model-server-row', 'Ollama').hover();
+      await press(page, 'button', 'More for Ollama');
+      await page.getByRole('menuitem', { name: /^Details/u }).click();
+      await page.waitForTimeout(600);
+    }),
+    seeded('providers-add-server', '/settings/providers', async (page) => {
+      await press(page, 'button', /^Add server/u);
+      await overlay(page);
+    }),
+    seeded('usage-seeded', '/settings/usage'),
+    seeded('usage-remaining', '/settings/usage', async (page) => {
+      await press(page, 'radio', 'Remaining');
+      await page.waitForTimeout(300);
+    }),
+    seeded('usage-details', '/settings/usage', async (page) => {
+      const account = row(page, 'usage-account-row', 'ChatGPT Pro');
+      await account.hover();
+      await account.getByRole('button', { name: 'Details' }).click();
+      await page.waitForTimeout(600);
+    }),
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
-// Each shot: {surface, state, url, setup?, ready?, scenario?, connected?, route?}.
+// Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
+// connected?, route?, keepPointer?}.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -225,13 +286,32 @@ function catalogue({ settings, infrastructure }) {
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
     menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
-    menu('menu-agent', 'button', /^[^:]+: .+ · /u),
-    s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^[^:]+: .+ · /u);
-      await overlay(page);
-      await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
-      await page.waitForTimeout(400);
-    }),
+    s(
+      'session',
+      'menu-service-status',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^[^:]+: .+ · /u);
+        await overlay(page);
+        await settleSavedAgents(page);
+      },
+      { savedAgents: true },
+    ),
+    s(
+      'session',
+      'menu-clio-add-agent',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^[^:]+: .+ · /u);
+        await overlay(page);
+        await settleSavedAgents(page);
+        // By key, so moving the pointer away before the capture keeps it open.
+        await page.getByRole('menuitem', { name: /^Add an agent/u }).focus();
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(400);
+      },
+      { savedAgents: true },
+    ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
       await press(page, 'button', /^Infrastructure: /u);
       await page.waitForTimeout(500);
@@ -321,33 +401,42 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Default model', { exact: true });
       await overlay(page);
     }),
+    ...seededSettingsShots(),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
     }),
-    s('runs', 'executions', '/runs', null, { ready: 'h1' }),
+    s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
     }),
-    s('runs', 'state-filter', '/runs', async (page) => {
-      // Wide bars show the states as a segmented control; narrow ones a select.
-      const select = page.getByRole('combobox', { name: 'Filter by state' });
-      if (await select.isVisible()) {
-        await select.click();
-        await overlay(page);
-      } else {
-        await press(page, 'radio', /^Needs attention/u);
+    s(
+      'runs',
+      'state-filter',
+      '/runs',
+      async (page) => {
+        await press(page, 'radio', /^Waiting for you/u);
         await page.waitForTimeout(400);
-      }
-    }),
-    s('runs', 'details', '/runs', async (page) => {
-      await page
-        .getByRole('button', { name: /^Details for/u })
-        .first()
-        .click();
-      await overlay(page);
-    }),
+      },
+      { ready: '[data-run-state]' },
+    ),
+    // The selected run opens as a tab beside the list (a sheet below 1024px).
+    s(
+      'runs',
+      'details',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button[type="button"]').first().click();
+        await page
+          .locator('aside[aria-label^="Run: "]')
+          .filter({ visible: true })
+          .first()
+          .waitFor();
+        await page.waitForTimeout(500);
+      },
+      { ready: '[data-run-state]' },
+    ),
     ...infrastructure.map(({ href, name }) =>
       s('infrastructure', slug(name), href, null, { ready: 'h1', settleMs: 1200 }),
     ),
@@ -527,7 +616,20 @@ function themeGaps(theme) {
 
 // --- Capture ---------------------------------------------------------------------
 
-async function newContext(browser, stack, { theme, width, connected = true }) {
+/** Saved agents settle after their availability probes and retries. */
+async function settleSavedAgents(page) {
+  await page
+    .getByRole('menuitem', { name: /lab-shared.*Offline/u })
+    .waitFor({ timeout: 4000 })
+    .catch(() => undefined);
+}
+
+const SAVED_AGENTS = [
+  { endpoint: 'https://ares.iit.edu', label: 'ares-genesis' },
+  { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+];
+
+async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
@@ -542,17 +644,31 @@ async function newContext(browser, stack, { theme, width, connected = true }) {
   context.setDefaultTimeout(6000);
   await context.clock.setFixedTime(FROZEN_TIME);
   await context.addInitScript(
-    ({ theme, endpoint }) => {
+    ({ theme, endpoint, others }) => {
       try {
         localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme, motion: 'reduced' }));
-        if (endpoint) localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
-        else localStorage.removeItem('clio.recent-connections');
+        if (endpoint) {
+          localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint, ...others]));
+        } else localStorage.removeItem('clio.recent-connections');
       } catch {
         // Opaque-origin frames have no storage.
       }
     },
-    { theme, endpoint: connected === true ? stack.endpoint : connected || null },
+    {
+      theme,
+      endpoint: connected === true ? stack.endpoint : connected || null,
+      others: savedAgents ? SAVED_AGENTS : [],
+    },
   );
+  if (savedAgents) {
+    // Saved agents are client-side: one reachable (served by the fixture), one offline.
+    await context.route('https://ares.iit.edu/**', async (route) => {
+      const url = new URL(route.request().url());
+      const response = await route.fetch({ url: `${stack.endpoint}${url.pathname}${url.search}` });
+      await route.fulfill({ response });
+    });
+    await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
   return context;
 }
 
@@ -701,6 +817,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    savedAgents: shot.savedAgents ?? false,
   });
   const page = await context.newPage();
   const errors = [];
@@ -716,6 +833,15 @@ async function capture(browser, stack, shot, { theme, width }) {
           error: { code: 'unavailable', message: 'The service is restarting.' },
         }),
       }),
+    );
+    // An idle session, so the failure is not mistaken for a turn being set up.
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        for (const session of listing.sessions ?? []) session.state = 'idle';
+        await route.fulfill({ json: listing });
+      },
     );
   }
   if (shot.route === 'degraded-health') {
@@ -768,7 +894,7 @@ async function capture(browser, stack, shot, { theme, width }) {
         .then(() => undefined)
         .catch(() => true);
     }
-    await page.mouse.move(0, VIEWPORTS[width] ?? 900);
+    if (!shot.keepPointer) await page.mouse.move(0, VIEWPORTS[width] ?? 900);
     const file = join(outDir, theme, String(width), `${shot.surface}--${shot.state}.png`);
     mkdirSync(dirname(file), { recursive: true });
     await page.screenshot({ path: file, fullPage: true, animations: 'disabled', caret: 'hide' });
@@ -899,15 +1025,27 @@ async function main() {
     );
     log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
-    let scenarioKey = '{}';
+    let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
+    const fixtureKey = (shot) =>
+      JSON.stringify([shot.scenario ?? {}, shot.settingsModels ?? 'default']);
     const ordered = [...shots].sort(
-      (a, b) => Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)),
+      (a, b) =>
+        Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)),
     );
     for (const shot of ordered) {
-      const key = JSON.stringify(shot.scenario ?? {});
+      const key = fixtureKey(shot);
       if (key !== scenarioKey) {
         await applyScenario(stack, shot.scenario ?? {});
+        if (shot.settingsModels) {
+          const seeded = await fetch(`${stack.fixtureEndpoint}/__test/settings-models`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scenario: shot.settingsModels }),
+          });
+          if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
+        }
         scenarioKey = key;
       }
       for (const theme of themes) {

@@ -10,4 +10,4 @@ Local writable document copies retain the existing save/checkpoint workflow. Ima
 
 The browser host cannot inspect desktop associations. It offers configured browser editors when available and exports through the normal download path. It does not invent desktop app choices or copy a server path as a substitute for opening a file.
 
-The manual fixture under `web/tests/fixtures/file-associations/` uses a read-only inventory from the native implementation to review menu presentation. Its selections do not launch programs; native tests and the Windows/macOS/Linux desktop CI matrix cover the OS integration separately.
+Native tests and the Windows/macOS/Linux desktop CI matrix cover the OS integration.

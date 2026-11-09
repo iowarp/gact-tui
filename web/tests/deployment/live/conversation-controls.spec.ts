@@ -118,18 +118,22 @@ test('real conversation branch, cancel rewind, confirm rewind and reload', async
   const baselineRow = page.locator(`[data-message-id="${state.baseline_message}"]`).first();
   await expect(baselineRow).toBeVisible({ timeout: 10_000 });
   await baselineRow.scrollIntoViewIfNeeded();
-  await baselineRow.getByRole('button', { name: 'Branch from here', exact: true }).hover();
+  await baselineRow
+    .getByRole('button', { name: 'Fork into a new conversation', exact: true })
+    .hover();
   await expect(
-    page.getByRole('tooltip').getByText('Branch from here', { exact: true }),
+    page.getByRole('tooltip').getByText('Fork into a new conversation', { exact: true }),
   ).toBeVisible();
   await capture('docs-conversation-branch-control.png');
   const forked = page.waitForResponse(
     (response) => response.url().endsWith('/fork') && response.request().method() === 'POST',
   );
-  await baselineRow.getByRole('button', { name: 'Branch from here', exact: true }).click();
+  await baselineRow
+    .getByRole('button', { name: 'Fork into a new conversation', exact: true })
+    .click();
   const branch = await (await forked).json();
   await expect(page).toHaveURL(new RegExp(`/sessions/${branch.id}$`));
-  await expect(page.getByText('Loading conversation', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Loading messages…', { exact: true })).toHaveCount(0);
   await expect(
     page
       .locator(`[data-session-id="${branch.id}"][data-message-id="${state.baseline_message}"]`)

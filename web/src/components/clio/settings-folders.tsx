@@ -122,20 +122,9 @@ interface Draft {
 
 function FolderTitle({ folder }: { folder: WorkspaceSourceFolder }) {
   return (
-    <span className="font-mono text-[0.78125rem] font-semibold" title={folder.path}>
-      {folder.name}
+    <span className="font-mono text-[0.78125rem] font-normal" title={folder.path}>
+      {folder.path}
     </span>
-  );
-}
-
-function FolderMeta({ words, folder }: { words: string; folder: WorkspaceSourceFolder }) {
-  return (
-    <>
-      {words}
-      <span className="ml-2.5 font-mono text-[0.6875rem]" title={folder.path}>
-        {folder.path}
-      </span>
-    </>
   );
 }
 
@@ -276,8 +265,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         />
       </SettingsRow>
 
-      {/* The same column as the rows above, so lists line up with the controls. */}
-      <div className="w-full @3xl:w-[60%]" data-slot="folders-lists">
+      {/* Item lists fill the content column; only setting rows take 60%. */}
+      <div className="w-full" data-slot="folders-lists">
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>
@@ -286,7 +275,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
             actions={copyAction(primary)}
             actionsWidth={ACTIONS_WIDTH}
             icon={<FolderIcon />}
-            meta={<FolderMeta folder={primary} words="Workspace folder" />}
+            meta="Workspace folder"
             slot={
               <Button onClick={openChange} size="sm" variant="outline">
                 Change
@@ -331,7 +320,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
                   data-source={fromSandbox ? 'sandbox' : undefined}
                   icon={fromSandbox ? <LockIcon /> : <FolderIcon />}
                   key={folder.path}
-                  meta={<FolderMeta folder={folder} words={words} />}
+                  meta={words}
                   title={<FolderTitle folder={folder} />}
                 />
               );
