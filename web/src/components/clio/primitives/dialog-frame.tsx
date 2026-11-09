@@ -67,7 +67,7 @@ export interface DialogFrameProps {
   onOpenChange: (open: boolean) => void;
   icon?: ReactNode;
   title: string;
-  /** One line under the title; cut with an ellipsis, never two lines. */
+  /** A sentence under the title, aligned with its text; it wraps rather than cut. */
   description?: string;
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
@@ -89,7 +89,7 @@ export interface DialogFrameProps {
 }
 
 /**
- * The one dialog: icon, title, ×, one-line description, body, buttons on the
+ * The one dialog: icon, title, ×, a description under the title, body, buttons on the
  * right. 36% of the window wide (360 to 560 px), a bottom sheet below 600 px.
  * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button.
  */
@@ -163,8 +163,10 @@ export const DialogFrame = memo(function DialogFrame({
         </div>
         {description ? (
           <DialogDescription
-            title={description}
-            className="-mt-2 truncate pr-3.5 pb-1 pl-[18px] text-[12.5px] [overflow-wrap:normal]"
+            className={cn(
+              '-mt-2 pr-3.5 pb-1 text-[12.5px] leading-normal text-pretty',
+              icon ? 'pl-[42px]' : 'pl-4',
+            )}
           >
             {description}
           </DialogDescription>
@@ -188,9 +190,12 @@ export const DialogFrame = memo(function DialogFrame({
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
-              <Button variant="ghost" data-initial-focus="">
+              <Button className="border-border gap-[7px]" variant="ghost" data-initial-focus="">
                 {cancelLabel ?? 'Close'}
-                <FooterKey className="text-muted-foreground" keys={['Esc']} />
+                <FooterKey
+                  className="border-muted-foreground/45 text-muted-foreground"
+                  keys={['Esc']}
+                />
               </Button>
             </DialogPrimitive.Close>
           )}
@@ -198,6 +203,8 @@ export const DialogFrame = memo(function DialogFrame({
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
               variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
+              // The face fills the whole 28 px, under the border too.
+              className="gap-[7px] bg-clip-border"
               disabled={confirm.disabled}
               onClick={confirm.onConfirm}
               data-initial-focus={confirmOnly ? '' : undefined}
