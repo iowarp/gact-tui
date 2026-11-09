@@ -67,7 +67,7 @@ describe('session navigation state', () => {
   it('labels completed activity that arrived after the session was last seen', () => {
     renderRow(session, '2026-08-23T01:05:00Z');
 
-    expect(screen.getByText('New')).toBeVisible();
+    expect(screen.getByText(/New activity/u)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Evidence review/u })).toBeVisible();
   });
 
@@ -94,7 +94,7 @@ describe('session navigation state', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
-    expect(screen.queryByText('New')).not.toBeInTheDocument();
+    expect(screen.queryByText(/New activity/u)).not.toBeInTheDocument();
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
   });
 

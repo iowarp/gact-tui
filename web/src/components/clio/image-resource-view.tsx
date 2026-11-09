@@ -100,6 +100,20 @@ export function ImageResourceView({
       viewportRef.current?.scrollTo?.({ top: 0, left: 0 });
     } else setZoom({ bytes, scale: next });
   }, [bytes, fit, scale]);
+  useEffect(() => {
+    const host = viewportRef.current;
+    if (!host) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.deltaY === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.deltaY < 0) zoomIn();
+      else zoomOut();
+    };
+    // Non-passive, so Ctrl or ⌘ with the wheel zooms the image and not the window.
+    host.addEventListener('wheel', onWheel, { passive: false });
+    return () => host.removeEventListener('wheel', onWheel);
+  }, [url, error, zoomIn, zoomOut]);
   const toggleFullscreen = async () => {
     try {
       if (fullscreen) await document.exitFullscreen();

@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router-dom';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import {
   defaultConfiguration,
@@ -11,6 +11,10 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');

@@ -43,7 +43,7 @@ import type {
   UploadableFilePart,
   WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
-import { ClioComposerCommandMenu } from './composer-command-menu';
+import { ClioComposerCommandMenu, type CommandListState } from './composer-command-menu';
 import { commandForName } from '@/lib/command-table';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
@@ -107,6 +107,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
   workspaceId?: string;
   sessionId?: string;
   commands?: CommandDefinition[];
+  /** Whether `commands` is the agent's list yet (default `ready`). */
+  commandsState?: CommandListState;
   /** The subagents and MCP servers the person can `@`-summon (fetched for the session if absent). */
   summonTargets?: SummonTargets;
   onSubmit: (value: {
@@ -181,6 +183,7 @@ export function ClioComposer({
   workspaceId = '',
   sessionId,
   commands = [],
+  commandsState = 'ready',
   summonTargets: summonTargetsProp,
   onSubmit,
   onBehaviorChange,
@@ -407,6 +410,7 @@ export function ClioComposer({
       {showCommands ? (
         <ClioComposerCommandMenu
           commands={commands}
+          commandsState={commandsState}
           onPick={(command) => {
             setInput(`${command.id} `);
             window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
@@ -635,7 +639,7 @@ export function ClioComposer({
         />
         <TooltipProvider delayDuration={450}>
           <PromptInputFooter
-            className="@container/composer -ml-1.5 w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 pt-1 font-normal"
+            className="@container/composer -ml-1.5 w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
             data-slot="composer-toolbar"
           >
             {attachments || contextReferences ? (
