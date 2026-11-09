@@ -230,6 +230,11 @@ describe('the / menu surface', () => {
     const { editor, onPick, onRun } = renderMenu('/');
     const first = screen.getByRole('option', { selected: true });
     expect(first).toHaveAccessibleName(/\/goal/u);
+    const pick = first.querySelector('[data-slot="key-cap"]');
+    expect(pick).toHaveClass('bg-key', 'border-b-2', 'h-5');
+    expect(
+      screen.getAllByRole('option').filter((row) => row.querySelector('[data-slot="key-cap"]')),
+    ).toEqual([first]);
 
     fireEvent.keyDown(editor, { key: 'Tab' });
     expect(onPick).toHaveBeenCalledWith(commands[0]);
