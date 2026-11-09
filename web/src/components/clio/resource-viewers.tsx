@@ -10,7 +10,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { EyeIcon, HistoryIcon, GitBranchIcon } from 'lucide-react';
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
 import { textFileFormat } from '@/lib/file-presentation';
@@ -79,6 +79,7 @@ export function WorkspaceFileView({
     (mediaType && mediaType !== 'application/octet-stream' ? mediaType : '') ||
     inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
+  const [previewAnyway, setPreviewAnyway] = useState(false);
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
   const source: FileViewerSource = {
@@ -90,11 +91,12 @@ export function WorkspaceFileView({
   };
   // PDFs and images are read whole, so past the inline cap they are offered, not read.
   const tooLarge =
+    !previewAnyway &&
     (detected === 'application/pdf' || detected.startsWith('image/')) &&
     size !== undefined &&
     size > INLINE_PREVIEW_MAX_BYTES;
   const preview = tooLarge ? (
-    <ViewerTooLarge size={size} source={source} />
+    <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={size} source={source} />
   ) : detected === 'application/pdf' ? (
     <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
   ) : detected.startsWith('image/') ? (
@@ -267,7 +269,9 @@ function ArtifactFileView({
   );
   const fallbackPath = fallbackFile?.path;
   const previewSize = artifact.size ?? fallbackFile?.size;
-  const canLoadInline = previewSize !== undefined && previewSize <= INLINE_PREVIEW_MAX_BYTES;
+  const [previewAnyway, setPreviewAnyway] = useState(false);
+  const canLoadInline =
+    previewAnyway || (previewSize !== undefined && previewSize <= INLINE_PREVIEW_MAX_BYTES);
   const text = useQuery({
     queryKey: queryKeys.key('artifact-text', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
@@ -352,7 +356,7 @@ function ArtifactFileView({
   };
   const preview = canPreviewText ? (
     !canLoadInline ? (
-      <ViewerTooLarge size={previewSize} source={source} />
+      <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={previewSize} source={source} />
     ) : text.data ? (
       artifact.producer?.['designation'] === 'dashboard-report' ||
       artifact.name.endsWith('.dashboard.json') ? (
@@ -405,7 +409,7 @@ function ArtifactFileView({
         />
       </ArtifactVersionComments>
     ) : (
-      <ViewerTooLarge size={previewSize} source={source} />
+      <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={previewSize} source={source} />
     )
   ) : (
     <ViewerNoPreview source={source} />
