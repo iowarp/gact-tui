@@ -4,6 +4,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { isMacOS } from '@/lib/platform';
 import { AlertTriangleIcon, Loader2 } from 'lucide-react';
+import { useReducedMotionConfig } from 'motion/react';
 import { updateTextLayerGeometry, type TextLayerGeometry } from './text-layer-geometry';
 import { readThemeColor, resolveThemeColor } from '@/theme/runtime';
 
@@ -113,6 +114,7 @@ export function ZoomPan({
 
   // Animation/Raf ref
   const rafRef = React.useRef<number | null>(null);
+  const reducedMotion = useReducedMotionConfig();
   const hasCentered = React.useRef(false);
   const isFitView = React.useRef(true);
 
@@ -221,7 +223,12 @@ export function ZoomPan({
 
   // Mode 2: Smooth Update (Interpolated)
   // Used for buttons (zoom in/out, reset, center) to provide a nice feel
+  // With reduced motion, the buttons jump like the wheel does.
   const updateSmooth = React.useCallback(() => {
+    if (reducedMotion) {
+      updateImmediate();
+      return;
+    }
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     const loop = () => {
@@ -255,7 +262,7 @@ export function ZoomPan({
     };
 
     rafRef.current = requestAnimationFrame(loop);
-  }, [render]);
+  }, [reducedMotion, render, updateImmediate]);
 
   // Clean up RAF on unmount
   React.useEffect(() => {

@@ -12,7 +12,7 @@ import {
   pdfPageWindow,
   pdfRenderDensity,
 } from './document-pdf-window';
-import { ClioStatus } from './status';
+import { StateView } from './primitives/state-view';
 import { useFileViewerFacts } from './file-viewer-facts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -20,7 +20,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-const MIN_ZOOM = 0.25;
+/** Page fit: zooming out stops here. */
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.15;
 
@@ -54,19 +55,17 @@ export function ClioDocumentPdfViewer({
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
-  useFileViewerFacts(
-    pageCount ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`] : undefined,
-  );
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
+  // A width-fitted viewer (LaTeX) zooms out to the whole page, where zooming out stops.
   const [fitOverride, setFitOverride] = useState<'page'>();
   const fitMode = fitOverride ?? fit;
+  const atFit = scale <= MIN_ZOOM && fitMode === 'page';
   const zoomIn = useCallback(() => setScale((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP)), []);
-  const zoomOut = useCallback(() => setScale((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP)), []);
-  const resetZoom = useCallback(() => {
-    setFitOverride('page');
-    setScale(1);
-  }, []);
+  const zoomOut = useCallback(() => {
+    if (scale > MIN_ZOOM + 1e-6) setScale(Math.max(MIN_ZOOM, scale - ZOOM_STEP));
+    else setFitOverride('page');
+  }, [scale]);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
   const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
   // pdf.js transfers a typed array it is handed to its worker thread, which
@@ -192,6 +191,14 @@ export function ClioDocumentPdfViewer({
     viewportHeight: scroll.viewport,
   });
   const windowedPages = pdfPageNumbers(pageWindow);
+  // The page under the middle of the view.
+  const currentPage = Math.min(
+    pageCount,
+    Math.max(1, Math.floor((scroll.top + scroll.viewport / 2) / Math.max(1, pageHeightPx)) + 1),
+  );
+  const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
+  const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
+  useFileViewerFacts(pageFact ? [pageFact, ...(zoomFact ? [zoomFact] : [])] : undefined);
 
   const captureSelection = () => {
     const selection = window.getSelection();
@@ -241,21 +248,27 @@ export function ClioDocumentPdfViewer({
       ref={hostRef}
     >
       <ViewerZoomControls
-        percent={scale * 100}
+        label="PDF zoom"
         onIn={zoomIn}
         onOut={zoomOut}
-        onFit={resetZoom}
         disabledIn={scale >= MAX_ZOOM}
-        disabledOut={scale <= MIN_ZOOM}
-        labels={{
-          in: 'Zoom in',
-          out: 'Zoom out',
-          reset: 'Reset zoom',
-          fit: 'Fit document to view',
-          menu: 'PDF actions',
-          group: 'PDF zoom',
-        }}
-      />
+        disabledOut={atFit}
+      >
+        <span
+          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums"
+          data-slot="pdf-page-counter"
+        >
+          {pageFact ? (
+            <span title={`Page ${currentPage} of ${pageCount}`}>
+              <span aria-hidden="true">{pageFact}</span>
+              <span className="sr-only">
+                Page {currentPage} of {pageCount}
+              </span>
+            </span>
+          ) : null}
+          {zoomFact ? <span>{zoomFact}</span> : null}
+        </span>
+      </ViewerZoomControls>
       {/* The page window follows this element's scroll position, so the viewer
           owns its scroll region rather than riding whichever ancestor happens
           to scroll — every host has to give it a bounded box. */}
@@ -266,15 +279,9 @@ export function ClioDocumentPdfViewer({
         ref={scrollRef}
       >
         <Document
-          error={
-            <ClioStatus
-              detail={`Could not render ${name}.`}
-              label="PDF unavailable"
-              value="failed"
-            />
-          }
+          error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
           file={file}
-          loading={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}
+          loading={<StateView kind="loading" size="viewer" title={`Loading ${name}`} />}
           onLoadSuccess={({ numPages }) => setPageCount(numPages)}
         >
           <div className="grid gap-3">
@@ -311,9 +318,6 @@ export function ClioDocumentPdfViewer({
           </div>
         </Document>
       </div>
-      <footer className="shrink-0 border-t px-3 py-1 font-mono text-[10px] text-muted-foreground">
-        {pageCount ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : 'Loading pages…'}
-      </footer>
     </div>
   );
 }

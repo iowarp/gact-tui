@@ -44,7 +44,12 @@ import {
   processingStateLabel,
 } from './resource-processing-presentation';
 import { ClioPdfPreview } from './pdf-preview';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import {
+  ResourceLoading,
+  ResourceUnavailable,
+  ViewerNoPreview,
+  ViewerReadError,
+} from './resource-states';
 import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { FileViewerShell } from './file-viewer-shell';
@@ -207,7 +212,9 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
               <ResourcePreview
                 bytes={preview.data}
                 error={preview.error?.message}
+                onRetry={() => void preview.refetch()}
                 resource={resource}
+                workspaceId={workspaceId}
               />
             ),
           },
@@ -268,11 +275,15 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
 function ResourcePreview({
   bytes,
   error,
+  onRetry,
   resource,
+  workspaceId,
 }: {
   bytes?: Uint8Array;
   error?: string;
+  onRetry: () => void;
   resource: WorkspaceResource;
+  workspaceId: string;
 }) {
   if (resource.state === 'uploading') {
     const progress = resource.declared_size
@@ -295,23 +306,15 @@ function ResourcePreview({
   }
   if (resource.state !== 'ready') {
     return (
-      <div className="p-4">
-        <ResourceUnavailable
-          detail={resource.failure || 'The service could not make this resource available.'}
-          label={resource.state === 'quarantined' ? 'Resource quarantined' : 'Resource unavailable'}
-        />
-      </div>
+      <ResourceUnavailable
+        detail={resource.failure || 'The service could not make this resource available.'}
+        kind={resource.state === 'failed' ? 'error' : 'unavailable'}
+        label={resource.state === 'quarantined' ? 'Resource quarantined' : 'Resource unavailable'}
+      />
     );
   }
   if (!isPreviewable(resource.detected_mime)) {
-    return (
-      <div className="p-4">
-        <ResourceUnavailable
-          detail="Original bytes are retained with their detected type. This format has a metadata-only preview until a bounded tool or structured processor can inspect it."
-          label="Metadata-only resource"
-        />
-      </div>
-    );
+    return <ViewerNoPreview source={{ kind: 'resource', resource, workspaceId }} />;
   }
   if (isTextMediaType(resource.detected_mime)) {
     return (
@@ -343,20 +346,32 @@ function ResourcePreview({
       </div>
     );
   }
-  return <NativeMediaPreview bytes={bytes} error={error} resource={resource} />;
+  return (
+    <NativeMediaPreview
+      bytes={bytes}
+      error={error}
+      onRetry={onRetry}
+      resource={resource}
+      workspaceId={workspaceId}
+    />
+  );
 }
 
 function NativeMediaPreview({
   bytes,
   error,
+  onRetry,
   resource,
+  workspaceId,
 }: {
   bytes?: Uint8Array;
   error?: string;
+  onRetry: () => void;
   resource: WorkspaceResource;
+  workspaceId: string;
 }) {
   const url = useObjectUrl(bytes, resource.detected_mime);
-  if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
+  if (error) return <ViewerReadError error={error} onRetry={onRetry} />;
   if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
   if (resource.detected_mime.startsWith('video/')) {
     return <video className="size-full bg-media-backdrop object-contain" controls src={url} />;
@@ -368,7 +383,7 @@ function NativeMediaPreview({
       </div>
     );
   }
-  return <ResourceUnavailable label="Preview unavailable" />;
+  return <ViewerNoPreview source={{ kind: 'resource', resource, workspaceId }} />;
 }
 
 function StructuredResourceView({

@@ -3,15 +3,19 @@ import {
   BoxIcon,
   CircleAlertIcon,
   CircleOffIcon,
+  FileIcon,
   FileQuestionIcon,
   FileWarningIcon,
   GitCompareArrowsIcon,
+  GitCompareIcon,
   InboxIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { IconButton } from './icon-button';
 
 export type StateKind =
   | 'loading'
@@ -33,9 +37,24 @@ const ICON: Record<Exclude<StateKind, 'loading'>, Icon> = {
   'changed-elsewhere': GitCompareArrowsIcon,
 };
 
+/** A viewer body's glyphs, as the frame spec draws them. */
+const VIEWER_ICON: Record<Exclude<StateKind, 'loading'>, Icon> = {
+  ...ICON,
+  error: TriangleAlertIcon,
+  'too-large': FileIcon,
+  'no-preview': FileIcon,
+  'changed-elsewhere': GitCompareIcon,
+};
+
+/** The loading skeleton's line widths in a viewer body. */
+const VIEWER_SKELETON = ['70%', '100%', '85%', '60%', '100%'];
+
 export interface StateAction {
   label: string;
   onClick: () => void;
+  /** In a viewer body, an action with an icon is a named icon button. */
+  icon?: ReactNode;
+  disabled?: boolean;
 }
 
 export interface StateViewProps {
@@ -50,9 +69,15 @@ export interface StateViewProps {
   secondaryAction?: StateAction;
   /** Supplemental facts after the line: a size, an extension, a time. */
   detail?: string;
-  /** `row` fits a 28px list row, `panel` a frame, `page` a whole view. */
-  size?: 'row' | 'panel' | 'page';
+  /**
+   * `row` fits a 28px list row, `panel` a frame, `page` a whole view, and
+   * `viewer` a file viewer's body under its frame bar: a quiet skeleton while
+   * loading, otherwise a compact centered icon, line and up to two actions.
+   */
+  size?: 'row' | 'panel' | 'page' | 'viewer';
   icon?: Icon;
+  /** A rendered glyph (a file-type icon) in place of `icon`. */
+  glyph?: ReactNode;
   /** Optional content under the line (a step list during startup). */
   children?: ReactNode;
   className?: string;
@@ -71,9 +96,25 @@ export const StateView = memo(function StateView({
   detail,
   size = 'panel',
   icon,
+  glyph,
   children,
   className,
 }: StateViewProps) {
+  if (size === 'viewer')
+    return (
+      <ViewerState
+        action={action}
+        className={className}
+        detail={detail}
+        glyph={glyph}
+        icon={icon}
+        kind={kind}
+        secondaryAction={secondaryAction}
+        title={title}
+      >
+        {children}
+      </ViewerState>
+    );
   const IconComponent = icon ?? (kind === 'loading' ? null : ICON[kind]);
   const row = size === 'row';
   const live =
@@ -166,3 +207,115 @@ export const StateView = memo(function StateView({
     </div>
   );
 });
+
+function liveRegion(kind: StateKind) {
+  return kind === 'loading'
+    ? ({ role: 'status', 'aria-live': 'polite', 'aria-busy': true } as const)
+    : kind === 'error'
+      ? ({ role: 'alert' } as const)
+      : ({ role: 'status' } as const);
+}
+
+/** The spec's `.stt`: one look for every format's loading, failure and held-back body. */
+function ViewerState({
+  kind,
+  title,
+  action,
+  secondaryAction,
+  detail,
+  icon,
+  glyph,
+  children,
+  className,
+}: Omit<StateViewProps, 'size'>) {
+  if (kind === 'loading')
+    return (
+      <div
+        {...liveRegion(kind)}
+        aria-label={title}
+        data-kind={kind}
+        data-size="viewer"
+        data-slot="state-view"
+        className={cn('flex w-full min-w-0 flex-col gap-2.5 p-3.5', className)}
+      >
+        <span className="sr-only">{title}</span>
+        {VIEWER_SKELETON.map((width, index) => (
+          <span
+            // oxlint-disable-next-line react/no-array-index-key -- fixed placeholder lines
+            key={index}
+            aria-hidden="true"
+            data-slot="skeleton"
+            className="block h-[9px] rounded-[4px] bg-muted motion-safe:animate-pulse"
+            style={{ width }}
+          />
+        ))}
+        {children}
+      </div>
+    );
+  const IconComponent = icon ?? VIEWER_ICON[kind];
+  const retry =
+    kind === 'error' && action && (action.label || 'Retry') === 'Retry'
+      ? { ...action, label: 'Retry', icon: action.icon ?? <RetryIcon /> }
+      : action;
+  const actions = [secondaryAction, retry].filter((entry): entry is StateAction => !!entry);
+  return (
+    <div
+      {...liveRegion(kind)}
+      data-kind={kind}
+      data-size="viewer"
+      data-slot="state-view"
+      className={cn(
+        'flex size-full min-h-[140px] min-w-0 flex-col items-center justify-center gap-2.5 px-4 py-6 text-center text-[12.5px] text-muted-foreground',
+        className,
+      )}
+    >
+      <span aria-hidden="true" className="grid shrink-0 place-items-center text-faint">
+        {glyph ?? <IconComponent className="size-[26px]" />}
+      </span>
+      <span className="max-w-[min(100%,34rem)] text-balance break-words">{title}</span>
+      {detail ? (
+        <span
+          title={detail}
+          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-faint"
+        >
+          {detail}
+        </span>
+      ) : null}
+      {children}
+      {actions.length ? (
+        <span
+          className={cn(
+            'flex shrink-0 items-center',
+            actions.every((entry) => entry.icon) ? 'gap-1' : 'gap-1.5',
+          )}
+        >
+          {actions.map((entry) =>
+            entry.icon ? (
+              <IconButton
+                key={entry.label}
+                className={cn(
+                  'size-[30px] shrink-0 rounded-[6px] text-faint [&_svg:not([class*=size-])]:size-5',
+                )}
+                disabled={entry.disabled}
+                icon={entry.icon}
+                label={entry.label}
+                onClick={entry.onClick}
+              />
+            ) : (
+              <Button
+                key={entry.label}
+                className="h-auto rounded-[6px] px-[9px] py-1 text-[11.5px] font-normal text-foreground"
+                disabled={entry.disabled}
+                onClick={entry.onClick}
+                size="xs"
+                variant="secondary"
+              >
+                {entry.label}
+              </Button>
+            ),
+          )}
+        </span>
+      ) : null}
+    </div>
+  );
+}

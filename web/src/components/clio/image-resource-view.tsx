@@ -1,4 +1,4 @@
-import { DownloadIcon, Maximize2Icon, Minimize2Icon, ImageIcon } from 'lucide-react';
+import { DownloadIcon, ImageIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useObjectUrl } from '@/hooks/use-object-url';
@@ -12,7 +12,16 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { ViewerZoomControls } from './viewer-zoom-controls';
 import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
 
-/** A fitted image with explicit zoom and ordinary scrolling. Images never pan or drag. */
+const MAX_SCALE = 8;
+const STEP = 1.2;
+
+/**
+ * An image centered on the viewer background, fitted to the window, with
+ * explicit zoom and ordinary scrolling. Images never pan or drag. In a frame
+ * the natural size and zoom are facts and Format holds zoom out and zoom in;
+ * zooming out stops at the fitted size, which then follows the window. On its
+ * own the image keeps one row with its size, zoom, Download and fullscreen.
+ */
 export function ImageResourceView({
   bytes,
   error,
@@ -35,7 +44,7 @@ export function ImageResourceView({
   const url = useObjectUrl(displayBytes, mediaType);
   const toolbarHost = useContext(ViewerToolbarHost);
   const [localToolbarHost, setLocalToolbarHost] = useState<HTMLDivElement | null>(null);
-  const shared = useContext(FileViewerInformationHost) !== undefined;
+  const framed = useContext(FileViewerInformationHost) !== undefined;
   const inheritedOverlay = useContext(OverlayContainer);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -66,7 +75,6 @@ export function ImageResourceView({
     return () => document.removeEventListener('fullscreenchange', update);
   }, []);
   const loaded = Boolean(url && bytes && image.bytes === bytes && image.width && image.height);
-  useFileViewerFacts(loaded ? [`${image.width} × ${image.height}`] : undefined);
   const fit = loaded
     ? Math.min(
         Math.max(1, viewport.width - 32) / image.width,
@@ -74,19 +82,22 @@ export function ImageResourceView({
         1,
       )
     : 1;
-  const scale = zoom && zoom.bytes === bytes ? zoom.scale : fit;
-  const changeZoom = useCallback(
-    (factor: number) => {
-      if (bytes) setZoom({ bytes, scale: Math.min(8, Math.max(0.05, scale * factor)) });
-    },
-    [bytes, scale],
-  );
-  const zoomIn = useCallback(() => changeZoom(1.2), [changeZoom]);
-  const zoomOut = useCallback(() => changeZoom(1 / 1.2), [changeZoom]);
-  const reset = useCallback(() => {
-    setZoom(undefined);
-    viewportRef.current?.scrollTo?.({ top: 0, left: 0 });
-  }, []);
+  const zoomed = zoom !== undefined && zoom.bytes === bytes;
+  const scale = zoomed ? zoom.scale : fit;
+  const dimensions = loaded ? `${image.width} × ${image.height}` : undefined;
+  const percent = loaded ? `${Math.round(scale * 100)}%` : undefined;
+  useFileViewerFacts(dimensions && percent ? [dimensions, percent] : undefined);
+  const zoomIn = useCallback(() => {
+    if (bytes) setZoom({ bytes, scale: Math.min(MAX_SCALE, scale * STEP) });
+  }, [bytes, scale]);
+  const zoomOut = useCallback(() => {
+    const next = scale / STEP;
+    // Reaching the fitted size hands the scale back to the window.
+    if (!bytes || next <= fit + 1e-6) {
+      setZoom(undefined);
+      viewportRef.current?.scrollTo?.({ top: 0, left: 0 });
+    } else setZoom({ bytes, scale: next });
+  }, [bytes, fit, scale]);
   const toggleFullscreen = async () => {
     try {
       if (fullscreen) await document.exitFullscreen();
@@ -106,37 +117,34 @@ export function ImageResourceView({
   if (!url) return <ResourceLoading label={`Loading ${name}`} />;
   return (
     <OverlayContainer.Provider value={fullscreenHost ?? inheritedOverlay}>
-      <ViewerToolbarHost.Provider value={shared ? toolbarHost : localToolbarHost}>
+      <ViewerToolbarHost.Provider value={framed ? toolbarHost : localToolbarHost}>
         <div
           ref={hostRef}
           className="@container/viewer flex h-full min-h-0 flex-col overflow-hidden bg-background"
         >
-          {!shared ? (
-            <div
-              className="flex h-9 shrink-0 items-center justify-end gap-0.5 border-b px-2"
-              ref={setLocalToolbarHost}
-            />
+          {!framed ? (
+            <div className="flex h-[34px] shrink-0 items-center gap-px border-b border-border px-1.5">
+              <span className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums">
+                {dimensions ? <span>{dimensions}</span> : null}
+                {percent ? <span>{percent}</span> : null}
+              </span>
+              <div className="flex shrink-0 items-center gap-px" ref={setLocalToolbarHost} />
+            </div>
           ) : null}
-          {shared || localToolbarHost ? (
+          {framed || localToolbarHost ? (
             <ViewerZoomControls
-              percent={scale * 100}
+              label="Image zoom"
               onIn={zoomIn}
               onOut={zoomOut}
-              onFit={reset}
-              labels={{
-                in: 'Zoom in',
-                out: 'Zoom out',
-                reset: 'Reset image zoom',
-                fit: 'Fit image to view',
-                menu: 'Image actions',
-              }}
+              disabledIn={scale >= MAX_SCALE}
+              disabledOut={!zoomed}
             />
           ) : null}
-          {!shared && localToolbarHost ? (
+          {!framed && localToolbarHost && bytes ? (
             <ViewerToolbarContent>
               <ToolbarAction
                 label="Download file"
-                onClick={() => downloadBytes(bytes!, mediaType, name)}
+                onClick={() => downloadBytes(bytes, mediaType, name)}
               >
                 <DownloadIcon aria-hidden="true" />
               </ToolbarAction>
@@ -158,9 +166,9 @@ export function ImageResourceView({
             aria-label={`Zoomable image ${name}`}
             tabIndex={0}
             data-slot="image-viewport"
-            className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/15"
+            className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background"
           >
-            <div className="grid min-h-full min-w-full w-max content-start justify-items-center p-4">
+            <div className="grid min-h-full w-max min-w-full place-content-center place-items-center p-4">
               <img
                 alt={name}
                 src={url}

@@ -102,7 +102,7 @@ async function stripList(page, name) {
   await page.waitForTimeout(800);
 }
 
-async function openFile(page, path) {
+async function openFile(page, path, { settled = true } = {}) {
   await stripList(page, 'Files');
   const list = page.getByRole('region', { name: 'Files list' });
   const parts = path.split('/');
@@ -117,6 +117,7 @@ async function openFile(page, path) {
     .filter({ visible: true })
     .first()
     .click();
+  if (!settled) return;
   await page
     .locator('[aria-label="Workspace file preview"]')
     .filter({ hasText: parts.at(-1) })
@@ -257,49 +258,17 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
-    s('canvas', 'file-source', SESSION, (page) => openFile(page, 'scripts/regrid_stations.py')),
-    s('canvas', 'file-diff', SESSION, async (page) => {
-      await stripList(page, 'Activity');
-      await page
-        .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /regrid_stations\.py/u })
-        .first()
-        .click();
-      await page.waitForTimeout(800);
-    }),
-    // A list chosen with a tab open: a sheet over the tab at the default
-    // width, beside the tab once the pocket is wide (maximized).
-    s('canvas', 'narrow-sheet', SESSION, async (page) => {
-      await openFile(page, 'results/stations.csv');
-      await stripList(page, 'Files');
-    }),
-    s('canvas', 'list-beside', SESSION, async (page) => {
-      await openFile(page, 'results/stations.csv');
-      await press(page, 'button', 'Maximize canvas');
-      await page.waitForTimeout(600);
-      await stripList(page, 'Files');
-    }),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // Work folds into Activity: a work row opens the Work tab; without
-    // recorded work, the Timeline tab shows the session's work over time.
     s('canvas', 'work', SESSION, async (page) => {
-      await stripList(page, 'Activity');
-      const list = page.getByRole('region', { name: 'Activity list' });
-      const work = list.locator('[data-kind="work"]').first();
-      if (await work.count()) await work.click();
-      else await list.getByRole('button', { name: 'Open timeline and context' }).click();
-      await page.waitForTimeout(800);
-    }),
-    s('canvas', 'activity-detail', SESSION, async (page) => {
       await stripList(page, 'Activity');
       await page
         .getByRole('region', { name: 'Activity list' })
-        .locator('[data-kind="tool"], [data-kind="turn"]')
+        .getByRole('button', { name: /^Work/u })
         .first()
         .click();
       await page.waitForTimeout(800);
@@ -401,6 +370,58 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('scale', 'large-csv', SESSION, (page) => openFile(page, 'perf/large-table.csv'), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
+    }),
+    // One tab per viewer format, with the design specs' example files.
+    ...Object.entries({
+      table: 'ndp/soil_sites.csv',
+      markdown: 'plan.md',
+      code: 'scripts/soil_qc.py',
+      document: 'reports/opal_report.pdf',
+      image: 'figures/baseline_plot.png',
+      mermaid: 'diagrams/pipeline.mmd',
+      array: 'ndp/soil_moisture.h5',
+      'no-preview': 'ndp/forecast.grib2',
+      'state-too-large': 'ndp/era5_hourly.nc',
+    }).map(([format, path]) =>
+      s('viewer', format, SESSION, (page) => openFile(page, path), {
+        scenario: { specFiles: true },
+        settleMs: 1500,
+      }),
+    ),
+    s(
+      'viewer',
+      'state-loading',
+      SESSION,
+      async (page) => {
+        // Hang only this file's read, after the app has booted.
+        await page.route('**/files/read*', () => undefined);
+        await openFile(page, 'ndp/soil_sites.csv', { settled: false });
+      },
+      { scenario: { specFiles: true }, allowLoading: true },
+    ),
+    s(
+      'viewer',
+      'state-error',
+      SESSION,
+      async (page) => {
+        await page.route('**/files/read*', (route) =>
+          route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: { code: 'unavailable', message: 'The workspace volume is not mounted.' },
+            }),
+          }),
+        );
+        await openFile(page, 'ndp/soil_sites.csv');
+      },
+      { scenario: { specFiles: true } },
+    ),
+    s('viewer', 'activity', SESSION, (page) => stripList(page, 'Activity'), {
+      scenario: { specFiles: true },
+    }),
+    s('viewer', 'browser-pages', SESSION, (page) => stripList(page, 'Browser pages'), {
+      scenario: { specFiles: true },
     }),
   ];
 }
