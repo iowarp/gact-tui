@@ -278,7 +278,7 @@ it('renders wiki links as note links and keeps the link list compact', async () 
   expect(missing.closest('a')).toBeNull();
   expect(screen.getByText('[[b]]').tagName).toBe('CODE');
 
-  const links = screen.getByRole('region', { name: 'Links 1 · Backlinks 6' });
+  const links = screen.getByRole('region', { name: 'Links 1 Backlinks 6' });
   expect(within(links).getAllByRole('listitem')).toHaveLength(5);
   expect(within(links).getByRole('button', { name: 'Linked from n0' })).toBeInTheDocument();
   expect(within(links).getByText('n0')).toHaveAttribute('title', 'notes/n0.md');

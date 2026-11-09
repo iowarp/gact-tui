@@ -97,8 +97,8 @@ export function KnowledgeNoteRead({
           }
         >
           <ListGroupLabel id={headingId}>
-            <span className="tabular-nums">
-              Links {outgoing.length} · Backlinks {incoming.length}
+            <span className="flex gap-3 tabular-nums">
+              <span>Links {outgoing.length}</span> <span>Backlinks {incoming.length}</span>
             </span>
           </ListGroupLabel>
           <div role="list">
