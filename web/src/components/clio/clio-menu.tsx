@@ -63,7 +63,7 @@ const MENU_HINTS = [
   { id: 'menu-submenu', label: 'open' },
 ] as const;
 
-/** A short state word for the 68px status column; the full sentence is on hover. */
+/** A short state word for the 72px status column; the full sentence is on hover. */
 function availabilityStatus(
   availability: ConnectionAvailability,
   active: boolean,
@@ -226,12 +226,8 @@ export function ClioMenuContent({
             <span className="truncate text-[13px] font-medium">{identity.name}</span>
             <span className="truncate text-[11px] text-muted-foreground">{identity.place}</span>
           </span>
-          <span className="flex w-[68px] shrink-0 justify-end">
-            <StatusIndicator
-              className="text-[11px]"
-              label={activeStatus.label}
-              tone={activeStatus.tone}
-            />
+          <span className="flex w-[72px] shrink-0 justify-end">
+            <StatusIndicator label={activeStatus.label} tone={activeStatus.tone} />
           </span>
         </div>
         <div className="mr-2 mb-1 ml-[15px] border-l border-border py-0.5 pl-4">

@@ -66,7 +66,7 @@ Status values:
 - **Menus.** Dropdown, context and command menus share one row height,
   highlight and key column. `MenuRow` supplies the fixed trailing columns.
   Its `detail` prop adds a muted second line under the label (an agent's host
-  in the CLIO menu), and `status` adds a fixed 68 px `StatusIndicator` column.
+  in the CLIO menu), and `status` adds a fixed 72 px `StatusIndicator` column.
 - **Icon buttons.** `ToolbarAction` renders `IconButton`, so every viewer
   toolbar button shows its name and key on hover.
 - **Keys.** The catalog is the single source for chords and their Mac forms.
@@ -126,8 +126,13 @@ above while redesigning the surface; the change is not mechanical.
   and palette classes outside `web/src/theme/`.
 - Never show status with color alone. `StatusIndicator` pairs each state with
   a shape and a word, and `column` display keeps the word for assistive
-  technology. In `visible` display, error and warning words take their tone
-  color; every other state word stays muted.
+  technology.
+- `StatusIndicator` is the one status word (cross-surface X4): a mark that
+  carries the color and a 12px muted word, in every state. Use it for
+  Ready, Connected, Running, Completed, Failed and the like in lists, menus,
+  panels and dialogs. Don't draw state words as pills, badges, colored text or
+  other sizes, and don't override its size or color. Settings, transcript and
+  activity surfaces adopt it rather than local badges.
 - Give trailing columns fixed widths and hide hover actions with
   `visibility`, so nothing moves on hover.
 - Keep every line to one line. Use `truncate`, `TruncatedText` or

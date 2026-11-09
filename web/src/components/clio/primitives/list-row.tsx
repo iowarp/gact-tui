@@ -102,7 +102,9 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 truncate text-[11px] text-faint">{description}</span>
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {description}
+              </span>
             ) : null}
           </span>
         ) : (

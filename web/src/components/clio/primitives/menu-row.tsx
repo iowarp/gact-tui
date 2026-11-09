@@ -12,7 +12,7 @@ export interface MenuRowProps {
   description?: string;
   /** A small faint second line under the label (a host, what a choice does). */
   detail?: string;
-  /** A state as a mark and a word in the fixed 68px status column (Online, Offline). */
+  /** A state as a mark and a word in the fixed 72px status column (Online, Offline). */
   status?: { label: string; tone: StatusTone };
   /** A state word in the fixed 58px tag column (On, Off, Needs you). */
   tag?: { text: string; tone?: TagTone };
@@ -62,7 +62,7 @@ export const MenuRow = memo(function MenuRow({
       {detail ? (
         <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
           <span className="truncate">{label}</span>
-          <span title={detail} className="truncate text-[11px] text-faint">
+          <span title={detail} className="truncate text-[11px] text-muted-foreground">
             {detail}
           </span>
         </span>
@@ -80,8 +80,8 @@ export const MenuRow = memo(function MenuRow({
         </span>
       )}
       {status ? (
-        <span className="flex w-[68px] shrink-0 justify-end">
-          <StatusIndicator className="text-[11px]" label={status.label} tone={status.tone} />
+        <span className="flex w-[72px] shrink-0 justify-end">
+          <StatusIndicator label={status.label} tone={status.tone} />
         </span>
       ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}

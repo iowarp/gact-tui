@@ -77,7 +77,9 @@ export function InfrastructureHosts({
                 size="sm"
               />
             ) : (
-              <span className="text-[11px] text-faint">Add SSH computers in Desktop</span>
+              <span className="text-[11px] text-muted-foreground">
+                Add SSH computers in Desktop
+              </span>
             )}
           </>
         }
