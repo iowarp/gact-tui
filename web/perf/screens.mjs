@@ -713,6 +713,16 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s(
+      'session',
+      'dialog-allow-folder',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Allow opal');
+        await overlay(page);
+      },
+      { route: 'sandbox-blocked' },
+    ),
     s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
@@ -937,6 +947,16 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
+    s(
+      'runs',
+      'selected',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button').first().click();
+        await page.waitForTimeout(600);
+      },
+      { ready: '[data-run-state]' },
+    ),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
@@ -1439,6 +1459,36 @@ async function capture(browser, stack, shot, { theme, width }) {
         await route.fulfill({ json: listing });
       },
     );
+  }
+  if (shot.route === 'sandbox-blocked') {
+    // The catalog search becomes a script the sandbox stopped from writing outside the workspace.
+    await page.route('**/v1/sessions/*/messages*', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const transcript = await (await route.fetch()).json();
+      transcript.tools = (transcript.tools ?? []).map((tool) =>
+        tool.id === 'tool_earthscope'
+          ? {
+              ...tool,
+              name: 'shell_bash',
+              title: 'Run',
+              state: 'failed',
+              input: { command: 'python qc_sites.py' },
+              error: 'Permission denied: /scratch/jc/opal/sites.csv',
+              output: {
+                boundary: {
+                  kind: 'write_denied',
+                  confidence: 'confirmed',
+                  paths: ['/scratch/jc/opal/sites.csv'],
+                  request_roots: ['/scratch/jc/opal'],
+                  message:
+                    "CLIO's sandbox blocked this write. /scratch/jc/opal is not a permitted folder.",
+                },
+              },
+            }
+          : tool,
+      );
+      await route.fulfill({ json: transcript });
+    });
   }
   if (shot.route === 'archived-sessions') {
     // The fixture archives nothing; three archived rows as the spec draws them.
