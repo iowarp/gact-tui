@@ -44,17 +44,29 @@ export function ModelPickerHighlightSeed() {
       }
       const here = position(highlight.value);
       const goal = position(current.target);
-      const moved = current.at === -1 || (here !== current.at && here !== -1);
-      if (here === goal || goal === -1 || !moved || current.steps > renderedItems.length) {
+      // Another dependency changed while the last press is still committing.
+      if (here === current.at && here !== -1) return;
+      if (here === goal || goal === -1 || here === -1 || current.steps > renderedItems.length) {
         walk.current = null;
         last.current = highlight.value;
         return;
       }
-      walk.current = { ...current, steps: current.steps + 1, at: here };
-      press(here > goal ? 'ArrowUp' : 'ArrowDown');
+      const next = { ...current, steps: current.steps + 1, at: here };
+      walk.current = next;
+      // Pressed after Base UI's own effects settle, or it can drop the key.
+      requestAnimationFrame(() => {
+        if (walk.current !== next) return;
+        press(here > goal ? 'ArrowUp' : 'ArrowDown');
+        // A press that moves nothing ends the walk, so later moves stay the user's.
+        window.setTimeout(() => {
+          if (walk.current === next) walk.current = null;
+        }, 200);
+      });
       return;
     }
 
+    // A press can land in Base UI before its highlight commits; keep that walk.
+    const pressed = walk.current?.at === -1;
     walk.current = null;
     const firstModel = renderedItems.findIndex((node) => node.value.startsWith(MODEL_NODE_PREFIX));
     const target = [
@@ -64,6 +76,7 @@ export function ModelPickerHighlightSeed() {
       firstModel,
     ].find((index) => index >= 0);
     if (target === undefined) return;
+    if (pressed) walk.current = { target: renderedItems[target].value, steps: 0, at: -1 };
     // Base UI registers the rows a frame after they mount, so an early press
     // can find none; it is retried, and again when the field takes focus.
     const seed = (): boolean => {

@@ -328,6 +328,31 @@ describe('ClioModelPicker', () => {
     expect(highlighted()).not.toBeNull();
   });
 
+  it('one column highlights the chosen model after another group, and Enter picks that row', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker
+        model="Qwen/Qwen3-VL-32B"
+        onChange={onChange}
+        options={options}
+        provider="local-vllm"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const highlighted = () => document.querySelector('[role="option"][data-highlighted]');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Qwen3-VL-32B'));
+    await user.keyboard('{ArrowUp}{ArrowUp}');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Luna'));
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'gpt-5.6-luna', providerId: 'codex' }),
+    );
+  });
+
   it('one column lists a few models per provider, keeps the chosen one, and "N more" opens the rest', async () => {
     setWideViewport(false);
     const user = userEvent.setup();
