@@ -109,6 +109,8 @@ function OpenRow({
 }) {
   return (
     <ItemRow
+      actions={null}
+      slot={null}
       {...props}
       className="cursor-default"
       onClick={onOpen}
@@ -228,34 +230,28 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
 
   const promptRow = (prompt: PromptDefinition) => {
     const profiles = Object.keys(prompt.profiles).length;
-    const problem = prompt.validation_errors[0];
+    const problems = prompt.validation_errors.length;
     return (
       <OpenRow
         icon={<FileTextIcon />}
         key={prompt.id}
         meta={
-          problem ? (
-            <span className="text-destructive" title={prompt.validation_errors.join(', ')}>
-              {problem}
-            </span>
-          ) : (
-            <MetaLine
-              parts={[
-                scopeLabel(prompt.scope),
-                `${profiles} ${profiles === 1 ? 'profile' : 'profiles'}`,
-                profiles > 1 && prompt.default_profile ? `default ${prompt.default_profile}` : '',
-              ]}
-            />
-          )
+          <MetaLine
+            parts={[
+              scopeLabel(prompt.scope),
+              `${profiles} ${profiles === 1 ? 'profile' : 'profiles'}`,
+              // The template text that fails stays in the editor; the list names the count.
+              problems ? `${problems} ${problems === 1 ? 'problem' : 'problems'} to fix` : '',
+            ]}
+          />
         }
         onOpen={() => openEditor(prompt)}
         status={
           <StatusIndicator
-            label={prompt.enabled ? 'Ready' : 'Needs attention'}
-            tone={prompt.enabled ? 'success' : 'warning'}
+            label={prompt.enabled && !problems ? 'Ready' : 'Needs attention'}
+            tone={prompt.enabled && !problems ? 'success' : 'warning'}
           />
         }
-        statusWidth={132}
         title={prompt.title || prompt.id}
       />
     );
@@ -287,7 +283,6 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             <StatusIndicator label={state.label} tone={state.tone} />
           </span>
         }
-        statusWidth={150}
         title={command.title}
       />
     );
@@ -402,12 +397,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         {narrow ? (
           <IconButton icon={<AddIcon />} label="New prompt" onClick={() => openEditor()} />
         ) : (
-          <Button
-            className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
-            onClick={() => openEditor()}
-            size="sm"
-            variant="outline"
-          >
+          <Button className="shrink-0" onClick={() => openEditor()} variant="outline">
             <AddIcon aria-hidden="true" /> New prompt
           </Button>
         )}

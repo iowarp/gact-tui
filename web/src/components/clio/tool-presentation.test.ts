@@ -245,7 +245,7 @@ it.each([
   ['restart_agent', 'Restart agent'],
   ['observe_tasks', 'Check task status'],
   ['task_result', 'Read task result'],
-  ['spawn_agent_task', 'Delegate to agent'],
+  ['spawn_agent_task', 'Delegate'],
 ])('corrects retained Inspect metadata for %s', (name, label) => {
   const tool: ToolInvocation = {
     id: 'old',

@@ -102,25 +102,26 @@ for (const width of [1440, 390]) {
     await page.goto('/tests/review/tool-operations.html');
     await expect(page.getByRole('heading', { name: 'Tool operation review' })).toBeVisible();
     const row = (id: string) => page.locator(`#tool-${id}`);
-    await expect(
-      row('waiting').getByRole('button', { name: 'Show result for Wait for' }),
-    ).toBeDisabled();
+    // Phone rows hide the action name; the leading disclosure opens them there.
+    const opener = (id: string, label: string) =>
+      row(id).getByRole('button', {
+        name: width < 480 ? `Expand ${label}` : `Show result for ${label}`,
+        exact: true,
+      });
+    const waitName = row('waiting').locator('[data-slot="tool-action-text"]');
+    await expect(waitName).toHaveAttribute('aria-label', 'Show result for Wait for');
+    await expect(waitName).toBeDisabled();
     await expect(row('waiting').getByRole('button', { name: /Expand/ })).toHaveCount(0);
-    await expect(row('waiting')).toContainText('(0 returned, 2 running)');
+    await expect(row('waiting')).toContainText('0 returned, 2 running');
     expect(requests).toEqual([]);
     await row('delegate').getByRole('button', { name: 'Independent audit', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
     await expect(row('delegate').getByRole('region')).toHaveCount(0);
-    await row('delegate')
-      .getByRole('button', { name: 'Show result for Delegate to', exact: true })
-      .click();
-    await expect(row('delegate')).toContainText('running as standard on model-review');
+    await opener('delegate', 'Delegate').click();
     await expect(row('delegate')).toContainText(
       'Check the package against the original observations.',
     );
-    await row('returned')
-      .getByRole('button', { name: 'Show result for Wait for', exact: true })
-      .click();
+    await opener('returned', 'Wait for').click();
     await expect(
       row('returned').getByRole('heading', { name: 'Build package report' }),
     ).toBeVisible();
@@ -132,17 +133,13 @@ for (const width of [1440, 390]) {
       row('returned').getByRole('heading', { name: 'Build package report' }),
     ).toHaveCount(0);
     await expect(row('returned')).not.toContainText('Return when all');
-    await row('search')
-      .getByRole('button', { name: 'Show result for Search tasks', exact: true })
-      .click();
+    await opener('search', 'Search tasks').click();
     await expect(row('search')).toContainText('calibration');
     await expect(row('search').getByText('Calibration review 9', { exact: true })).toHaveCount(0);
     await row('search').getByRole('button', { name: 'Next', exact: true }).click();
     await expect(row('search')).toContainText('9–16 of 96');
     await expect(row('search').getByText('Calibration review 9', { exact: true })).toBeVisible();
-    await row('models')
-      .getByRole('button', { name: 'Show result for Find models', exact: true })
-      .click();
+    await opener('models', 'Find models').click();
     await expect(row('models').getByRole('row')).toHaveCount(13);
     await expect(row('models').getByText('Model 13', { exact: true })).toHaveCount(0);
     await row('models').getByRole('button', { name: 'Next', exact: true }).click();

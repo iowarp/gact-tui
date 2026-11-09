@@ -28,7 +28,10 @@ export function ProfileSettings() {
 
   return (
     <div>
-      <SettingsSectionHeading title="Profile" />
+      <SettingsSectionHeading
+        info={`Who you are, for ${vocab.agent}. Saved only on this computer.`}
+        title="Profile"
+      />
       <SettingsRow dirty={changed.includes('name')} htmlFor="profile-name" title="Name">
         <Input
           autoComplete="name"

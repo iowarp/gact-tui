@@ -92,8 +92,8 @@ async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
 
 async function alignLatestActivityAtTop(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  const activityHeader = conversation.getByRole('button', { name: /^Activity:/ }).last();
-  await alignTranscriptAnchorAtTop(page, activityHeader.locator('..'));
+  const activityLane = conversation.getByRole('group', { name: /^Activity:/ }).last();
+  await alignTranscriptAnchorAtTop(page, activityLane);
 }
 
 setupWorkspaceBrowser();
@@ -363,9 +363,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   const attention = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(attention).toBeVisible();
   await settleConversationAtLatest(page);
-  const activity = page.getByRole('button', { name: /^Activity:/ }).last();
-  await expect(activity).toHaveAttribute('aria-expanded', 'false');
-  await activity.click();
+  // Activity rows are always visible; the agent's answering states read without opening anything.
   await expect(page.locator('[data-agent-question-state="answering"]')).toContainText(
     'Agent is reading conversation context',
   );
@@ -448,9 +446,6 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await settleConversationAtLatest(page);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
-  const history = page.getByRole('button', { name: /^Activity:/ }).last();
-  await expect(history).toHaveAttribute('aria-expanded', 'false');
-  await history.click();
   await expect(page.getByText('MCP v2 exerciser view closed')).toBeVisible();
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
@@ -868,7 +863,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   // affordance is present in some runs and gone in others — a baseline that
   // matches about half the time.
   await settleConversationAtLatest(page);
-  await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="sub-agent-dispatch"]'));
+  await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="delegate"]').first());
   await page.screenshot({ path: testInfo.outputPath('workspace-mobile-reviewed.png') });
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
@@ -882,11 +877,8 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   expect(await outline.locator('[data-index]').count()).toBeLessThan(30);
   const finalOutlineRow = outline.locator('[data-index="999"]');
   await expect(finalOutlineRow).toBeVisible();
-  await expect(finalOutlineRow.locator('p.font-semibold > span')).toHaveCSS(
-    'white-space',
-    'nowrap',
-  );
-  expect((await finalOutlineRow.boundingBox())?.height).toBe(72);
+  await expect(finalOutlineRow).toHaveCSS('white-space', 'nowrap');
+  expect((await finalOutlineRow.boundingBox())?.height).toBe(28);
   const outlineBounds = await outline.boundingBox();
   expect(outlineBounds).not.toBeNull();
   if (outlineBounds) {
@@ -918,10 +910,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
     name: 'Jump to user message 1',
   });
   await expect(firstOutlineItem).toBeVisible();
-  const firstOutlineTitle = outline
-    .locator('p.font-semibold')
-    .filter({ hasText: 'Sanitized evidence ledger entry 1.' });
-  await expect(firstOutlineTitle).toHaveCSS('font-weight', '600');
+  await expect(firstOutlineItem).toContainText('Sanitized evidence ledger entry 1.');
   await expect(outline.locator('[data-index="0"]')).toContainText(
     'Sanitized evidence ledger entry 2.',
   );
@@ -1167,38 +1156,32 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   );
 });
 
-test('keeps summarization in collapsed activity and discloses its exact received text', async ({
+test('shows summarization as one quiet line and discloses its exact received text', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
   await settleConversationAtLatest(page);
-  await page.getByRole('button', { name: 'Activity: Received context', exact: true }).click();
 
   const compactionRow = page.locator(
     '[data-slot="harness-injection"][data-source="summarization"]',
   );
   await expect(compactionRow).toBeVisible();
   const disclosure = compactionRow.getByRole('button', {
-    name: 'Injection Summarization Automatic',
+    name: 'Compacted here, earlier context summarized',
+    exact: true,
   });
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   await expect(compactionRow.getByText('Automatic')).toBeVisible();
-  await expect(compactionRow.locator('pre')).toHaveCount(0);
-  const information = compactionRow.getByRole('button', {
-    name: 'Technical details for Summarization',
-    exact: true,
-  });
-  await expect(information).toBeVisible();
+  await expect(compactionRow).not.toContainText('EarthScope station evidence ledger');
   // Scroll the row to the top of the viewport: it sits near the tail of the
   // transcript, close enough to the composer that the floating "Agent needs
   // your response" queue (docked at the bottom) would otherwise cover it.
   await compactionRow.evaluate((element) =>
     element.scrollIntoView({ behavior: 'instant', block: 'start' }),
   );
-  // Scrolling can move this row under the pointer left by the activity click.
-  // Capture the baseline's unhovered state, independently of its prior position.
+  // Capture the baseline's unhovered state, independently of the pointer's prior position.
   await page.mouse.move(0, 0);
   await page.evaluate(
     () =>
@@ -1212,18 +1195,11 @@ test('keeps summarization in collapsed activity and discloses its exact received
 
   await disclosure.click();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-  await expect(compactionRow.locator('pre')).toContainText('EarthScope station evidence ledger');
+  await expect(compactionRow).toContainText('EarthScope station evidence ledger');
   await expect(
     compactionRow.getByText(/derived displacement series before this checkpoint/),
   ).toBeVisible();
-  await information.click();
-  const details = page.getByRole('dialog', {
-    name: 'Summarization: Technical details',
-    exact: true,
-  });
-  await expect(details).toContainText('derived displacement series before this checkpoint');
-  await expect(details.locator('pre')).toContainText('EarthScope station evidence ledger');
-  await page.keyboard.press('Escape');
   await disclosure.click();
-  await expect(compactionRow.locator('pre')).toHaveCount(0);
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await expect(compactionRow).not.toContainText('EarthScope station evidence ledger');
 });
