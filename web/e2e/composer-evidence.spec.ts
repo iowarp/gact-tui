@@ -129,6 +129,7 @@ for (const [width, height] of [
   }, testInfo) => {
     await openSession(page, width!, height!, true);
     const rail = await openConversationRail(page);
+    await rail.getByRole('button', { name: 'Expand Todos', exact: true }).click();
     await expect
       .poll(() => rail.evaluate((node) => node.scrollHeight > node.clientHeight))
       .toBe(true);
