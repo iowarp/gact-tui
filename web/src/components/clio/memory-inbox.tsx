@@ -96,9 +96,11 @@ function ProposalCard({
   const busy = accept.isPending || reject.isPending;
   return (
     <li className="grid gap-3 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{CHANGE_LABELS[proposal.change]}</Badge>
-        <span className="min-w-0 text-sm font-medium break-words" title={proposal.target}>
+      <div className="flex min-w-0 items-center gap-2">
+        <Badge className="w-16 shrink-0 justify-center" variant="outline">
+          {CHANGE_LABELS[proposal.change]}
+        </Badge>
+        <span className="min-w-0 truncate text-sm font-medium" title={proposal.target}>
           {targetLabel(proposal.target)}
         </span>
         <ReviewMarker sources={proposal.sources} />

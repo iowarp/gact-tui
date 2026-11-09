@@ -40,12 +40,12 @@ export function ConversationAgentControls({
       ? `Customize the agent (${changes} ${changes === 1 ? 'change' : 'changes'})`
       : 'Customize the agent';
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <label className="flex min-w-0 items-center gap-2 text-sm">
+    <div className="flex shrink-0 items-center gap-2">
+      <label className="flex items-center gap-2 text-sm">
         <span className="max-sm:sr-only">with</span>
         <select
           aria-label="Conversation agent"
-          className="min-w-0 max-w-36 rounded-md border border-border bg-background px-2 py-1 sm:max-w-48"
+          className="min-w-20 max-w-36 truncate rounded-md border border-border bg-background px-2 py-1 sm:max-w-48"
           disabled={disabled || readOnly || !onSelect || pending || Boolean(agentsError && !agents)}
           onChange={(event) => onSelect?.(event.target.value)}
           title={

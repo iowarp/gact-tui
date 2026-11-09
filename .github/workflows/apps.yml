@@ -300,6 +300,9 @@ jobs:
       - name: Native library tests
         working-directory: desktop/src-tauri
         run: cargo test --locked --lib -- --test-threads=1
+      - name: NSIS tools for the installer bundle
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/tauri-nsis-tools
       - name: Compile Windows installer provider and native-search hooks
         if: runner.os == 'Windows'
         working-directory: desktop
@@ -638,6 +641,9 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash desktop/scripts/macos-signing-setup.sh setup
+      - name: NSIS tools for the installer bundle
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/tauri-nsis-tools
       # These installers carry a stub runtime and no updater key, so they must
       # not produce updater artifacts that a client could install over a real
       # bundle; the signed CLIO feed is published by clio-agent (#739 A6).

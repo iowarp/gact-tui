@@ -165,8 +165,8 @@ const requiredImports = {
   ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
-  'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],
-  'web/src/components/clio/settings-default-model-card.tsx': ['./model-picker'],
+  // Every Settings model choice opens the shared picker through this field.
+  'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
   'web/src/components/clio/settings-prompts.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/clio/settings-frame',

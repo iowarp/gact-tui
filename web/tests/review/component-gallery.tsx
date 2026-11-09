@@ -19,6 +19,8 @@ import {
 import { ForcedTheme } from '../../src/theme/forced-theme';
 import '../../src/index.css';
 import { Button } from '../../src/components/ui/button';
+import { Input } from '../../src/components/ui/input';
+import { SettingsRow } from '../../src/components/clio/settings-row';
 import { TooltipProvider } from '../../src/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -59,6 +61,8 @@ import {
   FrameTab,
 } from '../../src/components/clio/primitives/frame-bar';
 import { DialogFrame, WindowShell } from '../../src/components/clio/primitives/dialog-frame';
+import { DetailPane, ListDetailLayout } from '../../src/components/clio/primitives/detail-pane';
+import { ItemList, ItemRow } from '../../src/components/clio/primitives/item-row';
 import { StateView, type StateKind } from '../../src/components/clio/primitives/state-view';
 import { ShortcutSheet } from '../../src/components/clio/primitives/shortcut-sheet';
 
@@ -354,6 +358,106 @@ function Rows() {
   );
 }
 
+const PANE_TABS = [
+  { value: 'capabilities', label: 'Capabilities' },
+  { value: 'tools', label: 'Tools' },
+  { value: 'files', label: 'Files' },
+] as const;
+
+function ListAndDetail() {
+  const [open, setOpen] = useState<string | null>('home-assistant');
+  const [tab, setTab] = useState<(typeof PANE_TABS)[number]['value']>('capabilities');
+  const plugins = ['home-assistant', 'ndp-explorer', LONG_NAME];
+  return (
+    <ListDetailLayout
+      className="h-72 rounded-xl border border-border"
+      list={
+        <ItemList label="Plugins" className="p-1.5">
+          {plugins.map((name, index) => (
+            <ItemRow
+              key={name}
+              icon={<LayoutGridIcon />}
+              title={name}
+              meta={index === 2 ? LONG_PATH : 'Plugin, 2 tools'}
+              selected={open === name}
+              status={
+                <StatusIndicator
+                  tone={index === 1 ? 'warning' : 'success'}
+                  label={index === 1 ? 'Update' : 'Enabled'}
+                />
+              }
+              actions={
+                <IconButton
+                  label="Explore"
+                  icon={<PanelRightIcon />}
+                  size="sm"
+                  onClick={() => setOpen(name)}
+                />
+              }
+              actionsWidth={30}
+            />
+          ))}
+        </ItemList>
+      }
+      detail={
+        open ? (
+          <DetailPane
+            icon={<LayoutGridIcon />}
+            title={open}
+            onClose={() => setOpen(null)}
+            actions={<IconButton label="Update" icon={<RefreshIcon />} />}
+            tabs={
+              <SegmentedControl
+                label="Plugin contents"
+                options={PANE_TABS}
+                value={tab}
+                onValueChange={setTab}
+              />
+            }
+          >
+            <ItemList label="Capabilities">
+              <ItemRow size="sm" icon={<CodeIcon />} title="ha-lights" meta="Skill" />
+              <ItemRow size="sm" icon={<TerminalIcon />} title="home-assistant" meta="MCP server" />
+            </ItemList>
+          </DetailPane>
+        ) : null
+      }
+    />
+  );
+}
+
+function LineRows() {
+  const rows = [
+    { name: 'Ollama', meta: 'localhost:11434', tone: 'success', label: 'Running' },
+    { name: 'LM Studio', meta: 'localhost:1234', tone: 'stopped', label: 'Stopped' },
+    { name: LONG_NAME, meta: LONG_PATH, tone: 'error', label: 'Unreachable' },
+  ] as const;
+  return (
+    <ItemList label="Local model servers" className="max-w-xl p-1.5">
+      {rows.map((row, index) => (
+        <ItemRow
+          key={row.name}
+          size="line"
+          icon={<TerminalIcon />}
+          title={row.name}
+          meta={row.meta}
+          selected={index === 0}
+          status={<StatusIndicator tone={row.tone} label={row.label} />}
+          statusWidth={112}
+          actions={<IconButton label="Edit" icon={<EditIcon />} size="sm" />}
+          actionsWidth={30}
+          slot={
+            <Button size="xs" variant="outline">
+              Use
+            </Button>
+          }
+          slotWidth={48}
+        />
+      ))}
+    </ItemList>
+  );
+}
+
 function Menus() {
   return (
     <div className="flex flex-wrap items-start gap-4">
@@ -518,13 +622,18 @@ function Overlays() {
         open={dialog}
         onOpenChange={setDialog}
         icon={<FolderIcon />}
-        title="Share this conversation"
-        description="People with the link can read the transcript and its files."
-        confirm={{ label: 'Create link', onConfirm: noop }}
+        title="Add server"
+        help="A server adds its tools to every conversation on this agent."
+        confirm={{ label: 'Add', onConfirm: noop }}
       >
-        <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
-          {LONG_PATH}
-        </MiddleTruncate>
+        <SettingsRow htmlFor="gallery-server-name" title="Name">
+          <Input defaultValue="home-assistant" id="gallery-server-name" />
+        </SettingsRow>
+        <SettingsRow title="Folder">
+          <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
+            {LONG_PATH}
+          </MiddleTruncate>
+        </SettingsRow>
       </DialogFrame>
       <DialogFrame
         open={destructive}
@@ -595,6 +704,12 @@ function Gallery() {
             </Section>
             <Section title="List rows">
               <Rows />
+            </Section>
+            <Section title="List and detail pane">
+              <ListAndDetail />
+            </Section>
+            <Section title="One-line item rows">
+              <LineRows />
             </Section>
             <Section title="Menus">
               <Menus />
