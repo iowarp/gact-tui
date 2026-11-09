@@ -109,7 +109,7 @@ export function ProviderPanelFooter({
         className={cn(
           'flex min-w-0 shrink-0 flex-nowrap items-center overflow-hidden',
           // The dot lines up with the model names, past the check gutter.
-          manage ? 'h-7 w-full gap-[7px] ps-6 text-[11px] text-faint' : 'h-full gap-1.5 ps-2 pe-1',
+          manage ? 'h-7 w-full gap-[7px] text-[11px] text-faint' : 'h-full gap-1.5 ps-2 pe-1',
           className,
         )}
         // Only a usable provider has the action row; a provider in setup shows its Settings link.

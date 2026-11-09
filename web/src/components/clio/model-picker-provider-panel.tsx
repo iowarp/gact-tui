@@ -312,7 +312,7 @@ export function useProviderPanel({
   const manageDetail =
     !usable && (providerActions.authFlow || (keyEntry && flow === 'api_key')) ? (
       <div
-        className="w-full ps-6 pe-2 pb-2"
+        className="w-full pe-2 pb-2"
         data-slot="provider-manage-detail"
         // The list's arrow and Enter keys stay with the picker's search field.
         onKeyDown={(event) => event.stopPropagation()}
