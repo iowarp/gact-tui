@@ -211,7 +211,6 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-open-questions', 'button', /open question/u),
     menu('menu-version-status', 'button', /^Version status/u),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),

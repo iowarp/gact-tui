@@ -125,7 +125,7 @@ for (const width of [1280, 390]) {
     );
     await expect(input).toHaveValue('Retained research draft');
     await expect(notice.getByRole('tab')).toHaveCount(0);
-    await expect(page.locator('[data-slot="pending-a2ui"]')).toHaveCount(0);
+    await expect(page.locator('[data-response-surface="a2ui"]')).toHaveCount(0);
     await page.screenshot({ path: `screenshots/linked-question-overview-${width}.png` });
     await notice.getByRole('button', { name: 'Go to question' }).click();
     await expect(page.getByRole('tab', { name: 'Decisions', exact: true })).toHaveAttribute(
