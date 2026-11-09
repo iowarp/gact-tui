@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type ComponentProps,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import type { highlightCode } from '@/components/ai-elements/code-block';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { InfoIcon } from '@/lib/icon-vocabulary';
@@ -30,6 +28,8 @@ import { IconButton } from './primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
+import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
+import { TechnicalDetailsButton } from './technical-details';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -457,10 +457,10 @@ export function AskDetails({
       className="mt-2 shrink-0 text-[11.5px] text-muted-foreground"
       data-slot="ask-details"
     >
-      <button
+      <TechnicalDetailsButton
         {...askKeyAttributes(['d'])}
-        aria-haspopup="dialog"
-        className="flex h-6 w-fit cursor-pointer items-center gap-1 whitespace-nowrap outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-6"
+        keyChip={<AskKeyChip askKey="d" className="ml-1" />}
         onClick={(event) => {
           const active = document.activeElement;
           opener.current =
@@ -469,12 +469,8 @@ export function AskDetails({
               : event.currentTarget;
           setOpen(true);
         }}
-        type="button"
-      >
-        <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
-        {title}
-        <AskKeyChip askKey="d" className="ml-1" />
-      </button>
+        title={title}
+      />
       <DialogFrame
         className="w-[clamp(360px,56vw,760px)]"
         description={description}
@@ -498,73 +494,6 @@ export function AskDetails({
 }
 
 const PREVIEW_LINES = 8;
-
-/** A hook arrow (↪) tiled once per line box down the gutter of a wrapped line. */
-const WRAP_MARKS: CSSProperties = {
-  maskImage:
-    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 10 5 5-5 5'/%3E%3Cpath d='M4 4v7a4 4 0 0 0 4 4h12'/%3E%3C/svg%3E\")",
-  maskPosition: 'right 12px top',
-  maskRepeat: 'repeat-y',
-  maskSize: '9px 1.65em',
-};
-
-const JSON_TOKEN =
-  /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/gu;
-
-/** JSON in theme syntax colors: keys, strings, numbers and literals. */
-function jsonLine(line: string): ReactNode {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  for (const match of line.matchAll(JSON_TOKEN)) {
-    const start = match.index ?? 0;
-    if (start > last) parts.push(line.slice(last, start));
-    const [token, text, colon, number, literal] = match;
-    const tone = colon
-      ? 'text-[var(--syntax-token-constant)]'
-      : text
-        ? 'text-[var(--syntax-token-string-expression)]'
-        : number || literal
-          ? 'text-[var(--syntax-token-function)]'
-          : undefined;
-    parts.push(
-      <span className={tone} key={start}>
-        {colon ? text : token}
-      </span>,
-    );
-    if (colon) parts.push(colon);
-    last = start + token.length;
-  }
-  if (last < line.length) parts.push(line.slice(last));
-  return parts;
-}
-
-type HighlightedLines = NonNullable<ReturnType<typeof highlightCode>>['tokens'];
-
-/** Theme-coloured tokens for a script, loaded with the shared highlighter; plain text until then. */
-function useHighlightedLines(code: string, language?: string): HighlightedLines | undefined {
-  const [state, setState] = useState<{ code: string; lines: HighlightedLines }>();
-  useEffect(() => {
-    if (language !== 'python') return;
-    let live = true;
-    const apply = (lines: HighlightedLines) => {
-      if (live) setState({ code, lines });
-    };
-    const load = async () => {
-      try {
-        const { highlightCode: highlight } = await import('@/components/ai-elements/code-block');
-        const cached = highlight(code, language, (result) => apply(result.tokens));
-        if (cached) apply(cached.tokens);
-      } catch {
-        // Plain lines stay; colour is not needed to read the script.
-      }
-    };
-    void load();
-    return () => {
-      live = false;
-    };
-  }, [code, language]);
-  return state?.code === code ? state.lines : undefined;
-}
 
 function AskCopyButton({ code, label }: { code: string; label: string }) {
   const [copied, setCopied] = useState(false);
