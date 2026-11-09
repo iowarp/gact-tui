@@ -40,6 +40,8 @@ export interface FileViewerTab {
   label: string;
   title?: string;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+  /** Catalog id of the key that switches to this view (see `FileMode`). */
+  shortcut?: string;
   content: ReactNode;
   /** Secondary inspection views live in the shared More menu. */
   secondary?: boolean;

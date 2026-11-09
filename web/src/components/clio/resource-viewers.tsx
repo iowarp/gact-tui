@@ -474,6 +474,7 @@ function ArtifactFileView({
           value: 'lineage',
           label: 'Lineage',
           icon: GitBranchIcon,
+          shortcut: 'lineage',
           content: (
             <ScrollArea className="h-full min-w-0 p-3">
               <ArtifactProvenance

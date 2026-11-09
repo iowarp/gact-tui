@@ -94,6 +94,7 @@ const SOURCE: FileMode = {
   label: 'Source',
   title: 'Source (.tex)',
   icon: CodeXmlIcon,
+  shortcut: 'render-source',
 };
 const BOTH: FileMode = {
   value: 'both',
