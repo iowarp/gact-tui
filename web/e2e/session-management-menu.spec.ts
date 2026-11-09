@@ -26,10 +26,10 @@ for (const theme of ['light', 'dark']) {
       for (const name of [
         'Pin',
         'Rename',
-        'Fork',
-        'Share',
+        'Fork into a new conversation',
+        'Share read-only link',
         'Export',
-        'Compact…',
+        'Compact conversation…',
         'Remove last message…',
         'Archive',
         'Delete…',
@@ -45,11 +45,9 @@ for (const theme of ['light', 'dark']) {
       await expect(
         page.getByRole('menuitem', { name: 'Download HTML', exact: true }),
       ).toBeVisible();
-      await page
-        .getByRole('menuitemcheckbox', { name: 'Include workspace files', exact: true })
-        .click();
+      await page.getByRole('menuitemcheckbox', { name: 'Workspace files', exact: true }).click();
       await expect(
-        page.getByRole('menuitemcheckbox', { name: 'Include session artifacts', exact: true }),
+        page.getByRole('menuitemcheckbox', { name: 'Artifacts', exact: true }),
       ).toBeChecked();
       await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toBeVisible();
       const submenu = page

@@ -147,7 +147,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
-      data-menu-key={menuKey}
+      data-menu-key={menuKey?.toLowerCase()}
       className={cn(
         "group/dropdown-menu-item relative flex cursor-default items-center whitespace-nowrap gap-2.5 min-h-[30px] rounded-[6px] px-2 py-1 text-[12.5px] outline-hidden select-none focus:bg-menu-highlight focus-visible:outline-[1.5px] focus-visible:outline-primary focus-visible:-outline-offset-[1.5px] focus:text-foreground not-data-[variant=destructive]:focus:**:text-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[variant=destructive]:*:[svg]:text-destructive",
         className,
@@ -291,7 +291,7 @@ function DropdownMenuSubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      data-menu-key={menuKey}
+      data-menu-key={menuKey?.toLowerCase()}
       className={cn(
         "flex cursor-default items-center whitespace-nowrap gap-2.5 min-h-[30px] rounded-[6px] px-2 py-1 text-[12.5px] outline-hidden select-none focus:bg-menu-highlight focus-visible:outline-[1.5px] focus-visible:outline-primary focus-visible:-outline-offset-[1.5px] focus:text-foreground not-data-[variant=destructive]:focus:**:text-foreground data-inset:pl-7 data-open:bg-menu-highlight data-open:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         className,

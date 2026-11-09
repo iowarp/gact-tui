@@ -1,7 +1,7 @@
-﻿import type { Session, SessionExportMode } from '@clio/core/v3';
+import type { Session, SessionExportMode } from '@clio/core/v3';
 import {
+  ArrowUpRightIcon,
   BellRingIcon,
-  CornerDownLeftIcon,
   GitForkIcon,
   LoaderCircleIcon,
   PinIcon,
@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -25,6 +24,8 @@ import { isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
 import { cn } from '@/lib/utils';
 import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-origin';
+import { KeyMenuItem } from './menu-key-items';
+import { selectMenuKey } from './select-menu-key';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
@@ -149,16 +150,16 @@ function SessionRow({
                   tooltip={false}
                 />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[290px]">
-                <DropdownMenuItem
-                  menuKey="↵"
+              <DropdownMenuContent align="start" className="w-[290px]" onKeyDown={selectMenuKey}>
+                <KeyMenuItem
+                  icon={<ArrowUpRightIcon aria-hidden="true" />}
+                  label="Open"
+                  menuKey="Enter"
                   onSelect={() => {
                     onVisit(session);
                     navigate(href);
                   }}
-                >
-                  <CornerDownLeftIcon aria-hidden="true" /> Open
-                </DropdownMenuItem>
+                />
                 <SessionOrganizeMenuItems
                   actions={actions}
                   onAction={onAction}

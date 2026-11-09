@@ -27,7 +27,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Fork' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Fork into a new conversation' }));
 
     expect(actions.onFork).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'appends a checkpoint; earlier messages stay in the transcript',
@@ -65,7 +65,7 @@ describe('ClioSessionActions', () => {
     actions.onCompact.mockRejectedValueOnce(new Error('Service unavailable'));
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
     await user.click(screen.getByRole('button', { name: 'Compact conversation' }));
 
     expect(actions.onCompact).toHaveBeenCalledOnce();
@@ -73,12 +73,59 @@ describe('ClioSessionActions', () => {
     expect(screen.getByRole('button', { name: 'Compact conversation' })).toBeEnabled();
   });
 
+  it('opens from Alt . and selects a row by its letter', async () => {
+    const user = userEvent.setup();
+    const actions = renderActions();
+
+    await user.keyboard('{Alt>}.{/Alt}');
+    expect(
+      await screen.findByRole('menuitem', { name: 'Fork into a new conversation' }),
+    ).toHaveAttribute('aria-keyshortcuts', 'F');
+    await user.keyboard('f');
+
+    expect(actions.onFork).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('offers the system terminal only when the host provides one', async () => {
+    const user = userEvent.setup();
+    const onOpenSystemTerminal = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(
+      <ClioSessionActions
+        onCompact={vi.fn()}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        title="EarthScope NDP"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
+    expect(screen.queryByRole('menuitem', { name: 'Open in system terminal' })).toBeNull();
+    await user.keyboard('{Escape}');
+
+    rerender(
+      <ClioSessionActions
+        onCompact={vi.fn()}
+        onOpenSystemTerminal={onOpenSystemTerminal}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        title="EarthScope NDP"
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
+    expect(screen.getByRole('menuitem', { name: 'Open in system terminal' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'T',
+    );
+    await user.keyboard('t');
+    expect(onOpenSystemTerminal).toHaveBeenCalledOnce();
+  });
+
   it('creates an expiring read-only share link', async () => {
     const user = userEvent.setup();
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Share' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Share read-only link' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Anyone with the link can view it');
     await user.click(screen.getByRole('button', { name: 'Create share link' }));
 

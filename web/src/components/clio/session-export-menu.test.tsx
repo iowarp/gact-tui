@@ -7,11 +7,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SessionExportMenu } from './session-export-menu';
+import { selectMenuKey } from './select-menu-key';
 
 afterEach(cleanup);
 
 describe('session export modes', () => {
-  it('defaults to transcript and enforces full implies effects', async () => {
+  it('downloads the transcript as HTML and the chosen files as a ZIP', async () => {
     const user = userEvent.setup();
     const download = vi.fn();
     render(
@@ -24,15 +25,42 @@ describe('session export modes', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export' }));
-    expect(screen.getByRole('menuitem', { name: 'Download HTML' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
-    expect(
-      screen.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
-    ).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
-    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toBeVisible();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAccessibleDescription(
+      'files the agent made',
+    );
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    // A ZIP needs files beyond the transcript.
+    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
+    expect(download).toHaveBeenCalledWith('transcript');
+  });
+
+  it('defaults to the transcript with artifacts in a ZIP', async () => {
+    const user = userEvent.setup();
+    const download = vi.fn();
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent onKeyDown={selectMenuKey}>
+          <SessionExportMenu onExport={download} />
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
+    await user.keyboard('z');
     expect(download).toHaveBeenCalledWith('effects');
   });
 });

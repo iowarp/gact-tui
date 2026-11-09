@@ -96,12 +96,12 @@ test('real conversation branch, cancel rewind, confirm rewind and reload', async
   await page
     .getByRole('button', { name: 'Actions for Compare calibration methods', exact: true })
     .click();
-  await expect(page.getByRole('menuitem', { name: 'Fork' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Fork into a new conversation' })).toBeVisible();
   await capture('docs-conversation-menu.png');
   const tailResponse = page.waitForResponse(
     (response) => response.url().endsWith('/fork') && response.request().method() === 'POST',
   );
-  await page.getByRole('menuitem', { name: 'Fork' }).click();
+  await page.getByRole('menuitem', { name: 'Fork into a new conversation' }).click();
   const tail = await (await tailResponse).json();
   await expect(page).toHaveURL(new RegExp(`/sessions/${tail.id}$`));
   await expect(

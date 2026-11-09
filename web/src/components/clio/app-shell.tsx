@@ -25,6 +25,8 @@ import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
 import { TopBarEndHost } from './top-bar-end-context';
 import { NamedTooltip } from './primitives/icon-button';
+import { useUpdatePane } from './update-page-host';
+import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
@@ -156,6 +158,7 @@ export function ClioAppShell({
 }: ClioAppShellProps) {
   const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
   const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
+  const updating = useUpdatePane();
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // The split workbench needs enough room for both its 400 px conversation
   // panel and 320 px canvas after the desktop navigation rail is accounted for.
@@ -261,7 +264,7 @@ export function ClioAppShell({
         )}
         <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
     </section>
   );
 

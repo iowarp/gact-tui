@@ -5,6 +5,7 @@ import {
   Share2Icon,
   Undo2Icon,
 } from 'lucide-react';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
@@ -23,10 +24,11 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { KeyMenuItem } from './menu-key-items';
+import { selectMenuKey } from './select-menu-key';
 import { ClioShareSessionDialog } from './share-session-dialog';
 import {
   DeleteResourceDialog,
@@ -38,7 +40,6 @@ import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
 import { SessionLifecycleMenuItems, SessionOrganizeMenuItems } from './session-management-menu';
 import { TopBarEnd } from './top-bar-end';
-import { useShortcut } from '@/lib/shortcuts/hooks';
 
 export interface ClioSessionActionsProps {
   title: string;
@@ -58,7 +59,7 @@ export interface ClioSessionActionsProps {
   trigger?: (state: { disabled: boolean }) => ReactNode;
   /**
    * A second trigger for the same menu at the end of the top bar (the ⋯). Alt . opens the
-   * menu from it.
+   * menu from it when it is there.
    */
   more?: (state: { disabled: boolean }) => ReactNode;
 }
@@ -81,8 +82,8 @@ export function ClioSessionActions({
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [openMenu, setOpenMenu] = useState<'trigger' | 'more'>();
-  useShortcut('conversation-menu', () => setOpenMenu('more'), {
-    enabled: Boolean(more) && !disabled && !pending,
+  useShortcut('conversation-menu', () => setOpenMenu(more ? 'more' : 'trigger'), {
+    enabled: !disabled && !pending,
   });
   const run = async (action: () => Promise<void>) => {
     setPending(true);
@@ -131,13 +132,19 @@ export function ClioSessionActions({
         </>
       ) : null}
       {onFork ? (
-        <DropdownMenuItem menuKey="F" onSelect={() => void run(onFork)}>
-          <GitForkIcon aria-hidden="true" /> Fork
-        </DropdownMenuItem>
+        <KeyMenuItem
+          icon={<GitForkIcon aria-hidden="true" />}
+          label="Fork into a new conversation"
+          menuKey="F"
+          onSelect={() => void run(onFork)}
+        />
       ) : null}
-      <DropdownMenuItem menuKey="L" onSelect={() => setSharing(true)}>
-        <Share2Icon aria-hidden="true" /> Share
-      </DropdownMenuItem>
+      <KeyMenuItem
+        icon={<Share2Icon aria-hidden="true" />}
+        label="Share read-only link"
+        menuKey="L"
+        onSelect={() => setSharing(true)}
+      />
       {management ? (
         <SessionExportMenu
           onExport={(mode) =>
@@ -157,16 +164,26 @@ export function ClioSessionActions({
       ) : null}
       <DropdownMenuSeparator />
       {onOpenSystemTerminal ? (
-        <DropdownMenuItem menuKey="T" onSelect={() => void run(onOpenSystemTerminal)}>
-          <ExternalLinkIcon aria-hidden="true" /> Open in terminal
-        </DropdownMenuItem>
+        <KeyMenuItem
+          icon={<ExternalLinkIcon aria-hidden="true" />}
+          label="Open in system terminal"
+          menuKey="T"
+          onSelect={() => void run(onOpenSystemTerminal)}
+        />
       ) : null}
-      <DropdownMenuItem menuKey="C" onSelect={() => setConfirmation('compact')}>
-        <PackageOpenIcon aria-hidden="true" /> Compact…
-      </DropdownMenuItem>
-      <DropdownMenuItem menuKey="V" onSelect={() => setConfirmation('undo')} variant="destructive">
-        <Undo2Icon aria-hidden="true" /> Remove last message…
-      </DropdownMenuItem>
+      <KeyMenuItem
+        icon={<PackageOpenIcon aria-hidden="true" />}
+        label="Compact conversation…"
+        menuKey="C"
+        onSelect={() => setConfirmation('compact')}
+      />
+      <KeyMenuItem
+        icon={<Undo2Icon aria-hidden="true" />}
+        label="Remove last message…"
+        menuKey="V"
+        onSelect={() => setConfirmation('undo')}
+        destructive
+      />
       {management ? (
         <>
           <DropdownMenuSeparator />
@@ -201,7 +218,11 @@ export function ClioSessionActions({
             </Button>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={trigger ? 'start' : 'end'} className="w-[290px]">
+        <DropdownMenuContent
+          align={trigger ? 'start' : 'end'}
+          className="w-[290px]"
+          onKeyDown={selectMenuKey}
+        >
           {items}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -215,7 +236,7 @@ export function ClioSessionActions({
               {more({ disabled: Boolean(disabled || pending) })}
             </DropdownMenuTrigger>
           </TopBarEnd>
-          <DropdownMenuContent align="end" className="w-[290px]">
+          <DropdownMenuContent align="end" className="w-[290px]" onKeyDown={selectMenuKey}>
             {items}
           </DropdownMenuContent>
         </DropdownMenu>

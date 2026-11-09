@@ -74,7 +74,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(filesList).toHaveCSS('cursor', 'pointer');
     const tree = page.getByRole('region', { name: 'Workspace file tree', exact: true });
     await tree.getByRole('button', { name: 'Expand folder results', exact: true }).click();
-    await tree.getByRole('treeitem', { name: /stations\.csv/ }).first().click();
+    await tree
+      .getByRole('treeitem', { name: /stations\.csv/ })
+      .first()
+      .click();
     // Canvas tabs are also reorder handles: retain their explicit grab cursor.
     await expect(page.getByRole('tab', { name: /stations\.csv/ }).first()).toHaveCSS(
       'cursor',
@@ -102,15 +105,13 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(exportSession).toHaveCSS('cursor', 'pointer');
     await exportSession.hover();
     const workspaceFiles = page.getByRole('menuitemcheckbox', {
-      name: 'Include workspace files',
+      name: 'Workspace files',
       exact: true,
     });
     await expect(workspaceFiles).toHaveCSS('cursor', 'pointer');
     await workspaceFiles.click();
     await expect(workspaceFiles).toBeChecked();
-    await expect(
-      page.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
-    ).toBeChecked();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toBeChecked();
     await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
