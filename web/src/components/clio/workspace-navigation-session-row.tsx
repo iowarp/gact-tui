@@ -1,9 +1,9 @@
 import type { Session, SessionExportMode } from '@clio/core/v3';
 import {
-  ArrowUpRightIcon,
   BellRingIcon,
   GitForkIcon,
   LoaderCircleIcon,
+  MessageSquareIcon,
   PinIcon,
   PinOffIcon,
 } from 'lucide-react';
@@ -145,7 +145,7 @@ function SessionRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60" onKeyDown={selectMenuKey}>
             <KeyMenuItem
-              icon={<ArrowUpRightIcon aria-hidden="true" />}
+              icon={<MessageSquareIcon aria-hidden="true" />}
               label="Open"
               menuKey="Enter"
               onSelect={() => {

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfigureIcon } from '@/lib/icon-vocabulary';
+import { NamedTooltip } from './primitives/icon-button';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { cn } from '@/lib/utils';
 import { ListGroupLabel } from './primitives/list-row';
@@ -70,7 +71,7 @@ export function DraftWorkspaceChip({
       <DropdownMenuTrigger asChild>
         <ChipTrigger
           aria-label={`Conversation workspace: ${label}`}
-          className="max-w-44"
+          className="max-w-44 shrink"
           disabled={disabled}
           icon={<FolderIcon />}
           label={label}
@@ -171,7 +172,8 @@ export function DraftAgentChip({
       <DropdownMenuTrigger asChild>
         <ChipTrigger
           aria-label={`Conversation agent: ${label}${changed ? `, ${changed}` : ''}`}
-          className="max-w-56"
+          // On a narrow row the agent's name truncates before anything else.
+          className="max-w-56 shrink-[100]"
           disabled={disabled || unavailable}
           icon={<BotIcon />}
           label={label}
@@ -203,7 +205,10 @@ export function DraftAgentChip({
   );
 }
 
-/** Opens the Agent tab in the workbench, where plugins, prompt and tools are changed. */
+/**
+ * Opens the Agent tab in the workbench, where plugins, prompt and tools are
+ * changed. On a narrow draft it folds to its gear, named by its tooltip.
+ */
 export function DraftCustomizeChip({
   changes = 0,
   disabled,
@@ -214,16 +219,20 @@ export function DraftCustomizeChip({
   onCustomize: () => void;
 }) {
   return (
-    <Button
-      aria-label={changes ? `Customize the agent (${changeCount(changes)})` : 'Customize the agent'}
-      className="h-7 gap-1.5 px-1.5 text-[13px] font-normal text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
-      disabled={disabled}
-      onClick={onCustomize}
-      size="sm"
-      variant="ghost"
-    >
-      <ConfigureIcon aria-hidden="true" />
-      Customize
-    </Button>
+    <NamedTooltip label="Customize the agent">
+      <Button
+        aria-label={
+          changes ? `Customize the agent (${changeCount(changes)})` : 'Customize the agent'
+        }
+        className="h-7 gap-1.5 px-1.5 text-[13px] font-normal text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
+        disabled={disabled}
+        onClick={onCustomize}
+        size="sm"
+        variant="ghost"
+      >
+        <ConfigureIcon aria-hidden="true" />
+        <span className="hidden @min-[30rem]/draft:inline">Customize</span>
+      </Button>
+    </NamedTooltip>
   );
 }
