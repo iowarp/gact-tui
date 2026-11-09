@@ -34,6 +34,16 @@ export async function showWorkbenchList(page: Page, name: string): Promise<void>
   await expect(page.getByRole('region', { name: `${name} list`, exact: true })).toBeVisible();
 }
 
+/** Hide whichever list sits beside the canvas tabs, giving the open tab the full width. */
+export async function hideWorkbenchList(page: Page): Promise<void> {
+  const pressed = page
+    .getByRole('toolbar', { name: 'Workbench lists', exact: true })
+    .locator('button[aria-pressed="true"]');
+  if ((await pressed.count()) === 0) return;
+  await pressed.first().click();
+  await expect(pressed).toHaveCount(0);
+}
+
 /** Reset the shared server and retain browser error checks for each workspace case. */
 export function setupWorkspaceBrowser(): void {
   const unexpectedErrors = new WeakMap<Page, string[]>();
