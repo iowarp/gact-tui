@@ -198,7 +198,7 @@ const ReferenceOption = memo(function ReferenceOption({
       {drillable || active ? (
         <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
           {drillable ? <span>Tab to look inside</span> : null}
-          {active ? <ShortcutKeys id="menu-pick" variant="inline" /> : null}
+          {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
         </span>
       ) : null}
     </div>
