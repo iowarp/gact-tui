@@ -450,8 +450,9 @@ describe('ClioWorkbench canvas', () => {
     const report = within(list).getByRole('button', { name: /report\.md/ });
     expect(report).toBeVisible();
     expect(within(list).getByRole('button', { name: /stations\.csv/ })).toBeVisible();
-    expect(within(list).getByText('Output')).toBeVisible();
-    expect(within(list).getByText('Input')).toBeVisible();
+    // Made here groups first; what this conversation only read follows under Earlier.
+    expect(within(list).getByText('This conversation')).toBeVisible();
+    expect(within(list).getByText('Earlier')).toBeVisible();
 
     await user.click(report);
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
