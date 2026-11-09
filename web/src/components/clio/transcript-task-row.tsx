@@ -4,7 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ActivityBody, ActivityDisclosure, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
-import { delegateTone } from './subagent-card';
+import { delegateTone } from './delegate-tone';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
 
 /**

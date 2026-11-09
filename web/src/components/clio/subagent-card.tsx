@@ -24,6 +24,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { delegateTone } from './delegate-tone';
 import { PresentationNavigation } from './presentation-navigation';
 
 export interface ClioSubagentCardProps {
@@ -47,36 +48,6 @@ export interface ClioAgentMessageLineProps {
   block: Extract<MessageBlock, { type: 'agent_message' }>;
   subagent?: SubagentRun;
   onOpen?: OpenSubagent;
-}
-
-/** A delegate's state as the row's status mark. */
-function delegateTone(state: RunState): StatusTone {
-  switch (state) {
-    case 'queued':
-    case 'running':
-    case 'recovering':
-    case 'stopping':
-    case 'cancellation_requested':
-    case 'pause_requested':
-      return 'running';
-    case 'waiting_permission':
-    case 'waiting_user':
-      return 'waiting';
-    case 'completed':
-      return 'success';
-    case 'failed':
-    case 'recovery_required':
-      return 'error';
-    case 'cancelled':
-    case 'interrupted':
-    case 'stopped':
-      return 'stopped';
-    case 'paused':
-    case 'yielded':
-      return 'idle';
-    default:
-      return 'warning';
-  }
 }
 
 const OUTCOME_TONE: Partial<Record<StatusTone, ActivityOutcomeTone>> = {
