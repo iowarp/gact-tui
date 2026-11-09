@@ -11,9 +11,12 @@ import {
 } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
-export type KeyCapSize = 'md' | 'sm';
+export type KeyCapSize = 'md' | 'row' | 'sm';
 
-/** One key cap: `Ctrl`, `⌘`, `L`. `sm` is the menu footer's and search row's cap. */
+/**
+ * One key cap: `Ctrl`, `⌘`, `L`. `row` is the ↵ on a menu's highlighted row
+ * (the spec's `.lr .ret .kk`); `sm` is the menu footer's and search row's cap.
+ */
 export function KeyCap({
   children,
   size = 'md',
@@ -30,7 +33,9 @@ export function KeyCap({
         'inline-flex shrink-0 items-center justify-center rounded-[5px] border border-b-2 border-key-border bg-key font-mono leading-none font-normal whitespace-nowrap text-foreground',
         size === 'sm'
           ? 'h-[18px] min-w-[18px] px-1 text-[10px]'
-          : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
+          : size === 'row'
+            ? 'h-5 min-w-5 px-1.5 text-[11px]'
+            : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
         className,
       )}
     >
@@ -39,7 +44,7 @@ export function KeyCap({
   );
 }
 
-export type ShortcutKeysVariant = 'caps' | 'text' | 'inline';
+export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row';
 
 interface ShortcutKeysProps {
   /** A catalog id; the key follows the catalog everywhere it is shown. */
@@ -51,6 +56,7 @@ interface ShortcutKeysProps {
   /**
    * `caps`: one cap per key (the shortcut sheet). `text`: one quiet line (a
    * menu's right column, a tooltip). `inline`: one small chip inside a button.
+   * `row`: one full cap at the end of a menu's highlighted row.
    */
   variant?: ShortcutKeysVariant;
   /** Cap size for `caps`. */
@@ -104,6 +110,13 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     );
   }
   const text = shortcutText(definition, platform);
+  if (variant === 'row') {
+    return (
+      <KeyCap size="row" className={className}>
+        {text}
+      </KeyCap>
+    );
+  }
   if (variant === 'inline') {
     return (
       <kbd
