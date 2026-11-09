@@ -154,6 +154,16 @@ async function expectSelectedTabVisible(canvas: Locator) {
     .toBe(true);
 }
 
+/** Select a tab, from the list at the end of the row when the row has no room for it. */
+async function selectCanvasTab(canvas: Locator, name: string) {
+  const tab = canvas.getByRole('tab', { name, exact: true });
+  if (!(await tab.isVisible())) {
+    await canvas.getByRole('button', { name: /^\d+ more tabs$/ }).click();
+    await canvas.page().getByRole('menuitem', { name, exact: true }).click();
+  }
+  await tab.click();
+}
+
 test('selected canvas tab stays fully visible through resizing, reordering and maximize/restore', async ({
   page,
 }, testInfo) => {
@@ -202,7 +212,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(canvas);
   }
-  await canvas.getByRole('tab', { name: 'Agent', exact: true }).click();
+  await selectCanvasTab(canvas, 'Agent');
   await expectSelectedTabVisible(canvas);
   const resize = await page
     .getByRole('separator', { name: 'Resize workspace canvas', exact: true })
@@ -219,7 +229,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   await expectSelectedTabVisible(canvas);
   await page.keyboard.press('Escape');
   await expectSelectedTabVisible(canvas);
-  await canvas.getByRole('tab', { name: longTitle, exact: true }).click();
+  await selectCanvasTab(canvas, longTitle);
   for (const width of [640, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expectSelectedTabVisible(
