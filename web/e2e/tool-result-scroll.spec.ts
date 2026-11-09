@@ -100,11 +100,11 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
   // Its composer briefly coexists with the docked composer during the transition.
   await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: /conversation welcome$/i })).toHaveCount(0);
-  const responses = page
-    .getByRole('region', { name: 'Conversation workspace', exact: true })
-    .getByRole('button', { name: 'Agent needs your attention', exact: true });
-  await expect(responses).toHaveCount(1);
-  await responses.click();
+  await expect(
+    page
+      .getByRole('region', { name: 'Conversation workspace', exact: true })
+      .getByRole('region', { name: 'Agent needs your attention', exact: true }),
+  ).toHaveCount(1);
   const activity = page.getByRole('button', { name: /^Activity:/ }).last();
   await expect(activity).toBeVisible();
   if ((await activity.getAttribute('aria-expanded')) === 'false') await activity.click();

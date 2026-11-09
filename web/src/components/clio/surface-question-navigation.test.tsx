@@ -191,7 +191,7 @@ describe('linked surface questions', () => {
       expect(screen.getAllByRole('tab')).toHaveLength(5);
       expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
       expect(input).toHaveValue('Retained draft');
-      expect(document.querySelectorAll('[data-slot="pending-a2ui"]')).toHaveLength(0);
+      expect(document.querySelectorAll('[data-response-surface="a2ui"]')).toHaveLength(0);
       expect(repository.a2uiAction).not.toHaveBeenCalled();
       await user.click(screen.getByRole('button', { name: 'Go to question' }));
       await waitFor(() =>

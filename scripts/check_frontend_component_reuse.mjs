@@ -88,18 +88,14 @@ const requiredImports = {
   ],
   'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
-  // October 16 attention redesign: Queue owns the shared pager boundary. The
-  // extracted permission decision composes the existing Button/Select rather
-  // than another nested Alert. Reviewed in light/dark and narrow browser cases;
-  // see docs/design/attention-panel.md. Preserve the complete sourced chain.
-  'web/src/components/clio/pending-interactions.tsx': [
-    '@/components/ai-elements/queue',
-    './permission-response',
-  ],
-  'web/src/components/clio/permission-response.tsx': [
-    '@/components/ui/button',
-    '@/components/ui/select',
-  ],
+  // RC1 decision cards (conversation-states v24) deliberately replace the
+  // Queue pager and Button/Select scope picker: every docked decision is one
+  // AskCard with numbered scope buttons and an in-card pager. AskCard owns the
+  // sourced Button and TechnicalDetails composition. Reviewed side by side
+  // against the spec in light/dark at 1280 and 768.
+  'web/src/components/clio/pending-interactions.tsx': ['./ask-card-keys', './permission-response'],
+  'web/src/components/clio/permission-response.tsx': ['./ask-card'],
+  'web/src/components/clio/ask-card.tsx': ['@/components/ui/button', './technical-details'],
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
     '@/components/ai-elements/file-tree',
