@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { downloadFromFrame } from './file-viewer-setup';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
@@ -242,7 +243,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   await expect(message.getByRole('img', { name: 'sent-figure.png', exact: true })).toBeVisible();
   await message.getByRole('button', { name: 'Open sent-figure.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+  const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(toolbar).toHaveCount(1);
   await expect(canvas.getByRole('img', { name: 'sent-figure.png', exact: true })).toBeVisible();
   const geometry = await toolbar.evaluate((element) => ({
@@ -252,9 +253,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   }));
   expect(geometry.height).toBeLessThanOrEqual(40);
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
-  const download = page.waitForEvent('download');
-  await toolbar.getByRole('button', { name: 'Download PNG', exact: true }).click();
-  const saved = await download;
+  const saved = await downloadFromFrame(page, toolbar);
   expect(saved.suggestedFilename()).toBe('sent-figure.png');
   const savedPath = await saved.path();
   expect(savedPath).not.toBeNull();

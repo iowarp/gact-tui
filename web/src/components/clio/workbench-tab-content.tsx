@@ -15,6 +15,7 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
+import { WorkbenchActivityDetail } from './workbench-activity-detail';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
@@ -73,6 +74,8 @@ export interface WorkbenchTabContentProps {
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onUndoDiff: (sessionId: string, workspaceId: string, changeId: string) => Promise<unknown>;
   onOpenTab: (tab: WorkbenchTab) => void;
+  /** Show a folder of this workspace in the Files list. */
+  onShowFolder: (directory: string) => void;
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
@@ -109,6 +112,7 @@ export function WorkbenchTabContent({
   onOpenSubagent,
   onUndoDiff,
   onOpenTab,
+  onShowFolder,
   onReplaceTab,
   onSelectFilesPath,
   onSelectWorkspaceFilePath,
@@ -124,21 +128,26 @@ export function WorkbenchTabContent({
       );
     case 'session':
       return sessionView;
+    case 'activity':
+      return (
+        <WorkbenchActivityDetail
+          key={tab.id}
+          onOpenSubagent={onOpenSubagent}
+          onOpenTab={onOpenTab}
+          tab={tab}
+        />
+      );
     case 'science-log':
       return (
         <ScienceLogTab
           key={sessionId}
           onOpenFolder={(path) =>
-            onOpenTab({
-              id: 'files',
-              kind: 'files',
-              label: 'Files',
-              workspaceId,
-              directory: workspaceFilePath(
+            onShowFolder(
+              workspaceFilePath(
                 path,
                 useLiveStore.getState().entities.workspaces[workspaceId]?.path,
               ),
-            })
+            )
           }
           onOpenSubagent={onOpenSubagent}
           sessionId={sessionId}
@@ -219,6 +228,7 @@ export function WorkbenchTabContent({
     case 'workspace-file':
       return (
         <ScopedWorkspaceFileBrowser
+          mode="preview"
           sourceWorkspaceId={workspaceId}
           sessionId={sessionId}
           files={files}
@@ -255,6 +265,7 @@ export function WorkbenchTabContent({
           }
           onUndo={(changeId) => onUndoDiff(tab.sessionId, tab.workspaceId, changeId)}
           pending={diffActionPending}
+          workspaceId={tab.workspaceId}
         />
       );
     case 'artifact':

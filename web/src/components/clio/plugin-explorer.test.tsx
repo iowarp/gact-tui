@@ -84,7 +84,7 @@ it('browses a pack member and its source in the shared reader without changing t
   expect(
     await within(dialog).findByRole('heading', { name: 'PDF work' }, { timeout: 10_000 }),
   ).toBeVisible();
-  expect(within(dialog).getByRole('button', { name: 'Copy SKILL.md' })).toBeVisible();
+  expect(within(dialog).getByRole('button', { name: 'Copy contents' })).toBeVisible();
   // Exploring never asks the source for trust.
   expect(within(dialog).queryByRole('button', { name: /^Trust/u })).toBeNull();
 }, 20_000);
