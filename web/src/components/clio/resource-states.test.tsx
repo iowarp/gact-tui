@@ -24,15 +24,19 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function framed(setFacts = vi.fn()) {
+function framed(setFacts: ReturnType<typeof vi.fn> | null = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Frame({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={client}>
         <TooltipProvider>
-          <FileViewerFactsRegistry.Provider value={setFacts}>
-            {children}
-          </FileViewerFactsRegistry.Provider>
+          {setFacts ? (
+            <FileViewerFactsRegistry.Provider value={setFacts}>
+              {children}
+            </FileViewerFactsRegistry.Provider>
+          ) : (
+            children
+          )}
         </TooltipProvider>
       </QueryClientProvider>
     );
@@ -101,14 +105,20 @@ describe('viewer states', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a too-large file by its size, in words, with Download', async () => {
+  it('shows a too-large file by its size, in words, with Preview and Download', async () => {
     repository.readWorkspaceFileBytes.mockResolvedValue(new Uint8Array([1]));
-    render(<ViewerTooLarge source={binary} />, { wrapper: framed() });
+    const onPreview = vi.fn();
+    render(<ViewerTooLarge onPreview={onPreview} source={binary} />, { wrapper: framed() });
     const state = document.querySelector('[data-kind="too-large"]') as HTMLElement;
     expect(state).toHaveTextContent('2.1 GB');
     expect(state).toHaveTextContent('Too large to preview');
-    // A browser has no app for it; the one way out is the download.
-    expect(within(state).getAllByRole('button')).toHaveLength(1);
+    expect(
+      within(state)
+        .getAllByRole('button')
+        .map((button) => button.ariaLabel),
+    ).toEqual(['Preview', 'Download']);
+    await userEvent.click(within(state).getByRole('button', { name: 'Preview' }));
+    expect(onPreview).toHaveBeenCalledTimes(1);
     await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
       expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
@@ -118,13 +128,18 @@ describe('viewer states', () => {
     );
   });
 
-  it('names the format of a file with no preview and adds it to the frame facts', () => {
+  it('names the format of a file with no preview, adds it to the frame facts and offers Download', () => {
     const setFacts = vi.fn();
     render(<ViewerNoPreview source={binary} />, { wrapper: framed(setFacts) });
     const state = document.querySelector('[data-kind="no-preview"]') as HTMLElement;
     expect(state).toHaveTextContent('.grib2');
     expect(state).toHaveTextContent('No preview for this format');
-    expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
+    // A browser has no app for the format, so Download is the way out.
+    expect(
+      within(state)
+        .getAllByRole('button')
+        .map((button) => button.ariaLabel),
+    ).toEqual(['Download']);
     expect(setFacts).toHaveBeenCalledWith(expect.any(String), ['.grib2']);
   });
 
