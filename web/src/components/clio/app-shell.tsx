@@ -373,6 +373,8 @@ export function ClioAppShell({
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            // The spec's narrow layout keeps the folded left bar visible and undimmed.
+            overlayClassName="bg-transparent"
             ref={workbenchSheetRef}
             showCloseButton={false}
             side="right"

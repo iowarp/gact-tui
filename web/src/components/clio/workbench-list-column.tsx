@@ -244,14 +244,20 @@ function FilesList({
           selectedPath={selectedPath}
           sessionId={sessionId}
           workspaceId={workspaceId}
+          legend={
+            changedPaths.size ? (
+              <>
+                <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
+                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
+                  <span className="truncate">
+                    <span className="text-changed">Teal</span>: changed in this conversation
+                  </span>
+                </p>
+              </>
+            ) : null
+          }
         />
       </div>
-      {changedPaths.size ? (
-        <p className="flex h-7 shrink-0 items-center gap-1.5 truncate border-t border-border px-2.5 text-[11px] whitespace-nowrap text-faint">
-          <span className="font-medium text-changed">Teal</span>
-          <span className="truncate">changed in this conversation</span>
-        </p>
-      ) : null}
     </div>
   );
 }

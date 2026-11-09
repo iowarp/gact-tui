@@ -393,13 +393,15 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // The former Work tab is now the Activity list's finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
-      await page
+      const show = page
         .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /^Work/u })
-        .first()
-        .click();
+        .getByRole('button', { name: 'Show finished work' })
+        .filter({ visible: true })
+        .first();
+      if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
