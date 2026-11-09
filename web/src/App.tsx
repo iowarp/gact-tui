@@ -126,11 +126,13 @@ export default function App() {
     if (!desktopHost || !credentialsReady) return;
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
-  useMenuAction('open-settings', () =>
+  const openSettings = () =>
     navigate('/settings/general', {
       state: settingsReturnState,
-    }),
-  );
+    });
+  useMenuAction('open-settings', openSettings);
+  // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
+  useShortcut('settings', openSettings);
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
   useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));

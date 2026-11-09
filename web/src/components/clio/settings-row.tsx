@@ -57,7 +57,7 @@ export function SettingsRow({
           'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
           inlineControl
             ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : 'grid-cols-1 @md:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
+            : 'grid-cols-1 @sm:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
@@ -90,7 +90,7 @@ export function SettingsRow({
         </div>
         <div
           data-slot="settings-control"
-          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end"
+          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @sm:justify-end"
         >
           {children}
         </div>

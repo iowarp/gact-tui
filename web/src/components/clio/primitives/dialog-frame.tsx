@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
 
 /** Focus goes to the element marked with this attribute when a frame opens. */
@@ -56,6 +57,8 @@ export interface DialogFrameProps {
   cancelLabel?: string;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
+  /** Explanation behind the ⓘ in the title row. */
+  help?: ReactNode;
   className?: string;
 }
 
@@ -74,8 +77,10 @@ export const DialogFrame = memo(function DialogFrame({
   confirm,
   cancelLabel = confirm ? 'Cancel' : 'Close',
   secondary,
+  help,
   className,
 }: DialogFrameProps) {
+  const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
@@ -102,11 +107,11 @@ export const DialogFrame = memo(function DialogFrame({
           aria-hidden="true"
           className="mx-auto mt-2 hidden h-1 w-9 rounded-full bg-border max-[599px]:block"
         />
-        <div className="flex min-w-0 items-center gap-2 pt-3 pr-2.5 pl-[18px]">
+        <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
           {icon ? (
             <span
               aria-hidden="true"
-              className="grid size-4 shrink-0 place-items-center text-muted-foreground"
+              className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4"
             >
               {icon}
             </span>
@@ -114,12 +119,17 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogTitle className="min-w-0 flex-1 truncate text-[14px] leading-7 [overflow-wrap:normal]">
             {title}
           </DialogTitle>
+          {help ? (
+            <InfoTip className="size-7" label={`About ${title}`}>
+              {help}
+            </InfoTip>
+          ) : null}
           <FrameClose />
         </div>
         {description ? (
           <DialogDescription
             title={description}
-            className="truncate pr-3.5 pl-[18px] text-[12.5px] [overflow-wrap:normal]"
+            className="-mt-2 truncate pr-3.5 pb-1 pl-[18px] text-[12.5px] [overflow-wrap:normal]"
           >
             {description}
           </DialogDescription>
@@ -127,14 +137,29 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div className="min-w-0 px-[18px] pt-3 pb-1 text-[13px]">{children}</div>
+          <div className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">{children}</div>
         ) : null}
-        <div className="flex min-w-0 items-center justify-end gap-2 px-3.5 pt-3 pb-3.5">
+        <div
+          data-slot="dialog-frame-footer"
+          className="mt-1.5 flex min-w-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+        >
+          <span
+            aria-hidden="true"
+            className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
+          >
+            <ShortcutKeys keys={['Esc']} variant="caps" />
+            <span className="truncate">{cancelLabel}</span>
+            {confirmKeys && confirm ? (
+              <>
+                <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
+                <span className="truncate">{confirm.label}</span>
+              </>
+            ) : null}
+          </span>
           {secondary}
           <DialogPrimitive.Close asChild>
-            <Button variant="outline" data-initial-focus="">
+            <Button variant="ghost" data-initial-focus="">
               {cancelLabel}
-              <ShortcutKeys keys={['Esc']} variant="inline" />
             </Button>
           </DialogPrimitive.Close>
           {confirm ? (
@@ -144,9 +169,6 @@ export const DialogFrame = memo(function DialogFrame({
               onClick={confirm.onConfirm}
             >
               {confirm.label}
-              {confirm.keyboard === false ? null : (
-                <ShortcutKeys keys={['Ctrl+Enter']} variant="inline" />
-              )}
             </Button>
           ) : null}
         </div>
