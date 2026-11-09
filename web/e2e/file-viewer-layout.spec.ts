@@ -29,7 +29,7 @@ for (const width of [1280, 390]) {
     await expect(toolbar).toContainText('earthquakes.csv');
     // A narrow frame bar folds the modes to one menu; the selection holds either way.
     await expect(
-      toolbar.getByRole('tab', { name: 'Preview', exact: true, includeHidden: true }),
+      toolbar.getByRole('tab', { name: 'Data', exact: true, includeHidden: true }),
     ).toHaveAttribute('aria-selected', 'true');
     await expect(viewer.getByText('earthquakes.csv', { exact: true })).toHaveCount(1);
     await expect(viewer.getByText('CSV preview', { exact: true })).toHaveCount(0);
@@ -46,7 +46,7 @@ for (const width of [1280, 390]) {
     expect(rowCount).toBeGreaterThan(11);
     await grid.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expect(grid.locator(`[role="row"][aria-rowindex="${rowCount}"]`)).toBeVisible();
-    for (const name of ['Lineage', 'Preview']) {
+    for (const name of ['Source', 'Lineage', 'Data']) {
       await selectFileView(page, viewer, name);
     }
     await expect(grid).toBeVisible();

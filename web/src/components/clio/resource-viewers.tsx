@@ -382,7 +382,7 @@ function ArtifactFileView({
         error={
           text.error instanceof ArtifactRecoveryError
             ? text.error.message
-            : 'The service remembers this result, but its saved content is no longer available. Lineage and Versions still show where it came from.'
+            : 'The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.'
         }
         onRetry={() => void text.refetch()}
       />

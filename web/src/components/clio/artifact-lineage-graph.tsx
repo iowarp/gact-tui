@@ -1,5 +1,5 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
-import { FileIcon, TriangleAlertIcon, WrenchIcon } from 'lucide-react';
+import { TriangleAlertIcon, WrenchIcon } from 'lucide-react';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import {
   type LineageGraphNode,
 } from './artifact-lineage-layout';
 import type { LineageActivity } from './artifact-lineage-view';
+import { ArtifactTypeIcon } from './artifact-type-icon';
 import { useFileViewerFacts } from './file-viewer-facts';
 
 /**
@@ -66,23 +67,26 @@ export function ArtifactLineageGraph({
   return (
     <LineageGraph
       graph={chain ?? graph}
+      self={artifact}
       label={chain ? `Versions of ${artifact.name}` : 'Artifact lineage graph'}
       onOpen={open}
     />
   );
 }
 
-const NODE_ICON = { file: FileIcon, self: FileIcon, action: WrenchIcon, gap: TriangleAlertIcon };
+const NODE_ICON = { action: WrenchIcon, gap: TriangleAlertIcon };
 
 /** One node: a button that opens what it names, with its hover card. */
 function LineageNode({
   node,
+  self,
   onOpen,
 }: {
   node: LineageGraphNode;
+  self: Artifact;
   onOpen?: (node: LineageGraphNode) => void;
 }) {
-  const Icon = NODE_ICON[node.kind];
+  const Icon = node.kind === 'action' || node.kind === 'gap' ? NODE_ICON[node.kind] : undefined;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -107,14 +111,17 @@ function LineageNode({
               'shadow-[0_0_0_2px_color-mix(in_oklab,var(--accent-foreground)_16%,transparent),5px_5px_0_-1px_var(--background),5px_5px_0_0_var(--border),10px_10px_0_-1px_var(--background),10px_10px_0_0_var(--border)]',
           )}
         >
-          <Icon
-            aria-hidden="true"
-            className={cn(
-              'size-3.5 shrink-0 text-muted-foreground',
-              node.kind === 'gap' && 'text-warning',
-              node.kind === 'self' && 'text-accent-foreground',
-            )}
-          />
+          {Icon ? (
+            <Icon
+              aria-hidden="true"
+              className={cn(
+                'size-3.5 shrink-0 text-muted-foreground',
+                node.kind === 'gap' && 'text-warning',
+              )}
+            />
+          ) : (
+            <ArtifactTypeIcon artifact={node.artifact ?? self} className="size-3.5 shrink-0" />
+          )}
           <span className="flex min-w-0 flex-col leading-tight">
             <b
               className={cn(
@@ -142,11 +149,13 @@ function LineageNode({
 /** The drawn graph: dot grid, curved edges with arrows, and the nodes over them. */
 function LineageGraph({
   graph,
+  self,
   label,
   onOpen,
   children,
 }: {
   graph: LineageGraphLayout;
+  self: Artifact;
   label: string;
   onOpen?: (node: LineageGraphNode) => void;
   children?: ReactNode;
@@ -157,9 +166,13 @@ function LineageGraph({
     <div
       role="region"
       aria-label={label}
-      className="h-full min-h-0 min-w-0 overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px]"
+      className="flex h-full min-h-0 min-w-0 overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px]"
     >
-      <div className="relative" style={{ width: graph.width, height: graph.height }}>
+      {/* Centred while it fits; auto margins fall to zero and it scrolls once it does not. */}
+      <div
+        className="relative m-auto shrink-0"
+        style={{ width: graph.width, height: graph.height }}
+      >
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 overflow-visible"
@@ -206,6 +219,7 @@ function LineageGraph({
           <LineageNode
             key={node.id}
             node={node}
+            self={self}
             onOpen={canOpenLineageNode(node) ? onOpen : undefined}
           />
         ))}

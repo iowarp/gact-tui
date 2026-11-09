@@ -11,6 +11,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ResourceLoading } from './resource-states';
@@ -79,6 +80,9 @@ export function ArtifactLineageView({
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
+            <Button variant="outline" size="sm" onClick={() => void lineage.refetch()}>
+              Retry
+            </Button>
             <TechnicalDetails
               className="text-xs text-muted-foreground"
               summaryClassName="rounded-sm focus-visible:ring-2 focus-visible:ring-ring"

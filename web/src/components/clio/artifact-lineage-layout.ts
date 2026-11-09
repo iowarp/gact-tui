@@ -49,8 +49,8 @@ export interface LineageGraphLayout {
 
 export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
-const MAX_WIDTH = 150;
-const RANK_GAP = 28;
+const MAX_WIDTH = 116;
+const RANK_GAP = 22;
 const ROW_GAP = 40;
 const MARGIN = 10;
 
