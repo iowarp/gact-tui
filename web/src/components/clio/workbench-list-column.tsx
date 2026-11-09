@@ -476,9 +476,7 @@ function ArtifactsList({
             className="cursor-pointer text-[12.5px]"
             icon={<ArtifactTypeIcon artifact={artifact} className="size-3.5" />}
             meta={
-              <span className="w-8 text-right font-mono text-[11px] text-faint tabular-nums">
-                {artifact.version !== undefined ? `v${artifact.version}` : null}
-              </span>
+              artifact.version !== undefined ? <MetaValue>v{artifact.version}</MetaValue> : null
             }
             onClick={() => onOpenArtifact(artifact)}
             onKeyDown={activateOnKey(() => onOpenArtifact(artifact))}
