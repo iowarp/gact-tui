@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { MessageMarkButton } from './message-mark-button';
 
 afterEach(cleanup);
@@ -14,7 +15,9 @@ it('waits for server acknowledgement without claiming an unsaved mark', async ()
         resolve = done;
       }),
   );
-  const { rerender } = render(<MessageMarkButton marked={false} onMark={onMark} />);
+  const { rerender } = render(<MessageMarkButton marked={false} onMark={onMark} />, {
+    wrapper: TooltipProvider,
+  });
   await user.click(screen.getByRole('button', { name: 'Mark message' }));
   expect(onMark).toHaveBeenCalledWith(true);
   expect(screen.getByRole('button')).toBeDisabled();
@@ -30,7 +33,7 @@ it('waits for server acknowledgement without claiming an unsaved mark', async ()
 it('leaves the saved state intact after a failed save and supports keyboard use', async () => {
   const user = userEvent.setup();
   const onMark = vi.fn().mockRejectedValue(new Error('Offline'));
-  render(<MessageMarkButton marked onMark={onMark} />);
+  render(<MessageMarkButton marked onMark={onMark} />, { wrapper: TooltipProvider });
   await user.tab();
   await user.keyboard('{Enter}');
   expect(onMark).toHaveBeenCalledWith(false);

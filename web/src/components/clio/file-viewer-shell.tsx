@@ -153,8 +153,9 @@ export function FileViewerShell({
       toast.error(error instanceof Error ? error.message : 'Could not open fullscreen.');
     }
   };
+  const rendererFacts = [...facts.values()].flat();
   const what = [
-    ...[...facts.values()].flat(),
+    ...rendererFacts,
     ...(identity.size === undefined ? [] : [formatBytes(identity.size)]),
   ];
   const contents = [...readers.values()].at(-1);
@@ -199,7 +200,14 @@ export function FileViewerShell({
                               )
                             }
                             what={what.map((fact, index) => (
-                              <span key={`${index}:${fact}`} className="tabular-nums">
+                              <span
+                                key={`${index}:${fact}`}
+                                className="tabular-nums"
+                                // The renderer's first fact says where you are; it outlasts the rest.
+                                data-frame-position={
+                                  index === 0 && rendererFacts.length > 0 ? '' : undefined
+                                }
+                              >
                                 {fact}
                               </span>
                             ))}

@@ -22,6 +22,7 @@ import {
 } from '@/lib/model-range-tokens';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { ModelPickerRangeSlider, type RangeSliderOption } from './model-picker-range-slider';
+import { cn } from '@/lib/utils';
 
 interface FacetSlidersProps {
   tokens: readonly ModelFilterToken[];
@@ -123,10 +124,14 @@ export function ModelPickerFacetSliders({
       />
       <ModelPickerRangeSlider
         aside={
-          <Badge asChild radius="default" size="lg" variant={recent ? 'primary-light' : 'outline'}>
+          <Badge asChild radius="default" size="lg" variant="outline">
             <button
               aria-pressed={recent}
-              className="cursor-pointer gap-1 font-normal"
+              className={cn(
+                'cursor-pointer gap-1 font-normal hover:bg-hover',
+                recent &&
+                  'border-transparent bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
               data-slot="facet-recent"
               onClick={() =>
                 onTokensChange(

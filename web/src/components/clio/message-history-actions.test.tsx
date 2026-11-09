@@ -1,17 +1,18 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioMessageHistoryActions } from './message-history-actions';
 
 afterEach(cleanup);
 
 describe('ClioMessageHistoryActions', () => {
-  it('branches immediately from the selected message', async () => {
+  it('forks immediately from the selected message', async () => {
     const user = userEvent.setup();
     const onFork = vi.fn().mockResolvedValue(undefined);
 
-    render(<ClioMessageHistoryActions onFork={onFork} />);
-    await user.click(screen.getByRole('button', { name: 'Branch from here' }));
+    render(<ClioMessageHistoryActions onFork={onFork} />, { wrapper: TooltipProvider });
+    await user.click(screen.getByRole('button', { name: 'Fork into a new conversation' }));
 
     expect(onFork).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -21,8 +22,8 @@ describe('ClioMessageHistoryActions', () => {
     const user = userEvent.setup();
     const onRewind = vi.fn().mockResolvedValue(undefined);
 
-    render(<ClioMessageHistoryActions onRewind={onRewind} />);
-    expect(screen.queryByRole('button', { name: 'Branch from here' })).not.toBeInTheDocument();
+    render(<ClioMessageHistoryActions onRewind={onRewind} />, { wrapper: TooltipProvider });
+    expect(screen.queryByRole('button', { name: 'Fork into a new conversation' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Rewind to here' }));
 
     expect(onRewind).not.toHaveBeenCalled();
@@ -37,7 +38,7 @@ describe('ClioMessageHistoryActions', () => {
     const user = userEvent.setup();
     const onRewind = vi.fn().mockRejectedValue(new Error('Service unavailable'));
 
-    render(<ClioMessageHistoryActions onRewind={onRewind} />);
+    render(<ClioMessageHistoryActions onRewind={onRewind} />, { wrapper: TooltipProvider });
     await user.click(screen.getByRole('button', { name: 'Rewind to here' }));
     await user.click(screen.getByRole('button', { name: 'Remove later messages' }));
 

@@ -17,6 +17,7 @@ import { ShortcutKeys } from './primitives/key-chip';
  * chevron and a uniform trigger style.
  */
 export function TechnicalDetails({
+  beside,
   children,
   className,
   contentClassName,
@@ -32,6 +33,8 @@ export function TechnicalDetails({
   contentClassName?: string;
   summaryClassName?: string;
   title: string;
+  /** Actions on the trigger's line, before it (a row's fix beside its details). */
+  beside?: ReactNode;
   /** A key chip after the title, for a surface that opens it with a key (D). */
   shortcut?: string;
   /** A quiet line beside the trigger saying what is inside. */
@@ -62,10 +65,11 @@ export function TechnicalDetails({
   );
   return (
     <Collapsible className={cn('group', className)} onOpenChange={onOpenChange}>
-      {hint ? (
-        <div className="flex min-w-0 items-center gap-2">
+      {beside || hint ? (
+        <div className={cn('flex min-w-0 items-center', beside ? 'gap-1' : 'gap-2')}>
+          {beside}
           {trigger}
-          <span className="min-w-0 truncate text-muted-foreground">{hint}</span>
+          {hint ? <span className="min-w-0 truncate text-muted-foreground">{hint}</span> : null}
         </div>
       ) : (
         trigger

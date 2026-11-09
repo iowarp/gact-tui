@@ -50,7 +50,8 @@ describe('ConversationProcessSequence task blocks', () => {
   it('labels the task state for a reader rather than echoing the wire value', () => {
     renderTask({ ...task, state: 'waiting_permission' });
 
-    expect(screen.getByText('Permission needed')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Permission needed' })).toBeInTheDocument();
+    expect(screen.getByText('permission needed')).toBeVisible();
     expect(screen.queryByText('waiting_permission')).not.toBeInTheDocument();
   });
 
@@ -58,7 +59,7 @@ describe('ConversationProcessSequence task blocks', () => {
     renderTask(undefined);
 
     expect(screen.getByRole('button', { name: /Task unavailable/ })).toBeVisible();
-    expect(screen.getByText('Unavailable')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Unavailable' })).toBeInTheDocument();
   });
 });
 

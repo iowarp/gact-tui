@@ -85,12 +85,8 @@ export function WorkspaceTranscript({
   damaged: boolean;
   navigationActions: ReturnType<typeof useWorkspaceNavigationActions>['navigationActions'];
   showWelcome: boolean;
-  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
-  welcomeDisabled?: boolean;
   dockedComposerHeight: number;
   composer: (variant: 'docked' | 'welcome') => ReactNode;
-  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
-  onSelectPrompt?: (prompt: string) => void;
   onOpenReference: (reference: WorkspaceReference) => void;
   /** A background task's link opens the session's background tasks (Evidence). */
   onOpenTasks: () => void;
@@ -136,7 +132,9 @@ export function WorkspaceTranscript({
                 attentionView={attention.view}
                 bottomInset={dockedComposerHeight}
                 error={transcriptError}
+                onReload={() => void transcript.refetch()}
                 hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
+                awaitingFirstPage={transcript.isPending}
                 loading={transcript.isFetching}
                 onActionCardAction={actionCard.mutateAsync}
                 {...navigation.conversationNavigation}

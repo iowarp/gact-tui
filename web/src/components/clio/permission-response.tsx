@@ -125,9 +125,10 @@ export function PermissionResponse({
         )}
       </AskBody>
       {script ? (
-        // Under a cap the script gives up height first; its fade and footer stay in view.
+        // Under a cap the script gives up height first, down to two lines with its fade and
+        // footer, so the facts above (the command) stay whole.
         <AskCode
-          className="flex min-h-[7.5rem] shrink-[100] flex-col"
+          className="flex min-h-20 shrink-[100] flex-col"
           code={script.code}
           label="Script"
           meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}

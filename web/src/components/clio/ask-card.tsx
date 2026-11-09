@@ -143,7 +143,8 @@ export function AskCard({
       )}
       {...props}
     >
-      <header className="flex min-h-[26px] min-w-0 shrink-0 items-center gap-[9px]">
+      {/* With Technical details open the dock scrolls the card; the title and pager stay. */}
+      <header className="sticky top-0 z-[1] -mt-[9px] flex min-h-[35px] min-w-0 shrink-0 items-center gap-[9px] bg-card pt-[9px]">
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
@@ -212,8 +213,8 @@ export function AskBody({ className, ...props }: ComponentProps<'div'>) {
     <div
       ref={ref}
       className={cn(
-        // No reserved gutter: body blocks end on the same edge as the header and options.
-        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        // No reserved gutter (over .clio-scrollbar's): body blocks end on the header's edge.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
         className,
       )}
       data-slot="ask-body"

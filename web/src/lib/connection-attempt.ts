@@ -38,6 +38,11 @@ function reachable(availability: ConnectionAvailability | undefined): boolean {
   return availability?.state === 'healthy' || availability?.state === 'degraded';
 }
 
+/** A service that neither answers nor reports it is starting: it cannot be opened yet. */
+export function availabilityFailed(availability: ConnectionAvailability | undefined): boolean {
+  return availability?.state === 'unavailable' && !availability.starting;
+}
+
 /**
  * A row's badge after a connect attempt. A failed attempt is the row's state only until
  * the background probe has news: a service that answers (or reports it is starting)
@@ -58,6 +63,38 @@ export function availabilityAfterAttempt(
     label: 'Not reachable',
     detail: attempt.error?.message || NOT_REACHABLE_DETAIL,
   };
+}
+
+/** The connect attempt's error, when that attempt was for this service. */
+export function attemptErrorFor(
+  connection: KnownConnection,
+  attempt: ConnectAttempt,
+): Error | undefined {
+  return attempt.isError && attemptedEndpoint(attempt) === connection.endpoint
+    ? (attempt.error ?? undefined)
+    : undefined;
+}
+
+/** Nothing answered at the address, as opposed to a service that answered with a refusal. */
+export function noAnswer(error: Error | null | undefined): boolean {
+  return error instanceof TransportError && error.code === 'network_unavailable';
+}
+
+/**
+ * A failed service row's one line. When the attempt's own error line already says why
+ * (a refused token, an incompatible protocol), the row keeps to its short state.
+ */
+export function knownServiceFailure(
+  connection: KnownConnection,
+  availability: ConnectionAvailability,
+  attempt: ConnectAttempt,
+): string {
+  const error = attemptErrorFor(connection, attempt);
+  if (error && !noAnswer(error)) return availability.label;
+  if (availability.label === 'Not reachable') {
+    return `Can't connect: no answer from ${new URL(connection.endpoint).host}`;
+  }
+  return `Can't connect: ${availability.detail}`;
 }
 
 function reportedReadiness(details: unknown): unknown {
@@ -103,9 +140,10 @@ interface RetryChain {
 
 /**
  * Whether a failed attempt is a service still coming up rather than a failure: it is
- * starting (503 `task_runtime_starting`, or its probe says so), or nothing has answered
- * yet and the attempt is recent. The page then waits and connects by itself instead of
- * showing an error. Only those transient failures are retried, after a backoff that
+ * starting (503 `task_runtime_starting`, or its probe says so). The page then waits and
+ * connects by itself instead of showing an error. A service that has not answered yet is
+ * shown as a failure but is still retried once its probe sees it answer. Only those
+ * transient failures are retried, after a backoff that
  * honours the service's `Retry-After` and within `CONNECTION_WAIT_FOR_START_MS` of the
  * chain's first failure; anything else (an
  * incompatible protocol, a rejected token) is shown once.
@@ -155,7 +193,10 @@ export function useConnectionWaiting(
 
   if (!endpoint) return { waiting: false, retrying: false };
   return {
-    waiting: Boolean(availability?.starting) || (transient && !expired),
+    // Only a service that says it is starting is waited on visibly. One that has not
+    // answered is a failure with Retry, even though it still opens by itself if it
+    // comes up within the waiting window.
+    waiting: Boolean(availability?.starting) || (starting && !expired),
     retrying: Boolean(variables) && canRetry,
     availability,
   };

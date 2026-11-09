@@ -189,7 +189,6 @@ describe('FlowRunCard', () => {
     );
     expect(await screen.findByText('Workflow run')).toBeVisible();
     expect(screen.getAllByText('Workflow run')).toHaveLength(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Activity: Used tools' }));
     expect(screen.getByRole('button', { name: 'Show result for Run workflow' })).toBeDisabled();
     expect(screen.getAllByText('Workflow run')).toHaveLength(1);
     expect(repository.taskFlow).toHaveBeenCalledWith('sess_1', 'task_workflow', expect.anything());

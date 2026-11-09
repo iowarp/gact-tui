@@ -1,6 +1,5 @@
 import { GitForkIcon, LoaderCircleIcon, RewindIcon } from 'lucide-react';
 import { useState } from 'react';
-import { MessageAction } from '@/components/ai-elements/message';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { IconButton } from './primitives/icon-button';
 
 export interface ClioMessageHistoryActionsProps {
   forking?: boolean;
@@ -50,27 +50,29 @@ export function ClioMessageHistoryActions({
   return (
     <>
       {onFork ? (
-        <MessageAction
+        <IconButton
           disabled={forkPending || rewindPending}
-          label={forkPending ? 'Branching from this message' : 'Branch from here'}
+          icon={
+            forkPending ? (
+              <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+            ) : (
+              <GitForkIcon aria-hidden="true" />
+            )
+          }
+          label={forkPending ? 'Forking into a new conversation' : 'Fork into a new conversation'}
           onClick={() => void run('fork', onFork)}
-          tooltip={forkPending ? 'Branching from this message' : 'Branch from here'}
-        >
-          {forkPending ? (
-            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
-          ) : (
-            <GitForkIcon aria-hidden="true" className="size-3.5" />
-          )}
-        </MessageAction>
+          size="sm"
+          type="button"
+        />
       ) : null}
-      <MessageAction
+      <IconButton
         disabled={!onRewind || forkPending || rewindPending}
+        icon={<RewindIcon aria-hidden="true" />}
         label="Rewind to here"
         onClick={() => setConfirmingRewind(true)}
-        tooltip="Rewind to here"
-      >
-        <RewindIcon aria-hidden="true" className="size-3.5" />
-      </MessageAction>
+        size="sm"
+        type="button"
+      />
       <AlertDialog onOpenChange={setConfirmingRewind} open={confirmingRewind}>
         <AlertDialogContent>
           <AlertDialogHeader>

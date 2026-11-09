@@ -1,23 +1,17 @@
 import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { CircleAlertIcon, ListChecksIcon, LoaderCircleIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-} from '@/components/ai-elements/chain-of-thought';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type {
   Artifact,
   ClioRepository,
   PendingInteraction,
   PendingInteractionResponse,
   SubagentRun,
-  Task,
   ToolInvocation,
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus } from './status';
+import { TranscriptTaskRow } from './transcript-task-row';
 import { getToolStatus } from './tool-presentation';
 import {
   ClioAgentMessageLine,
@@ -268,69 +262,44 @@ export function ConversationTurn({
     else groups[groups.length - 1].push(iteration);
   }
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-slot="transcript-entry-sequence">
+    <div className="flex min-w-0 flex-col gap-1" data-slot="transcript-entry-sequence">
       {groups.map((group, index) => {
         const iteration = group[0];
         const summary = transcriptActivitySummary(group);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
-            <TranscriptIterationText iteration={iteration} showReasoning={!hasActivity} />
+            {/* The step's thought reads first, then its public update, then its calls. */}
+            <TranscriptIterationText iteration={iteration} />
             {hasActivity ? (
-              <ActivityChain
+              <ActivityLane
                 id={iteration.id}
-                defaultOpen={followLiveActivity && index === groups.length - 1}
+                group={[{ ...iteration, thinking: [] }, ...group.slice(1)]}
+                label={summary.label}
+                live={followLiveActivity && index === groups.length - 1}
               >
-                <ChainOfThoughtHeader
-                  aria-label={`Activity: ${summary.label}`}
-                  className="min-h-7 [&>svg:first-child]:hidden"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    {summary.running ? (
-                      <LoaderCircleIcon
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0 animate-spin text-primary"
-                      />
-                    ) : null}
-                    <span className="min-w-0 truncate font-medium">{summary.label}</span>
-                    {summary.failed ? (
-                      <span
-                        className="shrink-0"
-                        data-slot="activity-failed-mark"
-                        title={summary.failed === 1 ? 'A call failed' : 'Calls failed'}
-                      >
-                        <CircleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
-                      </span>
-                    ) : null}
-                  </span>
-                </ChainOfThoughtHeader>
-                <ChainOfThoughtContent
-                  className="ml-1 mt-1 space-y-1 border-l pl-3"
-                  data-slot="transcript-activity-timeline"
-                >
-                  {group.map((item) => (
-                    <Fragment key={item.id}>
-                      <IterationReasoningText iteration={item} />
-                      <IterationDetail
-                        compact
-                        flowCards={flowCards}
-                        showText={false}
-                        iteration={item}
-                        onOpenSubagent={onOpenSubagent}
-                        subagents={subagents}
-                        interactions={interactions}
-                        activeMcpAppId={activeMcpAppId}
-                        mcpAppRepository={mcpAppRepository}
-                        messageSessionId={messageSessionId}
-                        artifacts={artifacts}
-                        onInteractionResponse={onInteractionResponse}
-                        onOpenArtifact={onOpenArtifact}
-                        messageAttentionIndex={messageAttentionIndex}
-                      />
-                    </Fragment>
-                  ))}
-                </ChainOfThoughtContent>
-              </ActivityChain>
+                {(item) => (
+                  <Fragment key={item.id}>
+                    <IterationReasoningText iteration={item} />
+                    <IterationDetail
+                      compact
+                      flowCards={flowCards}
+                      showText={false}
+                      iteration={item}
+                      onOpenSubagent={onOpenSubagent}
+                      subagents={subagents}
+                      interactions={interactions}
+                      activeMcpAppId={activeMcpAppId}
+                      mcpAppRepository={mcpAppRepository}
+                      messageSessionId={messageSessionId}
+                      artifacts={artifacts}
+                      onInteractionResponse={onInteractionResponse}
+                      onOpenArtifact={onOpenArtifact}
+                      messageAttentionIndex={messageAttentionIndex}
+                    />
+                  </Fragment>
+                )}
+              </ActivityLane>
             ) : (
               group
                 .slice(1)
@@ -353,28 +322,80 @@ export function ConversationTurn({
   );
 }
 
+/** Rows a step shows before the earlier ones fold behind "Show all N". */
+const LANE_LIMIT = 6;
+const LANE_TAIL = 4;
+
+function laneRows(item: ConversationIteration): number {
+  return item.thinking.length + item.activity.length;
+}
+
+/** The last `keep` rows of a group, cutting iterations at their row boundaries. */
+function laneTail(group: readonly ConversationIteration[], keep: number): ConversationIteration[] {
+  let drop = group.reduce((total, item) => total + laneRows(item), 0) - keep;
+  return group.flatMap((item) => {
+    if (drop <= 0) return [item];
+    const thinking = Math.min(drop, item.thinking.length);
+    drop -= thinking;
+    const entries = Math.min(drop, item.activity.length);
+    drop -= entries;
+    if (thinking === item.thinking.length && entries === item.activity.length && laneRows(item))
+      return [];
+    const activity = item.activity.slice(entries);
+    return [
+      {
+        ...item,
+        thinking: item.thinking.slice(thinking),
+        activity,
+        tools: activity.flatMap((entry) => (entry.kind === 'tool' ? [entry.tool] : [])),
+        tasks: activity.flatMap((entry) => (entry.kind === 'task' ? [entry.task] : [])),
+      },
+    ];
+  });
+}
+
 /**
- * Follow the latest live work while retaining explicit reader choices.
+ * A step's activity as flat rows in the conversation: thoughts, calls,
+ * delegates and tasks, one 28px row each, in the order they happened. A long
+ * step shows its latest rows; "Show all N" opens the rest and stays open.
  */
-function ActivityChain({
-  children,
+function ActivityLane({
   id,
-  defaultOpen,
+  group,
+  label,
+  live,
+  children,
 }: {
-  children: ReactNode;
   id: string;
-  defaultOpen: boolean;
+  group: readonly ConversationIteration[];
+  label: string;
+  live: boolean;
+  children: (item: ConversationIteration) => ReactNode;
 }) {
-  const [readerOpen, setReaderOpen] = useTranscriptDisclosure(`activity:${id}`, defaultOpen);
-  // Only activity boundaries add room; adjacent prose retains its normal gap.
+  const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
+  const total = group.reduce((sum, item) => sum + laneRows(item), 0);
+  const folded = !all && total > LANE_LIMIT;
+  const shown = folded ? laneTail(group, LANE_TAIL) : group;
   return (
-    <ChainOfThought
-      className="@container my-3 space-y-0"
-      onOpenChange={setReaderOpen}
-      open={readerOpen}
+    <div
+      role="group"
+      aria-label={`Activity: ${label}`}
+      aria-busy={live || undefined}
+      className="my-1 min-w-0"
+      data-slot="transcript-activity-timeline"
     >
-      {children}
-    </ChainOfThought>
+      {folded ? (
+        <Button
+          variant="ghost"
+          onClick={() => setAll(true)}
+          className="ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+          data-slot="activity-show-all"
+        >
+          {`Show all ${total}`}
+        </Button>
+      ) : null}
+      {shown.map(children)}
+    </div>
   );
 }
 
@@ -425,9 +446,17 @@ function IterationDetail({
       entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
     ),
   );
+  // An assignment tool already reads as the delegate row; its child's start line would repeat it.
+  const delegatedSubagentIds = new Set(
+    iteration.activity.flatMap((entry) =>
+      entry.kind === 'tool' && TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
+        ? subagentsForTool(entry.tool, subagents).map((subagent) => subagent.id)
+        : [],
+    ),
+  );
   return (
     <article>
-      <div className="space-y-2">
+      <div className={compact ? 'min-w-0' : 'space-y-2'}>
         {showText ? <TranscriptIterationText iteration={iteration} /> : null}
 
         {/*
@@ -438,7 +467,10 @@ function IterationDetail({
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
             <Fragment key={`tool:${entry.id}`}>
-              <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
+              <div
+                className={compact ? undefined : 'space-y-1'}
+                data-turn-activity={`tool:${entry.id}`}
+              >
                 <ClioToolInvocation
                   compact={compact}
                   flowResult={flowCards}
@@ -482,7 +514,11 @@ function IterationDetail({
               <HarnessInjection block={entry.block} compact={compact} />
             </div>
           ) : entry.kind === 'subagent' ? (
-            showSubagents ? (
+            showSubagents &&
+            !(
+              entry.block.stage === 'delegate.started' &&
+              delegatedSubagentIds.has(entry.block.subagent_id)
+            ) ? (
               <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
                 <ClioSubagentLifecycleLine
                   onOpen={onOpenSubagent}
@@ -511,7 +547,7 @@ function IterationDetail({
               />
             )
           ) : showTasks ? (
-            <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
+            <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />
           ) : null,
         )}
         {iteration.interrupted &&
@@ -554,30 +590,5 @@ function McpAppActivity({
         />
       )}
     </div>
-  );
-}
-/**
- * A task line is a plain span, and ARIA prohibits naming a generic element, so
- * its state and detail are rendered as real content (visible or screen-reader
- * only) rather than hidden behind an `aria-label` assistive technology is free
- * to ignore.
- */
-function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
-  return (
-    <span
-      className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
-      data-turn-activity={`task:${task.id}`}
-      title={task.detail}
-    >
-      <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-foreground/85">{task.title}</span>
-      <ClioStatus
-        className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
-        value={task.state}
-      />
-      <span className="min-w-0 max-w-[45%] truncate" title={task.detail || 'No detail reported'}>
-        {task.detail || 'No detail reported'}
-      </span>
-    </span>
   );
 }
