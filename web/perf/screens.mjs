@@ -536,7 +536,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await press(page, 'menuitem', 'Delete…', { exact: true });
       await overlay(page);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
