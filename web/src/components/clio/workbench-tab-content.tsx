@@ -16,6 +16,7 @@ import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { WorkbenchActivityDetail } from './workbench-activity-detail';
+import { activityTab } from './workbench-activity-tab';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
@@ -294,6 +295,15 @@ export function WorkbenchTabContent({
               })
             }
             workspaceId={tab.workspaceId}
+            onOpenActivity={(activity) =>
+              onOpenTab(
+                activityTab(
+                  { id: `tool:${activity.callId}`, kind: 'tool', name: activity.tool },
+                  activity.sessionId ?? sessionId,
+                  tab.workspaceId,
+                ),
+              )
+            }
           />
         </Suspense>
       );

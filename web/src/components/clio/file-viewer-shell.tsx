@@ -8,13 +8,22 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { GitBranchIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OverlayContainer } from '@/components/ui/overlay-container';
 import { formatBytes } from '@/lib/format';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import { FrameCommentsUnavailable } from './comments/frame-comments';
 import { FrameCommentsSlot } from './comments/frame-comments-slot';
-import { FileModeControls } from './file-mode-controls';
+import { FileModeTrigger, FoldedFileModes, MODE_SEGMENT_CLASS } from './file-mode-controls';
+import {
+  FileViewerModeSlotContext,
+  isSourceMode,
+  type FileViewerModeSlot,
+  type RendererModes,
+} from './file-viewer-modes';
 import { FileViewerActions } from './file-viewer-actions';
 import {
   FileViewerActionRegistry,
@@ -39,7 +48,14 @@ export interface FileViewerTab {
   content: ReactNode;
   /** Secondary inspection views live in the shared More menu. */
   secondary?: boolean;
+  /** Catalog id of the key that selects it. */
+  shortcut?: string;
 }
+
+/** The frame's own view of a file's recorded history. */
+export const LINEAGE_VIEW = 'lineage';
+/** Folded-menu values of the renderer's modes, apart from the frame's views. */
+const RENDERER_MODE = 'renderer:';
 
 /** Keeps one entry per registering renderer, unchanged when the contents are the same. */
 function useRegistry<T>(same: (left: T, right: T) => boolean) {
@@ -66,6 +82,7 @@ const sameReader = (left: FileViewerContentsReader, right: FileViewerContentsRea
   left === right;
 const sameActions = (left: readonly FileViewerAction[], right: readonly FileViewerAction[]) =>
   left === right;
+const sameModes = (left: RendererModes, right: RendererModes) => left === right;
 
 /** Where the comments go and whether anything claimed the place. */
 function useCommentsSlot() {
@@ -93,6 +110,7 @@ export function FileViewerShell({
   onValueChange,
   hasDocumentActions = false,
   showIdentity = true,
+  lineage,
 }: {
   source: FileViewerSource;
   tabs: readonly FileViewerTab[];
@@ -102,26 +120,95 @@ export function FileViewerShell({
   hasDocumentActions?: boolean;
   /** An enclosing file card already presents the icon and filename. */
   showIdentity?: boolean;
+  /** The file's recorded history: the frame adds Lineage beside the renderer's modes. */
+  lineage?: ReactNode;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const [wrap, setWrap] = useState(false);
   const sourceOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
   const [internalValue, setInternalValue] = useState('preview');
   const requested = value ?? internalValue;
-  const selectValue = (next: string) => {
-    setInternalValue(next);
-    onValueChange?.(next);
-  };
-  const primaryTabs = tabs.filter((tab) => !tab.secondary);
-  const selectedValue = tabs.some((tab) => tab.value === requested)
+  const selectValue = useCallback(
+    (next: string) => {
+      setInternalValue(next);
+      onValueChange?.(next);
+    },
+    [onValueChange],
+  );
+  const allTabs: readonly FileViewerTab[] = lineage
+    ? [
+        ...tabs,
+        {
+          value: LINEAGE_VIEW,
+          label: 'Lineage',
+          icon: GitBranchIcon,
+          shortcut: 'lineage',
+          content: lineage,
+        },
+      ]
+    : tabs;
+  const primaryTabs = allTabs.filter((tab) => !tab.secondary);
+  const selectedValue = allTabs.some((tab) => tab.value === requested)
     ? requested
     : (primaryTabs[0]?.value ?? requested);
-  const modes = primaryTabs.length > 1;
+  const hostTab = primaryTabs[0];
   const identity = fileViewerIdentity(source);
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
   const [formatActions, registerActions] = useRegistry(sameActions);
   const [facts, registerFacts] = useRegistry(sameFacts);
+  const [lineageFacts, registerLineageFacts] = useRegistry(sameFacts);
   const [readers, registerReader] = useRegistry(sameReader);
+  const [rendererEntries, registerModes] = useRegistry(sameModes);
+  const [modeHost, setModeHost] = useState<HTMLSpanElement | null>(null);
+  const renderer = [...rendererEntries.values()].at(-1);
+  const frameActive = selectedValue !== hostTab?.value;
+  const hostValue = hostTab?.value;
+  const showRenderer = useCallback(() => {
+    if (hostValue !== undefined) selectValue(hostValue);
+  }, [hostValue, selectValue]);
+  const modeSlot = useMemo<FileViewerModeSlot>(
+    () => ({ host: modeHost, register: registerModes, frameActive, showRenderer }),
+    [modeHost, registerModes, frameActive, showRenderer],
+  );
+  // The renderer's own modes stand in for the frame's first view.
+  const frameModes = primaryTabs.filter((tab) => !(renderer && tab === hostTab));
+  const segmentCount = (renderer?.modes.length ?? 0) + frameModes.length;
+  const foldedModes = [
+    ...(renderer?.modes ?? []).map((mode) => ({ ...mode, value: `${RENDERER_MODE}${mode.value}` })),
+    ...frameModes,
+  ];
+  const foldedValue =
+    renderer && !frameActive ? `${RENDERER_MODE}${renderer.value}` : selectedValue;
+  const chooseFolded = (next: string) => {
+    if (renderer && next.startsWith(RENDERER_MODE)) {
+      renderer.onChange(next.slice(RENDERER_MODE.length));
+      showRenderer();
+    } else selectValue(next);
+  };
+  const sourceMode = renderer?.modes.find(isSourceMode);
+  const hostRef = useRef<HTMLDivElement>(null);
+  useShortcut(
+    'render-source',
+    () => {
+      if (!renderer || !sourceMode) return;
+      if (frameActive || renderer.value !== sourceMode.value) {
+        renderer.onChange(sourceMode.value);
+        showRenderer();
+        return;
+      }
+      const rendered = renderer.modes.find((mode) => !isSourceMode(mode));
+      if (rendered) renderer.onChange(rendered.value);
+    },
+    { enabled: Boolean(sourceMode), region: hostRef },
+  );
+  useShortcut(
+    'lineage',
+    () => {
+      if (selectedValue === LINEAGE_VIEW) showRenderer();
+      else selectValue(LINEAGE_VIEW);
+    },
+    { enabled: Boolean(lineage), region: hostRef },
+  );
   const {
     slot: commentsSlot,
     setHost: setCommentsHost,
@@ -130,7 +217,6 @@ export function FileViewerShell({
   const crumbs = useFileViewerCrumbs(source);
   const [fullscreenHost, setFullscreenHost] = useState<HTMLElement>();
   const fullscreen = Boolean(fullscreenHost);
-  const hostRef = useRef<HTMLDivElement>(null);
   const addToMessage = useAddToMessage(fileViewerReference(source), source.workspaceId, hostRef);
   useEffect(() => {
     const update = () =>
@@ -148,10 +234,13 @@ export function FileViewerShell({
       toast.error(error instanceof Error ? error.message : 'Could not open fullscreen.');
     }
   };
-  const what = [
-    ...[...facts.values()].flat(),
-    ...(identity.size === undefined ? [] : [formatBytes(identity.size)]),
-  ];
+  const what =
+    selectedValue === LINEAGE_VIEW
+      ? [...lineageFacts.values()].flat()
+      : [
+          ...[...facts.values()].flat(),
+          ...(identity.size === undefined ? [] : [formatBytes(identity.size)]),
+        ];
   const contents = [...readers.values()].at(-1);
   return (
     <ViewerToolbarHost.Provider value={toolbarHost}>
@@ -162,6 +251,7 @@ export function FileViewerShell({
               <FileViewerFactsRegistry.Provider value={registerFacts}>
                 <FileViewerContentsRegistry.Provider value={registerReader}>
                   <FrameCommentsSlot.Provider value={commentsSlot}>
+                    <FileViewerModeSlotContext.Provider value={modeSlot}>
                     <div
                       ref={hostRef}
                       data-slot="file-viewer"
@@ -200,11 +290,35 @@ export function FileViewerShell({
                             ))}
                             format={
                               <>
-                                {modes ? (
-                                  <FileModeControls
-                                    modes={primaryTabs}
-                                    value={selectedValue}
-                                    onChange={selectValue}
+                                <div
+                                  data-slot="viewer-modes"
+                                  className={cn(
+                                    MODE_SEGMENT_CLASS,
+                                    'group-data-[fold-talk]/frame:hidden',
+                                    segmentCount < 2 && 'hidden',
+                                  )}
+                                >
+                                  <span
+                                    ref={setModeHost}
+                                    className="contents"
+                                    data-slot="renderer-mode-host"
+                                  />
+                                  {frameModes.length ? (
+                                    <TabsList
+                                      aria-label={label}
+                                      className="inline-flex h-auto gap-px rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-auto"
+                                    >
+                                      {frameModes.map((tab) => (
+                                        <FileModeTrigger key={tab.value} mode={tab} />
+                                      ))}
+                                    </TabsList>
+                                  ) : null}
+                                </div>
+                                {segmentCount > 1 ? (
+                                  <FoldedFileModes
+                                    modes={foldedModes}
+                                    value={foldedValue}
+                                    onChange={chooseFolded}
                                     label={label}
                                   />
                                 ) : null}
@@ -234,7 +348,7 @@ export function FileViewerShell({
                                   </>
                                 }
                                 formatActions={[
-                                  ...tabs
+                                  ...allTabs
                                     .filter((tab) => tab.secondary)
                                     .map(
                                       (tab): FileViewerAction => ({
@@ -254,25 +368,43 @@ export function FileViewerShell({
                               />
                             }
                           />
-                          {!showIdentity && tabs.length === 1 ? (
+                          {!showIdentity && allTabs.length === 1 ? (
                             <div className="min-h-0 flex-1 overflow-hidden">{tabs[0]?.content}</div>
                           ) : (
-                            tabs.map((tab) => (
-                              <TabsContent
-                                key={tab.value}
-                                className="m-0 min-h-0 overflow-hidden"
-                                value={tab.value}
-                                {...(tab.secondary || !modes
-                                  ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
-                                  : {})}
-                              >
-                                {tab.content}
-                              </TabsContent>
-                            ))
+                            allTabs.map((tab) => {
+                              const isHost = tab === hostTab;
+                              const named =
+                                tab.secondary ||
+                                segmentCount < 2 ||
+                                (isHost && renderer !== undefined);
+                              const content =
+                                tab.value === LINEAGE_VIEW ? (
+                                  <FileViewerFactsRegistry.Provider value={registerLineageFacts}>
+                                    {tab.content}
+                                  </FileViewerFactsRegistry.Provider>
+                                ) : (
+                                  tab.content
+                                );
+                              return (
+                                <TabsContent
+                                  key={tab.value}
+                                  className="m-0 min-h-0 overflow-hidden data-[state=inactive]:hidden"
+                                  value={tab.value}
+                                  // The renderer stays mounted so its modes and place survive Lineage.
+                                  {...(isHost ? { forceMount: true as const } : {})}
+                                  {...(named
+                                    ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
+                                    : {})}
+                                >
+                                  {content}
+                                </TabsContent>
+                              );
+                            })
                           )}
                         </Tabs>
                       </TooltipProvider>
                     </div>
+                    </FileViewerModeSlotContext.Provider>
                   </FrameCommentsSlot.Provider>
                 </FileViewerContentsRegistry.Provider>
               </FileViewerFactsRegistry.Provider>
