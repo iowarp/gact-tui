@@ -371,13 +371,12 @@ export function WorkspacePage() {
             <WorkspaceContextBar
               session={session}
               parentSession={data.parentSession}
-              agentLabel={agentLabel}
               workspaceLabel={activeWorkspace?.display_name}
               endpoint={settings.endpoint}
               history={sessionHistory}
               navigationActions={navigationActions}
               terminalActions={terminalActions}
-              onOpenAgent={openAgent}
+              onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
             />
           }
           workbench={

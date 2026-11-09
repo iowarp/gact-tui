@@ -168,9 +168,10 @@ export function DashboardView({
             ref={setRoot}
             data-slot="a2ui-dashboard"
             className={cn(
-              'group relative min-w-0 bg-background px-4 py-3 text-foreground',
-              // A grid of stats is one row; each stat truncates rather than wrapping.
+              'group @container/dashboard relative min-w-0 bg-background px-4 py-3 text-foreground',
+              // A grid of stats is one row. A narrow pane stacks them, one stat per line.
               '[&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))]:flex [&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))>div]:flex-1 [&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))>div]:basis-0',
+              '@max-[24rem]/dashboard:[&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))]:flex-col @max-[24rem]/dashboard:[&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))]:gap-1.5 @max-[24rem]/dashboard:[&_.a2ui-grid:has([data-slot=a2ui-stat]):not(:has(.a2ui-grid))>div]:basis-auto',
               !framed && 'space-y-3',
             )}
           >

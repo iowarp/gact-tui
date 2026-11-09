@@ -19,7 +19,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ModelPickerCatalog } from './model-picker-catalog';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 import { LARGE_MODEL_CATALOG } from './use-progressive-model-catalog';
 import { RefreshButton } from './refresh-button';
 
@@ -66,7 +66,9 @@ function measureComposer(trigger: HTMLElement | null): ComposerFrame | null {
   };
 }
 
-const TWO_COLUMN_MIN_WIDTH = 560;
+const TWO_COLUMN_MIN_WIDTH = 600;
+/** Under this picker width, row 2's filter chips fold into the Filters button. */
+const FILTER_STRIP_MIN_WIDTH = 400;
 
 /**
  * Radix rewrites its position variables while it measures the open picker, and
@@ -107,14 +109,18 @@ export function ClioModelPicker({
   // Decided at open: a large catalog mounts only after the dialog and its
   // skeleton have painted, so the click answers at once.
   const [shellPainted, setShellPainted] = useState(true);
+  const [Catalog, setCatalog] = useState(() => modelPickerCatalog.loaded());
   const [facetsOpen, setFacetsOpen] = useState(false);
   const closingForSettings = useRef(false);
   const catalogContent = useRef<HTMLDivElement>(null);
   const [activeProvider, setActiveProvider] = useState(provider);
-  // Two columns need a wide window and room for both lists: a narrow composer gets one column.
+  // Two columns need a wide window and room for both lists: a narrow composer
+  // gets one grouped column, and the narrowest folds row 2 into Filters.
   const wideViewport = useMediaQuery('(min-width: 768px)');
-  const [roomy, setRoomy] = useState(true);
-  const showColumns = wideViewport && roomy;
+  // The picker's width, measured at open; 0 before any layout keeps the viewport's choice.
+  const [pickerWidth, setPickerWidth] = useState(0);
+  const showColumns = wideViewport && (pickerWidth === 0 || pickerWidth >= TWO_COLUMN_MIN_WIDTH);
+  const foldFilters = pickerWidth > 0 && pickerWidth < FILTER_STRIP_MIN_WIDTH;
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   // Keep the shared query warm without building model trees while closed.
@@ -141,7 +147,7 @@ export function ClioModelPicker({
     };
   }, [open, shellPainted]);
   useEffect(() => {
-    if (!open || !shellPainted || catalogStatus !== 'ready') return;
+    if (!open || !shellPainted || !Catalog || catalogStatus !== 'ready') return;
     const frame = requestAnimationFrame(() => {
       const input = catalogContent.current?.querySelector<HTMLInputElement>(
         '[data-slot="cascader-input"]',
@@ -151,7 +157,7 @@ export function ClioModelPicker({
       input?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [open, shellPainted, catalogStatus, options]);
+  }, [open, shellPainted, Catalog, catalogStatus, options]);
   const loadingLabel = provider
     ? `Loading ${providerDisplayName(
         presets.find((preset) => preset.id === provider),
@@ -164,13 +170,19 @@ export function ClioModelPicker({
       setFacetsOpen(false);
       setOpen(nextOpen);
       if (nextOpen) {
+        const loaded = modelPickerCatalog.loaded();
+        if (loaded) setCatalog(() => loaded);
+        else
+          void modelPickerCatalog.load().then(
+            (component) => setCatalog(() => component),
+            () => undefined,
+          );
         closingForSettings.current = false;
         setActiveProvider(provider);
         const frame = placement === 'composer' ? measureComposer(triggerRef.current) : null;
         setComposerFrame(frame);
         const width = frame ? frame.width : Math.min(640, window.innerWidth - 16);
-        // An unmeasured anchor (no layout yet) keeps the viewport's choice.
-        setRoomy(width === 0 || width >= TWO_COLUMN_MIN_WIDTH);
+        setPickerWidth(width);
         setShellPainted(options.length < LARGE_MODEL_CATALOG);
       }
     },
@@ -228,16 +240,17 @@ export function ClioModelPicker({
       >
         {open && catalogStatus === 'error' ? (
           <ModelCatalogError onRetry={() => onRetryCatalog?.(activeProvider)} />
-        ) : open && ((loading && !catalogOptions) || (catalogOptions && !shellPainted)) ? (
+        ) : open &&
+          ((loading && !catalogOptions) || (catalogOptions && (!shellPainted || !Catalog))) ? (
           <ModelCatalogSkeleton columns={showColumns} label={loadingLabel} />
         ) : null}
-        {open && catalogOptions && shellPainted ? (
+        {open && catalogOptions && shellPainted && Catalog ? (
           <div
             ref={catalogContent}
             className="flex min-h-0 flex-1 flex-col"
             style={POSITION_VARIABLES_STOP}
           >
-            <ModelPickerCatalog
+            <Catalog
               model={model}
               onChange={onChange}
               onClose={close}
@@ -248,6 +261,7 @@ export function ClioModelPicker({
               presets={presets}
               provider={provider}
               showColumns={showColumns}
+              foldFilters={foldFilters}
               facetsOpen={facetsOpen}
               setFacetsOpen={setFacetsOpen}
             />
