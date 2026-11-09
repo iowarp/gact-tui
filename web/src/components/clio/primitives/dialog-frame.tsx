@@ -53,11 +53,13 @@ export interface DialogFrameConfirm {
   /** `destructive` is only for deleting; it is the one red button. */
   tone?: 'default' | 'destructive';
   disabled?: boolean;
-  /**
-   * Ctrl+Enter (⌘↩) confirms; on by default. A lone confirm (no Cancel)
-   * takes plain Enter instead, like Share's Done.
-   */
+  /** Ctrl+Enter (⌘↩) confirms; on by default. */
   keyboard?: boolean;
+  /**
+   * `Enter`: a plain Enter confirms too (outside fields and other buttons), and
+   * the button shows the key. For an acknowledgement such as Got it.
+   */
+  key?: 'Enter';
 }
 
 export interface DialogFrameProps {
@@ -75,6 +77,8 @@ export interface DialogFrameProps {
    * `null` leaves the confirm as the one button, focused (Share's Done).
    */
   cancelLabel?: string | null;
+  /** The left side of the footer (a quiet link such as Release history). */
+  footerStart?: ReactNode;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
   /** Controls in the title row before × (a mode switch such as URL | Command). */
@@ -99,6 +103,7 @@ export const DialogFrame = memo(function DialogFrame({
   confirm,
   cancelLabel: cancelProp,
   secondary,
+  footerStart,
   titleActions,
   help,
   className,
@@ -110,19 +115,14 @@ export const DialogFrame = memo(function DialogFrame({
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
       if (event.key !== 'Enter') return;
-      if (confirmOnly) {
-        if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-        // Buttons, links and pickers already act on Enter.
-        if (
-          event.target instanceof Element &&
-          event.target.closest('button, a[href], textarea, select, [role="combobox"]')
-        )
-          return;
-      } else if (!(event.ctrlKey || event.metaKey)) return;
+      const plain =
+        confirm.key === 'Enter' &&
+        !(event.target as Element).closest('input, textarea, select, button, a, [contenteditable]');
+      if (!plain && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       confirm.onConfirm();
     },
-    [confirm, confirmOnly],
+    [confirm],
   );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,6 +180,11 @@ export const DialogFrame = memo(function DialogFrame({
           data-slot="dialog-frame-footer"
           className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
+          {footerStart ? (
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
+              {footerStart}
+            </div>
+          ) : null}
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
@@ -202,7 +207,7 @@ export const DialogFrame = memo(function DialogFrame({
               {confirmKeys ? (
                 <FooterKey
                   className="border-current/45"
-                  keys={[confirmOnly ? 'Enter' : 'Ctrl+Enter']}
+                  keys={[confirm.key === 'Enter' ? 'Enter' : 'Ctrl+Enter']}
                 />
               ) : null}
             </Button>

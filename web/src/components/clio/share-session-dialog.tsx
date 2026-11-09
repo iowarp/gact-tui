@@ -84,7 +84,7 @@ export function ClioShareSessionDialog({
       cancelLabel={shareUrl ? null : 'Cancel'}
       confirm={
         shareUrl
-          ? { label: 'Done', onConfirm: () => handleOpenChange(false) }
+          ? { label: 'Done', onConfirm: () => handleOpenChange(false), key: 'Enter' }
           : {
               label: pending ? 'Creating link…' : 'Create share link',
               disabled: pending,

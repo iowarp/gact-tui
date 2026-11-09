@@ -131,9 +131,18 @@ export const ShortcutKeys = memo(function ShortcutKeys({
 /**
  * `top-edge` straddles the control's top edge, clear of text just above it (the composer).
  * `start` sits left of the control unless another small control is there (a rail beside a
- * toolbar); then it covers its own control.
+ * toolbar); then it covers its own control. `under-icon` sits just under the control's
+ * icon, centred on it, inside a tight column (the pocket rail) where left would cover the
+ * pocket and below the button would reach the next icon.
  */
-export type HeldKeySide = 'below' | 'above' | 'top-edge' | 'start' | 'inside-end' | 'cover';
+export type HeldKeySide =
+  | 'below'
+  | 'above'
+  | 'top-edge'
+  | 'start'
+  | 'inside-end'
+  | 'cover'
+  | 'under-icon';
 
 const GAP = 4;
 const EDGE = 4;
@@ -216,6 +225,11 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     left = centreX - width / 2;
     top = centreY - height / 2;
   }
+  if (side === 'under-icon') {
+    const glyph = icon && icon.height > 0 ? icon : target;
+    left = glyph.left + glyph.width / 2 - width / 2;
+    top = glyph.bottom + 1;
+  }
   // Mostly above the edge, clear of the label inside the control and the text above it.
   if (side === 'top-edge') top = target.top - height / 2 - 3;
   const clamp = () => {
@@ -227,7 +241,8 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   const clear = (rect: DOMRect) => !others.some((other) => overlaps(rect, other));
   // First slide sideways, at most half the badge, so it still sits on its control's column.
   const blocking = others.find((other) => overlaps(new DOMRect(left, top, width, height), other));
-  if (blocking && placement !== 'start' && placement !== 'inside-end') {
+  // A top-edge pair (Esc beside Cmd+Return) stacks instead, one badge per control.
+  if (blocking && !['start', 'inside-end', 'top-edge', 'under-icon'].includes(placement)) {
     const slid =
       blocking.left + blocking.width / 2 <= left + width / 2
         ? blocking.right + GAP
@@ -240,7 +255,7 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     // A covering badge never steps onto the next control (a rail's next icon).
     if (placement === 'cover') break;
     if (vertical === 'above' || vertical === 'top-edge') top -= height + GAP + 1;
-    else if (vertical === 'below') top += height + GAP + 1;
+    else if (vertical === 'below' || vertical === 'under-icon') top += height + GAP + 1;
     else left -= width + GAP + 1;
     clamp();
   }

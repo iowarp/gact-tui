@@ -192,6 +192,16 @@ function seededSettingsShots() {
       },
       { keepPointer: true },
     ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();
@@ -232,11 +242,69 @@ function seededSettingsShots() {
   ];
 }
 
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++id,
+    unregisterCallback: () => undefined,
+    // Only the app version answers; everything else stays pending, as on a
+    // host that is still coming up.
+    invoke: (command) =>
+      command === 'plugin:app|version' && version
+        ? Promise.resolve(version)
+        : new Promise(() => undefined),
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?, platform?}. `platform: 'mac'` makes the page
-// report a Mac, for its ? keys.
+// connected?, route?, keepPointer?, platform?, initScript?: [fn, arg] run
+// before the app}. `platform: 'mac'` makes the page report a Mac, for its ? keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -368,6 +436,13 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu(
       'menu-version-status',
       'button',
@@ -504,6 +579,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    ...updateShots(),
     s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
       await press(page, 'button', 'Add folder', { exact: true });
       await overlay(page);
@@ -940,6 +1016,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
