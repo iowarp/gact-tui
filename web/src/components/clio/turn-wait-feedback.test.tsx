@@ -46,9 +46,14 @@ function tick() {
 }
 
 it('keeps a sustained gap after a completed tool visible without restarting preparation', () => {
-  render(<ClioTurnWaitFeedback {...props} />);
+  const { container } = render(<ClioTurnWaitFeedback {...props} />);
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  // The quiet first second reserves the row's height without announcing or showing it.
+  const reserve = container.querySelector('[data-slot="turn-response-wait-reserve"]');
+  expect(reserve).toHaveAttribute('aria-hidden', 'true');
+  expect(reserve).not.toBeVisible();
   tick();
+  expect(container.querySelector('[data-slot="turn-response-wait-reserve"]')).toBeNull();
   expect(screen.getByRole('status')).toHaveTextContent(/^Thinking/u);
   expect(screen.getByRole('img', { name: 'Waiting for response' })).toBeInTheDocument();
   expect(screen.getByText('1s')).toBeVisible();

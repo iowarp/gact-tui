@@ -2,7 +2,7 @@ import type { MessageBehavior, Session } from '@clio/core/v3';
 import {
   BotIcon,
   FolderCheckIcon,
-  Globe2Icon,
+  GlobeIcon,
   MapIcon,
   PlayIcon,
   RadarIcon,
@@ -42,7 +42,7 @@ export const SESSION_MODE_OPTIONS = [
     value: 'architect',
     label: 'Deep research',
     description: 'A long, sourced investigation.',
-    icon: Globe2Icon,
+    icon: GlobeIcon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['mode']>[];
 

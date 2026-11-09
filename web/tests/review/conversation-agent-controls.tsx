@@ -27,6 +27,7 @@ import {
   DraftAgentCompositionView,
 } from '../../src/components/clio/agent-composition-view';
 import { ClioAppShell } from '../../src/components/clio/app-shell';
+import { ClioConversationWelcome } from '../../src/components/clio/conversation-welcome';
 import { ClioWorkbench, type ClioWorkbenchOpenRequest } from '../../src/components/clio/workbench';
 import { Sidebar, SidebarContent } from '../../src/components/ui/sidebar';
 import { Button } from '../../src/components/ui/button';
@@ -296,11 +297,12 @@ function Review() {
         statusStrip={null}
       >
         {existing ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-foreground">
-            <h1 className="text-lg font-medium">What should we investigate?</h1>
-            <p className="text-sm text-muted-foreground">
-              Choose the agent, then use Customize for its plugins and prompt.
-            </p>
+          <div className="flex h-full flex-col items-center justify-center p-6 text-foreground">
+            <ClioConversationWelcome>
+              <p className="text-center text-[12.5px] text-muted-foreground">
+                Choose the agent, then use Customize for its plugins and prompt.
+              </p>
+            </ClioConversationWelcome>
           </div>
         ) : (
           <div className="flex h-full flex-col justify-center overflow-y-auto px-4 py-8 text-foreground sm:px-8">
