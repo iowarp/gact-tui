@@ -170,7 +170,8 @@ for in-page modes and pane tabs. A choice between a few setting values uses `Set
 
 **`StepList`** `components/clio/primitives/step-list.tsx`
 `{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
-The steps of a long operation in 28 px rows: a check, a spinner, an open circle or an alert, the
+The steps of a long operation in 28 px rows: a check, a 12 px teal ring on its track (the spec's
+`.spin`; it stays still with reduced motion), an open circle or an alert, the
 state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
 `progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
 default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.

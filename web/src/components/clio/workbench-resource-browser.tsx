@@ -91,6 +91,8 @@ interface FileBrowserProps {
    * refresh icons in place of a toolbar row.
    */
   renderHeader?: (actions: ReactNode) => ReactNode;
+  /** `tree` only: a note that follows the last row, inside the scrolling list. */
+  legend?: ReactNode;
 }
 
 interface ArtifactBrowserProps {
@@ -126,6 +128,7 @@ export function FileBrowser({
   mode = 'split',
   changedPaths,
   renderHeader,
+  legend,
 }: FileBrowserProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -337,7 +340,11 @@ export function FileBrowser({
       ) : null}
       {/* Radix wraps content in display:table, which lets long names widen the
           tree and scroll it sideways; block keeps every row truncating. */}
-      <ScrollArea className="min-h-0 flex-1 p-2" viewportProps={{ className: '[&>div]:!block' }}>
+      <ScrollArea
+        // Spec `.bb`: the list body is inset 4px 4px 8px; rows carry their own 8px.
+        className={cn('min-h-0 flex-1', headed ? 'px-1 pt-1 pb-2' : 'p-2')}
+        viewportProps={{ className: '[&>div]:!block' }}
+      >
         {directory !== undefined || filesNextOffset !== undefined ? (
           <WorkspaceDirectoryTree
             directory={directory}
@@ -354,6 +361,7 @@ export function FileBrowser({
             selectedPath={activePath}
             onSelect={selectFile}
             filter={normalizedQuery}
+            changedPaths={changedPaths}
           />
         ) : filesPending ? (
           <LoadingRows label="Loading workspace files" />
@@ -380,6 +388,7 @@ export function FileBrowser({
             label={filesError ? 'File tree unavailable' : 'No workspace files'}
           />
         )}
+        {headed ? legend : null}
       </ScrollArea>
     </section>
   );
