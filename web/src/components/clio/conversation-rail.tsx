@@ -68,7 +68,11 @@ export function ConversationRail({
           onEscapeKeyDown={(event) => {
             if (!panelRef.current?.contains(document.activeElement)) event.preventDefault();
           }}
-          className="clio-scrollbar max-h-[var(--radix-popover-content-available-height)] w-[min(max(20rem,25vw),calc(100vw-1rem))] gap-0 overflow-y-auto overscroll-contain p-0"
+          collisionBoundary={
+            open ? document.querySelector('[data-slot="conversation-surface"]') : undefined
+          }
+          // A maximized canvas covers the conversation, so the rail hides with it.
+          className="clio-scrollbar [body:has(aside[data-maximized=true])_&]:hidden max-h-[var(--radix-popover-content-available-height)] w-[min(max(20rem,25vw),calc(100vw-1rem))] gap-0 overflow-y-auto overscroll-contain p-0"
         >
           <SessionRailContent
             evidence={evidence}
@@ -87,7 +91,11 @@ export function ConversationRail({
                     size="sm"
                     label="Open full view"
                     icon={<Maximize2Icon aria-hidden="true" />}
-                    onClick={() => evidence.onOpenCanvas?.()}
+                    onClick={() => {
+                      // The full view replaces the rail; it must not float over the canvas.
+                      setOpen(false);
+                      evidence.onOpenCanvas?.();
+                    }}
                   />
                 ) : null}
               </div>

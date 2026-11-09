@@ -181,6 +181,11 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
     await user.click(within(rail).getByRole('button', { name: 'Open full view' }));
     expect(onOpenCanvas).toHaveBeenCalledOnce();
+    // The full view replaces the rail.
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await user.click(button);
+    expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
     await user.click(button);
     expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   });
