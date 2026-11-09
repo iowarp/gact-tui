@@ -62,6 +62,11 @@ it('keeps a sustained gap after a completed tool visible without restarting prep
   expect(screen.queryByText(/Setting up|queued by/i)).not.toBeInTheDocument();
 });
 
+it('reserves no wait row while a decision waits on the user', () => {
+  const { container } = render(<ClioTurnWaitFeedback {...props} awaitingUser />);
+  tick();
+  expect(container).toBeEmptyDOMElement();
+});
 it('leaves initial setup to the existing preparation indicator', () => {
   render(<ClioTurnWaitFeedback {...props} activeTurnResponded={false} messages={[user]} />);
   tick();

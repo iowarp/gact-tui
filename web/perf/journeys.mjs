@@ -466,6 +466,7 @@ export async function transcriptJourney(r) {
     category: 'dialog',
   });
   const jump = r.control('button', /^Jump to user message 2$/u);
+  // The measure keeps its old name so reports still compare against baselines.
   await r.measure(
     'minimap jump',
     'scroll',
@@ -479,7 +480,7 @@ export async function transcriptJourney(r) {
 /**
  * Load older transcript pages; each page is one measurement, from the press
  * (or wheel) to the `before=` page arriving and the DOM settling. The
- * transcript is virtualized and its minimap is capped, so neither counts
+ * transcript and its outline are both virtualized, so neither counts
  * loaded messages. `optional` marks a conversation that may already be fully
  * loaded (no button and nothing arrives on scroll).
  */

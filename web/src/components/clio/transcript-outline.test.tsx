@@ -1,21 +1,20 @@
 import type { Message } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
-import { ClioTranscriptMinimap } from './transcript-minimap';
+import { ClioTranscriptOutline } from './transcript-outline';
 
 const virtual = vi.hoisted(() => ({
   scrollToIndex: vi.fn(),
-  mountedRows: Number.POSITIVE_INFINITY,
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => ({
     getTotalSize: () => count * estimateSize(),
     getVirtualItems: () =>
-      Array.from({ length: Math.min(count, virtual.mountedRows) }, (_, index) => ({
+      Array.from({ length: count }, (_, index) => ({
         index,
         key: index,
         size: estimateSize(),
@@ -28,7 +27,6 @@ vi.mock('@tanstack/react-virtual', () => ({
 afterEach(() => {
   cleanup();
   virtual.scrollToIndex.mockClear();
-  virtual.mountedRows = Number.POSITIVE_INFINITY;
   vi.restoreAllMocks();
 });
 
@@ -65,30 +63,30 @@ function manyMessages(count: number): Message[] {
   }));
 }
 
-describe('ClioTranscriptMinimap', () => {
+async function openOutline(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Open transcript outline' }));
+  return screen.getByRole('dialog', { name: 'Transcript outline' });
+}
+
+describe('ClioTranscriptOutline', () => {
   it('marks through a hover preview without jumping, and jumps to the original index in the marked list', async () => {
     const user = userEvent.setup();
     const onJump = vi.fn();
     const onMarkMessage = vi.fn().mockResolvedValue(undefined);
-    const props = {
-      activeIndex: 0,
-      messages: manyMessages(5),
-      onJump,
-      onMarkMessage,
-      visible: true,
-    };
-    const { rerender } = render(<ClioTranscriptMinimap {...props} />, {
+    const props = { activeIndex: 0, messages: manyMessages(5), onJump, onMarkMessage };
+    const { rerender } = render(<ClioTranscriptOutline {...props} />, {
       wrapper: TooltipProvider,
     });
-    await user.hover(screen.getByRole('button', { name: 'Jump to user message 4' }));
+    const outline = within(await openOutline(user));
+    await user.hover(outline.getByRole('button', { name: 'Jump to user message 4' }));
     const preview = await screen.findByRole('region', { name: 'user message 4 preview' });
     await user.click(within(preview).getByRole('button', { name: 'Mark message' }));
     expect(onMarkMessage).toHaveBeenCalledWith('message_3', true);
     expect(onJump).not.toHaveBeenCalled();
-    rerender(<ClioTranscriptMinimap {...props} markedMessageIds={new Set(['message_3'])} />);
+    rerender(<ClioTranscriptOutline {...props} markedMessageIds={new Set(['message_3'])} />);
     await user.unhover(preview);
-    await user.click(screen.getByRole('button', { name: 'Open marked messages (1)' }));
-    const list = within(screen.getByRole('dialog', { name: 'Marked messages' }));
+    await user.click(outline.getByRole('button', { name: 'Marked (1)' }));
+    const list = within(screen.getByRole('dialog', { name: 'Transcript outline' }));
     expect(
       list.queryByRole('button', { name: /Jump to user message 1\b/ }),
     ).not.toBeInTheDocument();
@@ -96,15 +94,12 @@ describe('ClioTranscriptMinimap', () => {
     expect(onJump).toHaveBeenCalledWith(3);
   });
 
-  it('uses a compact outline on narrow conversations', { timeout: 20_000 }, async () => {
+  it('lists every message as one compact outline line', { timeout: 20_000 }, async () => {
     const user = userEvent.setup();
     const onJump = vi.fn();
-    render(
-      <ClioTranscriptMinimap activeIndex={0} messages={messages} onJump={onJump} visible={false} />,
-    );
+    render(<ClioTranscriptOutline activeIndex={0} messages={messages} onJump={onJump} />);
 
-    await user.click(screen.getByRole('button', { name: 'Open transcript outline' }));
-    const outline = within(screen.getByRole('dialog', { name: 'Transcript outline' }));
+    const outline = within(await openOutline(user));
     const title = await outline.findByText(
       'Compare the three stations with the complete provenance record.',
       {},
@@ -136,93 +131,11 @@ describe('ClioTranscriptMinimap', () => {
     expect(screen.queryByRole('dialog', { name: 'Transcript outline' })).not.toBeInTheDocument();
   });
 
-  it(
-    'offers one landmark per message without repeating transcript prose in the rail',
-    { timeout: 20_000 },
-    async () => {
-      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
-      const user = userEvent.setup();
-      const onJump = vi.fn();
-      const parentWheel = vi.fn();
-      render(
-        <div onWheel={parentWheel}>
-          <ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={onJump} visible />
-        </div>,
-      );
-
-      const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
-      expect(activeLandmark).toHaveAttribute('aria-current', 'location');
-      expect(
-        Number.parseFloat((activeLandmark.firstElementChild as HTMLElement).style.width),
-      ).toBeLessThanOrEqual(12);
-      const inactiveLandmark = screen.getByRole('button', { name: 'Jump to user message 1' });
-      expect(inactiveLandmark).not.toHaveAttribute('aria-current');
-
-      expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
-      await user.hover(inactiveLandmark);
-      expect(
-        await screen.findByText(
-          'Compare the three stations with the complete provenance record.',
-          { selector: '.font-semibold' },
-          { timeout: 15_000 },
-        ),
-      ).toBeVisible();
-
-      const scrollArea = screen.getByLabelText('Browse transcript landmarks');
-      expect(scrollArea).toHaveClass('outline-none', 'overscroll-y-contain');
-      fireEvent.wheel(scrollArea, { deltaY: 100 });
-      expect(parentWheel).not.toHaveBeenCalled();
-      Object.defineProperties(scrollArea, {
-        clientHeight: { configurable: true, value: 200 },
-        scrollHeight: { configurable: true, value: 1_100 },
-      });
-      scrollArea.scrollTop = 900;
-      fireEvent.keyDown(scrollArea, { key: 'Home' });
-      expect(scrollArea.scrollTop).toBe(0);
-      fireEvent.keyDown(scrollArea, { key: 'PageDown' });
-      expect(scrollArea.scrollTop).toBe(176);
-      fireEvent.keyDown(scrollArea, { key: 'End' });
-      expect(scrollArea.scrollTop).toBe(900);
-      // A key pressed on a landmark belongs to that landmark, not to the rail:
-      // the rail scrolls only for presses that land on the rail itself.
-      expect(fireEvent.keyDown(activeLandmark, { bubbles: true, key: 'Home' })).toBe(true);
-      expect(scrollArea.scrollTop).toBe(900);
-      await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
-      expect(onJump).toHaveBeenCalledWith(1);
-      expect(virtual.scrollToIndex).not.toHaveBeenCalled();
-    },
-  );
-
-  it('reveals an edge landmark without forcing it to the center', () => {
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
-    render(<ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={vi.fn()} visible />);
-
-    expect(virtual.scrollToIndex).toHaveBeenCalledWith(1, { align: 'end' });
-  });
-
-  it('reveals an active landmark the rail has not mounted', () => {
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
-    virtual.mountedRows = 3;
-
-    render(
-      <ClioTranscriptMinimap
-        activeIndex={7}
-        messages={manyMessages(10)}
-        onJump={vi.fn()}
-        visible
-      />,
-    );
-
-    expect(screen.getAllByRole('button', { name: /Jump to user message/ })).toHaveLength(3);
-    expect(virtual.scrollToIndex).toHaveBeenCalledWith(7, { align: 'auto' });
-  });
-
   it('caps a long message before it reaches the preview renderer', async () => {
     const user = userEvent.setup();
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
     const long = 'ground truth '.repeat(400);
     render(
-      <ClioTranscriptMinimap
+      <ClioTranscriptOutline
         activeIndex={0}
         messages={[
           {
@@ -234,11 +147,11 @@ describe('ClioTranscriptMinimap', () => {
           },
         ]}
         onJump={vi.fn()}
-        visible
       />,
     );
 
-    await user.hover(screen.getByRole('button', { name: 'Jump to user message 1' }));
+    const outline = within(await openOutline(user));
+    await user.hover(outline.getByRole('button', { name: 'Jump to user message 1' }));
     const preview = await screen.findByRole('region', { name: 'user message 1 preview' });
     const rendered = preview.textContent ?? '';
     expect(rendered.length).toBeLessThanOrEqual(
@@ -249,9 +162,8 @@ describe('ClioTranscriptMinimap', () => {
 
   it('falls back to reasoning only when a message carries no text', async () => {
     const user = userEvent.setup();
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
     render(
-      <ClioTranscriptMinimap
+      <ClioTranscriptOutline
         activeIndex={0}
         messages={[
           {
@@ -273,17 +185,17 @@ describe('ClioTranscriptMinimap', () => {
           },
         ]}
         onJump={vi.fn()}
-        visible
       />,
     );
 
-    await user.hover(screen.getByRole('button', { name: 'Jump to assistant message 1' }));
+    const outline = within(await openOutline(user));
+    await user.hover(outline.getByRole('button', { name: 'Jump to assistant message 1' }));
     const withText = await screen.findByRole('region', { name: 'assistant message 1 preview' });
     expect(withText).toHaveTextContent('The published answer.');
     expect(withText).not.toHaveTextContent('Private deliberation.');
 
-    await user.unhover(screen.getByRole('button', { name: 'Jump to assistant message 1' }));
-    await user.hover(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
+    await user.unhover(outline.getByRole('button', { name: 'Jump to assistant message 1' }));
+    await user.hover(outline.getByRole('button', { name: 'Jump to assistant message 2' }));
     const reasoningOnly = await screen.findByRole('region', {
       name: 'assistant message 2 preview',
     });

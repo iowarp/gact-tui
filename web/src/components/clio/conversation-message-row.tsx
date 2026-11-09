@@ -21,11 +21,9 @@ import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { completionFooterShown, MessageCompletionFooter } from './message-completion-footer';
-import { MessageRowActions } from './message-row-actions';
+import { MessageRowActions, PendingCancelButton } from './message-row-actions';
 import { Tag } from './primitives/tag';
 import { messageToolCallCounts } from './message-tool-call-counts';
-import { ConversationModelCheckpoint } from './conversation-model-boundary';
-import { modelBoundariesEqual } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { canGroupUserMessages, feedbackMessage } from './conversation-user-group';
 import { ParentDelegationMessage } from './parent-delegation-message';
@@ -44,7 +42,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   onDisplayModeChange,
   mcpAppResponse,
   messageCompactions,
-  modelBoundary,
   feedbackMessages,
   injectionMessages,
   injectionsGrouped = false,
@@ -181,7 +178,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           workspaceId={entities.workspaceId}
         />
       ) : null}
-      {modelBoundary ? <ConversationModelCheckpoint boundary={modelBoundary} /> : null}
       {message.role === 'assistant' && leadingDelegations.length > 0 ? (
         <ParentDelegationMessage message={{ ...message, blocks: leadingDelegations }} />
       ) : null}
@@ -408,9 +404,10 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   data-slot="user-message-actions"
                 >
                   {pendingSteer ? (
-                    <Tag tone="info" width="auto">
-                      Queued
-                    </Tag>
+                    <>
+                      <Tag width="auto">Queued</Tag>
+                      <PendingCancelButton entities={entities} message={message} />
+                    </>
                   ) : null}
                   {executionMode ? (
                     <span
@@ -450,12 +447,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     className={cn(
                       'flex items-center gap-3',
                       // On hover it sits in the empty space left of the bubble, so it reserves no
-                      // height under it. Opacity, not visibility, keeps the actions focusable.
-                      !pendingSteer &&
-                        'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-0 sm:mr-2 sm:h-[22px] sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
-                      // A queued prompt keeps only its × in view; time, mark and copy show on hover.
-                      pendingSteer &&
-                        'sm:[&>time]:opacity-0 sm:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-0 sm:group-hover/prompt:[&>time]:opacity-100 sm:group-hover/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100 sm:group-focus-within/prompt:[&>time]:opacity-100 sm:group-focus-within/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100',
+                      // room under it and a queued prompt's badge and × stay on the bubble's edge.
+                      // Opacity, not visibility, keeps the actions focusable.
+                      'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-0 sm:mr-2 sm:h-[22px] sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
                     )}
                   >
                     <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
@@ -619,7 +613,6 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
-    !modelBoundariesEqual(left.modelBoundary, right.modelBoundary) ||
     left.forkOrigin !== right.forkOrigin ||
     left.agentName !== right.agentName ||
     left.attentionData !== right.attentionData ||

@@ -49,13 +49,24 @@ test('durable conversation marks, previews, cross-client updates and history bou
   }, endpoint);
   const url = `/workspaces/${imported.workspace_id}/sessions/${sid}`;
   await page.goto(url);
-  const rail = page.getByRole('complementary', { name: 'Transcript minimap' });
-  await expect(rail).toBeVisible();
+  const openOutline = async (target: typeof page) => {
+    await target.getByRole('button', { name: 'Open transcript outline' }).click();
+    return target.getByRole('dialog', { name: 'Transcript outline' });
+  };
+  /** The outline filtered to marked messages, once it shows `count` of them. */
+  const openMarked = async (target: typeof page, count: number) => {
+    const list = await openOutline(target);
+    const filter = list.getByRole('button', { name: `Marked (${count})` });
+    await expect(filter).toBeVisible();
+    if ((await filter.getAttribute('aria-pressed')) !== 'true') await filter.click();
+    return list;
+  };
+  const outline = await openOutline(page);
   const other = await context.newPage();
   await other.goto(url);
-  await expect(other.getByRole('complementary', { name: 'Transcript minimap' })).toBeVisible();
+  await expect(other.getByRole('button', { name: 'Open transcript outline' })).toBeVisible();
 
-  await rail.getByRole('button', { name: 'Jump to user message 1' }).hover();
+  await outline.getByRole('button', { name: 'Jump to user message 1' }).hover();
   const preview = page.getByRole('region', { name: 'user message 1 preview' });
   await expect(preview.locator('.font-semibold')).toBeVisible();
   await expect(preview).toContainText('Mean: 12');
@@ -64,7 +75,8 @@ test('durable conversation marks, previews, cross-client updates and history bou
     'aria-pressed',
     'true',
   );
-  await expect(other.getByRole('button', { name: 'Open marked messages (1)' })).toBeVisible();
+  await openMarked(other, 1);
+  await other.keyboard.press('Escape');
   expect((await api('GET', `/v1/sessions/${sid}`)).metadata.message_marks).toEqual({
     [first.id]: true,
   });
@@ -74,8 +86,8 @@ test('durable conversation marks, previews, cross-client updates and history bou
     await page.screenshot({ path: path.join(out!, 'originals', name) });
     const box = await locator.boundingBox();
     expect(box).not.toBeNull();
-    const railBox = await rail.boundingBox();
-    const left = Math.max(0, railBox!.x - 8);
+    const outlineBox = await outline.boundingBox();
+    const left = Math.max(0, Math.min(outlineBox?.x ?? box!.x, box!.x) - 8);
     const top = name.includes('preview') ? Math.max(0, box!.y - 12) : 0;
     await page.screenshot({
       path: path.join(out!, name),
@@ -89,24 +101,24 @@ test('durable conversation marks, previews, cross-client updates and history bou
   };
   await capture('docs-message-preview.png', preview);
   await page.mouse.move(1200, 30);
-  await page.getByRole('button', { name: 'Open marked messages (1)' }).click();
-  const marked = page.getByRole('dialog', { name: 'Marked messages' });
+  await page.keyboard.press('Escape');
+  const marked = await openMarked(page, 1);
   await expect(marked.getByRole('button', { name: 'Jump to user message 1' })).toBeVisible();
   await marked.getByRole('button', { name: 'Jump to user message 1' }).click();
   await expect(page.locator(`[data-message-id="${first.id}"]`).first()).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Open marked messages (1)' })).toBeVisible();
+  await openMarked(page, 1);
+  await page.keyboard.press('Escape');
 
   // The second client changes another ID through its real message action.
-  await other
-    .getByRole('complementary', { name: 'Transcript minimap' })
+  await (await openOutline(other))
     .getByRole('button', { name: 'Jump to assistant message 4' })
     .click();
   const secondRow = other.locator(`[data-message-id="${second.id}"]`).first();
   await secondRow.getByRole('button', { name: 'Mark message', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Open marked messages (2)' })).toBeVisible();
-  await expect(other.getByRole('button', { name: 'Open marked messages (2)' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open marked messages (2)' }).click();
+  await openMarked(other, 2);
+  await other.keyboard.press('Escape');
+  await openMarked(page, 2);
   await capture('docs-marked-messages.png', marked);
   await marked.getByRole('button', { name: 'Jump to assistant message 4' }).click();
   await expect(page.locator(`[data-message-id="${second.id}"]`).first()).toBeVisible();
@@ -127,12 +139,8 @@ test('durable conversation marks, previews, cross-client updates and history bou
   expect((await api('GET', `/v1/sessions/${sid}`)).metadata.message_marks).toEqual(
     exported.session.metadata.message_marks,
   );
-  await expect(page.getByRole('button', { name: 'Open marked messages (2)' })).toBeVisible();
-
   await page.setViewportSize({ width: 720, height: 900 });
-  await page.getByRole('button', { name: 'Open transcript outline' }).click();
-  const outline = page.getByRole('dialog', { name: 'Transcript outline' });
-  await outline.getByRole('button', { name: 'Marked (2)' }).click();
+  await openMarked(page, 2);
   await expect(outline.getByRole('button', { name: 'Jump to assistant message 4' })).toBeVisible();
   await page.screenshot({ path: path.join(out!, 'originals', 'narrow-marked-outline.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

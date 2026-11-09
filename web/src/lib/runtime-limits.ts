@@ -400,8 +400,8 @@ export const DIAGRAM_LABEL_TRUNCATE_CHARS = 160;
 export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
 
 /**
- * Characters of a message kept for a transcript minimap preview.
- * Unit: characters. The rail's hover card and the outline list both render a
+ * Characters of a message kept for a transcript outline preview.
+ * Unit: characters. The outline's rows and hover card both render a
  * short projection of a message that can itself be arbitrarily long, so the
  * string is cut before it reaches the markdown renderer rather than hidden with
  * CSS afterwards. Wide enough to fill the three lines the hover card shows.

@@ -10,6 +10,9 @@ import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcrip
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ClioConversation } from './conversation';
 
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
 const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -201,7 +204,9 @@ describe('ClioConversation activity and interactive surfaces', () => {
     const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
     if (!taskLine) throw new Error('the task activity line was not rendered');
     expect(taskLine).toHaveTextContent('Review station quality');
-    expect(within(taskLine as HTMLElement).getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+    expect(
+      within(taskLine as HTMLElement).getByRole('img', { name: 'Completed' }),
+    ).toBeInTheDocument();
     expect(taskLine).not.toHaveTextContent('completed.');
     expect(taskLine.closest('button')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));

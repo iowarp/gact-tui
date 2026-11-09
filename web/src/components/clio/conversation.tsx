@@ -28,7 +28,7 @@ import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
-import { ClioTranscriptMinimap } from './transcript-minimap';
+import { ClioTranscriptOutline } from './transcript-outline';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
@@ -410,15 +410,10 @@ function ConversationBody({
     virtualizer,
     scrollToBottom,
   });
-  const minimapVisible = conversationViewportWidth >= 760;
-  // Grow only into the unused margin, leaving a gap before the transcript column.
-  const minimapMarkerWidth = Math.min(
-    56,
-    Math.max(
-      24,
-      (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 - 12,
-    ),
-  );
+  // The outline button floats at the top left; once the column fills the
+  // viewport, a gutter keeps the text from scrolling under it.
+  const outlineGutter =
+    (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 < 32;
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -517,19 +512,14 @@ function ConversationBody({
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
-        <>
-          <ClioTranscriptMinimap
-            activeIndex={activeMessageIndex}
-            attention={entities.attentionData}
-            messages={messages}
-            markedMessageIds={entities.markedMessageIds}
-            markingMessageId={entities.markingMessageId}
-            onMarkMessage={entities.onMarkMessage}
-            onJump={jumpToMessage}
-            visible={minimapVisible}
-            maxMarkerWidth={minimapMarkerWidth}
-          />
-        </>
+        <ClioTranscriptOutline
+          activeIndex={activeMessageIndex}
+          messages={messages}
+          markedMessageIds={entities.markedMessageIds}
+          markingMessageId={entities.markingMessageId}
+          onMarkMessage={entities.onMarkMessage}
+          onJump={jumpToMessage}
+        />
       ) : null}
       {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
           scroll position here. With the browser's own scroll anchoring on, it
@@ -538,13 +528,10 @@ function ConversationBody({
           after they scrolled up, even on a finished conversation. */}
       <div
         aria-label="Conversation"
-        // Without the minimap rail, the outline button floats at the top left; this
-        // gutter keeps the text from scrolling under it.
         className={cn(
           'clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]',
-          !minimapVisible && 'pl-3',
+          outlineGutter && 'pl-3',
         )}
-        data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
@@ -594,8 +581,7 @@ function ConversationBody({
         role="log"
         style={{
           paddingBottom: bottomInset,
-          scrollPaddingBottom:
-            bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
+          scrollPaddingBottom: bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
         }}
         tabIndex={0}
       >
@@ -689,7 +675,6 @@ function ConversationBody({
                     message={message}
                     mcpAppResponse={mcpAppResponses.get(message.id)}
                     messageCompactions={compactionPlacement.byMessage.get(message.id)}
-                    modelBoundary={modelBoundaries.get(message.id)}
                     onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                     recent={index >= messages.length - 2}
                     start={start}
@@ -713,6 +698,9 @@ function ConversationBody({
                 tools={entities.tools}
                 tasks={entities.tasks}
                 subagents={entities.subagents}
+                awaitingUser={entities.interactions?.some(
+                  (interaction) => interaction.status === 'pending',
+                )}
               />
             </SessionResponseFeedback>
           </div>
