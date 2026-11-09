@@ -49,6 +49,24 @@ Interactive. Step 2 holds four ranks for about 40 minutes.
 - 2020 series use the older quality flags.
 `;
 
+const PLAN_ARTIFACT_ID = 'artifact_plan_review';
+
+/** The saved plan the plan card opens as a tab ("Open plan"). */
+export function decisionCardArtifacts(card, { sessionId, observedAt }) {
+  if (card !== 'plan') return [];
+  return [
+    {
+      id: PLAN_ARTIFACT_ID,
+      session_id: sessionId,
+      name: 'displacement-review.md',
+      media_type: 'text/markdown',
+      uri: 'artifact://flat-ndp/plans/displacement-review.md@v1',
+      size: PLAN.length,
+      created_at: observedAt,
+    },
+  ];
+}
+
 /** The specialist that asks, so the card names it under Asked by. */
 export function decisionChildSession(session, childSessionId) {
   return {
@@ -144,6 +162,7 @@ export function decisionCardInteractions(card, context) {
         plan_file: 'plans/displacement-review.md',
         plan_content: PLAN,
         plan_content_status: 'complete',
+        artifact_ref: { artifact_id: PLAN_ARTIFACT_ID },
       },
       options: [
         { label: 'Approve — interactive', value: 'interactive' },

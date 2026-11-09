@@ -18,6 +18,10 @@ for (const width of [1100, 1600]) {
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas', exact: true });
     await expect(canvas).toBeVisible();
+    // Loading and opening never record a width; only the user's resize does.
+    const storedShare = () =>
+      page.evaluate(() => window.localStorage.getItem('clio.workbench-share.v1'));
+    expect(await storedShare()).toBeNull();
     const originalWidth = (await canvas.boundingBox())!.width;
     const handle = (await resize.boundingBox())!;
     await page.mouse.move(handle.x + handle.width / 2, handle.y + 100);
@@ -28,6 +32,7 @@ for (const width of [1100, 1600]) {
       .poll(async () => (await canvas.boundingBox())!.width)
       .toBeGreaterThan(originalWidth + 80);
     const resizedWidth = (await canvas.boundingBox())!.width;
+    expect(Number(await storedShare())).toBeCloseTo(resizedWidth / width, 2);
     const restoredWidths: Partial<Record<'button' | 'shortcut', number>> = {};
     await page.screenshot({ path: testInfo.outputPath('canvas-resized.png') });
 

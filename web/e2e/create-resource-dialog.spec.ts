@@ -25,8 +25,8 @@ test('session creation expands downward from a stable corner and keeps actions r
     .fill('Review station data');
   const collapsedBox = (await dialog.boundingBox())!;
   const collapsedTrigger = (await advanced.boundingBox())!;
-  // DialogFrame: 36% of the window, 360 to 560 px.
-  expect(collapsedBox.width).toBeCloseTo(1280 * 0.36, 0);
+  // DialogFrame: 44% of the window, 360 to 600 px.
+  expect(collapsedBox.width).toBeCloseTo(1280 * 0.44, 0);
   await advanced.click();
   await expect(advanced).toHaveAttribute('aria-expanded', 'true');
   const expandedBox = (await dialog.boundingBox())!;

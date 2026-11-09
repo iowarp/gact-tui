@@ -8,6 +8,7 @@ import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { ObservabilityView } from './observability-view-storage';
+import { activityTab } from './workbench-activity-tab';
 import type { CanvasResourceKind } from './workbench-resource-browser';
 import { fileName, type WorkbenchTab } from './workbench-shared';
 
@@ -39,7 +40,9 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'science-log' }
   | { kind: 'terminal'; cwd: string }
   /** One page of the shared browser, labelled by its session (a subagent's by its task). */
-  | { kind: 'browser'; pageId: string; sessionId?: string; label?: string };
+  | { kind: 'browser'; pageId: string; sessionId?: string; label?: string }
+  /** One tool call's Activity detail, in the session that made it. */
+  | { kind: 'tool-call'; callId: string; sessionId?: string; label: string };
 
 /** The requests whose tab depends only on the request and the conversation. */
 export type TabOpenRequest = Exclude<
@@ -141,5 +144,11 @@ export function tabForOpenRequest(
         sessionId: request.sessionId ?? sessionId,
         workspaceId,
       };
+    case 'tool-call':
+      return activityTab(
+        { id: `tool:${request.callId}`, kind: 'tool', name: request.label },
+        request.sessionId ?? sessionId,
+        workspaceId,
+      );
   }
 }
