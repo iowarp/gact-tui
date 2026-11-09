@@ -31,7 +31,7 @@ import {
   canUploadWorkspaceResources,
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
-import { useComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
@@ -70,6 +70,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
+  const draftValue = useComposerDraftValue(draft);
   const [filesViewActive, setFilesViewActive] = useState(false);
   const data = useWorkspaceData({
     contextTargetId: '',
@@ -324,7 +325,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               await send.mutateAsync(value);
             }}
             resources={data.workspaceResources.data ?? []}
-            value={draft.value}
+            value={draftValue}
             onValueChange={draft.onValueChange}
             references={draft.references}
             onReferencesChange={draft.onReferencesChange}
