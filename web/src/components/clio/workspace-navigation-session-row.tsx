@@ -216,7 +216,7 @@ function SessionRow({
                 <ClioRelativeTime
                   className={cn(
                     'text-[11px] group-data-selected/list-row:text-accent-foreground/80',
-                    unseen ? 'font-semibold text-foreground' : 'text-faint',
+                    unseen ? 'font-semibold text-foreground' : 'text-muted-foreground',
                   )}
                   compact
                   timestamp={sessionInteractionAt(session)}

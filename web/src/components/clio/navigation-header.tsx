@@ -8,6 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availability';
 import type { ConnectionSettings } from '@/lib/connection';
@@ -45,6 +46,8 @@ export function NavigationHeader({
   onImportSession,
   attentionControl,
 }: NavigationHeaderProps) {
+  // Collapsed, the toggle moves to the top bar beside the breadcrumb.
+  const { state: sidebarState } = useSidebar();
   return (
     <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
       <SidebarMenu className="flex-row items-center gap-1 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
@@ -60,12 +63,14 @@ export function NavigationHeader({
           />
         </SidebarMenuItem>
         {attentionControl}
-        <li className="relative shrink-0 in-data-[mobile=true]:hidden">
-          <NamedTooltip label="Hide the left bar" shortcut="left-pocket">
-            <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[15px]" />
-          </NamedTooltip>
-          <HeldKeyBadge id="left-pocket" />
-        </li>
+        {sidebarState === 'expanded' ? (
+          <li className="relative shrink-0 in-data-[mobile=true]:hidden">
+            <NamedTooltip label="Hide the left bar" shortcut="left-pocket">
+              <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[15px]" />
+            </NamedTooltip>
+            <HeldKeyBadge id="left-pocket" />
+          </li>
+        ) : null}
       </SidebarMenu>
       <SidebarMenu className="gap-px">
         <SidebarMenuItem className="group/new-row">
@@ -100,7 +105,7 @@ export function NavigationHeader({
             <SearchIcon aria-hidden="true" />
             <span className="truncate">Search</span>
             <ShortcutKeys
-              className="ml-auto text-[11px] text-faint group-data-[collapsible=icon]:hidden"
+              className="ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden"
               id="search"
             />
             <HeldKeyBadge id="search" />

@@ -22,6 +22,13 @@ import { PanelLeftIcon } from 'lucide-react';
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_HOVER_INTENT_MS = 150;
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+
+/** The open state last chosen with the toggle, so a remounted shell keeps it. */
+function storedSidebarOpen(fallback = true): boolean {
+  if (typeof document === 'undefined') return fallback;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${SIDEBAR_COOKIE_NAME}=(true|false)`));
+  return match ? match[1] === 'true' : fallback;
+}
 const SIDEBAR_WIDTH = '18.25rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
@@ -203,9 +210,12 @@ function Sidebar({
     setFocused(false);
     setLeaveDeferred(false);
   }, [state, isMobile, cancelHover]);
+  // A menu the preview opened is portaled, so React never reports leaving the
+  // sidebar for it, nor a leave when it closes outside the panel. While a
+  // hover preview is open, any move away from the panel and its popups ends it.
   React.useEffect(() => {
     const element = containedRef.current;
-    if (!leaveDeferred || !hovered || !element) return;
+    if (!hovered || !element) return;
     const move = (event: PointerEvent) => {
       if (pointerStillOverSidebar(element, event, event.target)) return;
       setHovered(false);
@@ -812,6 +822,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  storedSidebarOpen,
   Sidebar,
   SidebarContent,
   SidebarFooter,

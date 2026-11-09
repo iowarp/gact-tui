@@ -10,7 +10,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  storedSidebarOpen,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
@@ -20,10 +26,10 @@ import { ToolbarAction } from './viewer-toolbar';
 import { TopBarEndHost } from './top-bar-end-context';
 import { NamedTooltip } from './primitives/icon-button';
 
-/** The left bar carries its own hide control, even collapsed; on phones it is a sheet the top bar opens. */
+/** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
-  const { isMobile } = useSidebar();
-  if (!isMobile) return null;
+  const { isMobile, state } = useSidebar();
+  if (!isMobile && state === 'expanded') return null;
   return (
     <NamedTooltip label="Show the left bar" shortcut="left-pocket">
       <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground" />
@@ -298,7 +304,8 @@ export function ClioAppShell({
   );
 
   return (
-    <SidebarProvider>
+    // The route can remount the shell (a draft, a new workspace); keep the bar as left.
+    <SidebarProvider defaultOpen={storedSidebarOpen()}>
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}

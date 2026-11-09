@@ -187,7 +187,7 @@ export function ClioNavigation({
                   <span
                     className={
                       profileName
-                        ? 'truncate text-[11px] text-faint'
+                        ? 'truncate text-[11px] text-muted-foreground'
                         : 'truncate text-[13px] text-foreground'
                     }
                   >

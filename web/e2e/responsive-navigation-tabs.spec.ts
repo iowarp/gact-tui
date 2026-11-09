@@ -111,7 +111,8 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
         return bounds.x + bounds.width / 2;
       }),
   );
-  expect(centers.length).toBeGreaterThanOrEqual(6);
+  // The mark, New conversation, Search and a workspace; Files and Runs left the bar.
+  expect(centers.length).toBeGreaterThanOrEqual(4);
   expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('collapsed-alignment.png') });
   const cookie = await page.evaluate(() => document.cookie);

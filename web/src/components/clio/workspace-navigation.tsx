@@ -340,7 +340,7 @@ function ShowMoreRow({
   return (
     <ListRow
       className={cn(
-        'h-[26px] cursor-pointer text-[11.5px] text-faint hover:text-muted-foreground group-data-[collapsible=icon]:hidden',
+        'h-[26px] cursor-pointer text-[11.5px] text-muted-foreground hover:text-foreground group-data-[collapsible=icon]:hidden',
         indent ? 'pl-[34px]' : 'pl-2.5',
       )}
       title={
@@ -557,7 +557,9 @@ function WorkspaceTreeItem({
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         meta={
           sessionTotal > 0 ? (
-            <span className="text-[11px] font-normal tabular-nums text-faint">{sessionTotal}</span>
+            <span className="text-[11px] font-normal tabular-nums text-muted-foreground">
+              {sessionTotal}
+            </span>
           ) : null
         }
         status={
@@ -585,7 +587,7 @@ function WorkspaceTreeItem({
             renderSession(session, false, depth),
           )}
           {visibleSessions.length === 0 && !draft ? (
-            <p className="h-7 truncate pl-[34px] text-[12px] leading-7 text-faint">
+            <p className="h-7 truncate pl-[34px] text-[12px] leading-7 text-muted-foreground">
               No conversations yet
             </p>
           ) : null}
@@ -629,7 +631,7 @@ function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: (
   return (
     <Button
       aria-busy={loading || undefined}
-      className="h-7 w-full justify-start gap-1.5 pl-[34px] text-[11.5px] text-faint"
+      className="h-7 w-full justify-start gap-1.5 pl-[34px] text-[11.5px] text-muted-foreground"
       disabled={loading}
       onClick={onLoadMore}
       ref={sentinel}
