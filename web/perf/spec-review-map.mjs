@@ -89,6 +89,13 @@ export const surfaces = [
     title: 'Workbench pocket and tabs',
     pairs: [
       { app: 'canvas--observability', spec: [...rp(1), ...fb(9, 11)] },
+      // #758 harness: strip lists, tab context menu, list beside/over a tab.
+      { app: 'canvas--files-list', spec: [...rp(1)] },
+      { app: 'canvas--(activity|activity-list|activity-detail)', spec: [...rp(2)] },
+      { app: 'canvas--tab-context-menu', spec: [...rp(3), ...tb(1)] },
+      { app: 'canvas--file-csv', spec: [...tb(1, 2), ...rp(1)] },
+      { app: 'canvas--narrow-sheet', spec: [...rp(3, 1)] },
+      { app: 'canvas--list-beside', spec: [...rp(4)] },
       { app: 'canvas--tab-menu', spec: [...rp(3), ...ln(12)] },
       {
         app: 'canvas--(file-explorer|workspace-resources|session-artifacts|work)',
