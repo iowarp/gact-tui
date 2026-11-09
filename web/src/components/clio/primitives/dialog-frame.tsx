@@ -217,7 +217,7 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="flex min-w-0 items-center justify-end gap-2 pt-2 pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
             <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
