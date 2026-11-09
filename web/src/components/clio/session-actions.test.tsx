@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioSessionActions } from './session-actions';
 
 afterEach(cleanup);
@@ -12,7 +13,11 @@ function renderActions() {
     onShare: vi.fn().mockResolvedValue('http://127.0.0.1/v1/shared/shr_test'),
     onUndo: vi.fn().mockResolvedValue(undefined),
   };
-  render(<ClioSessionActions {...actions} title="EarthScope NDP" />);
+  render(
+    <TooltipProvider>
+      <ClioSessionActions {...actions} title="EarthScope NDP" />
+    </TooltipProvider>,
+  );
   return actions;
 }
 
