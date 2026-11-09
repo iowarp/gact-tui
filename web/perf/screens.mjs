@@ -431,6 +431,12 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
+      await press(page, 'button', 'Add folder', { exact: true });
+      await overlay(page);
+      await page.getByRole('dialog').getByRole('textbox').first().fill('/scratch/jc/opal');
+      await page.waitForTimeout(300);
+    }),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
