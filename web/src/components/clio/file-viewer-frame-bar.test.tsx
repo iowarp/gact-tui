@@ -72,15 +72,18 @@ describe('file viewer frame bar', () => {
     expect(onOpenFolder).toHaveBeenCalledWith('results');
   });
 
-  it('shows the size and what the renderer counts, and its modes as named icons', async () => {
+  it('shows one fact per mode: the renderer count, then the size in Source, and its modes as named icons', async () => {
+    const user = userEvent.setup();
     const frame = renderFrame();
     expect(await within(frame).findByText('412 rows')).toBeInTheDocument();
-    expect(within(frame).getByText('2.0 KB')).toBeInTheDocument();
+    expect(within(frame).queryByText('2.0 KB')).not.toBeInTheDocument();
     expect(within(frame).getByRole('tab', { name: 'Data' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(within(frame).getByRole('tab', { name: 'Source' })).toBeInTheDocument();
+    await user.click(within(frame).getByRole('tab', { name: 'Source' }));
+    expect(await within(frame).findByText('2.0 KB')).toBeInTheDocument();
+    expect(within(frame).queryByText('412 rows')).not.toBeInTheDocument();
   });
 
   it('lists the Copy variants with their keys and says why one is unavailable', async () => {

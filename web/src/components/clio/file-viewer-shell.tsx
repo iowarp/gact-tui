@@ -252,8 +252,9 @@ export function FileViewerShell({
   // Each mode states its own fact, as the frame spec does: Render what the renderer
   // draws (rows, pages), Source the bytes, Lineage the version and its graph.
   const size = identity.size === undefined ? [] : [formatBytes(identity.size)];
-  const showingSource =
-    !frameActive && sourceMode !== undefined && renderer?.value === sourceMode.value;
+  const showingSource = frameActive
+    ? isSourceMode({ value: selectedValue })
+    : sourceMode !== undefined && renderer?.value === sourceMode.value;
   const positioned = selectedValue === LINEAGE_VIEW || (!showingSource && rendererFacts.length > 0);
   // A view with no mode segment (one representation) states its facts and its size.
   const what = !positioned ? size : segmentCount < 2 ? [...rendererFacts, ...size] : rendererFacts;
