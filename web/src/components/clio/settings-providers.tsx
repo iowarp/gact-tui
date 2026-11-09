@@ -254,6 +254,8 @@ export function ProvidersSettings() {
                 )}
                 group={groups.find((group) => group.id === opened.preset.id)}
                 isDefault={opened.isDefault}
+                applying={apply.isPending}
+                onUse={(address, model) => adoptServer(opened.preset, address, model)}
                 onClose={() => setDetailsId(undefined)}
                 preset={opened.preset}
                 saved={opened.saved}

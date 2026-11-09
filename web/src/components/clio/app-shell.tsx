@@ -236,9 +236,10 @@ export function ClioAppShell({
           </span>
         }
       >
-        <div className="min-w-0 flex-1">{contextBar}</div>
-        {toolbarActions}
-        {hasWorkbench && (
+        {/* The update page brings its own header; the conversation's is stale while it runs. */}
+        <div className="min-w-0 flex-1">{updating ? null : contextBar}</div>
+        {updating ? null : toolbarActions}
+        {hasWorkbench && !updating && (
           <ToolbarAction
             label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
             onClick={toggleWorkbench}
@@ -250,7 +251,7 @@ export function ClioAppShell({
         )}
       </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
-      {statusStrip && (
+      {statusStrip && !updating && (
         <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
       )}
     </section>
