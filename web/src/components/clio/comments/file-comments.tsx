@@ -12,6 +12,12 @@ import { CommentCapture, CommentToggle } from './comment-capture';
 import type { Rect } from './comment-region-layer';
 import { CommentSessionProvider } from './comment-session';
 import { CommentThreadList } from './comment-thread-list';
+import {
+  FrameCommentsIcon,
+  FrameCommentsPortal,
+  FrameCommentsUnavailable,
+} from './frame-comments';
+import { useInFrameComments } from './frame-comments-slot';
 
 type RegionAnchor = (rect: Rect, host: HTMLElement) => DocumentAnchor | undefined;
 
@@ -40,6 +46,8 @@ function Commentable({
   initiallyActive?: boolean;
   children: ReactNode;
 }) {
+  const inFrame = useInFrameComments();
+  const list = <CommentThreadList artifactId={version.artifactId} sessionId={sessionId} />;
   return (
     <CommentSessionProvider
       initiallyActive={initiallyActive}
@@ -49,24 +57,46 @@ function Commentable({
         defaultMode: modes[0],
         destination: { kind: 'artifact', sessionId, ...version },
       }}
-    >
-      <div className="relative h-full min-h-0 min-w-0" data-slot="commentable-view">
-        <div className="absolute top-2 left-2 z-20 flex gap-1 rounded-md bg-background/90 p-0.5 shadow-sm">
-          <CommentToggle />
+      threadList={
+        inFrame ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button aria-label="Comment threads" size="sm" variant="ghost">
+              <Button className="mt-2 w-full" size="sm" variant="ghost">
                 <MessagesSquareIcon aria-hidden="true" />
+                Earlier threads
               </Button>
             </PopoverTrigger>
             <PopoverContent
               align="start"
-              className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
+              className="z-[95] max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
             >
-              <CommentThreadList artifactId={version.artifactId} sessionId={sessionId} />
+              {list}
             </PopoverContent>
           </Popover>
-        </div>
+        ) : undefined
+      }
+    >
+      <div className="relative h-full min-h-0 min-w-0" data-slot="commentable-view">
+        {inFrame ? (
+          <CommentToggle />
+        ) : (
+          <div className="absolute top-2 left-2 z-20 flex gap-1 rounded-md bg-background/90 p-0.5 shadow-sm">
+            <CommentToggle />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button aria-label="Comment threads" size="sm" variant="ghost">
+                  <MessagesSquareIcon aria-hidden="true" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="max-h-[70dvh] w-[min(26rem,calc(100vw-1rem))] overflow-auto p-0"
+              >
+                {list}
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
         <CommentCapture regionAnchor={regionAnchor} sourcePath={title} svg={svg}>
           {children}
         </CommentCapture>
@@ -128,6 +158,7 @@ export function WorkspaceFileComments({
   children: ReactNode;
 }) {
   const { sessionId = '' } = useParams();
+  const inFrame = useInFrameComments();
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [started, setStarted] = useState(false);
@@ -141,9 +172,32 @@ export function WorkspaceFileComments({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
     onSuccess: () => setStarted(true),
   });
-  if (!sessionId) return <>{children}</>;
+  if (!sessionId)
+    return inFrame ? (
+      <>
+        <FrameCommentsPortal>
+          <FrameCommentsUnavailable reason="Open a conversation to comment" />
+        </FrameCommentsPortal>
+        {children}
+      </>
+    ) : (
+      <>{children}</>
+    );
   const known = register.data ?? target.data;
   if (!known) {
+    if (inFrame)
+      return (
+        <>
+          <FrameCommentsPortal>
+            <FrameCommentsIcon
+              busy={register.isPending || target.isPending}
+              disabledReason={register.error?.message}
+              onClick={() => register.mutate()}
+            />
+          </FrameCommentsPortal>
+          {children}
+        </>
+      );
     return (
       <div className="relative h-full min-h-0 min-w-0" data-slot="commentable-view">
         <div className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-0.5 shadow-sm">
@@ -212,6 +266,7 @@ export function WorkspaceDocumentView({
   documentView: (artifact: Artifact) => ReactNode;
 }) {
   const { sessionId = '' } = useParams();
+  const inFrame = useInFrameComments();
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const target = useQuery({
@@ -224,7 +279,25 @@ export function WorkspaceDocumentView({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
   });
   const known = register.data ?? target.data;
-  if (!sessionId || !known)
+  if (!sessionId || !known) {
+    if (inFrame)
+      return (
+        <>
+          <FrameCommentsPortal>
+            {sessionId ? (
+              <FrameCommentsIcon
+                label="Preview and comment"
+                busy={register.isPending || target.isPending}
+                disabledReason={register.error?.message}
+                onClick={() => register.mutate()}
+              />
+            ) : (
+              <FrameCommentsUnavailable reason="Open a conversation to comment" />
+            )}
+          </FrameCommentsPortal>
+          {fallback}
+        </>
+      );
     return (
       <div className="relative h-full min-h-0 min-w-0" data-slot="workspace-document-view">
         {sessionId ? (
@@ -244,6 +317,7 @@ export function WorkspaceDocumentView({
         {fallback}
       </div>
     );
+  }
   return documentView({
     id: known.artifact_id,
     session_id: sessionId,

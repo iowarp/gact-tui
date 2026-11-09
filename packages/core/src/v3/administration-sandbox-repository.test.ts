@@ -23,6 +23,51 @@ describe('sandbox administration repository', () => {
     );
     expect((await repository.sandboxStatus()).setup_progress).toEqual(progress);
   });
+  it('decodes the start-up acknowledgement verdict from the sandbox route and the health row', async () => {
+    const verdict = {
+      active: false,
+      acknowledgement_required: true,
+      warning: 'Agent commands will run without OS isolation.',
+      reason: 'codex_not_installed',
+    };
+    const repository = new ClioRepository(
+      new RecordingTransport([
+        {
+          name: 'sandbox',
+          status: 'degraded',
+          resolved: true,
+          mechanism: 'none',
+          setup_in_progress: false,
+          next_action: 'Reinstall CLIO Desktop.',
+          ...verdict,
+        },
+        {
+          healthy: true,
+          uptime_s: 3,
+          overall_status: 'degraded',
+          integrations: [
+            { name: 'sandbox', status: 'degraded', ...verdict },
+            {
+              name: 'api',
+              status: 'ready',
+              active: null,
+              acknowledgement_required: null,
+              warning: null,
+            },
+          ],
+        },
+      ]),
+    );
+    await expect(repository.sandboxStatus()).resolves.toMatchObject({
+      resolved: true,
+      mechanism: 'none',
+      ...verdict,
+    });
+    const health = await repository.serviceHealth();
+    expect(health.integrations[0]).toMatchObject(verdict);
+    expect(health.integrations[1]).toEqual({ name: 'api', status: 'ready', required: true });
+  });
+
   it('decodes the sandbox row including the desktop-panel-only fields', async () => {
     const transport = new RecordingTransport([
       {

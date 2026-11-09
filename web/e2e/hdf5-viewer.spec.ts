@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const draftRoute = '/workspaces/ws_flat_ndp/new';
@@ -74,8 +75,7 @@ async function serveHdf5(page: Page) {
 
 async function openWaterH5(page: Page) {
   await page.goto(draftRoute);
-  await page.getByRole('button', { name: 'Open workspace canvas' }).click();
-  await page.getByRole('tab', { name: 'Files', exact: true }).click();
+  await showWorkbenchList(page, 'Files');
   // Maximize first: the viewer then mounts once, at full width. h5web starts
   // with its sidebar collapsed in a narrow pane.
   await page.getByRole('button', { name: 'Maximize canvas' }).click();

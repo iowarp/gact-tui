@@ -41,7 +41,12 @@
       "icons/icon.ico"
     ],
     "externalBin": [],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements/app.entitlements"
+    }
   },
   "plugins": {
     "updater": {

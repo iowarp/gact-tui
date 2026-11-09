@@ -13,6 +13,7 @@ import {
   pdfRenderDensity,
 } from './document-pdf-window';
 import { ClioStatus } from './status';
+import { useFileViewerFacts } from './file-viewer-facts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -53,6 +54,9 @@ export function ClioDocumentPdfViewer({
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
+  useFileViewerFacts(
+    pageCount ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`] : undefined,
+  );
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
   const [fitOverride, setFitOverride] = useState<'page'>();

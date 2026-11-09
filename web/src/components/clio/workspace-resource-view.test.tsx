@@ -106,7 +106,7 @@ describe('WorkspaceResourceView', () => {
       ),
     );
     expect(container.querySelector('iframe')).toBeNull();
-    expect(container.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
     expect(repository.resourcePreview).toHaveBeenCalledTimes(1);
   });
 

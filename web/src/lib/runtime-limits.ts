@@ -137,6 +137,15 @@ export const CONNECTION_RETRY_MAX_MS = 2_000;
  */
 export const SANDBOX_SETUP_POLL_MS = 1_000;
 
+/**
+ * Poll cadence for the start-up sandbox verdict. Unit: milliseconds. While the
+ * service has not resolved its fence (`resolved: false`) the verdict is
+ * seconds away; while the fence is off the banner only needs to notice it
+ * coming on (a restart or setup elsewhere), the slow tier.
+ */
+export const SANDBOX_RESOLVING_POLL_MS = 1_000;
+export const SANDBOX_INACTIVE_POLL_MS = 30_000;
+
 // ## Streaming and reconnect backoff
 // The client reconnects a dropped SSE stream with exponential backoff between
 // these two bounds.

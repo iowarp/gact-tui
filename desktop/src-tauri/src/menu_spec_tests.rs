@@ -111,6 +111,11 @@ fn predefined_and_unknown_ids_have_no_action() {
         "hide",
         "hide-others",
         "show-all",
+        "minimize",
+        "maximize",
+        "fullscreen",
+        "close-window",
+        "bring-all-to-front",
         "show", // tray item id from lib.rs
         "totally-bogus",
         "",
@@ -123,16 +128,16 @@ fn predefined_and_unknown_ids_have_no_action() {
     }
 }
 
-/// The native macOS menu no longer carries a File, View, or Help submenu:
-/// everything that used to live there is reachable through the
-/// product-owned title bar's hamburger menu on every platform instead (see
-/// `web/src/components/clio/desktop-title-bar.tsx`). The menu is trimmed to
-/// just what macOS itself expects an app to own — the application menu and
-/// Edit.
+/// The native macOS menu carries no File or View submenu: those product
+/// actions are reachable through the product-owned title bar's hamburger
+/// menu on every platform instead (see
+/// `web/src/components/clio/desktop-title-bar.tsx`). The menu holds just
+/// what macOS itself expects an app to own — the application menu, Edit,
+/// Window and Help.
 #[test]
-fn menu_spec_has_no_file_view_help() {
+fn menu_spec_has_no_file_or_view() {
     let titles: Vec<&str> = MENU_SPEC.iter().map(|s| s.title).collect();
-    for banned in ["File", "View", "Help"] {
+    for banned in ["File", "View"] {
         assert!(
             !titles.contains(&banned),
             "the {banned} submenu must not exist in MENU_SPEC"
@@ -140,16 +145,18 @@ fn menu_spec_has_no_file_view_help() {
     }
 }
 
-/// The spec has exactly two top-level submenus, in order, with the
+/// The spec has exactly four top-level submenus, in order, with the
 /// documented per-submenu item counts.
 #[test]
-fn spec_has_two_submenus_with_expected_item_counts() {
+fn spec_has_four_submenus_with_expected_item_counts() {
     let titles: Vec<&str> = MENU_SPEC.iter().map(|s| s.title).collect();
-    assert_eq!(titles, vec!["App", "Edit"]);
+    assert_eq!(titles, vec!["App", "Edit", WINDOW_MENU_TITLE, HELP_MENU_TITLE]);
 
     let expected_counts = [
-        ("App", 9),  // about, sep, settings, sep, hide, hide-others, show-all, sep, quit
-        ("Edit", 7), // undo, redo, sep, cut, copy, paste, select-all
+        ("App", 9),    // about, sep, settings, sep, hide, hide-others, show-all, sep, quit
+        ("Edit", 7),   // undo, redo, sep, cut, copy, paste, select-all
+        ("Window", 7), // minimize, zoom, full screen, sep, close, sep, bring all to front
+        ("Help", 1),   // documentation
     ];
     assert_eq!(MENU_SPEC.len(), expected_counts.len());
     for (spec, (title, count)) in MENU_SPEC.iter().zip(expected_counts) {
@@ -272,4 +279,48 @@ fn action_ids_are_unique() {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(sorted.len(), ids.len(), "duplicate action id in MENU_SPEC");
+}
+
+/// The Window menu restores the standard macOS window shortcuts (Cmd+M,
+/// Cmd+W, Ctrl+Cmd+F) through native predefined items, and Help opens the
+/// same documentation action as the title bar.
+#[test]
+fn window_menu_is_native_and_help_opens_documentation() {
+    let window = MENU_SPEC
+        .iter()
+        .find(|s| s.title == WINDOW_MENU_TITLE)
+        .unwrap();
+    let predefined: Vec<Predefined> = window
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            Item::Predefined(kind) => Some(*kind),
+            Item::Separator => None,
+            Item::Action { id, .. } => panic!("Window must not bridge {id:?} to JS"),
+        })
+        .collect();
+    assert_eq!(
+        predefined,
+        vec![
+            Predefined::Minimize,
+            Predefined::Maximize,
+            Predefined::Fullscreen,
+            Predefined::CloseWindow,
+            Predefined::BringAllToFront,
+        ]
+    );
+
+    let help = MENU_SPEC
+        .iter()
+        .find(|s| s.title == HELP_MENU_TITLE)
+        .unwrap();
+    assert!(matches!(
+        help.items,
+        [Item::Action {
+            id: "help-docs",
+            accel: None,
+            ..
+        }]
+    ));
+    assert_eq!(action_for_id("help-docs"), Some("help-docs"));
 }
