@@ -501,7 +501,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         data-maximized={maximized || undefined}
         ref={asideRef}
         className={cn(
-          'relative z-30 flex h-full min-w-0 flex-row bg-card/45',
+          'relative z-30 flex h-full min-w-0 flex-row bg-background',
           maximized &&
             (maximizeHost?.hasAttribute('data-workbench-maximize-host')
               ? 'absolute inset-0 z-[80] bg-background'

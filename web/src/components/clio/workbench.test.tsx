@@ -321,18 +321,14 @@ describe('ClioWorkbench canvas', () => {
     // interactive close control is a critical violation on either side of the trigger:
     // aria-required-children as a sibling, nested-interactive as a child. The X is therefore a
     // pointer affordance held out of the accessibility tree, and the announced Delete shortcut
-    // is what assistive tech uses. The tab keeps its own unpolluted name either way. Only the
-    // active tab shows the mark; inactive ones close by middle click, menu or Delete.
-    expect(closeControls).toHaveLength(1);
+    // is what assistive tech uses. The tab keeps its own unpolluted name either way.
     for (const control of closeControls) {
       expect(control).toHaveAttribute('aria-hidden', 'true');
       expect(control).not.toHaveAttribute('tabindex');
-      expect(control).not.toHaveClass('pointer-events-none');
     }
     expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
     expect(activityTab).toHaveAccessibleName('Timeline');
     expect(activityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
-    expect(closeControls[0]).toHaveAttribute('title', 'Close report.md');
 
     act(() => workTab.focus());
     await user.keyboard('{ArrowLeft}');

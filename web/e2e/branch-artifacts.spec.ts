@@ -166,30 +166,25 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await expect(composer).toBeVisible();
 });
 
-test('filters the evidence artifact list by scripts and 3D models in both themes', async ({
+test('filters the evidence artifact list by type and search from the list header', async ({
   page,
-}, testInfo) => {
+}) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
   await showWorkbenchList(page, 'Artifacts');
   const canvas = page.getByRole('region', { name: 'Artifacts list', exact: true });
-  const category = canvas.getByRole('combobox', { name: 'Artifact category' });
-  await expect(category).toBeVisible();
-  await category.click();
-  await page.getByRole('option', { name: 'Scripts (1)' }).click();
+  const filter = canvas.getByRole('button', { name: 'Filter artifacts' });
+  await filter.click();
+  await page.getByRole('menuitemradio', { name: 'Scripts (1)' }).click();
   await expect(canvas.getByRole('button', { name: 'Open collect_sweep.py' })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath('artifact-filters-light.png') });
-  await category.click();
-  await page.getByRole('option', { name: '3D models (1)' }).click();
+  await filter.click();
+  await page.getByRole('menuitemradio', { name: '3D models (1)' }).click();
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toBeVisible();
-  await canvas.getByRole('searchbox', { name: 'Search artifacts' }).fill('missing');
-  await expect(canvas.getByText('No artifacts match these filters.')).toBeVisible();
+  await canvas.getByRole('button', { name: 'Search artifacts' }).click();
+  await canvas.getByRole('textbox', { name: 'Search artifacts' }).fill('missing');
+  await expect(canvas.getByText('No artifacts match', { exact: true })).toBeVisible();
   await canvas.getByRole('button', { name: 'Clear filters' }).click();
-  await page.evaluate(() => localStorage.setItem('theme', 'dark'));
-  await page.reload();
-  await expect(page.locator('html')).toHaveClass(/dark/);
-  await showWorkbenchList(page, 'Artifacts');
-  await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('artifact-filters-dark.png') });
+  await expect(canvas.getByRole('button', { name: 'Open collect_sweep.py' })).toBeVisible();
+  await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toBeVisible();
 });

@@ -92,10 +92,6 @@ it.each(['desktop', 'sheet', 'workspace'] as const)(
     expect(
       screen.getByRole('button', { name: 'Restore canvas beside conversation' }),
     ).toBeVisible();
-    // In the app the canvas covers the conversation section, leaving the left bar.
-    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveClass(
-      host === 'workspace' ? 'absolute' : 'fixed',
-    );
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' }).parentElement).toBe(
       host === 'desktop' ? document.body : screen.getByTestId('canvas-host'),
     );

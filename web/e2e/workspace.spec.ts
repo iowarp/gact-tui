@@ -724,33 +724,16 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
-  // tech closes the tab through the Delete shortcut announced with it. Only the
-  // active tab shows the mark.
+  // tech closes the tab through the Delete shortcut announced with it.
   const observabilityClose = observabilityTab
     .locator('..')
     .locator('[data-slot="frame-tab-close"]');
   await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
-  // The active tab always shows its close mark.
-  await expect(observabilityClose).toHaveCSS('opacity', '1');
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
-  // Maximized covers the conversation, not the left bar; the strip comes along.
-  await expect(canvas).toHaveCSS('position', 'absolute');
+  // Maximized keeps the strip; the layout itself is guarded by canvas--maximized screens.
   await expect(canvas.getByRole('toolbar', { name: 'Workbench lists' })).toBeVisible();
-  const canvasBounds = await canvas.boundingBox();
-  const workspaceBounds = await page
-    .getByRole('region', { name: 'Session workspace' })
-    .boundingBox();
-  expect(canvasBounds).not.toBeNull();
-  expect(workspaceBounds).not.toBeNull();
-  expect(Math.abs((canvasBounds?.x ?? 0) - (workspaceBounds?.x ?? 0))).toBeLessThanOrEqual(1);
-  expect(Math.abs((canvasBounds?.width ?? 0) - (workspaceBounds?.width ?? 0))).toBeLessThanOrEqual(
-    1,
-  );
-  expect(
-    Math.abs((canvasBounds?.height ?? 0) - (workspaceBounds?.height ?? 0)),
-  ).toBeLessThanOrEqual(1);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
 

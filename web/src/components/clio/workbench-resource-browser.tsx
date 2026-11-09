@@ -6,6 +6,7 @@ import {
   DatabaseIcon,
   FileTextIcon,
   FolderIcon,
+  ListFilterIcon,
   SearchIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
@@ -20,7 +21,17 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
 } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -75,6 +86,11 @@ interface FileBrowserProps {
   mode?: 'split' | 'tree' | 'preview';
   /** Paths this conversation changed; their rows are teal and say so. */
   changedPaths?: ReadonlySet<string>;
+  /**
+   * `tree` only: the list column's header, which takes the search, filter and
+   * refresh icons in place of a toolbar row.
+   */
+  renderHeader?: (actions: ReactNode) => ReactNode;
 }
 
 interface ArtifactBrowserProps {
@@ -109,6 +125,7 @@ export function FileBrowser({
   onSelectedPathChange,
   mode = 'split',
   changedPaths,
+  renderHeader,
 }: FileBrowserProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -135,7 +152,13 @@ export function FileBrowser({
   // include_hidden (use-workspace-data.ts) so a huge .clio never spends the
   // shared entry cap only to be discarded client-side — `files` here already
   // reflects the toggle. Read only for the empty-state hint below.
-  const { hideDotFiles } = useAppearancePreferences();
+  const { hideDotFiles, setHideDotFiles } = useAppearancePreferences();
+  const headed = mode === 'tree' && renderHeader !== undefined;
+  const [searching, setSearching] = useState(false);
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
@@ -173,8 +196,58 @@ export function FileBrowser({
     onSelectedPathChange?.(path);
   };
 
+  const filterLabel = filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files';
+  const refreshFiles = async () => {
+    onRefresh?.();
+    await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
+  };
+  const headerActions = headed ? (
+    <>
+      <IconButton
+        aria-pressed={searching}
+        icon={<SearchIcon />}
+        label={searching ? 'Close search' : 'Search files'}
+        onClick={() => (searching ? closeSearch() : setSearching(true))}
+        size="sm"
+        tooltipSide="bottom"
+      />
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <IconButton
+            aria-pressed={!hideDotFiles}
+            icon={<ListFilterIcon />}
+            label="Filter files"
+            size="sm"
+            tooltipSide="bottom"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={!hideDotFiles}
+            onCheckedChange={(checked) => setHideDotFiles(!checked)}
+            onSelect={(event) => event.preventDefault()}
+          >
+            Dot files and folders
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setSourcesOpen(true)}>
+            <DatabaseIcon />
+            Manage sources…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RefreshAction
+        label="Refresh files"
+        refreshing={Boolean(filesFetching)}
+        onRefresh={refreshFiles}
+      />
+    </>
+  ) : null;
+
   const treeSection = (
     <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
+      {headed ? renderHeader(headerActions) : null}
       {directory ? (
         <div className="flex min-w-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
           <Button size="xs" variant="ghost" onClick={onClearDirectory}>
@@ -185,48 +258,66 @@ export function FileBrowser({
           </span>
         </div>
       ) : null}
-      <div
-        className={cn(
-          'flex shrink-0 items-center gap-1.5 border-b',
-          mode === 'tree' ? 'px-2 py-1.5' : 'p-2',
-        )}
-      >
-        {mode === 'tree' ? (
-          <IconButton
-            icon={<DatabaseIcon />}
-            label="Sources"
-            onClick={() => setSourcesOpen(true)}
-            size="sm"
-          />
-        ) : (
-          <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
-            Sources
-          </Button>
-        )}
-        <div className="relative min-w-0 flex-1">
-          <SearchIcon
-            aria-hidden="true"
-            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            aria-label={
-              filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
-            }
-            className={cn('pl-8 text-xs', mode === 'tree' ? 'h-7' : 'h-8')}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'}
-            value={query}
+      {headed ? (
+        searching ? (
+          <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
+            <Input
+              aria-label={filterLabel}
+              autoFocus
+              className="h-7 text-xs"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeSearch();
+                }
+              }}
+              placeholder={filterLabel}
+              value={query}
+            />
+          </div>
+        ) : null
+      ) : (
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 border-b',
+            mode === 'tree' ? 'px-2 py-1.5' : 'p-2',
+          )}
+        >
+          {mode === 'tree' ? (
+            <IconButton
+              icon={<DatabaseIcon />}
+              label="Sources"
+              onClick={() => setSourcesOpen(true)}
+              size="sm"
+            />
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setSourcesOpen(true)}>
+              Sources
+            </Button>
+          )}
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              aria-label={
+                filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter workspace files'
+              }
+              className={cn('pl-8 text-xs', mode === 'tree' ? 'h-7' : 'h-8')}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={filesNextOffset !== undefined ? 'Filter loaded files' : 'Filter files'}
+              value={query}
+            />
+          </div>
+          <RefreshAction
+            label="Refresh files"
+            refreshing={Boolean(filesFetching)}
+            onRefresh={refreshFiles}
           />
         </div>
-        <RefreshAction
-          label="Refresh files"
-          refreshing={Boolean(filesFetching)}
-          onRefresh={async () => {
-            onRefresh?.();
-            await queryClient.invalidateQueries({ queryKey: ['workspace-directory'] });
-          }}
-        />
-      </div>
+      )}
       {filesTruncated && filesNextOffset === undefined ? (
         <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
           <TriangleAlertIcon className="size-3.5" />

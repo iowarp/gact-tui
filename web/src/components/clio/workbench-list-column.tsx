@@ -5,14 +5,35 @@ import type {
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { GlobeIcon, PanelRightCloseIcon, PaperclipIcon, TerminalSquareIcon } from 'lucide-react';
-import { memo, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  GlobeIcon,
+  ListFilterIcon,
+  PanelRightCloseIcon,
+  PaperclipIcon,
+  SearchIcon,
+  TerminalSquareIcon,
+} from 'lucide-react';
+import { memo, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  ARTIFACT_CATEGORIES,
+  artifactCategory,
+  filterArtifacts,
+  type ArtifactCategory,
+} from '@/lib/artifact-categories';
 import { artifactEvidenceLabel } from '@/lib/artifact-presentation';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatCompactBytes, formatResourceSize } from '@/lib/format';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
-import { ArtifactFilters } from './artifact-filters';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
@@ -86,17 +107,20 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
 ) {
   const { view, overlay, onHide } = props;
   const title = WORKBENCH_LIST_TITLES[view];
+  const renderHeader = (actions: ReactNode) => (
+    <ListHeader actions={actions} onHide={onHide} title={title} />
+  );
   return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list"
       data-overlay={overlay || undefined}
       className={cn(
-        'flex min-h-0 shrink-0 flex-col border-l border-border bg-background',
+        'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
         // Too narrow for both: the list is a sheet over the whole tab body
         // (never half of it, which would clip the tab), and a pick closes it.
         overlay
-          ? 'absolute top-10 right-10 bottom-0 left-0 z-20 border-t border-l-0'
+          ? 'absolute top-10 right-11 bottom-0 left-0 z-20 border-t border-l-0'
           : 'h-full w-[clamp(200px,34%,280px)]',
       )}
     >
@@ -108,12 +132,16 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
           onOpenFile={props.onOpenFile}
           onOpenSubagent={props.onOpenSubagent}
           onOpenTab={props.onOpenTab}
-          renderHeader={(actions) => <ListHeader actions={actions} onHide={onHide} title={title} />}
+          renderHeader={renderHeader}
           sessionId={props.sessionId}
           subagents={props.subagents}
           tabs={props.tabs}
           workspaceId={props.workspaceId}
         />
+      ) : view === 'files' ? (
+        <FilesList {...props} renderHeader={renderHeader} />
+      ) : view === 'artifacts' ? (
+        <ArtifactsList {...props} renderHeader={renderHeader} />
       ) : (
         <>
           <ListHeader onHide={onHide} title={title} />
@@ -155,13 +183,11 @@ function ListHeader({
 function ListBody(props: WorkbenchListColumnProps) {
   switch (props.view) {
     case 'files':
-      return <FilesList {...props} />;
-    case 'sources':
-      return <SourcesList {...props} />;
     case 'artifacts':
-      return <ArtifactsList {...props} />;
     case 'activity':
       return null;
+    case 'sources':
+      return <SourcesList {...props} />;
     case 'terminal':
       return <TerminalList {...props} />;
     case 'browser':
@@ -185,7 +211,8 @@ function FilesList({
   onOpenFile,
   tabs,
   activeTabId,
-}: WorkbenchListColumnProps) {
+  renderHeader,
+}: WorkbenchListColumnProps & { renderHeader: (actions: ReactNode) => ReactNode }) {
   const active = tabs.find((tab) => tab.id === activeTabId);
   const selectedPath =
     active?.kind === 'workspace-file' && active.workspaceId === workspaceId
@@ -208,6 +235,7 @@ function FilesList({
           onClearDirectory={onClearDirectory}
           onRefresh={onRefreshFiles}
           onSelectedPathChange={onOpenFile}
+          renderHeader={renderHeader}
           selectedPath={selectedPath}
           sessionId={sessionId}
           workspaceId={workspaceId}
@@ -320,6 +348,7 @@ function SourceRow({
 }
 
 function ArtifactsList({
+  sessionId,
   artifacts,
   artifactsPending,
   artifactsError,
@@ -327,11 +356,77 @@ function ArtifactsList({
   onOpenArtifact,
   tabs,
   activeTabId,
-}: WorkbenchListColumnProps) {
+  renderHeader,
+}: WorkbenchListColumnProps & { renderHeader: (actions: ReactNode) => ReactNode }) {
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<ArtifactCategory | 'all'>('all');
+  const counts = useMemo(() => {
+    const result = new Map<ArtifactCategory, number>();
+    for (const artifact of artifacts) {
+      const kind = artifactCategory(artifact);
+      result.set(kind, (result.get(kind) ?? 0) + 1);
+    }
+    return result;
+  }, [artifacts]);
+  const visible = useMemo(
+    () => filterArtifacts(artifacts, query, category),
+    [artifacts, query, category],
+  );
+  const filtered = Boolean(query.trim() || category !== 'all');
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
+  const header = renderHeader(
+    artifacts.length ? (
+      <>
+        <IconButton
+          aria-pressed={searching}
+          icon={<SearchIcon />}
+          label={searching ? 'Close search' : 'Search artifacts'}
+          onClick={() => (searching ? closeSearch() : setSearching(true))}
+          size="sm"
+          tooltipSide="bottom"
+        />
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <IconButton
+              aria-pressed={category !== 'all'}
+              icon={<ListFilterIcon />}
+              label="Filter artifacts"
+              size="sm"
+              tooltipSide="bottom"
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel>Type</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              onValueChange={(value) => setCategory(value as ArtifactCategory | 'all')}
+              value={category}
+            >
+              <DropdownMenuRadioItem value="all">
+                All types ({artifacts.length})
+              </DropdownMenuRadioItem>
+              {ARTIFACT_CATEGORIES.filter(
+                (item) => counts.has(item.value) || item.value === category,
+              ).map((item) => (
+                <DropdownMenuRadioItem key={item.value} value={item.value}>
+                  {item.label} ({counts.get(item.value) ?? 0})
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
+    ) : undefined,
+  );
+
+  let body: ReactNode;
   if (artifactsPending && !artifacts.length)
-    return <StateView className="p-4" kind="loading" size="panel" title="Loading artifacts" />;
-  if (!artifacts.length)
-    return (
+    body = <StateView className="p-4" kind="loading" size="panel" title="Loading artifacts" />;
+  else if (!artifacts.length)
+    body = (
       <StateView
         className="p-4"
         detail={artifactsError}
@@ -340,75 +435,116 @@ function ArtifactsList({
         title={artifactsError ? 'Artifacts unavailable' : 'No artifacts in this conversation'}
       />
     );
-  const active = tabs.find((tab) => tab.id === activeTabId);
-  // Every retained version is a row; a version column appears once a name repeats.
-  const names = new Map<string, number>();
-  for (const artifact of artifacts) {
-    const name = artifactDisplayName(artifact);
-    names.set(name, (names.get(name) ?? 0) + 1);
+  else if (!visible.length)
+    body = (
+      <StateView
+        action={{
+          label: 'Clear filters',
+          onClick: () => {
+            closeSearch();
+            setCategory('all');
+          },
+        }}
+        className="p-4"
+        detail="Clear the search or show all types."
+        kind="empty"
+        size="panel"
+        title="No artifacts match"
+      />
+    );
+  else {
+    const active = tabs.find((tab) => tab.id === activeTabId);
+    // Made here comes first; versions this conversation only read, or that an
+    // earlier one made, follow under Earlier.
+    const here = visible.filter(
+      (artifact) => artifact.session_id === sessionId && artifact.session_relation !== 'used',
+    );
+    const earlier = visible.filter((artifact) => !here.includes(artifact));
+    const row = (artifact: ArtifactEntity) => {
+      const name = artifactDisplayName(artifact);
+      const selected = active?.kind === 'artifact' && active.artifact.id === artifact.id;
+      const facts = [
+        name,
+        artifactEvidenceLabel(artifact),
+        artifact.size !== undefined ? formatResourceSize(artifact.size) : undefined,
+      ].filter(Boolean);
+      return (
+        <div key={artifact.id} role="listitem" title={facts.join(', ')}>
+          <ListRow
+            aria-current={selected || undefined}
+            aria-label={`Open ${name}`}
+            className="cursor-pointer text-[12.5px]"
+            icon={<ArtifactTypeIcon artifact={artifact} className="size-3.5" />}
+            meta={
+              <span className="w-8 text-right font-mono text-[11px] text-faint tabular-nums">
+                {artifact.version !== undefined ? `v${artifact.version}` : null}
+              </span>
+            }
+            onClick={() => onOpenArtifact(artifact)}
+            onKeyDown={activateOnKey(() => onOpenArtifact(artifact))}
+            role="button"
+            selected={selected}
+            tabIndex={0}
+            title={name}
+          />
+        </div>
+      );
+    };
+    body = (
+      <div aria-label="Session artifacts" className="p-1" role="list">
+        {here.length ? <GroupLabel>This conversation</GroupLabel> : null}
+        {here.map(row)}
+        {earlier.length ? <GroupLabel>Earlier</GroupLabel> : null}
+        {earlier.map(row)}
+      </div>
+    );
   }
-  const versioned = [...names.values()].some((count) => count > 1);
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto p-1.5">
-      <ArtifactFilters artifacts={artifacts}>
-        {(visible) => (
-          <div aria-label="Session artifacts" role="list">
-            {visible.map((artifact) => {
-              const name = artifactDisplayName(artifact);
-              return (
-                <div
-                  key={artifact.id}
-                  role="listitem"
-                  title={
-                    artifact.size !== undefined
-                      ? `${name}, ${formatResourceSize(artifact.size)}`
-                      : name
-                  }
-                >
-                  <ListRow
-                    aria-label={`Open ${name}`}
-                    aria-current={
-                      active?.kind === 'artifact' && active.artifact.id === artifact.id
-                        ? true
-                        : undefined
-                    }
-                    className="cursor-pointer text-[12.5px]"
-                    columns={
-                      versioned ? (
-                        <span className="w-7 shrink-0 text-right font-mono text-[11px] text-faint tabular-nums">
-                          {(names.get(name) ?? 0) > 1 && artifact.version !== undefined
-                            ? `v${artifact.version}`
-                            : null}
-                        </span>
-                      ) : undefined
-                    }
-                    badge={<ArtifactRoleTag artifact={artifact} />}
-                    icon={<ArtifactTypeIcon artifact={artifact} className="size-4" />}
-                    meta={
-                      artifact.size !== undefined ? (
-                        <MetaValue>{formatCompactBytes(artifact.size)}</MetaValue>
-                      ) : (
-                        <span className="w-11" />
-                      )
-                    }
-                    onClick={() => onOpenArtifact(artifact)}
-                    onKeyDown={activateOnKey(() => onOpenArtifact(artifact))}
-                    role="button"
-                    selected={active?.kind === 'artifact' && active.artifact.id === artifact.id}
-                    tabIndex={0}
-                    title={name}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </ArtifactFilters>
-      {artifactsTruncated ? (
-        <p className="px-2 py-1 text-xs text-warning">
-          The service returned a partial artifact registry.
-        </p>
+    <>
+      {header}
+      {searching ? (
+        <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
+          <Input
+            aria-label="Search artifacts"
+            autoFocus
+            className="h-7 text-xs"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                closeSearch();
+              }
+            }}
+            placeholder="Search artifacts"
+            value={query}
+          />
+        </div>
       ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {body}
+        {artifactsTruncated ? (
+          <p className="px-3 py-1 text-[11px] text-warning">
+            The service returned a partial artifact registry.
+          </p>
+        ) : null}
+        {filtered && visible.length ? (
+          <p aria-live="polite" className="sr-only">
+            {visible.length} of {artifacts.length} artifacts
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
+      role="listitem"
+    >
+      {children}
     </div>
   );
 }
@@ -509,20 +645,5 @@ function BrowserList({
         );
       })}
     </Rows>
-  );
-}
-
-/** Short words for the fixed badge column; the full evidence label is on hover. */
-const ARTIFACT_ROLE_TAGS: Record<string, string> = {
-  Verification: 'Review',
-  Intermediate: 'Interim',
-};
-
-function ArtifactRoleTag({ artifact }: { artifact: ArtifactEntity }) {
-  const label = artifactEvidenceLabel(artifact);
-  return (
-    <span title={label}>
-      <Tag tone="neutral">{ARTIFACT_ROLE_TAGS[label] ?? label}</Tag>
-    </span>
   );
 }
