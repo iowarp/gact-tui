@@ -133,6 +133,9 @@ describe('LaTeX workspace', () => {
     expect(places.map((place) => place.textContent?.replace(/\s+/gu, ' '))).toEqual([
       'sections/eval.tex, line 2',
     ]);
+    // The place shares the message's one-line box, so it drops whole before the message cuts.
+    const message = within(problems).getByText('Reference nowhere is undefined.');
+    expect(message.parentElement?.contains(places[0] ?? null)).toBe(true);
     expect(within(problems).getByText('Font shape substituted')).toBeTruthy();
   });
 
