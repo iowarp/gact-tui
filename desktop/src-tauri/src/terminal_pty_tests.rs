@@ -316,3 +316,14 @@ fn rejects_cwd_outside_workspace() {
     let result = crate::workspace_terminal::resolve_workspace_dir(bogus.to_str().unwrap());
     assert!(result.is_err(), "a nonexistent cwd must be rejected");
 }
+
+#[test]
+fn unix_shells_start_as_login_shells() {
+    let expected: &[&str] = if cfg!(windows) { &[] } else { &["-l"] };
+    for shell in ["/bin/zsh", "/bin/bash", "/opt/homebrew/bin/fish", "sh"] {
+        assert_eq!(login_shell_args(shell), expected, "{shell}");
+    }
+    for shell in ["pwsh.exe", "cmd.exe", "/usr/bin/python3", "/bin/zsh-wrapper"] {
+        assert!(login_shell_args(shell).is_empty(), "{shell}");
+    }
+}
