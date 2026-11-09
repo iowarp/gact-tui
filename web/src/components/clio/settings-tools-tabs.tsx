@@ -65,7 +65,6 @@ export function ToolsSettingsTabs({
         actions={
           <div ref={switcher}>
             <SegmentedControl
-              className="h-[1.875rem] [&>button]:h-6 [&>button]:px-2.5"
               label="Tools pages"
               onValueChange={choose}
               options={TABS}
