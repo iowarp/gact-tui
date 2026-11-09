@@ -598,7 +598,7 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
-    // Hold Ctrl (âŒ˜ with `platform: 'mac'`): every keyed control shows its key.
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
     ...['windows', 'mac'].flatMap((platform) => [
       s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
       s(
@@ -865,8 +865,8 @@ function catalogue({ settings, infrastructure }) {
       },
       { scenario: { specFiles: true }, settleMs: 1500 },
     ),
-    // workbench-lineage "Step 6, â€¦ open": narrowest (the Activity list beside the
-    // tab), the modes are a checked list in â€¦. Where the list is a sheet over
+    // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
+    // tab), the modes are a checked list in …. Where the list is a sheet over
     // the tab, it hides first.
     s('canvas', 'file-csv-more', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -1563,7 +1563,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     await page.waitForTimeout(shot.settleMs ?? 900);
     if (shot.setup) await shot.setup(page);
     if (!shot.allowLoading) {
-      // Wait out transient "Loading â€¦" placeholders; a persistent one is a
+      // Wait out transient "Loading …" placeholders; a persistent one is a
       // fixture gap worth reporting rather than a reason to fail the shot.
       result.stillLoading = await page
         .waitForFunction(
@@ -1659,7 +1659,7 @@ function renderReport(manifest) {
     lines.push(
       '## Still loading when captured',
       '',
-      'A "Loadingâ€¦" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
+      'A "Loading…" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
       '',
       '| Surface | State | Theme | Width |',
       '|---|---|---|---|',
@@ -1720,7 +1720,7 @@ async function main() {
         !filters.length ||
         filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
     );
-    log(`${shots.length} states Ã— ${widths.length} widths Ã— ${themes.length} themes`);
+    log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
