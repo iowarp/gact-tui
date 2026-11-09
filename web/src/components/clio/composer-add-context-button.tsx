@@ -1,68 +1,51 @@
-import { AtSignIcon, PaperclipIcon } from 'lucide-react';
+import { AtSignIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import {
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
-  PromptInputButton,
-} from '@/components/ai-elements/prompt-input';
+import { IconButton } from './primitives/icon-button';
 
-export function ComposerAddContextButton({
+/**
+ * The first two controls of the composer row: `+` attaches files (or opens the
+ * connected-sources window, which also offers file upload) and `@` opens the
+ * reference picker.
+ */
+export function ComposerAddContextButtons({
   attachments: attachmentEnabled,
   contextReferences,
+  disabled,
   onOpenFileUpload,
   onOpenReferences,
   onOpenSources,
 }: {
   attachments: boolean;
   contextReferences: boolean;
+  disabled?: boolean;
   onOpenFileUpload: () => void;
   onOpenReferences: () => void;
   onOpenSources?: () => void;
 }) {
-  if (!contextReferences) {
-    return (
-      <>
-        {attachmentEnabled || onOpenSources ? (
-          <PromptInputButton
-            aria-label="Attach"
-            onClick={onOpenSources ?? onOpenFileUpload}
-            title="Attach"
-          >
-            <AddIcon aria-hidden="true" />
-          </PromptInputButton>
-        ) : null}
-      </>
-    );
-  }
   return (
-    <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
-        <AddIcon aria-hidden="true" />
-      </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent className="w-auto min-w-44 whitespace-nowrap">
-        {attachmentEnabled || onOpenSources ? (
-          <PromptInputActionMenuItem
-            aria-label="Attach"
-            onSelect={onOpenSources ?? onOpenFileUpload}
-            title="Attach files, folders, or connected data"
-          >
-            <PaperclipIcon aria-hidden="true" />
-            Attach
-          </PromptInputActionMenuItem>
-        ) : null}
-        {contextReferences && (
-          <PromptInputActionMenuItem
-            aria-label="Reference existing context"
-            onSelect={onOpenReferences}
-            title="Reference existing context"
-          >
-            <AtSignIcon aria-hidden="true" />
-            Reference
-          </PromptInputActionMenuItem>
-        )}
-      </PromptInputActionMenuContent>
-    </PromptInputActionMenu>
+    <>
+      {attachmentEnabled || onOpenSources ? (
+        <IconButton
+          disabled={disabled}
+          icon={<AddIcon />}
+          label="Attach files"
+          onClick={onOpenSources ?? onOpenFileUpload}
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
+      ) : null}
+      {contextReferences ? (
+        <IconButton
+          disabled={disabled}
+          icon={<AtSignIcon />}
+          label="Add a reference"
+          onClick={onOpenReferences}
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
+      ) : null}
+    </>
   );
 }

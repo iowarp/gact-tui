@@ -88,18 +88,14 @@ const requiredImports = {
   ],
   'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
-  // October 16 attention redesign: Queue owns the shared pager boundary. The
-  // extracted permission decision composes the existing Button/Select rather
-  // than another nested Alert. Reviewed in light/dark and narrow browser cases;
-  // see docs/design/attention-panel.md. Preserve the complete sourced chain.
-  'web/src/components/clio/pending-interactions.tsx': [
-    '@/components/ai-elements/queue',
-    './permission-response',
-  ],
-  'web/src/components/clio/permission-response.tsx': [
-    '@/components/ui/button',
-    '@/components/ui/select',
-  ],
+  // RC1 decision cards (conversation-states v24) deliberately replace the
+  // Queue pager and Button/Select scope picker: every docked decision is one
+  // AskCard with numbered scope buttons and an in-card pager. AskCard owns the
+  // sourced Button and TechnicalDetails composition. Reviewed side by side
+  // against the spec in light/dark at 1280 and 768.
+  'web/src/components/clio/pending-interactions.tsx': ['./ask-card-keys', './permission-response'],
+  'web/src/components/clio/permission-response.tsx': ['./ask-card'],
+  'web/src/components/clio/ask-card.tsx': ['@/components/ui/button', './technical-details'],
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
   'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
   'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
@@ -167,12 +163,9 @@ const requiredImports = {
   ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
-  'web/src/components/clio/settings-models.tsx': ['@/components/clio/settings-frame'],
-  'web/src/components/clio/settings-default-model-card.tsx': ['./model-picker'],
-  'web/src/components/clio/settings-prompts.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/clio/settings-frame',
-  ],
+  // Every Settings model choice opens the shared picker through this field.
+  'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
+  'web/src/components/clio/settings-prompt-editor.tsx': ['@/components/ai-elements/code-block'],
   // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
   // The ReUI Timeline of the old Reviews tab is replaced by the shared comment thread list
   // and the one comment session every viewer uses (clio-agent comments plan, rules 1 and 2;

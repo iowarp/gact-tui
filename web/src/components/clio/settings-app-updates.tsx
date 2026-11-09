@@ -157,8 +157,8 @@ export function AppUpdateSettings() {
           <SettingsRow
             title="Beta updates"
             htmlFor="enable-beta-updates"
-            description={
-              <p id="beta-updates-warning">Include prereleases. Beta versions may be unstable.</p>
+            note={
+              <span id="beta-updates-warning">Include prereleases. Beta versions may be unstable.</span>
             }
           >
             <Switch

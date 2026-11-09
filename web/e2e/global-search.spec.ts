@@ -13,7 +13,7 @@ test('home search uses the default backend without selecting a connection, works
   const input = page.getByPlaceholder(placeholder);
   await expect(input).toBeFocused();
   await input.fill('Find the reviewer handoff');
-  await expect(page.getByRole('button', { name: /^Ask .+ Search Tab$/u })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /^Ask .+ Tab$/u })).toBeEnabled();
   await input.press('Tab');
   const assistant = page.getByRole('textbox', { name: /^Ask .+ Search$/u });
   await expect(assistant).toBeFocused();
@@ -98,7 +98,7 @@ test('a file found from a new conversation retains its unsent draft and route', 
   const fixture = await installSearchFixture(page, endpoint);
   const route = `/workspaces/${fixture.workspace.id}/new`;
   await page.goto(route);
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/u });
+  const composer = page.getByRole('combobox', { name: /^Ask /u });
   await composer.fill('Keep this unsent review draft.');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');

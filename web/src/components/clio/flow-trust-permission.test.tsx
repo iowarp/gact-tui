@@ -102,8 +102,8 @@ describe('flow trust permission', () => {
     expect(screen.getByRole('button', { name: 'debate.py' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
     // Trust lasts, so there is no duration to pick.
-    expect(screen.queryByRole('combobox', { name: 'Permission duration' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Once')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Allow for/u })).not.toBeInTheDocument();
+    expect(screen.queryByText('This session')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Trust and run' }));
     expect(onResponse).toHaveBeenCalledWith(expect.objectContaining({ id: 'permission:perm_1' }), {
       action: 'allow',

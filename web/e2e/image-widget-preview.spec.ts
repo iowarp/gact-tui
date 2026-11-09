@@ -122,8 +122,6 @@ test('an image opens on a fitted stage, resists dragging, and returns its refere
   const selections = page.getByRole('list', { name: 'Attached comments' });
   await expect(selections).toContainText('the whole image');
   await expect(selections.locator('[data-slot="attached-comment-session"]')).toHaveCount(1);
-  await expect(
-    page.getByRole('combobox', { name: /Ask .* to investigate, build, explain, or act/ }),
-  ).toBeFocused();
+  await expect(page.getByRole('combobox', { name: /^Ask / })).toBeFocused();
   expect(errors).toEqual([]);
 });

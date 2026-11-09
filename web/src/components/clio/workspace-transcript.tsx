@@ -46,10 +46,8 @@ export function WorkspaceTranscript({
   damaged,
   navigationActions,
   showWelcome,
-  welcomeDisabled,
   dockedComposerHeight,
   composer,
-  onSelectPrompt,
   onOpenReference,
   onOpenTasks,
   onInteractionResponse,
@@ -87,10 +85,12 @@ export function WorkspaceTranscript({
   damaged: boolean;
   navigationActions: ReturnType<typeof useWorkspaceNavigationActions>['navigationActions'];
   showWelcome: boolean;
-  welcomeDisabled: boolean;
+  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
+  welcomeDisabled?: boolean;
   dockedComposerHeight: number;
   composer: (variant: 'docked' | 'welcome') => ReactNode;
-  onSelectPrompt: (prompt: string) => void;
+  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
+  onSelectPrompt?: (prompt: string) => void;
   onOpenReference: (reference: WorkspaceReference) => void;
   /** A background task's link opens the session's background tasks (Evidence). */
   onOpenTasks: () => void;
@@ -123,9 +123,7 @@ export function WorkspaceTranscript({
               key="welcome"
             >
               <div className="flex min-h-full items-center">
-                <ClioConversationWelcome disabled={welcomeDisabled} onSelectPrompt={onSelectPrompt}>
-                  {composer('welcome')}
-                </ClioConversationWelcome>
+                <ClioConversationWelcome>{composer('welcome')}</ClioConversationWelcome>
               </div>
             </TranscriptPresenceSurface>
           ) : (

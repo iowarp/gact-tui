@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { FleetSettingsPanel } from './settings-fleet';
 
 const { repository } = vi.hoisted(() => ({
@@ -49,10 +50,12 @@ it('inherits three conversation models and changes only the selected judge role'
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <FleetSettingsPanel />
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
-  expect(await screen.findAllByRole('button', { name: 'Conversation model' })).toHaveLength(3);
+  expect(await screen.findAllByText('Conversation model')).toHaveLength(3);
   await userEvent.setup().click(screen.getByRole('button', { name: 'Choose Goals judge' }));
   await waitFor(() =>
     expect(repository.updateFleetSettings).toHaveBeenCalledWith({
@@ -83,7 +86,9 @@ it('turns the Explore suggestion off without touching the models', async () => {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <FleetSettingsPanel />
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   const toggle = await screen.findByRole('switch', { name: 'Suggest Explore while searching' });
@@ -112,7 +117,9 @@ it('chooses and resets the SPOTTER default model, keeping the judges as they wer
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <FleetSettingsPanel />
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
@@ -141,7 +148,9 @@ it('hides the SPOTTER row for a service that predates it', async () => {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <FleetSettingsPanel />
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   expect(await screen.findByRole('button', { name: 'Choose Goals judge' })).toBeVisible();

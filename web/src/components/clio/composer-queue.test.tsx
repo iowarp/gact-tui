@@ -1,11 +1,12 @@
 import type { QueuedMessage, WorkspaceResource } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   COMPOSER_QUEUE_ROW_HEIGHT_PX,
   COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX,
 } from '@/lib/runtime-limits';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioComposerQueue } from './composer-queue';
 
 afterEach(cleanup);
@@ -83,54 +84,95 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
     onUpdate: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
-  render(<ClioComposerQueue {...props} />);
+  render(
+    <TooltipProvider>
+      <ClioComposerQueue {...props} />
+    </TooltipProvider>,
+  );
   return props;
 }
 
 describe('ClioComposerQueue', () => {
-  it('shows that future messages are paused while keeping Send now available', async () => {
+  it('says Paused in words while keeping Steer now available', async () => {
     const user = userEvent.setup();
     const props = renderQueue({ paused: true });
 
-    expect(screen.getByText('2 queued messages (paused)')).toBeInTheDocument();
+    const live = screen.getByText('2 queued messages').closest('[aria-live]');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(within(live as HTMLElement).getByText('Paused')).toBeVisible();
     expect(props.onPromote).not.toHaveBeenCalled();
-    await user.click(screen.getAllByRole('button', { name: 'Send queued message now' })[0]);
+    await user.click(screen.getAllByRole('button', { name: 'Steer now' })[0]);
     expect(props.onPromote).toHaveBeenCalledOnce();
     expect(props.onPromote).toHaveBeenCalledWith(props.messages[0], 'steer');
   });
 
-  it('keeps compact icon actions inside the ReUI sortable contract', () => {
+  it('draws one sortable line per message with the handle first and named icon actions', () => {
     renderQueue();
 
-    const queue = screen.getByLabelText('Queued messages');
-    expect(screen.getByText('2 queued messages')).toHaveAttribute('aria-live', 'polite');
+    const queue = screen.getByRole('region', { name: 'Queued messages' });
+    expect(screen.queryByText('Paused')).not.toBeInTheDocument();
     expect(queue.querySelectorAll('[data-queue-live-item]')).toHaveLength(2);
     const handles = screen.getAllByRole('button', { name: 'Reorder queued message' });
-    const firstRowButtons = within(handles[0].closest('li')!).getAllByRole('button');
-    expect(firstRowButtons[0]).toBe(handles[0]);
+    const firstRow = handles[0].closest('li')!;
+    expect(firstRow).toHaveAttribute('role', 'listitem');
+    expect(within(firstRow).getAllByRole('button')[0]).toBe(handles[0]);
+    expect(within(firstRow).getByText('First message')).toHaveAttribute('title', 'First message');
     expect(queue.querySelector('[data-slot="sortable"]')).toBeInTheDocument();
     expect(queue.querySelectorAll('[data-slot="sortable-item"]')).toHaveLength(2);
     expect(queue.querySelectorAll('[data-slot="sortable-item-handle"]')).toHaveLength(2);
     expect(queue.querySelector('[draggable="true"]')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Edit queued message' })).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Delete queued message' })).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Send queued message now' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Steer now' })).toHaveLength(2);
+    // One strip, not a card per message.
+    expect(queue.querySelectorAll('[data-queue-live-item].border')).toHaveLength(0);
+    expect(queue).not.toHaveClass('backdrop-blur-xl');
+  });
+
+  it('names the main verb Send now when nothing is running', async () => {
+    const user = userEvent.setup();
+    const props = renderQueue({ promoteDelivery: 'start' });
+
+    expect(screen.queryByRole('button', { name: 'Steer now' })).not.toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Send now' })[1]);
+    expect(props.onPromote).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'queue_2' }),
+      'start',
+    );
   });
 
   it('shows a visible name when an icon action is hovered', async () => {
     const user = userEvent.setup();
     renderQueue();
 
-    await user.hover(screen.getAllByRole('button', { name: 'Send queued message now' })[0]);
+    await user.hover(screen.getAllByRole('button', { name: 'Steer now' })[0]);
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Send queued message now');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Steer now');
+  });
+
+  it('deletes the row the action belongs to', async () => {
+    const user = userEvent.setup();
+    const props = renderQueue();
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[1]);
+
+    expect(props.onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'queue_2' }));
+  });
+
+  it('disables every row action while the queue is busy', () => {
+    renderQueue({ busy: true });
+
+    for (const name of ['Edit', 'Delete', 'Steer now']) {
+      for (const button of screen.getAllByRole('button', { name })) expect(button).toBeDisabled();
+    }
   });
 
   it('names and focuses the queue viewport at every queue length', () => {
     renderQueue({ messages: [queued('queue_1', 'Only message', 0)] });
 
-    const viewport = screen.getByRole('region', { name: '1 queued messages' });
+    const viewport = screen.getByRole('region', { name: '1 queued message' });
     expect(viewport).toHaveAttribute('tabindex', '0');
+    expect(screen.getByText('1 queued message')).toBeVisible();
   });
 
   it('clamps the queue viewport to its own row budget instead of the conversation area', () => {
@@ -150,16 +192,59 @@ describe('ClioComposerQueue', () => {
     expect(viewport).toHaveAttribute('tabindex', '0');
   });
 
+  it('folds a queue longer than three messages from its header', async () => {
+    const user = userEvent.setup();
+    renderQueue({
+      messages: Array.from({ length: 4 }, (_, index) =>
+        queued(`queue_${index}`, `Queued message ${index + 1}`, index),
+      ),
+    });
+
+    const hide = screen.getByRole('button', { name: 'Hide queued messages' });
+    expect(hide).toHaveAttribute('aria-expanded', 'true');
+    await user.click(hide);
+    expect(screen.queryByRole('region', { name: '4 queued messages' })).not.toBeInTheDocument();
+    expect(screen.getByText('4 queued messages')).toBeVisible();
+    const show = screen.getByRole('button', { name: 'Show queued messages' });
+    expect(show).toHaveAttribute('aria-expanded', 'false');
+    await user.click(show);
+    expect(screen.getByRole('region', { name: '4 queued messages' })).toBeVisible();
+  });
+
+  it('keeps a short queue open without a fold control', () => {
+    renderQueue();
+    expect(screen.queryByRole('button', { name: /queued messages$/ })).not.toBeInTheDocument();
+  });
+
+  it('picks a row up from the keyboard on its drag handle', async () => {
+    // The arrow-key move itself is dnd-kit geometry, exercised in the browser
+    // suite; this pins the wiring: the handle is the keyboard activator and
+    // the row announces itself as sortable.
+    const user = userEvent.setup();
+    const props = renderQueue();
+
+    const row = screen.getAllByRole('listitem')[0];
+    expect(row).toHaveAttribute('aria-roledescription', 'sortable');
+    expect(row).toHaveAttribute('aria-describedby');
+    const handle = within(row).getByRole('button', { name: 'Reorder queued message' });
+    act(() => handle.focus());
+    await user.keyboard(' ');
+    expect(row).toHaveAttribute('data-dragging', 'true');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(row).toHaveAttribute('data-dragging', 'false'));
+    expect(props.onReorder).not.toHaveBeenCalled();
+  });
+
   it('preserves a local edit when the service rejects a stale revision', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn().mockRejectedValue(new Error('revision conflict'));
     renderQueue({ onUpdate });
 
-    await user.click(screen.getAllByRole('button', { name: 'Edit queued message' })[0]);
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
     const input = screen.getByRole('textbox', { name: 'Edit queued message' });
     await user.clear(input);
     await user.type(input, 'Locally revised message');
-    await user.click(screen.getByRole('button', { name: 'Save queued message' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'queue_1', revision: 1 }),
@@ -168,14 +253,27 @@ describe('ClioComposerQueue', () => {
     expect(screen.getByDisplayValue('Locally revised message')).toBeVisible();
   });
 
-  it('promotes with the selected immediate delivery intent', async () => {
+  it('edits in place: Enter saves, Escape cancels and returns focus to Edit', async () => {
     const user = userEvent.setup();
     const props = renderQueue();
-    await user.click(screen.getAllByRole('button', { name: 'Send queued message now' })[0]);
-    expect(props.onPromote).toHaveBeenCalledWith(
+
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+    const input = screen.getByRole('textbox', { name: 'Edit queued message' });
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('Second message');
+    expect(screen.queryAllByRole('button', { name: 'Steer now' })).toHaveLength(1);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('textbox', { name: 'Edit queued message' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Edit' })[1]).toHaveFocus();
+    expect(props.onUpdate).not.toHaveBeenCalled();
+
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
+    await user.keyboard(' revised{Enter}');
+    expect(props.onUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'queue_1' }),
-      'steer',
+      'First message revised',
     );
+    expect(screen.queryByRole('textbox', { name: 'Edit queued message' })).not.toBeInTheDocument();
   });
 
   it('keeps structured context references visible while a message is queued', () => {
@@ -202,33 +300,15 @@ describe('ClioComposerQueue', () => {
     expect(screen.getByText('Context only')).toBeVisible();
     // The kind is carried by the icon and named in plain words, never as a
     // glyph-separated field list.
-    const artifactChip = screen.getByTitle('Displacement plot (artifact)');
-    const sessionChip = screen.getByTitle('Prior evidence review (conversation)');
-    expect(artifactChip).toBeVisible();
-    expect(sessionChip).toBeVisible();
-    expect(artifactChip.querySelector('svg')).toHaveClass('lucide-package');
-    expect(sessionChip.querySelector('svg')).toHaveClass('lucide-message-square');
-    expect(screen.queryByText('·')).not.toBeInTheDocument();
-  });
-
-  it('keeps the overflow count as legible as the references it stands for', () => {
-    const message = queued('queue_reference_overflow', '', 0);
-    for (const index of [0, 1, 2]) {
-      message.parts.push({
-        type: 'context_ref',
-        ref_kind: 'artifact',
-        ref_id: `artifact_${index}`,
-        label: `Plot ${index}`,
-        revision: 'v1',
-      });
-    }
-
-    renderQueue({ messages: [message] });
-
-    // The chips it summarises inherit the foreground colour. At
-    // `text-muted-foreground` this one dropped to 4.11:1 against the queue's
-    // translucent surface — below the 4.5:1 floor for text this size.
-    expect(screen.getByLabelText('1 more references')).toHaveClass('text-foreground/70');
+    const artifact = screen.getByTitle('Displacement plot (artifact)');
+    expect(artifact).toBeVisible();
+    expect(artifact.querySelector('svg')).toHaveClass('lucide-package');
+    // The rest fold into a count that still names what it stands for.
+    const overflow = screen.getByTitle('Prior evidence review (conversation)');
+    expect(overflow).toHaveTextContent('+1 more reference');
+    // Secondary, but at the muted token rather than faint: it is text.
+    expect(overflow.closest('.text-muted-foreground')).not.toBeNull();
+    expect(screen.queryByText('Â·')).not.toBeInTheDocument();
   });
 
   it('shows compact queued attachment progress, hover semantics, preview, and overflow', async () => {
@@ -268,7 +348,8 @@ describe('ClioComposerQueue', () => {
     expect(
       within(attachment).getByRole('img', { name: 'Attachment status: Processing' }),
     ).toBeVisible();
-    expect(screen.getByLabelText('1 more attachments')).toHaveTextContent('+1');
+    const overflow = screen.getByTitle('paper.pdf, notes.pdf');
+    expect(overflow).toHaveTextContent('+2 more attachments');
 
     await user.hover(attachment);
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
@@ -283,5 +364,23 @@ describe('ClioComposerQueue', () => {
 
     await user.click(attachment);
     expect(props.onOpenResource).toHaveBeenCalledWith(panel);
+  });
+
+  it('says in words when a message could not be sent and shows why on request', async () => {
+    const user = userEvent.setup();
+    const message = queued('queue_failed', 'Retry the regrid', 0);
+    message.promotion_error = {
+      status_code: 409,
+      detail: 'The run ended before this message was delivered.',
+    };
+
+    renderQueue({ messages: [message] });
+
+    const problem = screen.getByRole('button', { name: 'Needs attention' });
+    expect(problem).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/run ended before/)).not.toBeInTheDocument();
+    await user.click(problem);
+    expect(problem).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('The run ended before this message was delivered.')).toBeVisible();
   });
 });
