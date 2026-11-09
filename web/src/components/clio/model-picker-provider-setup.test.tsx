@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import {
   defaultConfiguration,
@@ -13,6 +13,10 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
@@ -247,13 +251,76 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     );
     expect(await screen.findByLabelText('Complete Codex sign-in')).toBeVisible();
     expect(document.querySelector('[data-slot="provider-action-steps"]')).toHaveTextContent(
-      'Waiting for you',
+      'Logging in',
     );
     await waitFor(
       () => expect(screen.queryByLabelText('Complete Codex sign-in')).not.toBeInTheDocument(),
       { timeout: 3000 },
     );
   });
+
+  it('a completed sign-in holds Verifying until the agent reports the provider ready, then loads models', async () => {
+    // The agent accepted the credential but still installs the client and
+    // checks its models: it reports the provider signed out meanwhile.
+    let agentReady = false;
+    const readyCodex = {
+      ...defaultConfiguration,
+      // Signed in with no model chosen yet is not signed out.
+      configured: false,
+      presets: defaultConfiguration.presets.map((preset) =>
+        preset.id === 'codex' ? { ...preset, status: 'ready' } : preset,
+      ),
+    };
+    repository.languageModelConfiguration.mockImplementation(async () =>
+      agentReady ? readyCodex : signedOutCodex,
+    );
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-verify',
+      device: {
+        user_code: 'ABCD-1234',
+        verification_url: 'https://github.com/login/device',
+        interval: 5,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'complete', reason: '' });
+    repository.providerHandshake.mockResolvedValue({
+      connectivity: 'ok',
+      auth: 'rejected',
+      error: '',
+      models: [],
+      source: 'live',
+      generated_at: '',
+    });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    await user.click(screen.getByText('Codex'));
+    await user.click(await screen.findByRole('button', { name: 'Log in' }));
+
+    const steps = () => document.querySelector('[data-slot="provider-action-steps"]');
+    await waitFor(() => expect(steps()).toHaveTextContent('Verifying Codex…'), { timeout: 3000 });
+    expect(sentence()).toHaveTextContent('Signed in to Codex.');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+    // It asks the provider itself instead of waiting for a manual refresh.
+    await waitFor(() =>
+      expect(repository.providerHandshake).toHaveBeenCalledWith(
+        'codex',
+        expect.objectContaining({ refresh: true }),
+      ),
+    );
+
+    // Still signed out on the next read: it keeps verifying, never Log in.
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    expect(steps()).toHaveTextContent('Verifying Codex…');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+
+    agentReady = true;
+    await waitFor(() => expect(steps()).toBeNull(), { timeout: 4000 });
+    expect(repository.providerCatalog).toHaveBeenCalledWith(false, undefined, 'codex');
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+    expect(sentence()).not.toHaveTextContent(/Log in/u);
+  }, 12_000);
 
   it('a device-code-only sign-in opens the page where the code is entered', async () => {
     repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);

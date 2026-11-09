@@ -40,10 +40,12 @@ export function NamedTooltip({
       }}
     >
       <TooltipTrigger asChild>{children}</TooltipTrigger>
+      {/* A name is never interactive, so it must not block a click on what it covers. */}
       <TooltipContent
         side={side}
         sideOffset={4}
         className="gap-2 px-2 py-1 text-[11.5px] font-medium"
+        data-name-tooltip=""
       >
         <span>{label}</span>
         {presentation ? <kbd className={TOOLTIP_KEY}>{presentation.text}</kbd> : null}

@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useLayoutEffect, useMemo, useState } from 'react';
 import { SearchIcon } from 'lucide-react';
 import {
   Dialog,
@@ -19,6 +19,7 @@ import type { KeyPlatform } from '@/lib/shortcuts/keys';
 import { activeShortcutIds, shortcutChords, shortcutLabels } from '@/lib/shortcuts/registry';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { useMenuAction } from '@/tauri/menu-actions';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
 import { StateView } from './state-view';
@@ -293,6 +294,8 @@ export const ShortcutSheet = memo(function ShortcutSheet({
  */
 export function ShortcutSheetLauncher() {
   const [open, setOpen] = useState(false);
+  const openSheet = useCallback(() => setOpen(true), []);
   useShortcut('shortcuts', () => setOpen((current) => !current));
+  useMenuAction('keyboard-shortcuts', openSheet);
   return <ShortcutSheet open={open} onOpenChange={setOpen} />;
 }
