@@ -125,9 +125,14 @@ export function WorkspaceComposer({
           ? 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
           : 'w-full'
       }
-      key={variant}
+      // A session's welcome composer registers fresh so it can hand off to its docked one.
+      // The layoutId is constant: motion keeps one shared-layout stack per id for the life
+      // of the page, so per-session ids leaked a stack (and a dead composer) per conversation.
+      // WorkspaceTranscript resets those stacks when the session changes, so nothing
+      // animates across sessions.
+      key={docked ? 'docked' : `welcome:${sessionId}`}
       layout
-      layoutId={`session-composer:${sessionId}`}
+      layoutId="session-composer"
     >
       {isManagedChildSession(session) ? (
         <ClioChildSessionFooter

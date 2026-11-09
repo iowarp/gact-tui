@@ -317,7 +317,8 @@ export async function railJourney(r) {
     minCount: 1,
   });
   // The draft opens from the top bar's new-conversation control; measure its
-  // in-app route change from a conversation.
+  // in-app route change from a conversation. A history push is not an input
+  // event, so the measurement starts at the push.
   await r.measure(
     'new conversation draft',
     'navigation',
@@ -326,7 +327,7 @@ export async function railJourney(r) {
         history.pushState({}, '', path);
         dispatchEvent(new PopStateEvent('popstate'));
       }, '/workspaces/ws_flat_ndp/new'),
-    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation' },
+    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation', noInput: true },
     { timeoutMs: 8000 },
   );
   await page.goto(new URL(SESSION_URL, page.url()).href);
@@ -482,9 +483,15 @@ export async function transcriptJourney(r) {
       { control: activity },
     );
   }
+  // A conversation wider than 760 px shows the minimap rail instead of the
+  // outline button, so the outline is measured where it appears.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 700, height: viewport.height });
   await r.overlay('transcript outline', 'button', 'Open transcript outline', {
     category: 'dialog',
   });
+  await page.setViewportSize(viewport);
+  await waitIdle(page);
   const jump = r.control('button', /^Jump to user message 2$/u);
   await r.measure(
     'minimap jump',
@@ -540,7 +547,7 @@ export async function workbenchJourney(r) {
       'open workspace canvas',
       'toggle',
       () => open.click(),
-      { css: '[role="complementary"][aria-label="Workspace canvas"]' },
+      { css: 'aside[aria-label="Workspace canvas"]' },
       { control: open },
     );
   }
@@ -636,6 +643,29 @@ export async function workbenchJourney(r) {
   if (await r.visible(restore, 1000)) await restore.click();
 }
 
+/** Scroll a virtualized list's scroller a page at a time until `target` is rendered. */
+async function scrollTreeTo(list, target, visible) {
+  for (let page = 0; page < 200; page += 1) {
+    if (await visible(target, page === 0 ? 1000 : 150)) return;
+    const moved = await list.evaluate((root, first) => {
+      const scroller = [root, ...root.querySelectorAll('*')].find(
+        (node) =>
+          node.scrollHeight > node.clientHeight + 1 &&
+          /auto|scroll/u.test(getComputedStyle(node).overflowY),
+      );
+      if (!scroller) return false;
+      if (first && scroller.scrollTop > 0) {
+        scroller.scrollTop = 0;
+        return true;
+      }
+      const before = scroller.scrollTop;
+      scroller.scrollTop += Math.max(1, scroller.clientHeight * 0.8);
+      return scroller.scrollTop !== before;
+    }, page === 0);
+    if (!moved) return;
+  }
+}
+
 /**
  * Open files in the workbench. An entry is a path or `{ path, content, after }`:
  * `content` is text that only appears once the file body is rendered (the
@@ -684,6 +714,8 @@ export async function fileViewerJourney(r, entries) {
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();
+    // The tree is virtualized: scroll it until the row is rendered.
+    await scrollTreeTo(list, file, (locator, ms) => r.visible(locator, ms));
     const preview = '[aria-label="Workspace file preview"]';
     const step = await r.measure(
       `open file ${name}`,
@@ -846,12 +878,13 @@ export async function exploreJourney(r) {
   await r.measure('new session dialog', 'dialog', () => create.click(), OVERLAY, {
     control: create,
   });
-  const workspaceTab = r.control('tab', 'Workspace', { exact: true });
+  // The Create dialog picks Session or Workspace with a radio group.
+  const workspaceTab = r.control('radio', 'Workspace', { exact: true });
   await r.measure(
     'create dialog: workspace tab',
     'tab',
     () => workspaceTab.click(),
-    { css: '[role="dialog"] [role="tab"][aria-selected="true"]', text: 'Workspace' },
+    { css: '[role="dialog"] [role="radio"][aria-checked="true"]', text: 'Workspace' },
     { control: workspaceTab, close: 'Escape' },
   );
   await r.close('Escape');
