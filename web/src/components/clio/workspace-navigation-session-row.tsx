@@ -136,7 +136,9 @@ function SessionRow({
   return (
     <HoverCard closeDelay={100} openDelay={260}>
       <HoverCardTrigger asChild>
+        {/* Its own slot wins over the trigger's, so the left bar can style the row. */}
         <ListRow
+          data-slot="list-row"
           actions={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
