@@ -47,6 +47,7 @@ function markReady() {
   root.reviewStates = Object.keys(SCENARIOS).join(',');
   root.reviewSpec = scenario?.spec ?? '';
   root.reviewClosest = scenario?.closest ? 'true' : 'false';
+  root.reviewOpen = scenario?.open ?? '';
   root.reviewReady = 'true';
 }
 

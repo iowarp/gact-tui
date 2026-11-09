@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   SidebarMenuAction,
@@ -151,6 +152,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
           >
             <InfrastructureStateIcon state={overall.state} />
             <span>Infrastructure</span>
+            <HeldKeyBadge id="infrastructure" side="inside-end" />
           </Link>
         </SidebarMenuButton>
         <SidebarMenuAction

@@ -42,6 +42,7 @@ import { FrameDownloadButton, FrameOpenButton } from './file-viewer-take';
 import { useOpenTake } from './file-viewer-take-hooks';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
+import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { StateView } from './primitives/state-view';
 import { ResourceLoading, ResourceUnavailable } from './resource-states';
 import { downloadBytes } from './surface-export';
@@ -204,6 +205,10 @@ export function ClioDocumentWorkspace({
         : fallbackSource,
     [content.data, effectiveManifest?.profile, fallbackSource],
   );
+  const latexSource = useMemo(
+    () => (textContent === undefined ? undefined : { name: artifact.name, text: textContent }),
+    [artifact.name, textContent],
+  );
   const fileFormat = textFileFormat(artifact.name, artifact.media_type);
   // A paper is its project: it opens as the LaTeX workspace, whose source pane shows every file.
   const paper = isScientificDocument(artifact);
@@ -222,7 +227,7 @@ export function ClioDocumentWorkspace({
   const copyable = Boolean(sourceProfile) && (activeView === 'raw' || activeView === 'preview');
   const readText = useCallback(
     () =>
-      activeView === 'raw' || sourceProfile === 'html-static'
+      activeView === 'raw' || sourceProfile === 'html-static' || sourceProfile === 'latex'
         ? textContent
         : renderedFileText(previewRef.current),
     [activeView, sourceProfile, textContent],
@@ -260,16 +265,16 @@ export function ClioDocumentWorkspace({
       ) : null}
     </FileViewerInformation>
   );
-  const modes = (
-    <DocumentViewControls
-      value={activeView}
-      markdown={sourceProfile === 'markdown'}
-      html={sourceProfile === 'html-static'}
-      latex={sourceProfile === 'latex'}
-      paper={paper}
-      onChange={setDocumentView}
-    />
-  );
+  // A paper's Render, Source and Side by side are the LaTeX workspace's own.
+  const modes =
+    sourceProfile === 'latex' ? null : (
+      <DocumentViewControls
+        value={activeView}
+        markdown={sourceProfile === 'markdown'}
+        html={sourceProfile === 'html-static'}
+        onChange={setDocumentView}
+      />
+    );
   const threads = <CommentThreadList artifactId={artifact.id} sessionId={artifact.session_id} />;
   const refresh = (
     <DocumentRefreshAction
@@ -296,24 +301,30 @@ export function ClioDocumentWorkspace({
           onValueChange={setDocumentView}
         >
           {ownRow ? (
-            <div
-              className="flex h-[34px] shrink-0 items-center gap-px border-b border-border px-1.5"
-              data-slot="document-controls"
-            >
-              <div className="flex shrink-0 items-center gap-px" ref={setLocalHost} />
-              {previewOnly ? (
-                <span className="truncate px-1.5 text-[11px] text-muted-foreground">
-                  {previewOnly}
-                </span>
-              ) : null}
-              <span className="min-w-0 flex-1" />
-              {copy}
-              <CommentToggle />
-              {inFrameComments ? null : <DocumentCommentThreads>{threads}</DocumentCommentThreads>}
-              {information}
-              {refresh}
-              <StandaloneDocumentOpen artifact={artifact} actions={openActions} />
-            </div>
+            <FrameBar
+              label="File"
+              where={<FrameCrumbs parts={[{ label: artifactDisplayName(artifact) }]} />}
+              what={previewOnly ? <span data-frame-position="">{previewOnly}</span> : undefined}
+              format={
+                <div
+                  className="flex shrink-0 items-center gap-0.5 empty:hidden"
+                  data-slot="frame-format-host"
+                  ref={setLocalHost}
+                />
+              }
+              actions={
+                <>
+                  {copy}
+                  <CommentToggle />
+                  {inFrameComments ? null : (
+                    <DocumentCommentThreads>{threads}</DocumentCommentThreads>
+                  )}
+                  {information}
+                  {refresh}
+                  <StandaloneDocumentOpen artifact={artifact} actions={openActions} />
+                </>
+              }
+            />
           ) : (
             <>
               {copy}
@@ -322,7 +333,7 @@ export function ClioDocumentWorkspace({
               {refresh}
             </>
           )}
-          {toolbarHost ? <ViewerToolbarContent>{modes}</ViewerToolbarContent> : null}
+          {toolbarHost && modes ? <ViewerToolbarContent>{modes}</ViewerToolbarContent> : null}
           {status ? (
             <p className="sr-only" role="status">
               {status}
@@ -345,10 +356,12 @@ export function ClioDocumentWorkspace({
               >
                 <div className="h-full min-h-0 min-w-0 overflow-hidden" ref={previewRef}>
                   {sourceProfile === 'latex' ? (
-                    // A paper: source and compiled PDF side by side, built by the server.
+                    // A paper: its PDF and source, built by the server; its modes join this frame.
                     <LatexWorkspace
                       artifactId={artifact.id}
+                      framed
                       sessionId={artifact.session_id ?? ''}
+                      source={latexSource}
                     />
                   ) : (
                     <CommentCapture

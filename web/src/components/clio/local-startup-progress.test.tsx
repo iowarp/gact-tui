@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
@@ -19,9 +19,14 @@ it('shows the native package output and elapsed time while startup is pending', 
     <LocalStartupProgress active status={{ kind: 'starting', detail: 'installing_runtime' }} />,
   );
   await act(() => vi.advanceTimersByTimeAsync(2000));
-  expect(screen.getByRole('status')).toHaveTextContent('Preparing the local runtime and packages');
-  expect(screen.getByRole('status')).toHaveTextContent('2s');
-  expect(screen.getByText('Startup details')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Preparing the runtime and packages');
+  const current = screen.getByRole('listitem', { current: 'step' });
+  expect(current).toHaveTextContent('Preparing the runtime and packages');
+  expect(current).toHaveTextContent('2s');
+  expect(
+    screen.getByRole('list', { name: 'Startup progress' }).nextElementSibling,
+  ).toHaveTextContent(/Preparing sandbox read\/execute access/u);
+  fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));
   expect(screen.getAllByText(/Preparing sandbox read\/execute access/u)).toHaveLength(2);
   expect(mocks.invoke).toHaveBeenCalledWith('read_logs');
   view.unmount();

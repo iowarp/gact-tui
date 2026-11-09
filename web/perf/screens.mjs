@@ -144,6 +144,146 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Wait until a visible element shows `text` (body content, not a toolbar). */
+async function showsText(page, text, timeout = 15000) {
+  await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout });
+}
+
+async function showsAny(page, texts, timeout = 15000) {
+  await Promise.any(texts.map((text) => showsText(page, text, timeout)));
+}
+
+/** Switch a viewer mode by accessible name, trying each name as a tab, radio then button. */
+async function pickMode(page, names) {
+  for (const name of names) {
+    for (const role of ['tab', 'radio', 'button']) {
+      const target = control(page, role, name, { exact: true });
+      if (await target.isVisible().catch(() => false)) {
+        if ((await target.getAttribute('aria-selected')) !== 'true') await target.click();
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+  }
+  // A narrow frame bar folds its modes to the active icon and a menu.
+  const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+  if (await folded.isVisible().catch(() => false)) {
+    await folded.click();
+    for (const name of names) {
+      const item = page.getByRole('menuitemradio', { name, exact: true }).first();
+      if (await item.isVisible().catch(() => false)) {
+        await item.click();
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+    await page.keyboard.press('Escape');
+  }
+  throw new Error(`no mode control named ${names.join(' or ')}`);
+}
+
+/** Hide the strip list a scenario opened from, and show the tab's own list if it has one. */
+async function tabOnly(page, stripName, tabListTitle) {
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: stripName, exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await item.getAttribute('aria-pressed').catch(() => null)) === 'true') await item.click();
+  if (tabListTitle) {
+    const show = control(page, 'button', `Show ${tabListTitle}`, { exact: true });
+    if (await show.isVisible().catch(() => false)) await show.click();
+  }
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(800);
+}
+
+/** Open the study's science log from the workbench strip. */
+async function openScienceLog(page) {
+  await stripList(page, 'Science log');
+  // A list left open on the strip covers the study's own; show the study.
+  const show = control(page, 'button', 'Show Study', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  await showsText(page, 'Was 2022 below baseline?');
+  await page.waitForTimeout(800);
+}
+
+/** Open the Opal vault: Sources list, Manage sources, the connected source, Open knowledge. */
+async function openVault(page) {
+  await stripList(page, 'Sources');
+  await page
+    .getByRole('region', { name: 'Sources list' })
+    .getByRole('button', { name: 'Manage sources' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Your sources', visible: true }).last();
+  // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
+  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
+  await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
+  // The vault opens as a tab under the Sources list; close the list to show it.
+  const sources = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Sources', exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await sources.getAttribute('aria-pressed').catch(() => null)) === 'true')
+    await sources.click();
+  await page
+    .locator('[data-slot="knowledge-vault"], [aria-label="Knowledge source"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 15000 });
+  await Promise.any([
+    showsText(page, 'Opal sites'),
+    page
+      .locator('[aria-label="Note graph"]')
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 15000 }),
+  ]);
+}
+
+async function openVaultNote(page, title) {
+  await openVault(page);
+  // The vault's own file list sits beside the tab; its row picks the note and reads it.
+  const show = control(page, 'button', 'Show Vault', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  const name = new RegExp(`^${title}, \\d+ links?$`, 'u');
+  const row = page
+    .getByRole('list', { name: 'Vault files' })
+    .getByRole('button', { name })
+    .filter({ visible: true })
+    .first();
+  const node = control(page, 'button', new RegExp(`^Open ${title}, \\d+ links?`, 'u'));
+  const listed = await row
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (listed) await row.click();
+  else await node.click();
+  const body = page.getByText('The Opal network is 412').filter({ visible: true }).first();
+  const read = await body
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!read) await pickMode(page, ['Note']);
+  await showsText(page, 'The Opal network is 412');
+  await page.waitForTimeout(800);
+}
+
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -177,6 +317,16 @@ function seededSettingsShots() {
       '/settings/providers',
       async (page) => {
         await row(page, 'model-server-row', 'LM Studio').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
         await page.waitForTimeout(300);
       },
       { keepPointer: true },
@@ -221,10 +371,141 @@ function seededSettingsShots() {
   ];
 }
 
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen, boot, update }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  const callbacks = new Map();
+  // With `update`, the signed feed offers it and its download stops part way:
+  // the host owns no runtime, so the page shows only the app's own download.
+  const answers = update
+    ? {
+        'plugin:updater|check': () => ({
+          rid: 1,
+          currentVersion: version,
+          version: update.version,
+          date: '2026-11-04T00:00:00Z',
+          body: '',
+          rawJson: {},
+        }),
+        has_managed_runtime: () => false,
+        managed_runtime_update_mode: () => 'external',
+        // The desktop host's own service is the fixture this run connects to.
+        get_backend: () => ({
+          url: JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')[0],
+          bearer_token: '',
+          status: { kind: 'ready' },
+        }),
+        'plugin:updater|download': ({ onEvent }) => {
+          // Channel ordering is `index` in newer @tauri-apps/api, `id` in older.
+          const send = (index, message) =>
+            callbacks.get(onEvent.id)?.({ id: index, index, message });
+          send(0, { event: 'Started', data: { contentLength: update.total } });
+          send(1, { event: 'Progress', data: { chunkLength: update.downloaded } });
+          return new Promise(() => undefined);
+        },
+      }
+    : {};
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (callback) => {
+      callbacks.set(++id, callback);
+      return id;
+    },
+    unregisterCallback: (callbackId) => callbacks.delete(callbackId),
+    // Only the app version (and an offered update) answers; everything else
+    // stays pending, as on a host that is still coming up.
+    invoke: (command, args) => {
+      if (command === 'plugin:app|version' && version) return Promise.resolve(version);
+      // Local startup: the service was found missing, and the runtime is being prepared.
+      if (boot && command === 'get_backend') {
+        const detail =
+          (boot.calls = (boot.calls ?? 0) + 1) > 1 ? 'installing_runtime' : 'checking_existing';
+        return Promise.resolve({ url: '', bearer_token: '', status: { kind: 'starting', detail } });
+      }
+      if (boot && command === 'read_logs')
+        return Promise.resolve(
+          '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
+        );
+      if (answers[command]) return Promise.resolve(answers[command](args ?? {}));
+      return new Promise(() => undefined);
+    },
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  const MB = 1024 * 1024;
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-downloading',
+      url: SESSION,
+      // The background check offers 0.11.4; its toast starts the update.
+      ready: '[data-sonner-toast] button',
+      setup: async (page) => {
+        await page
+          .locator('[data-sonner-toast] button')
+          .filter({ hasText: /^Update / })
+          .click();
+        await page.locator('[data-slot="step-list"]').getByText('41 of 66 MB').waitFor();
+      },
+      initScript: [
+        desktopStub,
+        {
+          desktop: true,
+          version: '0.11.3',
+          seen: '0.11.3',
+          update: { version: '0.11.4', total: 66 * MB, downloaded: 41 * MB },
+        },
+      ],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// fixtureDemo?, connected?, route?, keepPointer?, platform?, decision?,
+// initScript?: [fn, arg] run before the app}. `fixtureDemo` names a fixture
+// `POST /__test/<name>` switch applied after the scenario reset (for example
+// `science-views`). `platform: 'mac'` makes the page report a Mac, for its ? keys.
+// `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -237,6 +518,16 @@ function catalogue({ settings, infrastructure }) {
     });
   return [
     s('connect', 'first-run', '/', null, { connected: false, ready: 'main' }),
+    s('connect', 'local-startup', '/', null, {
+      connected: false,
+      ready: '[aria-label="Startup progress"] [aria-current="step"]',
+      allowLoading: true,
+      settleMs: 2500,
+      initScript: [
+        desktopStub,
+        { desktop: true, version: APP_VERSION, seen: APP_VERSION, boot: {} },
+      ],
+    }),
     s('connect', 'unreachable-service', '/', null, {
       connected: 'http://127.0.0.1:9',
       ready: 'main',
@@ -274,6 +565,28 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Technical details');
       await page.waitForTimeout(400);
     }),
+    // Data-dependent card parts: the script ask (Rest of this script) paged
+    // 1/2, the Runs on / Asked by / Folders facts, the plan, a dismissible question.
+    ...['script', 'facts', 'plan', 'question'].map((card) =>
+      s('session', `decision-${card}`, SESSION, null, {
+        decision: card,
+        ready: '[data-slot="ask-card"]',
+      }),
+    ),
+    s(
+      'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        // Transcript rows have their own Technical details; open the card's.
+        await page
+          .locator('[data-slot="ask-card"]')
+          .getByRole('button', { name: 'Technical details' })
+          .click();
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
     s(
       'session',
       'transcript-outline',
@@ -285,6 +598,41 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // Opening a file closes the list; show it again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
     menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
@@ -321,6 +669,13 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu(
       'menu-version-status',
       'button',
@@ -331,7 +686,6 @@ function catalogue({ settings, infrastructure }) {
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
-    menu('composer-permission-duration', 'combobox', 'Permission duration'),
     menu('composer-attach-files', 'button', 'Attach files'),
     menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
@@ -356,9 +710,95 @@ function catalogue({ settings, infrastructure }) {
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
+      await press(page, 'button', /^New session in /u);
+      await overlay(page);
+      await press(page, 'button', 'Advanced session behavior');
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
+    }),
+    s(
+      'session',
+      'dialog-archived',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s(
+      'session',
+      'dialog-archived-delete',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Create or import');
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
+        await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'archived-sessions' },
+    ),
+    s('session', 'dialog-share', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+      await page.getByRole('dialog', { name: /^Share / }).waitFor();
+      await page.waitForTimeout(300);
+    }),
+    s(
+      'session',
+      'dialog-share-link',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Actions for /u);
+        await overlay(page);
+        await page.getByRole('menuitem', { name: 'Share read-only link' }).click();
+        await page.getByRole('button', { name: 'Create share link' }).click();
+        await page.getByRole('textbox', { name: 'Share link' }).waitFor();
+        await page.waitForTimeout(300);
+      },
+      { route: 'share-link' },
+    ),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
@@ -437,6 +877,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    ...updateShots(),
     s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
       await press(page, 'button', 'Add folder', { exact: true });
       await overlay(page);
@@ -583,6 +1024,58 @@ function catalogue({ settings, infrastructure }) {
     s('viewer', 'browser-pages', SESSION, (page) => stripList(page, 'Browser pages'), {
       scenario: { specFiles: true },
     }),
+    // Science views (design spec "Science views are viewers in the one tab"):
+    // the fixture's Opal study, vault, dashboard and paper.
+    ...[
+      [
+        'science-log',
+        async (page) => {
+          await openScienceLog(page);
+          // The spec opens one observation in place.
+          const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
+          if (await row.isVisible().catch(() => false)) await row.click();
+          await page.waitForTimeout(600);
+        },
+      ],
+      [
+        'study-graph',
+        async (page) => {
+          await openScienceLog(page);
+          await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
+        },
+      ],
+      ['knowledge', (page) => openVaultNote(page, 'Opal sites')],
+      [
+        'knowledge-graph',
+        async (page) => {
+          await openVault(page);
+          await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
+        },
+      ],
+      [
+        'dashboard',
+        async (page) => {
+          await stripList(page, 'Artifacts');
+          await control(page, 'button', /^Open (Opal sites|opal-sites)/u).click();
+          await showsText(page, '2022 vs baseline');
+          await tabOnly(page, 'Artifacts');
+        },
+      ],
+      [
+        'latex',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, [
+            'Citation smap008 undefined',
+            'Overfull hbox',
+            'SMAP L3 soil moisture',
+          ]);
+          await tabOnly(page, 'Files', 'Outline');
+        },
+      ],
+    ].map(([state, setup]) =>
+      s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
+    ),
   ];
 }
 
@@ -673,14 +1166,18 @@ const SAVED_AGENTS = [
   { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
 ];
 
-async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -712,6 +1209,11 @@ async function newContext(browser, stack, { theme, width, connected = true, save
       await route.fulfill({ response });
     });
     await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
   }
   return context;
 }
@@ -861,8 +1363,10 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
@@ -886,6 +1390,48 @@ async function capture(browser, stack, shot, { theme, width }) {
         for (const session of listing.sessions ?? []) session.state = 'idle';
         await route.fulfill({ json: listing });
       },
+    );
+  }
+  if (shot.route === 'archived-sessions') {
+    // The fixture archives nothing; three archived rows as the spec draws them.
+    const archived = [
+      ['sess_archived_regrid', 'Soil moisture regrid', '2026-08-30T10:00:00Z'],
+      ['sess_archived_smap', 'SMAP granule audit', '2026-08-26T10:00:00Z'],
+      ['sess_archived_probe', 'Probe calibration notes', '2026-08-11T10:00:00Z'],
+    ];
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        const template = listing.sessions?.find((row) => !row.parent_session_id);
+        if (template) {
+          for (const [id, title, at] of archived) {
+            listing.sessions.push({
+              ...template,
+              id,
+              title,
+              state: 'completed',
+              archived: true,
+              pinned: false,
+              updated_at: at,
+            });
+          }
+          listing.total = listing.sessions.length;
+        }
+        await route.fulfill({ json: listing });
+      },
+    );
+  }
+  if (shot.route === 'share-link') {
+    await page.route('**/v1/sessions/*/share', (route) =>
+      route.fulfill({
+        json: {
+          token: 'shr_7f3k9q2m',
+          session_id: 'sess_flat_ndp',
+          url: '/s/7f3k9q2m',
+          expires_at: '2026-09-08T15:00:00Z',
+        },
+      }),
     );
   }
   if (shot.route === 'degraded-health') {
@@ -1049,6 +1595,15 @@ function renderReport(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
+async function showDecisionCard(stack, card) {
+  const response = await fetch(`${stack.fixtureEndpoint}/__test/decision-cards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card }),
+  });
+  if (!response.ok) throw new Error(`decision card ${card} failed: ${response.status}`);
+}
+
 async function main() {
   const stack = await startStack({ portOffset, fixedClock: FIXTURE_TIME });
   const browser = await chromium.launch();
@@ -1072,11 +1627,16 @@ async function main() {
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
     const fixtureKey = (shot) =>
-      JSON.stringify([shot.scenario ?? {}, shot.settingsModels ?? 'default']);
+      JSON.stringify([
+        shot.scenario ?? {},
+        shot.settingsModels ?? 'default',
+        shot.fixtureDemo ?? '',
+      ]);
     const ordered = [...shots].sort(
       (a, b) =>
         Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
-        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)),
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)) ||
+        Number(Boolean(a.fixtureDemo)) - Number(Boolean(b.fixtureDemo)),
     );
     for (const shot of ordered) {
       const key = fixtureKey(shot);
@@ -1094,8 +1654,17 @@ async function main() {
           });
           if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
         }
+        if (shot.fixtureDemo) {
+          const demo = await fetch(`${stack.fixtureEndpoint}/__test/${shot.fixtureDemo}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (!demo.ok) throw new Error(`${shot.fixtureDemo} seed failed: ${demo.status}`);
+        }
         scenarioKey = key;
       }
+      if (shot.decision) await showDecisionCard(stack, shot.decision);
       for (const theme of themes) {
         for (const width of widths) {
           if (shot.maxWidth && width > shot.maxWidth) continue;
@@ -1105,6 +1674,7 @@ async function main() {
             log(`  skipped ${shot.surface}--${shot.state} ${theme} ${width}: ${result.reason}`);
         }
       }
+      if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }
     const manifest = {

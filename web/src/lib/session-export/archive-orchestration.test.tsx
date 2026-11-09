@@ -627,27 +627,28 @@ describe('exported orchestration', () => {
     const { snapshot } = await exportArchive();
     const onOpen = vi.fn<(target: ArchiveTarget) => void>();
     offline(snapshot, <ArchiveScienceLog onOpen={onOpen} sessionId="sess_root" views={views} />);
-    const tree = await screen.findByRole('tree', { name: 'Study tree' });
-    expect(within(tree).getByText(/What sets the period/u)).toBeVisible();
+    const tree = await screen.findByRole('group', { name: 'Study tree' });
+    expect(within(tree).getByRole('button', { name: /^Study: .*3 entries$/u })).toBeVisible();
     // The root's attached view, its chart reading the study's measurements as exported.
-    await user.click(await screen.findByRole('radio', { name: 'Views' }));
+    await user.click(within(tree).getByRole('button', { name: 'View: Arm readings' }));
     const readings = await screen.findByRole('region', { name: 'Arm readings' });
     expect(within(readings).getByText(/Watch the period against the arm length/u)).toBeVisible();
     await waitFor(
       () => expect(readings.querySelector('[data-slot="a2ui-chart-view"]')).not.toBeNull(),
       { timeout: 10_000 },
     );
-    await user.click(screen.getByRole('radio', { name: 'List' }));
-    const listTree = await screen.findByRole('tree', { name: 'Study tree' });
-    await user.click(within(listTree).getAllByRole('button', { name: /Arm sweep/u })[0]!);
-    const log = await screen.findByRole('region', { name: 'Log of Arm sweep' });
-    await user.click(within(log).getByRole('button', { name: /View in transcript/u }));
+    await user.click(within(tree).getAllByRole('button', { name: /Arm sweep/u })[0]!);
+    const log = await screen.findByRole('list', { name: 'Science log entries' });
+    const observation = within(log).getByRole('listitem', { name: /^Observation:/u });
+    await user.click(within(observation).getByRole('button', { name: /^Observation:/u }));
+    const frame = screen.getByRole('toolbar', { name: 'Science log' });
+    await user.click(within(frame).getByRole('button', { name: 'View in transcript' }));
     expect(onOpen).toHaveBeenCalledWith({
       sessionId: 'sess_helper',
       messageId: 'm_measure',
       callId: 'call_measure',
     });
-  });
+  }, 20_000);
 
   it("shows a workflow's edits and approval questions where they happened, and a step's folder", async () => {
     const user = userEvent.setup();
@@ -722,13 +723,12 @@ describe('exported orchestration', () => {
         views={views}
       />,
     );
-    const tree = await screen.findByRole('tree', { name: 'Study tree' });
-    // The helper branch's folder, as a path linked to the files the export includes.
-    await user.click(within(tree).getByRole('button', { name: 'Open the folder of Arm sweep' }));
-    expect(onOpenFolder).toHaveBeenCalledWith('/work/run/helper');
+    const tree = await screen.findByRole('group', { name: 'Study tree' });
+    const log = await screen.findByRole('list', { name: 'Science log entries' });
 
     // The claim's analysis: its script, input file (linked) and environment.
-    const conclusion = screen.getByRole('listitem', { name: /^Conclusion:/u });
+    const conclusion = within(log).getByRole('listitem', { name: /^Conclusion:/u });
+    await user.click(within(conclusion).getByRole('button', { name: /^Conclusion:/u }));
     await user.click(within(conclusion).getByText('call_fit'));
     expect(await within(conclusion).findByText(/lockfile-hash/u)).toBeVisible();
     expect(conclusion).toHaveTextContent(`sha256 ${'ef'.repeat(32)}`);
@@ -745,10 +745,11 @@ describe('exported orchestration', () => {
     });
 
     // The observation's sources: tool, arguments, result hash, session, and its file.
-    await user.click(within(tree).getAllByRole('button', { name: /Arm sweep/u })[0]!);
-    const log = await screen.findByRole('region', { name: 'Log of Arm sweep' });
-    await user.click(within(log).getByText('Sources (1)'));
-    const source = log.querySelector('[data-slot="science-source"]') as HTMLElement;
+    const observation = within(log).getByRole('listitem', { name: /^Observation:/u });
+    await user.click(within(observation).getByRole('button', { name: /^Observation:/u }));
+    await user.click(within(observation).getByText('More'));
+    await user.click(within(observation).getByText('Sources (1)'));
+    const source = observation.querySelector('[data-slot="science-source"]') as HTMLElement;
     expect(source).toHaveTextContent('measure');
     expect(source).toHaveTextContent('{"arm_m":0.5}');
     expect(source).not.toHaveTextContent('runtime note');
@@ -766,5 +767,12 @@ describe('exported orchestration', () => {
       messageId: 'm_measure',
       callId: 'call_measure',
     });
+
+    // The helper branch's folder, from the frame's Open menu once the branch is picked.
+    await user.click(within(tree).getAllByRole('button', { name: /Arm sweep/u })[0]!);
+    const frame = screen.getByRole('toolbar', { name: 'Science log' });
+    await user.click(within(frame).getByRole('button', { name: 'Open options' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Open folder/u }));
+    expect(onOpenFolder).toHaveBeenCalledWith('/work/run/helper');
   });
 });

@@ -12,11 +12,14 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { useUpdatePane } from './update-page-host';
+import { UpdatePage } from './update-restart-overlay';
+import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -157,6 +160,7 @@ export function ClioAppShell({
 }: ClioAppShellProps) {
   const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
   const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
+  const updating = useUpdatePane();
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // Side by side needs the 400 px conversation, the 320 px workbench and the
   // folded 56 px left bar; under 900 px the workbench slides over at 86%.
@@ -251,6 +255,7 @@ export function ClioAppShell({
   }, [applyWorkbenchShare, hasWorkbench]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  const leftPocketKey = useShortcutPresentation('left-pocket');
 
   // A strip chord with the pocket closed opens it at that strip item. The
   // desktop panel keeps the workbench mounted (it handles the chord itself);
@@ -277,11 +282,20 @@ export function ClioAppShell({
     <section
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
+      data-slot="conversation-surface"
     >
-      <DesktopWorkspaceToolbar navigation={<SidebarTrigger />}>
-        <div className="min-w-0 flex-1">{contextBar}</div>
-        {toolbarActions}
-        {hasWorkbench && (
+      <DesktopWorkspaceToolbar
+        navigation={
+          <span className="inline-flex">
+            <SidebarTrigger aria-keyshortcuts={leftPocketKey?.aria} />
+            <HeldKeyBadge id="left-pocket" />
+          </span>
+        }
+      >
+        {/* The update page brings its own header; the conversation's is stale while it runs. */}
+        <div className="min-w-0 flex-1">{updating ? null : contextBar}</div>
+        {updating ? null : toolbarActions}
+        {hasWorkbench && !updating && (
           <ToolbarAction
             label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
             onClick={toggleWorkbench}
@@ -292,8 +306,8 @@ export function ClioAppShell({
           </ToolbarAction>
         )}
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-      {statusStrip && (
+      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
+      {statusStrip && !updating && (
         <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
       )}
     </section>
@@ -311,7 +325,7 @@ export function ClioAppShell({
       className="relative isolate h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
       {/* The maximized canvas covers this section (the conversation), not the
-          left bar; `isolate` keeps it under popovers such as the rail. */}
+          left bar; the rail hides while it is maximized. */}
       <section aria-label="Session workspace" data-workbench-maximize-host="">
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">
@@ -390,6 +404,7 @@ export function ClioAppShell({
           </SheetContent>
         </Sheet>
       ) : null}
+      <HeldKeysScrim />
     </SidebarProvider>
   );
 }
