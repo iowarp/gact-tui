@@ -25,14 +25,10 @@ function renderMenu() {
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <ClioComposerReferenceMenu
-        activeReferenceId=""
-        onActiveOptionChange={vi.fn()}
-        onActiveReferenceChange={vi.fn()}
         onDismiss={vi.fn()}
-        onQueryChange={vi.fn()}
-        onReferencesChange={vi.fn()}
         onRestoreFocus={vi.fn()}
         onSelect={vi.fn()}
+        popoverId="refs"
         query=""
         searchInput
         workspaceId="workspace_1"
