@@ -246,7 +246,7 @@ function seededSettingsShots() {
 // pending-update marker and a stand-in for the desktop host's commands.
 const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
 
-function desktopStub({ version, marker, desktop, seen, boot }) {
+function desktopStub({ version, marker, desktop, seen, boot, update }) {
   try {
     if (marker)
       localStorage.setItem(
@@ -259,12 +259,46 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
   }
   if (desktop) window.__CLIO_DESKTOP__ = { version };
   let id = 0;
+  const callbacks = new Map();
+  // With `update`, the signed feed offers it and its download stops part way:
+  // the host owns no runtime, so the page shows only the app's own download.
+  const answers = update
+    ? {
+        'plugin:updater|check': () => ({
+          rid: 1,
+          currentVersion: version,
+          version: update.version,
+          date: '2026-11-04T00:00:00Z',
+          body: '',
+          rawJson: {},
+        }),
+        has_managed_runtime: () => false,
+        managed_runtime_update_mode: () => 'external',
+        // The desktop host's own service is the fixture this run connects to.
+        get_backend: () => ({
+          url: JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')[0],
+          bearer_token: '',
+          status: { kind: 'ready' },
+        }),
+        'plugin:updater|download': ({ onEvent }) => {
+          // Channel ordering is `index` in newer @tauri-apps/api, `id` in older.
+          const send = (index, message) =>
+            callbacks.get(onEvent.id)?.({ id: index, index, message });
+          send(0, { event: 'Started', data: { contentLength: update.total } });
+          send(1, { event: 'Progress', data: { chunkLength: update.downloaded } });
+          return new Promise(() => undefined);
+        },
+      }
+    : {};
   window.__TAURI_INTERNALS__ = {
-    transformCallback: () => ++id,
-    unregisterCallback: () => undefined,
-    // Only the app version answers; everything else stays pending, as on a
-    // host that is still coming up.
-    invoke: (command) => {
+    transformCallback: (callback) => {
+      callbacks.set(++id, callback);
+      return id;
+    },
+    unregisterCallback: (callbackId) => callbacks.delete(callbackId),
+    // Only the app version (and an offered update) answers; everything else
+    // stays pending, as on a host that is still coming up.
+    invoke: (command, args) => {
       if (command === 'plugin:app|version' && version) return Promise.resolve(version);
       // Local startup: the service was found missing, and the runtime is being prepared.
       if (boot && command === 'get_backend') {
@@ -276,6 +310,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
         return Promise.resolve(
           '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
         );
+      if (answers[command]) return Promise.resolve(answers[command](args ?? {}));
       return new Promise(() => undefined);
     },
   };
@@ -283,6 +318,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
 
 function updateShots() {
   const marker = { action: 'both', version: '0.11.4' };
+  const MB = 1024 * 1024;
   return [
     {
       surface: 'updates',
@@ -290,6 +326,29 @@ function updateShots() {
       url: SESSION,
       ready: '[data-slot="update-page"]',
       initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-downloading',
+      url: SESSION,
+      // The background check offers 0.11.4; its toast starts the update.
+      ready: '[data-sonner-toast] button',
+      setup: async (page) => {
+        await page
+          .locator('[data-sonner-toast] button')
+          .filter({ hasText: /^Update / })
+          .click();
+        await page.locator('[data-slot="step-list"]').getByText('41 of 66 MB').waitFor();
+      },
+      initScript: [
+        desktopStub,
+        {
+          desktop: true,
+          version: '0.11.3',
+          seen: '0.11.3',
+          update: { version: '0.11.4', total: 66 * MB, downloaded: 41 * MB },
+        },
+      ],
     },
     {
       surface: 'updates',
