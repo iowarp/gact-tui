@@ -9,6 +9,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { KeyMenuItem } from './menu-key-items';
 import { selectMenuKey } from './select-menu-key';
 
@@ -105,9 +106,14 @@ function ExportOption({
     >
       <span
         aria-hidden="true"
-        className="flex size-4 shrink-0 items-center justify-center rounded-sm border border-current"
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+          checked
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-input dark:bg-input/30',
+        )}
       >
-        {checked ? <CheckIcon className="size-3" /> : null}
+        {checked ? <CheckIcon className="size-3.5" /> : null}
       </span>
       <span id={`${id}-label`}>{label}</span>
       <span className="min-w-0 truncate text-muted-foreground" id={`${id}-description`}>
