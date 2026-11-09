@@ -4,6 +4,7 @@ import { CodeIcon, EyeIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tabs } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { DocumentViewControls } from './document-view-controls';
 import { FileModeControls } from './file-mode-controls';
 import { FrameTalkTake } from './file-viewer-take';
@@ -17,9 +18,11 @@ const MODES = [
 function Frame({
   onChange,
   document = false,
+  onAdd,
 }: {
   onChange: (value: string) => void;
   document?: boolean;
+  onAdd?: () => void;
 }) {
   const [mode, setMode] = useState('render');
   const [view, setView] = useState('preview');
@@ -42,7 +45,12 @@ function Frame({
             ) : null}
           </>
         }
-        actions={<FrameTalkTake menu={<span>Properties</span>} />}
+        actions={
+          <FrameTalkTake
+            addToMessage={onAdd ? { onSelect: onAdd } : undefined}
+            menu={<span>Properties</span>}
+          />
+        }
       />
     </Tabs>
   );
@@ -126,6 +134,33 @@ describe('frame bar modes at the narrowest fold', () => {
         inGroup('View').getByRole('menuitemradio', { name: 'Render' }).getAttribute('aria-checked'),
       ).toBe('true');
     } finally {
+      restore();
+    }
+  });
+
+  it('labels Add to message in … with @, its letter in the bar, and runs it on @', async () => {
+    const restore = narrowFrameBars();
+    // The app's CSS for the fold flag; jsdom has no Tailwind.
+    const style = document.createElement('style');
+    style.textContent =
+      '[data-fold-talk] .group-data-\\[fold-talk\\]\\/frame\\:hidden { display: none }';
+    document.head.append(style);
+    try {
+      const onAdd = vi.fn();
+      render(
+        <TooltipProvider>
+          <Frame onChange={() => {}} onAdd={onAdd} />
+        </TooltipProvider>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      const add = screen.getByRole('menuitem', { name: /Add to message/ });
+      expect(add.textContent).toContain('@');
+      expect(add.textContent).not.toMatch(/Ctrl|⌘/u);
+      await userEvent.keyboard('@');
+      expect(onAdd).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('menu')).toBeNull();
+    } finally {
+      style.remove();
       restore();
     }
   });
