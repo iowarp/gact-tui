@@ -128,7 +128,10 @@ test('the HDF5 viewer runs on its own origin inside the strict desktop app', asy
 
   await page.goto(`${appOrigin}/`);
   const viewer = page.frameLocator('iframe[title="HDF5 viewer"]');
-  await expect(viewer.getByRole('tab', { name: 'NX Line' })).toBeVisible({ timeout: 15_000 });
+  // h5web's visualization tabs are hidden behind the host frame's modes; read the chosen one.
+  await expect(
+    viewer.locator('[aria-label="Visualization"] [role="tab"][aria-selected="true"]'),
+  ).toHaveText('NX Line', { timeout: 15_000 });
   await expect(viewer.getByText('I (counts)').first()).toBeVisible();
   await expect(viewer.locator('canvas').first()).toBeVisible();
 

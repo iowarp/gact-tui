@@ -76,3 +76,47 @@ export function busiestWindow(
   if (!snapshot?.windows.length) return undefined;
   return snapshot.windows.reduce((a, b) => (b.used_percent > a.used_percent ? b : a));
 }
+
+/**
+ * One account's usage as a status word for its row: the busiest window
+ * ("62% used" or "38% left"), a credit balance, "No limits" or why there is
+ * no reading. An account that is not ready shows its health instead.
+ */
+export function accountUsageWords(
+  account: FleetAccount,
+  mode: UsageMode,
+): { label: string; tone: 'success' | 'warning' | 'error' | 'idle'; hint?: string } {
+  if (account.health !== 'ready') {
+    const label = account.health.charAt(0).toUpperCase() + account.health.slice(1);
+    return { label, tone: 'error', hint: account.failure || undefined };
+  }
+  const snapshot = account.usage;
+  if (!snapshot) {
+    return {
+      label: 'No reading',
+      tone: 'idle',
+      hint:
+        account.usage_missing_reason === 'not_supported'
+          ? 'Account limits unavailable for this connection'
+          : 'No account-limit reading available',
+    };
+  }
+  if (snapshot.state === 'unmetered') return { label: 'No limits', tone: 'idle' };
+  const stale = snapshot.read_failure ? `Last read failed (${snapshot.read_failure})` : undefined;
+  const window = busiestWindow(snapshot);
+  if (window) {
+    const used = Math.round(Math.min(100, Math.max(0, window.used_percent)));
+    const label = mode === 'used' ? `${used}% used` : `${100 - used}% left`;
+    const hint = [window.name, resetsIn(window.resets_at), stale].filter(Boolean).join(', ');
+    return { label, tone: stale || used >= 80 ? 'warning' : 'success', hint };
+  }
+  const balance = snapshot.balance;
+  if (balance && balance.remaining !== null) {
+    const amount =
+      balance.currency === 'USD'
+        ? `$${balance.remaining.toFixed(2)}`
+        : `${balance.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
+    return { label: `${amount} left`, tone: stale ? 'warning' : 'success', hint: stale };
+  }
+  return { label: 'No windows', tone: 'idle', hint: stale };
+}

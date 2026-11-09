@@ -45,6 +45,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { cn } from '@/lib/utils';
+import { cachedWorkspaceFile } from '@/lib/workspace-directory-cache';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioArtifactCard } from './artifact-card';
 import { ArtifactFilters } from './artifact-filters';
 import { WorkspaceFileView } from './resource-viewers';
@@ -127,6 +129,7 @@ export function FileBrowser({
 }: FileBrowserProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { settings } = useConnectionSettings();
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
@@ -174,10 +177,17 @@ export function FileBrowser({
   );
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
-  const activeFile =
+  const listedFile =
     directory === undefined
       ? files.find((entry) => entry.type === 'file' && entry.path === activePath)
       : undefined;
+  // The flat listing holds only the root; a nested file's size and type come
+  // from the tree's loaded directory, so its frame and size guard still apply.
+  const activeFile =
+    listedFile ??
+    (activePath
+      ? cachedWorkspaceFile(queryClient, settings.endpoint, workspaceId, activePath)
+      : undefined);
   const previewPath = activeFile?.path ?? activePath;
   useEffect(() => {
     const host = hostRef.current;

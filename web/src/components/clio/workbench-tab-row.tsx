@@ -37,7 +37,7 @@ import {
   useComposerReferenceAvailable,
 } from '@/lib/composer-reference-requests';
 import { CloseIcon } from '@/lib/icon-vocabulary';
-import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { ActivityKindIcon } from './workbench-activity-icon';
@@ -102,7 +102,8 @@ export interface WorkbenchTabRowProps {
 }
 
 /**
- * The frame's tab row: drag to reorder, middle-click or Delete to close, a
+ * The frame's tab row: drag to reorder, middle-click or the close-tab key
+ * (Delete, ⌘⌫ on a Mac) to close, a
  * right-click menu with letter keys, pinned tabs first as icons. When the row
  * is short, inactive tabs shrink to icons, then the rest go behind a menu.
  */
@@ -160,6 +161,7 @@ export function WorkbenchTabRow({
       );
   }, [fit, fitKey]);
 
+  const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
   useShortcut('close-tab', () => onClose(activeTabId), {
     region: stripRef,
     enabled: Boolean(activeTabId),
@@ -252,7 +254,7 @@ export function WorkbenchTabRow({
                         renderTrigger={({ className, title, children }) => (
                           <SortableItemHandle asChild>
                             <TabsTrigger
-                              aria-keyshortcuts="Delete"
+                              aria-keyshortcuts={closeTabKeys}
                               className={`${className} h-full justify-start rounded-none border-0 bg-transparent py-0 font-normal text-inherit shadow-none after:hidden`}
                               onAuxClick={(event) => {
                                 if (event.button !== 1) return;

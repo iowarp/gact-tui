@@ -73,9 +73,12 @@ for (const width of [1280, 390]) {
     await page.getByRole('switch', { name: 'Unlimited maximum nesting depth' }).click();
     await expect(concurrent).toBeDisabled();
     await expect(depth).toBeDisabled();
-    await page.getByRole('button', { name: 'Save defaults' }).click();
-    await expect(page.getByRole('button', { name: 'Save defaults' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Save defaults' })).toHaveText('Save defaults');
+    const save = page.getByRole('region', { name: 'Unsaved changes' }).getByRole('button', {
+      name: 'Save',
+      exact: true,
+    });
+    await save.click();
+    await expect(save).toHaveCount(0);
     expect(rows.map((row) => row.value)).toEqual([0, 0]);
     await page.screenshot({
       path: test.info().outputPath(`runtime-limits-unlimited-${width}.png`),
@@ -83,8 +86,8 @@ for (const width of [1280, 390]) {
     await page.getByRole('switch', { name: 'Unlimited maximum nesting depth' }).click();
     await expect(depth).toHaveValue('8');
     await depth.fill('12');
-    await page.getByRole('button', { name: 'Save defaults' }).click();
-    await expect(page.getByRole('button', { name: 'Save defaults' })).toBeDisabled();
+    await save.click();
+    await expect(save).toHaveCount(0);
     expect(rows[1]!.value).toBe(12);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

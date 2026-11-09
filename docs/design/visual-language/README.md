@@ -45,6 +45,36 @@ component in `web/src`, with the component gallery used for visual review.
   palette.
 - Carry forward previously agreed designs.
 
+## Theme
+
+The spec is drawn in Notebook: warm paper and ink with verdigris accents, IBM
+Plex Sans for the interface, Literata for headings and voice, IBM Plex Mono for
+code. **Light** and **Dark** are Notebook's two variants and Dark is the default.
+**Cool** (the earlier blue-tinted light theme) and **Neutral** (the earlier
+neutral dark theme) stay selectable, under one-word names so the Theme
+control stays on one line, in Settings › Appearance. Colors and typefaces live only in
+`web/src/theme/themes.css`.
+
+## Type scale
+
+Use only these sizes. They are Tailwind utilities defined in `web/src/index.css`,
+in rem so the interface-size preference scales them, and `cn()` merges them as
+sizes. Avoid arbitrary `text-[Npx]` values.
+
+| Utility        | Size    | Use                                          |
+| -------------- | ------- | -------------------------------------------- |
+| `text-caption` | 11 px   | Key chips, counts, timestamps                |
+| `text-label`   | 11.5 px | Group labels, subtitles                      |
+| `text-meta`    | 12 px   | Secondary text, status words                 |
+| `text-menu`    | 12.5 px | Menu rows, buttons, list rows                |
+| `text-ui`      | 13 px   | Body interface text                          |
+| `text-h3`      | 15 px   | Section headings                             |
+| `text-title`   | 17 px   | Page and card titles, in `font-heading`      |
+| `text-welcome` | 18 px   | The welcome title, in `font-heading`         |
+
+`--faint` is for decoration and placeholders only; informational text uses
+`text-muted-foreground`.
+
 ## Open questions
 
 - What "PTC" means in the tools settings. It is currently treated as the I/O

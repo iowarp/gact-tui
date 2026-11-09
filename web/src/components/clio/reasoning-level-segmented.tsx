@@ -32,7 +32,7 @@ export function ReasoningLevelSegmented({
   const defaultName = reasoning?.default ? REASONING_EFFORT_LABELS[reasoning.default] : undefined;
   return (
     <ToggleGroup
-      aria-label="Thinking"
+      aria-label="Reasoning effort"
       className="shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
       data-slot="reasoning-level"
       disabled={disabled}

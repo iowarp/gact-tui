@@ -36,6 +36,8 @@ export function fileFormatLabel(name: string, mediaType: string): string {
   const labels: Record<string, string> = {
     md: 'Markdown',
     markdown: 'Markdown',
+    mmd: 'Mermaid',
+    mermaid: 'Mermaid',
     pdf: 'PDF',
     html: 'HTML',
     htm: 'HTML',

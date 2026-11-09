@@ -41,6 +41,7 @@ import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { Tag, MetaValue } from './primitives/tag';
+import { BrowserNewPage } from './browser-new-page';
 import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
@@ -662,7 +663,7 @@ function BrowserList({
   const rows = (pages.data ?? []).filter((page) => !page.closed);
   if (pages.isPending && sessionId)
     return <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />;
-  if (!rows.length)
+  if (!sessionId || (pages.error && !rows.length))
     return (
       <StateView
         className="p-4"
@@ -674,6 +675,7 @@ function BrowserList({
     );
   return (
     <Rows label="Browser pages">
+      <BrowserNewPage onOpened={onOpenBrowserPage} sessionId={sessionId} startOpen={!rows.length} />
       {rows.map((page) => {
         const id = `browser:${page.id}`;
         const open = tabs.some((tab) => tab.id === id);
