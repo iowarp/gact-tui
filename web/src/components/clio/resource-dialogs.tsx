@@ -3,27 +3,8 @@ import type { AgentEntry, SessionDefaults, Workspace } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon } from 'lucide-react';
 import { useState } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -35,6 +16,7 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { ClioPathPicker } from './path-picker';
@@ -47,8 +29,6 @@ import {
 } from './session-behavior-options';
 import { SettingsRow } from './settings-row';
 
-// Anchored from the top so opening Advanced grows the dialog downward.
-const CREATE_FRAME = 'top-[max(1rem,calc(50dvh-11rem))] translate-y-0';
 const SELECT_FIELD =
   'w-full min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
@@ -211,7 +191,6 @@ function CreateResourceDialog({
   const kindLabel = createKind === 'workspace' ? vocab.workspace : createKind;
   return (
     <DialogFrame
-      className={CREATE_FRAME}
       confirm={{
         label: pending ? 'Creating…' : `Create ${kindLabel}`,
         disabled:
@@ -220,6 +199,7 @@ function CreateResourceDialog({
         onConfirm: () => void submit(),
       }}
       description={`Start a session or create a ${vocab.workspace}.`}
+      growDown
       onOpenChange={(open) => onCreateKindChange(open ? createKind : null)}
       open
       title="Create"
@@ -238,7 +218,7 @@ function CreateResourceDialog({
     >
       <div
         aria-label="Creation options"
-        className="-mx-[18px] -mt-2 max-h-[min(34rem,calc(50dvh-1rem))] overflow-y-auto px-[18px] [scrollbar-gutter:stable]"
+        className="-mx-[18px] -mt-2 max-h-[min(34rem,calc(100dvh-var(--dialog-frame-top,1rem)-10rem))] overflow-y-auto px-[18px] [scrollbar-gutter:stable]"
         role="region"
         tabIndex={0}
       >
@@ -329,7 +309,7 @@ function WorkspaceFields({
             })),
           )}
           onChange={onPathChange}
-          placeholder={`Choose the ${vocab.workspace} folder`}
+          placeholder="Choose a folder"
           value={path}
         />
       </SettingsRow>
@@ -514,39 +494,42 @@ export function RenameResourceDialog({
       setPending(false);
     }
   };
+  const name = value.trim();
+  const confirm = () => {
+    if (name && !pending) void save();
+  };
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Rename {target.kind}</DialogTitle>
-          <DialogDescription>
-            Change the primary name without changing its files or history.
-          </DialogDescription>
-        </DialogHeader>
-        <Field>
-          <FieldLabel htmlFor="rename-resource">Name</FieldLabel>
-          <Input
-            autoFocus
-            id="rename-resource"
-            onChange={(event) => setValue(event.target.value)}
-            value={value}
-          />
-        </Field>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button onClick={onClose} type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button disabled={pending || !value.trim()} onClick={() => void save()} type="button">
-            {pending ? 'Saving…' : 'Save name'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DialogFrame
+      confirm={{
+        label: pending ? 'Saving?' : 'Save name',
+        disabled: pending || !name,
+        onConfirm: confirm,
+      }}
+      description="Its files and history stay as they are."
+      icon={<EditIcon />}
+      onOpenChange={(open) => !open && onClose()}
+      open
+      title={`Rename ${target.kind}`}
+    >
+      <SettingsRow htmlFor="rename-resource" title="Name">
+        <Input
+          autoFocus
+          id="rename-resource"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.ctrlKey || event.metaKey) return;
+            event.preventDefault();
+            confirm();
+          }}
+          value={value}
+        />
+      </SettingsRow>
+      {error ? (
+        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </DialogFrame>
   );
 }
 
@@ -575,35 +558,32 @@ export function DeleteResourceDialog({
     }
   };
   return (
-    <AlertDialog onOpenChange={(open) => !open && onClose()} open>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Remove {target.label}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {target.kind === 'workspace'
-              ? 'This unregisters the workspace and removes its sessions from this service. Files on disk are not deleted.'
-              : 'This permanently removes the session and its recorded conversation from this service.'}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={pending}
-            onClick={(event) => {
-              event.preventDefault();
-              void remove();
-            }}
-            variant="destructive"
-          >
-            {pending ? 'Removing…' : `Remove ${target.kind}`}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DialogFrame
+      alert
+      confirm={{
+        label: pending ? 'Removing?' : `Remove ${target.kind}`,
+        tone: 'destructive',
+        disabled: pending,
+        onConfirm: () => void remove(),
+      }}
+      icon={<DeleteIcon />}
+      onOpenChange={(open) => !open && onClose()}
+      open
+      title={`Remove ${target.kind}?`}
+    >
+      <p className="truncate font-medium" title={target.label}>
+        {target.label}
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        {target.kind === 'workspace'
+          ? 'This unregisters the workspace and removes its sessions from this service. Files on disk are not deleted.'
+          : 'This permanently removes the session and its recorded conversation from this service.'}
+      </p>
+      {error ? (
+        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </DialogFrame>
   );
 }

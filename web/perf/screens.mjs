@@ -359,6 +359,22 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
+      await press(page, 'button', /^New session in /u);
+      await overlay(page);
+      await press(page, 'button', 'Advanced session behavior');
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename session', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete session', { exact: true });
+      await overlay(page);
+    }),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');

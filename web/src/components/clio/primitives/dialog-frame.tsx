@@ -18,6 +18,33 @@ function focusSafeButton(event: Event) {
   target.focus();
 }
 
+/**
+ * Pins a centred frame's top edge where it opened, so content that appears
+ * later (an Advanced section) grows the frame downward instead of moving it.
+ * `--dialog-frame-top` lets a scrolling body cap itself to the space below.
+ */
+function pinTopEdge(node: HTMLDivElement | null) {
+  if (!node) return;
+  const place = () => {
+    for (const name of ['top', 'max-height', '--tw-translate-y', '--dialog-frame-top']) {
+      node.style.removeProperty(name);
+    }
+    if (window.innerWidth < 600) return;
+    const top = Math.max(16, Math.round((window.innerHeight - node.offsetHeight) / 2));
+    node.style.top = `${top}px`;
+    node.style.maxHeight = `calc(100dvh - ${top + 16}px)`;
+    node.style.setProperty('--tw-translate-y', '0px');
+    node.style.setProperty('--dialog-frame-top', `${top}px`);
+  };
+  place();
+  window.addEventListener('resize', place);
+  return () => window.removeEventListener('resize', place);
+}
+
+function preventDefault(event: Event) {
+  event.preventDefault();
+}
+
 function FrameClose({ className }: { className?: string }) {
   return (
     <DialogPrimitive.Close asChild>
@@ -70,6 +97,10 @@ export interface DialogFrameProps {
   titleActions?: ReactNode;
   /** Explanation behind the ⓘ in the title row. */
   help?: ReactNode;
+  /** Opens centred, then keeps its top edge while the content grows. */
+  growDown?: boolean;
+  /** A confirmation that interrupts (removing something): an alertdialog that a click outside does not close. */
+  alert?: boolean;
   className?: string;
 }
 
@@ -90,6 +121,8 @@ export const DialogFrame = memo(function DialogFrame({
   secondary,
   titleActions,
   help,
+  growDown,
+  alert,
   className,
 }: DialogFrameProps) {
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
@@ -108,6 +141,10 @@ export const DialogFrame = memo(function DialogFrame({
         showCloseButton={false}
         onOpenAutoFocus={focusSafeButton}
         onKeyDown={onKeyDown}
+        onPointerDownOutside={alert ? preventDefault : undefined}
+        ref={growDown ? pinTopEdge : undefined}
+        // Radix sets role="dialog"; pass a role only to replace it.
+        {...(alert ? { role: 'alertdialog' } : {})}
         data-frame="dialog"
         className={cn(
           'top-1/2 w-[clamp(360px,36vw,560px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
