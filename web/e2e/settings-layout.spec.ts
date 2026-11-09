@@ -3,7 +3,9 @@ import { writeFile } from 'node:fs/promises';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('settings controls share a trailing edge and remain within narrow windows', async ({ page }) => {
+test('settings controls share a trailing edge and remain within narrow windows', async ({
+  page,
+}) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
   await page.addInitScript((connection) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
@@ -18,8 +20,8 @@ test('settings controls share a trailing edge and remain within narrow windows',
         const input = control.querySelector('[role="radiogroup"], input, [role="switch"]');
         const inner = input?.getBoundingClientRect();
         const wide =
-          getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u)
-            .length > 1;
+          getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u).length >
+          1;
         return {
           right: box.right,
           // Two-column rows end their control at the row's trailing edge; stacked rows start it.

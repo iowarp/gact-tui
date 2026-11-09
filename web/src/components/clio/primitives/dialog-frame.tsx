@@ -137,7 +137,9 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">{children}</div>
+          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">
+            {children}
+          </div>
         ) : null}
         <div
           data-slot="dialog-frame-footer"
