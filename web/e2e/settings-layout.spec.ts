@@ -95,7 +95,9 @@ for (const theme of ['dark', 'light'] as const) {
           const outer = node.getBoundingClientRect();
           const inner = node.firstElementChild!.getBoundingClientRect();
           return {
-            wide: node.parentElement!.getBoundingClientRect().width >= 672,
+            wide:
+              getComputedStyle(node.parentElement!).gridTemplateColumns.trim().split(/\s+/u)
+                .length > 1,
             rightGap: outer.right - inner.right,
             leftGap: inner.left - outer.left,
           };

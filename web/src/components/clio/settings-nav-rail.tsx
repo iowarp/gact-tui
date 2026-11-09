@@ -69,7 +69,7 @@ export function SettingsNavRail({
               <DropdownMenuTrigger asChild>
                 <IconButton
                   aria-current={active ? 'true' : undefined}
-                  className={cn(active && 'bg-accent text-foreground')}
+                  className={cn(active && 'bg-menu-highlight text-foreground')}
                   count={waiting || undefined}
                   icon={<SettingsScopeIcon className="size-4" group={group} />}
                   label={label}
@@ -104,7 +104,7 @@ export function SettingsNavRail({
                 {items.map(({ id, label: name, icon: Icon }) => (
                   <DropdownMenuItem
                     asChild
-                    className="aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+                    className="aria-[current=page]:bg-menu-highlight aria-[current=page]:text-foreground"
                     key={id}
                   >
                     <Link
