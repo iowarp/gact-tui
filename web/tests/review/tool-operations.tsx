@@ -9,6 +9,7 @@ import { ConnectionProvider } from '../../src/providers/connection-provider';
 import { PresentationNavigation } from '../../src/components/clio/presentation-navigation';
 import { ClioToolInvocation } from '../../src/components/clio/tool-invocation';
 import { Button } from '../../src/components/ui/button';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 
 const fixture: { tools: ToolInvocation[]; subagents: Record<string, SubagentRun> } = await (
   await fetch('/__test/operation-tools')
@@ -61,7 +62,9 @@ createRoot(document.getElementById('root')!).render(
     <MemoryRouter>
       <ConnectionProvider>
         <AppearanceProvider>
-          <Review />
+          <TooltipProvider delayDuration={450}>
+            <Review />
+          </TooltipProvider>
         </AppearanceProvider>
       </ConnectionProvider>
     </MemoryRouter>

@@ -49,7 +49,7 @@ const excerpt = {
 };
 
 async function settleCapture(page: Page) {
-  const follow = page.getByRole('button', { name: 'Scroll to bottom' });
+  const follow = page.getByRole('button', { name: 'Jump to latest' });
   if (await follow.isVisible()) await follow.click();
   await expect(follow).toHaveCount(0);
   await page.mouse.move(8, 8);
@@ -66,10 +66,14 @@ for (const theme of ['light', 'dark']) {
       );
       await page.goto(`/tests/review/transcript-text-flow.html?theme=${theme}`);
       await expect(page.getByText(progress, { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: /^Activity:/ }).click();
+      // Thinking is an always-visible row before the step's prose; its text is disclosed.
+      const thought = page.locator('[data-slot="transcript-reasoning"]');
+      await expect(thought.locator('[data-slot="reasoning-summary"]')).toHaveText(/^Thought/u);
       const row = page.getByRole('button', { name: 'Thinking: Diagnosing shell issues' });
       await expect(row).toHaveAttribute('aria-expanded', 'false');
-      await expect(row.getByText('Diagnosing shell issues', { exact: true })).toBeVisible();
+      expect((await thought.boundingBox())!.y).toBeLessThan(
+        (await page.getByText(progress, { exact: true }).boundingBox())!.y,
+      );
       const details = page.getByRole('region', { name: 'Thinking details' });
       await expect(details).toHaveCount(0);
       await settleCapture(page);
@@ -84,21 +88,18 @@ for (const theme of ['light', 'dark']) {
       });
       await row.focus();
       await row.press('Enter');
+      await expect(row).toHaveAttribute('aria-expanded', 'true');
       await expect(details).toContainText('I need to check the environment settings');
-      await expect(row.getByText('Diagnosing shell issues', { exact: true })).toBeVisible();
-      await expect(details).not.toContainText('Diagnosing shell issues');
       await expect(details).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
       await expect(details).toHaveCSS('border-top-width', '0px');
       await expect(details.locator('[data-part-id="thinking"]')).toHaveAttribute(
         'data-field',
         'text',
       );
-      await expect(page.getByText('Diagnosing shell issues', { exact: true })).toHaveCount(1);
       await settleCapture(page);
-      await page.getByRole('button', { name: 'Show result for Run' }).click();
-      const result = page.getByRole('region', { name: 'Run: Result' });
-      await expect(result).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      await expect(result).toHaveCSS('border-top-width', '0px');
+      // The chevron opens a row at every width; phones hide the action name.
+      await page.getByRole('button', { name: 'Expand Run command', exact: true }).click();
+      const result = page.getByRole('region', { name: 'Run command: Result' });
       await expect(result.getByRole('alert')).toContainText(failure);
       expect(await result.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       await expect(page.getByText(progress, { exact: true })).toBeVisible();

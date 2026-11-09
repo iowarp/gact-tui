@@ -1,5 +1,5 @@
 import type { PendingInteraction, ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
@@ -120,9 +120,7 @@ describe("ConversationTurn: the agent's own questions in chain mode (#1448)", ()
       />,
     );
 
-    expect(screen.queryByText('Agent asked')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show result for Ask User' }));
+    // The settled record stays beside its call in the visible lane.
     expect(screen.getByText('Agent asked')).toBeVisible();
     // One causal record replaces the old summary-plus-detail duplication.
     expect(screen.getAllByText('You responded')).toHaveLength(1);

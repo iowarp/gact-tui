@@ -43,6 +43,14 @@ function countedProgress(progress: RunRow['progress']): string | undefined {
     : undefined;
 }
 
+/** Whole percent done, for the inline bar; undefined without counted progress. */
+function progressPercent(progress: RunRow['progress']): number | undefined {
+  const completed = progress?.completed;
+  const total = progress?.total;
+  if (typeof completed !== 'number' || typeof total !== 'number' || total <= 0) return undefined;
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
+}
+
 export interface RunListRowProps {
   row: RunRow;
   cancelRequested: boolean;
@@ -56,7 +64,7 @@ export interface RunListRowProps {
 }
 
 /**
- * One run on one 32px line: status mark, name, the state word (or "3 of 5"),
+ * One run on one 32px line: status mark, name, a progress bar, the state word (or "3 of 5"),
  * what ran, workspace, time and hover actions. A failed run's reason takes a
  * second line. Every column has one width; source and workspace drop first as
  * the list narrows. Choosing the row opens it beside the list.
@@ -74,6 +82,7 @@ export const RunListRow = memo(function RunListRow({
   const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
   const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
   const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
+  const percent = look.tone === 'running' ? progressPercent(row.progress) : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
   const where = row.source === 'flow' ? row.placement : row.host || 'Host unavailable';
@@ -112,6 +121,23 @@ export const RunListRow = memo(function RunListRow({
       }
       columns={
         <>
+          <span className="hidden w-6 shrink-0 @[440px]/runs:flex" data-slot="run-progress">
+            {percent === undefined ? null : (
+              <span
+                aria-label={`${percent}% done`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={percent}
+                className="h-[3px] w-full overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+              >
+                <span
+                  className="block h-full rounded-full bg-primary"
+                  style={{ width: `${percent}%` }}
+                />
+              </span>
+            )}
+          </span>
           <span
             className="w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums"
             data-slot="run-state-word"

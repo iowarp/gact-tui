@@ -123,8 +123,8 @@ export type ToolInputProps = ComponentProps<'div'> & {
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn('flex min-w-0 shrink-0 flex-col gap-2', className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Arguments</h4>
-    <div className="rounded-md bg-muted/50">
+    <h4 className="font-medium text-[12.5px] text-foreground">Arguments</h4>
+    <div className="overflow-hidden rounded-md border border-border bg-background">
       <DeferredCodeBlock value={JSON.stringify(input, null, 2)} />
     </div>
   </div>
@@ -150,13 +150,15 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
 
   return (
     <div className={cn('flex min-w-0 shrink-0 flex-col gap-2', className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <h4 className="font-medium text-[12.5px] text-foreground">
         {errorText ? 'Error' : 'Result'}
       </h4>
       <div
         className={cn(
-          'overflow-x-auto rounded-md text-xs [&_table]:w-full',
-          errorText ? 'bg-destructive/10 text-destructive' : 'bg-muted/50 text-foreground',
+          'overflow-x-auto rounded-md border border-border bg-background text-xs [&_table]:w-full',
+          errorText
+            ? 'text-destructive [&>div:first-child]:p-2.5 [&>div:first-child]:font-mono [&>div:first-child]:text-[11.5px]'
+            : 'text-foreground',
         )}
       >
         {errorText && <div>{errorText}</div>}
