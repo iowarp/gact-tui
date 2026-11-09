@@ -223,7 +223,7 @@ describe('collapsed navigation preview', () => {
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
     const panel = container.querySelector('[data-slot="sidebar-container"]')!;
     panel.getBoundingClientRect = () => new DOMRect(0, 0, 256, 800);
-    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    hoverSidebar(sidebar);
     // A modal menu disables pointer events under the stationary pointer.
     fireEvent.pointerLeave(sidebar, { clientX: 100, clientY: 100, relatedTarget: document.body });
     expect(sidebar).toHaveAttribute('data-preview', 'true');
