@@ -169,7 +169,7 @@ export function SettingsChoice({
       value={value}
       onValueChange={onChange}
       data-slot="settings-choice"
-      className="inline-flex max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
+      className="inline-flex w-auto max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
     >
       {options.map(({ value: option, label: name, description, icon: Icon }) => (
         <Label

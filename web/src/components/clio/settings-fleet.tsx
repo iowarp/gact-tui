@@ -129,20 +129,23 @@ export function FleetSettingsPanel() {
           // Keeps every helper select at the same left edge, reset or not.
           <span aria-hidden className="size-6 shrink-0" />
         )}
-        <ModelSelectField
-          catalogStatus={catalogStatus}
-          disabled={save.isPending || disabled}
-          id={id}
-          label={title}
-          modelId={choice?.model_id}
-          onChange={onChoose}
-          onRetryCatalog={() => void catalog.refetch()}
-          option={option}
-          options={options}
-          placeholder={unset}
-          providerId={choice?.provider_id}
-          title={pickerTitle}
-        />
+        {/* One fixed width, so a long model name does not widen its own row's column. */}
+        <div className="w-[13.5rem] min-w-0 shrink">
+          <ModelSelectField
+            catalogStatus={catalogStatus}
+            disabled={save.isPending || disabled}
+            id={id}
+            label={title}
+            modelId={choice?.model_id}
+            onChange={onChoose}
+            onRetryCatalog={() => void catalog.refetch()}
+            option={option}
+            options={options}
+            placeholder={unset}
+            providerId={choice?.provider_id}
+            title={pickerTitle}
+          />
+        </div>
       </>
     );
   };
