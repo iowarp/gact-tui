@@ -112,9 +112,14 @@ test('desktop release builds macOS per architecture and gates signing on secrets
   assert.equal(release.match(/secrets\.APPLE_CERTIFICATE \}\}/g)?.length, 1);
 });
 
-test('pull requests get a verified macOS DMG artifact without notarization', () => {
+test('full-tier pull requests get a verified macOS DMG artifact without notarization', () => {
   const apps = read('.github/workflows/apps.yml');
+  const tier = apps.slice(apps.indexOf('  tier:'), apps.indexOf('  checks:'));
+  assert.match(tier, /github\.base_ref == 'develop' \|\| github\.base_ref == 'main'/);
+  assert.match(tier, /contains\(github\.event\.pull_request\.labels\.\*\.name, 'full-ci'\)/);
+  assert.match(apps, /types: \[opened, synchronize, reopened, labeled\]/);
   const job = apps.slice(apps.indexOf('  macos-bundle:'), apps.indexOf('  native-webview-proof:'));
+  assert.match(job, /needs\.tier\.outputs\.full == 'true'/);
   assert.match(job, /github\.event_name == 'pull_request'/);
   assert.match(job, /--config src-tauri\/tauri\.bundled\.conf\.json/);
   assert.match(job, /--config src-tauri\/tauri\.no-updater\.conf\.json/);
