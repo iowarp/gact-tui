@@ -4,7 +4,6 @@ import {
   MonitorIcon,
   MoonIcon,
   NetworkIcon,
-  NotebookPenIcon,
   SunIcon,
 } from 'lucide-react';
 import type { ThemePreference } from '@/theme/contract';
@@ -95,7 +94,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       label: 'Switch to light mode',
       icon: SunIcon,
       group: 'Actions',
-      keywords: 'theme appearance color day bright',
+      keywords: 'theme appearance color day bright notebook paper',
       action: { theme: 'light' },
     },
     {
@@ -103,16 +102,8 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       label: 'Switch to dark mode',
       icon: MoonIcon,
       group: 'Actions',
-      keywords: 'theme appearance color night',
+      keywords: 'theme appearance color night notebook ink',
       action: { theme: 'dark' },
-    },
-    {
-      id: 'theme:notebook',
-      label: 'Switch to Notebook theme',
-      icon: NotebookPenIcon,
-      group: 'Actions',
-      keywords: 'theme appearance color paper ink notebook warm',
-      action: { theme: 'notebook' },
     },
     {
       id: 'theme:system',

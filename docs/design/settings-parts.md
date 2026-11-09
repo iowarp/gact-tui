@@ -34,7 +34,7 @@ number inputs placed in the control get the spec field (`.xf`) automatically: 30
 
 **`SettingsGroupLabel`** (same file)
 `{ children, info?, onAdd?, addLabel?, actions?, className? }`. A small group caption
-above a block of rows. `info` puts an ? tip right after the caption. `onAdd` renders a + icon button at the right. Use
+above a block of rows. `info` is an ? right after the label. `onAdd` renders a + icon button at the right. Use
 `SplitButton` (`primitives/split-button.tsx`) for the page-level Add with
 alternatives, which has a right-aligned arrow.
 

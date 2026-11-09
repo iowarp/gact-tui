@@ -136,7 +136,7 @@ export const ItemRow = memo(
         </span>
         {confirm ? (
           <span
-            className="col-span-3 flex min-w-0 items-center justify-end gap-2"
+            className="col-[3/-1] flex min-w-0 items-center justify-end gap-2"
             data-slot="item-row-confirm"
           >
             {confirm}
