@@ -327,7 +327,7 @@ export function ManagedServiceInventoryRow({
       title={
         <button
           aria-expanded={expanded}
-          className="max-w-full truncate text-left font-medium outline-none focus-visible:underline"
+          className="max-w-full truncate text-left outline-none focus-visible:underline"
           onClick={(event) => {
             event.stopPropagation();
             setExpanded((open) => !open);

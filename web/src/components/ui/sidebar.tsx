@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,11 +20,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { PanelLeftIcon } from 'lucide-react';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
+const SIDEBAR_HOVER_INTENT_MS = 150;
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = '16rem';
+
+/** The open state last chosen with the toggle, so a remounted shell keeps it. */
+function storedSidebarOpen(fallback = true): boolean {
+  if (typeof document === 'undefined') return fallback;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${SIDEBAR_COOKIE_NAME}=(true|false)`));
+  return match ? match[1] === 'true' : fallback;
+}
+const SIDEBAR_WIDTH = '18.25rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
-const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
 
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed';
@@ -87,18 +95,8 @@ function SidebarProvider({
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile]);
 
-  // Adds a keyboard shortcut to toggle the sidebar.
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar]);
+  // The left-pocket key (Ctrl B, ⌘B) from the shared shortcut registry.
+  useShortcut('left-pocket', toggleSidebar, { allowInTextField: true });
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -198,14 +196,26 @@ function Sidebar({
     document.addEventListener('keydown', keyboardNavigation, true);
     return () => document.removeEventListener('keydown', keyboardNavigation, true);
   }, []);
+  // Hover intent: a pointer passing over the strip, or aiming straight at one
+  // of its icons, acts on the strip as it is instead of reflowing it first.
+  const hoverTimer = React.useRef<number | undefined>(undefined);
+  const cancelHover = React.useCallback(() => {
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = undefined;
+  }, []);
+  React.useEffect(() => cancelHover, [cancelHover]);
   React.useEffect(() => {
+    cancelHover();
     setHovered(false);
     setFocused(false);
     setLeaveDeferred(false);
-  }, [state, isMobile]);
+  }, [state, isMobile, cancelHover]);
+  // A menu the preview opened is portaled, so React never reports leaving the
+  // sidebar for it, nor a leave when it closes outside the panel. While a
+  // hover preview is open, any move away from the panel and its popups ends it.
   React.useEffect(() => {
     const element = containedRef.current;
-    if (!leaveDeferred || !hovered || !element) return;
+    if (!hovered || !element) return;
     const move = (event: PointerEvent) => {
       if (pointerStillOverSidebar(element, event, event.target)) return;
       setHovered(false);
@@ -274,16 +284,25 @@ function Sidebar({
         data-side={side}
         data-slot="sidebar"
         tabIndex={-1}
-        onPointerEnter={(event) => {
-          if (state === 'collapsed' && event.pointerType !== 'touch') setHovered(true);
-          setLeaveDeferred(false);
+        onPointerEnter={() => setLeaveDeferred(false)}
+        // Intent starts on real movement: a layout shift under a still pointer
+        // reports an enter, and must not slide the preview over the page.
+        onPointerMove={(event) => {
+          if (state !== 'collapsed' || event.pointerType === 'touch') return;
+          if (hovered || hoverTimer.current !== undefined) return;
+          hoverTimer.current = window.setTimeout(() => {
+            hoverTimer.current = undefined;
+            setHovered(true);
+          }, SIDEBAR_HOVER_INTENT_MS);
         }}
         onPointerLeave={(event) => {
+          cancelHover();
           if (preview && pointerStillOverSidebar(event.currentTarget, event, event.relatedTarget))
             setLeaveDeferred(true);
           else setHovered(false);
         }}
         onPointerDownCapture={() => {
+          cancelHover();
           pointerFocus.current = true;
           setFocused(false);
         }}
@@ -395,8 +414,6 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
 
   return (
     <Button
-      data-sidebar="trigger"
-      data-slot="sidebar-trigger"
       variant="ghost"
       size="icon-sm"
       className={cn(className)}
@@ -405,6 +422,9 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
         toggleSidebar();
       }}
       {...props}
+      // After the spread: a tooltip trigger (asChild) would otherwise replace the slot.
+      data-sidebar="trigger"
+      data-slot="sidebar-trigger"
     >
       <PanelLeftIcon />
       <span className="sr-only">Toggle Sidebar</span>
@@ -807,6 +827,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  storedSidebarOpen,
   Sidebar,
   SidebarContent,
   SidebarFooter,

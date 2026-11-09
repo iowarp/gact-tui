@@ -9,6 +9,7 @@ import { MousePointerSquareDashedIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { ChartDataNotice } from './chart-data-notice';
+import { ChartHeader } from './a2ui-chart-header';
 import { ChartZoomActions } from './chart-zoom-actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -692,42 +693,27 @@ export function ClioChart(props: ClioChartProps) {
     <section
       {...a2uiAccessibilityProps(accessibility)}
       aria-label={label}
-      className="group relative min-w-0"
+      className="group group/chart relative min-w-0 outline-none"
       data-slot="a2ui-chart"
       data-a2ui-component-id={componentId}
       data-visual-state={failure ? 'failed' : loading ? 'loading' : 'ready'}
       role="group"
       style={dataViewFlexStyle(weight)}
+      // A tap focuses a dashboard chart, which reveals its actions in a narrow pane on touch.
+      tabIndex={dashboard ? -1 : undefined}
     >
-      <div className="mb-2 flex min-w-0 items-start gap-3">
-        {dashboard ? (
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-[13px] font-medium leading-snug" title={heading}>
-              {heading}
-            </h3>
-            {presented.caption ? (
-              <p
-                className="truncate text-[11.5px] leading-snug text-muted-foreground"
-                title={presented.caption}
-              >
-                {presented.caption}
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <h3
-            className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
-            title={heading}
-          >
-            {heading}
-          </h3>
-        )}
-        <div className="flex shrink-0 items-center gap-0.5">
-          {renderBoxSelectAction()}
-          {renderZoomActions()}
-          <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
-        </div>
-      </div>
+      <ChartHeader
+        dashboard={dashboard}
+        heading={heading}
+        caption={presented.caption}
+        actions={
+          <>
+            {renderBoxSelectAction()}
+            {renderZoomActions()}
+            <SurfaceToolbar capabilities={toolbarCapabilities} floating={false} />
+          </>
+        }
+      />
       {refreshing ? <LoadingFeedback label="Updating chart…" /> : null}
       <SurfaceFullScreenHost
         fullscreen={fullscreen}

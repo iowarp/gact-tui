@@ -104,10 +104,10 @@ export function ConnectionPage() {
   } = useConnectionSettings();
   // The DEFAULT view: every CLIO the person can click without typing an
   // address (recents, the desktop-managed local service, reachable
-  // Infrastructure deployments â€” see the hook). The manual "Connect by
+  // Infrastructure deployments — see the hook). The manual "Connect by
   // address" form is secondary, reached only through `manualModeRequested`
   // (an explicit "Add a service" click) or because there is nothing known
-  // yet to list at all â€” CLIO is for non-technical people, and ip:port is
+  // yet to list at all — CLIO is for non-technical people, and ip:port is
   // the non-default way in.
   const knownConnections = useKnownConnections();
   const initialKnownConnection =
@@ -333,7 +333,7 @@ export function ConnectionPage() {
     mutation.reset();
   };
   const submitLabel = mutation.isPending
-    ? 'Connectingâ€¦'
+    ? 'Connecting…'
     : showManualForm
       ? 'Connect'
       : 'Open workspace';
@@ -342,7 +342,7 @@ export function ConnectionPage() {
     knownMode &&
     selectedConnection !== undefined &&
     availabilityFailed(availabilityAfterAttempt(selectedConnection, mutation));
-  // The row already carries "no answer from â€¦", so the form does not repeat it.
+  // The row already carries "no answer from …", so the form does not repeat it.
   const errorShownInRow =
     selectedFailed &&
     selectedConnection !== undefined &&
@@ -485,7 +485,11 @@ export function ConnectionPage() {
                           failed ? (
                             <span
                               className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
-                              title={availability.detail}
+                              title={
+                                availability.diagnostics
+                                  ? `${availability.detail}\n\n${availability.diagnostics}`
+                                  : availability.detail
+                              }
                             >
                               <TriangleAlertIcon
                                 aria-hidden="true"
@@ -597,7 +601,8 @@ export function ConnectionPage() {
                       </Button>
                     ) : undefined
                   }
-                  title="Can't connect"
+                  // A failed row already reads "Can't connect"; the line adds only the reason.
+                  title={selectedFailed ? undefined : "Can't connect"}
                 />
               ) : null}
               {!mutation.error && credentialError ? (
