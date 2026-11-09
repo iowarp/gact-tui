@@ -393,7 +393,7 @@ function ActivityRows({
   const render = (entry: Entry) =>
     entry.type === 'group' ? (
       <p
-        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
+        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
         role="listitem"
       >
         {entry.label}
@@ -445,7 +445,7 @@ const ActivityRow = memo(function ActivityRow({
       <ListRow
         aria-current={selected || undefined}
         aria-label={`${item.name}, ${item.status}`}
-        className="cursor-pointer"
+        className="cursor-pointer text-[12.5px]"
         columns={<MetaValue width={64}>{item.trailing}</MetaValue>}
         data-kind={item.kind}
         icon={

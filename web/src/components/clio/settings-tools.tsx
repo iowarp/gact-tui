@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { useExtensionsSupported } from '@/hooks/use-session-agent';
 import {
   anyServerPreparing,
   mcpServerPreparation,
@@ -97,6 +98,8 @@ export function ToolsSettings({
   const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
   const [signingIn, setSigningIn] = useState('');
   const saved = useSavedMcpServices();
+  // The empty list's Add follows the toolbar's Add, which states why it waits.
+  const addSupported = useExtensionsSupported() === true;
 
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'tool-settings'),
@@ -142,7 +145,7 @@ export function ToolsSettings({
     mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Tool provider reconnected');
+      toast.success('MCP server reconnected');
     },
     onError: (error) => toast.error(error.message),
   });
@@ -160,7 +163,7 @@ export function ToolsSettings({
     onSuccess: async () => {
       setDeleteServer(undefined);
       await invalidate();
-      toast.success('Tool provider disconnected');
+      toast.success('MCP server disconnected');
     },
     onError: (error) => toast.error(error.message),
   });
@@ -181,29 +184,29 @@ export function ToolsSettings({
 
   let list;
   if (servers.isPending || tools.isPending)
-    list = <StateView className="min-h-40" kind="loading" title="Loading available tools" />;
+    list = <StateView kind="loading" size="row" title="Loading MCP servers…" />;
   else if (servers.error)
     list = (
-      <StateView
-        action={{ label: 'Retry', onClick: () => void servers.refetch() }}
-        className="min-h-48"
-        detail="The agent service did not answer. Try again in a moment."
-        kind="error"
-        title="MCP servers could not be listed"
-      />
+      <div title={servers.error.message}>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+          kind="error"
+          size="row"
+          title="MCP servers couldn’t be loaded."
+        />
+      </div>
     );
   else if (!entries.length)
     list = (
       <StateView
-        action={showAdd ? { label: 'Add server', onClick: startAdding } : undefined}
-        className="min-h-48"
-        detail="Add a server by its URL or a local command."
+        action={showAdd && addSupported ? { label: 'Add server', onClick: startAdding } : undefined}
         kind="empty"
-        title="No MCP servers yet"
+        size="row"
+        title="No MCP servers yet."
       />
     );
   else if (!shown.length)
-    list = <StateView kind="empty" size="row" title={`No MCP servers match “${filter}”`} />;
+    list = <StateView kind="empty" size="row" title={`No MCP servers match “${filter}”.`} />;
   else
     list = (
       <McpServiceList
@@ -270,7 +273,13 @@ export function ToolsSettings({
         <SettingsGroupLabel
           actions={
             showAdd ? (
-              <ExtensionAddMenu label={embedded ? undefined : 'Add'} mcpOnly onChoose={setAdding} />
+              <span className="text-foreground">
+                <ExtensionAddMenu
+                  label={embedded ? undefined : 'Add'}
+                  mcpOnly
+                  onChoose={setAdding}
+                />
+              </span>
             ) : undefined
           }
           className="mb-1"
@@ -278,13 +287,14 @@ export function ToolsSettings({
           {groupLabel}
         </SettingsGroupLabel>
         {tools.error ? (
-          <StateView
-            action={{ label: 'Retry', onClick: () => void tools.refetch() }}
-            detail="The servers are listed without their tool descriptions."
-            kind="error"
-            size="row"
-            title="Tool descriptions could not be loaded"
-          />
+          <div title={tools.error.message}>
+            <StateView
+              action={{ label: 'Retry', onClick: () => void tools.refetch() }}
+              kind="error"
+              size="row"
+              title="Tool descriptions couldn’t be loaded; the servers are listed without them."
+            />
+          </div>
         ) : null}
         <ListDetailLayout
           detail={
@@ -336,7 +346,7 @@ export function ToolsSettings({
         icon={<UnplugIcon />}
         onOpenChange={(open) => (open ? undefined : setDeleteServer(undefined))}
         open={Boolean(deleteServer)}
-        title={`Disconnect ${shownDelete ? serviceEntryTitle({ server: shownDelete, name: shownDelete.name }) : 'tool provider'}?`}
+        title={`Disconnect ${shownDelete ? serviceEntryTitle({ server: shownDelete, name: shownDelete.name }) : 'MCP server'}?`}
       >
         <p className="text-[0.8125rem] text-muted-foreground">
           Existing transcript evidence remains readable. Add the connection again to bring its tools
@@ -449,13 +459,18 @@ function McpServerDetailPane({
         </p>
       ) : null}
       {failure && view !== 'connection' ? (
-        <StateView className="mb-2" kind="error" size="row" title="Some contents are unavailable" />
+        <StateView
+          className="mb-2"
+          kind="error"
+          size="row"
+          title="Some contents are unavailable."
+        />
       ) : null}
       {view === 'tools' ? (
         <InventoryRows
           empty={
             live
-              ? 'This provider reported no tools.'
+              ? 'This server reported no tools.'
               : 'No live inventory is available here; tools are listed when a conversation connects.'
           }
           icon={<WrenchIcon aria-hidden="true" />}
@@ -466,7 +481,7 @@ function McpServerDetailPane({
         <InventoryRows
           empty={
             live
-              ? 'This provider reported no resources.'
+              ? 'This server reported no resources.'
               : 'No live resource inventory is available here.'
           }
           label={`Resources of ${title}`}

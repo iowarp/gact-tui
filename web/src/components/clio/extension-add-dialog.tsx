@@ -82,9 +82,9 @@ export function ExtensionAddMenu({
   });
   return (
     <span className="inline-flex shrink-0 items-center gap-2.5">
-      {supported === false ? (
-        <span className="text-xs whitespace-nowrap text-muted-foreground">
-          Needs a newer agent service
+      {supported !== true ? (
+        <span className="text-xs whitespace-nowrap text-muted-foreground" role="status">
+          {supported === false ? 'Needs a newer agent service' : 'Checking the agent service…'}
         </span>
       ) : null}
       <SplitButton
