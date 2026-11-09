@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-keys';
 import type { MemoryEvent, Session, SessionMemoryStatistics } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
@@ -205,7 +207,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
             </SelectContent>
           </Select>
         }
-        className="w-full @3xl:w-[60%]"
+        className={cn('w-full', SETTINGS_COLUMN)}
         info="Context usage, retention and compaction for one conversation, as the service reports them."
       >
         Session retention

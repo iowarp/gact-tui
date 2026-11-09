@@ -1,3 +1,4 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import type { CapabilityVersions } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { brand } from '@brand';
@@ -31,7 +32,7 @@ export function AboutSettings() {
   return (
     <div>
       <SettingsSectionHeading description="Version and links." title={`About ${brand.name}`} />
-      <SettingsGroupLabel className="mt-0">This app</SettingsGroupLabel>
+      <SettingsGroupLabel>This app</SettingsGroupLabel>
       <AboutValue label="Product" value={brand.name} />
       <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
       {brand.homeUrl ? (
@@ -46,7 +47,7 @@ export function AboutSettings() {
       ) : null}
       <SettingsGroupLabel>Connected service</SettingsGroupLabel>
       {capabilities.error ? (
-        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+        <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
             action={{ label: 'Retry', onClick: () => void capabilities.refetch() }}
             kind="error"

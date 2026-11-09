@@ -30,6 +30,7 @@ import {
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
+import { createScienceViewsFixture } from './science-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
 import { createSettingsFixture } from './settings-fixture.mjs';
 import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
@@ -801,6 +802,8 @@ function transcriptMessages() {
         id: 'block_reasoning',
         type: 'reasoning',
         text: 'Compare station coverage, quality flags, and the derived displacement series.',
+        started_at: '2026-08-22T19:59:59.000Z',
+        duration_ms: 6000,
         streaming: false,
       },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
@@ -1453,6 +1456,14 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const scienceViews = createScienceViewsFixture({
+  sendJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+  readyResource,
+  observedAt,
+});
 const settingsFixture = createSettingsFixture({
   sendJson,
   readJson,
@@ -2449,6 +2460,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    scienceViews.reset();
     settingsFixture.reset();
     agentFixture.reset();
     branchArtifacts.reset();
@@ -2519,6 +2531,7 @@ const server = createServer(async (request, response) => {
   if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
+  if (await scienceViews.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
     session.state = 'failed';
     session.updated_at = new Date().toISOString();
@@ -3555,6 +3568,7 @@ const server = createServer(async (request, response) => {
     const artifacts = [
       ...(a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord]),
       ...branchArtifacts.artifacts(),
+      ...scienceViews.artifacts(),
     ];
     sendJson(response, {
       artifacts,
@@ -4041,6 +4055,7 @@ const server = createServer(async (request, response) => {
         { path: 'results', type: 'dir' },
         { path: 'results/stations.csv', type: 'file', size: 2048 },
         { path: 'results/vertical-displacement.png', type: 'file', size: 8192 },
+        ...scienceViews.files(),
       ],
       truncated: false,
     });
@@ -4088,6 +4103,7 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (scienceViews.fallback(request, response, url)) return;
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);
 });
 
