@@ -6,6 +6,8 @@
 // (or CLIO_FIXTURE_SETTINGS_CATALOG=full for screenshot stacks). `/__test/reset`
 // returns it to the environment default.
 
+import { createSourcesPromptsCatalog } from './settings-sources-prompts-fixture.mjs';
+
 const ALL_MODES = ['ask', 'auto-edits', 'ai-review', 'spotter-ai', 'bypass'];
 const COVERING = ['auto-edits', 'bypass'];
 
@@ -337,6 +339,82 @@ function initialAgents() {
   ];
 }
 
+/** `/v1/agents/resolve`: an agent's plugins with provenance and a short composed prompt. */
+function resolveAgent(agents, plugins, ref, add, remove) {
+  const agent = agents.find((row) => row.ref === ref || row.id === ref);
+  if (!agent) return undefined;
+  const parent = agent.extends ? agents.find((row) => row.ref === agent.extends) : undefined;
+  const pluginOf = (id) => plugins.find((row) => row.ref === id || row.id === id);
+  const rows = [];
+  const push = (id, provenance) => {
+    const entry = pluginOf(id);
+    const pluginId = entry?.id ?? id.split('/').at(-1);
+    if (rows.some((row) => row.id === pluginId)) return;
+    rows.push({
+      id: pluginId,
+      version: entry?.version ?? '',
+      marketplace: entry?.marketplace ?? '',
+      description: entry?.description ?? '',
+      provenance,
+      requires: [],
+      members: [],
+      removable: provenance.source !== 'core',
+    });
+  };
+  const base = parent ?? agent;
+  for (const row of base.plugins) {
+    const id = row.ref.split('/').at(-1);
+    push(row.ref, id === 'core' ? { source: 'core' } : { source: 'agent', via: base.id });
+  }
+  for (const id of [...(agent.delta?.add ?? []), ...add]) push(id, { source: 'user' });
+  const removed = [...(agent.delta?.remove ?? []), ...remove];
+  const kept = rows.filter((row) => !removed.includes(row.id));
+  return {
+    agent: {
+      ref: agent.ref,
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      role: '',
+      version: agent.version ?? '1.0.0',
+      marketplace: agent.marketplace ?? '',
+      parent: agent.extends ?? '',
+      kind: agent.kind ?? 'agent',
+    },
+    plugins: kept,
+    removed: removed.map((id) => ({ id, reason: 'user', because: '' })),
+    tools: kept.flatMap((row) =>
+      (pluginOf(row.id)?.tools ?? []).map((name) => ({ name, plugin: row.id, description: '' })),
+    ),
+    skills: kept.flatMap((row) =>
+      (pluginOf(row.id)?.skills ?? []).map((id) => ({ id, plugin: row.id, description: '' })),
+    ),
+    prompt: {
+      sections: [
+        {
+          section: 'identity',
+          fragments: [
+            {
+              id: `${base.id}.identity`,
+              plugin: `agent:${base.id}`,
+              text: `You are ${base.name}. ${base.description}`,
+            },
+          ],
+        },
+        {
+          section: 'plugins',
+          fragments: kept.map((row) => ({
+            id: `${row.id}.guide`,
+            plugin: row.id,
+            text: row.description || `Use ${row.id} when it fits the task.`,
+          })),
+        },
+      ],
+    },
+    delta: { add, remove },
+  };
+}
+
 function initialServers() {
   return [
     {
@@ -371,7 +449,7 @@ function initialServers() {
       spec: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
     },
     {
-      id: 'mcp_home_assistant',
+      id: 'mcp_ext_home_assistant',
       name: 'home-assistant',
       status: 'failed',
       reason: 'No answer from mcp.home.lan',
@@ -452,6 +530,14 @@ const pluginFiles = {
   'ha-marketplace/home-assistant': [
     ['plugin.json', '{\n  "name": "home-assistant",\n  "version": "2.4.0"\n}\n'],
     ['skills/ha-lights/SKILL.md', '# ha-lights\n\nTurn lights and scenes on or off.\n'],
+    [
+      'skills/ha-energy-report/SKILL.md',
+      '---\nname: ha-energy-report\ndescription: Summarize energy use for a period\n---\n\n# Energy report\n',
+    ],
+    [
+      'skills/ha-automations/SKILL.md',
+      '---\nname: ha-automations\ndescription: Read and draft automations\n---\n\n# Automations\n',
+    ],
     ['commands/ha-status.md', '# /ha-status\n\nShow what Home Assistant reports.\n'],
   ],
 };
@@ -464,6 +550,7 @@ export function createSettingsCatalog(defaultState = 'off') {
   let servers = initialServers();
   let saved = initialSaved();
   let toolSettings = initialToolSettings();
+  const sourcesPrompts = createSourcesPromptsCatalog();
 
   const reset = () => {
     state = defaultState;
@@ -473,6 +560,7 @@ export function createSettingsCatalog(defaultState = 'off') {
     servers = initialServers();
     saved = initialSaved();
     toolSettings = initialToolSettings();
+    sourcesPrompts.reset();
   };
 
   const active = (request) => {
@@ -592,6 +680,34 @@ export function createSettingsCatalog(defaultState = 'off') {
       sendJson(response, { agents: empty ? agents.slice(0, 1) : agents });
       return true;
     }
+    if (method === 'GET' && path === '/v1/agents/resolve') {
+      const resolved = resolveAgent(
+        agents,
+        plugins,
+        url.searchParams.get('ref') ?? '',
+        url.searchParams.getAll('add'),
+        url.searchParams.getAll('remove'),
+      );
+      if (!resolved) return sendJson(response, { error: 'not_found' }, 404), true;
+      sendJson(response, resolved);
+      return true;
+    }
+    // The Agents page tags the service's default agent.
+    if (method === 'GET' && path === '/v1/session-defaults') {
+      sendJson(response, {
+        provider_id: '',
+        model_id: '',
+        effort: 'medium',
+        effort_source: 'user',
+        mode: 'edit',
+        edit_mode: 'diff',
+        routing_mode: 'auto',
+        approval_mode: 'ask',
+        agent_ref: '',
+        default_agent_ref: 'clio/standard',
+      });
+      return true;
+    }
     const deleteAgent = /^\/v1\/agents\/user\/([^/]+)$/u.exec(path);
     if (method === 'DELETE' && deleteAgent) {
       const id = decodeURIComponent(deleteAgent[1]);
@@ -705,6 +821,16 @@ export function createSettingsCatalog(defaultState = 'off') {
       });
       return true;
     }
+    if (
+      await sourcesPrompts.handle(request, response, url, {
+        sendJson,
+        readJson,
+        empty,
+        error,
+        fail,
+      })
+    )
+      return true;
     return false;
   };
 
