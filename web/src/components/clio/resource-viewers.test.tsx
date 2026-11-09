@@ -413,18 +413,15 @@ describe('WorkspaceFileView', () => {
     )!;
     expect(state).toHaveTextContent('.nc');
     expect(state).toHaveTextContent('No preview for this format');
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.ariaLabel),
-    ).toEqual(['Download']);
-    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
-    expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
-    await userEvent.keyboard('{Escape}');
+    // The frame's Open menu holds the one download; the state adds no second one.
+    expect(within(state).queryAllByRole('button')).toHaveLength(0);
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
     expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
-    await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
+    const downloads = await screen.findAllByRole('menuitem', { name: /^Download/u });
+    expect(downloads).toHaveLength(1);
+    await userEvent.click(downloads[0]!);
     await waitFor(() =>
       expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.nc'),
     );
@@ -472,7 +469,7 @@ describe('WorkspaceFileView', () => {
       '[data-slot="state-view"][data-kind="no-preview"]',
     )!;
     expect(state).toHaveTextContent('.h5');
-    expect(within(state).getAllByRole('button', { name: 'Download' })).toHaveLength(1);
+    expect(within(state).queryByRole('button', { name: 'Download' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
     expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
     expect(screen.queryByTitle('HDF5 viewer: data/run.h5')).not.toBeInTheDocument();

@@ -492,7 +492,6 @@ function DocumentPreview({
   onRetryPreview: () => void;
   text?: string;
 }) {
-  const session = useCommentSession();
   if (!manifest) return fallback;
   if (previewError && !previewPending) {
     return (
@@ -511,14 +510,7 @@ function DocumentPreview({
       // The viewer owns its own scroll region so it can mount only the pages in
       // view, which needs a bounded box to scroll inside.
       <div className="h-full min-h-0 w-full">
-        <ClioPdfPreview
-          bytes={content}
-          fit={fit}
-          name={manifest.name}
-          onSelection={(anchor) => {
-            if (session?.active && session.mode === 'text') session.addMark(anchor);
-          }}
-        />
+        <ClioPdfPreview bytes={content} fit={fit} name={manifest.name} />
       </div>
     );
   }

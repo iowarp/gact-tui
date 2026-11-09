@@ -20,7 +20,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { CommentCapture } from './comments/comment-capture';
-import { useCommentSession } from './comments/comment-session';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import type { PdfHighlight } from './document-pdf-viewer';
 import { LatexSourcePane } from './latex-source-pane';
@@ -260,7 +259,6 @@ export function LatexWorkspace({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const session = useCommentSession();
   const report = useQuery({
     queryKey: queryKeys.key('latex-report', settings.endpoint, artifactId),
     queryFn: ({ signal }) => repository.latexReport(artifactId, sessionId, signal),
@@ -362,9 +360,6 @@ export function LatexWorkspace({
           highlight={highlight}
           name={data.build.pdf.name}
           onPagePoint={(page, x, y) => void pdfToSource(page, x, y)}
-          onSelection={(anchor) => {
-            if (session?.active && session.mode === 'text') session.addMark(anchor);
-          }}
         />
       </div>
     </CommentCapture>

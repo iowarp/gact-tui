@@ -268,7 +268,8 @@ test('an unsupported workspace file uses one shared original download', async ({
   await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
   const state = preview.locator('[data-slot="state-view"][data-kind="no-preview"]');
   await expect(state).toContainText('.h5');
-  await expect(state.getByRole('button', { name: 'Download', exact: true })).toHaveCount(1);
+  // The frame's Open menu holds the file's one download.
+  await expect(state.getByRole('button', { name: 'Download', exact: true })).toHaveCount(0);
   await expect(preview.locator('[data-slot="frame-bar"]')).toHaveCount(1);
   const downloaded = await downloadFromFrame(page, preview);
   expect(downloaded.suggestedFilename()).toBe('run.h5');

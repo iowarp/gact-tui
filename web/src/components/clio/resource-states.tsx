@@ -109,35 +109,32 @@ export function ViewerReadError({ error, onRetry }: { error?: string; onRetry?: 
 const BROWSER_READABLE = /^(?:application\/pdf|image\/|text\/|video\/|audio\/)/u;
 
 /**
- * The frame's Open ? face and its Download row, as icons: Open only where it
- * shows the file (the system app on the desktop, a browser tab for a format
- * the browser reads), so a browser never gets two downloads.
+ * Too large and No preview's ways out, as icons. Open appears only where it shows the
+ * file (the system app on the desktop, a browser tab for a format the browser reads).
+ * Under a frame bar, Open ▾ holds the file's one download, so the body adds none;
+ * elsewhere the body's Download is it.
  */
 function useViewerFileActions(source: FileViewerSource): {
   action?: StateAction;
   secondaryAction?: StateAction;
 } {
+  const framed = useContext(FileViewerFactsRegistry) !== undefined;
   const take = useOpenTake(source, NO_FORMATS);
   const identity = fileViewerIdentity(source);
   const row = take.rows.find((candidate) => candidate.id === 'download');
   const disabled = !identity.available || take.busy;
+  const open: StateAction | undefined =
+    inTauri() || BROWSER_READABLE.test(identity.mediaType)
+      ? { label: take.face.label, icon: take.face.icon, disabled, onClick: take.face.run }
+      : undefined;
+  if (framed) return { action: open };
   const download: StateAction = {
     label: 'Download',
     icon: <DownloadIcon />,
     disabled: disabled || Boolean(row?.reason),
     onClick: () => row?.onSelect?.(),
   };
-  const opens = inTauri() || BROWSER_READABLE.test(identity.mediaType);
-  if (!opens) return { action: download };
-  return {
-    action: download,
-    secondaryAction: {
-      label: take.face.label,
-      icon: take.face.icon,
-      disabled,
-      onClick: take.face.run,
-    },
-  };
+  return open ? { action: download, secondaryAction: open } : { action: download };
 }
 
 const NO_FORMATS: never[] = [];
