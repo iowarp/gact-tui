@@ -14,6 +14,8 @@ export interface SaveBarProps {
   invalid?: boolean;
   /** A save failure, on the bar. */
   error?: ReactNode;
+  /** Words in place of "N changes" ("1 rule removed"). */
+  label?: ReactNode;
   className?: string;
 }
 
@@ -28,6 +30,7 @@ export const SaveBar = memo(function SaveBar({
   saving = false,
   invalid = false,
   error,
+  label,
   className,
 }: SaveBarProps) {
   const active = count > 0 || saving;
@@ -53,7 +56,11 @@ export const SaveBar = memo(function SaveBar({
         <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
       ) : null}
       <span className="min-w-0 truncate" role="status">
-        {saving ? 'Saving…' : active ? `${count} ${count === 1 ? 'change' : 'changes'}` : null}
+        {saving
+          ? 'Saving…'
+          : active
+            ? (label ?? `${count} ${count === 1 ? 'change' : 'changes'}`)
+            : null}
       </span>
       {error ? (
         <span className="min-w-0 truncate text-xs text-destructive" role="alert">

@@ -1,17 +1,22 @@
 import type { CapabilityVersions } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { brand } from '@brand';
-import { Frame, FramePanel } from '@/components/clio/settings-frame';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ExternalLinkIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { useRepository } from '@/hooks/use-repository';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { SettingsSectionHeading as SectionHeading } from './settings-section-heading';
+import { TechnicalDetails } from './technical-details';
+import { StateView } from './primitives/state-view';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { SettingsSectionHeading } from './settings-section-heading';
 
+/** Version and links: this app, then the connected service; wire detail stays behind a disclosure. */
 export function AboutSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -19,80 +24,96 @@ export function AboutSettings() {
     queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
-  const activeModel = capabilities.data?.active_model;
-  const versions = capabilities.data?.versions;
+  const data = capabilities.data;
+  const activeModel = data?.active_model;
+  const versions = data?.versions;
+  const missing = capabilities.isPending ? 'Loading…' : 'Unavailable';
+  const unreported = data ? 'Unreported by this service' : missing;
   return (
-    <div className="grid gap-6">
-      <SectionHeading
-        description="Version and connection details for this app and the connected service."
-        title={`About ${brand.name}`}
-      />
-      <Frame spacing="sm">
-        <FramePanel>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <AboutValue label="Product" value={brand.name} />
-            <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
-            <AboutValue label="Connected service" value={new URL(settings.endpoint).host} />
-            <AboutValue
-              label="Agent service version"
-              value={capabilities.data?.service?.version || 'Unavailable'}
-            />
-            <AboutValue
-              label="Active model"
-              value={
-                activeModel
-                  ? `${activeModel.provider_id}, ${activeModel.model_id}${activeModel.effort ? `, ${activeModel.effort}` : ''}`
-                  : 'Unavailable'
-              }
-            />
-            <AboutValue
-              label="Workspace protocol"
-              value={capabilities.data?.gact_versions.join(', ') || 'Unavailable'}
-            />
-            <AboutValue
-              label={`${PROTOCOL.a2ui} surfaces`}
-              value={capabilities.data?.a2ui_versions.join(', ') || 'Unavailable'}
-            />
-            <AboutValue
-              label="Backend build"
-              value={
-                versions?.backend_build ||
-                (capabilities.data ? 'Unreported by this service' : 'Unavailable')
-              }
-            />
-            <AboutValue
-              label="Python"
-              value={
-                versions?.python ||
-                (capabilities.data ? 'Unreported by this service' : 'Unavailable')
-              }
-            />
-            <AboutValue
-              label="Marketplace registry"
-              value={
-                !capabilities.data
-                  ? 'Unavailable'
-                  : !versions
-                    ? 'Unreported by this service'
-                    : formatMarketplaceRegistry(versions.marketplace)
-              }
-            />
-          </dl>
-          {capabilities.error ? (
-            <Alert className="mt-4" variant="destructive">
-              <AlertTitle>Service details unavailable</AlertTitle>
-              <AlertDescription>{capabilities.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
+    <div>
+      <SettingsSectionHeading description="Version and links." title={`About ${brand.name}`} />
+      <SettingsGroupLabel className="mt-0">This app</SettingsGroupLabel>
+      <AboutValue label="Product" value={brand.name} />
+      <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
       {brand.homeUrl ? (
-        <Button asChild className="w-fit" variant="outline">
-          <ExternalLink href={brand.homeUrl}>Product website</ExternalLink>
-        </Button>
+        <SettingsRow title="Website">
+          <Button asChild className="shrink-0" size="sm" variant="outline">
+            <ExternalLink href={brand.homeUrl}>
+              Product website
+              <ExternalLinkIcon aria-hidden="true" />
+            </ExternalLink>
+          </Button>
+        </SettingsRow>
       ) : null}
+      <SettingsGroupLabel>Connected service</SettingsGroupLabel>
+      {capabilities.error ? (
+        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void capabilities.refetch() }}
+            kind="error"
+            size="row"
+            title="Service details could not be loaded."
+          />
+        </div>
+      ) : (
+        <>
+          <AboutValue
+            label="Agent service version"
+            mono
+            value={data?.service?.version || missing}
+          />
+          <AboutValue label="Backend build" mono value={versions?.backend_build || unreported} />
+          <AboutValue label="Python" mono value={versions?.python || unreported} />
+          <AboutValue
+            label="Marketplace registry"
+            value={
+              !data
+                ? missing
+                : !versions
+                  ? 'Unreported by this service'
+                  : formatMarketplaceRegistry(versions.marketplace)
+            }
+          />
+          <div className="w-full py-2">
+            <TechnicalDetails
+              contentClassName="pt-1"
+              summaryClassName="text-xs font-normal"
+              title="Technical details"
+            >
+              <AboutValue label="Address" mono value={endpointHost(settings.endpoint)} />
+              <AboutValue
+                label="Active model"
+                mono
+                value={
+                  activeModel
+                    ? `${activeModel.provider_id}/${activeModel.model_id}${activeModel.effort ? `, ${activeModel.effort}` : ''}`
+                    : missing
+                }
+              />
+              <AboutValue
+                label="Workspace protocol"
+                mono
+                value={data?.gact_versions.join(', ') || missing}
+              />
+              <AboutValue
+                label={`${PROTOCOL.a2ui} surfaces`}
+                mono
+                value={data?.a2ui_versions.join(', ') || missing}
+              />
+            </TechnicalDetails>
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+function endpointHost(endpoint: string): string {
+  try {
+    return new URL(endpoint).host || endpoint;
+  } catch {
+    return endpoint;
+  }
 }
 
 function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace']): string {
@@ -106,11 +127,40 @@ function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace'
     : `${marketplace.source}, ref ${ref}, installed commit unavailable`;
 }
 
-function AboutValue({ label, value }: { label: string; value: string }) {
+const PLACEHOLDERS = new Set([
+  'Unavailable',
+  'Loading…',
+  'Unreported by this service',
+  'Not configured',
+]);
+
+/** A read-only value in the control column: one line, cut with its full text on hover. */
+function AboutValue({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}): ReactNode {
+  const placeholder = PLACEHOLDERS.has(value);
   return (
-    <div>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1 break-words">{value}</dd>
-    </div>
+    <SettingsRow title={label}>
+      <span
+        className={cn(
+          'min-w-0 truncate text-right',
+          placeholder
+            ? 'text-xs text-faint'
+            : mono
+              ? 'font-mono text-xs tabular-nums'
+              : 'text-[0.78125rem]',
+        )}
+        data-slot="settings-value"
+        title={value}
+      >
+        {value}
+      </span>
+    </SettingsRow>
   );
 }
