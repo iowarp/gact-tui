@@ -42,7 +42,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
-import { useKnownSessions } from './use-known-sessions';
+import { mergeKnownSessions, useKnownSessions } from './use-known-sessions';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -161,7 +161,80 @@ export function useWorkspaceData({
     placeholderData: reloadAllSessions,
     refetchInterval: WAITING_SESSIONS_POLL_MS,
   });
-  const allSessions = useKnownSessions(sessions, waitingSessions, Boolean(sessionId));
+  const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
+    capabilities.data?.capabilities,
+  );
+  // Capability detection may only ADD the normalized read; it may never subtract
+  // the legacy ledgers. Gating these on a resolved capability read made a failing
+  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
+  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
+  // which is what every backend answered before the capability existed.
+  const useLegacyInteractions = !supportsUnifiedInteractions;
+  // The attention feed reads every conversation's requests whether or not one
+  // is open (Runs, a new conversation), so the bell never shows a false empty.
+  // Interaction events on the stream invalidate these; a background session's
+  // request still arrives within the waiting-sessions cadence. While this family
+  // waits on a person, a missed event would leave the agent blocked with nothing
+  // on screen, so the read stays fast.
+  const familyAwaitsPerson =
+    sessions.data?.some(
+      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
+    ) ?? false;
+  // With no conversation open there is no stream to invalidate these, and the
+  // attention feed only needs the waiting-sessions cadence.
+  const interactionPollMs = !sessionId
+    ? WAITING_SESSIONS_POLL_MS
+    : familyAwaitsPerson
+      ? ACTIVE_SESSION_POLL_MS
+      : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
+  const approvals = useQuery({
+    queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
+    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
+    enabled: useLegacyInteractions,
+    refetchInterval: interactionPollMs,
+  });
+  // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
+  // pendingApprovals just above: a background session's question must reach
+  // this attention feed too, not only the currently active session's. Like
+  // approvals, that means polling rather than relying on the live stream,
+  // which only opens for the active session.
+  const questions = useQuery({
+    queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
+    queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
+    enabled: useLegacyInteractions,
+    refetchInterval: interactionPollMs,
+  });
+  // A request names its conversation by id. One that neither the open family nor
+  // the waiting list holds yet (its state lags the request) is read by id, so
+  // its request is never dropped from the attention feed.
+  const requestOwnerIds = useMemo(() => {
+    const known = new Set(
+      mergeKnownSessions(sessions.data, waitingSessions.data)?.map((item) => item.id),
+    );
+    return [
+      ...new Set(
+        [...(approvals.data ?? []), ...(questions.data ?? [])]
+          .map((request) => request.session_id)
+          .filter((id) => id && !known.has(id)),
+      ),
+    ].toSorted();
+  }, [approvals.data, questions.data, sessions.data, waitingSessions.data]);
+  const requestOwnerQuery = useQuery({
+    queryKey: queryKeys.key('session-directory', settings.endpoint, ...requestOwnerIds),
+    queryFn: ({ signal }) => repository.sessionsById(requestOwnerIds, signal),
+    enabled: requestOwnerIds.length > 0,
+    placeholderData: (previous) => previous,
+  });
+  const requestOwners = useMemo(
+    () => requestOwnerQuery.data?.filter((item) => requestOwnerIds.includes(item.id)),
+    [requestOwnerIds, requestOwnerQuery.data],
+  );
+  const allSessions = useKnownSessions(
+    sessions,
+    waitingSessions,
+    Boolean(sessionId),
+    requestOwners,
+  );
   const hierarchySessions = useMemo(() => allSessions.data ?? [], [allSessions.data]);
   const attendedSessionRoot = useMemo(
     () => interactionRootSessionId(sessionId, hierarchySessions),
@@ -242,43 +315,6 @@ export function useWorkspaceData({
     workspaceId,
   });
   useVariantRunHydration({ enabled: Boolean(surrounding.enabled), sessionId });
-  const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
-    capabilities.data?.capabilities,
-  );
-  // Capability detection may only ADD the normalized read; it may never subtract
-  // the legacy ledgers. Gating these on a resolved capability read made a failing
-  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
-  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
-  // which is what every backend answered before the capability existed.
-  const useLegacyInteractions = !supportsUnifiedInteractions;
-  // Interaction events on the stream invalidate these; a background session's
-  // request still arrives within the waiting-sessions cadence. While this family
-  // waits on a person, a missed event would leave the agent blocked with nothing
-  // on screen, so the read stays fast.
-  const familyAwaitsPerson =
-    sessions.data?.some(
-      (item) => item.state === 'waiting_user' || item.state === 'waiting_permission',
-    ) ?? false;
-  const interactionPollMs = familyAwaitsPerson
-    ? ACTIVE_SESSION_POLL_MS
-    : livePollInterval(ACTIVE_SESSION_POLL_MS, streamHealthy, WAITING_SESSIONS_POLL_MS);
-  const approvals = useQuery({
-    queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
-    enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: interactionPollMs,
-  });
-  // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
-  // pendingApprovals just above: a background session's question must reach
-  // this attention feed too, not only the currently active session's. Like
-  // approvals, that means polling rather than relying on the live stream,
-  // which only opens for the active session.
-  const questions = useQuery({
-    queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
-    queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
-    enabled: Boolean(sessionId) && useLegacyInteractions,
-    refetchInterval: interactionPollMs,
-  });
   const normalizedInteractions = useQuery({
     queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
     queryFn: ({ signal }) =>
@@ -305,6 +341,8 @@ export function useWorkspaceData({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
       queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+      // No open conversation streams events that would refresh these.
+      refetchInterval: sessionId ? undefined : WAITING_SESSIONS_POLL_MS,
     })),
     combine: (results) => ({
       error: results.find((query) => query.error)?.error,
