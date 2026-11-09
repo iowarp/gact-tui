@@ -46,8 +46,6 @@ function DesktopNavigationLayout({
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
-  // Whether the open workbench folded the bar, so closing it unfolds the bar again.
-  const foldedForWorkbenchRef = useRef(false);
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
@@ -55,14 +53,9 @@ function DesktopNavigationLayout({
 
     if (collapseForWorkbench && !wasCollapsedForWorkbench) {
       if (open) {
-        foldedForWorkbenchRef.current = true;
         setOpen(false);
       }
       return;
-    }
-    if (!collapseForWorkbench && wasCollapsedForWorkbench && foldedForWorkbenchRef.current) {
-      foldedForWorkbenchRef.current = false;
-      if (!open) setOpen(true);
     }
   }, [collapseForWorkbench, open, setOpen]);
 

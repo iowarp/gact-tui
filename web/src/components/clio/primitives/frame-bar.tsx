@@ -24,9 +24,9 @@ import { cn } from '@/lib/utils';
  * How far the frame bar has folded, one group per step: the secondary facts,
  * folders, Open, Copy, @, the position fact (a page, a row count; marked
  * `data-frame-position`), then the modes folding to one icon, then only the
- * name, Download, comments and the … menu; narrowest (workbench-lineage step 6),
- * the Format group goes too and its modes stay on their chords. Children hide on
- * the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
+ * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
+ * the group rules go and the gaps tighten, so no control leaves the bar. Children
+ * hide on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
   'facts',
@@ -37,7 +37,7 @@ const FRAME_FOLDS = [
   'position',
   'modes',
   'name',
-  'format',
+  'rules',
 ] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
@@ -124,7 +124,7 @@ export const FrameBar = memo(function FrameBar({
       {...flags}
       ref={barRef}
       className={cn(
-        'group/frame flex h-[34px] min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border px-2 whitespace-nowrap',
+        'group/frame flex h-[34px] min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border px-2 whitespace-nowrap data-fold-rules:gap-1',
         className,
       )}
     >
@@ -142,7 +142,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-format]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
         >
           <FrameDivider />
           {format}
@@ -160,7 +160,12 @@ export const FrameBar = memo(function FrameBar({
 
 /** The 1×16 rule between frame bar groups. */
 export function FrameDivider({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cn('h-4 w-px shrink-0 bg-border', className)} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('h-4 w-px shrink-0 bg-border group-data-[fold-rules]/frame:hidden', className)}
+    />
+  );
 }
 
 export interface FrameCrumb {

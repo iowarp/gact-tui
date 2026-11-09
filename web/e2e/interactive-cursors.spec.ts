@@ -66,7 +66,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(filesList).toHaveCSS('cursor', 'pointer');
     const tree = page.getByRole('region', { name: 'Workspace file tree', exact: true });
     await tree.getByRole('button', { name: 'Expand folder results', exact: true }).click();
-    await tree.getByRole('treeitem', { name: /stations\.csv/ }).first().click();
+    await tree
+      .getByRole('treeitem', { name: /stations\.csv/ })
+      .first()
+      .click();
     // Canvas tabs are also reorder handles: retain their explicit grab cursor.
     await expect(page.getByRole('tab', { name: /stations\.csv/ }).first()).toHaveCSS(
       'cursor',
@@ -76,6 +79,8 @@ for (const theme of ['light', 'dark'] as const) {
     await resize.hover();
     await expect(resize).not.toHaveCSS('cursor', 'pointer');
     await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
+    // The left bar folds for the workbench at 1280 and stays folded; reopen it.
+    await page.locator('[data-slot="sidebar-trigger"]').click();
 
     const sessionLink = page.getByRole('link', { name: /^EarthScope NDP evidence review/ });
     await expect(sessionLink).toHaveCSS('cursor', 'pointer');
