@@ -70,6 +70,7 @@ export function NavigationHeader({
           <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
+                aria-label={`${brand.wordmark} menu: ${activeAvailability.label}`}
                 className="h-10 gap-2"
                 size="lg"
                 tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
