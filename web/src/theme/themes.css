@@ -35,6 +35,7 @@
   --muted: #ede7da;
   --muted-foreground: #6b655a;
   --faint: #6f675b;
+  --changed: #2f7d75;
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
   --key: #f8f4ec;
@@ -139,6 +140,7 @@
   --muted: #2a2823;
   --muted-foreground: #9c9588;
   --faint: #6f695f;
+  --changed: #74b8b0;
   --hover: #25231f;
   --menu-highlight: #38342d;
   --key: #23211d;
@@ -244,6 +246,7 @@
   --muted: oklch(0.95 0.01 225);
   --muted-foreground: oklch(0.47 0.035 235);
   --faint: oklch(0.6 0.02 230);
+  --changed: oklch(0.5 0.1 185);
   --hover: oklch(0.96 0.012 225);
   --menu-highlight: oklch(0.925 0.02 220);
   --key: oklch(0.97 0.008 225);
@@ -348,6 +351,7 @@
   --muted: oklch(0.195 0 0);
   --muted-foreground: oklch(0.7 0 0);
   --faint: oklch(0.5 0 0);
+  --changed: oklch(0.78 0.11 185);
   --hover: oklch(0.165 0 0);
   --menu-highlight: oklch(0.255 0 0);
   --key: oklch(0.155 0 0);
@@ -456,6 +460,7 @@
   --muted: #ffcaca;
   --muted-foreground: #a30000;
   --faint: #ff9999;
+  --changed: #008080;
   --hover: #ffd0d0;
   --menu-highlight: #ffb3b3;
   --key: #ffd9d9;

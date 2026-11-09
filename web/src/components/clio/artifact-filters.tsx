@@ -40,7 +40,7 @@ export function ArtifactFilters({
   );
   const filtered = Boolean(query.trim() || category !== 'all');
   return (
-    <div className="grid min-w-0 gap-2">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
       {artifacts.length > 1 || filtered ? (
         <>
           <div className="flex min-w-0 flex-wrap gap-2">
