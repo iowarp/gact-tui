@@ -69,12 +69,14 @@ export function ModelsSettings() {
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
-        <StateView
-          action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
-          kind="error"
-          size="row"
-          title={configuration.error.message}
-        />
+        <div className="w-full @3xl:w-[60%]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
+            kind="error"
+            size="row"
+            title={configuration.error.message}
+          />
+        </div>
       ) : (
         <Skeleton
           aria-label="Loading models"

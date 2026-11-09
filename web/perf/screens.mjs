@@ -181,6 +181,16 @@ function seededSettingsShots() {
       },
       { keepPointer: true },
     ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();

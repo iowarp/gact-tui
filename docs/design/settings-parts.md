@@ -61,7 +61,9 @@ a word), never a bare dot. Settings lists keep the default widths (status 158, a
 slot 84 px) so the status word sits at the same x on every page; don't pass per-section
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
 aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px, and hover
-actions float over the row instead of reserving their column. Sections don't set their
+actions float over the row instead of reserving their column. Below 24rem (a phone) a
+two-line row stacks like a setting row: the status, or the `confirm` cell, drops under
+the name. Sections don't set their
 own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 
