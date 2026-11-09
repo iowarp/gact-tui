@@ -280,9 +280,10 @@ export interface FrameTabProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
 }
 
 /**
- * One open thing in a frame's tab strip: 30px, icon, one-line name, and a
- * close mark whose space is always kept. Pinned tabs and, when the row is
- * short of room, inactive ones shrink to their icon.
+ * One open thing in a frame's tab row: the row's full 40px, icon, one-line
+ * name, and on the active tab a 2px primary underline and a close mark (its
+ * space is kept on every tab). Pinned tabs and, when the row is short of
+ * room, inactive ones shrink to their icon.
  *
  * The close mark is a pointer affordance outside the accessibility tree. A
  * tablist may own nothing but tabs and a tab's children are presentational,
@@ -321,15 +322,19 @@ export const FrameTab = memo(
             {icon}
           </span>
         ) : null}
-        <span className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>{label}</span>
+        <span data-slot="frame-tab-name" className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>
+          {label}
+        </span>
         {changed ? <span className="sr-only">, changed in this conversation</span> : null}
         {dirty ? <span className="sr-only">, unsaved changes</span> : null}
         {pinned ? <span className="sr-only">, pinned</span> : null}
       </>
     );
+    // Close space is kept on every tab (9px pad + 13px mark + 7px gap) so
+    // activating one never shifts the row.
     const triggerClassName = cn(
-      'flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[7px] outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
-      iconOnly ? 'justify-center px-2' : closable ? 'pr-6 pl-2' : 'px-2',
+      'flex h-full min-w-0 flex-1 items-center gap-[7px] outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+      iconOnly ? 'justify-center px-2.5' : closable ? 'pr-[29px] pl-[9px]' : 'px-[9px]',
     );
     const hoverName = title ?? label;
     return (
@@ -340,8 +345,11 @@ export const FrameTab = memo(
         data-changed={changed || undefined}
         data-pinned={pinned || undefined}
         className={cn(
-          'group/frame-tab relative flex h-[30px] min-w-0 shrink-0 items-center rounded-[7px] text-[12.5px] whitespace-nowrap text-muted-foreground hover:bg-hover hover:text-foreground data-active:bg-hover data-active:text-foreground data-changed:text-changed',
-          iconOnly ? 'w-8' : 'max-w-56 min-w-[min(6rem,100%)]',
+          // Spec .tab.on: foreground text over a 2px primary line, no fill. The
+          // line is its own layer so the trigger's background never covers it,
+          // and the tab fills the row above its border so nothing clips it.
+          'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+          iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
           className,
         )}
         {...rest}
@@ -360,7 +368,7 @@ export const FrameTab = memo(
             {contents}
           </button>
         )}
-        {closable && !iconOnly ? (
+        {closable && active && !iconOnly ? (
           <span
             aria-hidden="true"
             data-slot="frame-tab-close"
@@ -369,9 +377,9 @@ export const FrameTab = memo(
               event.stopPropagation();
               onClose?.();
             }}
-            className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] opacity-0 group-focus-within/frame-tab:opacity-100 group-hover/frame-tab:opacity-100 group-data-active/frame-tab:opacity-100 hover:bg-menu-highlight pointer-coarse:opacity-70"
+            className="absolute top-1/2 right-[5px] grid size-[21px] -translate-y-1/2 cursor-pointer place-items-center rounded-[5px] text-faint hover:bg-menu-highlight hover:text-foreground"
           >
-            <CloseIcon aria-hidden="true" className="size-3" />
+            <CloseIcon aria-hidden="true" className="size-[13px]" />
           </span>
         ) : null}
       </div>

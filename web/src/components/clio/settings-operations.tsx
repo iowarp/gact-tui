@@ -245,7 +245,7 @@ export function SystemSettings() {
   const ready = integrations.filter((row) => statusValue(row.status) === 'healthy').length;
   // One list-width column, so the rows, counts and integrations share the ItemList edge.
   const list = (
-    <div className="@container min-w-0 max-w-[47.5rem]">
+    <div className="@container min-w-0">
       <SettingsGroupLabel
         actions={
           integrations.length ? (

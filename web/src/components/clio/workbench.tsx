@@ -110,9 +110,10 @@ export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
 }
 
-// Beside the tabs only while the open tab keeps ~340px after the strip and
-// the list (34% of the panel); narrower, the list is a sheet over the tab.
-const LIST_OVERLAY_BELOW = 600;
+// Beside the tabs down to the spec's laptop width (a 40% panel at 1280 keeps
+// ~280px for the tab after the strip and the 36% list); narrower, the list is
+// a sheet over the tab body.
+const LIST_OVERLAY_BELOW = 440;
 const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
 
 function parentDirectory(path: string): string {
@@ -335,7 +336,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
 
     const toggleMaximized = (trigger?: Element | null) => {
-      setMaximizeHost(trigger?.closest('[data-slot=sheet-content]') ?? document.body);
+      // Maximize covers the conversation only: the left bar stays, and the
+      // strip comes along inside the canvas. Body is the bare-host fallback.
+      setMaximizeHost(
+        trigger?.closest('[data-slot=sheet-content]') ??
+          trigger?.closest('[data-workbench-maximize-host]') ??
+          document.body,
+      );
       setMaximized((value) => !value);
     };
 
@@ -510,8 +517,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         data-maximized={maximized || undefined}
         ref={asideRef}
         className={cn(
-          'relative z-30 flex h-full min-w-0 flex-row bg-card/45',
-          maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
+          'relative z-30 flex h-full min-w-0 flex-row bg-background',
+          maximized &&
+            (maximizeHost?.hasAttribute('data-workbench-maximize-host')
+              ? 'absolute inset-0 z-[80] bg-background'
+              : 'fixed inset-0 z-[80] bg-background shadow-2xl'),
         )}
       >
         <WorkbenchTabListProvider slot={tabList.slot}>

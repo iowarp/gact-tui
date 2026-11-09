@@ -20,6 +20,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { brand } from '@brand';
 import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -328,6 +329,11 @@ export function ClioComposer({
   );
   const [commandMenuOpen, setCommandMenuOpen] = useState(true);
   const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
+  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
+  useShortcut('stop', () => onStop?.(), {
+    enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
+    region: rootRef,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
@@ -404,6 +410,17 @@ export function ClioComposer({
           onPick={(command) => {
             setInput(`${command.id} `);
             window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
+          }}
+          onRun={(command) => {
+            setInput(command.id);
+            // The form reads the committed text, so submit on the next frame.
+            window.requestAnimationFrame(() => {
+              const form = rootRef.current?.querySelector('form');
+              const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+              if (!form || submit?.disabled) return;
+              nextDeliveryRef.current = composerDelivery(state, false);
+              form.requestSubmit();
+            });
           }}
           onOpenChange={setCommandMenuOpen}
           popoverId={commandPopoverId}
@@ -626,7 +643,6 @@ export function ClioComposer({
                 attachments={attachments}
                 contextReferences={contextReferences}
                 disabled={disabled}
-                onOpenFileUpload={() => setFileUploadOpen(true)}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
               />
@@ -667,6 +683,7 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
+                  placement="composer"
                   trigger={
                     <ComposerModelButton
                       appearance="text"
