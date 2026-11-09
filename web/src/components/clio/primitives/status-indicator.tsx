@@ -42,7 +42,10 @@ export interface StatusIndicatorProps {
   className?: string;
 }
 
-/** A status mark with its words; aligns in a fixed column across rows. */
+/**
+ * The one status word: a mark carrying the colour and a 12px muted word, so a
+ * state reads the same in every list, menu and panel. Aligns in a fixed column.
+ */
 export const StatusIndicator = memo(function StatusIndicator({
   tone,
   label,
@@ -74,8 +77,6 @@ export const StatusIndicator = memo(function StatusIndicator({
       data-tone={tone}
       className={cn(
         'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
-        tone === 'error' && 'text-destructive',
-        tone === 'warning' && 'text-warning',
         className,
       )}
     >

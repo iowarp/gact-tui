@@ -50,7 +50,7 @@ import {
 } from './settings-connection-runtime';
 
 const SELECT_TRIGGER =
-  'w-[150px] px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-full min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 const TRANSPORTS = [
   { value: 'Direct', detail: 'A browser talks to the agent over HTTP.' },

@@ -1,10 +1,12 @@
 import { memo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type TagTone = 'neutral' | 'on' | 'off' | 'info' | 'success' | 'warning' | 'danger';
+export type TagTone = 'neutral' | 'chip' | 'on' | 'off' | 'info' | 'success' | 'warning' | 'danger';
 
 const TONE: Record<TagTone, string> = {
   neutral: 'border-border text-muted-foreground',
+  /** The spec `.chip`: a filled, rounded label such as Default. */
+  chip: 'rounded-[9px] border-transparent bg-muted text-muted-foreground',
   on: 'border-primary/50 text-accent-foreground',
   off: 'border-destructive/45 text-destructive',
   info: 'border-info/25 bg-info/15 text-info-foreground',
