@@ -811,6 +811,15 @@ async function capture(browser, stack, shot, { theme, width }) {
         }),
       }),
     );
+    // An idle session, so the failure is not mistaken for a turn being set up.
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        for (const session of listing.sessions ?? []) session.state = 'idle';
+        await route.fulfill({ json: listing });
+      },
+    );
   }
   if (shot.route === 'degraded-health') {
     // One error and one warning, so the hosts tab shows every group.

@@ -37,7 +37,11 @@ export interface EarlierMessagesControl {
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
+  /** No transcript page has arrived yet, so an empty list is not yet a fact. */
+  awaitingFirstPage?: boolean;
   error?: string;
+  /** Reads the transcript again after `error`; offered as the error's Retry. */
+  onReload?: () => void;
   /** Present when the transcript is paged and older messages can be read. */
   earlier?: EarlierMessagesControl;
   /**
