@@ -433,7 +433,8 @@ export async function workbenchJourney(r) {
       'open workspace canvas',
       'toggle',
       () => open.click(),
-      { css: '[role="complementary"][aria-label="Workspace canvas"]' },
+      // The workbench is an <aside>: its complementary role is implicit.
+      { css: 'aside[aria-label="Workspace canvas"]' },
       { control: open },
     );
   }
