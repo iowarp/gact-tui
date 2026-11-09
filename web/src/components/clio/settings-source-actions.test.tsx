@@ -98,29 +98,17 @@ it.each([
   });
   expect(fixtures.repository.createConnectedSource).not.toHaveBeenCalled();
 });
-it('offers Sign in until an account is signed in, then Connect, with knowledge-first info on hover and focus', async () => {
+it('offers Sign in until an account is signed in, then keeps workspace connection in More', async () => {
   const { user } = mount();
-  expect(await screen.findByRole('button', { name: 'Connect Google Drive' })).toBeEnabled();
+  expect(await screen.findByText('Signed in')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Sign in to Google Drive' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Connect / })).toBeNull();
   for (const name of ['Globus', 'GitHub']) {
     expect(screen.getByRole('button', { name: `Sign in to ${name}` })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: `Connect ${name}` })).toBeNull();
   }
-  for (const name of ['Google Drive', 'Globus', 'GitHub']) {
-    expect(screen.getByRole('button', { name: `About ${name}` })).toBeInTheDocument();
-  }
-  const info = screen.getByRole('button', { name: 'About Obsidian' });
-  await user.hover(info);
-  expect(await screen.findByRole('tooltip')).toHaveTextContent(/^Build a knowledge graph/);
-  expect(screen.getByRole('tooltip')).toHaveTextContent('optional paid cross-device Sync');
-  await user.unhover(info);
-  await user.click(info);
-  expect(await screen.findByRole('tooltip')).toHaveTextContent(
-    'no Obsidian installation or account is required',
-  );
-  expect(screen.queryByRole('button', { name: /Manage Obsidian/ })).not.toBeInTheDocument();
-});
-it('discards the workspace dialog when the connected service changes', async () => {
+  await user.click(screen.getByRole('button', { name: 'More actions for Google Drive' }));
+  expect(await screen.findByRole('menuitem', { name: 'Connect to a workspace…' })).toBeVisible();
+});it('discards the workspace dialog when the connected service changes', async () => {
   const { user, view, content } = mount();
   await user.click(await screen.findByRole('button', { name: 'New vault' }));
   expect(screen.getByRole('dialog')).toBeInTheDocument();
