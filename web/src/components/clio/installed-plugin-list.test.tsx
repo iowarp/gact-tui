@@ -80,7 +80,7 @@ it('shows loading, failure and empty as one line each', () => {
   });
   expect(screen.getByText('Loading plugins…')).toBeInTheDocument();
   rerender(<InstalledPluginList error="offline" pending={false} plugins={[]} />);
-  expect(screen.getByText('Plugins could not be listed: offline')).toBeInTheDocument();
+  expect(screen.getByText('Plugins couldn’t be loaded.')).toBeInTheDocument();
   rerender(<InstalledPluginList pending={false} plugins={[]} />);
-  expect(screen.getByText('No plugins')).toBeInTheDocument();
+  expect(screen.getByText('No plugins yet.')).toBeInTheDocument();
 });
