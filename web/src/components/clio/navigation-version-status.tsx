@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { releaseTag } from '@/lib/release-version';
+import { agentIdentity } from './connection-names';
 import { ProductUpdateIcon, ProductUpdateSummary } from './product-update-summary';
 import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
 
@@ -49,27 +50,33 @@ export function SystemVersionStatus() {
             onUpdate={desktopShell ? updateAll : undefined}
             message={message}
             versions={versions}
+            facts={
+              desktopShell
+                ? []
+                : [
+                    {
+                      label: 'Address',
+                      value: agentIdentity(settings.endpoint).address,
+                      testId: 'version-row-address',
+                    },
+                  ]
+            }
           >
-            {!desktopShell ? (
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="break-all">Connected to {settings.endpoint}</p>
-                {agentBehindLatest ? (
-                  <p>
-                    Install runtime updates on that computer, then reload this page.
-                    {brand.agentReleaseUrl && latestClioVersion ? (
-                      <>
-                        {' '}
-                        <ExternalLink
-                          className="text-primary hover:underline"
-                          href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}
-                        >
-                          View release
-                        </ExternalLink>
-                      </>
-                    ) : null}
-                  </p>
+            {!desktopShell && agentBehindLatest ? (
+              <p className="text-xs text-muted-foreground">
+                Install runtime updates on that computer, then reload this page.
+                {brand.agentReleaseUrl && latestClioVersion ? (
+                  <>
+                    {' '}
+                    <ExternalLink
+                      className="text-primary hover:underline"
+                      href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}
+                    >
+                      View release
+                    </ExternalLink>
+                  </>
                 ) : null}
-              </div>
+              </p>
             ) : null}
           </ProductUpdateSummary>
         </PopoverContent>
