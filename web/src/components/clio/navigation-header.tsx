@@ -173,7 +173,7 @@ export function NavigationHeader({
                 <UploadIcon aria-hidden="true" /> Import session…
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenArchived}>
-                <ArchiveIcon aria-hidden="true" /> Archived sessions
+                <ArchiveIcon aria-hidden="true" /> Archived conversations
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

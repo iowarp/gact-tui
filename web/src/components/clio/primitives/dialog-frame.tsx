@@ -18,6 +18,11 @@ function focusSafeButton(event: Event) {
   target.focus();
 }
 
+/** The lone confirm takes focus when it replaces the buttons of an open frame. */
+function focusOnMount(element: HTMLButtonElement | null) {
+  element?.focus();
+}
+
 function FrameClose({ className }: { className?: string }) {
   return (
     <DialogPrimitive.Close asChild>
@@ -53,8 +58,11 @@ export interface DialogFrameProps {
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
   confirm?: DialogFrameConfirm;
-  /** Label of the safe button that closes the frame (Cancel, Close, Got it). */
-  cancelLabel?: string;
+  /**
+   * Label of the safe button that closes the frame (Cancel, Close, Got it).
+   * `null` leaves the confirm as the one button, focused (Share's Done).
+   */
+  cancelLabel?: string | null;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
   /** Controls in the title row before × (a mode switch such as URL | Command). */
@@ -77,12 +85,14 @@ export const DialogFrame = memo(function DialogFrame({
   description,
   children,
   confirm,
-  cancelLabel = confirm ? 'Cancel' : 'Close',
+  cancelLabel: cancelProp,
   secondary,
   titleActions,
   help,
   className,
 }: DialogFrameProps) {
+  const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
+  const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -154,7 +164,7 @@ export const DialogFrame = memo(function DialogFrame({
             className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
           >
             <ShortcutKeys keys={['Esc']} variant="caps" />
-            <span className="truncate">{cancelLabel}</span>
+            <span className="truncate">{cancelLabel ?? confirm?.label ?? 'Close'}</span>
             {confirmKeys && confirm ? (
               <>
                 <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
@@ -163,16 +173,21 @@ export const DialogFrame = memo(function DialogFrame({
             ) : null}
           </span>
           {secondary}
-          <DialogPrimitive.Close asChild>
-            <Button variant="ghost" data-initial-focus="">
-              {cancelLabel}
-            </Button>
-          </DialogPrimitive.Close>
+          {confirmOnly ? null : (
+            <DialogPrimitive.Close asChild>
+              <Button variant="ghost" data-initial-focus="">
+                {cancelLabel ?? 'Close'}
+              </Button>
+            </DialogPrimitive.Close>
+          )}
           {confirm ? (
             <Button
+              key={confirmOnly ? 'only' : 'confirm'}
               variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
               disabled={confirm.disabled}
               onClick={confirm.onConfirm}
+              data-initial-focus={confirmOnly ? '' : undefined}
+              ref={confirmOnly ? focusOnMount : undefined}
             >
               {confirm.label}
             </Button>
