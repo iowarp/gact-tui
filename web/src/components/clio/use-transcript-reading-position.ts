@@ -165,14 +165,17 @@ export function useTranscriptWidth({
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
-    let width = Math.round(element.getBoundingClientRect().width);
-    setConversationViewportWidth(width);
+    // The observer's first entry arrives after layout; reading the width here
+    // would force the first layout of a freshly mounted transcript mid-commit.
+    let width = 0;
     let frame = 0;
     const observer = new ResizeObserver(([entry]) => {
       const nextWidth = Math.round(entry?.contentRect.width ?? 0);
       if (!nextWidth || nextWidth === width) return;
+      const initial = width === 0;
       width = nextWidth;
       setConversationViewportWidth(nextWidth);
+      if (initial) return;
       const resizeAnchor = readingAnchorRef.current;
       const intentVersion = scrollIntentVersionRef.current;
       // Only mounted rows carry a live ResizeObserver, so every off-screen row

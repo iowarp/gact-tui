@@ -6,7 +6,15 @@ import { highlightSearchPassage } from '@/lib/search-passage';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import type { McpAppIdentity } from '@clio/core/v3';
 import { GitBranchIcon } from 'lucide-react';
-import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
+import {
+  defaultRangeExtractor,
+  elementScroll,
+  measureElement as measureRowElement,
+  observeElementRect,
+  useVirtualizer,
+  type Rect,
+  type Virtualizer,
+} from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import {
@@ -50,6 +58,25 @@ import {
 } from './use-transcript-reading-position';
 
 const VIRTUALIZATION_THRESHOLD = 80;
+
+/** The default rect observer without its synchronous offsetWidth/offsetHeight read. */
+function observeRectAfterLayout(
+  instance: Virtualizer<HTMLDivElement, Element>,
+  onRect: (rect: Rect) => void,
+) {
+  const element = instance.scrollElement;
+  if (!element || typeof ResizeObserver === 'undefined') return undefined;
+  const observer = new ResizeObserver(([entry]) => {
+    const box = entry?.borderBoxSize?.[0];
+    onRect(
+      box
+        ? { width: Math.round(box.inlineSize), height: Math.round(box.blockSize) }
+        : { width: element.offsetWidth, height: element.offsetHeight },
+    );
+  });
+  observer.observe(element, { box: 'border-box' });
+  return () => observer.disconnect();
+}
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 interface ActiveMcpApp {
@@ -278,6 +305,29 @@ function ConversationBody({
     useFlushSync: false,
     estimateSize: () => 180,
     getScrollElement: () => scrollRef.current,
+    // Below the virtualization threshold the rows lay themselves out, so row
+    // and viewport sizes only keep the cache warm for a later switch to
+    // virtualization. Take them from the ResizeObserver after layout instead
+    // of reading offsetHeight while rows mount, which forces a layout and a
+    // synchronous re-render per row during the first paint.
+    measureElement: (element, entry, instance) => {
+      if (entry || virtualized) return measureRowElement(element, entry, instance);
+      const index = instance.indexFromElement(element);
+      return (
+        instance.itemSizeCache.get(instance.options.getItemKey(index)) ??
+        instance.options.estimateSize(index)
+      );
+    },
+    observeElementRect: (instance, onRect) =>
+      virtualized ? observeElementRect(instance, onRect) : observeRectAfterLayout(instance, onRect),
+    // Attaching the scroll element scrolls it to the initial offset, which
+    // forces the first layout mid-commit. A fresh, unvirtualized column is
+    // already there; the bottom pin below does the one scroll it needs.
+    scrollToFn: (offset, options, instance) => {
+      const target = offset + (options.adjustments ?? 0);
+      if (!virtualized && target === 0 && (instance.scrollOffset ?? 0) === 0) return;
+      elementScroll(offset, options, instance);
+    },
     overscan: 7,
     rangeExtractor: useCallback(
       (range) => {
@@ -594,8 +644,7 @@ function ConversationBody({
         role="log"
         style={{
           paddingBottom: bottomInset,
-          scrollPaddingBottom:
-            bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
+          scrollPaddingBottom: bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
         }}
         tabIndex={0}
       >

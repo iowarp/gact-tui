@@ -307,7 +307,7 @@ describe('ClioConversation transcript viewport', () => {
   });
 
   it('keeps the native scrollbar available while the minimap is visible', () => {
-    stubViewport(900);
+    const viewport = stubViewport(900);
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -318,6 +318,7 @@ describe('ClioConversation transcript viewport', () => {
         tools={{}}
       />,
     );
+    viewport.settle();
 
     const log = screen.getByRole('log', { name: 'Conversation' });
     expect(log).toHaveAttribute('data-minimap-visible', 'true');
@@ -596,7 +597,7 @@ describe('ClioConversation transcript viewport', () => {
   });
 
   it('derives the active landmark from the virtualizer without reading rail anchors', () => {
-    stubViewport(900);
+    const viewport = stubViewport(900);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1_000);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
 
@@ -610,6 +611,7 @@ describe('ClioConversation transcript viewport', () => {
         tools={{}}
       />,
     );
+    viewport.settle();
 
     // Fewer messages than the virtualization threshold: the transcript is laid
     // out in flow, and the active index still comes from the virtualizer.

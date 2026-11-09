@@ -14,6 +14,10 @@ export function renderConversation(element: ReactElement) {
 
 export function stubViewport(width = 800) {
   const observers: ResizeObserverCallback[] = [];
+  // A real observer reports each target's size once after it starts
+  // observing; the transcript waits for that first entry instead of forcing
+  // a layout read while it mounts.
+  const unreported = new Set<ResizeObserverCallback>();
   class ResizeObserverMock implements ResizeObserver {
     private readonly callback: ResizeObserverCallback;
 
@@ -24,8 +28,11 @@ export function stubViewport(width = 800) {
 
     disconnect() {
       observers.splice(observers.indexOf(this.callback), 1);
+      unreported.delete(this.callback);
     }
-    observe() {}
+    observe() {
+      unreported.add(this.callback);
+    }
     unobserve() {}
   }
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
@@ -40,11 +47,24 @@ export function stubViewport(width = 800) {
     y: 0,
     toJSON: () => ({}),
   });
+  const report = (callbacks: Iterable<ResizeObserverCallback>, next: number) => {
+    for (const onResize of [...callbacks])
+      onResize([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
+  };
+  const reportInitial = () => {
+    const pending = [...unreported];
+    unreported.clear();
+    report(pending, width);
+  };
   return {
+    /** Deliver the first observation for every target observed so far. */
+    settle() {
+      act(reportInitial);
+    },
     resizeTo(next: number) {
       act(() => {
-        for (const onResize of observers)
-          onResize([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
+        reportInitial();
+        report(observers, next);
       });
     },
   };
