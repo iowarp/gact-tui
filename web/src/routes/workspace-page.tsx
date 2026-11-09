@@ -388,15 +388,8 @@ export function WorkspacePage() {
             damaged={transcriptDamaged}
             navigationActions={navigationActions}
             showWelcome={showConversationWelcome}
-            welcomeDisabled={
-              mutations.send.isPending || mutations.cancel.isPending || sessionCommands.isPending
-            }
             dockedComposerHeight={dockedComposerHeight}
             composer={renderComposer}
-            onSelectPrompt={(prompt) => {
-              composerDraft.onValueChange(prompt);
-              setComposerFocusKey((current) => current + 1);
-            }}
             onOpenReference={(reference) => void openComposerReference(reference)}
             onOpenTasks={() => openObservability('evidence')}
             onInteractionResponse={handleInteractionResponse}

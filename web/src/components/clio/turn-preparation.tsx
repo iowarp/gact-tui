@@ -1,6 +1,7 @@
 import type { InfrastructureDependency, Message, RunState } from '@clio/core/v3';
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
+import { StateView } from './primitives/state-view';
 
 export interface TurnPreparationProps {
   messages: readonly Message[];
@@ -32,8 +33,12 @@ export function ClioTurnPreparation({
     (message) => message.role === 'assistant' && !currentMessages.includes(message),
   );
   return (
-    <div className="py-4 text-sm text-muted-foreground" data-slot="turn-preparation" role="status">
-      <ClioInfrastructurePreparation dependencies={dependencies} followUp={followUp} />
+    <div className="py-2" data-slot="turn-preparation">
+      <StateView
+        kind="loading"
+        size="row"
+        title={<ClioInfrastructurePreparation dependencies={dependencies} followUp={followUp} />}
+      />
     </div>
   );
 }

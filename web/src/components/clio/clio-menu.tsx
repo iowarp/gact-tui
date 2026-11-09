@@ -61,10 +61,10 @@ interface ClioMenuContentProps {
 const MENU_HINTS = [
   { id: 'menu-move', label: 'move' },
   { id: 'menu-pick', label: 'switch' },
-  { id: 'menu-submenu', label: 'open' },
+  { id: 'menu-open', label: 'open' },
 ] as const;
 
-/** A short state word for the 72px status column; the full sentence is on hover. */
+/** A short state word for the 62px status column; the full sentence is on hover. */
 function availabilityStatus(
   availability: ConnectionAvailability,
   active: boolean,
@@ -228,7 +228,7 @@ export function ClioMenuContent({
             <span className="truncate font-medium">{identity.name}</span>
             <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
           </span>
-          <span className="flex w-[72px] shrink-0 justify-end">
+          <span className="mr-[34px] flex min-w-[62px] shrink-0">
             <StatusIndicator
               className="text-accent-foreground"
               label={activeStatus.label}
@@ -305,7 +305,11 @@ export function ClioMenuContent({
               label="Add an agent…"
             />
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-[292px] text-[12.5px]">
+          <DropdownMenuSubContent
+            className="w-[292px] text-[12.5px] [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
+            alignOffset={-7}
+            sideOffset={12}
+          >
             <DropdownMenuItem asChild className="min-h-[30px] py-[3px]">
               <Link to="/?intent=connect&mode=address">
                 <MenuRow

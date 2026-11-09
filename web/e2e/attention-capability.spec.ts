@@ -59,6 +59,10 @@ for (const scenario of [
         scenario.captured ? 1 : 0,
       );
     }
+    // Reply actions are named on hover; reveal them before counting.
+    const reply = page.locator('#message-msg_baseline_1');
+    await reply.locator('[data-slot="message-completion-footer"]').hover();
+    await expect(reply.getByRole('button', { name: 'Copy message', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Select content for attention' })).toHaveCount(
       scenario.captured ? 1 : 0,
     );
