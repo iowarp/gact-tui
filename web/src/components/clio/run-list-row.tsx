@@ -1,6 +1,7 @@
 import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { formatDuration } from '@/lib/format';
 import { HelpIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -68,7 +69,8 @@ export interface RunListRowProps {
   onTitleKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
   /**
    * `rail` sizes for a narrow conversation rail: the state word always shows, so the
-   * status mark is never the only cue; the source icon and an empty time drop.
+   * status mark is never the only cue; outcomes draw as glyphs (✓, ⚠); the source
+   * icon drops, and a child agent without a timestamp shows how long it ran.
    */
   density?: 'page' | 'rail';
 }
@@ -97,6 +99,10 @@ export const RunListRow = memo(function RunListRow({
   const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
   const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
   const percent = look.tone === 'running' ? progressPercent(row.progress) : undefined;
+  const elapsed =
+    row.elapsedMs !== undefined && Number.isFinite(row.elapsedMs) && row.elapsedMs >= 0
+      ? row.elapsedMs
+      : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
   const where = row.source === 'flow' ? row.placement : row.host || 'Host unavailable';
@@ -110,17 +116,29 @@ export const RunListRow = memo(function RunListRow({
   };
   return (
     <ListRow
-      className={reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]'}
+      className={cn(
+        reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]',
+        // The name's span truncates and would clip a ring drawn on the name itself.
+        'has-[[data-run-title]:focus-visible]:ring-1 has-[[data-run-title]:focus-visible]:ring-ring has-[[data-run-title]:focus-visible]:ring-inset',
+      )}
       data-run-state={row.state}
       layout={reason ? 'stacked' : 'inline'}
       onClick={select}
       selected={selected}
-      status={<StatusIndicator display="column" label={stateLabel} tone={look.tone} />}
+      status={
+        <StatusIndicator
+          display="column"
+          label={stateLabel}
+          mark={rail ? 'glyph' : 'dot'}
+          tone={look.tone}
+        />
+      }
       title={
         <button
           aria-current={selected ? 'true' : undefined}
-          className="max-w-full truncate rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="max-w-full truncate text-left outline-none"
           data-rail-row={rail ? '' : undefined}
+          data-run-title=""
           onClick={onOpen}
           onKeyDown={onTitleKeyDown}
           title={progress ? `${row.label}: ${progress}` : row.label}
@@ -181,7 +199,16 @@ export const RunListRow = memo(function RunListRow({
               {row.workspaceLabelFields.name}
             </span>
           ) : null}
-          {rail && !row.updatedAt ? null : (
+          {rail && !row.updatedAt ? (
+            elapsed === undefined ? null : (
+              <span
+                className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
+                title={`Ran for ${formatDuration(elapsed)}`}
+              >
+                {formatDuration(elapsed, 'compact')}
+              </span>
+            )
+          ) : (
             <time
               className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground"
               dateTime={row.updatedAt}

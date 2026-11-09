@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   locationState: null as unknown,
   navigate: vi.fn(),
   agents: [] as Array<Record<string, unknown>>,
+  defaultAgentRef: 'clio/standard' as string | undefined,
 }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: mocks.downloads }));
 vi.mock('@/hooks/use-connection-indicator-state', () => ({
@@ -57,7 +58,7 @@ vi.mock('@/hooks/use-repository', () => ({
     sessionDefaults: async () => ({
       provider_id: 'codex',
       model_id: 'gpt-6-luna',
-      default_agent_ref: 'clio/standard',
+      default_agent_ref: mocks.defaultAgentRef,
     }),
   }),
 }));
@@ -164,6 +165,7 @@ afterEach(() => {
   vi.clearAllMocks();
   mocks.locationState = null;
   mocks.agents = [];
+  mocks.defaultAgentRef = 'clio/standard';
 });
 
 describe('new conversation reference navigation', () => {
@@ -313,6 +315,13 @@ describe('new conversation agent choice', () => {
     mocks.revealWorkbench.mockClear();
     await userEvent.click(screen.getByRole('button', { name: 'Conversation agent: CLIO' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Manage agents…' }));
+    expect(mocks.revealWorkbench).toHaveBeenCalledWith({ kind: 'resources', section: 'agent' });
+  });
+
+  it('offers Customize while the service reports no default agent', async () => {
+    mocks.defaultAgentRef = undefined;
+    renderDraft();
+    await userEvent.click(await screen.findByRole('button', { name: 'Customize the agent' }));
     expect(mocks.revealWorkbench).toHaveBeenCalledWith({ kind: 'resources', section: 'agent' });
   });
 });

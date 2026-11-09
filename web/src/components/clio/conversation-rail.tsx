@@ -34,6 +34,27 @@ export function ConversationRail({
   const [selectedSource, setSelectedSource] = useState<{ workspaceId: string; id: string }>();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // The rail hangs from the bar holding its button, not from the button, so the
+  // gap under the bar is the same whatever the button's height.
+  const anchorRef = useRef({
+    getBoundingClientRect: (): DOMRect => {
+      const button = buttonRef.current;
+      const rect = button?.getBoundingClientRect();
+      const bar = button?.closest('header')?.getBoundingClientRect();
+      if (!rect || !bar) return rect ?? ({} as DOMRect);
+      return {
+        x: rect.x,
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        y: bar.top,
+        top: bar.top,
+        bottom: bar.bottom,
+        height: bar.height,
+        toJSON: () => undefined,
+      };
+    },
+  });
   // The rail is anchored, not triggered, so Radix has no trigger to refocus on close.
   const returnFocus = useRef(false);
   const setOpen = (next: boolean) => {
@@ -45,7 +66,7 @@ export function ConversationRail({
     <>
       <Popover open={open} onOpenChange={setOpen} modal={false}>
         {children({ open, setOpen, buttonRef, panelId, panelRef })}
-        <PopoverAnchor virtualRef={buttonRef} />
+        <PopoverAnchor virtualRef={anchorRef} />
         <PopoverContent
           ref={panelRef}
           id={panelId}
@@ -53,7 +74,7 @@ export function ConversationRail({
           aria-label="This conversation"
           side="bottom"
           align="end"
-          sideOffset={8}
+          sideOffset={10}
           collisionPadding={8}
           data-slot="conversation-rail"
           onOpenAutoFocus={(event) => event.preventDefault()}

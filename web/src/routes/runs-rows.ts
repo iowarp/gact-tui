@@ -35,6 +35,8 @@ export interface RunRow {
   workspaceId?: string;
   targetSessionId?: string;
   updatedAt: string;
+  /** How long a child agent ran, for rows without a timestamp (a conversation's rail). */
+  elapsedMs?: number;
   /** The task handle of a flow run, opened in its conversation with `?flow=`. */
   flowHandle?: string;
 }
