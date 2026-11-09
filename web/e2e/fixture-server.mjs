@@ -25,6 +25,8 @@ import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createSettingsFixture } from './settings-fixture.mjs';
+import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
@@ -1432,6 +1434,13 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const settingsFixture = createSettingsFixture({
+  sendJson,
+  readJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+});
 const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
@@ -1875,6 +1884,9 @@ const modelRegistry = new Map(
     ),
   ].map((details) => [details.repository, details]),
 );
+const settingsCatalog = createSettingsCatalog(
+  process.env.CLIO_FIXTURE_SETTINGS_CATALOG?.trim() || 'off',
+);
 const infrastructure = createInfrastructureFixture({
   sendJson,
   readJson,
@@ -1911,6 +1923,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    settingsFixture.reset();
     agentFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
@@ -1947,11 +1960,14 @@ const server = createServer(async (request, response) => {
     nextCursor = 1;
     queuedMessages = [];
     fleetSettings = initialFleetSettings();
+    settingsCatalog.reset();
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
     return;
   }
+  if (await settingsCatalog.handle(request, response, url, { sendJson, readJson })) return;
+  if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
@@ -2436,6 +2452,7 @@ const server = createServer(async (request, response) => {
         x_clio_agent_plugins: true,
         ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
+        ...settingsCatalog.capabilities(request),
       },
     });
     return;

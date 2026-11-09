@@ -1,9 +1,9 @@
 import { RadarIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import type { ClioModelOption } from '@/lib/model-options';
 import { parseSpotterModelRef, spotterModelRef } from '@/lib/spotter-model-ref';
 import { ClioModelPicker } from './model-picker';
+import { IconButton } from './primitives/icon-button';
 
 interface ComposerSpotterModelProps {
   /** The session's fleet reference; empty uses the conversation's model. */
@@ -16,7 +16,7 @@ interface ComposerSpotterModelProps {
   onChange: (ref: string) => void;
 }
 
-/** The model SPOTTER review runs on in this conversation, beside the approval control. */
+/** The model SPOTTER review runs on in this conversation, as icons beside the policy control. */
 export function ComposerSpotterModel({
   value,
   options,
@@ -49,33 +49,27 @@ export function ComposerSpotterModel({
         title="Choose SPOTTER model"
         placement="composer"
         trigger={
-          <Button
-            aria-label={`SPOTTER model: ${label}`}
-            className="min-w-0 gap-1.5 px-2"
+          <IconButton
+            className={choice ? 'text-accent-foreground hover:text-accent-foreground' : undefined}
             disabled={disabled}
-            size="sm"
-            title={`SPOTTER model: ${label}`}
+            icon={<RadarIcon />}
+            label={`SPOTTER model: ${label}`}
+            size="toolbar"
+            tooltipSide="top"
             type="button"
-            variant="outline"
-          >
-            <RadarIcon />
-            <span className="hidden max-w-40 truncate lg:inline">{label}</span>
-          </Button>
+          />
         }
       />
       {choice ? (
-        <Button
-          aria-label="Use conversation model for SPOTTER"
-          className="px-2"
+        <IconButton
           disabled={disabled}
+          icon={<RetryIcon />}
+          label="Use conversation model for SPOTTER"
           onClick={() => onChange('')}
-          size="sm"
-          title="Use conversation model for SPOTTER"
+          size="toolbar"
+          tooltipSide="top"
           type="button"
-          variant="outline"
-        >
-          <RetryIcon />
-        </Button>
+        />
       ) : null}
     </>
   );

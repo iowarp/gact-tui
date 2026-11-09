@@ -1,7 +1,12 @@
 import { HOST_SOURCE, VIEWER_SOURCE } from '@clio/hdf5-viewer/protocol';
 import { TransportError } from '@clio/core/v3';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { FileViewerContentsRegistry } from './file-viewer-action-context';
+import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { entityFacts, valuesAsTsv } from './hdf5-viewer-facts';
 import { HDF5_VIEWER_URL, Hdf5ViewerFrame } from './hdf5-viewer-frame';
 
 const repository = vi.hoisted(() => ({ readWorkspaceHdf5: vi.fn() }));
@@ -25,10 +30,28 @@ afterEach(() => {
   desktop.base = undefined;
 });
 
+type FrameHost = {
+  setFacts: ReturnType<typeof vi.fn<(id: string, facts?: readonly string[]) => void>>;
+  setContents: ReturnType<typeof vi.fn<(id: string, read?: () => unknown) => void>>;
+};
+
 /** Render the frame and capture what it posts to the iframe window. */
-function renderFrame(props: Partial<Parameters<typeof Hdf5ViewerFrame>[0]> = {}) {
+function renderFrame(
+  props: Partial<Parameters<typeof Hdf5ViewerFrame>[0]> = {},
+  frame?: FrameHost,
+) {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <TooltipProvider>
+      <FileViewerFactsRegistry.Provider value={frame?.setFacts}>
+        <FileViewerContentsRegistry.Provider value={frame?.setContents}>
+          {children}
+        </FileViewerContentsRegistry.Provider>
+      </FileViewerFactsRegistry.Provider>
+    </TooltipProvider>
+  );
   const view = render(
     <Hdf5ViewerFrame path="runs/water.h5" workspaceId="workspace_1" {...props} />,
+    { wrapper },
   );
   const iframe = view.container.querySelector('iframe');
   if (!iframe?.contentWindow) throw new Error('iframe not rendered');
@@ -240,6 +263,136 @@ describe('Hdf5ViewerFrame', () => {
     send({ source: VIEWER_SOURCE, type: 'fetch', id: 1, endpoint: 'files', params: {} });
     expect(onSelect).not.toHaveBeenCalled();
     expect(repository.readWorkspaceHdf5).not.toHaveBeenCalled();
+  });
+});
+
+describe('Hdf5ViewerFrame in the workbench frame', () => {
+  function frameHost() {
+    return {
+      setFacts: vi.fn<(id: string, facts?: readonly string[]) => void>(),
+      setContents: vi.fn<(id: string, read?: () => unknown) => void>(),
+    } satisfies FrameHost;
+  }
+
+  const entity = (fields: Record<string, unknown>) => ({
+    source: VIEWER_SOURCE,
+    type: 'entity',
+    locator: '/entry/image',
+    kind: 'dataset',
+    ...fields,
+  });
+
+  it('shows the open dataset as facts: its path, shape and element type', () => {
+    const host = frameHost();
+    const { send } = renderFrame({}, host);
+    send(entity({ shape: [365, 721, 1440], dtype: 'float32' }));
+    expect(host.setFacts).toHaveBeenLastCalledWith(expect.any(String), [
+      '/entry/image',
+      '365 × 721 × 1440',
+      'float32',
+    ]);
+  });
+
+  it('draws the modes h5web offers as pressed Format icons and asks the viewer to switch', () => {
+    const { posted, send } = renderFrame();
+    send({
+      source: VIEWER_SOURCE,
+      type: 'modes',
+      modes: ['table', 'image', 'attributes'],
+      mode: 'image',
+      explorer: true,
+    });
+    const group = screen.getByRole('group', { name: 'Show as' });
+    expect(group.querySelectorAll('button')).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'Image' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+
+    act(() => screen.getByRole('button', { name: 'Table' }).click());
+    expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', mode: 'table' });
+    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true');
+
+    act(() => screen.getByRole('button', { name: 'Explorer' }).click());
+    expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', explorer: false });
+    expect(screen.getByRole('button', { name: 'Explorer' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+  });
+
+  it('returns from Attributes to the display when it is chosen again', () => {
+    const { posted, send } = renderFrame();
+    send({
+      source: VIEWER_SOURCE,
+      type: 'modes',
+      modes: ['plot', 'attributes'],
+      mode: 'attributes',
+      explorer: false,
+    });
+    act(() => screen.getByRole('button', { name: 'Attributes' }).click());
+    expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', mode: 'plot' });
+  });
+
+  it('copies a small dataset as tab-separated values', async () => {
+    repository.readWorkspaceHdf5.mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify([
+          [1, 2],
+          [3, 4],
+        ]),
+      ),
+    );
+    const host = frameHost();
+    const { send } = renderFrame({}, host);
+    send(entity({ shape: [2, 2], dtype: 'float32' }));
+    const reader = host.setContents.mock.calls.at(-1)?.[1] as () => Promise<string>;
+    await expect(reader()).resolves.toBe('1\t2\n3\t4');
+    expect(repository.readWorkspaceHdf5).toHaveBeenCalledWith('workspace_1', 'data', {
+      file: 'runs/water.h5',
+      path: '/entry/image',
+      format: 'json',
+    });
+  });
+
+  it('copies the reference of a large or many-dimensional dataset', async () => {
+    const host = frameHost();
+    const { send } = renderFrame({}, host);
+    send(entity({ shape: [365, 721, 1440], dtype: 'float32' }));
+    const reader = host.setContents.mock.calls.at(-1)?.[1] as () => Promise<string>;
+    await expect(reader()).resolves.toBe('runs/water.h5::/entry/image');
+    expect(repository.readWorkspaceHdf5).not.toHaveBeenCalled();
+  });
+
+  it('ignores malformed modes and entities', () => {
+    const host = frameHost();
+    const { send } = renderFrame({}, host);
+    send({ source: VIEWER_SOURCE, type: 'modes', modes: ['spreadsheet'], explorer: true });
+    send(entity({ kind: 'file' }));
+    expect(screen.queryByRole('group', { name: 'Show as' })).toBeNull();
+    expect(host.setFacts.mock.calls.every(([, facts]) => facts === undefined)).toBe(true);
+  });
+});
+
+describe('entityFacts and valuesAsTsv', () => {
+  it('names a scalar and skips the file root', () => {
+    expect(entityFacts({ locator: '/', kind: 'group' })).toEqual([]);
+    expect(entityFacts({ locator: '/x', kind: 'dataset', shape: [], dtype: 'int16' })).toEqual([
+      '/x',
+      'scalar',
+      'int16',
+    ]);
+  });
+
+  it('writes a value, a column and a matrix', () => {
+    expect(valuesAsTsv(3.5)).toBe('3.5');
+    expect(valuesAsTsv([1, 2])).toBe('1\n2');
+    expect(
+      valuesAsTsv([
+        [1, 2],
+        [3, 4],
+      ]),
+    ).toBe('1\t2\n3\t4');
+    expect(valuesAsTsv(null)).toBeUndefined();
   });
 });
 

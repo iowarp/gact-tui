@@ -65,6 +65,7 @@ export function ModelSelectField({
   onChange,
   disabled,
   label,
+  inherited,
 }: {
   id?: string;
   /** The field's accessible name when no `<label for={id}>` names it. */
@@ -81,13 +82,15 @@ export function ModelSelectField({
   onRetryCatalog: (providerId?: string) => void;
   onChange: (choice: ClioModelOption) => void;
   disabled?: boolean;
+  /** The value is inherited: show it, but leave the picker without a current row so choosing it pins it. */
+  inherited?: boolean;
 }) {
   const model = option?.label ?? modelId;
   const provider = providerName ?? option?.providerName;
   return (
     <ClioModelPicker
       catalogStatus={catalogStatus}
-      model={option?.id ?? modelId}
+      model={inherited ? undefined : (option?.id ?? modelId)}
       onChange={onChange}
       onRetryCatalog={onRetryCatalog}
       options={options}

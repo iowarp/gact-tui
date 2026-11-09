@@ -54,9 +54,15 @@ export function FileViewerActions({
   const [informationOpen, setInformationOpen] = useState(false);
   const identity = fileViewerIdentity(source);
   const downloadFormats = formatActions.filter((action) => action.kind === 'download');
-  const otherActions = formatActions.filter((action) => action.kind !== 'download');
+  const openRows = formatActions.filter((action) => action.kind === 'open');
+  const otherActions = formatActions.filter(
+    (action) => action.kind !== 'download' && action.kind !== 'open',
+  );
   const copy = useCopyTake(source, contents);
-  const open = useOpenTake(source, downloadFormats, { otherApps: !hasDocumentActions });
+  const open = useOpenTake(source, downloadFormats, {
+    otherApps: !hasDocumentActions && !openRows.length,
+    rows: openRows,
+  });
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);

@@ -10,6 +10,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConversationMcpServers } from './conversation-mcp-servers';
 
 afterEach(() => {
@@ -36,7 +37,9 @@ function renderServers(servers: McpServerDefinition[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ConversationMcpServers servers={servers} sessionId="sess_1" tools={[]} />
+      <TooltipProvider>
+        <ConversationMcpServers servers={servers} sessionId="sess_1" tools={[]} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -70,11 +73,7 @@ describe('ConversationMcpServers', () => {
       server({ id: 'mcp_other', name: 'other', session_id: undefined }),
     ]);
 
-    expect(screen.getByRole('button', { name: 'Show the tools of spotter' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Show the tools of spotter' }));
+    expect(screen.getByText('Unavailable')).toBeInTheDocument();
     expect(screen.getByText('The server’s software could not be installed.')).toBeInTheDocument();
     expect(screen.queryByText('other')).toBeNull(); // not this conversation's server
     expect(screen.queryByText(/TOML parse error/u)).toBeNull();

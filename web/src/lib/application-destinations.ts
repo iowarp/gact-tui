@@ -8,6 +8,7 @@ import {
   CalendarClockIcon,
   CpuIcon,
   DatabaseIcon,
+  FolderIcon,
   GlobeIcon,
   GaugeIcon,
   HeartPulseIcon,
@@ -19,6 +20,7 @@ import {
   ScrollTextIcon,
   ServerIcon,
   ShieldCheckIcon,
+  UserRoundIcon,
   WrenchIcon,
 } from 'lucide-react';
 import { AdjustIcon, InfoIcon, SettingsIcon } from '@/lib/icon-vocabulary';
@@ -51,6 +53,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     keywords: 'theme dark light width motion preview files font text size scale zoom display',
   },
   {
+    id: 'profile',
+    label: 'Profile',
+    icon: UserRoundIcon,
+    group: 'App',
+    keywords: 'name email about you personal',
+  },
+  {
     id: 'notifications',
     label: 'Notifications',
     icon: BellRingIcon,
@@ -63,6 +72,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     icon: InfoIcon,
     group: 'App',
     keywords: 'version updates build',
+  },
+  {
+    id: 'folders',
+    label: 'Folders',
+    icon: FolderIcon,
+    group: 'Workspace',
+    keywords: 'workspace primary additional folders colour icon sandbox access',
   },
   {
     id: 'memory',
@@ -142,6 +158,14 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     group: 'Agent',
     host: 'tools',
     keywords: 'mcp remote tools relay',
+  },
+  {
+    id: 'tool-permissions',
+    label: 'Tool permissions',
+    icon: WrenchIcon,
+    group: 'Agent',
+    host: 'tools',
+    keywords: 'tool permission approval io direct code both always allow blocked needs approval',
   },
   {
     id: 'permissions',

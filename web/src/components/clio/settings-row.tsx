@@ -101,7 +101,8 @@ export function SettingsRow({
           className={cn(
             'flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end @sm:in-data-[slot=dialog-frame-body]:justify-end',
             // The settings field (.xf): 30 px, 12.5 px text; numbers 12 px mono, right-aligned.
-            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
+            // Number fields keep their own padding, so an in-field unit never covers the digits.
+            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
             '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-[0.75rem]',
           )}
         >
@@ -122,7 +123,7 @@ export function SettingsGroupLabel({
   className,
 }: {
   children: ReactNode;
-  /** Explanation behind an ? right after the label. */
+  /** Explanation behind an ⓘ right after the label. */
   info?: ReactNode;
   onAdd?: () => void;
   addLabel?: string;
@@ -141,8 +142,8 @@ export function SettingsGroupLabel({
       <h3 className="min-w-0 truncate font-normal">{children}</h3>
       {info ? (
         <InfoTip
-          className="-ml-1 text-faint"
-          label={`About ${typeof children === 'string' ? children : 'this group'}`}
+          className="text-faint"
+          label={typeof children === 'string' ? `About ${children}` : 'About this group'}
         >
           {info}
         </InfoTip>

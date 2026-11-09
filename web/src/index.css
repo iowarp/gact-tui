@@ -506,47 +506,6 @@
   mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 
-.clio-landing-background {
-  background: radial-gradient(
-      circle at 18% 12%,
-      color-mix(in oklch, var(--primary) 14%, transparent),
-      transparent 29rem
-    ),
-    radial-gradient(
-      circle at 86% 84%,
-      color-mix(in oklch, var(--action) 8%, transparent),
-      transparent 25rem
-    ),
-    linear-gradient(
-      to right,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
-      transparent 1px
-    );
-  background-size:
-    100% 100%,
-    100% 100%,
-    40px 40px,
-    40px 40px;
-  mask-image: linear-gradient(115deg, black 0%, black 52%, transparent 92%);
-}
-
-.clio-landing-background::after {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(
-    115deg,
-    transparent 42%,
-    color-mix(in oklch, var(--primary) 5%, transparent) 42.2%,
-    transparent 42.5%
-  );
-  content: '';
-}
-
 .clio-scrollbar {
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 36%, transparent) transparent;
   scrollbar-gutter: stable;
