@@ -57,11 +57,26 @@ function CommandDialog({
 function CommandInput({
   className,
   trailing,
+  flush = false,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input> & { trailing?: React.ReactNode }) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  trailing?: React.ReactNode;
+  /** The palette's search (.psf): a 42 px field flush with the panel, a rule under it. */
+  flush?: boolean;
+}) {
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+    <div
+      data-slot="command-input-wrapper"
+      className={flush ? 'border-b border-border' : 'p-1 pb-0'}
+    >
+      <InputGroup
+        className={cn(
+          'shadow-none! *:data-[slot=input-group-addon]:pl-2!',
+          flush
+            ? 'h-[42px]! rounded-none! border-0! bg-transparent! *:data-[slot=input-group-addon]:pl-3.5! has-[[data-slot=input-group-control]:focus-visible]:ring-0!'
+            : 'h-8! rounded-lg! border-input/30 bg-input/30',
+        )}
+      >
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
@@ -162,10 +177,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<'span'>) 
   return (
     <span
       data-slot="command-shortcut"
-      className={cn(
-        'ml-auto pl-4 text-[11.5px] text-muted-foreground',
-        className,
-      )}
+      className={cn('ml-auto pl-4 text-[11.5px] text-muted-foreground', className)}
       {...props}
     />
   );

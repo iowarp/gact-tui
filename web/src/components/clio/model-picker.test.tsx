@@ -381,11 +381,11 @@ describe('ClioModelPicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.getAllByRole('button', { name: /Hidden|Done/ })).toHaveLength(1);
-    // Normal mode: no eye anywhere -- "Hidden (N)" IS the manage action, so
+    // Normal mode: no eye anywhere -- "Hidden N" IS the manage action, so
     // there is nothing to toggle until it is clicked.
     expect(screen.queryByRole('button', { name: /Hide|Show/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Hidden (0)' }));
+    await user.click(screen.getByRole('button', { name: 'Hidden 0' }));
     // Manage mode: every row -- not just the one about to be hidden -- shows
     // its own eye beside its heartbeat.
     expect(screen.getByRole('button', { name: /Hide Codex/ })).toBeVisible();
@@ -405,14 +405,14 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
 
     // The count reflects the change live, and re-opening reveals it again.
-    await user.click(screen.getByRole('button', { name: 'Hidden (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Hidden 1' }));
     expect(screen.getByText('Local vLLM')).toBeVisible();
     await user.click(screen.getByRole('button', { name: /Show Local vLLM/ }));
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([]);
     expect(screen.getByRole('button', { name: /Hide Local vLLM/ })).toBeVisible();
   });
 
-  it('uses a compact two-column dialog with an independently scrollable pane per column', async () => {
+  it('uses a two-column picker with an independently scrollable pane per column', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -425,13 +425,12 @@ describe('ClioModelPicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
 
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveClass('sm:max-w-[56rem]');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-slot', 'model-picker');
     expect(document.querySelectorAll('[data-slot="cascader-column-bounds"]')).toHaveLength(2);
     expect(document.querySelectorAll('[data-slot="scroll-area-viewport"]')).toHaveLength(2);
   });
 
-  it('nests the provider bar under the providers column, never a full-width row under both', async () => {
+  it('leads the footer with the provider bar, outside both columns', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -450,18 +449,11 @@ describe('ClioModelPicker', () => {
     const strip = document.querySelector('[data-slot="provider-panel-footer"]');
     expect(strip).not.toBeNull();
 
-    // Depth 0 is the provider list; depth 1 is the active provider's own
-    // model column. The provider bar is the LOWER SECTION of the providers'
-    // own bounded box, under the provider it manages -- never a third,
-    // full-width row below both columns.
-    const providerColumnBounds = document.querySelector(
-      '[data-slot="cascader-column-bounds"][data-depth="0"]',
-    );
-    const activeColumnBounds = document.querySelector(
-      '[data-slot="cascader-column-bounds"][data-depth="1"]',
-    );
-    expect(providerColumnBounds?.contains(strip)).toBe(true);
-    expect(activeColumnBounds?.contains(strip)).toBe(false);
+    // The provider bar is the footer's leading segment, under the providers
+    // it manages, beside the key hints -- not a row inside either column.
+    expect(document.querySelector('[data-slot="picker-footer"]')?.contains(strip)).toBe(true);
+    for (const bounds of document.querySelectorAll('[data-slot="cascader-column-bounds"]'))
+      expect(bounds.contains(strip)).toBe(false);
   });
 
   it('windows a provider whose model list runs past the virtualization threshold', async () => {
@@ -509,7 +501,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: 'Hidden (0)' }));
+    await user.click(screen.getByRole('button', { name: 'Hidden 0' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
 
