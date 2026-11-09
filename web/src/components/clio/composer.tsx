@@ -632,7 +632,6 @@ export function ClioComposer({
                 attachments={attachments}
                 contextReferences={contextReferences}
                 disabled={disabled}
-                onOpenFileUpload={() => setFileUploadOpen(true)}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
               />

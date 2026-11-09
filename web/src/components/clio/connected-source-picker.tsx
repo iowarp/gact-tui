@@ -31,6 +31,7 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
+import { connectedSourceErrorMessage } from './connected-source-error';
 import { linkAccessNames } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
 import { SourceProviderLogo } from './source-provider-logo';
@@ -432,7 +433,7 @@ export function ConnectedSourceContents({
         />
         {folderReference.error && (
           <p role="alert" className="text-sm text-destructive">
-            {folderReference.error.message}
+            {connectedSourceErrorMessage(folderReference.error)}
           </p>
         )}
       </>
@@ -449,7 +450,7 @@ export function ConnectedSourceContents({
       </div>
       {(sources.error || providers.error || folderReference.error) && (
         <p role="alert" className="text-sm text-destructive">
-          {(sources.error || providers.error || folderReference.error)?.message}
+          {connectedSourceErrorMessage(sources.error || providers.error || folderReference.error)}
         </p>
       )}
       {!manageOnly && !settingsView && (

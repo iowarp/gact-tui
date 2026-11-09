@@ -4,13 +4,26 @@ import type { ShortcutDefinition } from '@/lib/shortcuts/catalog';
 import { shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
-/** One key cap: `Ctrl`, `⌘`, `L`. */
-export function KeyCap({ children, className }: { children: string; className?: string }) {
+export type KeyCapSize = 'md' | 'sm';
+
+/** One key cap: `Ctrl`, `⌘`, `L`. `sm` is the menu footer's and search row's cap. */
+export function KeyCap({
+  children,
+  size = 'md',
+  className,
+}: {
+  children: string;
+  size?: KeyCapSize;
+  className?: string;
+}) {
   return (
     <kbd
       data-slot="key-cap"
       className={cn(
-        'inline-flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-[5px] border border-b-2 border-key-border bg-key px-1.5 font-mono text-[11px] leading-none font-normal whitespace-nowrap text-foreground',
+        'inline-flex shrink-0 items-center justify-center rounded-[5px] border border-b-2 border-key-border bg-key font-mono leading-none font-normal whitespace-nowrap text-foreground',
+        size === 'sm'
+          ? 'h-[18px] min-w-[18px] px-1 text-[10px]'
+          : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
         className,
       )}
     >
@@ -33,6 +46,8 @@ interface ShortcutKeysProps {
    * menu's right column, a tooltip). `inline`: one small chip inside a button.
    */
   variant?: ShortcutKeysVariant;
+  /** Cap size for `caps`. */
+  capSize?: KeyCapSize;
   className?: string;
 }
 
@@ -49,6 +64,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
   keys,
   mac,
   variant = 'text',
+  capSize,
   className,
 }: ShortcutKeysProps) {
   const platform = useKeyPlatform();
@@ -68,7 +84,9 @@ export const ShortcutKeys = memo(function ShortcutKeys({
               <span className="px-0.5 text-[11px] text-faint">or</span>
             ) : null}
             {caps.map((cap, capIndex) => (
-              <KeyCap key={capIndex}>{cap}</KeyCap>
+              <KeyCap key={capIndex} size={capSize}>
+                {cap}
+              </KeyCap>
             ))}
           </span>
         ))}
