@@ -10,7 +10,7 @@ import {
   useShortcutList,
 } from '@/lib/shortcuts/hooks';
 import type { KeyPlatform } from '@/lib/shortcuts/keys';
-import { activeShortcutIds } from '@/lib/shortcuts/registry';
+import { activeShortcutIds, shortcutChords } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 import { ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
@@ -31,13 +31,14 @@ function ShortcutSheetBody({ scope }: { scope: 'active' | 'catalog' }) {
   const [active] = useState(() => (scope === 'active' ? activeShortcutIds() : undefined));
   const groups = useMemo(() => {
     const matches = (definition: ShortcutDefinition) =>
+      shortcutChords(definition, platform).length > 0 &&
       (!active || active.has(definition.id) || definition.group === 'menu') &&
       (!deferredQuery || definition.name.toLowerCase().includes(deferredQuery));
     return SHORTCUT_GROUPS.map((group) => ({
       ...group,
       items: shortcuts.filter((definition) => definition.group === group.id && matches(definition)),
     })).filter((group) => group.items.length > 0);
-  }, [shortcuts, deferredQuery, active]);
+  }, [shortcuts, deferredQuery, active, platform]);
   return (
     <KeyPlatformContext.Provider value={platform}>
       <div className="flex min-w-0 items-center gap-2 border-b border-border py-2 pr-12 pl-4">

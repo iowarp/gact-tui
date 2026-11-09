@@ -3,7 +3,8 @@
  * is ready (503 `task_runtime_starting`). The page stays on the boot screen and retries
  * with a backoff until the workspace opens; it never flips to the Connect form (#739 B1).
  */
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { brand } from '@brand';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';

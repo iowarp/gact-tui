@@ -28,6 +28,7 @@ import { rangeReadsFromText } from '@/test/workspace-file-range';
 
 const { repository, useAppearancePreferences } = vi.hoisted(() => ({
   repository: {
+    browserPages: vi.fn(),
     readWorkspaceFile: vi.fn(),
     readWorkspaceFileRange: vi.fn(),
   },
@@ -486,6 +487,36 @@ describe('ClioWorkbench canvas', () => {
 
     expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
+  });
+
+  it('opens a new page when the Browser list opens with none', async () => {
+    const user = userEvent.setup();
+    repository.browserPages.mockResolvedValue([]);
+    renderWorkbench();
+
+    await user.click(strip().getByRole('button', { name: 'Browser pages' }));
+    const list = screen.getByRole('region', { name: 'Browser pages list' });
+    expect(await within(list).findByRole('textbox', { name: 'Address' })).toHaveFocus();
+  });
+
+  it('lists browser pages after "New page"', async () => {
+    const user = userEvent.setup();
+    repository.browserPages.mockResolvedValue([
+      {
+        id: 'page_1',
+        session_id: 'session_parent',
+        url: 'https://example.org/',
+        title: 'Example',
+        host: 'example.org',
+      },
+    ]);
+    renderWorkbench();
+    await user.click(strip().getByRole('button', { name: 'Browser pages' }));
+    const rows = await within(
+      screen.getByRole('region', { name: 'Browser pages list' }),
+    ).findAllByRole('button', { name: /New page|Example/ });
+    expect(rows.map((row) => row.textContent)).toEqual(['New page', 'Exampleexample.org']);
+    expect(screen.queryByRole('textbox', { name: 'Address' })).not.toBeInTheDocument();
   });
 
   it('opens a changed file as a durable record tab with Undo', () => {

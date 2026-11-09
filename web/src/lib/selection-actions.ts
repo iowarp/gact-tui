@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ContentSelection } from '@clio/core/v3';
+import type { ContentSelection, DocumentAnchor } from '@clio/core/v3';
 import { clampToBlock, transcriptContentSelection } from './transcript-content-selection';
 
 /**
@@ -7,17 +7,41 @@ import { clampToBlock, transcriptContentSelection } from './transcript-content-s
  * surface a selection can come from, so one action registry and one toolbar
  * serve all of them.
  *
- * Only `agent-answer-text` is produced today. The shapes the registry is
- * designed to carry next are selections of document or artifact text, a region
- * of an image (for visual models), and a node of an A2UI or MCP app surface;
- * each will be a new member here plus the surface that produces it. Actions
+ * Agent answers, transcript content, data-surface zones and file passages are
+ * produced today. A region of an image (for visual models) and a node of an
+ * A2UI or MCP app surface are the shapes designed to come next; each will be a
+ * new member here plus the surface that produces it. Actions
  * declare which kinds they apply to, so adding a kind never changes an action
  * that does not handle it.
  */
 export type SelectionTarget =
   | AgentAnswerTextSelection
   | DataSurfaceZoneSelection
-  | TranscriptContentSelection;
+  | TranscriptContentSelection
+  | FileTextSelection;
+
+/**
+ * A passage of a file shown in a viewer (`data-selection-surface="file"`):
+ * a line range of source, a passage of a rendered document.
+ */
+export interface FileTextSelection {
+  kind: 'file-text';
+  text: string;
+  /** Workspace-relative path, as the viewer names the file. */
+  path: string;
+  /** The file name the quote is titled with. */
+  name: string;
+  workspaceId?: string;
+  /** 1-based lines when the viewer marks its rows with `data-line`. */
+  startLine?: number;
+  endLine?: number;
+  /** A `text-quote` anchor on the viewer's text, naming the file and lines. */
+  anchor: DocumentAnchor;
+  /** The innermost element holding the selection, for finding its comment session. */
+  container: Element;
+  /** File passages carry no transcript reference. */
+  reference?: undefined;
+}
 
 export interface TranscriptContentSelection {
   kind: 'transcript-content';
@@ -67,6 +91,8 @@ export interface SelectionAction {
   icon: LucideIcon;
   /** Lower sorts first in the toolbar. */
   order: number;
+  /** A catalog shortcut id: shown beside the label and pressed while the menu is up. */
+  shortcut?: string;
   /** The selection kinds this action handles. */
   kinds: readonly SelectionTargetKind[];
   /** Further narrowing for one selection (e.g. only when a session is open). */

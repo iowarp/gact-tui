@@ -365,7 +365,7 @@ export function withManualChartZoom(
         translate:
           '[pointerdown[event.altKey && !event.shiftKey], window:pointerup] > window:pointermove!',
         type: 'interval',
-        zoom: 'wheel![event.ctrlKey]',
+        zoom: 'wheel![event.ctrlKey || event.metaKey]',
       },
     }),
   };
