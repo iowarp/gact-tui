@@ -244,8 +244,8 @@ describe('WorkspaceFileView', () => {
     expect(within(grid).getByText('MTA24')).toBeVisible();
     expect(screen.queryByText(/Rows per page/u)).not.toBeInTheDocument();
     expect(screen.queryByText(/1 - 10 of/u)).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
-    expect(await screen.findByRole('menuitem', { name: /^Download/u })).toBeEnabled();
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeEnabled();
   });
 
   it.each([
@@ -413,18 +413,15 @@ describe('WorkspaceFileView', () => {
     )!;
     expect(state).toHaveTextContent('.nc');
     expect(state).toHaveTextContent('No preview for this format');
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.ariaLabel),
-    ).toEqual(['Download']);
-    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
-    expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
-    await userEvent.keyboard('{Escape}');
+    // The frame bar and the state both offer the original download; Open does not repeat it.
+    expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
     expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
-    await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
+    expect(screen.queryByRole('menuitem', { name: /^Download/u })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(within(frame).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
       expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.nc'),
     );
@@ -472,9 +469,9 @@ describe('WorkspaceFileView', () => {
       '[data-slot="state-view"][data-kind="no-preview"]',
     )!;
     expect(state).toHaveTextContent('.h5');
-    expect(within(state).getAllByRole('button', { name: 'Download' })).toHaveLength(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
-    expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
+    expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeVisible();
     expect(screen.queryByTitle('HDF5 viewer: data/run.h5')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
   });
