@@ -1,4 +1,5 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
+import { CircleArrowUpIcon, LoaderCircleIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
@@ -7,11 +8,13 @@ import { ProviderConnectState } from './provider-connect-state';
 import { providerCredentialKind } from '@/lib/provider-availability';
 import { providerManagedClientVendor } from '@/lib/provider-presentation';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { providerActionError } from './provider-setup-state';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { NamedTooltip } from './primitives/icon-button';
 import { Link, useInRouterContext } from 'react-router-dom';
 
@@ -22,6 +25,8 @@ export interface ProviderPanelColumn {
   footer?: ReactNode;
   /** The provider bar: the picker footer's leading segment. */
   bar?: ReactNode;
+  /** One column: the same actions as the row that ends the provider's group. */
+  manage?: ReactNode;
 }
 
 /**
@@ -40,13 +45,25 @@ interface UseProviderPanelInput {
   /** A sentence the action row shows over the latest failure (e.g. why a model can't be picked). */
   notice?: string;
   onClose?: () => void;
+  /** Check a signed-out CLI sign-in once when it comes into view; on by default. */
+  autoCheck?: boolean;
+  /** The narrowest manage row folds its icon actions into one More menu. */
+  foldActions?: boolean;
 }
 
 /**
  * The picker's right-hand panel for the provider in view, driven by the
  * shared action hook every provider surface uses.
  */
-export function useProviderPanel({ group, preset, open, notice, onClose }: UseProviderPanelInput) {
+export function useProviderPanel({
+  group,
+  preset,
+  open,
+  notice,
+  onClose,
+  autoCheck = true,
+  foldActions = false,
+}: UseProviderPanelInput) {
   const inRouter = useInRouterContext();
   const providerActions = useProviderActions({
     presetId: group?.id ?? '',
@@ -77,6 +94,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   // signed in in a terminal since (#1455).
   const autoChecked = useRef(new Set<string>());
   const needsCheck =
+    autoCheck &&
     providerCredentialKind(preset) === 'cli' &&
     preset?.is_authenticated === false &&
     preset.status !== 'install_required';
@@ -96,11 +114,14 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   if (!group) return { column: {} satisfies ProviderPanelColumn, stage };
   const settingsHref = `/settings/providers?provider=${encodeURIComponent(group.id)}`;
   const settingsIcon = <SettingsIcon aria-hidden="true" />;
-  const settings = (
+  const settingsLink = (className?: string) => (
     <NamedTooltip label="Provider settings" side="top">
       <Button
         asChild
-        className="shrink-0 text-muted-foreground hover:bg-hover hover:text-foreground"
+        className={cn(
+          'shrink-0 text-muted-foreground hover:bg-hover hover:text-foreground',
+          className,
+        )}
         size="icon-xs"
         type="button"
         variant="ghost"
@@ -117,6 +138,7 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
       </Button>
     </NamedTooltip>
   );
+  const settings = settingsLink();
   const setup = (
     <>
       {preset ? (
@@ -135,6 +157,50 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
         ? { label: 'Remove key', run: () => providerActions.removeApiKey.mutate(), busy: false }
         : undefined;
   const hasSetup = Boolean(preset) || Boolean(componentStatus);
+  // The client update folds into the manage row, as the spec's provider bar
+  // does ("Update to 0.33"); its version check stays in Settings.
+  const updateTo = componentUpdate.components?.update_available
+    ? componentUpdate.components.target_version
+    : undefined;
+  const update = componentUpdate.stage ? (
+    <span
+      className="flex shrink-0 items-center gap-1 text-muted-foreground"
+      data-slot="provider-component-stage"
+      role="status"
+    >
+      <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
+      {componentUpdate.stage}
+    </span>
+  ) : updateTo ? (
+    <Button
+      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px] font-semibold text-accent-foreground"
+      data-slot="provider-update-available"
+      disabled={Boolean(providerActions.stage)}
+      onClick={componentUpdate.update}
+      size="xs"
+      type="button"
+      variant="outline"
+    >
+      <CircleArrowUpIcon aria-hidden="true" className="size-3" />
+      Update to {updateTo}
+    </Button>
+  ) : null;
+  const manageSettings = settingsLink('size-[22px] [&_svg]:size-[13px]');
+  const settingsItem = (
+    <DropdownMenuItem asChild>
+      {inRouter ? (
+        <Link to={settingsHref} onClick={onClose}>
+          {settingsIcon}
+          Provider settings
+        </Link>
+      ) : (
+        <a href={settingsHref} onClick={onClose}>
+          {settingsIcon}
+          Provider settings
+        </a>
+      )}
+    </DropdownMenuItem>
+  );
   const column: ProviderPanelColumn = {
     ...(usable
       ? {}
@@ -153,6 +219,29 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
       />
     ) : (
       <ProviderPanelFooter group={group} settings={settings} />
+    ),
+    manage: usable ? (
+      <ProviderPanelFooter
+        actions={providerActions}
+        error={notice ?? providerActionError(providerActions, group)}
+        group={group}
+        info={providerActions.refreshNotice}
+        logOut={logOut}
+        settings={manageSettings}
+        settingsItem={settingsItem}
+        fold={foldActions}
+        update={update}
+        variant="manage"
+      />
+    ) : (
+      <ProviderPanelFooter
+        group={group}
+        settings={manageSettings}
+        settingsItem={settingsItem}
+        fold={foldActions}
+        update={update}
+        variant="manage"
+      />
     ),
   };
   return { column, stage };

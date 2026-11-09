@@ -32,6 +32,7 @@ import {
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import {
+  MANAGE_NODE_PREFIX,
   modelNodeValue,
   PROVIDER_NODE_PREFIX,
   type PickerNodeData,
@@ -40,6 +41,7 @@ import {
   type ProviderGroup,
 } from './model-picker-model';
 import { useProviderPanel } from './model-picker-provider-panel';
+import { ProviderManageRow } from './model-picker-manage-row';
 import { ModelPickerSearch } from './model-picker-search';
 import { PickerRowLabel } from './model-picker-row-label';
 import { useModelPickerTree } from './model-picker-tree';
@@ -182,12 +184,25 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   const { toggleCollapsed, matchesText, searching } = search;
   const providerNodes = useMemo(() => {
     if (grouped) {
-      // One flat list: each provider's header, then its models unless folded.
-      return tree.nodes.flatMap((node) => {
+      // One flat list: each provider's header, then its models and the manage
+      // row that ends the group (the provider bar, folded), unless folded.
+      return tree.nodes.flatMap((node): CascaderNode<PickerNodeData>[] => {
         const { children, ...header } = node;
-        const groupId = node.data?.kind === 'provider' ? node.data.group.id : undefined;
-        const open = !groupId || !search.collapsed.has(groupId);
-        return [{ ...header, hasChildren: true }, ...(open ? (children ?? []) : [])];
+        const group = node.data?.kind === 'provider' ? node.data.group : undefined;
+        const open = !group || !search.collapsed.has(group.id);
+        if (!open) return [{ ...header, hasChildren: true }];
+        const manage: CascaderNode<PickerNodeData>[] =
+          group && !searching
+            ? [
+                {
+                  value: MANAGE_NODE_PREFIX + group.id,
+                  label: `Manage ${group.name}`,
+                  static: true,
+                  data: { kind: 'provider-manage', group },
+                },
+              ]
+            : [];
+        return [{ ...header, hasChildren: true }, ...(children ?? []), ...manage];
       });
     }
     return searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded);
@@ -313,7 +328,14 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       }}
       path={grouped ? EMPTY_PATH : path}
       renderItem={(node) =>
-        node.data?.kind === 'provider-family' ? (
+        node.data?.kind === 'provider-manage' ? (
+          <ProviderManageRow
+            fold={foldFilters}
+            group={node.data.group}
+            onClose={onOpenSettings}
+            preset={presetsById.get(node.data.group.id)}
+          />
+        ) : node.data?.kind === 'provider-family' ? (
           <ProviderFamilyRow
             data={node.data}
             hidden={Object.keys(ALCF_SERVERS).every((id) => hiddenProviders.has(id))}
@@ -342,7 +364,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               ? {
                   count: search.counts.get(node.data.group.id) ?? { matches: 0, total: 0 },
                   collapsed: search.collapsed.has(node.data.group.id),
-                  plain: grouped && !search.searching,
+                  plain: grouped,
                 }
               : undefined
           }
@@ -435,12 +457,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             <CascaderList className="w-full flex-1" maxHeight="100%">
               <CascaderVirtualItems />
             </CascaderList>
-            {activeGroup ? (
-              <>
-                {loadingModels ? loadingPanel : panel.column.empty}
-                {panel.column.footer}
-              </>
-            ) : null}
+            {/* Each group's manage row carries its actions; a provider that is
+                not usable yet shows how to set it up below the list. */}
+            {activeGroup ? (loadingModels ? loadingPanel : panel.column.empty) : null}
           </>
         )}
         <CascaderFooter className="mt-auto p-0">
@@ -464,19 +483,12 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 {managingVisibility ? 'Done' : `Hidden ${hiddenProviders.size}`}
               </Button>
             }
-            hints={foldFilters && panel.column.bar ? [] : footerHints(showColumns)}
+            hints={footerHints(showColumns)}
             start={
               <>
-                {panel.column.bar ? (
+                {showColumns && panel.column.bar ? (
                   <div
-                    className={cn(
-                      '-ms-2 h-full border-e',
-                      showColumns
-                        ? 'w-[calc(50%-.5px)] shrink-0'
-                        : foldFilters
-                          ? 'min-w-0 flex-1'
-                          : 'w-[min(60%,22rem)] shrink-0',
-                    )}
+                    className="-ms-2 h-full w-[calc(50%-.5px)] shrink-0 border-e"
                     data-slot="picker-provider-bar"
                   >
                     {panel.column.bar}
@@ -502,12 +514,21 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   );
 });
 
-/** Word, then key: the picker's keys, the columns pair only beside two columns. */
+/**
+ * Word, then key: the picker's keys. One column keeps only Choose and Close
+ * (the spec's fold drops every key except ? and Esc).
+ */
 function footerHints(columns: boolean): PickerHint[] {
+  if (!columns) {
+    return [
+      { label: 'Choose', shortcut: 'menu-pick' },
+      { label: 'Close', shortcut: 'menu-close' },
+    ];
+  }
   return [
     { label: 'Move', shortcut: 'menu-move', optional: true },
     { label: 'Choose', shortcut: 'menu-pick' },
-    ...(columns ? [{ label: 'Columns', shortcut: 'menu-columns', optional: true }] : []),
+    { label: 'Columns', shortcut: 'menu-columns', optional: true },
     { label: 'Close', shortcut: 'menu-close', optional: true },
   ];
 }

@@ -71,6 +71,27 @@ export function PickerRowLabel({
   stage,
   state,
 }: PickerRowLabelProps) {
+  if (node.data?.kind === 'provider' && search?.plain) {
+    // One column: a small muted group label with only its count; its manage
+    // row (status and actions) ends the group. Pressing it folds the group.
+    return (
+      <span
+        className="flex w-full min-w-0 items-center gap-[7px] text-[11px] font-semibold text-muted-foreground"
+        data-collapsed={search.collapsed ? '' : undefined}
+        data-slot="provider-group-header"
+      >
+        <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
+        <span
+          aria-label={`${search.count.matches} models`}
+          className="shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums"
+          data-slot="provider-filter-count"
+        >
+          {search.count.matches || null}
+        </span>
+        <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+      </span>
+    );
+  }
   if (node.data?.kind === 'provider') {
     // The model count and the drill chevron are the Cascader's own trailing
     // slots and render after this label -- except in search results, where
@@ -108,17 +129,7 @@ export function PickerRowLabel({
         <ProviderHeartbeat group={node.data.group} stage={stage} />
         {search ? (
           <>
-            {search.plain ? (
-              <span
-                aria-label={`${search.count.matches} models`}
-                className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums"
-                data-slot="provider-filter-count"
-              >
-                {search.count.matches}
-              </span>
-            ) : (
-              <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
-            )}
+            <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
             <ChevronDownIcon
               aria-hidden="true"
               className={cn(

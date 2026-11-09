@@ -296,6 +296,9 @@ describe('ClioModelPicker', () => {
     expect(screen.getByRole('option', { name: /Local vLLM/ })).toBeVisible();
     expect(screen.getByText('Luna')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Back/i })).not.toBeInTheDocument();
+    // The provider bar becomes a manage row under each group's models.
+    expect(screen.getByRole('group', { name: 'Manage Codex' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Check updates/i })).not.toBeInTheDocument();
 
     // Pressing a header folds its models away, and again brings them back.
     await user.click(codex);
