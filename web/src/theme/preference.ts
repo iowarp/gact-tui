@@ -13,7 +13,8 @@ export interface ResolvedTheme {
 }
 
 function availableTheme(value: unknown): ThemePreference | undefined {
-  if (value === 'system') return 'system';
+  // Notebook followed the OS scheme; Light and Dark now carry its look, so System keeps it.
+  if (value === 'system' || value === 'notebook') return 'system';
   const theme = THEMES.find((candidate) => candidate.id === value);
   if (!theme || (theme.development && !import.meta.env.DEV)) return undefined;
   return theme.id;
@@ -39,7 +40,7 @@ export function readThemePreference(storage: Pick<Storage, 'getItem'>): ThemePre
   }
 }
 
-/** Light and Dark are fixed; System and system-following themes take the OS scheme. */
+/** Fixed themes keep their scheme; System and system-following themes take the OS scheme. */
 export function resolveTheme(preference: ThemePreference, systemDark: boolean): ResolvedTheme {
   if (preference === 'system') return { id: systemDark ? 'dark' : 'light', dark: systemDark };
   const theme = THEMES.find((candidate) => candidate.id === preference)!;
