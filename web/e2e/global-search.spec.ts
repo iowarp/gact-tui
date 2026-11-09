@@ -62,7 +62,7 @@ test('global search applies themes from Settings and opens settings, hosts and e
   await expect(page.locator('html')).not.toHaveClass(/dark/u);
   await page.keyboard.press('Control+k');
   await input.fill('drive');
-  await page.getByRole('option', { name: 'Data sources', exact: true }).click();
+  await page.getByRole('option', { name: /^Data sources Settings › /u }).click();
   await expect(page).toHaveURL(/\/settings\/data-sources$/u);
   await page.keyboard.press('Control+k');
   await input.fill('protected execution');
