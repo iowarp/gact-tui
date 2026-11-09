@@ -2,6 +2,7 @@ import type { Message } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 
@@ -76,7 +77,9 @@ describe('ClioTranscriptMinimap', () => {
       onMarkMessage,
       visible: true,
     };
-    const { rerender } = render(<ClioTranscriptMinimap {...props} />);
+    const { rerender } = render(<ClioTranscriptMinimap {...props} />, {
+      wrapper: TooltipProvider,
+    });
     await user.hover(screen.getByRole('button', { name: 'Jump to user message 4' }));
     const preview = await screen.findByRole('region', { name: 'user message 4 preview' });
     await user.click(within(preview).getByRole('button', { name: 'Mark message' }));
@@ -86,8 +89,10 @@ describe('ClioTranscriptMinimap', () => {
     await user.unhover(preview);
     await user.click(screen.getByRole('button', { name: 'Open marked messages (1)' }));
     const list = within(screen.getByRole('dialog', { name: 'Marked messages' }));
-    expect(list.queryByRole('button', { name: 'Jump to user message 1' })).not.toBeInTheDocument();
-    await user.click(list.getByRole('button', { name: 'Jump to user message 4' }));
+    expect(
+      list.queryByRole('button', { name: /Jump to user message 1\b/ }),
+    ).not.toBeInTheDocument();
+    await user.click(list.getByRole('button', { name: 'Jump to user message 4, marked' }));
     expect(onJump).toHaveBeenCalledWith(3);
   });
 
@@ -100,14 +105,23 @@ describe('ClioTranscriptMinimap', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open transcript outline' }));
     const outline = within(screen.getByRole('dialog', { name: 'Transcript outline' }));
-    expect(
-      await outline.findByText(
-        'Compare the three stations with the complete provenance record.',
-        { selector: '.font-semibold .truncate' },
-        { timeout: 15_000 },
-      ),
-    ).toBeVisible();
+    const title = await outline.findByText(
+      'Compare the three stations with the complete provenance record.',
+      {},
+      { timeout: 15_000 },
+    );
+    expect(title).toBeVisible();
     const outlineItem = outline.getByRole('button', { name: 'Jump to user message 1' });
+    // One 28px ListRow line per message, the current one named in words.
+    expect(outlineItem).toHaveAttribute('data-slot', 'transcript-outline-row');
+    expect(outlineItem).toContainElement(title);
+    expect(outlineItem).toHaveAttribute('aria-current', 'location');
+    expect(outlineItem).toHaveTextContent('Here');
+    expect(outlineItem.parentElement).toHaveStyle({ height: '56px' });
+    // A message without text still has a name, never a blank slot.
+    expect(outline.getByRole('button', { name: 'Jump to assistant message 2' })).toHaveTextContent(
+      'Visual result',
+    );
     expect(outline.queryByText(/\*\*three stations\*\*/)).not.toBeInTheDocument();
     await user.hover(outlineItem);
     const preview = await screen.findByRole('region', { name: 'user message 1 preview' });

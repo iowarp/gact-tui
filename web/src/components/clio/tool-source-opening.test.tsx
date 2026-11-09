@@ -37,7 +37,7 @@ it('opens a declared file directly from a collapsed activity row without nested 
       />
     </PresentationNavigation.Provider>,
   );
-  const disclosure = screen.getByRole('button', { name: 'Show result for Read' });
+  const disclosure = screen.getByRole('button', { name: 'Show result for Read file' });
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   expect(disclosure).toBeDisabled();
   await user.tab();

@@ -235,10 +235,13 @@ it('opens Add computer in one click and selects the inspected host before readin
   );
 });
 
-it('explains the Desktop connection requirement without showing an unusable add button', () => {
+it('explains the Desktop connection requirement without showing an unusable add button', async () => {
   show(<InfrastructureHosts data={data} onSelect={vi.fn()} />);
   expect(screen.queryByRole('button', { name: 'Add computer' })).not.toBeInTheDocument();
-  expect(screen.getByText('Add SSH computers in Desktop')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'About computers' }));
+  expect(
+    (await screen.findAllByText(/Add SSH computers in the Desktop app\./)).length,
+  ).toBeGreaterThan(0);
 });
 
 it('keeps an empty session honest while giving a direct route to the catalog', async () => {

@@ -1,4 +1,5 @@
 import type { ConversationIteration } from './conversation-turn-model';
+import { AGENT_PROSE_CLASS } from './agent-prose';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { TranscriptReasoning } from './transcript-reasoning';
 import { TranscriptReasoningPassage } from './transcript-reasoning-passage';
@@ -28,7 +29,7 @@ export function TranscriptIterationText({
 }) {
   if ((!showReasoning || !iteration.thinking.length) && !iteration.nextThoughts.length) return null;
   return (
-    <div className="min-w-0 space-y-2" data-slot="transcript-text-entry">
+    <div className="min-w-0 space-y-1" data-slot="transcript-text-entry">
       {showReasoning ? <IterationReasoningText iteration={iteration} /> : null}
       {iteration.nextThoughts.map((thought, index) => (
         <TranscriptReasoning
@@ -36,7 +37,7 @@ export function TranscriptIterationText({
           text={thought}
           source={iteration.nextThoughtSources?.[index]}
         >
-          <GroundedMessageResponse>{thought}</GroundedMessageResponse>
+          <GroundedMessageResponse className={AGENT_PROSE_CLASS}>{thought}</GroundedMessageResponse>
         </TranscriptReasoning>
       ))}
     </div>

@@ -1,54 +1,53 @@
 import { ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { FileViewerInformationHost } from './file-viewer-context';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
-/** Zoom controls stay in one place at every width; the percentage button resets the view. */
+/**
+ * A viewer's two zoom icons in the frame's Format: zoom out, zoom in. A
+ * renderer hands the bar at most two icons, so readouts (zoom %, "3 / 12")
+ * are the renderer's facts, and fitting is where zooming out stops. Outside a
+ * frame they make the viewer's own single row, after its readout (`children`).
+ */
 export function ViewerZoomControls({
-  percent,
   onIn,
   onOut,
-  onFit,
-  labels,
+  label,
   disabledIn = false,
   disabledOut = false,
-  inline = false,
+  children,
 }: {
-  percent: number;
   onIn: () => void;
   onOut: () => void;
-  onFit: () => void;
-  labels: { in: string; out: string; reset: string; fit: string; menu: string; group?: string };
+  /** Accessible name of the group ("Image zoom"). */
+  label: string;
   disabledIn?: boolean;
   disabledOut?: boolean;
-  inline?: boolean;
+  /** What a standalone row shows before the icons; in a frame these are facts. */
+  children?: ReactNode;
 }) {
-  const shared = useContext(FileViewerInformationHost) !== undefined;
+  const framed = useContext(FileViewerInformationHost) !== undefined;
   const host = useContext(ViewerToolbarHost);
+  // The frame's Format host mounts after the renderer; wait for it rather than drawing a row.
+  if (framed && !host) return null;
   return (
-    <ViewerToolbarContent inline={inline}>
+    <ViewerToolbarContent>
       <div
         className={cn(
-          'flex shrink-0 items-center gap-0.5',
-          ((!shared && !host) || inline) && 'h-9 border-b px-2',
+          'flex shrink-0 items-center gap-px',
+          !host && 'h-[34px] justify-end border-b border-border px-1.5',
         )}
         data-slot="viewer-zoom-controls"
         role="group"
-        aria-label={labels.group || 'Image zoom'}
+        aria-label={label}
       >
-        <ToolbarAction label={labels.out} disabled={disabledOut} onClick={onOut}>
+        {framed ? null : children}
+        <ToolbarAction label="Zoom out" disabled={disabledOut} onClick={onOut}>
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>
-        <ToolbarAction
-          label={labels.reset}
-          className="w-10 text-xs tabular-nums text-muted-foreground @max-[360px]/viewer:w-8"
-          onClick={onFit}
-        >
-          {Math.round(percent)}%
-        </ToolbarAction>
-        <ToolbarAction label={labels.in} disabled={disabledIn} onClick={onIn}>
+        <ToolbarAction label="Zoom in" disabled={disabledIn} onClick={onIn}>
           <ZoomInIcon aria-hidden="true" />
         </ToolbarAction>
       </div>

@@ -5,6 +5,7 @@ import { LayersIcon } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { TranscriptContentPicker } from './transcript-content-picker';
 import { AttentionAvailabilityContext } from '@/lib/attention-availability';
 import type { ReactElement, ReactNode } from 'react';
@@ -12,7 +13,7 @@ import type { ReactElement, ReactNode } from 'react';
 function CapturedAttention({ children }: { children: ReactNode }) {
   return (
     <AttentionAvailabilityContext.Provider value={{ sessionId: 's', available: true }}>
-      {children}
+      <TooltipProvider>{children}</TooltipProvider>
     </AttentionAvailabilityContext.Provider>
   );
 }

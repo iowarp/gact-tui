@@ -371,11 +371,29 @@ describe('WorkspaceFileView', () => {
       />,
     );
 
-    expect(await screen.findByText('PDF preview unavailable')).toBeVisible();
+    expect(await screen.findByText("Couldn't read it")).toBeVisible();
     expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
   });
 
-  it('presents unsupported binary metadata and controls instead of a code block', async () => {
+  it('offers an image too large to read inline instead of reading it', async () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="image/png"
+        path="figures/mosaic.png"
+        size={2_254_857_830}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="state-view"][data-kind="too-large"]'),
+      ).toBeInTheDocument(),
+    );
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('presents an unsupported binary as the frame no-preview state, not a code block', async () => {
     renderFile(
       <WorkspaceFileView
         mediaType="application/x-netcdf"
@@ -385,15 +403,31 @@ describe('WorkspaceFileView', () => {
       />,
     );
 
-    expect(screen.getByText('run.nc')).toBeVisible();
-    expect(screen.getByText(/application\/x-netcdf/u)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
+    // The frame bar stays, with the extension and size as facts.
+    const frame = screen.getByRole('toolbar', { name: 'File' });
+    expect(within(frame).getByLabelText('Location')).toHaveTextContent('run.nc');
+    expect(await within(frame).findByText('.nc')).toBeVisible();
+    expect(within(frame).getByText('4.1 KB')).toBeVisible();
+    const state = document.querySelector<HTMLElement>(
+      '[data-slot="state-view"][data-kind="no-preview"]',
+    )!;
+    expect(state).toHaveTextContent('.nc');
+    expect(state).toHaveTextContent('No preview for this format');
+    expect(
+      within(state)
+        .getAllByRole('button')
+        .map((button) => button.ariaLabel),
+    ).toEqual(['Download']);
     await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
     expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
     await userEvent.keyboard('{Escape}');
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
-    expect(screen.queryByText('data/run.nc')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+    await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
+    await waitFor(() =>
+      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.nc'),
+    );
     await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
     expect(await screen.findByText('data/run.nc')).toBeVisible();
@@ -434,6 +468,11 @@ describe('WorkspaceFileView', () => {
     );
 
     expect(screen.getByText('run.h5')).toBeVisible();
+    const state = document.querySelector<HTMLElement>(
+      '[data-slot="state-view"][data-kind="no-preview"]',
+    )!;
+    expect(state).toHaveTextContent('.h5');
+    expect(within(state).getAllByRole('button', { name: 'Download' })).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: 'Open options' }));
     expect(await screen.findAllByRole('menuitem', { name: /^Download/u })).toHaveLength(1);
     expect(screen.queryByTitle('HDF5 viewer: data/run.h5')).not.toBeInTheDocument();

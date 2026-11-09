@@ -27,7 +27,6 @@ import { StatusIndicator, type StatusTone } from './primitives/status-indicator'
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SettingsSourceConnect } from './settings-source-connect';
-import { SourceProviderInfo } from './source-provider-info';
 import { SourceProviderLogo } from './source-provider-logo';
 
 const INFO =
@@ -58,7 +57,7 @@ function AccountLogo({ provider }: { provider: SourceProvider['id'] }) {
 }
 
 function accountState(row: SourceProvider): { tone: StatusTone; label: string } | null {
-  if (row.id === 'obsidian') return null;
+  if (row.id === 'obsidian') return { tone: 'idle', label: 'Local' };
   if (row.authenticated) return { tone: 'success', label: 'Signed in' };
   if (!row.configured) return { tone: 'warning', label: 'Setup needed' };
   return { tone: 'idle', label: 'Signed out' };
@@ -144,7 +143,6 @@ export function DataSourceSettings() {
             </DropdownMenuContent>
           </DropdownMenu>
         }
-        actionsWidth={30}
         icon={<AccountLogo provider={account.id} />}
         key={account.id}
         meta={accountMeta(account) || undefined}
@@ -152,11 +150,7 @@ export function DataSourceSettings() {
         slot={
           obsidian ? (
             <SlotButton onClick={() => connect(account, 'new')}>New vault</SlotButton>
-          ) : account.authenticated ? (
-            <SlotButton label={`Connect ${account.name}`} onClick={() => connect(account)}>
-              Connect
-            </SlotButton>
-          ) : (
+          ) : account.authenticated ? null : (
             <SlotButton
               disabled={!account.configured}
               label={`Sign in to ${account.name}`}
@@ -167,13 +161,7 @@ export function DataSourceSettings() {
           )
         }
         status={state ? <StatusIndicator label={state.label} tone={state.tone} /> : null}
-        statusWidth={112}
-        title={
-          <span className="inline-flex max-w-full items-center gap-1.5 align-middle">
-            <span className="truncate">{account.name}</span>
-            <SourceProviderInfo provider={account} />
-          </span>
-        }
+        title={account.name}
       />
     );
   };

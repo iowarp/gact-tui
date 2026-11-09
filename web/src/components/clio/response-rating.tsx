@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircleIcon, MessageSquareIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { MessageAction } from '@/components/ai-elements/message';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,6 +18,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AddIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from './primitives/icon-button';
 import { ResponseFeedbackComment } from './response-feedback-comment';
 
 /** A compact, durable response rating; archived and unfinished messages are read-only. */
@@ -112,18 +112,20 @@ function StoredResponseRating({ sessionId, messageId }: { sessionId: string; mes
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <MessageAction
+          <IconButton
             ref={triggerRef}
             label={label}
-            title={label}
             disabled={busy}
-            className={rating || comment ? 'text-primary' : undefined}
-          >
-            <Icon
-              aria-hidden="true"
-              className={`size-3.5${save.isPending ? ' animate-spin' : ''}`}
-            />
-          </MessageAction>
+            className={rating || comment ? 'text-accent-foreground' : undefined}
+            icon={
+              <Icon
+                aria-hidden="true"
+                className={save.isPending ? 'motion-safe:animate-spin' : undefined}
+              />
+            }
+            size="sm"
+            type="button"
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"

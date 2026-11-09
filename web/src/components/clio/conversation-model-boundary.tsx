@@ -1,14 +1,17 @@
-import { Checkpoint, CheckpointIcon } from '@/components/ai-elements/checkpoint';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
+import { providerDisplayName } from '@/lib/provider-presentation';
+import { StateView } from './primitives/state-view';
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
 
 function modelLabel(model: NonNullable<ConversationModelBoundary['model']>): string {
   return `${providerDisplayName(undefined, model.provider_id)}, ${model.model_id}`;
 }
 
-/** The shared AI Elements checkpoint marks the beginning of each model segment. */
+/**
+ * A quiet line where the conversation changes model. The first model is not
+ * announced: each reply's footer names the model that wrote it.
+ */
 export function ConversationModelCheckpoint({ boundary }: { boundary: ConversationModelBoundary }) {
+  if (boundary.initial) return null;
   const label = boundary.model
     ? `${boundary.previous ? 'Switched to' : 'Using'} ${modelLabel(boundary.model)}`
     : 'Model not recorded';
@@ -16,32 +19,15 @@ export function ConversationModelCheckpoint({ boundary }: { boundary: Conversati
     ? `${label}. Previous model: ${modelLabel(boundary.previous)}`
     : label;
   return (
-    <Checkpoint
+    <div
       aria-label={accessibleLabel}
-      className="mb-5 mt-3 min-w-0 gap-2 [&>[data-slot=separator]]:min-w-4 [&>[data-slot=separator]]:flex-1 [&>[data-slot=separator]]:w-auto"
+      className="my-1 min-w-0"
       data-slot="model-checkpoint"
       data-provider-id={boundary.model?.provider_id}
       data-model-id={boundary.model?.model_id}
       role="separator"
     >
-      <CheckpointIcon aria-hidden="true">
-        {boundary.model ? (
-          <ModelSelectorLogo provider={providerLogoId(boundary.model.provider_id)} />
-        ) : undefined}
-      </CheckpointIcon>
-      <span className="flex min-w-0 shrink flex-wrap items-center gap-x-2 text-xs leading-5 [overflow-wrap:anywhere]">
-        {boundary.model ? (
-          <>
-            <span>
-              {boundary.previous ? 'Switched to' : 'Using'}{' '}
-              {providerDisplayName(undefined, boundary.model.provider_id)}
-            </span>{' '}
-            <span className="border-l border-border pl-2">{boundary.model.model_id}</span>
-          </>
-        ) : (
-          label
-        )}
-      </span>
-    </Checkpoint>
+      <StateView kind="marker" size="row" title={label} />
+    </div>
   );
 }
