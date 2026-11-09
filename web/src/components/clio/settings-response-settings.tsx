@@ -223,7 +223,11 @@ function ParameterRow({
       aria-invalid={error ? true : undefined}
       aria-label={parameter.label}
       autoComplete="off"
-      className="h-[1.875rem] w-[7rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums placeholder:font-sans placeholder:text-[0.71875rem] placeholder:text-faint md:text-xs"
+      className={cn(
+        'h-[1.875rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums placeholder:font-sans placeholder:text-xs placeholder:text-faint md:text-xs',
+        // .xf.num: 72 px beside a slider, 150 px holding "Provider default".
+        bounded ? 'w-[4.5rem]' : 'w-[9.375rem]',
+      )}
       data-slot="response-setting-input"
       disabled={disabled}
       id={id}
@@ -270,7 +274,7 @@ function ParameterRow({
         </span>
         <Slider
           aria-label={parameter.label}
-          className={cn('w-[5.5rem] shrink-0', numeric === null && 'opacity-60')}
+          className={cn('w-[34%] min-w-[5.625rem] shrink-0', numeric === null && 'opacity-60')}
           disabled={disabled}
           max={maximum}
           min={minimum}

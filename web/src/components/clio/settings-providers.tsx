@@ -209,6 +209,7 @@ export function ProvidersSettings() {
                       }
                     : undefined
                 }
+                className="h-[1.875rem] px-3 text-[0.78125rem]"
                 size="sm"
                 type="button"
                 variant="outline"
