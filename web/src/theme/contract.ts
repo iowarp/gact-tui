@@ -58,6 +58,8 @@ export const COLOR_TOKENS = [
   'success-foreground',
   'warning',
   'warning-foreground',
+  // A value changed from its setup default (the Agent tab's teal rows)
+  'changed',
   // Science states: a tint for the chip or node and a text color for its label and icon
   'status-supported',
   'status-supported-foreground',

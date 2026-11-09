@@ -1,6 +1,6 @@
 import type { WorkspaceSourceFolder } from '@clio/core/v3';
 import type { RunState } from '@clio/core/v3';
-import type { RefObject } from 'react';
+import type { ComponentProps, RefObject } from 'react';
 import type { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import type { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
@@ -130,10 +130,12 @@ export function WorkspaceObservabilityView({
   contextTargetId,
   onContextTargetChange,
   workspaceFolders,
+  views,
 }: {
   data: ObservabilityData;
   navigation: ObservabilityNavigation;
   sessionId: string;
+  views?: ComponentProps<typeof WorkspaceLiveObservabilityView>['views'];
   requestedView: ReturnType<typeof useObservabilityNavigation>['requestedView'];
   contextTargetId: string;
   onContextTargetChange: (targetId: string) => void;
@@ -166,6 +168,7 @@ export function WorkspaceObservabilityView({
       onUpdateContextPreferences={(input) => sessionContext.preferences.mutateAsync(input)}
       selectedContextTargetId={contextTargetId}
       workspaceFolders={workspaceFolders}
+      views={views}
     />
   );
 }

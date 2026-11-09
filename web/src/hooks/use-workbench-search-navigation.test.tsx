@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { PropsWithChildren } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
+import { useWorkbenchRequest } from '@/lib/workbench-request-store';
 import { useWorkbenchNavigation } from './use-workbench-navigation';
 
 const settings = { endpoint: 'http://search-test' };
@@ -38,9 +39,13 @@ it.each([true, false])(
         {children}
       </MemoryRouter>
     );
-    const hook = renderHook(() => useWorkbenchNavigation({ allSessions: [], workspaceId: 'ws' }), {
-      wrapper,
-    });
+    const hook = renderHook(
+      () => {
+        const navigation = useWorkbenchNavigation({ allSessions: [], workspaceId: 'ws' });
+        return { activeRequest: useWorkbenchRequest(navigation.requests) };
+      },
+      { wrapper },
+    );
     if (matching)
       await waitFor(() => expect(hook.result.current.activeRequest?.request).toEqual(request));
     else expect(hook.result.current.activeRequest).toBeUndefined();
