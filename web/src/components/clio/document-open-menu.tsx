@@ -1,6 +1,7 @@
 import type { Artifact, DocumentManifest } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLinkIcon, FileTextIcon, FolderOpenIcon, XIcon } from 'lucide-react';
+import { ExternalLinkIcon, FileTextIcon, FolderOpenIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useMemo } from 'react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -131,7 +132,7 @@ export function useDocumentOpenActions({
         kind: 'open',
         label: 'Close working copy',
         description: closePending ? 'Closing…' : undefined,
-        icon: XIcon,
+        icon: CloseIcon,
         disabled: closePending,
         pending: closePending,
         onSelect: onCloseWorkingCopy,
