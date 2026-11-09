@@ -126,11 +126,18 @@ function workbenchWidth(share: number, windowWidth: number): number {
   return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
 }
 
-/** The left bar folds first when the open bar would push the conversation under 400 px. */
+/** The spec's laptop example: at 1280 px and under, the left bar folds whenever the workbench is open. */
+const LAPTOP_WIDTH = 1280;
+
+/**
+ * The left bar folds first when the open bar would push the conversation under
+ * 400 px, and always at laptop widths, as the spec's 1280 px example shows.
+ */
 function conversationNeedsFoldedNavigation(share: number, windowWidth: number): boolean {
   return (
+    windowWidth <= LAPTOP_WIDTH ||
     OPEN_NAVIGATION_WIDTH + workbenchWidth(share, windowWidth) + MIN_CONVERSATION_WIDTH >
-    windowWidth
+      windowWidth
   );
 }
 
