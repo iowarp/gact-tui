@@ -1,10 +1,11 @@
 import { brand } from '@brand';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { useState } from 'react';
 import type { ConnectionSettings } from '@/lib/connection';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationHeader } from './navigation-header';
@@ -263,4 +264,31 @@ it('opens the agent menu from Alt Space in a browser', async () => {
   await user.keyboard('{Alt>}[Space]{/Alt}');
   expect(await screen.findByText('Talking to')).toBeVisible();
   expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+});
+
+it('opens the agent menu when the native Switch agent command asks for it', async () => {
+  render(
+    <MemoryRouter>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            connectionAvailabilities={{}}
+            connections={[]}
+            currentPath="/"
+            endpoint="http://127.0.0.1:49433"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
+    </MemoryRouter>,
+  );
+
+  let taken = false;
+  act(() => {
+    taken = requestClioMenu();
+  });
+  expect(taken).toBe(true);
+  expect(await screen.findByText('Switch to')).toBeVisible();
 });

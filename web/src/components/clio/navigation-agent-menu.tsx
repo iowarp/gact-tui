@@ -8,6 +8,8 @@ import { SidebarMenuButton } from '@/components/ui/sidebar';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availability';
 import type { ConnectionSettings } from '@/lib/connection';
+import { useClioMenuRequest } from '@/lib/clio-menu-request';
+import { isSettingsRoute } from '@/lib/settings-window-route';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
@@ -63,6 +65,8 @@ export function NavigationAgentMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
+  // Behind Settings the CLIO menu is covered, so the request falls through.
+  useClioMenuRequest(() => setMenuOpen(true), !isSettingsRoute(currentPath));
 
   return (
     <DropdownMenu
