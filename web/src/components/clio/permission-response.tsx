@@ -62,6 +62,8 @@ function askedBy(
       label: 'Asked by',
       icon: <UserRoundIcon />,
       title: ownerLabel ?? `Requested by session ${interaction.owner_session_id}`,
+      // Who asked moves into Technical details at a fifth of the window.
+      narrow: false,
       value: ownerLabel ? (
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -178,6 +180,18 @@ export function PermissionResponse({
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint="raw arguments, as the agent sent them">
           <div className="grid gap-1.5">
+            {owner.length ? (
+              <p
+                className="hidden min-w-0 truncate @max-[420px]/ask:block"
+                data-slot="ask-details-owner"
+                title={owner[0]?.title}
+              >
+                Asked by{' '}
+                <span className="text-foreground/90">
+                  {ownerLabel ?? `session ${interaction.owner_session_id}`}
+                </span>
+              </p>
+            ) : null}
             {toolName && !flowTrust ? (
               <p className="min-w-0 truncate" title={toolName}>
                 Tool <span className="font-mono text-foreground/90">{toolName}</span>

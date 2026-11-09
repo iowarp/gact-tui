@@ -47,7 +47,7 @@ export function TechnicalDetails({
     <CollapsibleTrigger
       {...triggerProps}
       className={cn(
-        'flex w-fit cursor-pointer items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+        'flex w-fit shrink-0 cursor-pointer items-center gap-1 font-medium whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
         summaryClassName,
       )}
     >

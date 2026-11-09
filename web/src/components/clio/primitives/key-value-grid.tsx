@@ -13,6 +13,11 @@ export interface KeyValueItem {
   title?: string;
   /** One small action at the end of the row (Check again, Edit). */
   action?: ReactNode;
+  /**
+   * `facts` only: in a narrow container, a shorter value to show instead, or
+   * `false` to drop the row (its content then lives behind the card's details).
+   */
+  narrow?: ReactNode | false;
 }
 
 /**
@@ -21,7 +26,8 @@ export interface KeyValueItem {
  * an ellipsis; the action slot keeps its width whether or not a row has one.
  *
  * `facts` is the ask card's form: a fixed 110px label column, 24px rows and
- * left-aligned values. In a narrow container the labels give way to their icons.
+ * left-aligned values. In a narrow container the labels give way to their icons,
+ * and a row may swap in its `narrow` value or drop out.
  *
  * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
  * label, a left-aligned value, a separator under each row, and a row that
@@ -97,50 +103,71 @@ export const KeyValueGrid = memo(function KeyValueGrid({
         className,
       )}
     >
-      {items.map((item) => (
-        <div className="contents" key={item.label}>
-          <dt
-            className={cn(
-              'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
-              facts && 'text-[12px]',
-            )}
-            title={facts ? item.label : undefined}
-          >
-            {item.icon ? (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
-                  facts && 'hidden @max-[420px]:grid',
-                )}
-              >
-                {item.icon}
+      {items.map((item) => {
+        const dropNarrow = facts && item.narrow === false;
+        const narrowValue = facts && item.narrow ? item.narrow : null;
+        const wideValue =
+          facts && typeof item.value === 'string' ? (
+            <span className="min-w-0 truncate">{item.value}</span>
+          ) : (
+            item.value
+          );
+        return (
+          <div className="contents" data-narrow={dropNarrow ? 'drop' : undefined} key={item.label}>
+            <dt
+              className={cn(
+                'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
+                facts && 'text-[12px]',
+                dropNarrow && '@max-[420px]:hidden',
+              )}
+              title={facts ? item.label : undefined}
+            >
+              {item.icon ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
+                    facts && 'hidden @max-[420px]:grid',
+                  )}
+                >
+                  {item.icon}
+                </span>
+              ) : null}
+              <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
+                {item.label}
               </span>
+            </dt>
+            <dd
+              className={cn(
+                'min-w-0 truncate whitespace-nowrap',
+                facts
+                  ? 'flex items-center gap-[7px] text-left text-foreground/90'
+                  : 'text-right text-foreground/85',
+                item.mono && 'font-mono text-[11.5px] tabular-nums',
+                facts && item.mono && 'text-[12px]',
+                dropNarrow && '@max-[420px]:hidden',
+              )}
+              title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
+            >
+              {narrowValue ? (
+                <>
+                  <span className="contents @max-[420px]:hidden">{wideValue}</span>
+                  <span className="hidden @max-[420px]:contents" data-slot="key-value-narrow">
+                    {narrowValue}
+                  </span>
+                </>
+              ) : (
+                wideValue
+              )}
+            </dd>
+            {hasAction ? (
+              <dd className={cn('flex justify-end', dropNarrow && '@max-[420px]:hidden')}>
+                {item.action}
+              </dd>
             ) : null}
-            <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
-              {item.label}
-            </span>
-          </dt>
-          <dd
-            className={cn(
-              'min-w-0 truncate whitespace-nowrap',
-              facts
-                ? 'flex items-center gap-[7px] text-left text-foreground/90'
-                : 'text-right text-foreground/85',
-              item.mono && 'font-mono text-[11.5px] tabular-nums',
-              facts && item.mono && 'text-[12px]',
-            )}
-            title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
-          >
-            {facts && typeof item.value === 'string' ? (
-              <span className="min-w-0 truncate">{item.value}</span>
-            ) : (
-              item.value
-            )}
-          </dd>
-          {hasAction ? <dd className="flex justify-end">{item.action}</dd> : null}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </dl>
   );
 });

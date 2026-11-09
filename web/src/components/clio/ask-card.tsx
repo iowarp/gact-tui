@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
@@ -50,7 +51,7 @@ const TONE: Record<AskKind, string> = {
 
 const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
-/** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
+/** A key chip inside a button or hint: `1`, `â†µ`, `Esc`, `D`. */
 export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: string }) {
   const keys = [KEY_TEXT[askKey] ?? askKey.toUpperCase()];
   return (
@@ -247,6 +248,8 @@ export interface AskFact {
   value: ReactNode;
   title?: string;
   mono?: boolean;
+  /** At a fifth of the window: a shorter value, or `false` to move the row behind â“˜. */
+  narrow?: ReactNode | false;
 }
 
 /** Facts at rest: one line each, fixed label column, ellipsis; labels become icons when narrow. */
@@ -262,6 +265,7 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
             value: fact.value,
             title: fact.title,
             mono: fact.mono,
+            narrow: fact.narrow,
           }),
         )}
         variant="facts"
@@ -307,7 +311,7 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
         !primary && 'border-input bg-transparent text-foreground',
         className,
       )}
@@ -317,7 +321,8 @@ export function AskButton({
       {...props}
     >
       {number ? <AskKeyChip askKey={String(number)} /> : null}
-      <span className="min-w-0 truncate">{children}</span>
+      {/* Stacked, the label fills: number key left, â†µ/Esc at the right edge. */}
+      <span className="min-w-0 truncate text-left @max-[420px]/ask:flex-1">{children}</span>
       {hint ? <AskKeyChip askKey={hint} /> : null}
     </Button>
   );
@@ -329,7 +334,7 @@ export interface AskRowProps extends Omit<ComponentProps<'button'>, 'children'> 
   detail?: ReactNode;
   /** A checkbox or a mark before the label (multi-choice). */
   control?: ReactNode;
-  /** The row ↵ would pick. */
+  /** The row â†µ would pick. */
   highlighted?: boolean;
 }
 
@@ -455,6 +460,15 @@ export function AskDetails({
 }
 
 const PREVIEW_LINES = 8;
+
+/** A hook arrow (â†ª) tiled once per line box down the gutter of a wrapped line. */
+const WRAP_MARKS: CSSProperties = {
+  maskImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 10 5 5-5 5'/%3E%3Cpath d='M4 4v7a4 4 0 0 0 4 4h12'/%3E%3C/svg%3E\")",
+  maskPosition: 'right 12px top',
+  maskRepeat: 'repeat-y',
+  maskSize: '9px 1.65em',
+};
 
 const JSON_TOKEN =
   /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/gu;
@@ -638,8 +652,16 @@ export function AskCode({
       >
         {shown.map((line, index) => (
           <span className="contents" key={index}>
-            <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
+            <span aria-hidden="true" className="relative pr-3 text-right text-faint select-none">
               {index + 1}
+              {wrap ? (
+                // â†ª on each continuation row a wrapped line takes, as the spec's gutter shows.
+                <span
+                  className="absolute inset-x-0 top-[1.65em] bottom-0 bg-warning"
+                  data-slot="ask-code-wrap-marks"
+                  style={WRAP_MARKS}
+                />
+              ) : null}
             </span>
             <code className={wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}>
               {lineContent(line, index)}
