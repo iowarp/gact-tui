@@ -129,7 +129,8 @@ it('shows the recorded interruption cause even when tools and partial output exi
   await waitFor(() =>
     expect(screen.getByText('The PDF is created; reviewing pages.')).toBeVisible(),
   );
-  expect(screen.getByText('Failed')).toBeVisible();
+  expect(screen.getByText('This reply didn’t finish')).toBeVisible();
+  expect(screen.queryByText('Failed')).not.toBeInTheDocument();
 });
 
 it('withholds recovery actions while an empty response is still active', () => {
@@ -612,7 +613,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('This reply didn?t load')).toBeInTheDocument();
+    expect(screen.getByText('This reply didn’t load')).toBeInTheDocument();
     expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
@@ -706,7 +707,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.queryByText('This reply didn?t load')).not.toBeInTheDocument();
+    expect(screen.queryByText('This reply didn’t load')).not.toBeInTheDocument();
     expect(screen.getByText('This session has no messages')).toBeInTheDocument();
   });
 

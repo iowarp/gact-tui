@@ -229,7 +229,7 @@ function ReplyError({
           : undefined
       }
       retrying={retrying}
-      title={replyStarted ? 'This reply didn?t finish' : 'This reply didn?t load'}
+      title={replyStarted ? 'This reply didn’t finish' : 'This reply didn’t load'}
     />
   );
 }

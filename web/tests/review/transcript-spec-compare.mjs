@@ -48,8 +48,6 @@ const only = list(option('only', STATES.join(',')));
 const widths = list(option('widths', '1280,768')).map(Number);
 const themes = list(option('themes', 'dark,light'));
 const port = Number(process.env.CLIO_REVIEW_PORT ?? 5261);
-// Notebook is the RC1 default theme and the spec's own palette; `--palette default` checks the plain one.
-const palette = option('palette', 'notebook');
 // The spec page is not responsive: below these widths its mocks overlap or clip their own rows.
 // Its mocks are fixed-size drawings, so they are laid out at least this wide unless
 // --spec-at-width asks for the literal viewport.
@@ -65,10 +63,8 @@ for (const theme of themes)
 /** Our light tokens, written over the spec's dark :root so its token-driven parts flip. */
 async function lightOverride() {
   const css = await readFile(resolve(web, 'src/theme/themes.css'), 'utf8');
-  const selector =
-    palette === 'notebook'
-      ? /:root\[data-theme='notebook'\]\s*\{([\s\S]*?)\n\}/u
-      : /:root,\s*:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/u;
+  // The default light theme is the Notebook palette, the spec's own.
+  const selector = /:root,\s*:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/u;
   const block = css.match(selector)?.[1] ?? '';
   const tokens = new Map(
     [...block.matchAll(/--([\w-]+):\s*([^;]+);/gu)].map((match) => [match[1], match[2].trim()]),
@@ -243,6 +239,8 @@ async function captureSpec(page, state, width, theme, light) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto(pathToFileURL(specFile).href);
   if (theme === 'light') await page.addStyleTag({ content: light });
+  // The spec's narrow mocks float a toast over their transcript; it isn't a transcript state.
+  if (state.startsWith('narrow')) await page.addStyleTag({ content: '.fr .xt{display:none}' });
   await waitForFonts(page);
   const box = await page.evaluate(specBox, state);
   if (!box) throw new Error(`Spec state not found: ${state}`);
@@ -276,7 +274,7 @@ async function captureImplementation(page, state, width, theme, narrow) {
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme: theme });
   await page.goto(
-    `http://127.0.0.1:${port}/tests/review/transcript-spec.html?theme=${theme}&palette=${palette}&state=${state}`,
+    `http://127.0.0.1:${port}/tests/review/transcript-spec.html?theme=${theme}&state=${state}`,
     { waitUntil: 'domcontentloaded' },
   );
   const section = page.locator(`[data-spec-state="${state}"]`);
@@ -290,7 +288,7 @@ async function captureImplementation(page, state, width, theme, narrow) {
     () =>
       `${document.documentElement.dataset.theme}:${document.documentElement.classList.contains('dark') ? 'dark' : 'light'}`,
   );
-  const expected = `${palette === 'notebook' ? 'notebook' : theme}:${theme}`;
+  const expected = `${theme}:${theme}`;
   if (applied !== expected)
     throw new Error(`[${state}] page shows ${applied}, expected ${expected}`);
   if (narrow) {
@@ -391,7 +389,7 @@ try {
         const laidOut = specWidth(state, width);
         const spec = await captureSpec(specPage, state, laidOut, theme, light);
         const implementation = await captureImplementation(page, state, width, theme, spec.narrow);
-        const title = `${state}, ${width}, ${palette} ${theme} — spec | implementation`;
+        const title = `${state}, ${width}, ${theme} — spec | implementation`;
         const note = [
           laidOut !== width ? `Spec page laid out at ${laidOut}px; its mocks do not reflow.` : '',
           theme === 'light'

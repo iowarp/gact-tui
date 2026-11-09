@@ -24,9 +24,8 @@ import type { ClioConversationProps } from '../../src/components/clio/conversati
  */
 
 const params = new URLSearchParams(window.location.search);
-const scheme = params.get('theme') === 'light' ? 'light' : 'dark';
-// Notebook follows the colour scheme the capture emulates; plain palettes are pinned.
-const theme = params.get('palette') === 'notebook' ? 'notebook' : scheme;
+// Notebook is the default palette; its light and dark variants are the plain theme ids.
+const theme = params.get('theme') === 'light' ? 'light' : 'dark';
 const only = params.get('state');
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 // AppearanceProvider re-applies the stored choice after ForcedTheme; store the same one.
@@ -556,13 +555,15 @@ const STATES: State[] = [
     height: 520,
     props: () => ({
       messages: [
-        userMessage('compaction-prompt', 'Regrid the 2020?2023 soil moisture to 0.25?.', at(9, 40)),
+        userMessage('compaction-prompt', 'Regrid the 2020–2023 soil moisture to 0.25°.', at(9, 40)),
         {
           id: 'compaction-turn',
           session_id: SESSION,
           role: 'assistant',
           turn_id: 'turn_compaction',
           created_at: at(9, 40, 3),
+          completed_at: at(9, 40, 40),
+          stop_reason: 'error',
           blocks: [
             {
               id: 'compaction-summary',

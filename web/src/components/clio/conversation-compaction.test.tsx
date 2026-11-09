@@ -254,7 +254,7 @@ describe('ClioConversation compaction progress', () => {
 
     const row = progressRow();
     expect(row).not.toBeNull();
-    expect(within(row!).getByRole('status')).toHaveTextContent('Summarizing earlier messages?');
+    expect(within(row!).getByRole('status')).toHaveTextContent('Summarizing earlier messages…');
     expect(row).toHaveAttribute('title', 'Started automatically');
     // In place: inside the open turn's assistant message, after its content.
     expect(document.getElementById('message-message_assistant')?.contains(row)).toBe(true);
@@ -297,7 +297,7 @@ describe('ClioConversation compaction progress', () => {
     );
     expect(progressRow()).toBeNull();
     const failure = document.querySelector('[data-slot="compaction-failed"]');
-    expect(failure).toHaveTextContent('Earlier messages weren?t summarized');
+    expect(failure).toHaveTextContent('Earlier messages weren’t summarized');
     expect(failure).toHaveTextContent('No language model is bound.');
     expect(failure).toHaveTextContent('Compaction unavailable');
     expect(document.getElementById('message-message_assistant')?.contains(failure)).toBe(true);
@@ -306,7 +306,7 @@ describe('ClioConversation compaction progress', () => {
   it('renders a reloaded failure notice with the in-place error look', () => {
     conversation([userMessage, assistantMessage, noticeMessage]);
     const failure = document.querySelector('[data-slot="compaction-failed"]');
-    expect(failure).toHaveTextContent('Earlier messages weren?t summarized');
+    expect(failure).toHaveTextContent('Earlier messages weren’t summarized');
     expect(failure).toHaveTextContent('No language model is bound.');
     expect(failure).toHaveTextContent('Compaction unavailable');
     expect(failure?.getAttribute('title')).toContain('Requested');
@@ -373,7 +373,7 @@ describe('ClioConversation compaction progress', () => {
   it('places a compaction with no resident anchor after the last message', () => {
     conversation([userMessage], [pending({ anchor_message_id: undefined, turn_id: '' })]);
     expect(document.querySelector('[data-slot="trailing-compactions"]')).toHaveTextContent(
-      'Summarizing earlier messages?',
+      'Summarizing earlier messages…',
     );
   });
 });

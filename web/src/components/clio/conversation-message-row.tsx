@@ -77,6 +77,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const onRetryMessage = entities.onRetryMessage;
   const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;
+  // An inline reply line (didn’t load, didn’t finish, cancelled) already names the outcome.
+  const replyLineShown =
+    message.role === 'assistant' &&
+    ((message.blocks.length === 0 && !message.canvas) ||
+      (Boolean(emptyResponseErrorMessage) && !emptyResponseWasClientCancelled) ||
+      message.blocks.some((block) => block.type === 'error'));
 
   const turn = useConversationTurn(
     message,
@@ -256,7 +262,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                           ? 'Reply cancelled'
                           : emptyResponseErrorCode === 'server_restart_interrupted'
                             ? 'This reply was interrupted'
-                            : 'This reply didn?t load'
+                            : 'This reply didn’t load'
                       }
                     />
                     {signInProvider || modelExhausted ? (
@@ -388,7 +394,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     reason={emptyResponseErrorMessage}
                     onRetry={retryReply}
                     retrying={entities.retryingMessageId === message.id}
-                    title="This reply didn?t finish"
+                    title="This reply didn’t finish"
                   />
                 ) : null}
               </MessageContent>
@@ -465,6 +471,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 active={active || awaitingChild || responseContinued}
                 agentName={entities.agentName}
                 message={message}
+                outcomeShown={replyLineShown}
                 {...messageToolCallCounts(message, entities.tools)}
               >
                 {actions}

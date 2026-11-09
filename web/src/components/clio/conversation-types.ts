@@ -72,7 +72,7 @@ export interface ClioConversationProps {
   resources?: Record<string, WorkspaceResource>;
   /**
    * This session's live compactions (`EntityState.compactions`): a running one
-   * renders as "Summarizing earlier messages?" where it started, a failed one as its
+   * renders as "Summarizing earlier messages…" where it started, a failed one as its
    * typed error. Stream-only, so a caller not wired to the live store omits it.
    */
   compactions?: readonly PendingCompaction[];

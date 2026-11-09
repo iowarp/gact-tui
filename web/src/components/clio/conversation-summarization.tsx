@@ -98,7 +98,7 @@ function CompactionFailure({
         size="row"
         title={
           <>
-            Earlier messages weren?t summarized
+            Earlier messages weren’t summarized
             <span className="sr-only">: {facts.join('. ')}</span>
           </>
         }
@@ -132,7 +132,7 @@ export function TranscriptNotice({ block }: { block: NoticeBlock }) {
 
 /**
  * A compaction in progress, in the place its summary will appear: a spinner
- * and "Summarizing earlier messages?", with who started it as its hover name.
+ * and "Summarizing earlier messages…", with who started it as its hover name.
  * A failure not yet (or never) recorded in the transcript shows its error
  * line here instead.
  */
@@ -152,7 +152,7 @@ export function ClioCompactionProgress({ compaction }: { compaction: PendingComp
       data-slot="compaction-progress"
       title={compactionTriggerHint(compaction.trigger)}
     >
-      <StateView kind="loading" size="row" title="Summarizing earlier messages?" />
+      <StateView kind="loading" size="row" title="Summarizing earlier messages…" />
     </div>
   );
 }
