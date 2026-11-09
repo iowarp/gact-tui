@@ -292,6 +292,13 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu(
       'menu-version-status',
       'button',
