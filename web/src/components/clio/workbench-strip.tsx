@@ -50,7 +50,7 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       shortcut={item.position ? 'strip-position' : undefined}
       shortcutPosition={item.position}
       // On the icon: left of the rail is the tab row (Maximize) and the file toolbar.
-      shortcutSide="cover"
+      shortcutSide="start"
       tooltipSide="left"
     />
   );

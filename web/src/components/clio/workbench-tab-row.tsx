@@ -256,9 +256,6 @@ export function WorkbenchTabRow({
                               value={tab.id}
                             >
                               {children}
-                              {active && tabs.length > 1 ? (
-                                <HeldKeyBadge id="previous-tab" pairId="next-tab" side="cover" />
-                              ) : null}
                             </TabsTrigger>
                           </SortableItemHandle>
                         )}
@@ -268,6 +265,10 @@ export function WorkbenchTabRow({
                 })}
               </TabsList>
             </Sortable>
+            {/* At the strip's visible end, so it never hides the active tab's name. */}
+            {tabs.length > 1 ? (
+              <HeldKeyBadge id="previous-tab" pairId="next-tab" side="inside-end" />
+            ) : null}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-60" onKeyDown={menuAcceleratorKeyDown}>

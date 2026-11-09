@@ -128,7 +128,11 @@ export const ShortcutKeys = memo(function ShortcutKeys({
   );
 });
 
-/** `top-edge` straddles the control's top edge, clear of text just above it (the composer). */
+/**
+ * `top-edge` straddles the control's top edge, clear of text just above it (the composer).
+ * `start` sits left of the control unless another small control is there (a rail beside a
+ * toolbar); then it covers its own control.
+ */
 export type HeldKeySide = 'below' | 'above' | 'top-edge' | 'start' | 'inside-end' | 'cover';
 
 const GAP = 4;
@@ -144,6 +148,19 @@ function overlaps(a: DOMRect, b: DOMRect) {
     a.top < b.bottom + GAP &&
     b.top < a.bottom + GAP
   );
+}
+
+/** Another small control (an icon button) under the rectangle, which a badge would hide. */
+function coversOtherControl(control: Element, rect: DOMRect) {
+  if (typeof document.elementFromPoint !== 'function') return false;
+  const y = rect.top + rect.height / 2;
+  return [0.2, 0.5, 0.8].some((at) => {
+    const hit = document.elementFromPoint(rect.left + rect.width * at, y);
+    const other = hit?.closest('button, a, input, select, [role="button"], [role="tab"]');
+    if (!other || other === control || other.contains(control) || control.contains(other))
+      return false;
+    return other.getBoundingClientRect().width <= 48;
+  });
 }
 
 function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slot: symbol) {
@@ -175,7 +192,9 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   const width = badge.offsetWidth;
   const height = badge.offsetHeight;
   let left = centreX - width / 2;
-  let top = target.bottom + GAP;
+  // Below an icon button it hugs the icon, so it stays clear of text under the button.
+  const icon = control.querySelector(':scope > svg, :scope > span > svg')?.getBoundingClientRect();
+  let top = Math.min(target.bottom + GAP, icon && icon.height > 0 ? icon.bottom + 5 : Infinity);
   // Above or below flips when the window edge leaves no room.
   const roomAbove = target.top - height - GAP >= EDGE;
   const roomBelow = target.bottom + GAP + height <= viewportHeight - EDGE;
@@ -183,15 +202,20 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   if (side === 'above' && !roomAbove && roomBelow) vertical = 'below';
   if (side === 'below' && !roomBelow && roomAbove) vertical = 'above';
   if (vertical === 'above') top = target.top - height - GAP;
+  let placement = side;
   if (side === 'start') {
     left = target.left - width - GAP * 2;
     top = centreY - height / 2;
+    if (coversOtherControl(control, new DOMRect(left, top, width, height))) placement = 'cover';
   }
   if (side === 'inside-end') {
     left = target.right - width - GAP * 1.5;
     top = centreY - height / 2;
   }
-  if (side === 'cover') top = centreY - height / 2;
+  if (placement === 'cover') {
+    left = centreX - width / 2;
+    top = centreY - height / 2;
+  }
   // Mostly above the edge, clear of the label inside the control and the text above it.
   if (side === 'top-edge') top = target.top - height / 2 - 3;
   const clamp = () => {
@@ -200,11 +224,23 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   };
   clamp();
   const others = [...placedBadges].filter(([key]) => key !== slot).map(([, rect]) => rect);
+  const clear = (rect: DOMRect) => !others.some((other) => overlaps(rect, other));
+  // First slide sideways, at most half the badge, so it still sits on its control's column.
+  const blocking = others.find((other) => overlaps(new DOMRect(left, top, width, height), other));
+  if (blocking && placement !== 'start' && placement !== 'inside-end') {
+    const slid =
+      blocking.left + blocking.width / 2 <= left + width / 2
+        ? blocking.right + GAP
+        : blocking.left - GAP - width;
+    if (Math.abs(slid - left) <= width / 2 && clear(new DOMRect(slid, top, width, height)))
+      left = slid;
+  }
   for (let step = 0; step < 4; step += 1) {
-    const rect = new DOMRect(left, top, width, height);
-    if (!others.some((other) => overlaps(rect, other))) break;
+    if (clear(new DOMRect(left, top, width, height))) break;
+    // A covering badge never steps onto the next control (a rail's next icon).
+    if (placement === 'cover') break;
     if (vertical === 'above' || vertical === 'top-edge') top -= height + GAP + 1;
-    else if (vertical === 'below' || vertical === 'cover') top += height + GAP + 1;
+    else if (vertical === 'below') top += height + GAP + 1;
     else left -= width + GAP + 1;
     clamp();
   }
