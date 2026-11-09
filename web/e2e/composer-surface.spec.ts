@@ -299,9 +299,10 @@ test('a paste in the composer joins the browser undo stack', async ({ page }) =>
   await paste('cut');
   await paste('cut');
   await expect(editor).toHaveText('keep cutcut');
-  // Undo takes back the pastes; it must not restore the removed text on top of them.
+  // Undo takes back the pastes; it must never restore the removed text on top of
+  // them. Chromium may group the Delete with the pastes into one typing step.
   await page.keyboard.press('ControlOrMeta+z');
-  await expect(editor).toHaveText('keep ');
-  await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor).toHaveText(/^keep (cut)?$/u);
+  if ((await editor.textContent()) === 'keep ') await page.keyboard.press('ControlOrMeta+z');
   await expect(editor).toHaveText('keep cut');
 });

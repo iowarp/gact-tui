@@ -135,6 +135,8 @@ describe('composer reference popover contract', () => {
 
     await user.type(editor, '@Disp');
     await screen.findByRole('option', { name: /Displacement plot/ });
+    // The server search (mocked to return both) settles after the debounce.
+    await screen.findByRole('option', { name: /Review notes/ });
 
     expect(editor).toHaveAttribute('aria-expanded', 'true');
     const popover = document.getElementById(editor.getAttribute('aria-controls') ?? '');
