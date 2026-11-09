@@ -1,4 +1,12 @@
-import { useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -127,8 +135,9 @@ export function AskCard({
         handleAskCardKeys(event);
       }}
       className={cn(
-        // A surface may cap the card (--ask-card-max); AskBody then scrolls and the options stay.
-        '@container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
+        // and the options stay. Open Technical details lift the cap; the dock scrolls the card.
+        '@container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
         EDGE[kind],
         className,
       )}
@@ -181,9 +190,32 @@ export function AskSection({ className, ...props }: ComponentProps<'div'>) {
  * capped this part scrolls, so the options and Technical details stay in view.
  */
 export function AskBody({ className, ...props }: ComponentProps<'div'>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const clipped = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      element.toggleAttribute('data-clipped', clipped);
+    };
+    update();
+    element.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(element);
+    for (const child of element.children) observer?.observe(child);
+    return () => {
+      element.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, []);
   return (
     <div
-      className={cn('clio-scrollbar -mr-1.5 min-h-0 flex-auto overflow-y-auto pr-1.5', className)}
+      ref={ref}
+      className={cn(
+        // No reserved gutter: body blocks end on the same edge as the header and options.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        className,
+      )}
       data-slot="ask-body"
       {...props}
     />
@@ -335,9 +367,7 @@ export function AskRow({
       {number && number < 10 ? <AskKeyChip askKey={String(number)} /> : null}
       <span className="min-w-0 shrink truncate">{label}</span>
       {detail ? (
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
-          {detail}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-foreground/70">{detail}</span>
       ) : (
         <span className="flex-1" />
       )}
@@ -393,13 +423,18 @@ export function AskDetails({
   title?: string;
   hint?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
   return (
-    // Opened under a cap, the details share the height with the body and scroll.
-    <AskSection className="mt-2 flex min-h-0 flex-col">
+    <AskSection className="mt-2 shrink-0 scroll-mb-3" data-slot="ask-details" ref={ref}>
       <TechnicalDetails
-        className="flex min-h-0 flex-col text-[11.5px] text-muted-foreground"
-        contentClassName="clio-scrollbar mt-1 min-h-0 overflow-y-auto"
+        className="text-[11.5px] text-muted-foreground"
+        contentClassName="mt-1"
         hint={hint}
+        // Opening lifts the card's cap; bring the details into the dock's view.
+        onOpenChange={(open) => {
+          if (open)
+            requestAnimationFrame(() => ref.current?.scrollIntoView?.({ block: 'nearest' }));
+        }}
         shortcut="D"
         summaryClassName="h-6 font-normal"
         title={title}
@@ -516,7 +551,7 @@ export function AskCode({
       role="group"
     >
       {name ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="truncate text-[12px] font-medium text-foreground/90">{name}</span>
           {meta ? <span className="truncate">{meta}</span> : null}
           {copyLabel ? <AskCopyButton code={code} label={copyLabel} /> : null}
@@ -524,7 +559,7 @@ export function AskCode({
       ) : null}
       <pre
         className={cn(
-          'clio-scrollbar grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
             ? 'max-h-[140px] overflow-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
             : 'max-h-[min(24rem,40dvh)] overflow-auto',
@@ -543,7 +578,7 @@ export function AskCode({
         ))}
       </pre>
       {hidden > 0 || onOpen ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="truncate">{hidden > 0 ? `${hidden} more lines` : null}</span>
           <AskButton
             {...askKeyAttributes(['o'])}

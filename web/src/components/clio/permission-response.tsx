@@ -123,15 +123,17 @@ export function PermissionResponse({
             title={title}
           />
         )}
-        {script ? (
-          <AskCode
-            code={script.code}
-            label="Script"
-            meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
-            name="Script"
-          />
-        ) : null}
       </AskBody>
+      {script ? (
+        // Under a cap the script gives up height first; its fade and footer stay in view.
+        <AskCode
+          className="flex min-h-[7.5rem] shrink-[100] flex-col"
+          code={script.code}
+          label="Script"
+          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
+          name="Script"
+        />
+      ) : null}
       <AskError error={responseError} />
       <AskOptions aria-label="Decision">
         {scopes.map((scope, index) => (
