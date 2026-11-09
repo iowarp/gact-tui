@@ -584,7 +584,7 @@ export function ClioCommandMenu({
                         {credentialError}
                       </p>
                     ) : null}
-                    <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5">
+                    <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
                       {noMatch ? (
                         <CommandMenuNoMatch
                           canAsk={canAsk}
