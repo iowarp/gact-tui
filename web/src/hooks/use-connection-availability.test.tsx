@@ -1,3 +1,4 @@
+import { TransportError } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -54,7 +55,9 @@ describe('connection availability probing', () => {
   });
 
   it('keeps an unreachable answer while re-probing instead of flashing back to Checking', async () => {
-    mocks.repository.capabilities.mockRejectedValue(new Error('connection refused'));
+    mocks.repository.capabilities.mockRejectedValue(
+      new TransportError('connection refused', undefined, 'network_unavailable'),
+    );
     const client = new QueryClient();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>

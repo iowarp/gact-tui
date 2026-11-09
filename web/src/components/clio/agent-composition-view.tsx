@@ -6,7 +6,7 @@ import {
   type SessionAgent,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,6 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { AgentPluginMenu } from './agent-plugin-menu';
 import { AgentSwitchMenu } from './agent-switch-menu';
-import { AgentDrillIn } from './agent-tab-drill-in';
 import { AgentTabHeader, AgentUseRows, SaveAsSetupLink } from './agent-tab-overview';
 import { AgentRunsWith } from './agent-tab-run-settings';
 import { agentUseValues, type AgentUseKind } from './agent-tab-values';
@@ -29,6 +28,11 @@ import { PluginChangeDialog, type PluginChangeDialogProps } from './plugin-chang
 import { KeyValueRowButton, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
+
+// A row's drill-in (plugin explorer, tool tables) is its own chunk, kept off
+// the first load. The panel fetches it on mount so opening a row never waits.
+const loadDrillIn = () => import('./agent-tab-drill-in');
+const AgentDrillIn = lazy(() => loadDrillIn().then((module) => ({ default: module.AgentDrillIn })));
 
 /** What the agent panel reads and changes: a conversation's agent, or a new conversation's draft. */
 interface AgentChangeSource {
@@ -122,6 +126,9 @@ function AgentComposition({
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<AgentUseKind>();
   const rows = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    void loadDrillIn();
+  }, []);
   const resolution = agent.data?.resolution;
   const delta = agent.data?.delta ?? emptyAgentDelta;
   const readOnly = Boolean(agent.data?.subagent);
@@ -318,36 +325,38 @@ function AgentComposition({
         </Alert>
       ) : null}
       {view ? (
-        <AgentDrillIn
-          basis={agent.data?.prompt_basis}
-          compacting={compact.isPending}
-          delta={delta}
-          kind={view}
-          onAdd={add}
-          onAddBack={(plugin) =>
-            change(deltaWith(delta, { add: plugin }), {
-              summary: `Adds ${plugin} back to this conversation.`,
-              success: `Added ${plugin} back`,
-              failure: `${plugin} was not added back`,
-            })
-          }
-          onBack={back}
-          onCompact={onCompact}
-          onRemove={(plugin) =>
-            change(deltaWith(delta, { remove: plugin }), {
-              removing: plugin,
-              summary: `Removes ${plugin} from this conversation.`,
-              success: `Removed ${plugin}`,
-              failure: `${plugin} was not removed`,
-            })
-          }
-          pending={update.isPending}
-          plugins={catalog.data?.plugins}
-          pluginsError={catalog.error?.message}
-          readOnly={readOnly}
-          resolution={resolution}
-          value={values[view].text}
-        />
+        <Suspense fallback={null}>
+          <AgentDrillIn
+            basis={agent.data?.prompt_basis}
+            compacting={compact.isPending}
+            delta={delta}
+            kind={view}
+            onAdd={add}
+            onAddBack={(plugin) =>
+              change(deltaWith(delta, { add: plugin }), {
+                summary: `Adds ${plugin} back to this conversation.`,
+                success: `Added ${plugin} back`,
+                failure: `${plugin} was not added back`,
+              })
+            }
+            onBack={back}
+            onCompact={onCompact}
+            onRemove={(plugin) =>
+              change(deltaWith(delta, { remove: plugin }), {
+                removing: plugin,
+                summary: `Removes ${plugin} from this conversation.`,
+                success: `Removed ${plugin}`,
+                failure: `${plugin} was not removed`,
+              })
+            }
+            pending={update.isPending}
+            plugins={catalog.data?.plugins}
+            pluginsError={catalog.error?.message}
+            readOnly={readOnly}
+            resolution={resolution}
+            value={values[view].text}
+          />
+        </Suspense>
       ) : (
         <>
           <AgentRunsWith

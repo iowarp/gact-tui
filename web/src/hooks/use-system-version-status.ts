@@ -213,7 +213,7 @@ export function useSystemVersionStatus() {
     (capabilities.isError ? 'The connected runtime could not be reached.' : undefined);
   const versions = [
     {
-      label: desktopShell ? 'Desktop app' : 'Web interface',
+      label: 'Interface version',
       version: displayedDesktopVersion,
       targetVersion: desktopUpdateAvailable ? desktopTargetVersion : undefined,
       releaseUrl:
@@ -223,7 +223,7 @@ export function useSystemVersionStatus() {
       testId: 'version-row-desktop',
     },
     {
-      label: desktopShell ? 'Runtime' : 'Connected runtime',
+      label: 'Runtime version',
       version: agentVersion,
       targetVersion: agentBehindLatest ? agentTargetVersion : undefined,
       releaseUrl:

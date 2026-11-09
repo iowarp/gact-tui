@@ -5,6 +5,7 @@ import { ConnectField, ConnectStatusLine, ConnectInput } from '@/components/clio
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { defaultEndpoint } from '@/lib/connection';
+import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
@@ -110,7 +111,10 @@ export function ConnectErrorLine({
   onRetry?: () => void;
   recovery?: ReactNode;
 }) {
-  const details = error instanceof TransportError ? error.details : undefined;
+  const details =
+    error instanceof TransportError || error instanceof ServiceVersionError
+      ? error.details
+      : undefined;
   return (
     <ConnectStatusLine
       actions={
