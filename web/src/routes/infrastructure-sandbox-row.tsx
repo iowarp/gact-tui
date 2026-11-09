@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FileTextIcon,
   FolderIcon,
   LoaderCircleIcon,
   PlayIcon,
@@ -193,19 +192,18 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
     {
       label: 'Required',
       icon: <ShieldCheckIcon />,
-      value: (row?.required ?? integration.required) === false ? 'Optional' : 'Required for use',
+      value: (row?.required ?? integration.required) === false ? 'Optional' : 'Required',
+      mono: true,
     },
     ...(row?.codex_source
       ? [
           {
             label: 'Codex',
             icon: <TerminalIcon />,
-            value: row.codex_source === 'bundled' ? `Bundled with ${vocab.agent}` : 'Found on PATH',
+            value: row.codex_source === 'bundled' ? 'Bundled' : 'PATH',
+            mono: true,
           },
         ]
-      : []),
-    ...(row?.next_action
-      ? [{ label: 'Next step', icon: <FileTextIcon />, value: row.next_action }]
       : []),
     ...(integration.config_source
       ? [
@@ -231,6 +229,11 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
         expanded ? (
           <>
             <p className="text-[12px] whitespace-normal text-muted-foreground">{summary}</p>
+            {row?.next_action ? (
+              <p className="text-[12px] whitespace-normal text-muted-foreground">
+                {row.next_action}
+              </p>
+            ) : null}
             <KeyValueGrid items={facts} />
             {setupOutcome ? (
               <p className="text-[12px] whitespace-normal text-foreground" role="status">

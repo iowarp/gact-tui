@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,6 +35,7 @@ import {
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
 import { IconButton } from './primitives/icon-button';
+import { StatusIndicator } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
 import { ClioRelativeTime } from './relative-time';
 
@@ -59,6 +59,9 @@ const STATE_TONES: Record<string, InfraStatus['tone']> = {
   ready: 'success',
   cancelled: 'stopped',
   removed: 'idle',
+  pending: 'idle',
+  reused: 'success',
+  skipped: 'idle',
 };
 
 const ACTION_ICONS: Record<string, ReactNode> = {
@@ -127,7 +130,7 @@ export function InfrastructureActivityRow({
       />
     ) : Number.isFinite(row.time) ? (
       <ClioRelativeTime
-        className="text-[11px] text-faint"
+        className="text-[11px] text-muted-foreground"
         compact
         label="Updated"
         timestamp={new Date(row.time).toISOString()}
@@ -295,7 +298,7 @@ function ActivityOperationDialog({
             <TabsTrigger value="log">Log</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3">
-            <Badge variant={row.state === 'failed' ? 'destructive' : 'outline'}>{status}</Badge>
+            <StatusIndicator label={status} tone={STATE_TONES[row.state] ?? 'idle'} />
             {outcome ? <p className="text-sm leading-6">{outcome}</p> : null}
             {row.model ? <ModelDownloadProgress model={row.model} /> : null}
             {row.operation?.steps.length ? (
@@ -310,9 +313,10 @@ function ActivityOperationDialog({
                             ? title
                             : step.label}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {step.state.replaceAll('_', ' ')}
-                      </span>
+                      <StatusIndicator
+                        label={step.state.replaceAll('_', ' ')}
+                        tone={STATE_TONES[step.state] ?? 'idle'}
+                      />
                     </div>
                     {['failed', 'running'].includes(step.state) &&
                     step.message &&

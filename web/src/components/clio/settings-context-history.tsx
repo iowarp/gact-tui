@@ -185,28 +185,29 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
 
   return (
     <section aria-label="Context & compaction">
-      <SettingsGroupLabel info="Context usage and compaction for one conversation, as the service reports them.">
-        Compaction
-      </SettingsGroupLabel>
-      <SettingsRow htmlFor="context-session" title="Session">
-        <Select onValueChange={setSessionId} value={selectedSessionId}>
-          <SelectTrigger
-            className="h-[1.875rem] w-full min-w-0 text-[0.78125rem]"
-            id="context-session"
-            size="sm"
-          >
-            <SelectValue placeholder="Choose a session" />
-          </SelectTrigger>
-          <SelectContent>
-            {primarySessions.map((session) => (
-              <SelectItem key={session.id} value={session.id}>
-                {sessionLabel(session)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingsRow>
-      <SettingsGroupLabel info="Retention and compaction values are reported by the service for the selected session.">
+      <SettingsGroupLabel
+        actions={
+          <Select onValueChange={setSessionId} value={selectedSessionId}>
+            <SelectTrigger
+              aria-label="Session"
+              className="h-7 w-[clamp(10rem,45%,16rem)] min-w-0 text-[0.78125rem] text-foreground"
+              id="context-session"
+              size="sm"
+            >
+              <SelectValue placeholder="Choose a session" />
+            </SelectTrigger>
+            <SelectContent>
+              {primarySessions.map((session) => (
+                <SelectItem key={session.id} value={session.id}>
+                  {sessionLabel(session)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        className="w-full @3xl:w-[60%]"
+        info="Context usage, retention and compaction for one conversation, as the service reports them."
+      >
         Session retention
       </SettingsGroupLabel>
       {statistics.data?.session ? (
@@ -228,21 +229,6 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           title="Session retention unavailable"
         />
       )}
-      {statistics.data ? (
-        <>
-          <SettingsGroupLabel>All conversations</SettingsGroupLabel>
-          <ValueRow
-            title="Stored conversations"
-            value={number(statistics.data.global.conversations_total)}
-          />
-          <ValueRow
-            title="Stored tool invocations"
-            value={number(statistics.data.global.invocations_total)}
-          />
-          <ValueRow title="Cache hits" value={number(statistics.data.cache.hits)} />
-          <ValueRow title="Cache misses" value={number(statistics.data.cache.misses)} />
-        </>
-      ) : null}
       <SettingsGroupLabel>Compaction history</SettingsGroupLabel>
       {events.data?.length ? (
         <ItemList label="Compaction history">
@@ -272,6 +258,21 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           retrying={events.isFetching}
           title="Compaction history unavailable."
         />
+      ) : null}
+      {statistics.data ? (
+        <>
+          <SettingsGroupLabel>All conversations</SettingsGroupLabel>
+          <ValueRow
+            title="Stored conversations"
+            value={number(statistics.data.global.conversations_total)}
+          />
+          <ValueRow
+            title="Stored tool invocations"
+            value={number(statistics.data.global.invocations_total)}
+          />
+          <ValueRow title="Cache hits" value={number(statistics.data.cache.hits)} />
+          <ValueRow title="Cache misses" value={number(statistics.data.cache.misses)} />
+        </>
       ) : null}
     </section>
   );

@@ -2,6 +2,7 @@ import { memo, type KeyboardEvent, type ReactNode } from 'react';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ShortcutKeys } from './key-chip';
+import { StatusIndicator, type StatusTone } from './status-indicator';
 import { Tag, type TagTone } from './tag';
 
 export interface MenuRowProps {
@@ -9,6 +10,10 @@ export interface MenuRowProps {
   label: string;
   /** Muted words after the label; cut with an ellipsis, full text on hover. */
   description?: string;
+  /** A small muted second line under the label (a host, what a choice does). */
+  detail?: string;
+  /** A state as a mark and a word in the fixed 72px status column (Online, Offline). */
+  status?: { label: string; tone: StatusTone };
   /** A state word in the fixed 58px tag column (On, Off, Needs you). */
   tag?: { text: string; tone?: TagTone };
   /** A short mono value in the fixed 52px column (12 GB, 4 min). */
@@ -27,6 +32,8 @@ export interface MenuRowProps {
   submenu?: boolean;
   /** An ⓘ explanation button, kept outside the row's main action. */
   info?: ReactNode;
+  /** An unreachable choice: dims the icon and mutes the name, keeping every word readable. */
+  muted?: boolean;
   className?: string;
 }
 
@@ -40,6 +47,8 @@ export const MenuRow = memo(function MenuRow({
   icon,
   label,
   description,
+  detail,
+  status,
   tag,
   value,
   checked,
@@ -47,6 +56,7 @@ export const MenuRow = memo(function MenuRow({
   accelerator,
   submenu = false,
   info,
+  muted = false,
   className,
 }: MenuRowProps) {
   return (
@@ -54,19 +64,41 @@ export const MenuRow = memo(function MenuRow({
       {icon ? (
         <span
           aria-hidden="true"
-          className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
+          className={cn(
+            "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
+            muted && 'opacity-50',
+          )}
         >
           {icon}
         </span>
       ) : null}
-      <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
-        <span className="max-w-full shrink-0 truncate">{label}</span>
-        {description ? (
-          <span title={description} className="min-w-0 truncate text-[12px] text-muted-foreground">
-            {description}
+      {detail ? (
+        <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
+          <span className={cn('truncate', muted && 'text-muted-foreground')}>{label}</span>
+          <span title={detail} className="truncate text-[11px] text-muted-foreground">
+            {detail}
           </span>
-        ) : null}
-      </span>
+        </span>
+      ) : (
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
+          <span className={cn('max-w-full shrink-0 truncate', muted && 'text-muted-foreground')}>
+            {label}
+          </span>
+          {description ? (
+            <span
+              title={description}
+              className="min-w-0 truncate text-[12px] text-muted-foreground"
+            >
+              {description}
+            </span>
+          ) : null}
+        </span>
+      )}
+      {status ? (
+        <span className="flex w-[72px] shrink-0 justify-end">
+          <StatusIndicator label={status.label} tone={status.tone} />
+        </span>
+      ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}
       {value !== undefined ? (
         <span className="w-[52px] shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums">

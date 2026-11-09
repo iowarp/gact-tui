@@ -2,20 +2,31 @@ import { BrandIcon } from '@/components/clio/brand-icon';
 import { brand } from '@brand';
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FolderClockIcon, GlobeIcon, LaptopIcon, ServerIcon } from 'lucide-react';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import {
+  FolderClockIcon,
+  GlobeIcon,
+  LaptopIcon,
+  ServerIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
+import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
-import { DesktopBoot, HomeSearchButton } from '@/components/clio/desktop-boot';
+import { DesktopBoot } from '@/components/clio/desktop-boot';
 import { managedBootStage } from '@/lib/desktop-boot-stage';
 import { ConnectFrame } from '@/components/clio/connect-frame';
 import { ConnectAddressFields, ConnectErrorLine } from '@/components/clio/connect-address';
+import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
 import {
+  attemptErrorFor,
   availabilityAfterAttempt,
+  availabilityFailed,
+  knownServiceFailure,
+  noAnswer,
   useConnectionWaiting,
   useServedEndpointProbe,
 } from '@/lib/connection-attempt';
@@ -52,12 +63,23 @@ import {
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
+import { cn } from '@/lib/utils';
 
 /** One icon per known-connection source, so the list reads at a glance without a legend. */
 function connectionSourceIcon(source: KnownConnection['source']) {
   if (source === 'managed') return LaptopIcon;
   if (source === 'infrastructure') return ServerIcon;
   return FolderClockIcon;
+}
+
+function knownCandidate(connection: KnownConnection): ConnectionSettings {
+  return {
+    endpoint: connection.endpoint,
+    token: connection.token,
+    label: connection.label,
+    location: connection.location,
+    infrastructure: connection.infrastructure,
+  };
 }
 
 export function ConnectionPage() {
@@ -258,13 +280,7 @@ export function ConnectionPage() {
     event.preventDefault();
     const candidate: ConnectionSettings =
       !showManualForm && selectedConnection
-        ? {
-            endpoint: selectedConnection.endpoint,
-            token: selectedConnection.token,
-            label: selectedConnection.label,
-            location: selectedConnection.location,
-            infrastructure: selectedConnection.infrastructure,
-          }
+        ? knownCandidate(selectedConnection)
         : {
             endpoint: endpointDraft,
             token: token || undefined,
@@ -320,12 +336,26 @@ export function ConnectionPage() {
     : showManualForm
       ? 'Connect'
       : 'Open workspace';
+  // A known service that does not answer cannot be opened; its row says so and offers Retry.
+  const selectedFailed =
+    knownMode &&
+    selectedConnection !== undefined &&
+    availabilityFailed(availabilityAfterAttempt(selectedConnection, mutation));
+  // The row already carries "no answer from …", so the form does not repeat it.
+  const errorShownInRow =
+    selectedFailed &&
+    selectedConnection !== undefined &&
+    noAnswer(attemptErrorFor(selectedConnection, mutation));
+  const retryKnown = (connection: KnownConnection) => {
+    setSelectedEndpoint(connection.endpoint);
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.key('connection-availability', connection.endpoint),
+    });
+    mutation.mutate(knownCandidate(connection));
+  };
 
   return (
     <main className="relative h-full min-h-0 overflow-y-auto bg-background text-foreground">
-      <div className="absolute top-3 right-3">
-        <HomeSearchButton />
-      </div>
       <div className="mx-auto flex min-h-full w-full max-w-[492px] flex-col justify-center gap-4 px-4 py-14">
         <p className="flex items-center gap-2 font-heading text-[15px] font-semibold">
           <BrandIcon className="size-[22px] shrink-0 text-primary" />
@@ -359,8 +389,10 @@ export function ConnectionPage() {
                 ) : null}
                 <Button
                   aria-keyshortcuts="Control+Enter Meta+Enter"
-                  className={buttonClass}
-                  disabled={mutation.isPending || (knownMode && !selectedConnection)}
+                  className={cn(buttonClass, 'bg-clip-border')}
+                  disabled={
+                    mutation.isPending || (knownMode && !selectedConnection) || selectedFailed
+                  }
                   form="connect-form"
                   type="submit"
                 >
@@ -422,20 +454,49 @@ export function ConnectionPage() {
                     const Icon = connectionSourceIcon(connection.source);
                     const host = new URL(connection.endpoint).host;
                     const name = connection.label || host;
+                    const availability = availabilityAfterAttempt(connection, mutation);
+                    const failed = availabilityFailed(availability);
                     return (
                       <ListRow
                         columns={
                           <span className="flex w-[104px] shrink-0 justify-end">
-                            <ConnectionAvailabilityIndicator
-                              availability={availabilityAfterAttempt(connection, mutation)}
-                              compact
-                              endpoint={connection.endpoint}
-                            />
+                            {failed ? (
+                              <IconButton
+                                className="z-10"
+                                disabled={mutation.isPending}
+                                icon={<RetryIcon aria-hidden="true" />}
+                                label="Retry"
+                                onClick={() => retryKnown(connection)}
+                                size="sm"
+                                type="button"
+                              />
+                            ) : (
+                              <ConnectionAvailabilityIndicator
+                                availability={availability}
+                                compact
+                                endpoint={connection.endpoint}
+                              />
+                            )}
                           </span>
                         }
                         description={
-                          connection.location ||
-                          (connection.label ? connection.endpoint : undefined)
+                          failed ? (
+                            <span
+                              className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
+                              title={availability.detail}
+                            >
+                              <TriangleAlertIcon
+                                aria-hidden="true"
+                                className="size-3 shrink-0 text-destructive"
+                              />
+                              <span className="min-w-0 truncate">
+                                {knownServiceFailure(connection, availability, mutation)}
+                              </span>
+                            </span>
+                          ) : (
+                            connection.location ||
+                            (connection.label ? connection.endpoint : undefined)
+                          )
                         }
                         icon={<Icon />}
                         key={connection.endpoint}
@@ -505,7 +566,7 @@ export function ConnectionPage() {
               {mutation.error && waiting.waiting ? (
                 <ConnectionWaitingNotice availability={waiting.availability} />
               ) : null}
-              {mutation.error && !waiting.waiting ? (
+              {mutation.error && !waiting.waiting && !errorShownInRow ? (
                 <ConnectErrorLine
                   error={mutation.error}
                   onRetry={

@@ -102,7 +102,9 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 truncate text-[11px] text-faint">{description}</span>
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {description}
+              </span>
             ) : null}
           </span>
         ) : (
@@ -165,7 +167,7 @@ export const ListGroupLabel = memo(function ListGroupLabel({
     <div
       data-slot="list-group-label"
       className={cn(
-        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11.5px] font-semibold whitespace-nowrap text-muted-foreground',
+        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground',
         className,
       )}
     >

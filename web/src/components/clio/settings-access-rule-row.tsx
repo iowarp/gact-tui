@@ -113,7 +113,7 @@ export function AccessRuleRow({
     </span>
   );
   const title = (
-    <span className="font-mono font-semibold" title={target}>
+    <span className="font-mono text-[0.78125rem] font-normal" title={target}>
       {target}
     </span>
   );
