@@ -429,7 +429,7 @@ const SPEC_FILES = {
       '    return sites[sites.network.isin(["SCAN", "USCRN"])]',
       '',
       'def flag(series, lo=0.0, hi=0.6):',
-      '    # volumetric water content, m?/m?',
+      '    # volumetric water content, m³/m³',
       '    return (series < lo) | (series > hi)',
       '',
       'def main(path):',
