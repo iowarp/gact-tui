@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as renderView, screen } from '@testing-library/react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportError } from '@clio/core/v3';
@@ -29,6 +30,9 @@ vi.mock('@/lib/connection', async (importOriginal) => {
 import { ConnectionPage } from './connection-page';
 import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
+
+const render = (ui: Parameters<typeof renderView>[0]) =>
+  renderView(ui, { wrapper: TooltipProvider });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -61,7 +65,7 @@ it('explains a missing service address and retains the HTTP failure for inspecti
   );
   await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
   expect(await screen.findByText(/No agent service was found at this address/)).toBeVisible();
-  await userEvent.click(screen.getByText('Diagnostic details'));
+  await userEvent.click(screen.getByRole('button', { name: 'Diagnostic details' }));
   expect(screen.getByText(/Request failed with 404 Not Found/)).toBeVisible();
   expect(mocks.connect).not.toHaveBeenCalled();
 });

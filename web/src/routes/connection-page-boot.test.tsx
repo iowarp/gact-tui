@@ -3,7 +3,8 @@
  * is ready (503 `task_runtime_starting`). The page stays on the boot screen and retries
  * with a backoff until the workspace opens; it never flips to the Connect form (#739 B1).
  */
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render as renderView, screen, waitFor } from '@testing-library/react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { brand } from '@brand';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -44,6 +45,9 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ConnectionPage } from './connection-page';
 import { sessionReads } from '@/test/session-reads';
+
+const render = (ui: Parameters<typeof renderView>[0]) =>
+  renderView(ui, { wrapper: TooltipProvider });
 
 const starting = () =>
   new TransportError('The task runtime is starting.', 503, 'task_runtime_starting');
