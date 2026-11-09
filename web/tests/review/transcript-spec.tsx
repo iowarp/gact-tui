@@ -542,6 +542,92 @@ const STATES: State[] = [
     expand: ['delegate'],
     props: conversationTurn,
   },
+  {
+    id: 'narrow-fifth',
+    title: 'A fifth of the window',
+    height: 760,
+    expand: ['delegate'],
+    props: conversationTurn,
+  },
+  {
+    // The compaction and reply-error lines in each of their states, at row height.
+    id: 'compaction',
+    title: 'Compaction and reply errors',
+    height: 520,
+    props: () => ({
+      messages: [
+        userMessage('compaction-prompt', 'Regrid the 2020?2023 soil moisture to 0.25?.', at(9, 40)),
+        {
+          id: 'compaction-turn',
+          session_id: SESSION,
+          role: 'assistant',
+          turn_id: 'turn_compaction',
+          created_at: at(9, 40, 3),
+          blocks: [
+            {
+              id: 'compaction-summary',
+              type: 'injection',
+              source: 'summarization',
+              trigger: 'auto',
+              compaction_id: 'cmp_done',
+              text: 'The SMAP L3 search, the 0.25? grid choice, and the 14 Opal sites to check.',
+            },
+            {
+              id: 'compaction-failed',
+              type: 'notice',
+              source: 'compaction_failed',
+              text: 'No language model is bound.',
+              code: 'compaction_unavailable',
+              trigger: 'manual',
+              compaction_id: 'cmp_failed',
+            },
+            {
+              id: 'compaction-answer',
+              type: 'text',
+              text: 'The regrid is running on four ranks.',
+              channel: 'answer',
+            },
+            {
+              id: 'compaction-stopped',
+              type: 'error',
+              code: 'stream_interrupted',
+              message: 'The connection closed mid-reply.',
+              recoverable: true,
+            },
+          ],
+        },
+        {
+          id: 'empty-reply',
+          session_id: SESSION,
+          role: 'assistant',
+          created_at: at(9, 44),
+          stop_reason: 'error',
+          error_info: { error: 'provider_error', message: 'The provider returned no content.' },
+          blocks: [],
+        },
+      ],
+      compactions: [
+        {
+          compaction_id: 'cmp_running',
+          session_id: SESSION,
+          scope: 'main',
+          trigger: 'auto',
+          turn_id: 'turn_compaction',
+          anchor_message_id: 'compaction-turn',
+          status: 'running',
+          started_at: at(9, 41),
+        },
+      ],
+      tools: {},
+      subagents: {},
+      tasks: {},
+      artifacts: {},
+      surfaces: {},
+      sessionId: SESSION,
+      preparation: { sessionState: 'completed', activeTurnId: 'run_done' },
+      ...handlers,
+    }),
+  },
 ];
 
 function Section({ state, children }: { state: State; children: ReactNode }) {

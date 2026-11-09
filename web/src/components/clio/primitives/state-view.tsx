@@ -207,6 +207,7 @@ export const StateView = memo(function StateView({
           <Button
             variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
             size={row ? 'xs' : 'default'}
+            disabled={action.disabled}
             onClick={action.onClick}
           >
             {kind === 'error' ? <RetryIcon aria-hidden="true" /> : null}

@@ -612,8 +612,9 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Response unavailable')).toBeInTheDocument();
+    expect(screen.getByText('This reply didn?t load')).toBeInTheDocument();
     expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
     expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
   });
@@ -646,7 +647,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Response interrupted')).toBeInTheDocument();
+    expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
     expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
@@ -678,10 +679,10 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const notice = screen.getByText('Response cancelled').closest('[role="alert"]');
+    const notice = screen.getByText('Reply cancelled').closest('[data-slot="reply-error"]');
     expect(notice).toHaveClass('w-fit');
-    expect(notice?.querySelector('[data-slot="alert-title"]')).toHaveClass('whitespace-nowrap');
-    expect(notice?.querySelector('[data-slot="alert-description"]')).toBeNull();
+    expect(notice).not.toHaveAttribute('title');
+    expect(notice?.querySelector('[role="alert"]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
@@ -705,7 +706,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('This reply didn?t load')).not.toBeInTheDocument();
     expect(screen.getByText('This session has no messages')).toBeInTheDocument();
   });
 

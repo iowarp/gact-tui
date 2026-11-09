@@ -26,6 +26,8 @@ const STATES = [
   'message',
   'inline-states',
   'narrow',
+  'narrow-fifth',
+  'compaction',
 ];
 
 function option(name, fallback) {
@@ -51,7 +53,7 @@ const palette = option('palette', 'notebook');
 // The spec page is not responsive: below these widths its mocks overlap or clip their own rows.
 // Its mocks are fixed-size drawings, so they are laid out at least this wide unless
 // --spec-at-width asks for the literal viewport.
-const SPEC_LAYOUT = { narrow: 1600 };
+const SPEC_LAYOUT = { narrow: 1600, 'narrow-fifth': 1600 };
 const specLayoutMin = 1280;
 const specAtWidth = process.argv.includes('--spec-at-width');
 const specWidth = (state, width) =>
@@ -108,6 +110,7 @@ async function lightOverride() {
  */
 function specBox(state) {
   const pad = 8;
+  const NARROW_CAPTION = { narrow: 'A third of the window', 'narrow-fifth': 'A fifth' };
   const caption = (text) =>
     [...document.querySelectorAll('.cap2')].find(
       (node) => node.querySelector('b')?.textContent?.trim() === text,
@@ -135,9 +138,10 @@ function specBox(state) {
   else if (state === 'info-dialog') nodes = after(caption('ⓘ opened'));
   else if (state === 'right-edge') nodes = after(caption('The right edge')).slice(0, 1);
   else if (state === 'message') nodes = after(caption('A message'));
-  else if (state === 'inline-states') nodes = after(caption('Inline, in the transcript'));
-  else if (state === 'narrow') {
-    const mock = caption('A third of the window')?.nextElementSibling;
+  else if (state === 'inline-states' || state === 'compaction')
+    nodes = after(caption('Inline, in the transcript'));
+  else if (state === 'narrow' || state === 'narrow-fifth') {
+    const mock = caption(NARROW_CAPTION[state])?.nextElementSibling;
     nodes = mock?.querySelector('.xct') ? transcriptOf(mock) : mock ? [mock] : [];
   }
   // Descendants too: column guides and badges overflow their row boxes.
@@ -171,10 +175,9 @@ function specBox(state) {
   const ceiling = nodes[0]?.previousElementSibling?.matches('.cap2')
     ? nodes[0].previousElementSibling.getBoundingClientRect().bottom
     : -Infinity;
-  const narrow =
-    state === 'narrow'
-      ? caption('A third of the window')?.nextElementSibling?.getBoundingClientRect().width
-      : undefined;
+  const narrow = NARROW_CAPTION[state]
+    ? caption(NARROW_CAPTION[state])?.nextElementSibling?.getBoundingClientRect().width
+    : undefined;
   const first = Math.max(top - pad, ceiling);
   return {
     x: Math.max(0, left - pad + window.scrollX),

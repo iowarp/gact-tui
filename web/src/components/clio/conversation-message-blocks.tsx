@@ -52,7 +52,7 @@ import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { BoundedResult } from './bounded-result';
-import { StateView } from './primitives/state-view';
+import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
@@ -160,7 +160,79 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   compactReferences?: boolean;
   /** Reference blocks a sent message can show at their `@mention` in its text. */
   inlineReferences?: readonly InlineReferenceBlock[];
+  /** The message already shows answer text, so an error stopped it partway. */
+  replyStarted?: boolean;
 };
+
+/**
+ * A reply that failed, as one 28px error line: what happened in product words
+ * and Retry beside it. The service's reason is its hover name and accessible
+ * text, so the line stays short at any width.
+ */
+export function ReplyErrorLine({
+  title,
+  reason,
+  onRetry,
+  retrying = false,
+  kind = 'error',
+  icon,
+}: {
+  title: string;
+  reason?: string;
+  /** Present while this reply can be retried. */
+  onRetry?: () => void;
+  retrying?: boolean;
+  kind?: 'error' | 'marker';
+  icon?: StateViewProps['icon'];
+}) {
+  const retry: StateAction | undefined = onRetry
+    ? { label: retrying ? 'Retrying' : 'Retry', disabled: retrying, onClick: onRetry }
+    : undefined;
+  return (
+    <div className="w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
+      <StateView
+        action={retry}
+        icon={icon}
+        kind={kind}
+        size="row"
+        title={
+          <>
+            {title}
+            {reason ? <span className="sr-only">: {reason}</span> : null}
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+function ReplyError({
+  block,
+  messageId,
+  onRetryMessage,
+  replyStarted,
+  retrying,
+}: {
+  block: Extract<MessageBlock, { type: 'error' }>;
+  messageId?: string;
+  onRetryMessage?: (messageId: string) => void | Promise<unknown>;
+  replyStarted?: boolean;
+  retrying: boolean;
+}) {
+  const code = humanizeProtocolValue(block.code);
+  return (
+    <ReplyErrorLine
+      reason={block.message && block.message !== code ? `${block.message} ? ${code}` : code}
+      onRetry={
+        block.recoverable && messageId && onRetryMessage
+          ? () => void onRetryMessage(messageId)
+          : undefined
+      }
+      retrying={retrying}
+      title={replyStarted ? 'This reply didn?t finish' : 'This reply didn?t load'}
+    />
+  );
+}
 
 function MessageBlockView({
   block,
@@ -187,6 +259,9 @@ function MessageBlockView({
   onInteractionResponse,
   compactReferences,
   inlineReferences,
+  onRetryMessage,
+  replyStarted,
+  retryingMessageId,
 }: MessageBlockViewProps) {
   const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
@@ -335,14 +410,12 @@ function MessageBlockView({
       );
     case 'error':
       return (
-        <StateView
-          detail={humanizeProtocolValue(block.code)}
-          kind="error"
-          size="row"
-          title={
-            `${block.message || humanizeProtocolValue(block.code)}` +
-            (block.recoverable ? ' You can retry this step.' : '')
-          }
+        <ReplyError
+          block={block}
+          messageId={messageId}
+          onRetryMessage={onRetryMessage}
+          replyStarted={replyStarted}
+          retrying={retryingMessageId !== undefined && retryingMessageId === messageId}
         />
       );
     case 'routing':
@@ -428,6 +501,9 @@ export function MessageBlockSequence({
   const inline = props.compactReferences
     ? sentInlineReferences(messageBlocks ?? orderedBlocks)
     : undefined;
+  const replyStarted = (messageBlocks ?? orderedBlocks).some(
+    (block) => block.type === 'text' && block.text.trim().length > 0,
+  );
   let index = 0;
 
   while (index < orderedBlocks.length) {
@@ -502,6 +578,7 @@ export function MessageBlockSequence({
           block={block}
           inlineReferences={inline?.references}
           key={`${block.id}-${keyIndex}`}
+          replyStarted={replyStarted}
           {...props}
         />,
       );
