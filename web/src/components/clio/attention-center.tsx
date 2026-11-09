@@ -1,5 +1,6 @@
 import type { PendingInteraction, Session } from '@clio/core/v3';
 import {
+  BellIcon,
   BellRingIcon,
   LayoutTemplateIcon,
   MessageCircleQuestionIcon,
@@ -186,7 +187,9 @@ function needRows(session: Session, attention: SessionAttention): NeedRow[] {
 
 function moveFocus(event: KeyboardEvent<HTMLElement>) {
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  const links = [...event.currentTarget.querySelectorAll<HTMLElement>('a[href]')];
+  const links = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>('a[href]:not([data-duplicate-link])'),
+  ];
   if (links.length === 0) return;
   event.preventDefault();
   const index = links.indexOf(document.activeElement as HTMLElement);
@@ -197,7 +200,7 @@ function moveFocus(event: KeyboardEvent<HTMLElement>) {
   next?.focus();
 }
 
-export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
+export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -215,15 +218,19 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
     [entries],
   );
   const respond = useAttentionResponse();
-  useShortcut('notifications', () => {
-    if (responseCount > 0) setOpen((current) => !current);
-  });
-  if (responseCount === 0) return null;
+  useShortcut('notifications', () => setOpen((current) => !current));
 
+  // The bell is always there; its badge counts Needs you.
   const label =
-    entries.length === 1
-      ? `${entries[0]!.session.title} needs your response`
-      : `${entries.length} sessions need your response`;
+    responseCount === 0
+      ? 'Notifications'
+      : entries.length === 1
+        ? `${entries[0]!.session.title} needs your response`
+        : `${entries.length} sessions need your response`;
+  const accessibleLabel =
+    responseCount === 0
+      ? 'Notifications; nothing needs you'
+      : `${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
 
   return (
     <SidebarMenuItem className="shrink-0">
@@ -231,19 +238,25 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         <PopoverTrigger asChild>
           <SidebarMenuButton
             aria-keyshortcuts={shortcut?.aria}
-            aria-label={`${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`}
+            aria-label={accessibleLabel}
             className="relative size-8 overflow-visible text-muted-foreground hover:text-foreground"
             tooltip={shortcut ? `${label} (${shortcut.text})` : label}
             type="button"
           >
-            <BellRingIcon aria-hidden="true" />
+            {responseCount > 0 ? (
+              <BellRingIcon aria-hidden="true" />
+            ) : (
+              <BellIcon aria-hidden="true" />
+            )}
             <HeldKeyBadge id="notifications" />
-            <Badge
-              className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
-              variant="default"
-            >
-              {responseCount > 9 ? '9+' : responseCount}
-            </Badge>
+            {responseCount > 0 ? (
+              <Badge
+                className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
+                variant="default"
+              >
+                {responseCount > 9 ? '9+' : responseCount}
+              </Badge>
+            ) : null}
           </SidebarMenuButton>
         </PopoverTrigger>
         <PopoverContent
@@ -252,11 +265,11 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
           collisionPadding={8}
           onOpenAutoFocus={(event) => {
-            // Start on the first notification, not the settings button.
-            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
-            if (!first) return;
+            // Start on the first notification, not the settings button; an
+            // empty list keeps focus on the popover itself.
             event.preventDefault();
-            first.focus();
+            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
+            (first ?? (event.currentTarget as HTMLElement | null))?.focus();
           }}
           side="bottom"
         >
@@ -273,22 +286,28 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
               size="sm"
             />
           </div>
-          <section aria-labelledby="attention-needs-you" className="p-1">
+          <section aria-labelledby="attention-needs-you" className="px-1.5 pb-2">
             <h3
-              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-semibold text-muted-foreground"
+              className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
               id="attention-needs-you"
             >
               <span>Needs you</span>
-              <span className="text-warning tabular-nums">{responseCount}</span>
+              {responseCount > 0 ? (
+                <span className="text-warning tabular-nums">{responseCount}</span>
+              ) : null}
             </h3>
+            {rows.length === 0 ? (
+              <p className="px-2.5 pt-0.5 pb-1 text-[12px] text-faint">Nothing needs you.</p>
+            ) : null}
             <div
-              className="clio-scrollbar flex max-h-80 flex-col overflow-y-auto"
+              className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
               onKeyDown={moveFocus}
               ref={listRef}
             >
               {rows.map((row) => {
                 const KindIcon = row.kind.icon;
                 const { session } = row;
+                const to = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
                 const deciding =
                   respond.isPending && respond.variables?.interaction.id === row.permission?.id;
                 const decide = (action: 'allow' | 'deny') => {
@@ -305,51 +324,45 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                 };
                 return (
                   <div
-                    className="rounded-[6px] hover:bg-hover has-[[data-selected]]:bg-menu-highlight has-[a:focus-visible]:bg-menu-highlight"
+                    className="rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover"
                     data-slot="attention-request"
                     key={row.key}
                   >
                     <Link
                       aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
-                      className="block rounded-[6px] outline-none [&:is(:focus-visible,:has([data-selected]))_.text-link]:text-accent-foreground [&:is(:focus-visible,:has([data-selected]))_.text-muted-foreground]:text-foreground"
+                      className="block outline-none"
                       onClick={() => setOpen(false)}
-                      to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
+                      to={to}
                     >
                       <ListRow
-                        className="hover:bg-transparent data-selected:bg-transparent"
                         description={<span title={row.detailText}>{row.detail}</span>}
                         icon={<KindIcon aria-hidden="true" className="text-warning" />}
-                        layout="stacked"
                         meta={
-                          <span className="flex flex-col items-end leading-[1.3]">
-                            <ClioRelativeTime
-                              className="text-[11px] text-muted-foreground"
-                              compact
-                              label="Asked"
-                              timestamp={row.timestamp}
-                            />
-                            <span className="text-[12px] font-medium text-link">
-                              {row.kind.action}
-                            </span>
-                          </span>
+                          <ClioRelativeTime
+                            className="text-[11px] text-faint"
+                            compact
+                            label="Asked"
+                            timestamp={row.timestamp}
+                          />
                         }
-                        selected={session.id === activeSessionId}
+                        primaryAction={row.permission ? undefined : row.kind.action}
                         title={
                           <span title={`${session.title} ${row.kind.verb}`}>
-                            <span className="font-semibold">{session.title}</span>{' '}
-                            <span className="text-muted-foreground">{row.kind.verb}</span>
+                            <span className="font-semibold text-foreground">{session.title}</span>{' '}
+                            {row.kind.verb}
                           </span>
                         }
+                        variant="notice"
                       />
                     </Link>
                     {row.permission ? (
                       <div
                         aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                        className="flex gap-1.5 pt-0.5 pb-1.5 pl-[34px]"
+                        className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
                         role="group"
                       >
                         <Button
-                          className="min-w-[58px] px-3 text-[11.5px] font-semibold"
+                          className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
                           disabled={deciding}
                           onClick={() => decide('allow')}
                           size="xs"
@@ -357,14 +370,24 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                           Allow
                         </Button>
                         <Button
-                          className="min-w-[58px] px-3 text-[11.5px]"
+                          className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
                           disabled={deciding}
                           onClick={() => decide('deny')}
                           size="xs"
-                          variant="secondary"
+                          variant="ghost"
                         >
                           Deny
                         </Button>
+                        <Link
+                          aria-hidden="true"
+                          className="ml-auto font-medium text-accent-foreground hover:underline"
+                          data-duplicate-link=""
+                          onClick={() => setOpen(false)}
+                          tabIndex={-1}
+                          to={to}
+                        >
+                          {row.kind.action}
+                        </Link>
                       </div>
                     ) : null}
                   </div>

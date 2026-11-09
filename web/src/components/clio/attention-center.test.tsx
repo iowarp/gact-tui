@@ -170,9 +170,14 @@ describe('ClioAttentionCenter', () => {
     );
   }
 
-  it('renders nothing when no session needs a response', () => {
+  it('keeps the bell with no badge when nothing needs a response', async () => {
     render(<Center attentions={{}} sessions={[baseSession]} />);
-    expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
+    const bell = screen.getByRole('button', { name: 'Notifications; nothing needs you' });
+    expect(within(bell).queryByText(/\d/)).toBeNull();
+    fireEvent.click(bell);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Nothing needs you.')).toBeInTheDocument();
+    expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
   });
 
   it('lists waiting sessions with their pending work and opens with its shortcut', async () => {
