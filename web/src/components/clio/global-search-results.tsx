@@ -1,117 +1,214 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { BotIcon, CableIcon, ServerIcon } from 'lucide-react';
+import { BotIcon, CableIcon, ChevronRightIcon, ServerIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { CommandGroup, CommandItem, CommandShortcut } from '@/components/ui/command';
-import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
-import { useSwitchConnection } from '@/hooks/use-switch-connection';
-import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { connectionScope } from '@/lib/connection-scope';
-import { queryKeys } from '@/lib/query-keys';
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import {
-  agentSearchTarget,
-  globalSearchCommands,
-  matchesGlobalSearch,
-} from '@/lib/global-search-commands';
-import { SearchHighlight } from './search-highlight';
+import { agentSearchTarget, type GlobalSearchCommand } from '@/lib/global-search-commands';
+import { capRows, inCommandMenuScope, type CommandMenuScope } from '@/lib/command-menu-scopes';
 import { useTheme } from '@/providers/appearance-provider';
+import { SearchHighlight } from './search-highlight';
+import { ShortcutKeys } from './primitives/key-chip';
+import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
 
-/** Global navigation and actions are mounted only while the normal palette is open. */
-export function GlobalSearchResults({
+/**
+ * Reads the app-wide matches and hands them to `children`. It mounts with the
+ * open palette only, so closed, it reads and probes nothing.
+ */
+export function GlobalSearchMatchesScope({
   query,
-  onRoute,
+  scope,
   onFinish,
+  children,
 }: {
   query: string;
+  scope: CommandMenuScope;
+  onFinish: () => void;
+  children: (matches: GlobalSearchMatches) => ReactNode;
+}) {
+  return children(useGlobalSearchMatches(query, scope, onFinish));
+}
+
+/** A group label with its match count at the right edge, in fixed figures. */
+export function ResultsHeading({ label, count }: { label: string; count?: number }) {
+  return (
+    <span className="flex min-w-0 items-center justify-between gap-3 whitespace-nowrap">
+      <span className="truncate">{label}</span>
+      {count ? <span className="shrink-0 tabular-nums">{count}</span> : null}
+    </span>
+  );
+}
+
+/** The last row of a capped group under All: its own tab, one Enter away. */
+export function MoreResultsItem({
+  hidden,
+  noun,
+  scope,
+  onMore,
+}: {
+  hidden: number;
+  noun: string;
+  scope: CommandMenuScope;
+  onMore: (scope: CommandMenuScope) => void;
+}) {
+  if (hidden <= 0) return null;
+  return (
+    <CommandItem
+      className="text-muted-foreground"
+      onSelect={() => onMore(scope)}
+      value={`more:${scope}:${noun}`}
+    >
+      <span aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">
+        {hidden} more {noun}
+      </span>
+      <ChevronRightIcon aria-hidden="true" />
+    </CommandItem>
+  );
+}
+
+const COMMAND_GROUPS: readonly {
+  group: GlobalSearchCommand['group'];
+  heading: string;
+  scope: CommandMenuScope;
+  noun: string;
+}[] = [
+  { group: 'Navigation', heading: 'Go to', scope: 'actions', noun: 'places' },
+  { group: 'Actions', heading: 'Actions', scope: 'actions', noun: 'actions' },
+  { group: 'Settings', heading: 'Settings', scope: 'settings', noun: 'settings' },
+];
+
+/** The app-wide groups of the palette, for the tab that is open. */
+export function GlobalSearchGroups({
+  matches,
+  query,
+  scope,
+  limit,
+  onRoute,
+  onFinish,
+  onMore,
+  searching,
+  after,
+}: {
+  matches: GlobalSearchMatches;
+  query: string;
+  scope: CommandMenuScope;
+  /** Rows per group; undefined shows every match. */
+  limit?: number;
   onRoute: (route: string) => void;
   onFinish: () => void;
+  onMore: (scope: CommandMenuScope) => void;
+  /** Whether a query is typed; counts show only then. */
+  searching: boolean;
+  /** Groups the caller renders between Settings and More. */
+  after?: ReactNode;
 }) {
-  const repository = useRepository();
-  const { settings, credentialsReady = true } = useConnectionSettings();
-  const connections = useKnownConnections();
-  const switchConnection = useSwitchConnection();
+  const { settings } = useConnectionSettings();
   const { setTheme, theme } = useTheme();
-  const switching = useMutation({
-    mutationFn: (connection: KnownConnection) => switchConnection(connection),
-    onSuccess: onFinish,
-  });
-  const agents = useQuery({
-    enabled: credentialsReady && Boolean(query.trim()),
-    queryKey: queryKeys.key('agents', settings.endpoint, connectionScope(settings)),
-    queryFn: ({ signal }) => repository.agents(signal),
-  });
-  const targets = useQuery({
-    enabled: credentialsReady && Boolean(query.trim()),
-    queryKey: ['infrastructure-targets', settings.endpoint, connectionScope(settings)],
-    queryFn: ({ signal }) => repository.infrastructureTargets(signal),
-  });
-  const commands = globalSearchCommands(inTauri()).filter((item) =>
-    !query.trim()
-      ? item.group === 'Navigation' || item.group === 'Actions'
-      : matchesGlobalSearch(query, item.label, item.group, item.keywords),
-  );
-  const matchedConnections = connections.filter((item) =>
-    matchesGlobalSearch(query, 'connections services', item.label, item.location, item.endpoint),
-  );
-  const matchedAgents = query.trim()
-    ? (agents.data ?? [])
-        .filter((item) =>
-          matchesGlobalSearch(query, 'agents', item.ref, item.name, item.description, item.role),
-        )
-        .slice(0, 20)
-    : [];
-  const matchedTargets = query.trim()
-    ? (targets.data ?? [])
-        .filter((item) =>
-          matchesGlobalSearch(query, 'infrastructure hosts computers servers', item.id, item.label),
-        )
-        .slice(0, 20)
-    : [];
+  const { commands, switching } = matches;
+  const commandGroup = (
+    group: GlobalSearchCommand['group'],
+    heading: string,
+    groupScope: CommandMenuScope,
+    noun: string,
+  ) => {
+    if (!inCommandMenuScope(scope, groupScope)) return null;
+    const items = commands[group];
+    if (!items.length) return null;
+    const { rows, hidden } = capRows(items, limit);
+    return (
+      <CommandGroup
+        heading={<ResultsHeading count={searching ? items.length : undefined} label={heading} />}
+        key={group}
+      >
+        {rows.map((item) => (
+          <CommandItem
+            key={item.id}
+            onSelect={() => {
+              if ('route' in item.action) onRoute(item.action.route);
+              else {
+                setTheme(item.action.theme);
+                onFinish();
+              }
+            }}
+            value={item.id}
+          >
+            <item.icon aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate">
+              <SearchHighlight query={query} text={item.label} />
+            </span>
+            {'theme' in item.action && theme === item.action.theme ? (
+              <CommandShortcut>Current</CommandShortcut>
+            ) : item.shortcut ? (
+              <ShortcutKeys id={item.shortcut} />
+            ) : null}
+          </CommandItem>
+        ))}
+        <MoreResultsItem hidden={hidden} noun={noun} onMore={onMore} scope={groupScope} />
+      </CommandGroup>
+    );
+  };
+  const agents = capRows(matches.agents, limit);
+  const targets = capRows(matches.targets, limit);
+  const connections = capRows(matches.connections, limit);
+  const more = inCommandMenuScope(scope, 'more');
   return (
     <>
-      {(['Actions', 'Settings', 'Infrastructure', 'Navigation'] as const).map((group) => {
-        const items = commands.filter((item) => item.group === group);
-        return items.length ? (
-          <CommandGroup key={group} heading={group}>
-            {items.map((item) => (
-              <CommandItem
-                key={item.id}
-                value={item.id}
-                onSelect={() => {
-                  if ('route' in item.action) onRoute(item.action.route);
-                  else {
-                    setTheme(item.action.theme);
-                    onFinish();
-                  }
-                }}
-              >
-                <item.icon aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">
-                  <SearchHighlight text={item.label} query={query} />
-                </span>
-                {'theme' in item.action && theme === item.action.theme ? (
-                  <CommandShortcut>Current</CommandShortcut>
-                ) : null}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        ) : null;
-      })}
-      {matchedConnections.length ? (
-        <CommandGroup heading="Connections">
-          {matchedConnections.map((item) => (
+      {COMMAND_GROUPS.map((item) => commandGroup(item.group, item.heading, item.scope, item.noun))}
+      {inCommandMenuScope(scope, 'settings') && agents.rows.length ? (
+        <CommandGroup
+          heading={
+            <ResultsHeading count={searching ? matches.agents.length : undefined} label="Agents" />
+          }
+        >
+          {agents.rows.map((item) => (
             <CommandItem
-              key={item.endpoint}
-              value={`connection:${item.endpoint}`}
+              key={item.ref}
+              onSelect={() => onRoute(`/settings/agents#${agentSearchTarget(item.ref)}`)}
+              value={`agent:${item.ref}`}
+            >
+              <BotIcon aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">
+                  <SearchHighlight query={query} text={item.name || item.id} />
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {item.description || item.ref}
+                </span>
+              </span>
+              <CommandShortcut>{item.kind === 'user' ? 'Your agent' : 'Agent'}</CommandShortcut>
+            </CommandItem>
+          ))}
+          <MoreResultsItem hidden={agents.hidden} noun="agents" onMore={onMore} scope="settings" />
+        </CommandGroup>
+      ) : null}
+      {inCommandMenuScope(scope, 'settings') && matches.agentsError ? (
+        <p className="px-3 py-2 text-xs text-destructive" role="alert">
+          Agents could not be searched. {matches.agentsError.message}
+        </p>
+      ) : null}
+      {after}
+      {more ? commandGroup('Infrastructure', 'Infrastructure', 'more', 'places') : null}
+      {more && connections.rows.length ? (
+        <CommandGroup
+          heading={
+            <ResultsHeading
+              count={searching ? matches.connections.length : undefined}
+              label="Connections"
+            />
+          }
+        >
+          {connections.rows.map((item) => (
+            <CommandItem
               disabled={switching.isPending}
+              key={item.endpoint}
               onSelect={() =>
                 item.endpoint === settings.endpoint ? onFinish() : switching.mutate(item)
               }
+              value={`connection:${item.endpoint}`}
             >
               <CableIcon aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate">
-                  <SearchHighlight text={item.label || item.endpoint} query={query} />
+                  <SearchHighlight query={query} text={item.label || item.endpoint} />
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {item.location || item.endpoint}
@@ -122,62 +219,46 @@ export function GlobalSearchResults({
               </CommandShortcut>
             </CommandItem>
           ))}
+          <MoreResultsItem
+            hidden={connections.hidden}
+            noun="connections"
+            onMore={onMore}
+            scope="more"
+          />
         </CommandGroup>
       ) : null}
       {switching.error ? (
-        <p role="alert" className="px-3 py-2 text-xs text-destructive">
+        <p className="px-3 py-2 text-xs text-destructive" role="alert">
           Connection could not be opened. {switching.error.message}
         </p>
       ) : null}
-      {matchedAgents.length ? (
-        <CommandGroup heading="Agents">
-          {matchedAgents.map((item) => (
-            <CommandItem
-              key={item.ref}
-              value={`agent:${item.ref}`}
-              onSelect={() => onRoute(`/settings/agents#${agentSearchTarget(item.ref)}`)}
-            >
-              <BotIcon aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  <SearchHighlight text={item.name || item.id} query={query} />
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {item.description || item.ref}
-                </span>
-              </span>
-              <CommandShortcut>{item.kind === 'user' ? 'Your agent' : 'Agent'}</CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      ) : null}
-      {matchedTargets.length ? (
-        <CommandGroup heading="Hosts">
-          {matchedTargets.map((item) => (
+      {more && targets.rows.length ? (
+        <CommandGroup
+          heading={
+            <ResultsHeading count={searching ? matches.targets.length : undefined} label="Hosts" />
+          }
+        >
+          {targets.rows.map((item) => (
             <CommandItem
               key={item.id}
-              value={`host:${item.id}`}
               onSelect={() =>
                 onRoute(`/infrastructure/services?target=${encodeURIComponent(item.id)}`)
               }
+              value={`host:${item.id}`}
             >
               <ServerIcon aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">
-                <SearchHighlight text={item.label || item.id} query={query} />
+                <SearchHighlight query={query} text={item.label || item.id} />
               </span>
               <CommandShortcut>Infrastructure</CommandShortcut>
             </CommandItem>
           ))}
+          <MoreResultsItem hidden={targets.hidden} noun="hosts" onMore={onMore} scope="more" />
         </CommandGroup>
       ) : null}
-      {query.trim() && agents.error ? (
-        <p role="alert" className="px-3 py-2 text-xs text-destructive">
-          Agents could not be searched. {agents.error.message}
-        </p>
-      ) : null}
-      {query.trim() && targets.error ? (
-        <p role="alert" className="px-3 py-2 text-xs text-destructive">
-          Hosts could not be searched. {targets.error.message}
+      {more && matches.targetsError ? (
+        <p className="px-3 py-2 text-xs text-destructive" role="alert">
+          Hosts could not be searched. {matches.targetsError.message}
         </p>
       ) : null}
     </>

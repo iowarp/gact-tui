@@ -168,16 +168,14 @@ export function DesktopTitleBar() {
   }, []);
 
   // The window menu answers to Alt+Space; a Mac keeps ⇧⌘/ for searching its
-  // menu bar, so there it has no key. New session, Settings, fullscreen and
-  // reload are bound here too: trimming the native macOS menu (see
-  // menu_spec.rs) dropped its Cmd+N, and WKWebView has no reload key, so these
-  // are the only bindings on every platform; macOS's native Cmd+Comma overlaps
-  // harmlessly (settings navigation is idempotent). Keys and labels come from
-  // the shared catalog.
-  // Registered ahead of the early return for the hooks-order reason above.
+  // menu bar, so there it has no key. New session, fullscreen and reload are
+  // bound here too: trimming the native macOS menu (see menu_spec.rs) dropped
+  // its Cmd+N, and WKWebView has no reload key, so these are the only bindings
+  // on every platform. Settings (Ctrl+,) is bound in App for web and desktop
+  // alike. Keys and labels come from the shared catalog. Registered ahead of the
+  // early return for the hooks-order reason above.
   useShortcut('app-menu', () => setMenuOpen(true));
   useShortcut('new-conversation', () => dispatchMenuAction('new-session'));
-  useShortcut('settings', () => dispatchMenuAction('open-settings'));
   useShortcut('fullscreen', () => void runWindowAction('toggleFullscreen'));
   useShortcut('reload', () => window.location.reload());
 

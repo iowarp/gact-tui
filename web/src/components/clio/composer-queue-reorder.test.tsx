@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioComposerQueue } from './composer-queue';
 
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() } }));
@@ -77,11 +78,19 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
     onUpdate: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
-  const { rerender } = render(<ClioComposerQueue {...props} />);
+  const { rerender } = render(
+    <TooltipProvider>
+      <ClioComposerQueue {...props} />
+    </TooltipProvider>,
+  );
   return {
     props,
     rerender: (next: Partial<Parameters<typeof ClioComposerQueue>[0]> = {}) =>
-      rerender(<ClioComposerQueue {...props} {...next} />),
+      rerender(
+        <TooltipProvider>
+          <ClioComposerQueue {...props} {...next} />
+        </TooltipProvider>,
+      ),
   };
 }
 

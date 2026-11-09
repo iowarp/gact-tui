@@ -48,7 +48,7 @@ describe('ClioComposer file upload surface', () => {
     const picker = screen.getByLabelText('Upload files');
     const open = vi.spyOn(picker, 'click');
 
-    await user.click(screen.getByRole('button', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Attach files' }));
     await user.click(screen.getByRole('button', { name: 'Choose files' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Add attachments' });
@@ -60,12 +60,11 @@ describe('ClioComposer file upload surface', () => {
     expect(screen.queryByRole('dialog', { name: 'Add attachments' })).not.toBeInTheDocument();
   });
 
-  it('opens from the add-context menu', async () => {
+  it('opens from the attach button beside the reference button', async () => {
     const user = userEvent.setup();
     renderComposer(true);
 
-    await user.click(screen.getByRole('button', { name: 'Add context' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Attach files' }));
     await user.click(screen.getByRole('button', { name: 'Choose files' }));
 
     expect(screen.getByRole('dialog', { name: 'Add attachments' })).toBeVisible();
@@ -94,7 +93,7 @@ describe('ClioComposer file upload surface', () => {
     renderComposer();
     const file = new File(['data'], 'observations.csv', { type: 'text/csv' });
 
-    await user.click(screen.getByRole('button', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Attach files' }));
     await user.click(screen.getByRole('button', { name: 'Choose files' }));
     fireEvent.drop(screen.getByRole('region', { name: 'File drop area' }), {
       dataTransfer: { files: [file], types: ['Files'] },

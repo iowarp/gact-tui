@@ -75,25 +75,38 @@ export function DraftAgentCompositionView({
   draft,
   onChange,
   library = false,
+  embedded = false,
 }: {
   library?: boolean;
+  /** Inside a pane that already scrolls, such as the Settings agent preview. */
+  embedded?: boolean;
   draft: DraftAgent;
   onChange: (next: DraftAgent) => void;
 }) {
   const change = useDraftAgentChange(draft, onChange);
-  return <AgentComposition change={change} draft library={library} onCompact={() => undefined} />;
+  return (
+    <AgentComposition
+      change={change}
+      draft
+      embedded={embedded}
+      library={library}
+      onCompact={() => undefined}
+    />
+  );
 }
 
 function AgentComposition({
   change: source,
   draft = false,
   library = false,
+  embedded = false,
   sessionId,
   onCompact,
 }: {
   change: AgentChangeSource;
   draft?: boolean;
   library?: boolean;
+  embedded?: boolean;
   sessionId?: string;
   onCompact: () => void;
 }) {
@@ -228,7 +241,11 @@ function AgentComposition({
   };
   return (
     <div
-      className="clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+      className={
+        embedded
+          ? 'flex min-w-0 flex-col'
+          : 'clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto'
+      }
       data-slot="agent-tab"
       ref={rows}
     >
