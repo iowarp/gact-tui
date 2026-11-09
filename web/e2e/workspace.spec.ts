@@ -1238,7 +1238,9 @@ test('scrolls pending responses and queued messages independently at a narrow vi
     expect(
       await viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeGreaterThan(0);
-    await viewport.hover();
+    // Over the sticky header rather than the centre: a capped card body is its own
+    // scroller and would take the wheel.
+    await viewport.hover({ position: { x: 24, y: 8 } });
     await page.mouse.wheel(0, 500);
     await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await viewport.evaluate((element) => {
@@ -1262,6 +1264,14 @@ test('scrolls pending responses and queued messages independently at a narrow vi
       return settled;
     })
     .toBe(true);
+  // Park the responses a third of the way down: once the queue scrolls, the
+  // composer gives both panels a few more pixels, which would clamp an offset
+  // parked at the end without anything having chained into it.
+  previousResponseScroll = await responseViewport.evaluate((element) => {
+    element.scrollTop = Math.floor((element.scrollHeight - element.clientHeight) / 3);
+    return element.scrollTop;
+  });
+  expect(previousResponseScroll).toBeGreaterThan(0);
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
