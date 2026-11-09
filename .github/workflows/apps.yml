@@ -35,6 +35,17 @@ on:
       - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   workflow_dispatch:
+    inputs:
+      clio_runtime_run:
+        description: >-
+          clio-agent Actions run ID whose macos-source-dmg artifact supplies the
+          macOS bundle's gact-runtime (empty: the reference release)
+        required: false
+        default: ''
+      clio_ref:
+        description: clio-agent ref for the CLIO brand (empty - the reference release)
+        required: false
+        default: ''
 
 env:
   NODE_VERSION: '22.x'
@@ -326,6 +337,7 @@ jobs:
     timeout-minutes: 90
     env:
       CLIO_REFERENCE_RELEASE: v0.9.5.1
+      CLIO_RUNTIME_RUN: ${{ inputs.clio_runtime_run || '' }}
       TARGET: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
@@ -333,7 +345,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: iowarp/clio-agent
-          ref: ${{ env.CLIO_REFERENCE_RELEASE }}
+          ref: ${{ inputs.clio_ref || env.CLIO_REFERENCE_RELEASE }}
           path: .clio-agent
           sparse-checkout: branding
       - uses: pnpm/action-setup@v4
@@ -371,8 +383,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release download "$CLIO_REFERENCE_RELEASE" -R iowarp/clio-agent \
-            --pattern '*_aarch64-bundled.dmg' --dir "$RUNNER_TEMP/reference"
+          if [ -n "$CLIO_RUNTIME_RUN" ]; then
+            gh run download "$CLIO_RUNTIME_RUN" -R iowarp/clio-agent \
+              -n macos-source-dmg --dir "$RUNNER_TEMP/reference"
+          else
+            gh release download "$CLIO_REFERENCE_RELEASE" -R iowarp/clio-agent \
+              --pattern '*_aarch64-bundled.dmg' --dir "$RUNNER_TEMP/reference"
+          fi
+          [ "$(ls "$RUNNER_TEMP"/reference/*.dmg | wc -l)" -eq 1 ]
           mount="$RUNNER_TEMP/reference-mount"
           mkdir -p "$mount"
           hdiutil attach -nobrowse -readonly -noautoopen -quiet -mountpoint "$mount" "$RUNNER_TEMP"/reference/*.dmg
