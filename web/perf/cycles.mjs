@@ -34,24 +34,25 @@ async function sample(page, cdp) {
   await cdp.send('HeapProfiler.collectGarbage');
   const metrics = await cdpMetrics(cdp, { gc: true });
   const attached = await page.evaluate(() => document.getElementsByTagName('*').length);
-  let detached;
-  try {
-    const result = await cdp.send('DOM.getDetachedDomNodes');
-    detached = result.detachedNodes?.length ?? 0;
-  } catch {
-    detached = undefined;
-  }
+  const heap = await heapSnapshot(cdp);
   return {
-    heapMB: metrics.jsHeapUsedMB,
-    nodes: metrics.nodes,
-    attachedElements: attached,
-    listeners: metrics.listeners,
-    documents: metrics.documents,
-    detached,
+    sample: {
+      heapMB: metrics.jsHeapUsedMB,
+      nodes: metrics.nodes,
+      attachedElements: attached,
+      listeners: metrics.listeners,
+      documents: metrics.documents,
+      detached: heap.detached,
+    },
+    groups: heap.groups,
   };
 }
 
-async function snapshotSummary(cdp) {
+// Detached DOM nodes are counted from a heap snapshot, not with
+// DOM.getDetachedDomNodes: that call makes the DevTools DOM agent hold every
+// tree it reports, so each later sample would count them again as live nodes,
+// listeners and detached nodes.
+async function heapSnapshot(cdp) {
   const chunks = [];
   const onChunk = ({ chunk }) => chunks.push(chunk);
   cdp.on('HeapProfiler.addHeapSnapshotChunk', onChunk);
@@ -62,20 +63,31 @@ async function snapshotSummary(cdp) {
   const fields = meta.node_fields;
   const types = meta.node_types[0];
   const width = fields.length;
-  const [typeAt, nameAt, sizeAt] = ['type', 'name', 'self_size'].map((f) => fields.indexOf(f));
+  const [typeAt, nameAt, sizeAt, detachedAt] = ['type', 'name', 'self_size', 'detachedness'].map(
+    (f) => fields.indexOf(f),
+  );
   const groups = new Map();
+  let detached = 0;
   for (let index = 0; index < snapshot.nodes.length; index += width) {
     const type = types[snapshot.nodes[index + typeAt]];
+    const rawName = snapshot.strings[snapshot.nodes[index + nameAt]];
+    // detachedness: 0 unknown, 1 attached, 2 detached. Older snapshots
+    // without the field name the node "Detached <tag>".
+    if (
+      type === 'native' &&
+      (detachedAt >= 0 ? snapshot.nodes[index + detachedAt] === 2 : rawName.startsWith('Detached '))
+    )
+      detached += 1;
     const name =
       type === 'string' || type === 'concatenated string' || type === 'sliced string'
         ? `(${type})`
-        : `${type}:${snapshot.strings[snapshot.nodes[index + nameAt]]}`.slice(0, 120);
+        : `${type}:${rawName}`.slice(0, 120);
     const row = groups.get(name) ?? { count: 0, size: 0 };
     row.count += 1;
     row.size += snapshot.nodes[index + sizeAt];
     groups.set(name, row);
   }
-  return groups;
+  return { detached, groups };
 }
 
 function snapshotGrowth(before, after) {
@@ -233,7 +245,6 @@ async function main() {
       page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
       const cdp = await context.newCDPSession(page);
       await cdp.send('Performance.enable');
-      await cdp.send('DOM.enable').catch(() => undefined);
       const r = new Recorder(page, cdp, 'cycles');
       const row = { surface: name, cycles };
       try {
@@ -243,14 +254,15 @@ async function main() {
         const cycle = await setup({ page, cdp, r });
         for (let index = 0; index < 2; index += 1) await cycle();
         await settle(page, 1000);
-        row.before = await sample(page, cdp);
-        const heapBefore = snapshots ? await snapshotSummary(cdp) : undefined;
+        const before = await sample(page, cdp);
+        row.before = before.sample;
         const started = performance.now();
         for (let index = 0; index < cycles; index += 1) await cycle();
         row.cycleMs = Math.round((performance.now() - started) / cycles);
         await settle(page, 1500);
-        row.after = await sample(page, cdp);
-        if (heapBefore) row.retained = snapshotGrowth(heapBefore, await snapshotSummary(cdp));
+        const after = await sample(page, cdp);
+        row.after = after.sample;
+        if (snapshots) row.retained = snapshotGrowth(before.groups, after.groups);
         row.growth = Object.fromEntries(
           Object.keys(row.after).map((key) => [
             key,
