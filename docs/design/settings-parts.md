@@ -27,17 +27,24 @@ page renders exactly one `level={1}` heading, the page h1.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
 switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
 with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
-(group labels with a control, a save bar under rows) use the same `@3xl:w-[60%]`.
-Item lists, tables and list-detail panes fill the column. `fullWidth` keeps the whole width for a
+(group labels with a control, a save bar under rows) use the same `SETTINGS_COLUMN` class
+from `lib/settings-fold.ts`. It applies 60% from a 36rem container, so the 41rem content
+column of an unfolded window at 1024 px is already 60%, and full width once the window
+folds below 1024 px. Item lists, tables and list-detail panes fill the column. A
+`DetailPane` body is its own container, so rows inside size to the pane, not to the list.
+`fullWidth` keeps the whole width for a
 wide control (a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
 behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
-from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
+from a 20rem container, like the spec's 322 px rows in a 360 px dialog, and stack below it. Text and
 number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,
 12.5 px, 6 px radius; number inputs are right-aligned mono. Don't restyle them per section.
 
 **`SettingsGroupLabel`** (same file)
 `{ children, info?, onAdd?, addLabel?, actions?, className? }`. A small group caption
-above a block of rows. `info` is an ? right after the label. `onAdd` renders a + icon button at the right. Use
+above a block of rows. `info` is an ? right after the label. The first label sits 16 px
+under the page heading, as the spec's `.xgl` does. Keep the page wrapper in block flow so
+the heading's and label's margins collapse; inside a flex or grid wrapper (such as
+`ListDetailLayout`) give the first label `mt-2` instead. `onAdd` renders a + icon button at the right. Use
 `SplitButton` (`primitives/split-button.tsx`) for the page-level Add with
 alternatives, which has a right-aligned arrow.
 
@@ -90,6 +97,10 @@ confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on th
 `facts` is the form for dialog and ask-card facts: a fixed 110 px label column (the spec's
 `grid-template-columns:110px minmax(0,1fr)`), 24 px rows and left-aligned values. Below a
 420 px container the labels give way to their icons. `rows` is the settings-sheet form, with a 118 px label.
+Settings dialogs that state what an action means (the spec's "plain value rows", such as
+Folders' Allow writing to a folder) use `SettingsRow`s, not `facts`: a foreground label and
+a right-aligned 12.5 px value that keeps one line while it fits and wraps only when the
+dialog is too narrow for it.
 
 **`WindowShell`** (same file)
 `{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
@@ -130,7 +141,8 @@ for in-page modes and pane tabs. A choice between a few setting values uses `Set
 
 **`StepList`** `components/clio/primitives/step-list.tsx`
 `{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
-The steps of a long operation in 28 px rows: a check, a spinner, an open circle or an alert, the
+The steps of a long operation in 28 px rows: a check, a 12 px teal ring on its track (the spec's
+`.spin`; it stays still with reduced motion), an open circle or an alert, the
 state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
 `progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
 default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.

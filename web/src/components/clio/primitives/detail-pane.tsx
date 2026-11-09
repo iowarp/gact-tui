@@ -92,7 +92,8 @@ export const DetailPane = memo(function DetailPane({
         <IconButton icon={<CloseIcon />} label="Close" onClick={onClose} />
       </div>
       {tabs ? <div className="flex min-w-0 shrink-0 px-4 pb-2">{tabs}</div> : null}
-      <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-3 text-[13px]">
+      {/* A container, so rows and lists inside size to the pane rather than the whole list-detail. */}
+      <div className="clio-scrollbar @container min-h-0 flex-1 overflow-y-auto px-4 pb-3 text-[13px]">
         {children}
       </div>
     </aside>

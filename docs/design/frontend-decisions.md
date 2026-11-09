@@ -212,8 +212,9 @@ presented.
   no blocks, which the workspace rendered as an unexplained blank row. Retry was
   only instructional copy inside explicit error blocks and did not call the
   backend.
-- **Decision:** Empty assistant turns are labeled “Response unavailable” without
-  inventing an error cause. Recoverable errors and empty responses expose AI
+- **Decision:** Empty assistant turns are labeled “This reply didn’t load” without
+  inventing an error cause (one inline error line with Retry; the service's
+  reason is its hover name). Recoverable errors and empty responses expose AI
   Elements' shared message action, backed by the authoritative retry-attempt
   route. Cancellation continues to use the session cancel mutation.
 - **Acceptance evidence:** In the disposable Codex Luna session, the browser

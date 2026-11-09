@@ -249,7 +249,7 @@ function QueuedReferenceSummary({ references }: { references: readonly ContextRe
         className="inline-flex min-w-0 items-center gap-1"
         title={`${first.label} (${referenceKindLabel(first.ref_kind)})`}
       >
-        {createElement(referenceKindIcon(first.ref_kind), {
+        {createElement(referenceKindIcon(first.ref_kind, first.label), {
           'aria-hidden': true,
           className: 'size-3 shrink-0',
         })}

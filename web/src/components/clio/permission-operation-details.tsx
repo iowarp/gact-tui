@@ -16,6 +16,7 @@ import {
 import type { ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfoIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import { AskCode, AskFacts, AskSection, type AskFact } from './ask-card';
 import { TechnicalDetails } from './technical-details';
 import { permissionOperationLabel } from './permission-operation-labels';
@@ -33,13 +34,13 @@ export interface PermissionOperation {
   paths: readonly string[];
 }
 
-function Place({ icon, children }: { icon: ReactNode; children: string }) {
+function Place({ icon, mono, children }: { icon: ReactNode; mono?: boolean; children: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5" title={children}>
       <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-3.5">
         {icon}
       </span>
-      <span className="min-w-0 truncate">{children}</span>
+      <span className={cn('min-w-0 truncate', mono && 'font-mono text-[12px]')}>{children}</span>
     </span>
   );
 }
@@ -116,7 +117,11 @@ function permissionOperation(
             value: (
               <>
                 {computer ? <Place icon={<ServerIcon />}>{computer}</Place> : null}
-                {folder ? <Place icon={<FolderIcon />}>{folder}</Place> : null}
+                {folder ? (
+                  <Place icon={<FolderIcon />} mono>
+                    {folder}
+                  </Place>
+                ) : null}
               </>
             ),
           },

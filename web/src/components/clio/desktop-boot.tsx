@@ -1,9 +1,7 @@
-import { brand } from '@brand';
-import { Spinner } from '@/components/ui/spinner';
 import { vocab } from '@/lib/brand-vocabulary';
 import { STARTUP_STEP_OF, type DesktopBootStage } from '@/lib/desktop-boot-stage';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { BrandIcon } from './brand-icon';
+import { BrandStatusHeader } from './brand-status-header';
 import { LocalStartupSteps } from './local-startup-steps';
 import { useStartupLog } from './use-startup-log';
 import { StateView } from './primitives/state-view';
@@ -28,19 +26,7 @@ export function DesktopBoot({
   return (
     <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
-        <div className="mb-[18px] -ml-[10%] flex h-[46px] min-w-0 items-center gap-2.5 px-2.5 whitespace-nowrap">
-          <BrandIcon className="size-[18px] shrink-0 text-accent-foreground" />
-          <span className="flex min-w-0 flex-col gap-px">
-            <span className="font-heading text-[14px] font-semibold">{brand.wordmark}</span>
-            <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-warning-foreground">
-              <Spinner
-                aria-hidden="true"
-                className="size-[9px] shrink-0 motion-reduce:animate-none"
-              />
-              <span className="truncate">{`${vocab.agent} local, starting`}</span>
-            </span>
-          </span>
-        </div>
+        <BrandStatusHeader status={`${vocab.agent} local, starting`} />
         <StateView
           kind="loading"
           className="min-h-0 py-0 pb-3"

@@ -73,6 +73,7 @@ export function MessageRowActions({
       >
         {cancellable ? (
           <IconButton
+            data-pending-cancel=""
             disabled={cancelling || !entities.onCancelPendingSteer}
             icon={
               cancelling ? (
