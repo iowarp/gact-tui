@@ -4,7 +4,7 @@ import {
   useCascaderHighlight,
   useCascaderState,
 } from '@/components/reui/cascader/cascader-context';
-import { MODEL_NODE_PREFIX } from './model-picker-model';
+import { MODEL_NODE_PREFIX, SEARCH_RESULT_PREFIX } from './model-picker-model';
 
 interface Walk {
   target: string;
@@ -33,8 +33,15 @@ export function ModelPickerHighlightSeed() {
     if (!panel || !field) return;
     const position = (value: string | null | undefined) =>
       value ? renderedItems.findIndex((node) => node.value === value) : -1;
-    const press = (key: 'ArrowDown' | 'ArrowUp') =>
-      field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const press = (key: 'ArrowDown' | 'ArrowUp') => {
+      // Marked so the search field does not treat it as the person moving (which closes Filters).
+      field.dataset.seeding = '';
+      try {
+        field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      } finally {
+        delete field.dataset.seeding;
+      }
+    };
 
     if (highlight.value !== null) {
       const current = walk.current;
@@ -68,7 +75,10 @@ export function ModelPickerHighlightSeed() {
     // A press can land in Base UI before its highlight commits; keep that walk.
     const pressed = walk.current?.at === -1;
     walk.current = null;
-    const firstModel = renderedItems.findIndex((node) => node.value.startsWith(MODEL_NODE_PREFIX));
+    const firstModel = renderedItems.findIndex(
+      (node) =>
+        node.value.startsWith(MODEL_NODE_PREFIX) || node.value.startsWith(SEARCH_RESULT_PREFIX),
+    );
     const target = [
       position(last.current),
       query.trim() ? firstModel : -1,

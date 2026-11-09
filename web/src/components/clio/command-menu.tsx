@@ -466,7 +466,7 @@ export function ClioCommandMenu({
   return (
     <Dialog onOpenChange={changeOpen} open={open}>
       <DialogContent
-        className={`top-[10dvh] max-h-[80dvh] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] ${aiMode ? 'w-[min(max(30rem,60vw),48rem)]' : 'w-[clamp(420px,50vw,720px)]'}`}
+        className={`top-[10dvh] max-h-[80dvh] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] ${aiMode ? 'w-[min(max(30rem,60vw),48rem)]' : 'w-[clamp(420px,50vw,720px)]'} max-[480px]:w-[98vw] max-[480px]:max-w-[98vw]`}
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
