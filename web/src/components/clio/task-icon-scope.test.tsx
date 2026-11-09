@@ -50,7 +50,9 @@ it.each(['running', 'completed'] as const)(
         .querySelector('[data-slot="work-kind-status"]'),
     ).toBeNull();
     expect(
-      conversation.querySelector(state === 'completed' ? '.lucide-check' : '.animate-spin'),
+      conversation.querySelector(
+        `[data-slot="status-indicator"][data-tone="${state === 'completed' ? 'success' : 'running'}"]`,
+      ),
     ).not.toBeNull();
   },
 );

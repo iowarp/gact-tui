@@ -282,7 +282,7 @@ describe('semantic operation contract', () => {
     const script = (input: Record<string, unknown>): ToolInvocation => ({
       ...call('run_code', input, { handle: 'task_1', accepted: true }),
       presentation: {
-        action: 'Run code',
+        action: 'Run script',
         subject: 'target',
         summary: 'Started in the background',
         blocks: [
@@ -292,7 +292,7 @@ describe('semantic operation contract', () => {
       },
     });
     const background = toolOperation(script({ code: 'print(1)', background: true }));
-    expect(background.action).toBe('Run code');
+    expect(background.action).toBe('Run script');
     expect(background.subjects.map((subject) => subject.label)).toEqual(['Watch job-81']);
     expect(background.metadata).toBe('in the background');
     expect(toolOperation(script({ code: 'print(1)' })).metadata).toBeUndefined();

@@ -2,6 +2,7 @@ import type { Message, ResponseFeedbackState } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResponseRating } from './response-rating';
 
@@ -63,7 +64,9 @@ function mount(value = message, active = false) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ResponseRating message={value} active={active} />
+      <TooltipProvider>
+        <ResponseRating message={value} active={active} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }

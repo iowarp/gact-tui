@@ -55,6 +55,33 @@ describe('conversation landmark excerpts', () => {
       expect(preview.title.length + preview.body.length).toBeLessThanOrEqual(320);
     }
   });
+  it('names a message without text from what it carries, in sentence case', () => {
+    const blocks = (id: string, role: Message['role'], body: Message['blocks']): Message => ({
+      id,
+      role,
+      session_id: 'session',
+      created_at: '',
+      blocks: body,
+    });
+    const previews = transcriptMessagePreviews([
+      blocks('u', 'user', []),
+      blocks('a', 'assistant', []),
+      blocks('t', 'assistant', [
+        { id: 't1', type: 'tool', tool_id: 'x' },
+        { id: 't2', type: 'tool', tool_id: 'y' },
+        { id: 't3', type: 'subagent', subagent_id: 'z' },
+      ] as Message['blocks']),
+      blocks('e', 'assistant', [
+        { id: 'e1', type: 'error', code: 'x', message: 'Quota exceeded', recoverable: true },
+      ] as Message['blocks']),
+    ]);
+    expect([...previews.values()].map((preview) => preview.title)).toEqual([
+      'Error: Quota exceeded',
+      'Activity: 2 tools, 1 delegate',
+      'Reply',
+      'Your message',
+    ]);
+  });
   it('uses only strictly saved marks from old or malformed metadata', () => {
     expect([
       ...messageMarkIds({ message_marks: { saved: true, removed: false, invalid: 1 } }),

@@ -13,6 +13,8 @@ import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
 import { ToolDetailsContent } from './tool-details-content';
 import { PluginChangeInjection } from './conversation-plugin-change';
+import { SummarizationInjection } from './conversation-summarization';
+import { StateView } from './primitives/state-view';
 import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { PresentationLink } from './presentation-link';
@@ -61,22 +63,22 @@ const INJECTION_LABELS: Record<string, string> = {
   variant_advice: 'Advice for this draft',
 };
 
-/** Show a recorded harness addition, retaining the exact text the agent received. */
-export function HarnessInjection({
-  block,
-  compact = false,
-}: {
-  block: InjectionBlock;
-  compact?: boolean;
-}) {
+/**
+ * Show a recorded harness addition, retaining the exact text the agent
+ * received. Every source reads as one quiet line, so `compact` (Activity)
+ * needs no separate treatment.
+ */
+export function HarnessInjection({ block }: { block: InjectionBlock; compact?: boolean }) {
   return block.source === PLUGIN_CHANGE_INJECTION_SOURCE ? (
     <PluginChangeInjection block={block} />
+  ) : block.source === 'summarization' ? (
+    <SummarizationInjection block={block} />
   ) : (
-    <RecordedInjection block={block} compact={compact} />
+    <RecordedInjection block={block} />
   );
 }
 
-function RecordedInjection({ block, compact }: { block: InjectionBlock; compact: boolean }) {
+function RecordedInjection({ block }: { block: InjectionBlock }) {
   const questionContext = useQuestionAnswer();
   const navigation = useContext(PresentationNavigation);
   const previewLines = useTranscriptPreviewLines();
@@ -108,12 +110,7 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
       ? TerminalIcon
       : MessageSquareIcon
     : SyringeIcon;
-  const triggerLabel =
-    block.source === 'summarization'
-      ? block.trigger === 'manual'
-        ? 'Requested'
-        : 'Automatic'
-      : '';
+
   return (
     <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
       <section
@@ -121,50 +118,44 @@ function RecordedInjection({ block, compact }: { block: InjectionBlock; compact:
         data-slot="harness-injection"
         data-source={block.source}
       >
-        <div className="flex min-w-0 items-center gap-1">
-          <Button
-            variant="ghost"
-            aria-label={
-              block.source === 'peer'
-                ? label
-                : `Injection ${label}${triggerLabel ? ` ${triggerLabel}` : ''}`
-            }
-            aria-expanded={expanded}
-            onClick={() => setExpanded(!expanded)}
-            type="button"
-            className={cn(
-              'h-auto min-h-7 min-w-0 flex-1 shrink justify-start gap-2 rounded-sm px-1 py-1 text-left text-muted-foreground',
-              compact ? 'pr-7 text-xs' : 'text-sm font-medium',
-            )}
-          >
-            <Icon
-              aria-hidden="true"
-              className={compact ? 'size-3.5 shrink-0' : 'size-4 shrink-0'}
-            />
-            {!presentation ? <span className="shrink-0 text-xs font-normal">Injection</span> : null}
-            <span className="min-w-0 flex-1 truncate">{label}</span>
-            {triggerLabel ? (
-              <span className="shrink-0 text-xs font-normal">{triggerLabel}</span>
-            ) : null}
-            <ChevronRightIcon
-              aria-hidden="true"
-              className={cn('size-3 shrink-0 transition-transform', expanded && 'rotate-90')}
-            />
-          </Button>
+        <StateView
+          kind="marker"
+          size="row"
+          icon={Icon}
+          title={
+            <button
+              aria-expanded={expanded}
+              aria-label={block.source === 'peer' ? label : `Injection ${label}`}
+              className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              onClick={() => setExpanded(!expanded)}
+              title={label}
+              type="button"
+            >
+              <span className="min-w-0 truncate">{label}</span>
+              <ChevronRightIcon
+                aria-hidden="true"
+                className={cn(
+                  'size-3 shrink-0 motion-safe:transition-transform',
+                  expanded && 'rotate-90',
+                )}
+              />
+            </button>
+          }
+        >
           <DialogTrigger asChild>
             <Button
               variant="ghost"
-              size="icon-sm"
-              className="size-5 shrink-0"
+              size="icon-xs"
+              className="ml-auto size-6 shrink-0 text-faint hover:text-foreground"
               aria-label={`Technical details for ${label}`}
               title="View original recorded content"
             >
-              <InfoIcon className="size-4" />
+              <InfoIcon aria-hidden="true" className="size-3.5" />
             </Button>
           </DialogTrigger>
-        </div>
+        </StateView>
         {expanded ? (
-          <div className="mt-2 min-w-0 space-y-2 pl-1">
+          <div className="mt-1 mb-2 ml-[11px] min-w-0 space-y-2 border-l border-border pl-[19px]">
             {presentation?.attribution ? (
               <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                 {presentation.attribution}

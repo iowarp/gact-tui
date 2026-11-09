@@ -317,7 +317,11 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-open-questions', 'button', /open question/u),
+    menu(
+      'menu-version-status',
+      'button',
+      /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u,
+    ),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
@@ -829,6 +833,15 @@ async function capture(browser, stack, shot, { theme, width }) {
           error: { code: 'unavailable', message: 'The service is restarting.' },
         }),
       }),
+    );
+    // An idle session, so the failure is not mistaken for a turn being set up.
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        for (const session of listing.sessions ?? []) session.state = 'idle';
+        await route.fulfill({ json: listing });
+      },
     );
   }
   if (shot.route === 'degraded-health') {
