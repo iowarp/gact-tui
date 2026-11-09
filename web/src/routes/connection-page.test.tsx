@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { brand } from '@brand';
@@ -132,9 +132,12 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
-  expect(screen.getByText('Starting the local service')).toBeVisible();
-  expect(screen.getByText('Loading the bundled scientific workspace')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(
+    'Starting the local service',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));
+  expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
@@ -407,7 +410,9 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   // run and would never fire again.
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
-  expect(screen.queryByRole('heading', { name: `Starting ${brand.name}` })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: `Starting ${brand.agentName} local` }),
+  ).not.toBeInTheDocument();
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 

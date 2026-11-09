@@ -125,14 +125,11 @@ it.each([
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     await screen.findByRole('menuitem', { name: 'Download HTML' });
-    if (mode !== 'transcript')
-      fireEvent.click(
-        screen.getByRole('menuitemcheckbox', {
-          name: mode === 'full' ? 'Include workspace files' : 'Include session artifacts',
-        }),
-      );
+    // Artifacts start checked; workspace files are opt-in.
+    if (mode === 'full')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     fireEvent.click(
       screen.getByRole('menuitem', {
         name: extension === 'html' ? 'Download HTML' : 'Download ZIP',
