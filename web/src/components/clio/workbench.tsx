@@ -650,13 +650,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               </TabsContent>
             ))}
             {orderedTabs.length === 0 ? (
-              <StateView
-                className="h-full"
-                detail="Pick a list on the strip, or open a file from the conversation."
-                kind="empty"
-                size="panel"
-                title="No tabs open"
-              />
+              // Spec states: icon and one line saying what isn't there (conversation-states).
+              <StateView className="h-full" kind="empty" size="panel" title="No tabs open" />
             ) : null}
           </Tabs>
           {list}
