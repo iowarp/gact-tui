@@ -151,7 +151,7 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight data-selected:[&_.text-muted-foreground]:text-accent-foreground',
           layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-[12.5px]' : 'h-7',
           className,
         )}

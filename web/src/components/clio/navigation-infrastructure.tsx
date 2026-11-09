@@ -168,7 +168,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
           <SidebarMenuSub className="max-h-48 overflow-y-auto">
             {items.map((item) => (
               <SidebarMenuSubItem key={item.id}>
-                <SidebarMenuSubButton asChild size="sm">
+                <SidebarMenuSubButton asChild className="h-[26px] [&>svg]:size-3.5" size="sm">
                   <Link
                     aria-label={`${item.label}: ${item.stateLabel}`}
                     state={{ endpoint, from }}
@@ -177,7 +177,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
                   >
                     <InfrastructureStateIcon state={item.state} />
                     <span>{item.label}</span>
-                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                    <span className="ml-auto shrink-0 text-[12px] text-muted-foreground">
                       {item.stateLabel}
                     </span>
                   </Link>

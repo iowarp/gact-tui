@@ -78,8 +78,8 @@ export function NavigationHeader({
                   <BrandIcon className="size-5" />
                 </span>
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
+                  <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
+                  <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-muted-foreground">
                     <TooltipProvider delayDuration={150}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -104,8 +104,6 @@ export function NavigationHeader({
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
                     <AgentConnectionIdentity
                       endpoint={endpoint}
                       label={activeLabel}
