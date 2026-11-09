@@ -116,7 +116,7 @@ it('gives native UI questions resize/fullscreen controls without losing their re
   await userEvent.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
   expect(screen.getByRole('textbox')).toHaveValue('Last step');
   expect(mounted).toHaveBeenCalledOnce();
-  expect(screen.getByText('Question visual').closest('[data-slot="pending-a2ui"]')).toHaveClass(
-    'bg-transparent',
-  );
+  expect(
+    screen.getByText('Question visual').closest('[data-response-surface="a2ui"]'),
+  ).toHaveAttribute('data-ask-kind', 'question');
 });

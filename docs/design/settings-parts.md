@@ -23,9 +23,10 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. `dirty` marks a value that is still waiting in the save bar. The description sits
+switch. A row takes 60% of a wide page; `fullWidth` keeps the whole width for a wide control
+(a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
 behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
 from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
 number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,

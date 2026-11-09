@@ -44,7 +44,7 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
 }
 
 describe("ConversationTurn: the agent's own questions in chain mode (#1448)", () => {
-  it("puts the agent's pending question in the chain-mode log, answerable in place (#1448)", async () => {
+  it("puts the agent's pending question in the chain-mode log, pointing at the docked card (#1448)", () => {
     const onInteractionResponse = vi.fn().mockResolvedValue(undefined);
     const interaction: PendingInteraction = {
       id: 'question:native_pending',
@@ -79,13 +79,13 @@ describe("ConversationTurn: the agent's own questions in chain mode (#1448)", ()
       />,
     );
 
-    // Not folded into the collapsed chain summary: the card is in the log.
-    expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Fluid channel' }));
-    expect(onInteractionResponse).toHaveBeenCalledWith(interaction, {
-      action: 'answer',
-      selected_options: ['fluid'],
-    });
+    // Not folded into the collapsed chain summary: the log points at the docked card.
+    expect(
+      screen.getByRole('button', {
+        name: 'Answer below: Which physical system should I simulate?',
+      }),
+    ).toBeVisible();
+    expect(onInteractionResponse).not.toHaveBeenCalled();
   });
 
   it('settles the answered question into the existing record in chain mode', () => {

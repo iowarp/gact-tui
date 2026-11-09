@@ -161,7 +161,7 @@ export function ItemList({
   return (
     <div
       aria-label={label}
-      className={cn('@container max-w-[47.5rem] min-w-0', className)}
+      className={cn('@container min-w-0', className)}
       role={label ? 'group' : undefined}
     >
       {children}
