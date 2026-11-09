@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('settings controls share a centre and remain within narrow windows', async ({ page }) => {
+test('settings controls share a trailing edge and remain within narrow windows', async ({ page }) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
   await page.addInitScript((connection) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
@@ -21,7 +21,7 @@ test('settings controls share a centre and remain within narrow windows', async 
           getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u)
             .length > 1;
         return {
-          centre: box.x + box.width / 2,
+          right: box.right,
           // Two-column rows end their control at the row's trailing edge; stacked rows start it.
           edgeGap: inner ? (wide ? box.right - inner.right : inner.left - box.left) : 0,
           overflow: control.scrollWidth - control.clientWidth,
@@ -31,7 +31,7 @@ test('settings controls share a centre and remain within narrow windows', async 
     expect(metrics).toHaveLength(4);
     for (const metric of metrics) {
       expect(metric.overflow).toBeLessThanOrEqual(1);
-      expect(Math.abs(metric.centre - metrics[0]!.centre)).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.right - metrics[0]!.right)).toBeLessThanOrEqual(1);
       expect(Math.abs(metric.edgeGap)).toBeLessThanOrEqual(1);
     }
     const pane = page.getByRole('region', { name: 'Settings content' });
