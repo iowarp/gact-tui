@@ -47,15 +47,15 @@ for (const theme of THEMES) {
       await expectOneLine(page, '[data-slot="menu-row"] > span:nth-child(2) > span');
       await expectOneLine(page, '[data-slot="list-row"] .truncate');
 
-      // Hover actions are hidden with visibility, so showing them never moves the row.
+      // Hover actions are transparent at rest, so showing them never moves the row.
       const first = rows.first();
       await first.scrollIntoViewIfNeeded();
       const title = first.locator('.truncate').first();
       const before = await title.boundingBox();
       const actions = first.locator('[data-slot="list-row-actions"]');
-      await expect(actions).toHaveCSS('visibility', 'hidden');
+      await expect(actions).toHaveCSS('opacity', '0');
       await first.hover();
-      await expect(actions).toHaveCSS('visibility', 'visible');
+      await expect(actions).toHaveCSS('opacity', '1');
       expect(await title.boundingBox()).toEqual(before);
       await page.mouse.move(0, 0);
 
