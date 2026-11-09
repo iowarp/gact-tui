@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useCommandKeyHeld, useKeyPlatform, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import type { ShortcutDefinition } from '@/lib/shortcuts/catalog';
-import { shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
+import { shortcutChords, shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
 export type KeyCapSize = 'md' | 'sm';
@@ -70,7 +70,8 @@ export const ShortcutKeys = memo(function ShortcutKeys({
   const platform = useKeyPlatform();
   const presentation = useShortcutPresentation(id);
   const definition = presentation?.definition ?? (keys ? adHoc(keys, mac) : undefined);
-  if (!definition) return null;
+  // A key this platform leaves to the OS (`mac: []`) shows nothing.
+  if (!definition || !shortcutChords(definition, platform).length) return null;
   if (variant === 'caps') {
     const chords = shortcutLabels(definition, platform);
     return (
@@ -136,7 +137,7 @@ export function HeldKeyBadge({
 }) {
   const held = useCommandKeyHeld();
   const presentation = useShortcutPresentation(held ? id : undefined, position);
-  if (!presentation) return null;
+  if (!presentation?.text) return null;
   return (
     <span
       aria-hidden="true"

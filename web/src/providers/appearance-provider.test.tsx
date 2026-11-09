@@ -192,18 +192,27 @@ describe('appearance preferences', () => {
     expect(renderHook(() => useTheme(), { wrapper }).result.current.theme).toBe('light');
   });
 
-  it('gives Notebook the variant the system prefers, and follows a later change', () => {
+  it('moves a stored Notebook choice to System, which follows a later change', () => {
     const setSystemDark = systemScheme(false);
+    window.localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme: 'notebook' }));
     const { result } = renderHook(() => useTheme(), { wrapper });
-    act(() => result.current.setTheme('notebook'));
-    expect(result.current.resolvedTheme).toEqual({ id: 'notebook', dark: false });
-    expect(document.documentElement.dataset.theme).toBe('notebook');
-    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(result.current.theme).toBe('system');
+    expect(result.current.resolvedTheme).toEqual({ id: 'light', dark: false });
 
     act(() => setSystemDark(true));
-    expect(result.current.resolvedTheme).toEqual({ id: 'notebook', dark: true });
-    expect(document.documentElement.dataset.theme).toBe('notebook');
+    expect(result.current.resolvedTheme).toEqual({ id: 'dark', dark: true });
+    expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+  });
+
+  it('keeps the classic themes selectable with their fixed scheme', () => {
+    systemScheme(false);
+    const { result } = renderHook(() => useTheme(), { wrapper });
+    act(() => result.current.setTheme('classic-dark'));
+    expect(result.current.resolvedTheme).toEqual({ id: 'classic-dark', dark: true });
+    expect(document.documentElement.dataset.theme).toBe('classic-dark');
+    act(() => result.current.setTheme('classic-light'));
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
   it('keeps an earlier theme choice and ignores themes this build does not offer', () => {

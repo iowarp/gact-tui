@@ -1,30 +1,23 @@
 import type { RuntimeSetting, RuntimeSettings, UpdateRuntimeSettings } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon } from 'lucide-react';
-import { RetryIcon } from '@/lib/icon-vocabulary';
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { SettingsSectionHeading } from './settings-section-heading';
-import { ClioSettingsSection } from './settings-section';
-import { SettingsRow } from './settings-row';
-import { NumberLimitInput } from './number-limit-input';
-import { NumericPresetInput } from './numeric-preset-input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
-import { queryKeys } from '@/lib/query-keys';
-import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
+import { connectionScope } from '@/lib/connection-scope';
+import { RetryIcon } from '@/lib/icon-vocabulary';
+import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { IconButton } from './primitives/icon-button';
+import { SaveBar } from './primitives/save-bar';
+import { StateView } from './primitives/state-view';
+import { SettingsLoadError } from './settings-health-load-error';
+import { plainReason } from './settings-health-reason';
+import { RuntimeSettingControl } from './settings-runtime-control';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { SettingsSectionHeading } from './settings-section-heading';
 
 type Draft = { source: RuntimeSettings; changes: Record<string, string | boolean | null> };
 const sourceLabels = {
@@ -32,6 +25,15 @@ const sourceLabels = {
   workspace: 'Workspace configuration',
   environment: 'Environment default',
   default: `${vocab.agent} default`,
+};
+
+const groupInfo: Record<string, string> = {
+  Execution: 'Choose request budgets and recovery behavior.',
+  Subagents: `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`,
+  Workflows:
+    'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.',
+  Memory: `Choose what ${vocab.agent} remembers about you and how it learns.`,
+  Browser: `Choose the browser that shows the pages ${vocab.agent} opens. It runs on the computer ${vocab.agent} runs on.`,
 };
 
 function displayValue(setting: RuntimeSetting): string | boolean {
@@ -68,6 +70,26 @@ function patchFor(draft: Draft): UpdateRuntimeSettings | undefined {
   return { revision: draft.source.revision, changes };
 }
 
+function SettingInfo({ setting }: { setting: RuntimeSetting }) {
+  return (
+    <div className="grid gap-1">
+      {setting.description ? <p>{setting.description}</p> : null}
+      <p>
+        <span className="font-medium">Source:</span> {sourceLabels[setting.source]}
+      </p>
+      <p>
+        <span className="font-medium">Effect:</span> {setting.effect}
+      </p>
+      {setting.has_user_value ? (
+        <p>
+          <span className="font-medium">Reset:</span> removes your saved override and uses the
+          current inherited value.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Edit supported global defaults through the same configuration owner as CLIO. */
 export function RuntimeSettingsPanel({
   only,
@@ -75,6 +97,8 @@ export function RuntimeSettingsPanel({
   title = 'Execution & history',
   description,
   headingLevel = 1,
+  insertBefore,
+  subsections = {},
 }: {
   /** 2 when the panel is folded into another settings page. */
   headingLevel?: 1 | 2;
@@ -84,6 +108,10 @@ export function RuntimeSettingsPanel({
   exclude?: string[];
   title?: string;
   description?: string;
+  /** Content placed before a group (or at the end when the service has no such group). */
+  insertBefore?: { group: string; content: ReactNode };
+  /** Groups shown as their own titled part of the page, by navigation anchor. */
+  subsections?: Record<string, string>;
 } = {}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -103,9 +131,27 @@ export function RuntimeSettingsPanel({
       toast.success(`${title} settings saved`);
     },
   });
+  // Switches and choices apply at once; typed values wait for the save bar.
+  const apply = useMutation({
+    mutationFn: (input: UpdateRuntimeSettings) => repository.updateRuntimeSettings(input),
+    onSuccess: (value) => {
+      client.setQueryData(key, value);
+      setDraft((previous) => (previous ? { ...previous, source: value } : previous));
+    },
+  });
   const update = (setting: RuntimeSetting, value: string | boolean | null) => {
     if (!source) return;
     save.reset();
+    if (
+      value !== null &&
+      (setting.kind === 'boolean' || setting.kind === 'choice') &&
+      draft?.changes[setting.key] === undefined
+    ) {
+      if (value === displayValue(setting)) return;
+      apply.reset();
+      apply.mutate({ revision: source.revision, changes: { [setting.key]: value } });
+      return;
+    }
     const changes = { ...draft?.changes };
     if (value === displayValue(setting)) delete changes[setting.key];
     else changes[setting.key] = value;
@@ -127,256 +173,145 @@ export function RuntimeSettingsPanel({
     }
   };
   const patch = draft ? patchFor(draft) : undefined;
-  const heading = (
-    <SettingsSectionHeading
-      level={headingLevel}
-      title={title}
-      description={
-        description ??
-        `Global defaults for the connected ${vocab.agent} service. Session and workspace overrides take precedence.`
-      }
-    />
-  );
+  const hint =
+    description ??
+    `Global defaults for the connected ${vocab.agent} service. Session and workspace overrides take precedence.`;
+  const heading =
+    !only || headingLevel === 2 ? (
+      <SettingsSectionHeading info={hint || undefined} level={headingLevel} title={title} />
+    ) : null;
+  const trailing = insertBefore?.content;
   if (current.isError && !source)
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-1">
         {heading}
-        <Alert variant="destructive">
-          <AlertTitle>Configuration unavailable</AlertTitle>
-          <AlertDescription>{current.error.message}</AlertDescription>
-        </Alert>
-        <Button variant="outline" onClick={() => void reload()}>
-          Retry loading settings
-        </Button>
+        <SettingsLoadError
+          error={current.error}
+          onRetry={() => void reload()}
+          retrying={current.isFetching}
+          title="Configuration unavailable."
+        />
+        {trailing}
       </div>
     );
   if (!source)
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-1">
         {heading}
-        <p className="text-sm text-muted-foreground">Loading configuration…</p>
+        <StateView kind="loading" size="row" title="Loading configuration…" />
+        {trailing}
       </div>
     );
   const groups = [...new Set(source.settings.map((setting) => setting.group))].filter((group) =>
     only ? group === only : !exclude.includes(group),
   );
+  const inserted = insertBefore && groups.includes(insertBefore.group);
+  const changeCount = Object.keys(draft?.changes ?? {}).length;
+  const renderGroup = (group: string) => {
+    const anchor = subsections[group];
+    const info =
+      only && description !== undefined
+        ? description
+        : (groupInfo[group] ?? 'Choose how context and response history are saved.');
+    return (
+      <section
+        aria-label={only ? undefined : group}
+        className={anchor ? 'scroll-mt-4' : undefined}
+        data-settings-anchor={anchor}
+      >
+        {only && !anchor ? null : (
+          <SettingsGroupLabel info={info || undefined}>{group}</SettingsGroupLabel>
+        )}
+        {source.settings
+          .filter((setting) => setting.group === group)
+          .map((setting) => {
+            const value = draft?.changes[setting.key] ?? displayValue(setting);
+            const resetting = draft?.changes[setting.key] === null;
+            return (
+              <SettingsRow
+                dirty={draft?.changes[setting.key] !== undefined}
+                htmlFor={`runtime-${setting.key}`}
+                info={<SettingInfo setting={setting} />}
+                inlineControl={setting.kind === 'boolean'}
+                key={setting.key}
+                note={resetting ? 'Will inherit after saving' : (setting.reason ?? undefined)}
+                title={setting.title}
+              >
+                <RuntimeSettingControl
+                  canReset={!resetting && setting.editable && setting.has_user_value}
+                  disabled={!setting.editable || resetting || save.isPending || apply.isPending}
+                  id={`runtime-${setting.key}`}
+                  onChange={(next) => update(setting, next)}
+                  resetDisabled={save.isPending}
+                  setting={setting}
+                  value={value}
+                />
+              </SettingsRow>
+            );
+          })}
+      </section>
+    );
+  };
   return (
-    <div className="grid gap-4">
-      {only ? null : heading}
+    <div className="grid">
+      {heading}
       {groups.map((group) => (
-        <ClioSettingsSection
-          key={group}
-          title={only ? title : group}
-          description={
-            only && description !== undefined
-              ? description
-              : group === 'Execution'
-                ? 'Choose request budgets and recovery behavior.'
-                : group === 'Subagents'
-                  ? `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`
-                  : group === 'Workflows'
-                    ? 'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.'
-                    : group === 'Memory'
-                      ? `Choose what ${vocab.agent} remembers about you and how it learns.`
-                      : group === 'Browser'
-                        ? `Choose the browser that shows the pages ${vocab.agent} opens. It runs on the computer ${vocab.agent} runs on.`
-                        : 'Choose how context and response history are saved.'
-          }
-        >
-          <div className="[&_[data-slot=settings-row]]:py-2">
-            {source.settings
-              .filter((setting) => setting.group === group)
-              .map((setting) => {
-                const value = draft?.changes[setting.key] ?? displayValue(setting);
-                const resetting = draft?.changes[setting.key] === null;
-                const id = `runtime-${setting.key}`;
-                const unitFactor = setting.unit === 'percent' ? 100 : 1;
-                const info = (
-                  <div className="grid gap-1">
-                    <p>
-                      <span className="font-medium">Source:</span> {sourceLabels[setting.source]}
-                    </p>
-                    <p>
-                      <span className="font-medium">Effect:</span> {setting.effect}
-                    </p>
-                    {setting.has_user_value ? (
-                      <p>
-                        <span className="font-medium">Reset:</span> removes your saved override and
-                        uses the current inherited value.
-                      </p>
-                    ) : null}
-                  </div>
-                );
-                const disabled = !setting.editable || resetting || save.isPending;
-                return (
-                  <SettingsRow
-                    key={setting.key}
-                    title={setting.title}
-                    htmlFor={id}
-                    inlineControl={setting.kind === 'boolean'}
-                    info={info}
-                    description={setting.description}
-                    note={
-                      resetting
-                        ? 'Will inherit after saving'
-                        : setting.reason
-                          ? setting.reason
-                          : undefined
-                    }
-                  >
-                    <div className="flex w-full min-w-0 items-center justify-end gap-2">
-                      {setting.kind === 'choice' ? (
-                        <Select
-                          value={String(value)}
-                          disabled={disabled}
-                          onValueChange={(next) => update(setting, next)}
-                        >
-                          <SelectTrigger className="w-full max-w-80" id={id}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {setting.choices.map((choice) => (
-                              <SelectItem key={choice.value} value={choice.value}>
-                                {choice.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : setting.kind === 'text' ? (
-                        <Input
-                          className="w-full max-w-80"
-                          id={id}
-                          aria-label={setting.title}
-                          type="text"
-                          spellCheck={false}
-                          autoComplete="off"
-                          placeholder="Not set"
-                          value={String(value)}
-                          disabled={disabled}
-                          onChange={(event) => update(setting, event.target.value)}
-                        />
-                      ) : setting.kind === 'boolean' ? (
-                        <Switch
-                          id={id}
-                          checked={Boolean(value)}
-                          disabled={disabled}
-                          onCheckedChange={(next) => update(setting, next)}
-                        />
-                      ) : setting.presets?.length ? (
-                        <NumericPresetInput
-                          id={id}
-                          label={setting.title}
-                          value={String(value)}
-                          presets={setting.presets.map((preset) => ({
-                            label: preset.label,
-                            value: preset.value * unitFactor,
-                          }))}
-                          minimum={
-                            setting.minimum === null ? undefined : setting.minimum * unitFactor
-                          }
-                          maximum={
-                            setting.maximum === null ? undefined : setting.maximum * unitFactor
-                          }
-                          step={setting.kind === 'integer' ? 1 : 'any'}
-                          unit={setting.unit === 'percent' ? '%' : (setting.unit ?? undefined)}
-                          disabled={disabled}
-                          onChange={(next) => update(setting, next)}
-                        />
-                      ) : setting.unlimited_value === 0 ? (
-                        <NumberLimitInput
-                          id={id}
-                          label={setting.title}
-                          value={String(value)}
-                          defaultValue={Number(setting.default_value)}
-                          disabled={disabled}
-                          onChange={(next) => update(setting, next)}
-                        />
-                      ) : (
-                        <div className="flex w-full min-w-0 items-center gap-2">
-                          <Input
-                            className="w-28 text-center"
-                            id={id}
-                            aria-label={setting.title}
-                            type="number"
-                            value={String(value)}
-                            min={
-                              setting.minimum === null ? undefined : setting.minimum * unitFactor
-                            }
-                            max={
-                              setting.maximum === null ? undefined : setting.maximum * unitFactor
-                            }
-                            step={setting.kind === 'integer' ? 1 : 'any'}
-                            disabled={disabled}
-                            onChange={(event) => update(setting, event.target.value)}
-                          />
-                          {setting.unit ? (
-                            <span className="text-xs text-muted-foreground">
-                              {setting.unit === 'percent' ? '%' : setting.unit}
-                            </span>
-                          ) : null}
-                        </div>
-                      )}
-                      {!resetting && setting.editable && setting.has_user_value ? (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title="Use inherited value"
-                          disabled={save.isPending}
-                          aria-label={`Use inherited ${setting.title.toLowerCase()}`}
-                          onClick={() => update(setting, null)}
-                        >
-                          <RetryIcon aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </SettingsRow>
-                );
-              })}
-          </div>
-        </ClioSettingsSection>
+        <Fragment key={group}>
+          {inserted && insertBefore.group === group ? <div>{insertBefore.content}</div> : null}
+          {renderGroup(group)}
+        </Fragment>
       ))}
-      {save.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Settings were not saved</AlertTitle>
-          <AlertDescription>{save.error.message} Your edits are still here.</AlertDescription>
-        </Alert>
-      ) : null}
-      {current.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          Could not refresh configuration: {current.error.message}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button disabled={!patch || save.isPending} onClick={() => patch && save.mutate(patch)}>
-          {save.isPending ? 'Saving…' : 'Save defaults'}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={current.isFetching || save.isPending}
-          onClick={() => void reload()}
-        >
-          {current.isFetching ? 'Loading…' : 'Reload current settings'}
-        </Button>
-        {draft && !patch ? (
-          <p role="alert" className="text-sm text-destructive">
-            Enter a number within the allowed range.
-          </p>
-        ) : null}
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span>Configuration file</span>
+      {insertBefore && !inserted ? <div>{insertBefore.content}</div> : null}
+      <SettingsGroupLabel>Configuration</SettingsGroupLabel>
+      <SettingsRow title="Configuration file">
         <Button
           aria-label="Copy configuration path"
-          className="h-7 min-w-0 max-w-full justify-start gap-1 px-1 font-mono text-xs font-normal"
+          className="h-7 max-w-full min-w-0 justify-start gap-1.5 px-1.5 font-mono text-xs font-normal text-muted-foreground"
+          onClick={() => void copyConfigPath()}
           title={source.config_path}
           type="button"
           variant="ghost"
-          onClick={() => void copyConfigPath()}
         >
           <span className="min-w-0 truncate">{source.config_path}</span>
           <CopyIcon aria-hidden="true" className="size-3.5 shrink-0" />
         </Button>
-      </div>
+        <IconButton
+          disabled={current.isFetching || save.isPending}
+          icon={<RetryIcon />}
+          label="Reload current settings"
+          onClick={() => void reload()}
+          size="sm"
+        />
+      </SettingsRow>
+      {current.isError ? (
+        <SettingsLoadError
+          error={current.error}
+          onRetry={() => void reload()}
+          retrying={current.isFetching}
+          title="Could not refresh configuration."
+        />
+      ) : null}
+      {apply.isError ? (
+        <SettingsLoadError error={apply.error} title="That change was not applied." />
+      ) : null}
+      <SaveBar
+        className="sticky bottom-0 z-10 bg-background @3xl:w-[60%]"
+        count={changeCount}
+        error={
+          save.error
+            ? `${plainReason(save.error)} Your edits are still here.`
+            : draft && !patch
+              ? 'Enter a number within the allowed range.'
+              : undefined
+        }
+        invalid={Boolean(draft && !patch)}
+        onDiscard={() => {
+          setDraft(undefined);
+          save.reset();
+        }}
+        onSave={() => patch && save.mutate(patch)}
+        saving={save.isPending}
+      />
     </div>
   );
 }

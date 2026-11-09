@@ -398,3 +398,14 @@ function conciseModelName(modelId: string): string {
   const segments = modelId.split('/');
   return segments.at(-1) || modelId;
 }
+
+/** The short family name (gpt-5.6-luna → Luna) when a catalog label is only the raw id. */
+export function compactModelName(provider: string, modelId: string, label: string): string {
+  if (provider === 'codex') {
+    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
+    if (familyName)
+      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
+  }
+  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
+  return label;
+}
