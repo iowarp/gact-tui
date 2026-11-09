@@ -215,12 +215,12 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
   );
 }
 
-/** The options row: numbered buttons, wrapping only when there is no room; stacked when narrow. */
+/** The options row: numbered buttons on one line, labels cut before they wrap; stacked when narrow. */
 export function AskOptions({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+        'mt-2.5 flex items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
         className,
       )}
       data-slot="ask-options"
@@ -238,13 +238,14 @@ export interface AskButtonProps extends Omit<ComponentProps<typeof Button>, 'siz
   primary?: boolean;
 }
 
-/** One 28px option button with its keys inside. */
+/** One 28px option button with its keys inside; the ? and Esc buttons never cut their label. */
 export function AskButton({
   number,
   hint,
   primary,
   children,
   className,
+  title,
   ...props
 }: AskButtonProps) {
   const keys = [...(number ? [String(number)] : []), ...(hint ? [hint] : [])];
@@ -254,9 +255,11 @@ export function AskButton({
       className={cn(
         'h-7 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
         !primary && 'border-input bg-transparent',
+        primary || hint ? 'shrink-0' : 'min-w-14 shrink',
         className,
       )}
       data-slot="ask-button"
+      title={title ?? (typeof children === 'string' ? children : undefined)}
       size="sm"
       variant={primary ? 'default' : 'outline'}
       {...props}
@@ -382,7 +385,7 @@ export function AskDetails({
     <AskSection className="mt-2">
       <TechnicalDetails
         className="text-[11.5px] text-muted-foreground"
-        contentClassName="mt-1 border-t border-border pt-1.5"
+        contentClassName="mt-1"
         hint={hint}
         shortcut="D"
         summaryClassName="h-6 font-normal"

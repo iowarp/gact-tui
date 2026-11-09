@@ -169,12 +169,12 @@ export function PermissionResponse({
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
             {toolCall?.input === undefined ? null : (
               <AskCode
+                className="mt-0 ml-0"
                 code={JSON.stringify(toolCall.input, null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"
                 name="Arguments"
-                meta={toolName}
                 previewLines={12}
               />
             )}
