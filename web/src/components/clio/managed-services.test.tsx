@@ -21,6 +21,8 @@ const connection = vi.hoisted(() => ({
 const repository = vi.hoisted(() => ({
   workspaces: vi.fn(),
   mcpServers: vi.fn(),
+  mcpServer: vi.fn(),
+  mcpServerInventory: vi.fn(async () => []),
   savedMcpServices: vi.fn(),
   tools: vi.fn(),
   infrastructureInventory: vi.fn(),
@@ -278,9 +280,11 @@ describe('ManagedServices', () => {
     });
     await openAddMenu(user);
     await user.click(screen.getByRole('menuitem', { name: 'MCP services' }));
-    await user.click(await screen.findByRole('button', { name: 'Show the tools of Web search' }));
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('fetch');
-    expect(screen.getByRole('list', { name: 'Tools of Web search' })).toHaveTextContent('search');
+    repository.mcpServer.mockImplementation(async () => (await repository.mcpServers())[0]);
+    await user.click(await screen.findByRole('button', { name: 'Details for Web search' }));
+    const tools = await screen.findByRole('group', { name: 'Tools of Web search' });
+    expect(tools).toHaveTextContent(/fetch/i);
+    expect(tools).toHaveTextContent(/search/i);
     expect(screen.getByRole('heading', { name: 'MCP services on Ares' })).toBeVisible();
     expect(screen.queryByText('No service address configured')).toBeNull();
   });
