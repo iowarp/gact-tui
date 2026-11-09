@@ -55,11 +55,10 @@ describe('composer reference presentation', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.queryByRole('button', { name: 'Collapse Artifacts' })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Collapse Workspace files' }),
-    ).not.toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Collapse Sources' })).toBeVisible();
+    expect(await screen.findByRole('group', { name: 'Sources' })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Workspace files' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse Sources' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: /10K-NVDA\.pdf/ }));
     expect(onSelect).toHaveBeenCalledWith(reference);
   });
