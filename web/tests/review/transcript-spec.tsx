@@ -24,9 +24,8 @@ import type { ClioConversationProps } from '../../src/components/clio/conversati
  */
 
 const params = new URLSearchParams(window.location.search);
-const scheme = params.get('theme') === 'light' ? 'light' : 'dark';
-// Notebook follows the colour scheme the capture emulates; plain palettes are pinned.
-const theme = params.get('palette') === 'notebook' ? 'notebook' : scheme;
+// Notebook is the default palette; its light and dark variants are the plain theme ids.
+const theme = params.get('theme') === 'light' ? 'light' : 'dark';
 const only = params.get('state');
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 // AppearanceProvider re-applies the stored choice after ForcedTheme; store the same one.
@@ -541,6 +540,139 @@ const STATES: State[] = [
     height: 760,
     expand: ['delegate'],
     props: conversationTurn,
+  },
+  {
+    id: 'narrow-fifth',
+    title: 'A fifth of the window',
+    height: 760,
+    expand: ['delegate'],
+    props: conversationTurn,
+  },
+  {
+    // The compaction and reply-error lines in each of their states, at row height.
+    id: 'compaction',
+    title: 'Compaction and reply errors',
+    height: 520,
+    props: () => ({
+      messages: [
+        userMessage('compaction-prompt', 'Regrid the 2020–2023 soil moisture to 0.25°.', at(9, 40)),
+        {
+          id: 'compaction-turn',
+          session_id: SESSION,
+          role: 'assistant',
+          turn_id: 'turn_compaction',
+          created_at: at(9, 40, 3),
+          completed_at: at(9, 40, 40),
+          stop_reason: 'error',
+          blocks: [
+            {
+              id: 'compaction-summary',
+              type: 'injection',
+              source: 'summarization',
+              trigger: 'auto',
+              compaction_id: 'cmp_done',
+              text: 'The SMAP L3 search, the 0.25\u00b0 grid choice, and the 14 Opal sites to check.',
+            },
+            {
+              id: 'compaction-failed',
+              type: 'notice',
+              source: 'compaction_failed',
+              text: 'No language model is bound.',
+              code: 'compaction_unavailable',
+              trigger: 'manual',
+              compaction_id: 'cmp_failed',
+            },
+            {
+              id: 'compaction-answer',
+              type: 'text',
+              text: 'The regrid is running on four ranks.',
+              channel: 'answer',
+            },
+            {
+              id: 'compaction-stopped',
+              type: 'error',
+              code: 'stream_interrupted',
+              message: 'The connection closed mid-reply.',
+              recoverable: true,
+            },
+          ],
+        },
+        {
+          id: 'empty-reply',
+          session_id: SESSION,
+          role: 'assistant',
+          created_at: at(9, 44),
+          stop_reason: 'error',
+          error_info: { error: 'provider_error', message: 'The provider returned no content.' },
+          blocks: [],
+        },
+      ],
+      compactions: [
+        {
+          compaction_id: 'cmp_running',
+          session_id: SESSION,
+          scope: 'main',
+          trigger: 'auto',
+          turn_id: 'turn_compaction',
+          anchor_message_id: 'compaction-turn',
+          status: 'running',
+          started_at: at(9, 41),
+        },
+      ],
+      tools: {},
+      subagents: {},
+      tasks: {},
+      artifacts: {},
+      surfaces: {},
+      sessionId: SESSION,
+      preparation: { sessionState: 'completed', activeTurnId: 'run_done' },
+      ...handlers,
+    }),
+  },
+  {
+    // The agent's question waits on the card below: one row, never two lines.
+    id: 'waiting',
+    title: 'Waiting for you',
+    height: 360,
+    props: () => ({
+      messages: [userMessage('prompt', PROMPT), liveTurn([toolBlock('ask')])],
+      tools: record({
+        id: 'ask',
+        session_id: SESSION,
+        name: 'ask_user',
+        title: 'Ask user',
+        state: 'running',
+        input: { question: 'Regrid to 0.25\u00b0 or keep the native 36 km grid?' },
+        started_at: ago(8),
+      }),
+      interactions: [
+        {
+          id: 'question:grid',
+          kind: 'question',
+          owner_session_id: SESSION,
+          attended_session_id: SESSION,
+          status: 'pending',
+          title: 'Question from agent',
+          prompt: 'Regrid to 0.25\u00b0 or keep the native 36 km grid?',
+          source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'ask' },
+          created_at: ago(8),
+          payload: {
+            question_kind: 'choice',
+            options: [
+              { label: 'Regrid to 0.25\u00b0', value: 'regrid' },
+              { label: 'Keep 36 km', value: 'native' },
+            ],
+          },
+          actions: ['answer', 'cancel'],
+        },
+      ],
+      subagents: {},
+      tasks: {},
+      artifacts: {},
+      surfaces: {},
+      sessionId: SESSION,
+      preparation: { sessionState: 'running', activeTurnId: 'run_opal' },
+    }),
   },
 ];
 

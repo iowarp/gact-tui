@@ -25,7 +25,8 @@ test('session creation expands downward from a stable corner and keeps actions r
     .fill('Review station data');
   const collapsedBox = (await dialog.boundingBox())!;
   const collapsedTrigger = (await advanced.boundingBox())!;
-  expect(collapsedBox.width).toBeGreaterThanOrEqual(650);
+  // DialogFrame: 36% of the window, 360 to 560 px.
+  expect(collapsedBox.width).toBeCloseTo(1280 * 0.36, 0);
   await advanced.click();
   await expect(advanced).toHaveAttribute('aria-expanded', 'true');
   const expandedBox = (await dialog.boundingBox())!;
@@ -79,12 +80,12 @@ test('session creation expands downward from a stable corner and keeps actions r
   await expect(
     dialog.getByRole('combobox', { name: 'Default work mode', exact: true }),
   ).toHaveCount(0);
-  await dialog.getByRole('tab', { name: 'Workspace', exact: true }).click();
+  await dialog.getByRole('radio', { name: 'Workspace', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Workspace name', exact: true })).toBeVisible();
   await expect(
     dialog.getByRole('button', { name: 'Create workspace', exact: true }),
   ).toBeInViewport();
-  await dialog.getByRole('tab', { name: 'Session', exact: true }).click();
+  await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Session name', exact: true })).toHaveValue(
     'Review station data',
   );
@@ -105,8 +106,10 @@ test('session creation expands downward from a stable corner and keeps actions r
   await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
   await advanced.click();
   const phoneBox = (await dialog.boundingBox())!;
-  expect(phoneBox.x).toBeGreaterThanOrEqual(15);
-  expect(phoneBox.x + phoneBox.width).toBeLessThanOrEqual(375);
+  // Below 600 px the frame is a bottom sheet across the whole width.
+  expect(phoneBox.x).toBe(0);
+  expect(phoneBox.width).toBeCloseTo(390, 0);
+  expect(phoneBox.y + phoneBox.height).toBeCloseTo(640, 0);
   expect(
     await fields.evaluate((element) => element.scrollWidth - element.clientWidth),
   ).toBeLessThan(2);

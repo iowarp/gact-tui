@@ -1,4 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
+import { isVariantPickInteraction } from '@/lib/variant-runs';
 
 /** True for an MCP request the server first addressed to an agent. */
 export function isAgentMcpInteraction(interaction: PendingInteraction): boolean {
@@ -26,6 +27,24 @@ export function questionInteractionsForTool(
         interaction.source.invocation_id === toolId && isCausalQuestionInteraction(interaction),
     )
     .sort(compareQuestionInteractions);
+}
+
+/**
+ * Splits a call's questions: a plain pending question is said on the call's own row
+ * ("waiting for you"), so it is not drawn again; everything else keeps its record.
+ */
+export function splitWaitingQuestion(questions: readonly PendingInteraction[]): {
+  waiting?: PendingInteraction;
+  rest: PendingInteraction[];
+} {
+  const waiting = questions.find(
+    (interaction) =>
+      interaction.status === 'pending' &&
+      !isAgentMcpInteraction(interaction) &&
+      !isVariantPickInteraction(interaction) &&
+      interaction.source.tool_name !== 'plan_exit',
+  );
+  return { waiting, rest: questions.filter((interaction) => interaction !== waiting) };
 }
 
 /** Return questions owned by an asynchronous task. */
