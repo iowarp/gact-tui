@@ -121,11 +121,12 @@ export function FleetSettingsPanel() {
     return (
       // The select fills the value column; inline-size containment keeps a long
       // model name from widening that column, so every select shares one left
-      // edge. The reset sits just outside it, in the gap before the column.
+      // edge. The reset sits just outside it, in the gap before the column; when
+      // the row stacks there is no gap, so it follows the select instead.
       <div className="relative flex w-full min-w-0 items-center gap-2 [contain:inline-size]">
         {choice ? (
           <IconButton
-            className="@md:absolute @md:right-full @md:mr-2"
+            className="order-last @md:order-none @md:absolute @md:right-full @md:mr-2 max-[1023px]:in-data-window-content:static! max-[1023px]:in-data-window-content:order-last!"
             disabled={save.isPending}
             icon={<Undo2Icon />}
             label="Use conversation model"
