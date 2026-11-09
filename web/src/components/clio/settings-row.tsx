@@ -94,7 +94,7 @@ export function SettingsRow({
           className={cn(
             'flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end @sm:in-data-[slot=dialog-frame-body]:justify-end',
             // The settings field (.xf): 30 px, 12.5 px text; numbers 12 px mono, right-aligned.
-            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-black/10',
+            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
             '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-[0.75rem]',
           )}
         >
