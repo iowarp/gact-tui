@@ -58,12 +58,17 @@ pub(crate) fn boot_log_size() -> Option<u64> {
 }
 
 /// Truncate the boot log so the next attempt starts a fresh transcript.
-/// Writes a single header line with the supplied phase label. No-op when
-/// the path is unset (tests) or the file can't be opened.
+/// Writes a header line with the supplied phase label, followed on macOS by
+/// how the app's PATH was resolved. No-op when the path is unset (tests) or
+/// the file can't be opened.
 pub(crate) fn reset_boot_log(phase: &str) {
     let Some(path) = boot_log_path() else { return };
     if let Ok(mut f) = File::create(&path) {
         let _ = writeln!(f, "=== backend {phase} log ===");
+        #[cfg(target_os = "macos")]
+        if let Some(note) = crate::login_path::outcome() {
+            let _ = writeln!(f, "{note}");
+        }
     }
 }
 

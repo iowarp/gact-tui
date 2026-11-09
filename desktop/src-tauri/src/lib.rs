@@ -290,10 +290,6 @@ pub fn run() {
             // after a failure. Best-effort: a failure here leaves logging a
             // no-op but never blocks boot.
             let _ = supervisor_boot_log::init_boot_log(app.handle());
-            #[cfg(target_os = "macos")]
-            if let Some(outcome) = login_path::outcome() {
-                supervisor_boot_log::boot_log_line(outcome);
-            }
 
             let app_data = app
                 .path()
