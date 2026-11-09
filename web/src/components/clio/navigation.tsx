@@ -17,6 +17,7 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
+import { StableInput } from './primitives/stable-input';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -227,7 +228,7 @@ export function ClioNavigation({
         </nav>
         <SidebarRail />
       </Sidebar>
-      <input
+      <StableInput
         accept="application/json,.json"
         aria-label="Import session file"
         className="sr-only"
