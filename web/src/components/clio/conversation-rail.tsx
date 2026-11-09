@@ -30,10 +30,16 @@ export function ConversationRail({
   evidence: ClioObservabilityDockProps;
   children: (control: ConversationRailControl) => ReactNode;
 }) {
-  const [open, setOpen] = useEvidenceDisclosure('conversation-rail', false);
+  const [open, setDisclosure] = useEvidenceDisclosure('conversation-rail', false);
   const [selectedSource, setSelectedSource] = useState<{ workspaceId: string; id: string }>();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // The rail is anchored, not triggered, so Radix has no trigger to refocus on close.
+  const returnFocus = useRef(false);
+  const setOpen = (next: boolean) => {
+    if (!next) returnFocus.current = !!panelRef.current?.contains(document.activeElement);
+    setDisclosure(next);
+  };
   const panelId = useId();
   return (
     <>
@@ -53,7 +59,9 @@ export function ConversationRail({
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => {
             // Only return focus to the button when it left from inside the rail.
-            if (!panelRef.current?.contains(document.activeElement)) event.preventDefault();
+            event.preventDefault();
+            if (returnFocus.current) buttonRef.current?.focus();
+            returnFocus.current = false;
           }}
           // Pinned: clicking the transcript or a tab leaves it open.
           onInteractOutside={(event) => event.preventDefault()}

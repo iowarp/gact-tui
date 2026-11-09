@@ -55,6 +55,7 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   await expect(technical).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: 'Expand Context', exact: true }).click();
   await panel.getByRole('button', { name: 'Open full context view', exact: true }).click();
   const view = page.getByRole('tablist', { name: 'Observability view' });
   await expect(view.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
