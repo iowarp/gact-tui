@@ -102,7 +102,9 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
       </PopoverTrigger>
       <PopoverContent
         align="start"
+        alignOffset={-6}
         className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        collisionPadding={8}
         onOpenAutoFocus={(event) => {
           // Start on the first notification, not the settings button.
           const first = listRef.current?.querySelector<HTMLElement>('a[href], button');
