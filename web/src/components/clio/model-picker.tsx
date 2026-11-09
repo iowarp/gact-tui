@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -59,6 +67,26 @@ function measureComposer(trigger: HTMLElement | null): ComposerFrame | null {
 }
 
 const TWO_COLUMN_MIN_WIDTH = 560;
+
+/**
+ * Radix rewrites its position variables while it measures the open picker, and
+ * every catalog row would inherit each rewrite as a style recalculation. The
+ * catalog reads none of them, so they stop at its root.
+ */
+const POSITION_VARIABLES_STOP = Object.fromEntries(
+  [
+    'popper-anchor-height',
+    'popper-anchor-width',
+    'popper-available-height',
+    'popper-available-width',
+    'popper-transform-origin',
+    'popover-content-available-height',
+    'popover-content-available-width',
+    'popover-content-transform-origin',
+    'popover-trigger-height',
+    'popover-trigger-width',
+  ].map((name) => [`--radix-${name}`, 'initial']),
+) as CSSProperties;
 
 /** Paint the picker before preparing a large provider catalog. */
 export function ClioModelPicker({
@@ -204,7 +232,11 @@ export function ClioModelPicker({
           <ModelCatalogSkeleton columns={showColumns} label={loadingLabel} />
         ) : null}
         {open && catalogOptions && shellPainted ? (
-          <div ref={catalogContent} className="flex min-h-0 flex-1 flex-col">
+          <div
+            ref={catalogContent}
+            className="flex min-h-0 flex-1 flex-col"
+            style={POSITION_VARIABLES_STOP}
+          >
             <ModelPickerCatalog
               model={model}
               onChange={onChange}
