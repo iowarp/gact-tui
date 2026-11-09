@@ -118,8 +118,14 @@ const EDGE = 4;
 /** Badges on screen now, so a crowded toolbar staggers instead of overlapping. */
 const placedBadges = new Map<symbol, DOMRect>();
 
+/** Neighbouring badges keep a gap, so two never read as one chord (Cmd+Return beside Esc). */
 function overlaps(a: DOMRect, b: DOMRect) {
-  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  return (
+    a.left < b.right + GAP &&
+    b.left < a.right + GAP &&
+    a.top < b.bottom + GAP &&
+    b.top < a.bottom + GAP
+  );
 }
 
 function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slot: symbol) {
@@ -168,7 +174,8 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     top = centreY - height / 2;
   }
   if (side === 'cover') top = centreY - height / 2;
-  if (side === 'top-edge') top = target.top - height / 2;
+  // Mostly above the edge, clear of the label inside the control and the text above it.
+  if (side === 'top-edge') top = target.top - height / 2 - 3;
   const clamp = () => {
     left = Math.min(Math.max(left, EDGE), viewportWidth - width - EDGE);
     top = Math.min(Math.max(top, EDGE), viewportHeight - height - EDGE);
@@ -178,9 +185,9 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   for (let step = 0; step < 4; step += 1) {
     const rect = new DOMRect(left, top, width, height);
     if (!others.some((other) => overlaps(rect, other))) break;
-    if (vertical === 'above' || vertical === 'top-edge') top -= height + 2;
-    else if (vertical === 'below' || vertical === 'cover') top += height + 2;
-    else left -= width + 2;
+    if (vertical === 'above' || vertical === 'top-edge') top -= height + GAP + 1;
+    else if (vertical === 'below' || vertical === 'cover') top += height + GAP + 1;
+    else left -= width + GAP + 1;
     clamp();
   }
   placedBadges.set(slot, new DOMRect(left, top, width, height));

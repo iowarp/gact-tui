@@ -257,7 +257,7 @@ export function WorkbenchTabRow({
                             >
                               {children}
                               {active && tabs.length > 1 ? (
-                                <HeldKeyBadge id="previous-tab" pairId="next-tab" side="above" />
+                                <HeldKeyBadge id="previous-tab" pairId="next-tab" side="cover" />
                               ) : null}
                             </TabsTrigger>
                           </SortableItemHandle>

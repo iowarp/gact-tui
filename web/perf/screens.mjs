@@ -129,7 +129,10 @@ async function openFile(page, path, { settled = true } = {}) {
 /** Holds the command key past the half-second delay; the shot keeps it held. */
 async function holdCommandKey(page) {
   const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
-  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
   await page.keyboard.down(mac ? 'Meta' : 'Control');
   await page.waitForTimeout(900);
 }
@@ -265,7 +268,7 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
-    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    // Hold Ctrl (âŒ˜ with `platform: 'mac'`): every keyed control shows its key.
     ...['windows', 'mac'].flatMap((platform) => [
       s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
       s(
@@ -273,6 +276,27 @@ function catalogue({ settings, infrastructure }) {
         `held-keys-pocket-${platform}`,
         SESSION,
         async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // Opening a file closes the list; show it again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
           await openFile(page, 'results/stations.csv');
           await holdCommandKey(page);
         },
@@ -825,7 +849,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     await page.waitForTimeout(shot.settleMs ?? 900);
     if (shot.setup) await shot.setup(page);
     if (!shot.allowLoading) {
-      // Wait out transient "Loading …" placeholders; a persistent one is a
+      // Wait out transient "Loading â€¦" placeholders; a persistent one is a
       // fixture gap worth reporting rather than a reason to fail the shot.
       result.stillLoading = await page
         .waitForFunction(
@@ -921,7 +945,7 @@ function renderReport(manifest) {
     lines.push(
       '## Still loading when captured',
       '',
-      'A "Loading…" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
+      'A "Loadingâ€¦" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
       '',
       '| Surface | State | Theme | Width |',
       '|---|---|---|---|',
@@ -973,7 +997,7 @@ async function main() {
         !filters.length ||
         filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
     );
-    log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
+    log(`${shots.length} states Ã— ${widths.length} widths Ã— ${themes.length} themes`);
     const results = [];
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
