@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { closeNotifications, showEvidenceRail, showWorkbenchList } from './workspace-setup';
+import { closeNotifications, openConversationRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   }, fixtureEndpoint);
 });
 
-test('opens children in tabs, uses Shift for the center, and fits evidence equally', async ({
+test('opens children in tabs from the pinned rail and uses Shift for the center', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
@@ -20,19 +20,9 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
     await page.request.post(`${fixtureEndpoint}/__test/subagent-navigation`)
   ).json();
   await page.goto(workspaceUrl);
-  await showEvidenceRail(page, 'Work');
-  const evidence = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  const parentWidth = await evidence.evaluate((element) => element.clientWidth);
-  const child = evidence.getByRole('button', {
-    name: 'Open child conversation Station analysis worker',
-    exact: true,
-  });
-  await expect(child).not.toBeVisible();
-  await evidence.getByRole('button', { name: 'Completed work', exact: true }).click();
-  await evidence
-    .getByRole('button', { name: 'Task details: Station analysis worker', exact: true })
-    .click();
+  const evidence = await openConversationRail(page);
+  // The rail's Running section lists the conversation's runs; a row opens its child as a tab.
+  const child = evidence.getByRole('button', { name: 'Station analysis worker', exact: true });
   await expect(child).toBeVisible();
   await child.click();
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
@@ -43,28 +33,15 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await expect(
     page.getByRole('button', { name: 'Open workspace canvas', exact: true }),
   ).toBeVisible();
+  // Pinned: the rail stays open while the canvas opens and closes.
   await expect(evidence).toBeVisible();
-  // Closing the canvas resizes/rehosts the rail. Wait for its parent layout
-  // before inspecting an uncontrolled task disclosure from the new host.
-  await expect.poll(() => evidence.evaluate((element) => element.clientWidth)).toBe(parentWidth);
-  const reopenedDetails = evidence.getByRole('button', {
-    name: 'Task details: Station analysis worker',
-    exact: true,
-  });
-  await reopenedDetails.click({ trial: true });
-  if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
-    await reopenedDetails.click();
-  }
-  await expect(reopenedDetails).toHaveAttribute('aria-expanded', 'true');
   await expect(child).toBeVisible();
   await child.click({ modifiers: ['Shift'] });
   await expect(page).toHaveURL(new RegExp(`/sessions/${worker.id}$`));
   await expect(page.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  await expect.poll(async () => (await evidence.boundingBox())?.width).toBeCloseTo(parentWidth, 0);
-  const bounds = await evidence.boundingBox();
-  const composer = await page.locator('[data-evidence-composer]').boundingBox();
-  expect(bounds!.x).toBeGreaterThan(composer!.x + composer!.width);
+  await expect(evidence).toBeVisible();
+  const bounds = (await evidence.boundingBox())!;
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(1920);
 });
 
 test('allows central child follow-ups while hiding user branching controls', async ({
@@ -85,7 +62,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   ).toBeVisible();
   await expect(page.getByRole('combobox', { name: /^Ask / })).toHaveCount(0);
   await page.getByRole('button', { name: `Actions for ${worker.title}`, exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Branch into a new session' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Fork into a new conversation' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('subagent-actions.png') });
   await page.keyboard.press('Escape');

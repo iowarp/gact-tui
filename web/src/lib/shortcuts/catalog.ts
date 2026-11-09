@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 /**
  * Every keyboard shortcut, written once. The tooltip, the menu's right
  * column, the held-key badge and the shortcut sheet all read from here, so a
@@ -37,8 +38,10 @@ export interface ShortcutDefinition {
   mac?: readonly string[];
   /** Only where this host owns the key (the desktop app owns Ctrl N). */
   host?: 'desktop' | 'browser';
-  /** Show the chords side by side instead of with "or" (`↑ ↓`). */
-  joiner?: 'or' | 'pair';
+  /** Show the chords side by side instead of with "or" (`↑ ↓`), or as one cap (`↑↓`). */
+  joiner?: 'or' | 'pair' | 'cap';
+  /** When the key does this, if not always; the sheet shows it on hover. */
+  when?: string;
 }
 
 const def = (
@@ -46,7 +49,7 @@ const def = (
   name: string,
   group: ShortcutGroup,
   keys: readonly string[],
-  extra: Partial<Pick<ShortcutDefinition, 'mac' | 'host' | 'joiner'>> = {},
+  extra: Partial<Pick<ShortcutDefinition, 'mac' | 'host' | 'joiner' | 'when'>> = {},
 ): ShortcutDefinition => ({ id, name, group, keys, ...extra });
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
@@ -74,7 +77,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('next-region', 'Next region', 'anywhere', ['F6']),
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
   // On a Mac the menu bar is the app menu, and ⇧⌘/ searches it; the app takes no key.
-  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: [] }),
+  // Named after the menu's own trigger, the brand wordmark ("CLIO menu").
+  def('app-menu', `${brand.wordmark} menu`, 'anywhere', ['Alt+Space'], { mac: [] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
   def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
   // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.
@@ -117,7 +121,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
 
-  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'pair' }),
+  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'cap' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
@@ -130,10 +134,14 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
     joiner: 'pair',
   }),
   def('menu-all-results', 'All results', 'menu', ['Ctrl+Enter']),
-  def('menu-all-types', 'Back to all types, in an empty search', 'menu', ['Backspace']),
+  def('menu-all-types', 'Back to all types', 'menu', ['Backspace'], {
+    when: 'In an empty search',
+  }),
   def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
   def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
-  def('menu-drop-filter', 'Drop the last filter, in an empty search', 'menu', ['Backspace']),
+  def('menu-drop-filter', 'Drop the last filter', 'menu', ['Backspace'], {
+    when: 'In an empty search',
+  }),
 
   def('graph-move', 'Move between nodes', 'graph', ['Left', 'Right', 'Up', 'Down'], {
     joiner: 'pair',

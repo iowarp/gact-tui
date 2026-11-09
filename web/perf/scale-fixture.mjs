@@ -828,13 +828,17 @@ const server = createServer(async (request, response) => {
     const workspaceMatch = syntheticWorkspace.exec(url.pathname);
     const get = request.method === 'GET';
     if (get && url.pathname === '/v1/capabilities') {
-      // The base fixture leaves context references off; the perf journeys
-      // exercise the @-mention popover, so advertise them here.
+      // The base fixture leaves context references and uploads off; the perf
+      // journeys exercise the @-mention popover and the + menu, so advertise them.
       const base = await upstreamJson('/v1/capabilities');
       entry.status = 200;
       entry.bytes = sendJson(response, {
         ...base,
-        capabilities: { ...base.capabilities, x_clio_context_references: { enabled: true } },
+        capabilities: {
+          ...base.capabilities,
+          x_clio_context_references: { enabled: true },
+          x_clio_resources: { enabled: true, custody: 'workspace' },
+        },
       });
     } else if (get && /^\/v1\/workspaces\/[^/]+\/references$/u.test(url.pathname)) {
       const query = (url.searchParams.get('q') ?? '').toLowerCase();

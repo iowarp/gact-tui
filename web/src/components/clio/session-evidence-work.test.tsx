@@ -54,8 +54,7 @@ it('keeps a directly spawned workflow in the single Work history and opens its r
       },
     },
   });
-  expect(items.some((item) => item.id === 'child-agents')).toBe(false);
-  const background = items.filter((item) => item.id === 'background');
+  const background = items.filter((item) => item.id === 'running');
   expect(background).toHaveLength(1);
   render(<>{background[0]!.content}</>);
   expect(screen.getAllByRole('button', { name: 'Completed work' })).toHaveLength(1);
