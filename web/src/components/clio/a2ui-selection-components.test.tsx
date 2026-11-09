@@ -221,7 +221,7 @@ describe('clio.data-table.v1 selection', () => {
     { station: 'PBO2', value: 3 },
   ];
 
-  it('selects a clicked row by its key column and clears on a second click', () => {
+  it('selects a clicked row by its key column and clears on a second click', async () => {
     const setSelection = vi.fn();
     const { rerender } = render(
       <ClioSelectableDataTable
@@ -232,7 +232,8 @@ describe('clio.data-table.v1 selection', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('MTA1'));
+    // The grid is its own chunk; it mounts once that loads.
+    fireEvent.click(await screen.findByText('MTA1'));
     expect(setSelection).toHaveBeenLastCalledWith({
       field: 'station',
       values: ['MTA1'],
