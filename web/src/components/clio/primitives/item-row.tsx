@@ -94,6 +94,8 @@ export const ItemRow = memo(
             (actionsVisible
               ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
               : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
+          // A stacked confirm takes row 2, so the name and meta get the freed columns.
+          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
