@@ -18,6 +18,7 @@ import {
 } from '@/tauri/desktop-updater';
 import { latestClioReleaseQuery, runDesktopUpdate } from '@/hooks/use-update-status';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
+import { agentIdentity } from './connection-names';
 import { agentCheckIssue, desktopCheckIssue } from './version-check-issue';
 import { managedClioVersion } from '@/tauri/clio-update-verification';
 import { ProductUpdateIcon, ProductUpdateSummary } from './product-update-summary';
@@ -234,7 +235,7 @@ export function SystemVersionStatus() {
             }
             versions={[
               {
-                label: desktopShell ? 'Desktop app' : 'Web interface',
+                label: 'Interface version',
                 version: displayedDesktopVersion,
                 targetVersion: desktopUpdateAvailable ? desktopTargetVersion : undefined,
                 releaseUrl:
@@ -244,7 +245,7 @@ export function SystemVersionStatus() {
                 testId: 'version-row-desktop',
               },
               {
-                label: desktopShell ? 'Runtime' : 'Connected runtime',
+                label: 'Runtime version',
                 version: agentVersion,
                 targetVersion: agentBehindLatest ? agentTargetVersion : undefined,
                 releaseUrl:
@@ -254,27 +255,33 @@ export function SystemVersionStatus() {
                 testId: 'version-row-agent',
               },
             ]}
+            facts={
+              desktopShell
+                ? []
+                : [
+                    {
+                      label: 'Address',
+                      value: agentIdentity(settings.endpoint).address,
+                      testId: 'version-row-address',
+                    },
+                  ]
+            }
           >
-            {!desktopShell ? (
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="break-all">Connected to {settings.endpoint}</p>
-                {agentBehindLatest ? (
-                  <p>
-                    Install runtime updates on that computer, then reload this page.
-                    {brand.agentReleaseUrl && latestClioVersion ? (
-                      <>
-                        {' '}
-                        <ExternalLink
-                          className="text-primary hover:underline"
-                          href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}
-                        >
-                          View release
-                        </ExternalLink>
-                      </>
-                    ) : null}
-                  </p>
+            {!desktopShell && agentBehindLatest ? (
+              <p className="text-xs text-muted-foreground">
+                Install runtime updates on that computer, then reload this page.
+                {brand.agentReleaseUrl && latestClioVersion ? (
+                  <>
+                    {' '}
+                    <ExternalLink
+                      className="text-primary hover:underline"
+                      href={`${brand.agentReleaseUrl}/tag/${releaseTag(latestClioVersion)}`}
+                    >
+                      View release
+                    </ExternalLink>
+                  </>
                 ) : null}
-              </div>
+              </p>
             ) : null}
           </ProductUpdateSummary>
         </PopoverContent>
