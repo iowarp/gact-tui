@@ -54,6 +54,7 @@ Status values:
 | Empty, loading, error, unavailable, too large, no preview and changed elsewhere            | conversation-states: states; workbench-lineage: the four file states; workbench-frame-bar: the five shared states | `primitives/state-view.tsx`: `StateView` (`row`, `panel` or `page`; error is an alert, loading is a polite status)                                                                                                                                                                                                                                                                                                                        | Shared, partly migrated                                                                                                                                                       |
 | Toasts                                                                                     | conversation-states: toasts                                                                                       | `sonner` through `ui/sonner.tsx`                                                                                                                                                                                                                                                                                                                                                                                                          | Unchanged; restyling is surface work                                                                                                                                          |
 | Step list (done, current, to do, failed; progress bar and log line)                        | conversation-states: Update and restart, Local startup                                                            | `primitives/step-list.tsx`: `StepList` (an ordered list; `aria-current="step"`; state is also a word)                                                                                                                                                                                                                                                                                                                                     | Shared; used by the update page                                                                                                                                               |
+| Ring spinner (work in progress beside its words)                                           | conversation-states: Local startup (`.spin`)                                                                      | `primitives/ring-spinner.tsx`: `RingSpinner` (12 px teal arc on its track; decorative; still with reduced motion)                                                                                                                                                                                                                                                                                                                         |
 | Security acknowledgement strip (sandbox off at start)                                      | settings: ?Blocked by the sandbox? strip (`.zsbx`, warning edge, verb on the right)                               | `sandbox-inactive-banner.tsx`: `SandboxInactiveStrip` (warning, reason and next step on one line each; Details and ?Continue without protection?)                                                                                                                                                                                                                                                                                         | Shared                                                                                                                                                                        |
 
 ## Consolidated in this pass
@@ -146,12 +147,15 @@ above while redesigning the surface; the change is not mechanical.
   `clio/workspace-navigation-session-row.tsx`, `clio/artifact-rail-row.tsx`.
   `ListRow` keeps its action column with `visibility`. The workbench Artifacts
   list already uses `ListRow`.
-- **Frame bar:** `clio/file-viewer-shell.tsx` now has the frame bar's 34 px
-  layout: the file name as the crumb, more than one reading mode as a
-  segmented group of named icons, and a divider before the actions. It keeps
-  Radix `Tabs` (every viewer and test reads `role="tab"`), so it does not yet
-  render `FrameBar`, `FrameCrumbs` or the parent folders. The workbench tab
-  row renders `FrameTab`.
+- **Frame bar:** `clio/file-viewer-shell.tsx` renders `FrameBar` with
+  `FrameCrumbs`, more than one reading mode as `FileModeControls` (a segmented
+  group of named icons inside Radix `Tabs`), and `FrameTalkTake` for the
+  actions. As it narrows, the bar folds one step at a time (`FRAME_FOLDS`,
+  workbench-lineage "When it gets narrow"). At the last step the modes move
+  into the … menu as a checked list: `FileModeControls` registers them with
+  `useFrameModes` (`primitives/frame-modes.ts`) and the menu reads them with
+  `foldedFrameModes`. A bar without that menu keeps the folded mode icon. The
+  workbench tab row renders `FrameTab`.
 - **Remaining key handlers to register in the catalog:**
   `clio/selection-actions.tsx`, `ui/sidebar.tsx` (`Ctrl B`; the catalog's
   `left-pocket`), `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the

@@ -74,7 +74,8 @@ export interface RunListRowProps {
 }
 
 /**
- * One run on one 32px line: status mark, name, a progress bar, the state word (or "3 of 5"),
+ * One run on one 32px line: status mark, name, a progress bar (narrow lists
+ * only; wide lists show source and workspace instead), the state word (or "3 of 5"),
  * what ran, workspace, time and hover actions. A failed run's reason takes a
  * second line. Every column has one width; source and workspace drop first as
  * the list narrows. Choosing the row opens it beside the list.
@@ -138,7 +139,10 @@ export const RunListRow = memo(function RunListRow({
       }
       columns={
         <>
-          <span className="hidden w-6 shrink-0 @[440px]/runs:flex" data-slot="run-progress">
+          <span
+            className="flex w-[34px] shrink-0 items-center @[560px]/runs:hidden"
+            data-slot="run-progress"
+          >
             {percent === undefined ? null : (
               <span
                 aria-label={`${percent}% done`}

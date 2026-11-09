@@ -10,19 +10,15 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 
-/** Says who started a compaction: the service on its threshold, or the user. */
-export function CompactionTriggerLabel({ trigger }: { trigger: CompactionTrigger }) {
-  return (
-    <span className="shrink-0 text-muted-foreground">
-      {trigger === 'auto' ? 'Automatic' : 'Requested'}
-    </span>
-  );
+/** Who started a compaction, as the hover name of its line. */
+function compactionTriggerHint(trigger: CompactionTrigger | undefined) {
+  return trigger === 'auto' ? 'Started automatically' : trigger ? 'Requested' : undefined;
 }
 
 /**
- * The record of a compaction, where it happened: one quiet line, "Compacted
- * here, earlier context summarized". Pressing it discloses the summary exactly
- * as the agent received it.
+ * The record of a compaction, where it happened: one quiet 28px line,
+ * "Compacted here, earlier messages summarized". Pressing it discloses the
+ * summary exactly as the agent received it; who started it is its hover name.
  */
 export function SummarizationInjection({
   block,
@@ -39,29 +35,31 @@ export function SummarizationInjection({
       data-source="summarization"
     >
       <StateView
+        className="w-fit max-w-full"
         kind="marker"
         size="row"
         icon={PackageIcon}
         title={
           <button
             aria-expanded={expanded}
-            className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            className="group/compaction inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             onClick={() => setExpanded(!expanded)}
+            title={compactionTriggerHint(block.trigger)}
             type="button"
           >
-            <span className="min-w-0 truncate">Compacted here, earlier context summarized</span>
+            <span className="min-w-0 truncate">Compacted here, earlier messages summarized</span>
             <ChevronRightIcon
               aria-hidden="true"
               className={cn(
-                'size-3 shrink-0 motion-safe:transition-transform',
-                expanded && 'rotate-90',
+                'size-3 shrink-0 motion-safe:transition-[transform,opacity]',
+                expanded
+                  ? 'rotate-90'
+                  : 'opacity-0 group-hover/compaction:opacity-100 group-focus-visible/compaction:opacity-100',
               )}
             />
           </button>
         }
-      >
-        {block.trigger ? <CompactionTriggerLabel trigger={block.trigger} /> : null}
-      </StateView>
+      />
       {expanded ? (
         <div className="mt-1 mb-2 ml-[11px] min-w-0 max-w-full border-l border-border pl-[19px] break-words text-sm">
           <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
@@ -71,7 +69,10 @@ export function SummarizationInjection({
   );
 }
 
-/** A compaction that produced no summary: why, its typed code, and who started it. */
+/**
+ * A compaction that produced no summary: one error line. Why, its typed code
+ * and who started it are the line's hover name and its accessible text.
+ */
 function CompactionFailure({
   code,
   message,
@@ -81,17 +82,27 @@ function CompactionFailure({
   message: string;
   trigger?: CompactionTrigger;
 }) {
-  const reason = message || 'The service did not report why.';
+  const facts = [
+    message || 'The service did not report why.',
+    code ? humanizeProtocolValue(code) : undefined,
+    compactionTriggerHint(trigger),
+  ].filter(Boolean);
   return (
-    <div className="min-w-0 max-w-full" data-slot="compaction-failed" title={reason}>
+    <div
+      className="w-fit min-w-0 max-w-full"
+      data-slot="compaction-failed"
+      title={facts.join(' ? ')}
+    >
       <StateView
         kind="error"
         size="row"
-        title={`Context could not be summarized: ${reason}`}
-        detail={code ? humanizeProtocolValue(code) : undefined}
-      >
-        {trigger ? <CompactionTriggerLabel trigger={trigger} /> : null}
-      </StateView>
+        title={
+          <>
+            Earlier messages weren’t summarized
+            <span className="sr-only">: {facts.join('. ')}</span>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -121,8 +132,9 @@ export function TranscriptNotice({ block }: { block: NoticeBlock }) {
 
 /**
  * A compaction in progress, in the place its summary will appear: a spinner
- * and "Summarizing context" with who started it. A failure not yet (or never)
- * recorded in the transcript shows its typed error here instead.
+ * and "Summarizing earlier messages…", with who started it as its hover name.
+ * A failure not yet (or never) recorded in the transcript shows its error
+ * line here instead.
  */
 export function ClioCompactionProgress({ compaction }: { compaction: PendingCompaction }) {
   if (compaction.status === 'failed') {
@@ -135,10 +147,12 @@ export function ClioCompactionProgress({ compaction }: { compaction: PendingComp
     );
   }
   return (
-    <div className="min-w-0 max-w-full" data-slot="compaction-progress">
-      <StateView kind="loading" size="row" title="Summarizing context">
-        <CompactionTriggerLabel trigger={compaction.trigger} />
-      </StateView>
+    <div
+      className="w-fit min-w-0 max-w-full"
+      data-slot="compaction-progress"
+      title={compactionTriggerHint(compaction.trigger)}
+    >
+      <StateView kind="loading" size="row" title="Summarizing earlier messages…" />
     </div>
   );
 }

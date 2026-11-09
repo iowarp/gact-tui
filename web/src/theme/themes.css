@@ -35,7 +35,7 @@
   --muted: #ede7da;
   --muted-foreground: #6b655a;
   --faint: #6f675b;
-  --changed: #2f7d75;
+  --changed: #276a63;
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
   --key: #f8f4ec;
@@ -218,7 +218,7 @@
   --syntax-token-parameter: #e8c27a;
   --syntax-token-punctuation: #b3ac9f;
   --syntax-token-link: #74b8b0;
-  --scrim: rgb(0 0 0 / 35%);
+  --scrim: rgb(10 9 8 / 62%);
   --shadow-color: rgb(0 0 0 / 60%);
   --highlight: #4a3a1a;
   --highlight-foreground: #ece6da;
