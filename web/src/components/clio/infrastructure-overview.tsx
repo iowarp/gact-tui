@@ -265,7 +265,7 @@ function webResearchRow(
     const url = remoteUrlFromSpec(webSearch?.spec);
     return {
       description: 'Source reading and research tools are connected.',
-      meta: url ? urlHost(url) : undefined,
+      meta: url ? hostName(url, data) : undefined,
       action: 'Manage web research',
       status: 'Connected',
       state: 'healthy',
@@ -307,12 +307,17 @@ function webResearchRow(
   };
 }
 
-function urlHost(url: string): string | undefined {
+/** The computer a service URL points at, by its saved name when there is one, never the URL. */
+function hostName(url: string, data: InfrastructureInventory): string | undefined {
+  let host: string;
   try {
-    return new URL(url).host || undefined;
+    host = new URL(url).hostname;
   } catch {
     return undefined;
   }
+  if (!host) return undefined;
+  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) return 'This computer';
+  return data.targets.find((target) => target.ssh?.host === host)?.label || host;
 }
 
 /** The agent row names the computer it runs on: its given name, or its host, never a URL. */
