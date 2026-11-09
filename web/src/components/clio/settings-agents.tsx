@@ -106,56 +106,58 @@ export function AgentSettings() {
     <div className="min-w-0">
       <SettingsGroupLabel className="mt-0">Installed agents</SettingsGroupLabel>
       <ItemList label="Installed agents">
-        {installed.length ? (
+        {agents.isPending ? (
+          <StateView kind="loading" size="row" title="Loading agents…" />
+        ) : agents.error ? (
+          <StateView
+            action={{ label: 'Retry', onClick: () => void agents.refetch() }}
+            kind="error"
+            size="row"
+            title="Agents couldn’t be loaded."
+          />
+        ) : installed.length ? (
           installed.map(row)
         ) : (
           <StateView kind="empty" size="row" title="No agents are installed." />
         )}
       </ItemList>
-      <SettingsGroupLabel addLabel="New agent" onAdd={newAgent}>
-        Your agents
-      </SettingsGroupLabel>
-      <ItemList label="Your agents">
-        {mine.length ? (
-          mine.map(row)
-        ) : (
-          <StateView
-            action={newAgent ? { label: 'New agent', onClick: newAgent } : undefined}
-            kind="empty"
-            size="row"
-            title="No agents of your own yet."
-          />
-        )}
-      </ItemList>
+      {agents.isPending || agents.error ? null : (
+        <>
+          <SettingsGroupLabel addLabel="New agent" onAdd={newAgent}>
+            Your agents
+          </SettingsGroupLabel>
+          <ItemList label="Your agents">
+            {mine.length ? (
+              mine.map(row)
+            ) : (
+              <StateView
+                action={newAgent ? { label: 'New agent', onClick: newAgent } : undefined}
+                kind="empty"
+                size="row"
+                title="No agents of your own yet."
+              />
+            )}
+          </ItemList>
+        </>
+      )}
     </div>
   );
   return (
     <div className="grid min-w-0 gap-4">
       {heading}
-      {agents.error ? (
-        <StateView
-          action={{ label: 'Retry', onClick: () => void agents.refetch() }}
-          kind="error"
-          size="row"
-          title="Agents couldn’t be loaded."
-        />
-      ) : agents.isPending ? (
-        <StateView kind="loading" size="row" title="Loading agents…" />
-      ) : (
-        <ListDetailLayout
-          className="min-h-[24rem]"
-          detail={
-            previewing ? (
-              <AgentPreviewPane
-                agent={previewing}
-                key={previewing.ref}
-                onClose={() => setPreviewRef(undefined)}
-              />
-            ) : undefined
-          }
-          list={list}
-        />
-      )}
+      <ListDetailLayout
+        className="min-h-[24rem]"
+        detail={
+          previewing ? (
+            <AgentPreviewPane
+              agent={previewing}
+              key={previewing.ref}
+              onClose={() => setPreviewRef(undefined)}
+            />
+          ) : undefined
+        }
+        list={list}
+      />
       <DialogFrame
         confirm={{
           label: 'Delete agent',
