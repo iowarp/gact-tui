@@ -197,6 +197,8 @@
   --scale-low: #7fbccb;
   --scale-mid: #e8c27a;
   --scale-high: #e8a595;
+  /* Notebook dark's categories are pale, so text on them is ink, not paper. */
+  --on-category: #1e1c19;
   --terminal: #161512;
   --terminal-foreground: #ece6da;
   --terminal-muted: #9c9588;
