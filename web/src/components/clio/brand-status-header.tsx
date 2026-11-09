@@ -1,6 +1,6 @@
 import { brand } from '@brand';
-import { Spinner } from '@/components/ui/spinner';
 import { BrandIcon } from './brand-icon';
+import { RingSpinner } from './primitives/ring-spinner';
 
 /**
  * The pane header of a page that stands in for the app while it starts or
@@ -18,7 +18,7 @@ export function BrandStatusHeader({ status }: { status: string }) {
       <span className="flex min-w-0 flex-col gap-px">
         <span className="font-heading text-[14px] font-semibold">{brand.wordmark}</span>
         <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-warning-foreground">
-          <Spinner aria-hidden="true" className="size-[9px] shrink-0 motion-reduce:animate-none" />
+          <RingSpinner className="size-[9px]" />
           <span className="truncate">{status}</span>
         </span>
       </span>

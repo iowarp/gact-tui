@@ -809,6 +809,32 @@ function catalogue({ settings, infrastructure }) {
         .click({ button: 'right' });
       await overlay(page);
     }),
+    // workbench-right-pocket "List hidden, tab menu open": the list's strip icon
+    // clicked again, a pinned tab first, the menu on the open middle tab.
+    s('canvas', 'tab-menu-list-hidden', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await openFile(page, 'results/vertical-displacement.png');
+      await stripList(page, 'Agent');
+      const tabs = page
+        .locator('[aria-label="Workspace canvas"] [role="tab"]')
+        .filter({ visible: true });
+      await tabs.filter({ hasText: 'stations.csv' }).first().click({ button: 'right' });
+      await overlay(page);
+      await page.getByRole('menuitem', { name: /^Pin/u }).click();
+      await page.waitForTimeout(300);
+      const image = tabs.filter({ hasText: 'vertical-displacement.png' }).first();
+      await image.click();
+      await page.waitForTimeout(300);
+      const lit = page
+        .getByRole('toolbar', { name: 'Workbench lists' })
+        .locator('button[aria-pressed="true"]')
+        .filter({ visible: true })
+        .first();
+      if (await lit.isVisible().catch(() => false)) await lit.click();
+      await page.waitForTimeout(400);
+      await image.click({ button: 'right' });
+      await overlay(page);
+    }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
@@ -818,13 +844,15 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // The former Work tab is now the Activity list's finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
-      await page
+      const show = page
         .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /^Work/u })
-        .first()
-        .click();
+        .getByRole('button', { name: 'Show finished work' })
+        .filter({ visible: true })
+        .first();
+      if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
