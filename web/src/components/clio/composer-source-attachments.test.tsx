@@ -108,6 +108,7 @@ function renderComposer() {
 
 async function openSource(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Attach files' }));
+  await user.click(screen.getByRole('menuitem', { name: 'From connected data…' }));
   await user.click(await screen.findByRole('button', { name: 'Your sources' }));
   await user.click(screen.getByRole('button', { name: /^Research inputs/ }));
 }
