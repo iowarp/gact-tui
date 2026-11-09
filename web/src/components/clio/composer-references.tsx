@@ -15,7 +15,6 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
-  type ReactNode,
   type Ref,
 } from 'react';
 import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
@@ -33,7 +32,7 @@ import {
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { publishActiveOption } from './composer-reference-controller-active-option';
 import { referenceKindIcon } from './composer-reference-presentation';
-import { ComposerSuggestionPopup } from './composer-suggestion-popup';
+import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -134,20 +133,6 @@ function rowDetail(reference: WorkspaceReference): string {
   return conciseDetail(reference);
 }
 
-function Highlighted({ text, query }: { text: string; query: string }): ReactNode {
-  const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
-  if (at < 0) return text;
-  return (
-    <>
-      {text.slice(0, at)}
-      <mark className="bg-transparent font-semibold text-accent-foreground">
-        {text.slice(at, at + query.length)}
-      </mark>
-      {text.slice(at + query.length)}
-    </>
-  );
-}
-
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
 /** One 30px suggestion: kind icon, name, faint folder or detail, and its keys. */
@@ -185,7 +170,7 @@ const ReferenceOption = memo(function ReferenceOption({
       role="option"
       title={conciseDetail(reference) || undefined}
     >
-      {createElement(referenceKindIcon(reference.kind), {
+      {createElement(referenceKindIcon(reference.kind, reference.label, reference.media_type), {
         'aria-hidden': true,
         className: 'size-[15px] shrink-0 text-muted-foreground',
       })}
@@ -376,7 +361,8 @@ export function ClioComposerReferenceMenu({
       if (!matches.length && !alwaysVisible) return [];
       return [
         {
-          collapsible: true,
+          // A search opens every group, so its headings are plain labels.
+          collapsible: !isSearching,
           count:
             group.label === 'Workspace files' && !isSearching && !localFilesKnown
               ? '…'
@@ -517,11 +503,7 @@ export function ClioComposerReferenceMenu({
             {query ? null : <span className="text-faint"> type to search</span>}
           </span>
         )}
-        {settled || total ? (
-          <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">
-            {total === 1 ? '1 match' : `${total} matches`}
-          </span>
-        ) : null}
+        {settled || total ? <MatchCount total={total} /> : null}
       </div>
       <div
         aria-label="Suggestions"
