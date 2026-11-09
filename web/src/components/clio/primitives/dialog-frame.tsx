@@ -41,6 +41,11 @@ export interface DialogFrameConfirm {
   disabled?: boolean;
   /** Ctrl+Enter (⌘↩) confirms; on by default. */
   keyboard?: boolean;
+  /**
+   * `Enter`: a plain Enter confirms too (outside fields and other buttons), and
+   * the button shows the key. For an acknowledgement such as Got it.
+   */
+  key?: 'Enter';
 }
 
 export interface DialogFrameProps {
@@ -53,8 +58,13 @@ export interface DialogFrameProps {
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
   confirm?: DialogFrameConfirm;
-  /** Label of the safe button that closes the frame (Cancel, Close, Got it). */
-  cancelLabel?: string;
+  /**
+   * Label of the safe button that closes the frame (Cancel, Close). `null`
+   * omits it when the confirm only acknowledges; Esc and × still close.
+   */
+  cancelLabel?: string | null;
+  /** Left side of the footer in place of the key hints (a quiet link). */
+  footerStart?: ReactNode;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
   /** Controls in the title row before × (a mode switch such as URL | Command). */
@@ -79,6 +89,7 @@ export const DialogFrame = memo(function DialogFrame({
   confirm,
   cancelLabel = confirm ? 'Cancel' : 'Close',
   secondary,
+  footerStart,
   titleActions,
   help,
   className,
@@ -87,7 +98,11 @@ export const DialogFrame = memo(function DialogFrame({
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
-      if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+      if (event.key !== 'Enter') return;
+      const plain =
+        confirm.key === 'Enter' &&
+        !(event.target as Element).closest('input, textarea, select, button, a, [contenteditable]');
+      if (!plain && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       confirm.onConfirm();
     },
@@ -149,32 +164,46 @@ export const DialogFrame = memo(function DialogFrame({
           data-slot="dialog-frame-footer"
           className="mt-1.5 flex min-w-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
-          <span
-            aria-hidden="true"
-            className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
-          >
-            <ShortcutKeys keys={['Esc']} variant="caps" />
-            <span className="truncate">{cancelLabel}</span>
-            {confirmKeys && confirm ? (
-              <>
-                <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
-                <span className="truncate">{confirm.label}</span>
-              </>
-            ) : null}
-          </span>
+          {footerStart ? (
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
+              {footerStart}
+            </div>
+          ) : (
+            <span
+              aria-hidden="true"
+              className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
+            >
+              <ShortcutKeys keys={['Esc']} variant="caps" />
+              <span className="truncate">{cancelLabel ?? 'Close'}</span>
+              {confirmKeys && confirm ? (
+                <>
+                  <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
+                  <span className="truncate">{confirm.label}</span>
+                </>
+              ) : null}
+            </span>
+          )}
           {secondary}
-          <DialogPrimitive.Close asChild>
-            <Button variant="ghost" data-initial-focus="">
-              {cancelLabel}
-            </Button>
-          </DialogPrimitive.Close>
+          {cancelLabel === null ? null : (
+            <DialogPrimitive.Close asChild>
+              <Button variant="ghost" data-initial-focus="">
+                {cancelLabel}
+              </Button>
+            </DialogPrimitive.Close>
+          )}
           {confirm ? (
             <Button
               variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
               disabled={confirm.disabled}
               onClick={confirm.onConfirm}
+              data-initial-focus={cancelLabel === null ? '' : undefined}
             >
               {confirm.label}
+              {confirm.key ? (
+                <span aria-hidden="true" className="contents">
+                  <ShortcutKeys keys={[confirm.key]} variant="inline" />
+                </span>
+              ) : null}
             </Button>
           ) : null}
         </div>

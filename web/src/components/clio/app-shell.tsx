@@ -17,6 +17,8 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { useUpdatePane } from './update-page-host';
+import { UpdatePage } from './update-restart-overlay';
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -125,6 +127,7 @@ export function ClioAppShell({
 }: ClioAppShellProps) {
   const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
   const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
+  const updating = useUpdatePane();
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // The split workbench needs enough room for both its 400 px conversation
   // panel and 320 px canvas after the desktop navigation rail is accounted for.
@@ -225,7 +228,7 @@ export function ClioAppShell({
           </ToolbarAction>
         )}
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
       {statusStrip && (
         <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
       )}

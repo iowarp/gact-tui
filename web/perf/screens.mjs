@@ -192,10 +192,68 @@ function seededSettingsShots() {
   ];
 }
 
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++id,
+    unregisterCallback: () => undefined,
+    // Only the app version answers; everything else stays pending, as on a
+    // host that is still coming up.
+    invoke: (command) =>
+      command === 'plugin:app|version' && version
+        ? Promise.resolve(version)
+        : new Promise(() => undefined),
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// connected?, route?, keepPointer?, initScript?: [fn, arg] run before the app}.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -375,6 +433,8 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    ...updateShots(),
+
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
@@ -401,7 +461,11 @@ function catalogue({ settings, infrastructure }) {
       '/runs',
       async (page) => {
         await page.locator('[data-run-state] button[type="button"]').first().click();
-        await page.locator('aside[aria-label^="Run: "]').filter({ visible: true }).first().waitFor();
+        await page
+          .locator('aside[aria-label^="Run: "]')
+          .filter({ visible: true })
+          .first()
+          .waitFor();
         await page.waitForTimeout(500);
       },
       { ready: '[data-run-state]' },
@@ -788,6 +852,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     connected: shot.connected ?? true,
     savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));

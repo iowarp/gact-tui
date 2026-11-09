@@ -67,6 +67,8 @@ export interface StateViewProps {
    */
   action?: StateAction;
   secondaryAction?: StateAction;
+  /** A text link under the action (Details), for a page or a panel. */
+  link?: StateAction;
   /** Supplemental facts after the line: a size, an extension, a time. */
   detail?: string;
   /**
@@ -93,6 +95,7 @@ export const StateView = memo(function StateView({
   title,
   action,
   secondaryAction,
+  link,
   detail,
   size = 'panel',
   icon,
@@ -199,12 +202,28 @@ export const StateView = memo(function StateView({
           <Button
             variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
             size={row ? 'xs' : 'default'}
+            className={kind === 'changed-elsewhere' ? undefined : 'text-foreground'}
             onClick={action.onClick}
           >
-            {kind === 'error' ? <RetryIcon aria-hidden="true" /> : null}
+            {/* An action's own icon (or `null` for none) replaces Retry's. */}
+            {action.icon !== undefined ? (
+              action.icon
+            ) : kind === 'error' ? (
+              <RetryIcon aria-hidden="true" />
+            ) : null}
             {actionLabel}
           </Button>
         </span>
+      ) : null}
+      {link && !row ? (
+        <button
+          type="button"
+          disabled={link.disabled}
+          onClick={link.onClick}
+          className="rounded-sm text-[12px] text-accent-foreground underline underline-offset-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {link.label}
+        </button>
       ) : null}
     </div>
   );
