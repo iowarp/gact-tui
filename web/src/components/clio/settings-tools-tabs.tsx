@@ -1,13 +1,30 @@
-import { useState, type ReactNode } from 'react';
-import { PlugZapIcon, ServerIcon } from 'lucide-react';
-import { TextTabs } from './primitives/text-tabs';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { withoutSearchArrival } from '@/lib/settings-window-route';
+import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { ToolPermissionsSettings } from './settings-tool-permissions';
 
-type ToolsTab = 'servers' | 'remote';
+type ToolsTab = 'tool-permissions' | 'tools' | 'relays';
+
+const TABS = [
+  { value: 'tool-permissions', label: 'Tools' },
+  { value: 'tools', label: 'MCP servers' },
+  { value: 'relays', label: 'Remote tools' },
+] as const;
+
+function tabOf(section: string): ToolsTab {
+  return section === 'tool-permissions' || section === 'relays' ? section : 'tools';
+}
+
+function focusesTab(state: unknown): boolean {
+  return Boolean(state && typeof state === 'object' && 'toolsTabFocus' in state);
+}
 
 /**
- * Tools and MCP servers: the MCP services page and the Remote tools page
- * (once its own Settings section) share one window page as tabs.
+ * Tools and MCP servers: permission and I/O per tool, the MCP services, and
+ * the Remote tools page share one window page. Each tab is its own Settings
+ * route, so a link, search result, or reload lands on that tab.
  */
 export function ToolsSettingsTabs({
   section,
@@ -18,26 +35,55 @@ export function ToolsSettingsTabs({
   tools: ReactNode;
   remote: ReactNode;
 }) {
-  const [tab, setTab] = useState<ToolsTab>(section === 'relays' ? 'remote' : 'servers');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabOf(section);
+  const switcher = useRef<HTMLDivElement>(null);
+  const refocus = focusesTab(location.state);
+  // Switching tabs remounts the page; keep focus on the switch that was used.
+  useEffect(() => {
+    if (refocus) switcher.current?.querySelector<HTMLElement>('[data-state="on"]')?.focus();
+  }, [refocus]);
+  const choose = (next: ToolsTab) => {
+    if (next === tab) return;
+    const state = withoutSearchArrival(location.state);
+    void navigate(
+      {
+        pathname: location.pathname.replace(/[^/]+$/, next),
+        search: location.search,
+        hash: location.hash,
+      },
+      {
+        replace: true,
+        state: { ...(state && typeof state === 'object' ? state : {}), toolsTabFocus: true },
+      },
+    );
+  };
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 gap-4" data-settings-anchor={section}>
       <SettingsSectionHeading
+        actions={
+          <div ref={switcher}>
+            <SegmentedControl
+              className="h-[1.875rem] [&>button]:h-6 [&>button]:px-2.5"
+              label="Tools pages"
+              onValueChange={choose}
+              options={TABS}
+              value={tab}
+            />
+          </div>
+        }
+        info="Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
         title="Tools and MCP servers"
-        info="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
       />
-      <TextTabs
-        className="border-b border-border"
-        controls="settings-tools-panel"
-        label="Tools pages"
-        onValueChange={setTab}
-        tabs={[
-          { value: 'servers', label: 'MCP servers', icon: <ServerIcon aria-hidden="true" /> },
-          { value: 'remote', label: 'Remote tools', icon: <PlugZapIcon aria-hidden="true" /> },
-        ]}
-        value={tab}
-      />
-      <div id="settings-tools-panel" role="tabpanel">
-        {tab === 'remote' ? remote : tools}
+      <div aria-label={TABS.find((item) => item.value === tab)?.label} role="region">
+        {tab === 'tool-permissions' ? (
+          <ToolPermissionsSettings />
+        ) : tab === 'relays' ? (
+          remote
+        ) : (
+          tools
+        )}
       </div>
     </div>
   );
