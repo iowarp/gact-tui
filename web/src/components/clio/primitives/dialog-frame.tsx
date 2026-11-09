@@ -7,7 +7,11 @@ import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
 
-/** Focus goes to the element marked with this attribute when a frame opens. */
+/**
+ * Focus goes to the first element marked with this attribute when a frame opens:
+ * the safe button, or a body field that is the point of the dialog (Rename's
+ * name, its text selected).
+ */
 const INITIAL_FOCUS = '[data-initial-focus]';
 
 function focusSafeButton(event: Event) {
@@ -16,6 +20,7 @@ function focusSafeButton(event: Event) {
   if (!target) return;
   event.preventDefault();
   target.focus();
+  if (target instanceof HTMLInputElement) target.select();
 }
 
 /**
@@ -122,7 +127,8 @@ export interface DialogFrameProps {
 /**
  * The one dialog: icon, title, ×, one-line description, body, buttons on the
  * right. 36% of the window wide (360 to 560 px), a bottom sheet below 600 px.
- * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button.
+ * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button
+ * unless a body field is marked `data-initial-focus`.
  */
 export const DialogFrame = memo(function DialogFrame({
   open,
@@ -209,7 +215,11 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">
+          <div
+            data-slot="dialog-frame-body"
+            // The footer rule closes the body, so a last settings row drops its own.
+            className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0"
+          >
             {children}
           </div>
         ) : null}
