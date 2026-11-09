@@ -565,6 +565,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   onClick={(event) => toggleMaximized(event.currentTarget)}
                   ref={maximizeButtonRef}
                   shortcut="maximize"
+                  // Hugging its icon, clear of the file toolbar's More button under it.
+                  shortcutSide="under-icon"
                   tooltipSide="bottom"
                 />
               }

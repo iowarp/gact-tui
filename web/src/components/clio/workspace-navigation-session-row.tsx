@@ -1,7 +1,14 @@
 import type { Session, SessionExportMode } from '@clio/core/v3';
-import { BellRingIcon, GitForkIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  ArrowUpRightIcon,
+  BellRingIcon,
+  GitForkIcon,
+  LoaderCircleIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +24,8 @@ import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-atte
 import { cn } from '@/lib/utils';
 import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-origin';
 import { ClioInteractiveRow } from './interactive-row';
+import { KeyMenuItem } from './menu-key-items';
+import { selectMenuKey } from './select-menu-key';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
@@ -117,6 +126,8 @@ function SessionRow({
     !needsAttention &&
     session.id !== activeSessionId &&
     seenRevision !== sessionInteractionAt(session);
+  const navigate = useNavigate();
+  const sessionPath = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <ClioInteractiveRow
       appearance="navigation"
@@ -132,14 +143,22 @@ function SessionRow({
               <MoreIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuContent align="end" className="w-60" onKeyDown={selectMenuKey}>
+            <KeyMenuItem
+              icon={<ArrowUpRightIcon aria-hidden="true" />}
+              label="Open"
+              menuKey="Enter"
+              onSelect={() => {
+                onVisit(session);
+                navigate(sessionPath);
+              }}
+            />
             <SessionOrganizeMenuItems
               actions={actions}
               onAction={onAction}
               onRename={onRename}
               session={session}
             />
-            <DropdownMenuSeparator />
             <SessionExportMenu
               onExport={(mode) =>
                 onAction(
@@ -173,7 +192,7 @@ function SessionRow({
             data-active={session.id === activeSessionId}
             onClick={() => onVisit(session)}
             onMouseDown={(event) => event.preventDefault()}
-            to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
+            to={sessionPath}
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
             {isUserBranch(session) ? (

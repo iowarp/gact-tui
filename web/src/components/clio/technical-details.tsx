@@ -2,7 +2,7 @@ import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { ShortcutKeys } from './primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 
 /**
  * Collapsed-by-default disclosure for technical/raw content: protocol wire
@@ -59,6 +59,7 @@ export function TechnicalDetails({
       {shortcut ? (
         <span aria-hidden="true" className="ml-1 inline-flex">
           <ShortcutKeys keys={[shortcut]} variant="inline" />
+          <HeldKeyBadge keys={[shortcut]} side="cover" />
         </span>
       ) : null}
     </CollapsibleTrigger>
