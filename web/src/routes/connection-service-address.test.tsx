@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportError } from '@clio/core/v3';
@@ -61,7 +62,7 @@ it('explains a missing service address and retains the HTTP failure for inspecti
   );
   await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
   expect(await screen.findByText(/No agent service was found at this address/)).toBeVisible();
-  await userEvent.click(screen.getByText('Diagnostic details'));
+  await userEvent.click(screen.getByRole('button', { name: 'Diagnostic details' }));
   expect(screen.getByText(/Request failed with 404 Not Found/)).toBeVisible();
   expect(mocks.connect).not.toHaveBeenCalled();
 });
