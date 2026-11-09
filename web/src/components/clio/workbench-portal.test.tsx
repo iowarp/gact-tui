@@ -145,7 +145,7 @@ it.each(['desktop', 'sheet'] as const)(
         files={[]}
         onOpenSubagent={vi.fn()}
         onUndoDiff={vi.fn()}
-        requestedOpen={{ key: 'session', request: { kind: 'session' } }}
+        requestedOpen={{ key: 'session', request: { kind: 'session', view: 'work' } }}
         sessionId="escape_session"
         sessionView={<DiagramPreview />}
         workspaceId="escape_workspace"

@@ -155,6 +155,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await showEvidenceRail(page, 'Session');
     await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+    // Full details lands on the Activity list; the Gantt and Context are its Timeline tab.
+    await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
     // A 320px workbench shows its list as a sheet over the tab; this test reads the tab.
     const hideActivity = canvas.getByRole('button', { name: 'Hide Activity', exact: true });
     if (await hideActivity.isVisible()) await hideActivity.click();
@@ -969,8 +971,8 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();
   await expect(
-    page.getByRole('dialog', { name: 'Workspace canvas' }).getByRole('button', {
-      name: 'Open timeline and context',
+    page.getByRole('dialog', { name: 'Workspace canvas' }).getByRole('toolbar', {
+      name: 'Workbench lists',
     }),
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

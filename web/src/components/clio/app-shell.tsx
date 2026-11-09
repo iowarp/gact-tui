@@ -142,6 +142,7 @@ export function ClioAppShell({
   const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
   const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
+  const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // Read once: the panel keeps its share of the group as the window resizes.
   const [workbenchDefaultSize] = useState(
     () =>
@@ -297,6 +298,13 @@ export function ClioAppShell({
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%.
             className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Land on the sheet itself, announced by its title, rather than on whichever icon
+            // button comes first (which would also pop its tooltip).
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              workbenchSheetRef.current?.focus();
+            }}
+            ref={workbenchSheetRef}
             showCloseButton={false}
             side="right"
           >

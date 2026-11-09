@@ -147,11 +147,12 @@ function mount(
 
 async function openActivity() {
   const user = userEvent.setup();
-  await user.click(
-    within(screen.getByRole('toolbar', { name: 'Workbench lists' })).getByRole('button', {
-      name: 'Activity',
-    }),
+  // A conversation's pocket opens on Activity; pressing it again would close the list.
+  const button = within(screen.getByRole('toolbar', { name: 'Workbench lists' })).getByRole(
+    'button',
+    { name: 'Activity' },
   );
+  if (button.getAttribute('aria-pressed') !== 'true') await user.click(button);
   return { user, list: screen.getByRole('region', { name: 'Activity list' }) };
 }
 

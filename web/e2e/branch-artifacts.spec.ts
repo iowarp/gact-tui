@@ -154,7 +154,11 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await page.getByRole('button', { name: /Return to parent conversation/ }).click();
   await expect(page).toHaveURL(/sessions\/sess_flat_ndp$/);
   const branchLink = page.getByRole('link').filter({ hasText: branch.title });
-  await expect(page.getByText('Read the station evidence table', { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator('[data-slot="pending-interaction-title"]')
+      .getByText('Read the station evidence table', { exact: true }),
+  ).toBeVisible();
   await expect(branchLink).toBeVisible();
   await branchLink.click();
   await expect(composer).toBeVisible();
