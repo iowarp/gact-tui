@@ -204,6 +204,7 @@ describe('the / menu surface', () => {
 
   function renderMenu(query: string) {
     const onPick = vi.fn();
+    const onRun = vi.fn();
     const view = render(
       <>
         <div
@@ -216,29 +217,32 @@ describe('the / menu surface', () => {
         <ClioComposerCommandMenu
           commands={commands}
           onPick={onPick}
+          onRun={onRun}
           popoverId="cmds"
           query={query}
         />
       </>,
     );
-    return { onPick, view, editor: screen.getByTestId('editor') };
+    return { onPick, onRun, view, editor: screen.getByTestId('editor') };
   }
 
-  it('moves over usable commands, uses the highlighted one on Enter and closes on Escape', () => {
-    const { editor, onPick } = renderMenu('/');
-    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
-    editor.dispatchEvent(enter);
-    expect(enter.defaultPrevented).toBe(false);
-    expect(onPick).not.toHaveBeenCalled();
+  it('highlights the first row, fills on Tab, runs on Enter and closes on Escape', () => {
+    const { editor, onPick, onRun } = renderMenu('/');
+    const first = screen.getByRole('option', { selected: true });
+    expect(first).toHaveAccessibleName(/\/goal/u);
 
-    fireEvent.keyDown(editor, { key: 'ArrowDown' });
+    fireEvent.keyDown(editor, { key: 'Tab' });
+    expect(onPick).toHaveBeenCalledWith(commands[0]);
+
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
     const selected = screen.getByRole('option', { selected: true });
     expect(selected).toHaveAccessibleName(/\/goal/u);
 
-    fireEvent.keyDown(editor, { key: 'Enter' });
-    expect(onPick).toHaveBeenCalledWith(commands[0]);
+    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
+    editor.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onRun).toHaveBeenCalledWith(commands[0]);
 
     fireEvent.keyDown(editor, { key: 'Escape' });
     expect(screen.queryByRole('listbox', { name: 'Suggestions' })).toBeNull();

@@ -91,7 +91,7 @@ export function TrustBanner({
       <div className="flex min-w-0 items-center gap-2.5">
         <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
         <p
-          className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5"
+          className="line-clamp-2 min-w-0 flex-1 text-[0.8125rem] leading-5"
           title={detail ? `${message} ${detail}` : message}
         >
           {message}
