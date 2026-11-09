@@ -25,6 +25,7 @@ import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
+import { createSettingsFixture } from './settings-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -1418,6 +1419,13 @@ const branchArtifacts = createBranchArtifactFixture({
 });
 
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
+const settingsFixture = createSettingsFixture({
+  sendJson,
+  readJson,
+  commonHeaders,
+  sessionId,
+  workspaceId,
+});
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
 // Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
@@ -1896,6 +1904,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
+    settingsFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
@@ -1935,6 +1944,7 @@ const server = createServer(async (request, response) => {
     response.end();
     return;
   }
+  if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
