@@ -40,7 +40,7 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: toastError } }));
 vi.mock('@/lib/platform', () => ({ isMacOS }));
 
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 vi.mock('@/hooks/use-workspace-capabilities', () => ({
@@ -362,7 +362,7 @@ describe('DesktopTitleBar', () => {
     fireEvent.pointerEnter(dot);
     fireEvent.focus(dot);
 
-    expect(await screen.findByText('http://127.0.0.1:8787')).toBeInTheDocument();
+    expect(await screen.findByText('http://127.0.0.1')).toBeInTheDocument();
     expect(screen.getByText('Transport: Bridge')).toBeInTheDocument();
     expect(screen.getByText('Backend: clio-agent-gact 1.2.3')).toBeInTheDocument();
   });

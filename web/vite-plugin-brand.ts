@@ -29,6 +29,11 @@ interface RawBrand {
   /** Legacy shared release index; used as the default for both products. */
   releaseUrl?: string;
   themeTokens?: Record<string, string>;
+  /** Where the agent's port is configured; see desktop/scripts/gen-brand-backend.mjs. */
+  backend?: {
+    portConfig?: { default?: number };
+    attachPort?: number;
+  };
   landing?: {
     eyebrow?: string;
     headline?: string;
@@ -58,6 +63,8 @@ export interface ResolvedBrand {
   workspaceNoun: string;
   desktopReleaseUrl: string | null;
   agentReleaseUrl: string | null;
+  /** The agent's default port: the brand's `backend.portConfig.default`. */
+  agentPort: number;
   themeTokens: Record<string, string>;
   landing: {
     eyebrow: string;
@@ -109,6 +116,18 @@ function readAsset(
   return `data:${mimeType(absolutePath)};base64,${readFileSync(absolutePath).toString('base64')}`;
 }
 
+/** The agent port when a brand names none. Mirrors desktop/scripts/gen-brand-backend.mjs. */
+const DEFAULT_AGENT_PORT = 17800;
+
+/** The brand's default agent port, resolved like `resolvePortConfig` in gen-brand-backend.mjs. */
+export function resolveAgentPort(backend: RawBrand['backend']): number {
+  const port = Number(backend?.portConfig?.default ?? backend?.attachPort ?? DEFAULT_AGENT_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`[brand] backend.portConfig.default must be a TCP port, got ${port}`);
+  }
+  return port;
+}
+
 export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand {
   const profileDirectory = resolve(brandingRoot, profile);
   const brandPath = resolve(profileDirectory, 'brand.json');
@@ -132,6 +151,7 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     workspaceNoun: raw.workspaceNoun?.trim() || 'workspace',
     desktopReleaseUrl: raw.desktopReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
     agentReleaseUrl: raw.agentReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
+    agentPort: resolveAgentPort(raw.backend),
     themeTokens: { ...(raw.themeTokens ?? {}) },
     landing: {
       eyebrow: raw.landing?.eyebrow?.trim() || name,

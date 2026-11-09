@@ -18,12 +18,19 @@ const REVEAL_FALLBACK: Duration = Duration::from_millis(2_500);
 
 static REVEALED: AtomicBool = AtomicBool::new(false);
 
-/// Marks the page as hosted by this desktop app, as opposed to any Tauri WebView.
+/// Marks the page as hosted by this desktop app, as opposed to any Tauri WebView, and
+/// reports the agent address the desktop resolved from the agent's config (#739 B7).
 pub(crate) fn desktop_marker_script(version: &str) -> String {
-    let version = serde_json::to_string(version).unwrap_or_else(|_| "\"\"".to_owned());
+    marker_script(version, &crate::agent_port::agent_endpoint())
+}
+
+fn marker_script(version: &str, agent_endpoint: &str) -> String {
+    let quote = |value: &str| serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_owned());
+    let (version, agent_endpoint) = (quote(version), quote(agent_endpoint));
     format!(
         "Object.defineProperty(window,'__CLIO_DESKTOP__',\
-         {{value:Object.freeze({{version:{version}}}),configurable:false,enumerable:false}});"
+         {{value:Object.freeze({{version:{version},agentEndpoint:{agent_endpoint}}}),\
+         configurable:false,enumerable:false}});"
     )
 }
 
@@ -63,14 +70,15 @@ pub(crate) fn reveal_startup_window<R: Runtime>(window: WebviewWindow<R>) {
 
 #[cfg(test)]
 mod tests {
-    use super::desktop_marker_script;
+    use super::marker_script;
 
     #[test]
-    fn marker_script_quotes_the_version() {
+    fn marker_script_quotes_the_version_and_agent_address() {
         assert_eq!(
-            desktop_marker_script("0.9.5\"1"),
+            marker_script("0.9.5\"1", "http://127.0.0.1:18123"),
             "Object.defineProperty(window,'__CLIO_DESKTOP__',\
-             {value:Object.freeze({version:\"0.9.5\\\"1\"}),configurable:false,enumerable:false});"
+             {value:Object.freeze({version:\"0.9.5\\\"1\",agentEndpoint:\"http://127.0.0.1:18123\"}),\
+             configurable:false,enumerable:false});"
         );
     }
 }

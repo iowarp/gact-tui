@@ -9,7 +9,7 @@ function renderActions() {
   const actions = {
     onFork: vi.fn().mockResolvedValue(undefined),
     onCompact: vi.fn().mockResolvedValue(undefined),
-    onShare: vi.fn().mockResolvedValue('http://127.0.0.1:8787/v1/shared/shr_test'),
+    onShare: vi.fn().mockResolvedValue('http://127.0.0.1/v1/shared/shr_test'),
     onUndo: vi.fn().mockResolvedValue(undefined),
   };
   render(<ClioSessionActions {...actions} title="EarthScope NDP" />);
@@ -78,7 +78,7 @@ describe('ClioSessionActions', () => {
     await user.click(screen.getByRole('button', { name: 'Create share link' }));
 
     expect(actions.onShare).toHaveBeenCalledWith(604800);
-    expect(screen.getByDisplayValue('http://127.0.0.1:8787/v1/shared/shr_test')).toHaveAttribute(
+    expect(screen.getByDisplayValue('http://127.0.0.1/v1/shared/shr_test')).toHaveAttribute(
       'readonly',
     );
   });

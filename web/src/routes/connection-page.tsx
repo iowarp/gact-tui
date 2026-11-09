@@ -57,7 +57,6 @@ import {
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
 import {
   createRepository,
-  DEFAULT_ENDPOINT,
   defaultEndpoint,
   InfrastructureTargetGoneError,
   normalizeEndpoint,
@@ -178,12 +177,10 @@ export function ConnectionPage() {
       }
       if (health?.readiness === 'starting') {
         // Reading workspaces now only earns a 503; wait for readiness (#739 B1).
-        throw new TransportError(
-          'The service is still starting.',
-          503,
-          'task_runtime_starting',
-          health.starting ? { starting: health.starting } : undefined,
-        );
+        throw new TransportError('The service is still starting.', 503, 'task_runtime_starting', {
+          readiness: 'starting',
+          ...(health.starting ? { starting: health.starting } : {}),
+        });
       }
       const rememberedRoute = lastWorkspaceRoute(next.endpoint);
       const [workspaces, sessions] = await Promise.all([
@@ -545,7 +542,7 @@ export function ConnectionPage() {
                       value={endpointDraft}
                     />
                     <FieldDescription id="endpoint-hint">
-                      Use the agent service address, for example {DEFAULT_ENDPOINT}. It can differ
+                      Use the agent service address, for example {defaultEndpoint()}. It can differ
                       from this web page's address.
                     </FieldDescription>
                   </Field>

@@ -60,17 +60,34 @@ export function availabilityAfterAttempt(
   };
 }
 
-/** The service answered but is still bringing up its task runtime (`/v1/*` 503). */
-export function serviceStillStarting(error: Error | null | undefined): boolean {
-  return (
-    error instanceof TransportError &&
-    (error.status === 503 || error.code === 'task_runtime_starting')
-  );
+function reportedReadiness(details: unknown): unknown {
+  return details && typeof details === 'object'
+    ? (details as { readiness?: unknown }).readiness
+    : undefined;
 }
 
-/** Delay before automatic connect retry number `retry` (0-based): 250 ms doubling to 2 s. */
-export function connectRetryDelayMs(retry: number): number {
-  return Math.min(CONNECTION_RETRY_MAX_MS, CONNECTION_RETRY_MIN_MS * 2 ** Math.max(0, retry));
+/**
+ * The service answered but is still bringing up its task runtime: a `/v1/*` 503
+ * (`task_runtime_starting`, `details.readiness: "starting"`). A 503 whose readiness is
+ * `failed` (`task_runtime_unavailable`) is a failure, not a start.
+ */
+export function serviceStillStarting(error: Error | null | undefined): boolean {
+  if (!(error instanceof TransportError)) return false;
+  const readiness = reportedReadiness(error.details);
+  if (readiness === 'failed' || error.code === 'task_runtime_unavailable') return false;
+  return error.status === 503 || error.code === 'task_runtime_starting' || readiness === 'starting';
+}
+
+/**
+ * Delay before automatic connect retry number `retry` (0-based): 250 ms doubling to 2 s,
+ * never sooner than the service's own `Retry-After`.
+ */
+export function connectRetryDelayMs(retry: number, retryAfterMs = 0): number {
+  const backoff = Math.min(
+    CONNECTION_RETRY_MAX_MS,
+    CONNECTION_RETRY_MIN_MS * 2 ** Math.max(0, retry),
+  );
+  return Math.max(backoff, retryAfterMs);
 }
 
 /**
@@ -88,8 +105,9 @@ interface RetryChain {
  * Whether a failed attempt is a service still coming up rather than a failure: it is
  * starting (503 `task_runtime_starting`, or its probe says so), or nothing has answered
  * yet and the attempt is recent. The page then waits and connects by itself instead of
- * showing an error. Only those transient failures are retried, after a backoff and
- * within `CONNECTION_WAIT_FOR_START_MS` of the chain's first failure; anything else (an
+ * showing an error. Only those transient failures are retried, after a backoff that
+ * honours the service's `Retry-After` and within `CONNECTION_WAIT_FOR_START_MS` of the
+ * chain's first failure; anything else (an
  * incompatible protocol, a rejected token) is shown once.
  *
  * `retrying` is true while a retry is scheduled, so a boot screen can stay up between
@@ -114,7 +132,10 @@ export function useConnectionWaiting(
   const current = chain && variables && chain.variables === variables ? chain : undefined;
   const expired = useWaitExpired(isError ? (current?.startedAt ?? submittedAt) : null);
   const canRetry = transient && (starting || reachable(availability)) && !expired;
-  const delayMs = connectRetryDelayMs(current?.retries ?? 0);
+  const delayMs = connectRetryDelayMs(
+    current?.retries ?? 0,
+    error instanceof TransportError ? error.retryAfterMs : undefined,
+  );
   const retried = useRef<number | null>(null);
 
   useEffect(() => {

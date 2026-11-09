@@ -111,6 +111,26 @@ it('stays on the boot screen through a starting task runtime and opens the works
   expect(mocks.connect).toHaveBeenCalledOnce();
 });
 
+it("retries no sooner than the service's Retry-After", async () => {
+  mocks.repository.workspaces.mockRejectedValueOnce(
+    new TransportError(
+      'Durable task services are starting.',
+      503,
+      'task_runtime_starting',
+      { readiness: 'starting', starting: ['task_runtime'] },
+      1_000,
+    ),
+  );
+  renderFirstLaunch();
+
+  await waitFor(() => expect(mocks.repository.workspaces).toHaveBeenCalledOnce());
+  // The plain backoff would have retried after 250 ms.
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  expect(mocks.repository.workspaces).toHaveBeenCalledOnce();
+  expect(await screen.findByText('Workspace opened', {}, { timeout: 4_000 })).toBeVisible();
+  expect(mocks.repository.workspaces).toHaveBeenCalledTimes(2);
+});
+
 it('waits for /v1/health readiness before reading workspaces', async () => {
   mocks.repository.serviceHealth
     .mockResolvedValueOnce({

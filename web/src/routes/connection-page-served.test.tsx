@@ -1,5 +1,5 @@
 /**
- * A web UI served by the agent itself (http://127.0.0.1:17800/) with nothing remembered
+ * A web UI served by the agent itself (at its own origin) with nothing remembered
  * connects to its own origin by itself; when nothing answers there the person gets the
  * manual form, starting from that origin. Under a Vite dev server nothing changes (#739 B7).
  */
@@ -22,7 +22,6 @@ const mocks = vi.hoisted(() => ({
   resolveConnection: vi.fn(),
 }));
 
-vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => false }));
 vi.mock('@/lib/connection', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/connection')>();
   return { ...actual, createRepository: () => mocks.repository };

@@ -8,6 +8,7 @@ import {
   type TransportRequest,
 } from '@clio/core/v3';
 import { GACT_HTTP_TIMEOUT_MS, GACT_HTTP_TRANSFER_TIMEOUT_MS } from '@/lib/runtime-limits';
+import { headerValue, retryAfterMs } from './retry-after';
 
 interface RustHttpResponse {
   status: number;
@@ -137,6 +138,7 @@ export class TauriClioTransport implements ClioTransport {
         response.status,
         error.code,
         error.details,
+        retryAfterMs(headerValue(response.headers, 'Retry-After'), error.retryAfterS),
       );
     }
     const value =
@@ -295,10 +297,15 @@ function decodeResponseText(response: RustHttpResponse): string {
   return new TextDecoder().decode(decodeResponseBytes(response));
 }
 
-function decodeErrorBody(body: string): { code?: string; message?: string; details?: unknown } {
+function decodeErrorBody(body: string): {
+  code?: string;
+  message?: string;
+  details?: unknown;
+  retryAfterS?: unknown;
+} {
   try {
     const value = JSON.parse(body) as {
-      error?: { error?: unknown; message?: unknown; details?: unknown };
+      error?: { error?: unknown; message?: unknown; details?: unknown; retry_after_s?: unknown };
     };
     const envelope = value.error;
     if (!envelope || typeof envelope !== 'object') return {};
@@ -306,6 +313,7 @@ function decodeErrorBody(body: string): { code?: string; message?: string; detai
       code: typeof envelope.error === 'string' ? envelope.error : undefined,
       message: typeof envelope.message === 'string' ? envelope.message : undefined,
       details: envelope.details,
+      retryAfterS: envelope.retry_after_s,
     };
   } catch {
     return {};

@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { RemoteAgentConflict } from './remote-agent-conflict';
 import { useMutation } from '@tanstack/react-query';
 import { LaptopIcon, ServerIcon } from 'lucide-react';
@@ -60,7 +61,7 @@ export function DeployClioDialog({
   const [customName, setCustomName] = useState<string>();
   const [nameError, setNameError] = useState<string>();
   const [keepRunning, setKeepRunning] = useState(false);
-  const [remotePort, setRemotePort] = useState(17800);
+  const [remotePort, setRemotePort] = useState(brand.agentPort);
   const [localStatus, setLocalStatus] = useState<ManagedBackendStatus>();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;

@@ -1,7 +1,9 @@
+import { brand } from '@brand';
 import { describe, expect, it } from 'vitest';
 import {
   connectionIsLocal,
   DEFAULT_ENDPOINT,
+  defaultEndpoint,
   normalizeEndpoint,
   servedEndpointFor,
 } from './connection';
@@ -29,11 +31,11 @@ describe('connection addresses', () => {
     ).toBe(false);
     expect(connectionIsLocal({ endpoint, location: 'Delta' })).toBe(false);
   });
-  it.each(['http://127.0.0.1:18825', 'http://localhost:8787', 'http://[::1]:8787'])(
+  it.each(['http://127.0.0.1:18825', 'http://localhost', 'http://[::1]'])(
     'recognizes a direct local browser connection without Desktop metadata: %s',
     (endpoint) => expect(connectionIsLocal({ endpoint })).toBe(true),
   );
-  it.each(['https://clio.example.org', 'http://192.168.1.20:8787', 'invalid', 'file://localhost/'])(
+  it.each(['https://clio.example.org', 'http://192.168.1.20', 'invalid', 'file://localhost/'])(
     'keeps host-folder access for remote or unknown endpoints: %s',
     (endpoint) => expect(connectionIsLocal({ endpoint })).toBe(false),
   );
@@ -54,11 +56,12 @@ describe('the default service address (#739 B7)', () => {
     return { origin: url.origin, port: url.port, protocol: url.protocol };
   };
 
-  it('is the agent default port', () => {
-    expect(DEFAULT_ENDPOINT).toBe('http://127.0.0.1:17800');
+  it('is the brand default port when nothing else names the agent', () => {
+    expect(DEFAULT_ENDPOINT).toBe(`http://127.0.0.1:${brand.agentPort}`);
+    expect(defaultEndpoint()).toBe(DEFAULT_ENDPOINT);
   });
 
-  it.each(['http://127.0.0.1:17800/', 'https://clio.example.org/workspaces/ws'])(
+  it.each(['http://127.0.0.1:18825/', 'https://clio.example.org/workspaces/ws'])(
     'is the serving agent itself when an agent served the page: %s',
     (href) => {
       const location = page(href);
@@ -67,12 +70,8 @@ describe('the default service address (#739 B7)', () => {
   );
 
   it.each([
-    ['the desktop app', { desktop: true, dev: false, location: page('http://127.0.0.1:17800/') }],
+    ['the desktop app', { desktop: true, dev: false, location: page('http://127.0.0.1:18825/') }],
     ['a Vite dev server', { desktop: false, dev: true, location: page('http://127.0.0.1:5251/') }],
-    [
-      'Vite on its own port',
-      { desktop: false, dev: false, location: page('http://localhost:5173/') },
-    ],
     ['a file page', { desktop: false, dev: false, location: page('file:///tmp/index.html') }],
     ['no page', { desktop: false, dev: false }],
   ])('is not the page origin in %s', (_name, host) => {

@@ -4,10 +4,13 @@ type HostWindow = Record<'__CLIO_DESKTOP__' | '__TAURI_INTERNALS__', unknown>;
 
 /**
  * Make the page look like it runs inside the desktop app: the host's
- * `__CLIO_DESKTOP__` marker plus the Tauri IPC globals (`internals`). Returns the
- * matching cleanup.
+ * `__CLIO_DESKTOP__` marker (`marker`) plus the Tauri IPC globals (`internals`).
+ * Returns the matching cleanup.
  */
-export function mockDesktopHost(internals: object = {}): () => void {
+export function mockDesktopHost(
+  internals: object = {},
+  marker: object = { version: 'test' },
+): () => void {
   const host = window as unknown as HostWindow;
   Object.defineProperty(host, '__TAURI_INTERNALS__', {
     configurable: true,
@@ -17,7 +20,7 @@ export function mockDesktopHost(internals: object = {}): () => void {
   Object.defineProperty(host, '__CLIO_DESKTOP__', {
     configurable: true,
     writable: true,
-    value: { version: 'test' },
+    value: marker,
   });
   resetDesktopHostDetection();
   return clearDesktopHost;

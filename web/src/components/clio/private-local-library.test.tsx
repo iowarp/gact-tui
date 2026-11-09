@@ -16,7 +16,7 @@ const repository = vi.hoisted(() => ({
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://localhost' } }),
 }));
 vi.mock('./file-text-view', () => ({
   FileTextView: ({ content }: { content: string }) => <pre>{content}</pre>,
@@ -145,7 +145,7 @@ it('refreshes saved definitions through the existing agent mutation invalidation
       },
     ],
   });
-  await client.invalidateQueries({ queryKey: queryKeys.key('agents', 'http://localhost:8787') });
+  await client.invalidateQueries({ queryKey: queryKeys.key('agents', 'http://localhost') });
   expect(await screen.findByText(/"web"/)).toHaveTextContent('"remove":');
 });
 

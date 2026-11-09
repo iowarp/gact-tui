@@ -28,7 +28,7 @@ const transcript = vi.hoisted(() => ({ messages: 2 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 vi.mock('@/hooks/use-session-message-count', () => ({
   useSessionMessageCount: () => transcript.messages,

@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ConflictAnswer, FoundConflict } from './managed-service-target-utils';
@@ -48,7 +49,7 @@ export function RemoteAgentConflict({
       </p>
       {found.owner ? (
         <p className="break-all text-xs text-muted-foreground">
-          Installation: {found.owner}. Port: {found.port ?? 17800}.
+          Installation: {found.owner}. Port: {found.port ?? brand.agentPort}.
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">

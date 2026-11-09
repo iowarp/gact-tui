@@ -213,7 +213,7 @@ describe('managed Tauri backend', () => {
     expect(mocks.listeners.size).toBe(0);
   });
 
-  it('publishes a typed supervisor failure instead of falling back to port 8787', async () => {
+  it('publishes a typed supervisor failure instead of falling back to a default port', async () => {
     mocks.invoke.mockResolvedValue({
       url: '',
       bearer_token: '',

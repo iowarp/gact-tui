@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { RemoteAgentConflict } from '@/components/clio/remote-agent-conflict';
 import { NewClioInstance } from '@/components/clio/managed-service-target-utils';
 import {
@@ -411,7 +412,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           const claimAbort = new AbortController();
           const { invoke } = await import('@tauri-apps/api/core');
           const desktopId = await invoke<string>('desktop_deployment_owner');
-          let port = route?.remotePort ?? 17800;
+          let port = route?.remotePort ?? brand.agentPort;
           for (;;) {
             try {
               await claimClioAgent(

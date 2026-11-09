@@ -13,7 +13,7 @@ use std::{
 use crate::package_stamp::{self, LaunchCheck};
 use crate::supervisor_boot_log::boot_log_line;
 
-fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
+pub(crate) fn bundled_python(runtime: &Path) -> Result<PathBuf, String> {
     let manifest = std::fs::read(runtime.join("runtime.json"))
         .map_err(|error| format!("read bundled runtime manifest: {error}"))?;
     let manifest: serde_json::Value = serde_json::from_slice(&manifest)

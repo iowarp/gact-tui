@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { TransportError, type InfrastructureTarget } from '@clio/core/v3';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -159,7 +160,11 @@ export function useRemoteDeployment(
   );
 
   const deploy = useCallback(
-    async (host: SshHost, name: string, options = { port: 17800, keepRunning: false }) => {
+    async (
+      host: SshHost,
+      name: string,
+      options = { port: brand.agentPort, keepRunning: false },
+    ) => {
       const controller = new AbortController();
       abort.current = controller;
       session.current = undefined;

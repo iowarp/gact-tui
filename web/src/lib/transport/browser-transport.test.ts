@@ -4,7 +4,7 @@ import { BrowserClioTransport } from './browser-transport';
 describe('BrowserClioTransport', () => {
   it('decodes an empty 204 response without attempting JSON parsing', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
     const decode = vi.fn(() => undefined);
 
     await expect(
@@ -22,7 +22,7 @@ describe('BrowserClioTransport', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response('export const answer = 42\n', { status: 200 }));
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
 
     await expect(
       transport.request({
@@ -37,7 +37,7 @@ describe('BrowserClioTransport', () => {
   it('preserves binary response bytes without decoding them as text', async () => {
     const bytes = new Uint8Array([137, 80, 78, 71, 0, 255]);
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(bytes, { status: 200 }));
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
 
     await expect(
       transport.request({
@@ -62,7 +62,7 @@ describe('BrowserClioTransport', () => {
         { status: 409, statusText: 'Conflict' },
       ),
     );
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
 
     const request = transport.request({
       method: 'GET',
@@ -78,12 +78,37 @@ describe('BrowserClioTransport', () => {
     });
   });
 
+  it("carries a starting service's readiness and its Retry-After header", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        {
+          error: {
+            error: 'task_runtime_starting',
+            message: 'Durable task services are starting.',
+            details: { readiness: 'starting', starting: ['task_runtime'] },
+          },
+        },
+        { status: 503, headers: { 'Retry-After': '2' } },
+      ),
+    );
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
+
+    await expect(
+      transport.request({ method: 'GET', path: '/v1/workspaces', decode: (value) => value }),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: 'task_runtime_starting',
+      details: { readiness: 'starting' },
+      retryAfterMs: 2000,
+    });
+  });
+
   it('decodes an explicitly accepted non-success domain response', async () => {
     const body = { healthy: false, overall_status: 'unavailable', integrations: [] };
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(Response.json(body, { status: 503, statusText: 'Unavailable' }));
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
 
     await expect(
       transport.request({
@@ -110,7 +135,7 @@ describe('BrowserClioTransport', () => {
         { status: 404, statusText: 'Not Found' },
       ),
     );
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
 
     const request = transport.request({
       method: 'GET',
@@ -132,7 +157,7 @@ describe('BrowserClioTransport', () => {
       cancel,
     });
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status: 200 }));
-    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
     const controller = new AbortController();
     const iterator = transport
       .stream({ connection_id: 'active', session_id: 'sess_1' }, undefined, controller.signal)

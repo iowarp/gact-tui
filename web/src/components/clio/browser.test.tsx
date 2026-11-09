@@ -25,7 +25,9 @@ describe('the live view maps the shown frame to page pixels', () => {
   });
 
   it('sends nothing before the page reported its size', () => {
-    expect(pagePoint(1, 1, { left: 0, top: 0, width: 10, height: 10 }, { width: 0, height: 0 })).toBeNull();
+    expect(
+      pagePoint(1, 1, { left: 0, top: 0, width: 10, height: 10 }, { width: 0, height: 0 }),
+    ).toBeNull();
   });
 });
 
@@ -33,7 +35,11 @@ describe('keys', () => {
   it('sends printable characters as text and the rest as keys with modifiers', () => {
     const plain = { ctrlKey: false, metaKey: false, altKey: false };
     expect(keyInput({ key: 'a', ...plain })).toEqual({ type: 'text', text: 'a' });
-    expect(keyInput({ key: 'Enter', ...plain })).toEqual({ type: 'key', action: 'press', key: 'Enter' });
+    expect(keyInput({ key: 'Enter', ...plain })).toEqual({
+      type: 'key',
+      action: 'press',
+      key: 'Enter',
+    });
     expect(keyInput({ key: 'a', ...plain, ctrlKey: true })).toEqual({
       type: 'key',
       action: 'press',
@@ -44,10 +50,15 @@ describe('keys', () => {
 
 describe('the live socket', () => {
   it('speaks the browser protocol and carries the token beside it', () => {
-    const { url, protocols } = browserLiveSocketTarget('https://agent.example/', 'secret', 'sess 1', 'p2');
+    const { url, protocols } = browserLiveSocketTarget(
+      'https://agent.example/',
+      'secret',
+      'sess 1',
+      'p2',
+    );
     expect(url.toString()).toBe('wss://agent.example/v1/sessions/sess%201/browser/p2/live');
     expect(protocols).toEqual(['clio.browser.v1', 'clio-bearer.c2VjcmV0']);
-    expect(browserLiveSocketTarget('http://127.0.0.1:8787', undefined, 's', 'p1').protocols).toEqual([
+    expect(browserLiveSocketTarget('http://127.0.0.1', undefined, 's', 'p1').protocols).toEqual([
       'clio.browser.v1',
     ]);
   });
