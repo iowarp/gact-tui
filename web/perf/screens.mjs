@@ -268,7 +268,7 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
-    // Hold Ctrl (âŒ˜ with `platform: 'mac'`): every keyed control shows its key.
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
     ...['windows', 'mac'].flatMap((platform) => [
       s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
       s(
@@ -308,19 +308,42 @@ function catalogue({ settings, infrastructure }) {
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
     menu('menu-attention-inbox', 'button', /needs your response/u),
-    menu('menu-service-status', 'button', /^Workspace Service status/u),
-    s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^Workspace Service status/u);
-      await overlay(page);
-      await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
-      await page.waitForTimeout(400);
-    }),
+    s(
+      'session',
+      'menu-service-status',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Workspace Service status/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+      },
+      { savedAgents: true },
+    ),
+    s(
+      'session',
+      'menu-clio-add-agent',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Workspace Service status/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+        // By key, so moving the pointer away before the capture keeps it open.
+        await page.getByRole('menuitem', { name: /^Add an agent/u }).focus();
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(400);
+      },
+      { savedAgents: true },
+    ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
       await press(page, 'button', 'Show infrastructure status');
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-version-status', 'button', /^Version status/u),
+    menu(
+      'menu-version-status',
+      'button',
+      /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u,
+    ),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
@@ -407,29 +430,37 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
     }),
-    s('runs', 'executions', '/runs', null, { ready: 'h1' }),
+    s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
     }),
-    s('runs', 'state-filter', '/runs', async (page) => {
-      // Wide bars show the states as a segmented control; narrow ones a select.
-      const select = page.getByRole('combobox', { name: 'Filter by state' });
-      if (await select.isVisible()) {
-        await select.click();
-        await overlay(page);
-      } else {
-        await press(page, 'radio', /^Needs attention/u);
+    s(
+      'runs',
+      'state-filter',
+      '/runs',
+      async (page) => {
+        await press(page, 'radio', /^Waiting for you/u);
         await page.waitForTimeout(400);
-      }
-    }),
-    s('runs', 'details', '/runs', async (page) => {
-      await page
-        .getByRole('button', { name: /^Details for/u })
-        .first()
-        .click();
-      await overlay(page);
-    }),
+      },
+      { ready: '[data-run-state]' },
+    ),
+    // The selected run opens as a tab beside the list (a sheet below 1024px).
+    s(
+      'runs',
+      'details',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button[type="button"]').first().click();
+        await page
+          .locator('aside[aria-label^="Run: "]')
+          .filter({ visible: true })
+          .first()
+          .waitFor();
+        await page.waitForTimeout(500);
+      },
+      { ready: '[data-run-state]' },
+    ),
     ...infrastructure.map(({ href, name }) =>
       s('infrastructure', slug(name), href, null, { ready: 'h1', settleMs: 1200 }),
     ),
@@ -609,23 +640,31 @@ function themeGaps(theme) {
 
 // --- Capture ---------------------------------------------------------------------
 
-/** `notebook-dark` is the Notebook theme under a dark system scheme. */
-function themeParts(theme) {
-  const [id, scheme] = theme.startsWith('notebook-')
-    ? ['notebook', theme.slice(9)]
-    : [theme, theme];
-  return { id, scheme: scheme === 'light' ? 'light' : 'dark' };
+/** Saved agents settle after their availability probes and retries. */
+async function settleSavedAgents(page) {
+  await page
+    .getByRole('menuitem', { name: /lab-shared.*Offline/u })
+    .waitFor({ timeout: 4000 })
+    .catch(() => undefined);
 }
 
-async function newContext(browser, stack, { theme, width, connected = true, platform }) {
+const SAVED_AGENTS = [
+  { endpoint: 'https://ares.iit.edu', label: 'ares-genesis' },
+  { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+];
+
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
-  const { id: themeId, scheme } = themeParts(theme);
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: scheme,
+    colorScheme: theme === 'light' ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -633,20 +672,31 @@ async function newContext(browser, stack, { theme, width, connected = true, plat
   context.setDefaultTimeout(6000);
   await context.clock.setFixedTime(FROZEN_TIME);
   await context.addInitScript(
-    ({ themeId, endpoint }) => {
+    ({ theme, endpoint, others }) => {
       try {
-        localStorage.setItem(
-          'clio.appearance.v1',
-          JSON.stringify({ theme: themeId, motion: 'reduced' }),
-        );
-        if (endpoint) localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
-        else localStorage.removeItem('clio.recent-connections');
+        localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme, motion: 'reduced' }));
+        if (endpoint) {
+          localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint, ...others]));
+        } else localStorage.removeItem('clio.recent-connections');
       } catch {
         // Opaque-origin frames have no storage.
       }
     },
-    { themeId, endpoint: connected === true ? stack.endpoint : connected || null },
+    {
+      theme,
+      endpoint: connected === true ? stack.endpoint : connected || null,
+      others: savedAgents ? SAVED_AGENTS : [],
+    },
   );
+  if (savedAgents) {
+    // Saved agents are client-side: one reachable (served by the fixture), one offline.
+    await context.route('https://ares.iit.edu/**', async (route) => {
+      const url = new URL(route.request().url());
+      const response = await route.fetch({ url: `${stack.endpoint}${url.pathname}${url.search}` });
+      await route.fulfill({ response });
+    });
+    await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
   if (platform === 'mac') {
     await context.addInitScript(() => {
       Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
@@ -801,6 +851,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     width,
     connected: shot.connected ?? true,
     platform: shot.platform,
+    savedAgents: shot.savedAgents ?? false,
   });
   const page = await context.newPage();
   const errors = [];
@@ -816,6 +867,15 @@ async function capture(browser, stack, shot, { theme, width }) {
           error: { code: 'unavailable', message: 'The service is restarting.' },
         }),
       }),
+    );
+    // An idle session, so the failure is not mistaken for a turn being set up.
+    await page.route(
+      (url) => url.pathname === '/v1/sessions',
+      async (route) => {
+        const listing = await (await route.fetch()).json();
+        for (const session of listing.sessions ?? []) session.state = 'idle';
+        await route.fulfill({ json: listing });
+      },
     );
   }
   if (shot.route === 'degraded-health') {
@@ -849,7 +909,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     await page.waitForTimeout(shot.settleMs ?? 900);
     if (shot.setup) await shot.setup(page);
     if (!shot.allowLoading) {
-      // Wait out transient "Loading â€¦" placeholders; a persistent one is a
+      // Wait out transient "Loading …" placeholders; a persistent one is a
       // fixture gap worth reporting rather than a reason to fail the shot.
       result.stillLoading = await page
         .waitForFunction(
@@ -874,8 +934,8 @@ async function capture(browser, stack, shot, { theme, width }) {
     await page.screenshot({ path: file, fullPage: true, animations: 'disabled', caret: 'hide' });
     result.file = relative(outDir, file).replaceAll('\\', '/');
     result.ok = true;
-    if (themeParts(theme).id !== 'debug')
-      result.themeGaps = await page.evaluate(themeGaps, themeParts(theme).scheme);
+    if (theme === 'light' || theme === 'dark')
+      result.themeGaps = await page.evaluate(themeGaps, theme);
     result.dimensions = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
       height: document.documentElement.scrollHeight,
@@ -945,7 +1005,7 @@ function renderReport(manifest) {
     lines.push(
       '## Still loading when captured',
       '',
-      'A "Loadingâ€¦" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
+      'A "Loading…" placeholder stayed visible for 8 s; usually a fixture endpoint the capture stack does not serve.',
       '',
       '| Surface | State | Theme | Width |',
       '|---|---|---|---|',
@@ -997,7 +1057,7 @@ async function main() {
         !filters.length ||
         filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
     );
-    log(`${shots.length} states Ã— ${widths.length} widths Ã— ${themes.length} themes`);
+    log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.

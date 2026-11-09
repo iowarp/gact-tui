@@ -28,7 +28,7 @@ export function MetaLine({
     <span className={className} title={rows.map((part) => part.text).join(', ')}>
       {rows.map((part, index) => (
         <span
-          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.6875rem]')}
+          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.71875rem]')}
           key={`${index}:${part.text}`}
         >
           {part.text}
@@ -125,8 +125,6 @@ export function ExtensionRow({
   slot,
   selected = false,
   size = 'default',
-  statusWidth,
-  slotWidth,
   aligned = false,
   className,
 }: {
@@ -145,8 +143,6 @@ export function ExtensionRow({
   slot?: ReactNode;
   selected?: boolean;
   size?: 'default' | 'sm';
-  statusWidth?: number;
-  slotWidth?: number;
   /** Keep the status and slot columns on a row without them, so a mixed list lines up. */
   aligned?: boolean;
   className?: string;
@@ -168,9 +164,7 @@ export function ExtensionRow({
       aria-current={selected || undefined}
       className={cn(
         onExplore && 'cursor-default',
-        // Narrow lists give the name the actions' column; on hover they cover the status words.
-        hasActions &&
-          '@max-xl:[--item-actions:0px]! @max-xl:[&>[data-slot=item-row-actions]]:z-10 @max-xl:[&>[data-slot=item-row-actions]]:w-max @max-xl:[&>[data-slot=item-row-actions]]:justify-self-end @max-xl:[&>[data-slot=item-row-actions]]:rounded-md @max-xl:[&>[data-slot=item-row-actions]]:bg-background @max-xl:[&>[data-slot=item-row-actions]]:pl-1',
+
         className,
       )}
       icon={icon}
@@ -180,9 +174,7 @@ export function ExtensionRow({
       selected={selected}
       size={size}
       slot={slot ?? (aligned ? null : undefined)}
-      slotWidth={slotWidth}
       status={status ? <EntryStatus status={status} /> : aligned ? null : undefined}
-      statusWidth={statusWidth}
       tabIndex={onExplore ? 0 : undefined}
       title={<span title={title}>{title}</span>}
       actions={

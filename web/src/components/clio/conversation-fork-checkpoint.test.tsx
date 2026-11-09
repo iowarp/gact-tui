@@ -61,6 +61,7 @@ describe('child transcript fork checkpoint', () => {
       'href',
       '/workspaces/workspace/sessions/parent#message-source',
     );
+    expect(marker).toHaveTextContent('Forked here from Calibration baseline');
     expect(marker).toHaveTextContent('Files remain shared.');
   });
   it('does not invent a visible boundary after a rewind removed the copied tail', () => {

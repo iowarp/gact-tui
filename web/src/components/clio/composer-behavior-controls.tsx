@@ -47,10 +47,10 @@ const EFFORT_BARS: Record<ReasoningEffort, number> = {
   ultra: 3,
 };
 
-const MENU_LABEL = 'px-2 pt-1 pb-1.5 text-[11.5px] font-normal text-muted-foreground';
-/** One 30px line per row: 12.5px name, 11.5px muted description, 14px check. */
+const MENU_LABEL = 'px-2 pt-1.5 pb-1 text-[11px] font-normal text-muted-foreground';
+/** One 30px line per row: 12.5px name, 11.5px muted description, 13px accent check. */
 const MENU_ITEM =
-  'min-h-[30px] py-0 text-[12.5px] [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-3.5! [&_[data-slot=menu-row]_span[title]]:text-[11.5px]';
+  'min-h-[30px] py-0 text-[12.5px] [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground! [&_[data-slot=menu-row]_span[title]]:text-[11.5px]';
 
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;

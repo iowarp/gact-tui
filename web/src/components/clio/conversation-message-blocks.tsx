@@ -52,6 +52,7 @@ import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { BoundedResult } from './bounded-result';
+import { StateView } from './primitives/state-view';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
@@ -334,14 +335,15 @@ function MessageBlockView({
       );
     case 'error':
       return (
-        <Alert variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{humanizeProtocolValue(block.code)}</AlertTitle>
-          <AlertDescription>
-            {block.message}
-            {block.recoverable ? ' You can retry this step.' : ''}
-          </AlertDescription>
-        </Alert>
+        <StateView
+          detail={humanizeProtocolValue(block.code)}
+          kind="error"
+          size="row"
+          title={
+            `${block.message || humanizeProtocolValue(block.code)}` +
+            (block.recoverable ? ' You can retry this step.' : '')
+          }
+        />
       );
     case 'routing':
       if (block.label === 'Unknown' && !block.detail) return null;

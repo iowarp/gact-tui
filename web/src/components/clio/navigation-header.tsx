@@ -4,7 +4,9 @@ import { brand } from '@brand';
 import { ArchiveIcon, ChevronDownIcon, FolderGit2Icon, SearchIcon, UploadIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
-import { useCommandKeyHeld } from '@/lib/shortcuts/hooks';
+import { useState } from 'react';
+import { useCommandKeyHeld, useShortcut } from '@/lib/shortcuts/hooks';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
 import { AgentConnectionIdentity } from './agent-connection-identity';
 import { ClioMenuContent } from './clio-menu';
@@ -59,12 +61,15 @@ export function NavigationHeader({
 }: NavigationHeaderProps) {
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
   const commandKeyHeld = useCommandKeyHeld();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
+  useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
 
   return (
     <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
       <SidebarMenu className="in-data-[mobile=true]:pr-10">
         <SidebarMenuItem>
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 className="h-10 gap-2"

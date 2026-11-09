@@ -1,38 +1,52 @@
 import { expect, test } from '@playwright/test';
 
 for (const width of [1280, 390]) {
-  test(`follows live groups and preserves reader overrides at ${width}px`, async ({ page }) => {
+  test(`keeps live activity rows visible and preserves reader choices at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/tests/review/live-activity.html');
-    const read = page.getByRole('button', {
-      name: 'Activity: Read files, ran commands',
-      exact: true,
-    });
-    await expect(read).toHaveAttribute('aria-expanded', 'true');
-    await expect(
-      page.getByRole('button', { name: 'Show result for Read', exact: true }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    await page.getByRole('button', { name: 'Show next activity group', exact: true }).click();
-    const write = page.getByRole('button', { name: 'Activity: Editing files', exact: true });
+    // The row's chevron is its disclosure at every width; phones hide the action name.
+    const disclosure = (action: string) =>
+      page.getByRole('button', { name: new RegExp(`^(?:Expand|Collapse) ${action}$`, 'u') });
+    const read = disclosure('Read file');
+    const run = disclosure('Run command');
+    const write = disclosure('Write file');
+    const readResult = page.getByRole('region', { name: 'Read file: Result' });
+    const live = page.locator('[data-slot="transcript-activity-timeline"][aria-busy="true"]');
+    // Live rows read as they arrive; nothing opens on its own.
+    await expect(read).toBeVisible();
+    await expect(run).toBeVisible();
     await expect(read).toHaveAttribute('aria-expanded', 'false');
-    await expect(write).toHaveAttribute('aria-expanded', 'true');
-    await page.getByRole('button', { name: 'Finish fixture', exact: true }).click();
-    await expect(read).toHaveAttribute('aria-expanded', 'false');
-    await expect(
-      page.getByRole('button', { name: 'Activity: Edited files', exact: true }),
-    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(live).toHaveCount(1);
     await page.getByRole('button', { name: 'Show next activity group', exact: true }).click();
-    await expect(write).toHaveAttribute('aria-expanded', 'true');
-    await write.click();
-    await page.getByRole('button', { name: 'Hide transcript', exact: true }).click();
-    await page.getByRole('button', { name: 'Show transcript', exact: true }).click();
-    await expect(write).toHaveAttribute('aria-expanded', 'false');
+    // Earlier rows never fold away when the next step starts; the running row has nothing to open yet.
+    const writeRow = page.locator('[data-slot="activity-row"]').filter({ hasText: 'findings.md' });
+    await expect(writeRow).toBeVisible();
+    await expect(writeRow.getByRole('img', { name: 'Running' })).toBeVisible();
+    await expect(write).toHaveCount(0);
+    await expect(read).toBeVisible();
+    await expect(run).toBeVisible();
+    // A reader's choice survives the live turn updating and finishing.
     await read.click();
-    await page.getByRole('button', { name: 'Finish fixture', exact: true }).click();
     await expect(read).toHaveAttribute('aria-expanded', 'true');
+    await expect(readResult).toBeVisible();
+    await expect(readResult).toContainText('08:15');
+    await page.getByRole('button', { name: 'Finish fixture', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Activity: Edited files', exact: true }),
-    ).toHaveAttribute('aria-expanded', 'false');
+      page.getByText('The report is saved. Review the source observations before interpreting'),
+    ).toBeVisible();
+    await expect(live).toHaveCount(0);
+    await expect(read).toHaveAttribute('aria-expanded', 'true');
+    await expect(readResult).toBeVisible();
+    await expect(write).toHaveAttribute('aria-expanded', 'false');
+    await write.click();
+    await expect(write).toHaveAttribute('aria-expanded', 'true');
+    await read.click();
+    await expect(read).toHaveAttribute('aria-expanded', 'false');
+    await expect(readResult).toHaveCount(0);
+    await expect(write).toHaveAttribute('aria-expanded', 'true');
+    await expect(run).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

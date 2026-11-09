@@ -555,7 +555,6 @@ function Capabilities({
                   onExplore={member ? () => onMember(member) : undefined}
                   size="sm"
                   status={member ? pluginStatus(member) : undefined}
-                  statusWidth={140}
                 />
               );
             })}
@@ -603,7 +602,6 @@ function Capabilities({
                   name={name}
                   size="sm"
                   status={serviceStatus(server)}
-                  statusWidth={140}
                 />
               );
             })}

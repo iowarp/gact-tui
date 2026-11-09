@@ -1,11 +1,11 @@
 import { childToolInvocations, type ToolInvocation } from '@clio/core/v3';
 import { useContext, useMemo, useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
 
 /** How many of a script's calls show before "Show all". */
-const SHOWN = 8;
+const SHOWN = 4;
 
 /** A background script's repeated calls to one tool, recorded once (`_clio_repeat`). */
 function repeatOf(tool: ToolInvocation): { count: number; first: string; last: string } | null {
@@ -54,36 +54,28 @@ export function NestedToolCalls({
     .filter(Boolean)
     .join(', ');
   return (
-    <section
-      aria-label="Tool calls made by this script"
-      className="ml-2 mt-1 grid min-w-0 gap-0.5 border-l pl-3"
-      data-slot="nested-tool-calls"
+    <ActivityNest
+      label={detail ? `${count} (${detail})` : count}
+      hidden={all ? 0 : children.length - shown.length}
+      onShowAll={() => setAll(true)}
+      showAllLabel={`Show all ${children.length}`}
     >
-      <p className="text-xs text-muted-foreground">{detail ? `${count} (${detail})` : count}</p>
-      {shown.map((tool) => (
-        <div className="min-w-0" key={tool.id}>
-          {renderCall(tool)}
-          {repeatOf(tool) ? (
-            <p className="pl-6 text-xs text-muted-foreground">
-              {(() => {
-                const repeat = repeatOf(tool)!;
-                const span = [clock(repeat.first), clock(repeat.last)].filter(Boolean).join('–');
-                return `Called ${repeat.count} times${span ? `, ${span}` : ''}`;
-              })()}
-            </p>
-          ) : null}
-        </div>
-      ))}
-      {children.length > SHOWN ? (
-        <Button
-          className="h-auto w-fit p-0 text-xs"
-          onClick={() => setAll((value) => !value)}
-          size="sm"
-          variant="link"
-        >
-          {all ? 'Show fewer' : `Show all ${children.length}`}
-        </Button>
-      ) : null}
-    </section>
+      {shown.map((tool) => {
+        const repeat = repeatOf(tool);
+        const span = repeat
+          ? [clock(repeat.first), clock(repeat.last)].filter(Boolean).join('–')
+          : '';
+        return (
+          <div className="min-w-0" key={tool.id}>
+            {renderCall(tool)}
+            {repeat ? (
+              <p className="pl-[30px] text-[11.5px] text-muted-foreground">
+                {`Called ${repeat.count} times${span ? `, ${span}` : ''}`}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </ActivityNest>
   );
 }

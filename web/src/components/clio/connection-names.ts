@@ -1,5 +1,49 @@
 import { vocab } from '@/lib/brand-vocabulary';
 
+const GENERIC_LABELS = ['this computer', 'this device', 'local'];
+const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+
+export interface AgentIdentity {
+  /** What the agent is called: the user's name for it, else "CLIO local" or its host name. */
+  name: string;
+  /** host[:port] from the address. */
+  address: string;
+  /** Where it runs, for the line under the name: "this computer" or the address. */
+  place: string;
+  /** Which icon fits: this computer, a bare IP address, or a named host. */
+  kind: 'local' | 'ip' | 'host';
+}
+
+/** The CLIO menu's two-line identity for an agent: its name and where it runs. */
+export function agentIdentity(endpoint: string, label?: string, location?: string): AgentIdentity {
+  let hostname = '';
+  let address = endpoint;
+  try {
+    const url = new URL(endpoint);
+    hostname = url.hostname.toLowerCase();
+    address = url.host;
+  } catch {
+    // An unparsable address is shown as typed.
+  }
+  const local = LOOPBACK_HOSTS.includes(hostname);
+  const trimmed = label?.trim();
+  const lower = trimmed?.toLocaleLowerCase();
+  const named =
+    trimmed && lower && !GENERIC_LABELS.includes(lower) && lower !== vocab.agent.toLocaleLowerCase()
+      ? trimmed
+      : undefined;
+  const place = cleanConnectionLocation(location);
+  const name =
+    named ??
+    (place && place !== 'Local' ? place : local ? `${vocab.agent} local` : hostname || address);
+  return {
+    name,
+    address,
+    place: local ? 'this computer' : address,
+    kind: local ? 'local' : /^[\d.]+$|:/u.test(hostname) ? 'ip' : 'host',
+  };
+}
+
 /** One plain line for a row: the location, plus a user-defined agent name when there is one. */
 export function connectionDisplayName(endpoint: string, label?: string, location?: string): string {
   const displayLocation = connectionLocation(endpoint, location);

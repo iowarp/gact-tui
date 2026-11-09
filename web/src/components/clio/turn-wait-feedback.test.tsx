@@ -49,11 +49,12 @@ it('keeps a sustained gap after a completed tool visible without restarting prep
   render(<ClioTurnWaitFeedback {...props} />);
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
   tick();
-  expect(screen.getByRole('status')).toHaveTextContent('Waiting for response');
-  expect(screen.getByText('1s')).toHaveAttribute('aria-hidden', 'true');
+  expect(screen.getByRole('status')).toHaveTextContent(/^Thinking/u);
+  expect(screen.getByRole('img', { name: 'Waiting for response' })).toBeInTheDocument();
+  expect(screen.getByText('1s')).toBeVisible();
   tick();
   expect(screen.getByText('2s')).toBeVisible();
-  expect(screen.queryByText(/Thinking|Setting up|queued by/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Setting up|queued by/i)).not.toBeInTheDocument();
 });
 
 it('leaves initial setup to the existing preparation indicator', () => {

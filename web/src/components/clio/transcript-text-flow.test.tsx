@@ -42,16 +42,15 @@ it.each(['chain', 'full'] as const)(
     const view = render(<ConversationTurn iterations={[iteration]} mode={mode} subagents={{}} />);
     const trigger = screen.getByRole('button', { name: /^Thinking:/ });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(within(trigger).getByText('Diagnosing shell issues')).toBeVisible();
+    expect(trigger).toHaveAccessibleName('Thinking: Diagnosing shell issues');
+    expect(screen.getByText('Thought', { exact: true })).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
     expect(await screen.findByText(update)).toBeVisible();
     fireEvent.click(trigger);
     const passage = screen.getByRole('region', { name: 'Thinking details' });
-    expect(within(trigger).getByText('Diagnosing shell issues')).toBeVisible();
     expect(
       await within(passage).findByText(/I need to check the environment settings/),
     ).toBeVisible();
-    expect(within(passage).queryByText('Diagnosing shell issues')).not.toBeInTheDocument();
     const publicText = await screen.findByText(update);
     expect(publicText).toBeVisible();
     expect(passage).not.toContainElement(publicText);
@@ -69,7 +68,7 @@ it.each(['chain', 'full'] as const)(
   },
 );
 
-it('keeps reasoning inside its reader-controlled activity and public text outside it', async () => {
+it('reads the thought before its public text and keeps the calls in their own activity', async () => {
   const tool = {
     id: 'run',
     session_id: 's',
@@ -88,25 +87,24 @@ it('keeps reasoning inside its reader-controlled activity and public text outsid
       subagents={{}}
     />,
   );
-  expect(await screen.findByText(update)).toBeVisible();
-  expect(screen.queryByRole('button', { name: /^Thinking:/ })).not.toBeInTheDocument();
-  const disclosure = screen.getByRole('button', { name: 'Activity: Ran commands' });
-  fireEvent.click(disclosure);
-  expect(screen.getByRole('button', { name: /^Thinking:/ })).toHaveAttribute(
-    'aria-expanded',
-    'false',
-  );
-  fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+  const publicText = await screen.findByText(update);
+  expect(publicText).toBeVisible();
+  const trigger = screen.getByRole('button', { name: 'Thinking: Diagnosing shell issues' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(
+    trigger.compareDocumentPosition(publicText) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const lane = screen.getByRole('group', { name: /^Activity:/ });
+  expect(lane).not.toContainElement(trigger);
+  expect(lane).not.toContainElement(publicText);
+  fireEvent.click(trigger);
   const passage = screen.getByRole('region', { name: 'Thinking details' });
   expect(
     await within(passage).findByText(/I need to check the environment settings/),
   ).toBeVisible();
-  expect(
-    within(screen.getByRole('button', { name: /^Thinking:/ })).getByText('Diagnosing shell issues'),
-  ).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Show result for Run' })).toBeVisible();
-  expect(passage).not.toContainElement(screen.getByText(update));
-  fireEvent.click(disclosure);
+  expect(within(lane).getByRole('button', { name: /^Show result for / })).toBeVisible();
+  expect(passage).not.toContainElement(publicText);
+  fireEvent.click(trigger);
   expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
   expect(screen.getByText(update)).toBeVisible();
 });
@@ -129,11 +127,10 @@ it('preserves the same full passage and source identity as streaming completes',
     'aria-busy',
   );
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  expect(within(trigger).getByText('Diagnosing shell issues')).toBeVisible();
+  expect(screen.getByText('Thought', { exact: true })).toBeVisible();
   expect(
     await within(passage).findByText(/I need to check the environment settings/),
   ).toBeVisible();
-  expect(within(passage).queryByText('Diagnosing shell issues')).not.toBeInTheDocument();
   expect(passage.querySelector('[data-part-id="reasoning"]')).toHaveAttribute(
     'data-message-id',
     'm',
@@ -155,11 +152,10 @@ it('uses the same complete reasoning passage for residual message blocks', async
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
   fireEvent.click(trigger);
   const passage = screen.getByRole('region', { name: 'Thinking details' });
-  expect(within(trigger).getByText('Diagnosing shell issues')).toBeVisible();
+  expect(trigger).toHaveAccessibleName('Thinking: Diagnosing shell issues');
   expect(
     await within(passage).findByText(/I need to check the environment settings/),
   ).toBeVisible();
-  expect(within(passage).queryByText('Diagnosing shell issues')).not.toBeInTheDocument();
   expect(passage.querySelector('[data-part-id="residual"]')).toHaveAttribute(
     'data-message-id',
     'm',
