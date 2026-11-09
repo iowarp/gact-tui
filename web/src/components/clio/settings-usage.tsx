@@ -1,4 +1,4 @@
-import type { FleetAccount } from '@clio/core/v3';
+import type { FleetAccount, FleetSpend } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import {
   accountUsageWords,
   BILLING_ORDER,
   billingLabel,
+  spendDetails,
   spendLabel,
   type UsageMode,
 } from '@/lib/fleet-usage';
@@ -27,8 +28,9 @@ import { KeyValueGrid } from './primitives/key-value-grid';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
-import { SettingsGroupLabel } from './settings-row';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { SpendRow } from './settings-usage-spend';
 
 const MODE_KEY = 'clio.usage.mode';
 
@@ -193,7 +195,16 @@ export function UsageSettings() {
     (a, b) => BILLING_ORDER.indexOf(a.billing) - BILLING_ORDER.indexOf(b.billing),
   );
   const opened = accounts.find((account) => account.id === detailsId);
-  const estimated = fleet.data?.estimated_sessions ?? 0;
+  const data = fleet.data;
+  const models = Object.entries(data?.spend_by_model ?? {}).sort(
+    ([, a], [, b]) => b.tokens - a.tokens,
+  );
+  const total = totalSpend(
+    models.length
+      ? models.map(([, spend]) => spend)
+      : accounts.flatMap((account) => (account.spend ? [account.spend] : [])),
+  );
+  const totals = total ? spendDetails(total) : undefined;
   return (
     <section aria-label="Usage" className="flex flex-col gap-4">
       {/* The title-row controls end on the list's right edge. */}
@@ -256,14 +267,48 @@ export function UsageSettings() {
                     />
                   ))}
                 </ItemList>
+                {data && models.length ? (
+                  <>
+                    <SettingsGroupLabel>By model</SettingsGroupLabel>
+                    <ItemList label="Usage by model">
+                      {models.map(([ref, spend]) => {
+                        const entry = data.entries.find((candidate) => candidate.ref === ref);
+                        const [provider, ...rest] = ref.split('/');
+                        const model = entry?.model ?? (rest.length ? rest.join('/') : ref);
+                        const account = entry?.account ?? provider ?? '';
+                        return (
+                          <SpendRow
+                            icon={
+                              <ModelSelectorLogo
+                                className="size-4 shrink-0"
+                                provider={providerLogoId(account)}
+                              />
+                            }
+                            key={ref}
+                            meta={`${account ? `${account}, ` : ''}${spend.turns} ${spend.turns === 1 ? 'turn' : 'turns'}`}
+                            spend={spend}
+                            title={model}
+                          />
+                        );
+                      })}
+                    </ItemList>
+                  </>
+                ) : null}
+                {totals ? (
+                  <>
+                    <SettingsGroupLabel>Total</SettingsGroupLabel>
+                    <SettingsRow title="Tokens">
+                      <UsageTotal>{totals.tokens}</UsageTotal>
+                    </SettingsRow>
+                    <SettingsRow title="Cost">
+                      <UsageTotal>{totals.cost ?? 'None recorded'}</UsageTotal>
+                    </SettingsRow>
+                  </>
+                ) : null}
+                {data?.estimated_sessions ? (
+                  <EstimatedNote count={data.estimated_sessions} />
+                ) : null}
               </div>
-              {estimated ? (
-                <p className="text-xs text-muted-foreground">
-                  {estimated} older conversation{estimated === 1 ? ' is' : 's are'} counted under
-                  the model {estimated === 1 ? 'it was' : 'they were'} set to: they predate
-                  per-model usage.
-                </p>
-              ) : null}
             </div>
           }
         />
@@ -278,5 +323,43 @@ export function UsageSettings() {
         </div>
       )}
     </section>
+  );
+}
+
+function totalSpend(spends: FleetSpend[]): FleetSpend | undefined {
+  if (!spends.length) return undefined;
+  return spends.reduce((sum, spend) => ({
+    tokens_input: sum.tokens_input + spend.tokens_input,
+    tokens_cached: sum.tokens_cached + spend.tokens_cached,
+    tokens_output: sum.tokens_output + spend.tokens_output,
+    tokens: sum.tokens + spend.tokens,
+    cost_usd: sum.cost_usd + spend.cost_usd,
+    turns_without_cost: sum.turns_without_cost + spend.turns_without_cost,
+    turns: sum.turns + spend.turns,
+  }));
+}
+
+function UsageTotal({ children }: { children: string }) {
+  return (
+    <span
+      className="min-w-0 truncate font-mono text-xs font-semibold tabular-nums"
+      title={children}
+    >
+      {children}
+    </span>
+  );
+}
+
+function EstimatedNote({ count }: { count: number }) {
+  const text = `${count} older conversation${count === 1 ? ' is' : 's are'} counted under the model ${count === 1 ? 'it was' : 'they were'} set to: they predate per-model usage.`;
+  return (
+    <p
+      className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+      data-slot="settings-footnote"
+      title={text}
+    >
+      <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
+      <span className="min-w-0 truncate">{text}</span>
+    </p>
   );
 }

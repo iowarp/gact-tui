@@ -1,8 +1,7 @@
-import { FileTextIcon } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import type { DocumentAnchor } from '@clio/core/v3';
 import type { PdfHighlight } from './document-pdf-viewer';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ResourceLoading, ViewerReadError } from './resource-states';
 
 const ClioDocumentPdfViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({ default: module.ClioDocumentPdfViewer })),
@@ -26,9 +25,11 @@ export function ClioPdfPreview({
   onSelection,
   highlight,
   onPagePoint,
+  onRetry,
 }: {
   bytes?: Uint8Array;
   error?: string;
+  onRetry?: () => void;
   name: string;
   fit?: 'page' | 'width';
   /** Opens on this 1-based page instead of the first, when the caller already
@@ -40,11 +41,7 @@ export function ClioPdfPreview({
   /** A double-click on a page (0-based) at x, y as fractions of the page. */
   onPagePoint?: (page: number, x: number, y: number) => void;
 }) {
-  if (error) {
-    return (
-      <ResourceUnavailable detail={error} icon={FileTextIcon} label="PDF preview unavailable" />
-    );
-  }
+  if (error) return <ViewerReadError error={error} onRetry={onRetry} />;
   if (!bytes) return <ResourceLoading className="p-4" label={`Loading ${name}`} />;
   return (
     <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${name}`} />}>

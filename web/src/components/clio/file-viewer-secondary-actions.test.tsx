@@ -20,12 +20,10 @@ function DocumentControls({ refresh }: { refresh: () => Promise<void> }) {
   const [view, setView] = useState('preview');
   return (
     <Tabs value={view} onValueChange={setView}>
-      <DocumentViewControls markdown reviewCount={2} value={view} onChange={setView} />
+      <DocumentViewControls markdown value={view} onChange={setView} />
       <RefreshAction secondary label="Refresh document revision" onRefresh={refresh} />
       <TabsContent value="preview">Rendered file</TabsContent>
       <TabsContent value="raw">Exact source</TabsContent>
-      <TabsContent value="reviews">Recorded reviews</TabsContent>
-      <TabsContent value="policy">Safety details</TabsContent>
     </Tabs>
   );
 }
@@ -77,13 +75,11 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Document actions',
   ])
     expect(screen.queryByRole('button', { name })).toBeNull();
-  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
-    expect(screen.queryByRole('tab', { name })).toBeNull();
+  expect(screen.queryByRole('tab', { name: 'Versions' })).toBeNull();
   expect(screen.getByRole('tab', { name: 'Lineage' })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'File actions' }));
-  for (const name of ['Versions', 'Comments, 2', 'Document safety'])
-    expect(screen.getAllByRole('menuitemcheckbox', { name })).toHaveLength(1);
+  expect(screen.getAllByRole('menuitemcheckbox', { name: 'Versions' })).toHaveLength(1);
   expect(screen.queryByRole('menuitemcheckbox', { name: 'Lineage' })).toBeNull();
   for (const name of [
     'File information',
@@ -92,10 +88,6 @@ it('keeps one place for secondary actions while retaining primary read/source co
     'Copy to another workspace',
   ])
     expect(screen.getAllByRole('menuitem', { name })).toHaveLength(1);
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' }));
-  expect(screen.getByText('Recorded reviews')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'File actions' }));
-  expect(screen.getByRole('menuitemcheckbox', { name: 'Comments, 2' })).toBeChecked();
 });
 
 it('opens secondary file views with accessible names and returns to the preview', async () => {

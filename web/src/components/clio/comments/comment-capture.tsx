@@ -2,6 +2,7 @@ import type { DocumentAnchor } from '@clio/core/v3';
 import { MessageSquarePlusIcon } from 'lucide-react';
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { useSelectionComment } from '@/hooks/use-selection-action-file';
 import { cn } from '@/lib/utils';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
@@ -66,6 +67,8 @@ export function CommentCapture({
   const mine = (mark: { viewer?: string }) => !mark.viewer || mark.viewer === viewer;
   const host = useRef<HTMLDivElement>(null);
   const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
+  // The selection menu's Comment opens this session with the selected passage.
+  useSelectionComment(hostElement, sourcePath);
   const elementMode = Boolean(session?.active && session.mode === 'element' && svg);
   const textMode = session?.active && session.mode === 'text';
   const regionMode = Boolean(session?.active && session.mode === 'region' && regionAnchor);

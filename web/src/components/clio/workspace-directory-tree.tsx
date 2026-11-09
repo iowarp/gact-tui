@@ -6,6 +6,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { workspaceDirectoryQueryKey } from '@/lib/workspace-directory-cache';
 import { FileTypeIcon } from './file-type-icon';
 import { ResourceLoading } from './resource-states';
 
@@ -60,14 +61,13 @@ function DirectoryChildren({
   const { settings } = useConnectionSettings();
   const { hideDotFiles } = useAppearancePreferences();
   const listing = useInfiniteQuery({
-    queryKey: [
-      'workspace-directory',
+    queryKey: workspaceDirectoryQueryKey(
       settings.endpoint,
       props.workspaceId,
       connectionScope(settings),
       directory,
       !hideDotFiles,
-    ],
+    ),
     initialPageParam: 0,
     initialData:
       directory === '' && props.root ? { pages: [props.root], pageParams: [0] } : undefined,

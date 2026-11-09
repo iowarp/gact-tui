@@ -30,7 +30,37 @@ export type ViewerMessage =
       params: Record<string, string>;
     }
   | { source: typeof VIEWER_SOURCE; type: 'abort'; id: number }
-  | { source: typeof VIEWER_SOURCE; type: 'select'; locator: string };
+  | { source: typeof VIEWER_SOURCE; type: 'select'; locator: string }
+  | {
+      source: typeof VIEWER_SOURCE;
+      type: 'entity';
+      locator: string;
+      kind: 'dataset' | 'group' | 'other';
+      /** A dataset's dimensions; empty for a scalar. */
+      shape?: number[];
+      /** A dataset's element type in numpy terms, e.g. `float32`. */
+      dtype?: string;
+    }
+  | {
+      source: typeof VIEWER_SOURCE;
+      type: 'modes';
+      /** The ways the current object can be shown. */
+      modes: Hdf5Mode[];
+      mode?: Hdf5Mode;
+      /** Whether the object tree is open. */
+      explorer: boolean;
+    };
+
+/**
+ * How the viewer shows the current object. The host draws these in its own
+ * frame, so the viewer's breadcrumb bar and visualization tabs stay hidden.
+ */
+export const HDF5_MODES = ['table', 'plot', 'image', 'attributes'] as const;
+export type Hdf5Mode = (typeof HDF5_MODES)[number];
+
+function isMode(value: unknown): value is Hdf5Mode {
+  return (HDF5_MODES as readonly unknown[]).includes(value);
+}
 
 export type HostMessage =
   | {
@@ -46,6 +76,8 @@ export type HostMessage =
       /** The host's theme. Absent: the viewer follows the operating system. */
       theme?: 'light' | 'dark';
     }
+  /** Show the current object another way, or open or close the object tree. */
+  | { source: typeof HOST_SOURCE; type: 'show'; mode?: Hdf5Mode; explorer?: boolean }
   | { source: typeof HOST_SOURCE; type: 'response'; id: number; ok: true; body: ArrayBuffer }
   | {
       source: typeof HOST_SOURCE;
@@ -76,6 +108,21 @@ export function isViewerMessage(value: unknown): value is ViewerMessage {
       return typeof value.id === 'number';
     case 'select':
       return typeof value.locator === 'string';
+    case 'entity':
+      return (
+        typeof value.locator === 'string' &&
+        (value.kind === 'dataset' || value.kind === 'group' || value.kind === 'other') &&
+        (value.shape === undefined ||
+          (Array.isArray(value.shape) && value.shape.every((dim) => typeof dim === 'number'))) &&
+        (value.dtype === undefined || typeof value.dtype === 'string')
+      );
+    case 'modes':
+      return (
+        Array.isArray(value.modes) &&
+        value.modes.every(isMode) &&
+        (value.mode === undefined || isMode(value.mode)) &&
+        typeof value.explorer === 'boolean'
+      );
     default:
       return false;
   }
@@ -98,6 +145,11 @@ export function isHostMessage(value: unknown): value is HostMessage {
         (value.ok === true
           ? value.body instanceof ArrayBuffer
           : typeof value.status === 'number' && typeof value.message === 'string')
+      );
+    case 'show':
+      return (
+        (value.mode === undefined || isMode(value.mode)) &&
+        (value.explorer === undefined || typeof value.explorer === 'boolean')
       );
     default:
       return false;

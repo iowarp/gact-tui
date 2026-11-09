@@ -5,7 +5,7 @@ import { FileTextView } from './file-text-view';
 import { HtmlFileInBrowser } from './html-in-browser';
 import { LatexFileWorkspace } from './latex-workspace';
 import { StateView } from './primitives/state-view';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ResourceLoading, ViewerReadError } from './resource-states';
 import { useRepository } from '@/hooks/use-repository';
 import { useWorkspaceTextWindow } from '@/hooks/use-workspace-text-window';
 import { textFileFormat } from '@/lib/file-presentation';
@@ -63,6 +63,7 @@ export function WorkspaceTextView({
       error={content.error?.message}
       html={html}
       mediaType={mediaType}
+      onRetry={() => void content.refetch()}
       path={path}
       workspaceId={workspaceId}
     />
@@ -77,6 +78,7 @@ function WorkspaceTextContent({
   html,
   content,
   error,
+  onRetry,
 }: {
   workspaceId: string;
   path: string;
@@ -84,6 +86,7 @@ function WorkspaceTextContent({
   html?: { openOnShow: boolean };
   content?: string;
   error?: string;
+  onRetry?: () => void;
 }) {
   if (html && content !== undefined)
     return (
@@ -95,7 +98,13 @@ function WorkspaceTextContent({
       />
     );
   const view = (
-    <TextResourceView content={content} error={error} path={path} mediaType={mediaType} />
+    <TextResourceView
+      content={content}
+      error={error}
+      mediaType={mediaType}
+      onRetry={onRetry}
+      path={path}
+    />
   );
   // Documents take text comments in the file view too (ledger FB22): Markdown and LaTeX.
   const format = textFileFormat(path, mediaType);
@@ -198,19 +207,16 @@ export function TextResourceView({
   content,
   error,
   mediaType,
+  onRetry,
 }: {
   path: string;
   content?: string;
   error?: string;
   mediaType?: string;
+  onRetry?: () => void;
 }) {
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
-  if (error)
-    return (
-      <div className="p-4">
-        <ResourceUnavailable detail={error} label="File preview unavailable" />
-      </div>
-    );
+  if (error) return <ViewerReadError error={error} onRetry={onRetry} />;
   return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
 }
