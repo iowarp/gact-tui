@@ -1,14 +1,24 @@
-import { useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
   PanelRightIcon,
+  WrapTextIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import type { highlightCode } from '@/components/ai-elements/code-block';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
@@ -125,13 +135,23 @@ export function AskCard({
         handleAskCardKeys(event);
       }}
       className={cn(
-        '@container/ask relative min-w-0 rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
+        // and the options stay. Open Technical details lift the cap; the dock scrolls the card.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
         EDGE[kind],
         className,
       )}
       {...props}
     >
-      <header className="flex min-h-[26px] min-w-0 items-center gap-[9px]">
+      {/* With Technical details open the dock scrolls the card; the title and pager stay. The
+          header repeats the card's top edge (border, radius, kind edge) so it stays with them, and
+          shows a hairline once content scrolls under it. */}
+      <header
+        className={cn(
+          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -mb-px -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-l-[3px] border-border border-b-transparent bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:border-b-border group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
+          EDGE[kind],
+        )}
+      >
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
@@ -170,6 +190,43 @@ export function AskCard({
 export function AskSection({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div className={cn('mt-2 ml-[25px] min-w-0 @max-[420px]/ask:ml-0', className)} {...props} />
+  );
+}
+
+/**
+ * What the reader weighs before answering (facts, a script). When the card is
+ * capped this part scrolls, so the options and Technical details stay in view.
+ */
+export function AskBody({ className, ...props }: ComponentProps<'div'>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const clipped = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      element.toggleAttribute('data-clipped', clipped);
+    };
+    update();
+    element.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(element);
+    for (const child of element.children) observer?.observe(child);
+    return () => {
+      element.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        // No reserved gutter (over .clio-scrollbar's): body blocks end on the header's edge.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        className,
+      )}
+      data-slot="ask-body"
+      {...props}
+    />
   );
 }
 
@@ -213,12 +270,12 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
   );
 }
 
-/** The options row: numbered buttons, wrapping only when there is no room; stacked when narrow. */
+/** The options row: full-size numbered buttons that wrap when there is no room; stacked when narrow. */
 export function AskOptions({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+        'mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
         className,
       )}
       data-slot="ask-options"
@@ -236,7 +293,7 @@ export interface AskButtonProps extends Omit<ComponentProps<typeof Button>, 'siz
   primary?: boolean;
 }
 
-/** One 28px option button with its keys inside. */
+/** One 28px option button with its keys inside; it never shrinks or cuts its label. */
 export function AskButton({
   number,
   hint,
@@ -250,8 +307,8 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
-        !primary && 'border-input bg-transparent',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
+        !primary && 'border-input bg-transparent text-foreground',
         className,
       )}
       data-slot="ask-button"
@@ -318,9 +375,7 @@ export function AskRow({
       {number && number < 10 ? <AskKeyChip askKey={String(number)} /> : null}
       <span className="min-w-0 shrink truncate">{label}</span>
       {detail ? (
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
-          {detail}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-foreground/70">{detail}</span>
       ) : (
         <span className="flex-1" />
       )}
@@ -376,12 +431,18 @@ export function AskDetails({
   title?: string;
   hint?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
   return (
-    <AskSection className="mt-2">
+    <AskSection className="mt-2 shrink-0 scroll-mb-3" data-slot="ask-details" ref={ref}>
       <TechnicalDetails
         className="text-[11.5px] text-muted-foreground"
-        contentClassName="mt-1 border-t border-border pt-1.5"
+        contentClassName="mt-1"
         hint={hint}
+        // Opening lifts the card's cap; bring the details into the dock's view.
+        onOpenChange={(open) => {
+          if (open)
+            requestAnimationFrame(() => ref.current?.scrollIntoView?.({ block: 'nearest' }));
+        }}
         shortcut="D"
         summaryClassName="h-6 font-normal"
         title={title}
@@ -425,6 +486,34 @@ function jsonLine(line: string): ReactNode {
   return parts;
 }
 
+type HighlightedLines = NonNullable<ReturnType<typeof highlightCode>>['tokens'];
+
+/** Theme-coloured tokens for a script, loaded with the shared highlighter; plain text until then. */
+function useHighlightedLines(code: string, language?: string): HighlightedLines | undefined {
+  const [state, setState] = useState<{ code: string; lines: HighlightedLines }>();
+  useEffect(() => {
+    if (language !== 'python') return;
+    let live = true;
+    const apply = (lines: HighlightedLines) => {
+      if (live) setState({ code, lines });
+    };
+    const load = async () => {
+      try {
+        const { highlightCode: highlight } = await import('@/components/ai-elements/code-block');
+        const cached = highlight(code, language, (result) => apply(result.tokens));
+        if (cached) apply(cached.tokens);
+      } catch {
+        // Plain lines stay; colour is not needed to read the script.
+      }
+    };
+    void load();
+    return () => {
+      live = false;
+    };
+  }, [code, language]);
+  return state?.code === code ? state.lines : undefined;
+}
+
 function AskCopyButton({ code, label }: { code: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -435,7 +524,7 @@ function AskCopyButton({ code, label }: { code: string; label: string }) {
   return (
     <TooltipProvider>
       <IconButton
-        className="ml-auto text-muted-foreground"
+        className="text-muted-foreground"
         icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
         label={copied ? 'Copied' : label}
         onClick={() => {
@@ -463,6 +552,8 @@ export function AskCode({
   onOpen,
   openLabel = 'Open in tab',
   copyLabel,
+  icon: NameIcon,
+  wrapToggle,
   language,
   previewLines = PREVIEW_LINES,
   className,
@@ -478,35 +569,70 @@ export function AskCode({
   openLabel?: string;
   /** Adds a copy button to the header, named by this label. */
   copyLabel?: string;
-  language?: 'json';
+  /** A file-type glyph before the name. */
+  icon?: LucideIcon;
+  /** Adds a header toggle for wrapping long lines (on by default). */
+  wrapToggle?: boolean;
+  language?: 'json' | 'python';
   previewLines?: number;
   className?: string;
 }) {
   const lines = code.replace(/\n$/u, '').split('\n');
   const [expanded, setExpanded] = useState(false);
+  const [wrap, setWrap] = useState(true);
   const clipped = !expanded && lines.length > previewLines;
   const shown = clipped ? lines.slice(0, previewLines) : lines;
   const hidden = lines.length - shown.length;
+  const highlighted = useHighlightedLines(code, language);
+  const lineContent = (line: string, index: number): ReactNode => {
+    if (!line) return ' ';
+    if (language === 'json') return jsonLine(line);
+    const tokens = highlighted?.[index];
+    if (!tokens) return line;
+    return tokens.map((token, at) => (
+      <span key={at} style={{ color: token.color }}>
+        {token.content}
+      </span>
+    ));
+  };
   return (
     <AskSection
       aria-label={label}
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      className={cn(
+        'shrink-0 overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="ask-code"
       role="group"
     >
       {name ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+          {NameIcon ? <NameIcon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
           <span className="truncate text-[12px] font-medium text-foreground/90">{name}</span>
           {meta ? <span className="truncate">{meta}</span> : null}
+          <span className="flex-1" />
+          {wrapToggle ? (
+            <TooltipProvider>
+              <IconButton
+                className="text-muted-foreground"
+                icon={<WrapTextIcon aria-hidden="true" />}
+                label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}
+                onClick={() => setWrap((value) => !value)}
+                size="sm"
+                variant="ghost"
+              />
+            </TooltipProvider>
+          ) : null}
           {copyLabel ? <AskCopyButton code={code} label={copyLabel} /> : null}
         </div>
       ) : null}
       <pre
         className={cn(
-          'clio-scrollbar grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
-            ? 'max-h-[140px] overflow-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
-            : 'max-h-[min(24rem,40dvh)] overflow-auto',
+            ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
+            : 'max-h-[min(24rem,40dvh)] overflow-y-auto',
+          wrap ? 'overflow-x-hidden' : 'overflow-x-auto',
         )}
         tabIndex={clipped ? undefined : 0}
       >
@@ -515,14 +641,14 @@ export function AskCode({
             <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
               {index + 1}
             </span>
-            <code className="break-all whitespace-pre-wrap">
-              {line ? (language === 'json' ? jsonLine(line) : line) : ' '}
+            <code className={wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}>
+              {lineContent(line, index)}
             </code>
           </span>
         ))}
       </pre>
       {hidden > 0 || onOpen ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="truncate">{hidden > 0 ? `${hidden} more lines` : null}</span>
           <AskButton
             {...askKeyAttributes(['o'])}

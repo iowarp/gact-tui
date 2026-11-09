@@ -2,6 +2,7 @@ import { useAttentionDraft } from './attention-drafts';
 import type {
   A2UIActionLifecycle,
   A2UISurface,
+  Artifact,
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
@@ -18,6 +19,7 @@ import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { planArtifact } from './plan-artifact';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -43,6 +45,11 @@ export interface ClioPendingInteractionsProps {
   ) => Promise<void>;
   onRefetchSurfaces?: () => void;
   onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
+  /** Opens the script a permission was asked from as a tab (its tool call's detail). */
+  onOpenScript?: (interaction: PendingInteraction, callId: string) => void;
+  /** The session's artifacts, so a plan card can open its saved plan. */
+  artifacts?: Readonly<Record<string, Artifact>>;
+  onOpenArtifact?: (artifact: Artifact) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -58,6 +65,9 @@ export function ClioPendingInteractions({
   onResponse,
   onRefetchSurfaces,
   onOpenSurfaceQuestion,
+  onOpenScript,
+  artifacts = {},
+  onOpenArtifact,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
@@ -104,7 +114,8 @@ export function ClioPendingInteractions({
     const card = document
       .getElementById(pendingInteractionDomId(selectedId))
       ?.closest<HTMLElement>('[data-slot="ask-card"]');
-    card?.focus({ preventScroll: true });
+    // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
+    card?.focus({ preventScroll: true, focusVisible: false });
   }, [pendingKey, selectedId]);
   useEffect(() => {
     const reveal = (event: Event) => {
@@ -149,6 +160,8 @@ export function ClioPendingInteractions({
     onNext: () => navigate(index + 1),
   };
 
+  // A script ask shows its first lines whole (the spec's 8-line preview), not two.
+  const scriptCap = Boolean(selected?.payload?.script);
   return (
     <section
       aria-label="Agent needs your attention"
@@ -163,10 +176,13 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation; a visual answer gets more.
-          hasInteractiveSurface || selected?.payload?.access
+          // The card stops at 45% of the conversation; a script's preview and a visual
+          // answer get more.
+          hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[45dvh]',
+            : scriptCap
+              ? 'max-h-[min(62dvh,34rem)]'
+              : 'max-h-[45dvh]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -176,12 +192,25 @@ export function ClioPendingInteractions({
           'aria-label': `${pending.length} pending responses`,
           className: 'pending-interactions-viewport overscroll-contain',
           onKeyDown: handleScrollableRegionKeys,
+          // The sticky card header draws its hairline only while content is under it.
+          onScroll: (event) =>
+            event.currentTarget.toggleAttribute(
+              'data-ask-scrolled',
+              event.currentTarget.scrollTop > 0,
+            ),
           role: 'region',
           tabIndex: -1,
         }}
       >
         <AskPagerContext.Provider value={pager}>
-          <div className="flex min-w-0 flex-col gap-2">
+          <div
+            className={cn(
+              'flex min-w-0 flex-col gap-2',
+              // A card past the cap scrolls its body; its options stay in view.
+              !hasInteractiveSurface &&
+                (scriptCap ? '[--ask-card-max:min(62dvh,34rem)]' : '[--ask-card-max:45dvh]'),
+            )}
+          >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
             {pending.map((interaction) => (
               <div
@@ -206,6 +235,7 @@ export function ClioPendingInteractions({
                         disabled={interactionDisabled}
                         interaction={interaction}
                         key={interaction.id}
+                        onOpenScript={onOpenScript}
                         onResponse={handleResponse}
                         ownerLabel={ownerLabel}
                         responseError={responseError}
@@ -256,9 +286,11 @@ export function ClioPendingInteractions({
                   if (interaction.source.tool_name === 'plan_exit') {
                     return (
                       <PlanExitResponse
+                        artifact={planArtifact(interaction, artifacts)}
                         disabled={interactionDisabled}
                         interaction={interaction}
                         key={interaction.id}
+                        onOpenArtifact={onOpenArtifact}
                         onResponse={handleResponse}
                         ownerLabel={ownerLabel}
                         responseError={responseError}

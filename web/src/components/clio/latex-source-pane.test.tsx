@@ -17,8 +17,6 @@ function pane(file: string, activeLine?: number) {
       activeLine={activeLine}
       diagnostics={[]}
       file={file}
-      files={Object.keys(texts)}
-      onFile={() => undefined}
       onLine={() => undefined}
       texts={texts}
     />

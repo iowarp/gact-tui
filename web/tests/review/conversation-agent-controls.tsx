@@ -11,7 +11,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { ConversationAgentControls } from '../../src/components/clio/conversation-agent-controls';
+import {
+  DraftAgentChip,
+  DraftCustomizeChip,
+  DraftWorkspaceChip,
+} from '../../src/components/clio/new-conversation-chips';
+import {
+  NewConversationBreadcrumb,
+  NewConversationDraft,
+} from '../../src/components/clio/new-conversation-draft';
 import { ClioSessionContextBar } from '../../src/components/clio/session-context-bar';
 import { ClioDraftActions } from '../../src/components/clio/draft-actions';
 import {
@@ -205,6 +213,19 @@ function Review() {
           size="xs"
           variant="outline"
           onClick={() => {
+            setExisting(false);
+            setDraft({
+              ref: 'clio/earthscope',
+              delta: { add: ['clio/manufacturing'], remove: ['pdf'] },
+            });
+          }}
+        >
+          Customized draft
+        </Button>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => {
             setExisting(true);
             setRequest(undefined);
           }}
@@ -237,24 +258,10 @@ function Review() {
               onOpenAgent={openAgent}
             />
           ) : (
-            <div className="flex min-w-0 items-center gap-2 text-sm">
-              <label className="flex min-w-0 items-center gap-2">
-                <span className="max-sm:sr-only">New conversation in</span>
-                <select
-                  aria-label="Conversation workspace"
-                  className="min-w-0 rounded-md border bg-background px-2 py-1"
-                >
-                  <option>default</option>
-                </select>
-              </label>
-              <ConversationAgentControls
-                agents={agents}
-                agentRef={draft.ref}
-                defaultRef="clio/standard"
-                changes={draft.delta.add.length + draft.delta.remove.length}
-                onSelect={(ref) => setDraft({ ref, delta: emptyAgentDelta })}
-                onCustomize={openAgent}
-              />
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <NewConversationBreadcrumb workspaceLabel="default" />
+              </div>
               <ClioDraftActions
                 onOpen={(section) =>
                   setRequest({
@@ -289,13 +296,50 @@ function Review() {
         }
         statusStrip={null}
       >
-        <div className="flex h-full flex-col items-center justify-center p-6 text-foreground">
-          <ClioConversationWelcome>
-            <p className="text-center text-[12.5px] text-muted-foreground">
-              Choose the agent, then use Customize for its plugins and prompt.
-            </p>
-          </ClioConversationWelcome>
-        </div>
+        {existing ? (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-foreground">
+            <ClioConversationWelcome>
+              <p className="text-center text-[12.5px] text-muted-foreground">
+                Choose the agent, then use Customize for its plugins and prompt.
+              </p>
+            </ClioConversationWelcome>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col justify-center overflow-y-auto px-4 py-8 text-foreground sm:px-8">
+            <NewConversationDraft
+              setup={
+                <>
+                  <span>In</span>
+                  <DraftWorkspaceChip
+                    workspaces={[
+                      { id: 'default', display_name: 'default' },
+                      { id: 'genesis-opal', display_name: 'genesis-opal' },
+                    ]}
+                    workspaceId="default"
+                    onSelect={() => undefined}
+                  />
+                  <span>with</span>
+                  <DraftAgentChip
+                    agents={agents}
+                    agentRef={draft.ref}
+                    defaultRef="clio/standard"
+                    changes={draft.delta.add.length + draft.delta.remove.length}
+                    onSelect={(ref) => setDraft({ ref, delta: emptyAgentDelta })}
+                    onManageAgents={openAgent}
+                  />
+                  <DraftCustomizeChip
+                    changes={draft.delta.add.length + draft.delta.remove.length}
+                    onCustomize={openAgent}
+                  />
+                </>
+              }
+            >
+              <div className="h-24 rounded-xl border bg-card p-3 text-sm text-muted-foreground">
+                Composer
+              </div>
+            </NewConversationDraft>
+          </div>
+        )}
       </ClioAppShell>
     </>
   );

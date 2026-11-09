@@ -12,10 +12,10 @@ import {
   TriangleAlertIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './icon-button';
+import { RingSpinner } from './ring-spinner';
 
 export type StateKind =
   | 'loading'
@@ -73,6 +73,8 @@ export interface StateViewProps {
    */
   action?: StateAction;
   secondaryAction?: StateAction;
+  /** A text link under the action (Details), for a page or a panel. */
+  link?: StateAction;
   /** Supplemental facts after the line: a size, an extension, a time. */
   detail?: string;
   /**
@@ -99,6 +101,7 @@ export const StateView = memo(function StateView({
   title,
   action,
   secondaryAction,
+  link,
   detail,
   size = 'panel',
   icon,
@@ -159,12 +162,8 @@ export const StateView = memo(function StateView({
         )}
       >
         {kind === 'loading' && !icon ? (
-          row ? (
-            // The activity rows' running ring, so a loading line reads as work in progress.
-            <span className="block size-3 rounded-full border-2 border-primary/40 border-t-primary motion-safe:animate-spin" />
-          ) : (
-            <Spinner className="size-[18px] motion-reduce:animate-none" />
-          )
+          // The activity rows' running ring (spec .spin, 12px), so a loading line reads as work in progress.
+          <RingSpinner className={row ? 'size-3' : 'size-[18px]'} />
         ) : IconComponent ? (
           <IconComponent className={row ? 'size-[15px]' : 'size-[22px]'} />
         ) : (
@@ -215,15 +214,29 @@ export const StateView = memo(function StateView({
             disabled={action.disabled}
             onClick={action.onClick}
             className={cn(
-              row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input text-foreground',
+              kind !== 'changed-elsewhere' && 'text-foreground',
+              row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input',
             )}
           >
-            {kind === 'error' ? (
+            {/* An action's own icon (or `null` for none) replaces Retry's. */}
+            {action.icon !== undefined ? (
+              action.icon
+            ) : kind === 'error' ? (
               <RetryIcon aria-hidden="true" className={row ? 'size-3.5' : undefined} />
             ) : null}
             {actionLabel}
           </Button>
         </span>
+      ) : null}
+      {link && !row ? (
+        <button
+          type="button"
+          disabled={link.disabled}
+          onClick={link.onClick}
+          className="rounded-sm text-[12px] text-accent-foreground underline underline-offset-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {link.label}
+        </button>
       ) : null}
     </div>
   );

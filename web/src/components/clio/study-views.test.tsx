@@ -1,8 +1,21 @@
 import { scienceLogSchema, type ScienceStudy } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  render as renderBare,
+  screen,
+  within,
+  type RenderOptions,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useStudyViewFocus } from '@/lib/a2ui/open-view';
 import { StudyViews } from './study-views';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const render = (ui: ReactElement, options?: RenderOptions) =>
+  renderBare(ui, { wrapper: TooltipProvider, ...options });
 
 vi.mock('@/lib/a2ui/processor-store', () => ({ useA2uiSessionRegistry: vi.fn() }));
 vi.mock('./a2ui-surface', () => ({
@@ -51,16 +64,17 @@ const view = (entry: string, sessionId: string, extra: Record<string, unknown> =
 });
 
 describe('Study views', () => {
-  it("shows one view at a time, as its owner's surface, and switches by title", async () => {
-    render(<StudyViews study={study([view('e_v1', 'sess_root'), view('e_v2', 'sess_b')])} />);
+  it("shows one view at a time, as its owner's surface, the one asked for else the first", () => {
+    const views = study([view('e_v1', 'sess_root'), view('e_v2', 'sess_b')]);
+    render(<StudyViews study={views} />);
     const shown = screen.getByRole('region');
     expect(within(shown).getByRole('heading', { name: 'Title e_v1' })).toBeVisible();
     expect(within(shown).getByText('Purpose e_v1')).toBeVisible();
     expect(within(shown).getByText('Attached by the study')).toBeVisible();
     expect(within(shown).getByText('surface surface_e_v1')).toBeVisible();
     expect(screen.queryByText('surface surface_e_v2')).toBeNull();
-    const switcher = screen.getByRole('radiogroup', { name: 'Study views' });
-    await userEvent.click(within(switcher).getByRole('radio', { name: 'Title e_v2' }));
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    act(() => useStudyViewFocus.getState().focus('e_v2'));
     const drill = screen.getByRole('region');
     expect(within(drill).getByText('Attached by Entropy branch')).toBeVisible();
     expect(within(drill).getByText('surface surface_e_v2')).toHaveAttribute(
@@ -68,6 +82,7 @@ describe('Study views', () => {
       'false',
     );
     expect(screen.queryByText('surface surface_e_v1')).toBeNull();
+    act(() => useStudyViewFocus.getState().clear());
   });
 
   it('shows a view attached as a conversation view before as it is, read-only', () => {
@@ -90,41 +105,34 @@ describe('Study views', () => {
     expect(screen.getByText('surface surface_e_v1')).toHaveAttribute('data-read-only', 'false');
   });
 
-  it('has no switcher for a single view', () => {
-    render(<StudyViews study={study([view('e_v1', 'sess_root')])} />);
-    expect(screen.queryByRole('radiogroup', { name: 'Study views' })).toBeNull();
-  });
-
-  it('says in words when the owner deleted the surface, or it cannot be read', async () => {
-    render(
-      <StudyViews
-        readOnly
-        study={study([
-          view('e_v1', 'sess_root', { surface: null, reason: 'view_surface_deleted' }),
-          view('e_v2', 'sess_b', { surface: { id: 'broken' } }),
-        ])}
-      />,
-    );
+  it('says in words when the owner deleted the surface, or it cannot be read', () => {
+    const views = study([
+      view('e_v1', 'sess_root', { surface: null, reason: 'view_surface_deleted' }),
+      view('e_v2', 'sess_b', { surface: { id: 'broken' } }),
+    ]);
+    render(<StudyViews readOnly study={views} />);
     expect(screen.getByText(/has since deleted its dashboard/u)).toBeVisible();
-    await userEvent.click(screen.getByRole('radio', { name: 'Title e_v2' }));
-    expect(screen.getByRole('alert')).toHaveTextContent("This view's dashboard could not be read.");
+    act(() => useStudyViewFocus.getState().focus('e_v2'));
+    expect(screen.getByText("This view's dashboard could not be read.")).toBeVisible();
+    act(() => useStudyViewFocus.getState().clear());
   });
 });
 
-describe('Study tree view links', () => {
-  it("open Views on the view the link names, not the switcher's first", async () => {
+describe('Study list view rows', () => {
+  it('open the view the row names in place of the log', async () => {
     const { ScienceLogView } = await import('./science-log-tab');
     const user = userEvent.setup();
     const viewed = study([view('e_v1', 'sess_root'), view('e_v2', 'sess_b')]);
     render(
       <ScienceLogView sessionId="sess_root" study={viewed} views={<StudyViews study={viewed} />} />,
     );
-    await user.click(screen.getByRole('button', { name: 'Title e_v2' }));
-    const switcher = screen.getByRole('radiogroup', { name: 'Study views' });
-    expect(within(switcher).getByRole('radio', { name: 'Title e_v2' })).toHaveAttribute(
-      'aria-checked',
+    expect(screen.queryByText('surface surface_e_v2')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'View: Title e_v2' }));
+    expect(screen.getByText('surface surface_e_v2')).toBeVisible();
+    expect(screen.queryByText('surface surface_e_v1')).toBeNull();
+    expect(screen.getByRole('button', { name: 'View: Title e_v2' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
-    expect(screen.getByText('surface surface_e_v2')).toBeVisible();
   });
 });

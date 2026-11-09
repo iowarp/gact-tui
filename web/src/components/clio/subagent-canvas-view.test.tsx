@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SubagentRun, TranscriptSnapshot, TransportFrame } from '@clio/core/v3';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 
@@ -111,7 +112,9 @@ function renderCanvas(element: ReactElement) {
     wrapper: ({ children }: PropsWithChildren) => (
       <QueryClientProvider client={client}>
         <AppearanceProvider>
-          <ConversationDisplayProvider>{children}</ConversationDisplayProvider>
+          <ConversationDisplayProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </ConversationDisplayProvider>
         </AppearanceProvider>
       </QueryClientProvider>
     ),
@@ -201,7 +204,7 @@ describe('ClioSubagentCanvasView live stream', () => {
     await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2), {
       timeout: 5_000,
     });
-    await waitFor(() => expect(screen.getByText('Reconnecting')).toBeVisible(), {
+    await waitFor(() => expect(screen.getByText('reconnecting')).toBeVisible(), {
       timeout: 5_000,
     });
     expect(mocks.repository.stream).toHaveBeenLastCalledWith(

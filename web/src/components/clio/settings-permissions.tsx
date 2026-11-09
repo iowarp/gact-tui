@@ -185,7 +185,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
 
 export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   return (
-    <div className="grid">
+    <div className="min-w-0">
       <SettingsSectionHeading
         info="Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions."
         title="Permissions"
