@@ -1,8 +1,8 @@
-import { useEffect } from "react"
-import { useTheme } from "@/providers/appearance-provider"
-import { Toaster as Sonner, toast, type ToasterProps } from "sonner"
-import { CheckIcon, CircleAlertIcon, Loader2Icon, TriangleAlertIcon } from "lucide-react"
-import { CloseIcon, InfoIcon } from "@/lib/icon-vocabulary"
+import { useEffect } from 'react';
+import { useTheme } from '@/providers/appearance-provider';
+import { Toaster as Sonner, toast, type ToasterProps } from 'sonner';
+import { CheckIcon, CircleAlertIcon, Loader2Icon, TriangleAlertIcon } from 'lucide-react';
+import { CloseIcon, InfoIcon } from '@/lib/icon-vocabulary';
 
 /**
  * Toasts sit at the top, below the 40px page header: at the bottom they
@@ -12,12 +12,14 @@ import { CloseIcon, InfoIcon } from "@/lib/icon-vocabulary"
  * left two notices drawn over each other. Up to three show at once; under
  * 600px Sonner widens them to the window, inside the mobile offset.
  */
-const TOAST_OFFSET = { top: 48 } as const
-const TOAST_MOBILE_OFFSET = { top: 48, left: 16, right: 16 } as const
-const VISIBLE_TOASTS = 3
-const TOAST_GAP = 10
+const TOAST_OFFSET = { top: 48 } as const;
+const TOAST_MOBILE_OFFSET = { top: 48, left: 16, right: 16 } as const;
+const VISIBLE_TOASTS = 3;
+const TOAST_GAP = 10;
+/** The spec's lifetime: gone after five seconds, kept while hovered. */
+const TOAST_DURATION = 5000;
 
-const ICON = "size-[15px] shrink-0"
+const ICON = 'size-[15px] shrink-0';
 
 /*
  * One row per toast, as the spec's `.xt`: icon, the line, one ghost action,
@@ -27,65 +29,79 @@ const ICON = "size-[15px] shrink-0"
  */
 const TOAST_CLASSES = {
   toast:
-    "cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-[5px] pr-1.5 pl-3 text-[12.5px] text-popover-foreground shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_40%,transparent)] dark:shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_75%,transparent)]",
+    'cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-2 pr-1.5 pl-3 text-[12.5px] text-popover-foreground shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_40%,transparent)] dark:shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_75%,transparent)]',
   // Sonner centres its loader absolutely; `relative` keeps it in the icon slot.
-  icon: "relative flex size-[15px] shrink-0 items-center justify-center text-primary",
-  content: "flex min-w-0 flex-1 flex-col gap-0.5 py-1",
-  title: "line-clamp-2 leading-[18px] text-foreground",
-  description: "line-clamp-2 text-[11.5px] leading-4 !text-muted-foreground",
+  // The content starts 8px down with an 18px first line, so the icon sits on
+  // the title's first line however many lines follow.
+  icon: 'relative mt-[5.5px] flex size-[15px] shrink-0 items-center justify-center self-start text-primary',
+  content: 'flex min-w-0 flex-1 flex-col gap-0.5 py-1',
+  title: 'line-clamp-2 leading-[18px] text-foreground',
+  description: 'line-clamp-2 text-[11.5px] leading-4 !text-muted-foreground',
   actionButton:
-    "inline-flex h-[26px] shrink-0 items-center rounded-[7px] border border-input px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-foreground/85 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] border border-border px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-foreground/85 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
   cancelButton:
-    "inline-flex h-[26px] shrink-0 items-center rounded-[7px] px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+    'inline-flex h-[26px] shrink-0 items-center rounded-[7px] px-2 font-medium text-[12.5px] leading-none whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
   closeButton:
-    "order-last grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
-  error: "[&_[data-icon]]:text-destructive",
-  info: "[&_[data-icon]]:text-info",
-  warning: "[&_[data-icon]]:text-warning",
-  loading: "[&_[data-icon]]:text-muted-foreground",
-} satisfies NonNullable<ToasterProps["toastOptions"]>["classNames"]
+    'order-last grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+  error: '[&_[data-icon]]:text-destructive',
+  info: '[&_[data-icon]]:text-info',
+  warning: '[&_[data-icon]]:text-warning',
+  loading: '[&_[data-icon]]:text-muted-foreground',
+} satisfies NonNullable<ToasterProps['toastOptions']>['classNames'];
+
+/** A title clamped to two lines shows its full text on hover. */
+function showClampedTitle(event: React.PointerEvent<HTMLElement>) {
+  if (!(event.target instanceof Element)) return;
+  const title = event.target.closest<HTMLElement>('[data-title]');
+  if (!title) return;
+  if (title.scrollHeight > title.clientHeight + 1) title.title = title.textContent ?? '';
+  else title.removeAttribute('title');
+}
 
 const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
-  const { resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme();
 
   return (
-    <Sonner
-      theme={resolvedTheme.dark ? "dark" : "light"}
-      className="toaster group"
-      position="top-center"
-      offset={TOAST_OFFSET}
-      mobileOffset={TOAST_MOBILE_OFFSET}
-      visibleToasts={VISIBLE_TOASTS}
-      gap={TOAST_GAP}
-      expand
-      closeButton
-      icons={{
-        success: <CheckIcon className={ICON} />,
-        info: <InfoIcon className={ICON} />,
-        warning: <TriangleAlertIcon className={ICON} />,
-        error: <CircleAlertIcon className={ICON} />,
-        loading: <Loader2Icon className={`${ICON} motion-safe:animate-spin`} />,
-        close: <CloseIcon className={ICON} />,
-      }}
-      style={
-        {
-          // Sonner's dark theme paints its close button from these; keep it a ghost icon.
-          "--normal-bg": "transparent",
-          "--normal-bg-hover": "var(--hover)",
-          "--normal-border": "transparent",
-          "--normal-border-hover": "transparent",
-          "--normal-text": "var(--muted-foreground)",
-        } as React.CSSProperties
-      }
-      toastOptions={{
-        ...toastOptions,
-        unstyled: true,
-        classNames: { ...TOAST_CLASSES, ...toastOptions?.classNames },
-      }}
-      {...props}
-    />
-  )
-}
+    <div className="contents" onPointerOver={showClampedTitle}>
+      <Sonner
+        theme={resolvedTheme.dark ? 'dark' : 'light'}
+        className="toaster group"
+        position="top-center"
+        offset={TOAST_OFFSET}
+        mobileOffset={TOAST_MOBILE_OFFSET}
+        visibleToasts={VISIBLE_TOASTS}
+        gap={TOAST_GAP}
+        duration={TOAST_DURATION}
+        expand
+        closeButton
+        icons={{
+          success: <CheckIcon className={ICON} />,
+          info: <InfoIcon className={ICON} />,
+          warning: <TriangleAlertIcon className={ICON} />,
+          error: <CircleAlertIcon className={ICON} />,
+          loading: <Loader2Icon className={`${ICON} motion-safe:animate-spin`} />,
+          close: <CloseIcon className={ICON} />,
+        }}
+        style={
+          {
+            // Sonner's dark theme paints its close button from these; keep it a ghost icon.
+            '--normal-bg': 'transparent',
+            '--normal-bg-hover': 'var(--hover)',
+            '--normal-border': 'transparent',
+            '--normal-border-hover': 'transparent',
+            '--normal-text': 'var(--muted-foreground)',
+          } as React.CSSProperties
+        }
+        toastOptions={{
+          ...toastOptions,
+          unstyled: true,
+          classNames: { ...TOAST_CLASSES, ...toastOptions?.classNames },
+        }}
+        {...props}
+      />
+    </div>
+  );
+};
 
 /**
  * A dialog takes over from the notices shown before it opened: a toast left
@@ -95,9 +111,9 @@ const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
 /* Render it inside the dialog's content, which mounts only while it is open. */
 function DismissToastsOnOpen() {
   useEffect(() => {
-    toast.dismiss()
-  }, [])
-  return null
+    toast.dismiss();
+  }, []);
+  return null;
 }
 
-export { DismissToastsOnOpen, Toaster }
+export { DismissToastsOnOpen, Toaster };
