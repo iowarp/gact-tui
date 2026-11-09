@@ -25,7 +25,8 @@ test('session creation expands downward from a stable corner and keeps actions r
     .fill('Review station data');
   const collapsedBox = (await dialog.boundingBox())!;
   const collapsedTrigger = (await advanced.boundingBox())!;
-  expect(collapsedBox.width).toBeGreaterThanOrEqual(650);
+  // DialogFrame: 36% of the window, 360 to 560 px.
+  expect(collapsedBox.width).toBeCloseTo(1280 * 0.36, 0);
   await advanced.click();
   await expect(advanced).toHaveAttribute('aria-expanded', 'true');
   const expandedBox = (await dialog.boundingBox())!;
@@ -79,12 +80,12 @@ test('session creation expands downward from a stable corner and keeps actions r
   await expect(
     dialog.getByRole('combobox', { name: 'Default work mode', exact: true }),
   ).toHaveCount(0);
-  await dialog.getByRole('tab', { name: 'Workspace', exact: true }).click();
+  await dialog.getByRole('radio', { name: 'Workspace', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Workspace name', exact: true })).toBeVisible();
   await expect(
     dialog.getByRole('button', { name: 'Create workspace', exact: true }),
   ).toBeInViewport();
-  await dialog.getByRole('tab', { name: 'Session', exact: true }).click();
+  await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Session name', exact: true })).toHaveValue(
     'Review station data',
   );
@@ -105,8 +106,10 @@ test('session creation expands downward from a stable corner and keeps actions r
   await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
   await advanced.click();
   const phoneBox = (await dialog.boundingBox())!;
-  expect(phoneBox.x).toBeGreaterThanOrEqual(15);
-  expect(phoneBox.x + phoneBox.width).toBeLessThanOrEqual(375);
+  // Below 600 px the frame is a bottom sheet across the whole width.
+  expect(phoneBox.x).toBe(0);
+  expect(phoneBox.width).toBeCloseTo(390, 0);
+  expect(phoneBox.y + phoneBox.height).toBeCloseTo(640, 0);
   expect(
     await fields.evaluate((element) => element.scrollWidth - element.clientWidth),
   ).toBeLessThan(2);
@@ -122,4 +125,42 @@ test('session creation expands downward from a stable corner and keeps actions r
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('a create menu opened while the conversation is loading stays open once it loads', async ({
+  page,
+}) => {
+  await page.request.post(`${endpoint}/__test/reset`);
+  await page.addInitScript((value) => {
+    if (window !== window.top) return;
+    localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
+  }, endpoint);
+  let releaseSessions!: () => void;
+  const sessionsReleased = new Promise<void>((resolve) => (releaseSessions = resolve));
+  await page.route(
+    (url) => url.pathname === '/v1/sessions',
+    async (route) => {
+      await sessionsReleased;
+      await route.continue();
+    },
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  const restoring = page.getByText('Restoring saved messages now', { exact: false });
+  await expect(restoring).toBeVisible();
+  const trigger = page.getByRole('button', { name: 'Create or import', exact: true });
+  await trigger.click();
+  const newSession = page.getByRole('menuitem', { name: 'New session', exact: true });
+  await expect(newSession).toBeVisible();
+
+  releaseSessions();
+  // The open menu hides the rest of the page from the accessibility tree, so
+  // read the shell through attributes rather than roles.
+  await expect(page.locator('[aria-label="Workspace canvas loading"]')).toHaveCount(0);
+  await expect(restoring).toHaveCount(0);
+  await expect(page.locator('[aria-label="Create or import"]')).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(newSession).toBeVisible();
 });

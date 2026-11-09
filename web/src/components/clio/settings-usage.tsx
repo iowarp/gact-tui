@@ -19,6 +19,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
+import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SpendSummary, UsageSummary } from './fleet-usage';
 import { InfoTip } from './info-tip';
@@ -256,7 +257,10 @@ export function UsageSettings() {
                   actions={
                     <span className="flex items-center gap-1" data-slot="usage-delegation-caption">
                       Delegated work
-                      <InfoTip className="text-faint" label="About delegated work">
+                      <InfoTip
+                        className={cn('text-faint', NARROW_HIDDEN)}
+                        label="About delegated work"
+                      >
                         Turn an account on to let {vocab.agent} run delegated work on it without
                         asking.
                       </InfoTip>

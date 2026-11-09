@@ -111,23 +111,10 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   const { view, overlay, onHide } = props;
   const title = WORKBENCH_LIST_TITLES[view];
   const renderHeader = (actions: ReactNode) => (
-    <ListHeader actions={actions} onHide={onHide} title={title} />
+    <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
   );
   return (
-    <section
-      aria-label={`${title} list`}
-      data-slot="workbench-list"
-      data-overlay={overlay || undefined}
-      className={cn(
-        'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
-        // Too narrow for both: the list is a sheet over the whole tab area, its
-        // header in the tab row's place (never half of it, which would clip the
-        // tab), and a pick closes it.
-        overlay
-          ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : 'h-full w-[36%] min-w-[180px]',
-      )}
-    >
+    <WorkbenchListSection overlay={overlay} title={title}>
       {view === 'activity' ? (
         <WorkbenchActivityList
           activeTabId={props.activeTabId}
@@ -150,17 +137,47 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         <SourcesList {...props} renderHeader={renderHeader} />
       ) : (
         <>
-          <ListHeader onHide={onHide} title={title} />
+          <WorkbenchListHeader onHide={onHide} title={title} />
           <div className="min-h-0 flex-1 overflow-hidden">
             <ListBody {...props} />
           </div>
         </>
       )}
-    </section>
+    </WorkbenchListSection>
   );
 });
 
-function ListHeader({
+/** The column beside the tabs: a strip's list, or the open tab's own (a study tree). */
+export function WorkbenchListSection({
+  title,
+  overlay,
+  children,
+}: {
+  title: string;
+  overlay: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      aria-label={`${title} list`}
+      data-slot="workbench-list"
+      data-overlay={overlay || undefined}
+      className={cn(
+        'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
+        // Too narrow for both: the list is a sheet over the whole tab area, its
+        // header in the tab row's place (never half of it, which would clip the
+        // tab), and a pick closes it.
+        overlay
+          ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
+          : 'h-full w-[36%] min-w-[180px]',
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function WorkbenchListHeader({
   title,
   actions,
   onHide,

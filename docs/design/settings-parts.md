@@ -80,7 +80,7 @@ rows. `default` (46 px, meta under the name) is for lists whose meta needs room,
 for typed values only. It binds Ctrl S / ⌘S.
 
 **`DialogFrame`** (F) `components/clio/primitives/dialog-frame.tsx`
-`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, help?, className? }`.
+`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard?, key?: 'Enter' }, cancelLabel?: string | null, secondary?, help?, footerStart?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
 The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
@@ -89,9 +89,11 @@ the left. The chips are hidden from screen readers, so a button's name stays its
 The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap). Below
 600 px it becomes a full-width bottom sheet and drops the chips (spec: dialogs grow to 100%
 and drop the key hints before anything else folds); there the description wraps instead of
-truncating. A section that needs a wider dialog
-passes its own `w-[clamp(...)]`. With `keyboard: false` or a disabled confirm, the confirm
-button has no chip. The body is marked
+truncating. A section that needs a wider dialog passes its own `w-[clamp(...)]`. With
+`keyboard: false` or a disabled confirm, the confirm button has no chip. Acknowledgement
+dialogs such as What's new pass `cancelLabel={null}` (no Cancel; focus starts on the confirm),
+`confirm.key: 'Enter'` (plain ↵ confirms, and the button's chip shows ↵) and `footerStart` (a
+quiet link on the left). The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
@@ -165,6 +167,14 @@ Takes the same props as `SettingsNavigation`. It is one named icon per scope
 `SegmentedControl` (`primitives/segmented-control.tsx`) follows the spec `.xsg`: a 28 px
 muted track without a border, 24 px items at 12 px, and the selected item raised. Use it
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
+
+**`StepList`** `components/clio/primitives/step-list.tsx`
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+The steps of a long operation in 28 px rows: a check, a spinner, an open circle or an alert, the
+state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
+default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+Used by the update page and the local startup (`LocalStartupSteps`).
 
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and
 `docs/design/visual-language/components.md`.
