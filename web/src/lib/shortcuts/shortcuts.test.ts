@@ -39,6 +39,18 @@ describe('chords', () => {
     expect(shortcutText(getShortcut('previous-conversation')!, 'windows')).toBe('Alt ↑');
   });
 
+  it('changes the composer mode with a chord typing leaves alone', () => {
+    const mode = getShortcut('mode')!;
+    expect(mode.name).toBe('Change mode');
+    expect(shortcutText(mode, 'windows')).toBe('Ctrl Shift M');
+    expect(shortcutText(mode, 'mac')).toBe('⇧⌘M');
+    for (const platform of ['windows', 'mac'] as const) {
+      for (const chord of shortcutChords(mode, platform)) {
+        expect(isTextFieldChord(chord, platform)).toBe(false);
+      }
+    }
+  });
+
   it('matches exactly and reports the position of a range', () => {
     const range = parseChord('Ctrl+Shift+1–7', 'windows');
     const event = {

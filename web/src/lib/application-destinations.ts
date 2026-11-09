@@ -144,6 +144,14 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     keywords: 'mcp remote tools relay',
   },
   {
+    id: 'tool-permissions',
+    label: 'Tool permissions',
+    icon: WrenchIcon,
+    group: 'Agent',
+    host: 'tools',
+    keywords: 'tool permission approval io direct code both always allow blocked needs approval',
+  },
+  {
     id: 'permissions',
     label: 'Permissions',
     icon: ShieldCheckIcon,

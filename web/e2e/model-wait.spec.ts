@@ -12,15 +12,22 @@ for (const width of [1280, 390]) {
     await expect(pill).toHaveAccessibleDescription(fullName);
     const provider = pill.locator('[data-slot="model-choice-provider"]');
     const model = pill.locator('[data-slot="model-choice-model"]');
-    for (const name of [provider, model]) {
+    // The spec's narrow rule: the model shrinks to its name, then its logo.
+    // Hover and the accessible description keep the full selection either way.
+    const shown = width >= 1280 ? [provider, model] : [];
+    for (const name of shown) {
       await expect(name).toBeVisible();
       await expect(name).toHaveCSS('text-overflow', 'ellipsis');
       expect((await name.boundingBox())!.width).toBeGreaterThan(30);
     }
+    if (!shown.length) await expect(provider).toBeHidden();
     // The provider takes only its own width, never padding after a short name.
-    expect(
-      await provider.evaluate((node) => node.getBoundingClientRect().width <= node.scrollWidth + 1),
-    ).toBe(true);
+    if (shown.length)
+      expect(
+        await provider.evaluate(
+          (node) => node.getBoundingClientRect().width <= node.scrollWidth + 1,
+        ),
+      ).toBe(true);
     await pill.hover();
     await expect(page.getByRole('tooltip')).toHaveText(fullName);
     await page.screenshot({ path: test.info().outputPath(`model-label-hover-${width}.png`) });
