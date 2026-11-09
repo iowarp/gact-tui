@@ -173,7 +173,7 @@ describe('ClioAttentionCenter', () => {
     expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
   });
 
-  it('lists waiting sessions as one-line rows and opens with its shortcut', async () => {
+  it('lists waiting sessions with their pending work and opens with its shortcut', async () => {
     const second: Session = { ...baseSession, id: 'sess_2', title: 'Session Two' };
     render(
       <Center
@@ -194,17 +194,18 @@ describe('ClioAttentionCenter', () => {
     expect(trigger).toHaveAttribute('aria-keyshortcuts');
     fireEvent.keyDown(window, { key: 'n', code: 'KeyN', ctrlKey: true, altKey: true });
     const dialog = await screen.findByRole('dialog');
-    // The header, the group and the rows all count responses, so they agree.
-    expect(within(dialog).getByText('4 responses')).toBeInTheDocument();
+    // The badge, the trigger's name and the group all count responses, so they agree.
     expect(within(dialog).getByRole('heading', { name: /Needs you\s*4/ })).toBeInTheDocument();
     const second_row = within(dialog).getByRole('link', {
       name: 'Session Two: 2 approvals, 1 question',
     });
     expect(second_row).toHaveAttribute('href', '/workspaces/ws_1/sessions/sess_2');
-    expect(within(second_row).getByText('approve')).toBeInTheDocument();
-    expect(within(second_row).getByText('3')).toBeInTheDocument();
+    // The first pending kind names the row's action.
+    expect(within(second_row).getByText('Review')).toBeInTheDocument();
     expect(
       within(dialog).getByRole('link', { name: 'Session One: 1 question' }),
     ).toBeInTheDocument();
+    // Opening starts on the first notification, so arrows move through the list.
+    await waitFor(() => expect(within(dialog).getAllByRole('link')[0]).toHaveFocus());
   });
 });

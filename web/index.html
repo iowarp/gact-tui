@@ -7,8 +7,11 @@
          a reload never falls back to a neutral placeholder. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   </head>
-  <body>
+  <body data-app-shell>
     <div id="root"></div>
+    <!-- Menus, popovers, dialogs and tooltips portal here rather than into <body>:
+         inserting a body child restyles everything under #root. -->
+    <div id="clio-overlays"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -74,6 +74,8 @@ export const StatusIndicator = memo(function StatusIndicator({
       data-tone={tone}
       className={cn(
         'inline-flex min-w-0 items-center gap-1 text-[12px] whitespace-nowrap text-muted-foreground',
+        tone === 'error' && 'text-destructive',
+        tone === 'warning' && 'text-warning',
         className,
       )}
     >

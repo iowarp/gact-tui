@@ -251,6 +251,23 @@
     min-width: 320px;
     margin: 0;
   }
+  /* The app shell never scrolls the document. Holding the values Radix's
+     scroll lock applies makes opening a modal menu or dialog a no-op for
+     every element instead of a full-document restyle. The widget gallery
+     scrolls its document, so this applies only to the app's own page. */
+  body[data-app-shell] {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    position: relative;
+    --removed-body-scroll-bar-size: 0px;
+  }
+  /* Radix modal layers also set body pointer-events to none while open. The
+     app shell starts body in that state (holdModalBodyPointerEvents), so the
+     toggle changes nothing; body's children stay interactive and each modal
+     layer blocks the page with its own ModalShield. */
+  :where(body[data-app-shell]) > * {
+    pointer-events: auto;
+  }
   #root {
     height: 100%;
   }

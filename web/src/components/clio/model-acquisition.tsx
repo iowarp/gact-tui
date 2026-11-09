@@ -1,14 +1,16 @@
 import { vocab } from '@/lib/brand-vocabulary';
-import type { ModelDownloadInput } from '@clio/core/v3';
-import { useEffect, useState } from 'react';
+import type { ManagedServiceCatalog, ModelAcquisition, ModelDownloadInput } from '@clio/core/v3';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DownloadIcon, PackageCheckIcon } from 'lucide-react';
+import { ChevronRightIcon, DownloadIcon, HardDriveIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { formatBytes } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -22,17 +24,45 @@ import { InstallExpectation } from './install-expectation';
 import { ModelDownloadSearch } from './model-download-search';
 import { ModelInventoryRow } from './model-inventory-row';
 import { ModelDownloadProgress } from './model-download-progress';
+import { ModelStorageLocations } from './model-storage-locations';
 import { RegistryModelDetails } from './registry-model-details';
+import { InfraList } from './infrastructure-row';
+import { InfraTabActions } from './infrastructure-tab-actions';
+import { StateView } from './primitives/state-view';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
+
+/** The runtime that serves a model's files on this computer, or the one it lacks. */
+function modelRuntime(
+  model: ModelAcquisition,
+  catalog: ManagedServiceCatalog | undefined,
+  hostLabel: string,
+): { runtime?: string; unavailable?: string } {
+  if (!catalog) return {};
+  const gguf = Boolean(model.file_path?.endsWith('.gguf'));
+  const usable = (id: string) =>
+    catalog.services.find(
+      (service) => service.id === id && service.variants.some((variant) => variant.compatible),
+    );
+  const compatible = (gguf ? usable('llama_cpp') : undefined) ?? usable('vllm');
+  if (compatible) return { runtime: compatible.label };
+  return {
+    runtime: catalog.services.find((service) => service.id === (gguf ? 'llama_cpp' : 'vllm'))
+      ?.label,
+    unavailable: `No compatible runtime for these files on ${hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file.`,
+  };
+}
 
 /** Host-owned acquisition remains visible after navigation and controller restarts. */
 export function ModelAcquisitions({
   targetId,
   hostLabel,
+  hostSelector,
 }: {
   targetId: string;
   hostLabel: string;
+  /** The computer selector, drawn before Download model in the tab bar. */
+  hostSelector?: ReactNode;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -83,9 +113,16 @@ export function ModelAcquisitions({
     retry: false,
   });
   const storage = useQuery({
-    enabled: open && advancedOpen,
     queryKey: ['host-storage', settings.endpoint, targetId],
     queryFn: ({ signal }) => repository.hostStorageSettings(targetId, signal),
+    retry: false,
+  });
+  const modelsFolder = storage.data?.effective.models ?? '';
+  const capacity = useQuery({
+    enabled: Boolean(modelsFolder),
+    queryKey: ['host-storage-capacity', settings.endpoint, targetId, modelsFolder],
+    queryFn: ({ signal }) => repository.inspectHostPath(targetId, { path: modelsFolder }, signal),
+    staleTime: 60_000,
     retry: false,
   });
   const [searchFilters, setSearchFilters] = useInfrastructureState<string[]>(
@@ -134,18 +171,12 @@ export function ModelAcquisitions({
     .find((model) => model.repository === draft.repository.trim());
   const error = inventory.error ?? acquire.error ?? action.error;
   const unavailable = inventory.data?.unavailable_reason;
+  const models = inventory.data?.models ?? [];
   return (
-    <section className="border-t" aria-label={`Models on ${hostLabel}`}>
-      <div className="flex flex-wrap items-center gap-3 border-b py-4">
-        <PackageCheckIcon className="size-5 text-primary" aria-hidden="true" />
-        <h3 className="font-medium">Downloaded models</h3>
-        <InfoTip label="About model downloads">
-          Download the repository's files into a dedicated folder on this host. {vocab.agent}{' '}
-          resolves an immutable revision, checks free space, and verifies the files. This does not
-          load model code or start inference.
-        </InfoTip>
+    <div className="flex min-w-0 flex-col">
+      <InfraTabActions>
+        {hostSelector}
         <Button
-          className="ml-auto"
           size="sm"
           disabled={!inventory.data || Boolean(unavailable)}
           onClick={() => {
@@ -158,51 +189,77 @@ export function ModelAcquisitions({
         {unavailable ? (
           <InfoTip label="Why downloading is unavailable">{unavailable}</InfoTip>
         ) : null}
-      </div>
-      {inventory.isPending ? (
-        <p role="status" className="p-4 text-sm text-muted-foreground">
-          Inspecting model storage…
-        </p>
-      ) : null}
+      </InfraTabActions>
       {error ? (
-        <p role="alert" className="p-4 text-sm text-destructive">
-          {error.message}
-        </p>
+        <StateView
+          action={
+            inventory.error
+              ? { label: 'Retry', onClick: () => void inventory.refetch() }
+              : undefined
+          }
+          kind="error"
+          size="row"
+          title={error.message}
+        />
       ) : null}
-      {inventory.data?.errors.map((error) => (
-        <p role="alert" className="p-4 text-sm text-destructive" key={error.storage_root}>
-          Could not inspect {error.storage_root}: {error.error}. Showing the last observation.
-        </p>
+      {inventory.data?.errors.map((failure) => (
+        <StateView
+          action={{ label: 'Retry', onClick: () => void inventory.refetch() }}
+          detail={failure.error}
+          key={failure.storage_root}
+          kind="error"
+          size="row"
+          title={`Could not inspect ${failure.storage_root}. Showing the last observation.`}
+        />
       ))}
-      {inventory.data && !inventory.data.models.length ? (
-        <div className="space-y-2 p-6 text-sm text-muted-foreground">
-          <p>No downloaded models on this host yet.</p>
-        </div>
-      ) : null}
-      <div className="divide-y">
-        {inventory.data?.models.map((model) => (
-          <ModelInventoryRow
-            key={model.id}
-            model={model}
-            targetId={targetId}
-            hostLabel={hostLabel}
-            runtimeUnavailable={
-              runtimes.data &&
-              !runtimes.data.services.some(
-                (service) =>
-                  service.variants.some((variant) => variant.compatible) &&
-                  (service.id === 'vllm' ||
-                    (service.id === 'llama_cpp' && model.file_path?.endsWith('.gguf'))),
-              )
-                ? `No compatible runtime for these files on ${hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file.`
-                : undefined
-            }
-            disabled={action.isPending || Boolean(unavailable)}
-            onAction={(next) => action.mutate({ id: model.id, action: next })}
-            onRefresh={refresh}
-          />
-        ))}
-      </div>
+      <InfraList
+        heading={`Downloaded models on ${hostLabel}`}
+        headingAction={
+          capacity.data ? (
+            <span
+              className="flex items-center gap-1 text-[11.5px] text-muted-foreground"
+              title={`Free space in ${capacity.data.path}`}
+            >
+              <HardDriveIcon aria-hidden="true" className="size-3.5" />
+              {`${formatBytes(capacity.data.free_bytes)} free`}
+            </span>
+          ) : undefined
+        }
+        hover={78}
+        meta={96}
+        status={136}
+      >
+        {inventory.isPending ? (
+          <div role="listitem">
+            <StateView kind="loading" size="row" title="Inspecting model storage…" />
+          </div>
+        ) : inventory.data && !models.length ? (
+          <div role="listitem">
+            <StateView kind="empty" size="row" title="No downloaded models on this host yet." />
+          </div>
+        ) : null}
+        {models.map((model) => {
+          const { runtime, unavailable: runtimeUnavailable } = modelRuntime(
+            model,
+            runtimes.data,
+            hostLabel,
+          );
+          return (
+            <ModelInventoryRow
+              key={model.id}
+              model={model}
+              targetId={targetId}
+              hostLabel={hostLabel}
+              runtime={runtime}
+              runtimeUnavailable={runtimeUnavailable}
+              disabled={action.isPending || Boolean(unavailable)}
+              onAction={(next) => action.mutate({ id: model.id, action: next })}
+              onRefresh={refresh}
+            />
+          );
+        })}
+      </InfraList>
+      <ModelStorageLocations hostLabel={hostLabel} targetId={targetId} />
       <Dialog
         open={open}
         onOpenChange={(value) => {
@@ -211,7 +268,16 @@ export function ModelAcquisitions({
       >
         <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-5xl">
           <DialogHeader>
-            <DialogTitle>{acquire.data ? 'Model download' : 'Find a model'}</DialogTitle>
+            <div className="flex items-center gap-2">
+              <DialogTitle>{acquire.data ? 'Model download' : 'Find a model'}</DialogTitle>
+              {acquire.data ? null : (
+                <InfoTip label="About model downloads">
+                  Download the repository's files into a dedicated folder on this host.{' '}
+                  {vocab.agent} resolves an immutable revision, checks free space, and verifies the
+                  files. This does not load model code or start inference.
+                </InfoTip>
+              )}
+            </div>
             <DialogDescription>
               {acquire.data
                 ? 'Progress continues if you close this window.'
@@ -318,15 +384,19 @@ export function ModelAcquisitions({
                       Choose a model to see its capabilities and model card.
                     </p>
                   )}
-                  <details
+                  <Collapsible
                     className="border-t pt-3"
                     open={advancedOpen}
-                    onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+                    onOpenChange={setAdvancedOpen}
                   >
-                    <summary className="cursor-pointer text-sm font-medium">
+                    <CollapsibleTrigger className="group/advanced flex items-center gap-1.5 text-sm font-medium">
+                      <ChevronRightIcon
+                        aria-hidden="true"
+                        className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]/advanced:rotate-90 motion-reduce:transition-none"
+                      />
                       Advanced download settings
-                    </summary>
-                    <div className="mt-4 space-y-4">
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-4 space-y-4">
                       <Field>
                         <FieldLabel htmlFor="model-repository">Repository</FieldLabel>
                         <Input
@@ -383,12 +453,10 @@ export function ModelAcquisitions({
                           />
                         </div>
                       </Field>
-                    </div>
-                  </details>
+                    </CollapsibleContent>
+                  </Collapsible>
                   {acquire.error ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {acquire.error.message}
-                    </p>
+                    <StateView kind="error" size="row" title={acquire.error.message} />
                   ) : null}
                   <InstallExpectation
                     downloadBytes={chosen?.size_bytes}
@@ -421,6 +489,6 @@ export function ModelAcquisitions({
           )}
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }

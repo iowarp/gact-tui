@@ -5,6 +5,9 @@ import './index.css';
 import { AppProviders } from '@/providers/app-providers';
 import { RouteErrorBoundary } from '@/components/clio/route-error-boundary';
 import { removeLegacyCredentialStorage } from '@/lib/legacy-credential-storage';
+import { holdModalBodyPointerEvents } from '@/components/ui/overlay-container';
+
+holdModalBodyPointerEvents();
 
 try {
   removeLegacyCredentialStorage(window.localStorage);

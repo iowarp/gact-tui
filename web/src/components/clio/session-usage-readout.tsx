@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useRepository } from '@/hooks/use-repository';
@@ -71,12 +72,16 @@ function SessionUsageHover({
   const busiest = busiestWindow(account?.usage);
   const marker = busiest && busiest.used_percent >= 80 ? busiest : undefined;
   const spend = Object.entries(fleet.data?.session?.spend_by_model ?? {});
+  // Hover waits briefly so passing the pointer over the readout does not flash
+  // the card; an explicit click or tap opens it at once.
+  const [open, setOpen] = useState(false);
   return (
-    <HoverCard closeDelay={100} openDelay={250}>
+    <HoverCard closeDelay={100} onOpenChange={setOpen} open={open} openDelay={250}>
       <HoverCardTrigger asChild>
         <button
           aria-label="Usage for this conversation's account"
           className="ml-auto hidden cursor-default items-center sm:inline-flex"
+          onClick={() => setOpen(true)}
           type="button"
         >
           <Readout cost={cost} marker={marker} tokens={tokens} />

@@ -165,12 +165,20 @@ above while redesigning the surface; the change is not mechanical.
   and palette classes outside `web/src/theme/`.
 - Never show status with color alone. `StatusIndicator` pairs each state with
   a shape and a word, and `column` display keeps the word for assistive
-  technology.
+  technology. In `visible` display, error and warning words take their tone
+  color; every other state word stays muted.
 - Give trailing columns fixed widths and hide hover actions with
   `visibility`, so nothing moves on hover.
 - Keep every line to one line. Use `truncate`, `TruncatedText` or
   `MiddleTruncate`, and put the full text in `title`.
 - Mount menus, popovers, dialogs and the shortcut sheet only while open.
+- Portal overlays into `useOverlayContainer()` (`ui/overlay-container.ts`), never
+  `document.body`: inserting a body child restyles every element under the app
+  root. The app shell holds `<body>` at Radix's modal values (scroll lock and
+  `pointer-events: none`), so opening a modal layer changes nothing on `<body>`.
+  A modal menu, select or popover therefore renders `ModalShield` below its
+  content to block the page; dialogs and sheets use their overlays. Build new
+  overlays on the `ui/` wrappers so they inherit both.
 - Wrap row components in `memo`, and let them take `ref` and `style` so a
   virtualizer can position them.
 - Register shortcuts by catalog id instead of adding a `keydown` listener. The

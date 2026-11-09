@@ -23,6 +23,7 @@ import {
 } from './a2ui-data-demo-fixture.mjs';
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
+import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
 
@@ -1843,6 +1844,15 @@ const modelRegistry = new Map(
     ),
   ].map((details) => [details.repository, details]),
 );
+const infrastructure = createInfrastructureFixture({
+  sendJson,
+  readJson,
+  localTargetFacts,
+  localCatalog: managedServiceCatalog,
+  localModels: { root: modelsRoot, home: localHome, inventory: localModelInventory },
+  catalogFor: (label) => reviewCatalog.find((scenario) => scenario.label === label).services,
+  serviceUrls: { llamaCpp: llamaCppUrl, webSearch: webSearchUrl },
+});
 const provenanceConnections = [
   {
     id: 'prov_flowcept_lab',
@@ -2415,7 +2425,11 @@ const server = createServer(async (request, response) => {
       healthy: true,
       uptime_s: 1,
       overall_status: 'healthy',
-      integrations: [],
+      // Only ready rows: a warning here would show in navigation on every page.
+      integrations: ['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
+        name,
+        status: 'ready',
+      })),
       tool_hooks_installed: true,
     });
     return;
@@ -2475,13 +2489,15 @@ const server = createServer(async (request, response) => {
     sendJson(response, { tools: liveTools });
     return;
   }
+  if (await infrastructure.handle(request, response, url)) return;
   if (request.method === 'GET' && url.pathname === '/v1/infrastructure/catalog') {
     const targetId = url.searchParams.get('target_id') ?? 'local';
-    if (targetId !== 'local') {
+    const catalog = infrastructure.catalog(targetId);
+    if (!catalog) {
       sendJson(response, { error: 'target_not_found', target_id: targetId }, 404);
       return;
     }
-    sendJson(response, managedServiceCatalog);
+    sendJson(response, catalog);
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/infrastructure/provenance/connections') {
@@ -2500,14 +2516,12 @@ const server = createServer(async (request, response) => {
     const targetId = decodeURIComponent(targetModels[1]);
     sendJson(
       response,
-      targetId === 'local'
-        ? localModelInventory
-        : {
-            target_id: targetId,
-            models: [],
-            errors: [],
-            unavailable_reason: 'Unknown execution host.',
-          },
+      infrastructure.models(targetId) ?? {
+        target_id: targetId,
+        models: [],
+        errors: [],
+        unavailable_reason: 'Unknown execution host.',
+      },
     );
     return;
   }

@@ -67,34 +67,6 @@ function sendJson(response, body, status = 200) {
   return Buffer.byteLength(text);
 }
 
-let infrastructureStubCache;
-function infrastructureStubs() {
-  if (infrastructureStubCache) return infrastructureStubCache;
-  const at = '2026-08-22T18:00:00.000Z';
-  const local = {
-    id: 'local',
-    label: 'This computer',
-    kind: 'local',
-    install_root: '',
-    transport_state: 'connected',
-    auto_reconnect: true,
-    created_at: at,
-    updated_at: at,
-  };
-  infrastructureStubCache = {
-    '/v1/infrastructure/inventory': {
-      targets: [local],
-      services: [],
-      connections: [],
-      operations: [],
-      model_acquisitions: [],
-    },
-    '/v1/infrastructure/targets': { targets: [local] },
-    '/v1/infrastructure/service-connections': { connections: [] },
-  };
-  return infrastructureStubCache;
-}
-
 async function readBody(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -730,11 +702,6 @@ const server = createServer(async (request, response) => {
         ...base,
         capabilities: { ...base.capabilities, x_clio_context_references: { enabled: true } },
       });
-    } else if (get && url.pathname in infrastructureStubs()) {
-      // The base fixture has no infrastructure endpoints; a minimal valid
-      // inventory (this computer, nothing installed) lets those pages render.
-      entry.status = 200;
-      entry.bytes = sendJson(response, infrastructureStubs()[url.pathname]);
     } else if (get && /^\/v1\/workspaces\/[^/]+\/references$/u.test(url.pathname)) {
       const query = (url.searchParams.get('q') ?? '').toLowerCase();
       const count = Math.max(40, Math.min(scenario.files, 400));

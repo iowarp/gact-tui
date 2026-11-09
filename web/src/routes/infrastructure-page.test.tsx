@@ -256,14 +256,18 @@ describe('InfrastructurePage', () => {
   it('opens the overview from the bare infrastructure route', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Infrastructure: Overview', level: 1 }),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('separates agent, tools, and services while opening on the requested section', async () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Infrastructure: Tools', level: 1 }),
+    ).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
     expect(screen.getByRole('link', { name: `${brand.agentName} hosts` })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
@@ -274,36 +278,54 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'services');
 
-    expect(await screen.findByRole('heading', { name: 'Services', level: 1 })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Infrastructure: Services', level: 1 }),
+    ).toBeVisible();
     screen.getByRole('main').focus();
     await user.keyboard('{Alt>}{ArrowLeft}{/Alt}');
     expect(
-      await screen.findByRole('heading', { name: `${brand.agentName} hosts`, level: 1 }),
+      await screen.findByRole('heading', {
+        name: `Infrastructure: ${brand.agentName} hosts`,
+        level: 1,
+      }),
     ).toBeVisible();
     await user.keyboard('{Alt>}{ArrowLeft}{/Alt}');
-    expect(await screen.findByRole('heading', { name: 'Overview', level: 1 })).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Infrastructure: Overview', level: 1 }),
+    ).toBeVisible();
   });
 
   it('shows typed contracts for CLIO tools and tools from installed MCPs', async () => {
     const user = userEvent.setup();
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(await screen.findByText('4 tools')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'All 4' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /Create plan/u })).not.toBeVisible();
-    await user.click(screen.getByText('Planning'));
-    expect(screen.getByRole('button', { name: /Create plan/u })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Create artifact/u }));
-    expect(screen.getByText('Creates a durable workspace artifact.')).toBeVisible();
-    expect(screen.getByText('Inputs')).toBeVisible();
-    expect(screen.getByText('title')).toBeVisible();
-    expect(screen.getByText('required')).toBeVisible();
-    expect(screen.getByText('Returns')).toBeVisible();
-    expect(screen.getByText('artifact_id')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'MCP 1' }));
-    expect(screen.getByRole('button', { name: /Search NDP/u })).toBeVisible();
-    expect(screen.getByText('Session')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'ndp' })).toHaveAttribute('href', '/settings/plugins');
+    const builtin = await screen.findByRole('list', { name: 'Built in' });
+    expect(within(builtin).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(builtin).getByText('Planning')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tool source: All' }));
+    expect(screen.getByRole('menuitem', { name: /^All/u })).toHaveTextContent('4');
+    await user.keyboard('{Escape}');
+    await user.click(within(builtin).getByRole('button', { name: 'create_artifact' }));
+    const contract = screen.getByRole('dialog');
+    expect(within(contract).getByRole('heading', { name: 'Create artifact' })).toBeVisible();
+    expect(within(contract).getByText('Creates a durable workspace artifact.')).toBeVisible();
+    expect(within(contract).getByText('Inputs')).toBeVisible();
+    expect(within(contract).getByText('title')).toBeVisible();
+    expect(within(contract).getByText('required')).toBeVisible();
+    expect(within(contract).getByText('Returns')).toBeVisible();
+    expect(within(contract).getByText('artifact_id')).toBeVisible();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Tool source: All' }));
+    await user.click(screen.getByRole('menuitem', { name: /^MCP/u }));
+    expect(screen.queryByRole('list', { name: 'Built in' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'ndp_search' }));
+    const mcp = screen.getByRole('dialog');
+    expect(within(mcp).getByRole('heading', { name: 'Search NDP' })).toBeVisible();
+    expect(within(mcp).getByText('Session')).toBeVisible();
+    expect(within(mcp).getByRole('link', { name: 'ndp' })).toHaveAttribute(
+      'href',
+      '/settings/plugins',
+    );
     expect(repository.tools).toHaveBeenCalled();
     expect(repository.catalogTools).toHaveBeenCalled();
     expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(
@@ -354,7 +376,7 @@ describe('InfrastructurePage', () => {
     expect(screen.queryByRole('heading', { name: 'CLIO agent' })).not.toBeInTheDocument();
   });
 
-  it('names what needs attention in the header and on the Local row, not only in a badge', async () => {
+  it('names what needs attention on the Local row, not only in a badge', async () => {
     repository.serviceHealth.mockResolvedValue({
       healthy: true,
       integrations: [
@@ -366,14 +388,46 @@ describe('InfrastructurePage', () => {
 
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
 
+    const local = (await screen.findByRole('button', { name: 'Local details' })).closest(
+      '[role="listitem"]',
+    );
     expect(
-      await screen.findByText('Running. Memory service process on Local needs attention.'),
+      within(local as HTMLElement).getByText(/Needs attention: Memory service process\./u),
     ).toBeVisible();
-    expect(
-      within(screen.getByRole('region', { name: 'Local computer' })).getByText(
-        /Needs attention: Memory service process\./u,
-      ),
-    ).toBeVisible();
+  });
+
+  it('opens a component row to its facts and its fix, and checks again from the tab bar', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [
+        { name: 'api', status: 'ready' },
+        {
+          name: 'lm_provider',
+          status: 'unavailable',
+          required: true,
+          endpoint: 'http://127.0.0.1:11434',
+          summary: 'provider probe refused',
+        },
+      ],
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    const errors = await screen.findByRole('list', { name: 'Errors' });
+    const toggle = within(errors).getByRole('button', { name: 'Language model provider' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(errors).getByText('http://127.0.0.1:11434')).toBeVisible();
+    expect(within(errors).getByRole('link', { name: 'Provider setup' })).toHaveAttribute(
+      'href',
+      '/settings/providers',
+    );
+    expect(screen.getByRole('list', { name: 'Ready and working' })).toBeVisible();
+    const calls = repository.serviceHealth.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(repository.serviceHealth.mock.calls.length).toBeGreaterThan(calls));
   });
 
   it('offers a "Set up protected execution" fix, not just a label', async () => {
@@ -580,7 +634,8 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
-    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
+    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
     await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.getByText('Connect existing Web Search')).toBeVisible();
@@ -620,7 +675,8 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
-    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
+    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
     await user.click(
       await screen.findByRole('button', { name: 'Edit connection CLIO Web Search' }),
     );
@@ -648,7 +704,8 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
-    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
+    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
     await user.click(
       await screen.findByRole('button', { name: 'Edit connection CLIO Web Search' }),
     );
@@ -662,7 +719,8 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage(undefined, 'services');
 
-    await user.click(await screen.findByRole('button', { name: 'Connect existing service…' }));
+    await user.click(await screen.findByRole('button', { name: 'More ways to add a service' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Connect an existing service' }));
     await user.click(await screen.findByRole('button', { name: 'Connect CLIO Web Search' }));
     expect(screen.getByRole('dialog')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Close' }));

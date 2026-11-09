@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { ProvenanceConnection } from '@clio/core/v3';
 import { ProvenanceConnections } from './provenance-connections';
 import { vocab } from '@/lib/brand-vocabulary';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const repository = vi.hoisted(() => ({
   provenanceConnections: vi.fn(),
@@ -40,7 +41,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      {children}
+      <TooltipProvider>{children}</TooltipProvider>
     </QueryClientProvider>
   );
 }

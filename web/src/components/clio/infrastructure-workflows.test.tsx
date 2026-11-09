@@ -2,21 +2,27 @@ import { infrastructureInventorySchema, type ToolCatalogItem } from '@clio/core/
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { InfrastructureActivity } from './infrastructure-activity';
 import { InfrastructureHosts } from './infrastructure-hosts';
-import { CatalogToolset } from './catalog-toolset';
+import { InfraTabActionsProvider } from './infrastructure-tab-actions';
 import { InfrastructureTools } from './infrastructure-tools';
 
-const repository = vi.hoisted(() => ({ reconnectSessionMcpServer: vi.fn() }));
+const repository = vi.hoisted(() => ({
+  reconnectSessionMcpServer: vi.fn(),
+  modelAcquisitionAction: vi.fn(),
+  cancelInfrastructureOperation: vi.fn(),
+}));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://owned-service' } }),
 }));
 
 vi.mock('./ssh-host-picker', () => ({ SshHostPicker: () => <p>Saved SSH computers</p> }));
-vi.mock('./infrastructure-overview', () => ({
+vi.mock('./infrastructure-host-inspection', () => ({
   InfrastructureHostInspection: ({ targetId }: { targetId: string }) => <p>Inspect {targetId}</p>,
 }));
 const data = infrastructureInventorySchema.parse({
@@ -84,33 +90,57 @@ const data = infrastructureInventorySchema.parse({
     },
   ],
 });
+function TabBar({ children }: { children: React.ReactNode }) {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <div aria-label="Tab actions" ref={setTarget} role="toolbar" />
+      <InfraTabActionsProvider value={target}>{children}</InfraTabActionsProvider>
+    </>
+  );
+}
 function show(ui: React.ReactNode) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <TooltipProvider>
+        <MemoryRouter>
+          <TabBar>{ui}</TabBar>
+        </MemoryRouter>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
 afterEach(cleanup);
 
+async function chooseFilter(trigger: string, option: RegExp) {
+  await userEvent.click(screen.getByRole('button', { name: trigger }));
+  await userEvent.click(screen.getByRole('menuitem', { name: option }));
+}
+
 it('filters failure history and offers a way back without losing the operation log', async () => {
   show(<InfrastructureActivity data={data} />);
-  await userEvent.click(screen.getByRole('button', { name: 'Failed 1' }));
+  await chooseFilter('Activity filter: All', /^Failed/);
   expect(screen.queryByText('Stop SearXNG')).not.toBeInTheDocument();
-  await userEvent.click(screen.getByText('Install SearXNG'));
+  const row = screen.getByRole('button', { name: 'Install SearXNG details' });
+  expect(row).toHaveAttribute('aria-expanded', 'false');
+  await userEvent.click(row);
+  expect(row).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByText('Disk full')).toBeVisible();
+  expect(screen.getByLabelText('Log for Install SearXNG')).toHaveTextContent(
+    'Install could not continue.',
+  );
+  expect(screen.getByRole('link', { name: 'Go to service' })).toHaveAttribute(
+    'href',
+    '/infrastructure/services?target=homelab',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'View operation' }));
   const dialog = screen.getByRole('dialog');
   expect(within(dialog).getByText('Disk full')).toBeVisible();
   expect(within(dialog).queryByText('Install could not continue.')).not.toBeInTheDocument();
   await userEvent.click(within(dialog).getByRole('tab', { name: 'Log' }));
-  expect(screen.getByText('Install could not continue.')).toBeVisible();
+  expect(within(dialog).getByText('Install could not continue.')).toBeVisible();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Actions for Install SearXNG' }));
-  expect(screen.getByRole('menuitem', { name: 'Go to service' })).toHaveAttribute(
-    'href',
-    '/infrastructure/services?target=homelab',
-  );
-  await userEvent.keyboard('{Escape}');
-  await userEvent.type(screen.getByRole('textbox', { name: 'Search activity' }), 'missing');
+  await userEvent.type(screen.getByRole('searchbox', { name: 'Search activity' }), 'missing');
   expect(screen.getByText('No matching activity.')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(screen.getByText('Stop SearXNG')).toBeVisible();
@@ -124,13 +154,12 @@ it('keeps a long failure reason behind technical details without losing its orig
       data={{ ...data, model_acquisitions: [], operations: [{ ...data.operations[0], error }] }}
     />,
   );
-  await userEvent.click(screen.getByText('Install SearXNG'));
-  expect(
-    within(screen.getByRole('dialog')).getByText('Installation stopped before it answered.'),
-  ).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Install SearXNG details' }));
+  expect(screen.getByText('Installation stopped before it answered.')).toBeVisible();
   const rawMatch = (_: string, node: Element | null) =>
     node?.tagName === 'PRE' && node.textContent === error;
   expect(screen.queryByText(rawMatch)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'View operation' }));
   await userEvent.click(screen.getByRole('tab', { name: 'Log' }));
   const raw = screen.getByText(rawMatch);
   expect(raw).toBeVisible();
@@ -139,15 +168,33 @@ it('keeps a long failure reason behind technical details without losing its orig
 
 it('shows byte progress before opening an active download and searches the visible status', async () => {
   show(<InfrastructureActivity data={data} />);
-  await userEvent.click(screen.getByRole('button', { name: 'In progress 1' }));
+  await chooseFilter('Activity filter: All', /^In progress/);
   const progress = screen.getByRole('progressbar', { name: 'Downloaded bytes for org/model' });
   expect(progress).toBeVisible();
-  expect(progress).toHaveAttribute('value', '50');
+  expect(progress).toHaveAttribute('aria-valuenow', '50');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'All 3' }));
-  await userEvent.type(screen.getByRole('textbox', { name: 'Search activity' }), 'completed');
+  await chooseFilter('Activity filter: In progress', /^All/);
+  await userEvent.type(screen.getByRole('searchbox', { name: 'Search activity' }), 'completed');
   expect(screen.getByText('Stop SearXNG')).toBeVisible();
   expect(screen.queryByText('Install SearXNG')).not.toBeInTheDocument();
+});
+
+it('cancels an active download and retries a failed one from the activity row', async () => {
+  repository.modelAcquisitionAction.mockResolvedValue({});
+  const failed = { ...data.model_acquisitions[0], id: 'broken', state: 'failed' as const };
+  show(
+    <InfrastructureActivity
+      data={{ ...data, operations: [], model_acquisitions: [data.model_acquisitions[0], failed] }}
+    />,
+  );
+  const [active, broken] = screen.getAllByRole('listitem');
+  await userEvent.click(within(active).getByRole('button', { name: 'Cancel Download org/model' }));
+  expect(repository.modelAcquisitionAction).toHaveBeenCalledWith('homelab', 'download', 'cancel');
+  expect(
+    within(active).getByRole('button', { name: 'Download org/model details' }),
+  ).toHaveAttribute('aria-expanded', 'false');
+  await userEvent.click(within(broken).getByRole('button', { name: 'Retry Download org/model' }));
+  expect(repository.modelAcquisitionAction).toHaveBeenCalledWith('homelab', 'broken', 'retry');
 });
 
 it('offers useful setup actions in empty activity', () => {
@@ -209,6 +256,9 @@ it('keeps an empty session honest while giving a direct route to the catalog', a
   await userEvent.click(screen.getByRole('button', { name: 'Browse all agent tools' }));
   expect(scope).toHaveBeenCalledWith('agent');
   expect(screen.queryByText('Inputs')).not.toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: 'This session' })).toBeChecked();
+  await userEvent.click(screen.getByRole('radio', { name: 'All agent tools' }));
+  expect(scope).toHaveBeenLastCalledWith('agent');
 });
 
 it('searches across built-in and connected tools, opens matched groups and clears empty filters', async () => {
@@ -223,22 +273,66 @@ it('searches across built-in and connected tools, opens matched groups and clear
     { ...base, id: 'read_file', name: 'read_file', title: 'Read file' },
     { ...base, id: 'search_web', name: 'search_web', title: 'Search web', server_id: 'web' },
   ] as ToolCatalogItem[];
-  show(<CatalogToolset tools={tools} />);
-  await userEvent.click(screen.getByRole('button', { name: 'View tool list' }));
-  const sheet = screen.getByRole('dialog');
-  await userEvent.type(within(sheet).getByRole('textbox', { name: 'Search tools' }), 'search web');
-  expect(within(sheet).getByRole('button', { name: 'Search web' })).toBeVisible();
-  await userEvent.click(within(sheet).getByRole('button', { name: 'Search web' }));
+  show(
+    <InfrastructureTools
+      pending={false}
+      servers={[]}
+      sessionScoped={false}
+      tools={tools}
+      onScope={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole('list', { name: 'Built in' })).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Search tools' }));
+  const search = screen.getByRole('searchbox', { name: 'Search tools' });
+  expect(search).toHaveFocus();
+  await userEvent.type(search, 'search web');
+  expect(screen.queryByRole('list', { name: 'Built in' })).not.toBeInTheDocument();
+  const mcp = screen.getByRole('list', { name: 'MCP servers' });
+  await userEvent.click(within(mcp).getByRole('button', { name: 'search_web' }));
   expect(screen.getByRole('heading', { name: 'Search web' })).toBeVisible();
-  await userEvent.click(screen.getByRole('button', { name: 'View tool list' }));
-  await userEvent.type(
-    within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Search tools' }),
-    'missing',
+  await userEvent.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  await userEvent.clear(search);
+  await chooseFilter('Tool source: All', /^Built in/);
+  expect(screen.queryByRole('list', { name: 'MCP servers' })).not.toBeInTheDocument();
+  await userEvent.type(search, 'missing');
+  expect(screen.getByText('No tools match “missing”.')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(screen.getByRole('button', { name: 'read_file' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'search_web' })).toBeVisible();
+});
+
+it('inspects a tool from its hover action and shows its status and source', async () => {
+  const tools = [
+    {
+      id: 'collect',
+      name: 'collect',
+      title: 'Collect',
+      description: 'Collects samples\nwith a long second line',
+      server_id: 'lab',
+      enabled: false,
+      input_schema: {},
+      output_schema: {},
+      tags: [],
+      visible_to: [],
+    },
+  ] as ToolCatalogItem[];
+  show(
+    <InfrastructureTools
+      pending={false}
+      servers={[]}
+      sessionScoped={false}
+      tools={tools}
+      onScope={vi.fn()}
+    />,
   );
-  await userEvent.click(
-    within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear filters' }),
-  );
-  expect(
-    within(screen.getByRole('dialog')).getByRole('button', { name: 'Read file' }),
-  ).toBeVisible();
+  const row = screen.getByRole('listitem');
+  expect(within(row).getByText('Collects samples')).toBeVisible();
+  expect(within(row).getByText('Off')).toBeVisible();
+  expect(within(row).getByText('Lab')).toBeInTheDocument();
+  await userEvent.click(within(row).getByRole('button', { name: 'Inspect collect' }));
+  const sheet = screen.getByRole('dialog');
+  expect(within(sheet).getByRole('heading', { name: 'Collect' })).toBeVisible();
+  expect(within(sheet).getByText('Inputs')).toBeVisible();
 });

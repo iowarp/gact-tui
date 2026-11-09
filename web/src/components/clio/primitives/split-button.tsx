@@ -55,7 +55,8 @@ export const SplitButton = memo(function SplitButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'rounded-r-none border-r-0 hover:bg-hover',
+        'rounded-r-none border-r-0',
+        variant !== 'default' && 'hover:bg-hover',
         !showLabel &&
           'w-6 text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-[15px]',
       )}
@@ -92,7 +93,12 @@ export const SplitButton = memo(function SplitButton({
             variant={variant}
             size="icon"
             disabled={disabled}
-            className="w-[15px] rounded-l-none text-faint hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground [&_svg:not([class*=size-])]:size-[11px]"
+            className={cn(
+              'rounded-l-none [&_svg:not([class*=size-])]:size-[11px]',
+              variant === 'default'
+                ? 'w-5 border-l border-primary-foreground/25 text-primary-foreground/80 hover:text-primary-foreground'
+                : 'w-[15px] text-faint hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground',
+            )}
           >
             <ChevronDownIcon aria-hidden="true" />
           </Button>

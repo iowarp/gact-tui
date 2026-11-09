@@ -1,14 +1,19 @@
 import type { HostStorageLocations, HostStorageSettings as Settings } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ChevronRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
 import { HostPathPicker } from './host-path-picker';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator } from './primitives/status-indicator';
 import { displayHostPath } from '@/lib/host-path-display';
+import { formatBytes } from '@/lib/format';
 import { toast } from 'sonner';
 
 const labels: Record<keyof HostStorageLocations, string> = {
@@ -20,7 +25,16 @@ const labels: Record<keyof HostStorageLocations, string> = {
 };
 
 /** Persistent paths on a named host; existing deployments retain their receipts. */
-export function HostStorageSettings({ targetId }: { targetId: string }) {
+export function HostStorageSettings({
+  targetId,
+  onSaved,
+  onCancel,
+}: {
+  targetId: string;
+  onSaved?: () => void;
+  /** Adds a Cancel button beside Save when the form sits in a dialog. */
+  onCancel?: () => void;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const query = useQuery({
@@ -30,24 +44,32 @@ export function HostStorageSettings({ targetId }: { targetId: string }) {
   });
   if (query.error)
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {query.error.message}
-      </p>
+      <StateView
+        action={{ label: 'Retry', onClick: () => void query.refetch() }}
+        detail={query.error.message}
+        kind="error"
+        size="row"
+        title="Could not read storage locations"
+      />
     );
   if (!query.data)
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        Loading storage locations…
-      </p>
-    );
+    return <StateView kind="loading" size="row" title="Loading storage locations…" />;
   return (
     <div className="space-y-4" key={`${settings.endpoint}:${targetId}`}>
-      <StorageForm data={query.data} />
+      <StorageForm data={query.data} onCancel={onCancel} onSaved={onSaved} />
     </div>
   );
 }
 
-function StorageForm({ data }: { data: Settings }) {
+function StorageForm({
+  data,
+  onSaved,
+  onCancel,
+}: {
+  data: Settings;
+  onSaved?: () => void;
+  onCancel?: () => void;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
@@ -74,6 +96,7 @@ function StorageForm({ data }: { data: Settings }) {
     onSuccess: (next) => {
       queryClient.setQueryData(['host-storage', settings.endpoint, data.target_id], next);
       toast.success('Locations saved for new deployments.');
+      onSaved?.();
     },
   });
   const change = (name: keyof HostStorageLocations, value: string) => {
@@ -117,34 +140,53 @@ function StorageForm({ data }: { data: Settings }) {
           separately in the container engine.
         </InfoTip>
       </div>
-      <details>
-        <summary className="cursor-pointer text-sm">Override individual folders</summary>
-        <div className="mt-4 space-y-4">
+      <Collapsible className="group/override">
+        <CollapsibleTrigger className="flex cursor-pointer items-center gap-1.5 rounded-sm text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ChevronRightIcon
+            aria-hidden="true"
+            className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/override:rotate-90 motion-reduce:transition-none"
+          />
+          Override individual folders
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4 space-y-4">
           {(['models', 'service_data', 'captures', 'temporary'] as const).map(field)}
-        </div>
-      </details>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="ml-auto flex items-center gap-2">
-          <InfoTip label="Folder capacity and permissions">
-            {check.data
-              ? `${(check.data.free_bytes / 1024 ** 3).toFixed(1)} GiB available; ${check.data.writable ? 'writable' : 'not writable'}.`
-              : 'Folder capacity is being checked.'}
-          </InfoTip>
-          <Button
-            className="min-w-32"
-            aria-busy={save.isPending || check.isFetching}
-            disabled={save.isPending || !check.data?.writable || check.isFetching}
-            onClick={() => save.mutate()}
-          >
-            {save.isPending ? 'Saving…' : check.isFetching ? 'Checking folder…' : 'Save locations'}
-          </Button>
-        </div>
+        </CollapsibleContent>
+      </Collapsible>
+      <div className="flex min-w-0 flex-col gap-1">
+        <h4 className="text-[11.5px] font-semibold text-muted-foreground">
+          Folder capacity and permissions
+        </h4>
+        {check.isFetching ? (
+          <StatusIndicator label="Checking folder…" tone="running" />
+        ) : check.data ? (
+          <StatusIndicator
+            label={`${labels.root}: ${formatBytes(check.data.free_bytes)} free, ${check.data.writable ? 'writable' : 'not writable'}`}
+            tone={check.data.writable ? 'success' : 'error'}
+          />
+        ) : null}
       </div>
       {check.error || save.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {check.error?.message || save.error?.message}
-        </p>
+        <StateView
+          kind="error"
+          size="row"
+          title={check.error?.message || save.error?.message || ''}
+        />
       ) : null}
+      <div className="flex items-center justify-end gap-2">
+        {onCancel ? (
+          <Button disabled={save.isPending} onClick={onCancel} variant="ghost">
+            Cancel
+          </Button>
+        ) : null}
+        <Button
+          className="min-w-32"
+          aria-busy={save.isPending || check.isFetching}
+          disabled={save.isPending || !check.data?.writable || check.isFetching}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending ? 'Saving…' : 'Save locations'}
+        </Button>
+      </div>
     </section>
   );
 }

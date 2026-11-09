@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 
 export interface KeyValueItem {
   label: string;
+  /** A 14px icon before the label. */
+  icon?: ReactNode;
   value: ReactNode;
   /** Monospace for addresses, versions and sizes. */
   mono?: boolean;
@@ -83,7 +85,17 @@ export const KeyValueGrid = memo(function KeyValueGrid({
     >
       {items.map((item) => (
         <div className="contents" key={item.label}>
-          <dt className="truncate whitespace-nowrap text-muted-foreground">{item.label}</dt>
+          <dt className="flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground">
+            {item.icon ? (
+              <span
+                aria-hidden="true"
+                className="grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5"
+              >
+                {item.icon}
+              </span>
+            ) : null}
+            <span className="truncate">{item.label}</span>
+          </dt>
           <dd
             className={cn(
               'min-w-0 truncate whitespace-nowrap text-right text-foreground',
