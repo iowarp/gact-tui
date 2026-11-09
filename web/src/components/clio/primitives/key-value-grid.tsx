@@ -32,6 +32,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
   actionColumn = false,
   className,
   variant = 'compact',
+  wrap = false,
   'aria-label': ariaLabel,
 }: {
   items: readonly KeyValueItem[];
@@ -39,10 +40,16 @@ export const KeyValueGrid = memo(function KeyValueGrid({
   actionColumn?: boolean;
   className?: string;
   variant?: 'compact' | 'rows' | 'facts';
+  /**
+   * `facts` only: values wrap onto further lines instead of ending in an ellipsis, and
+   * the 110 px labels keep their column at every width. For dialog facts that must be read in full.
+   */
+  wrap?: boolean;
   'aria-label'?: string;
 }) {
   const hasAction = actionColumn || items.some((item) => item.action);
   const facts = variant === 'facts';
+  const wrapping = facts && wrap;
   if (variant === 'rows') {
     return (
       <dl
@@ -84,16 +91,22 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       data-slot="key-value-grid"
       data-variant={variant}
       className={cn(
-        facts
-          ? 'grid auto-rows-[24px] items-center gap-x-2.5 text-[12.5px]'
-          : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
-        facts
+        wrapping
+          ? 'grid auto-rows-[minmax(24px,auto)] items-baseline gap-x-2.5 gap-y-1 text-[12.5px]'
+          : facts
+            ? 'grid auto-rows-[24px] items-center gap-x-2.5 text-[12.5px]'
+            : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
+        wrapping
           ? hasAction
-            ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
-            : 'grid-cols-[110px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
-          : hasAction
-            ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
-            : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
+            ? 'grid-cols-[110px_minmax(0,1fr)_auto]'
+            : 'grid-cols-[110px_minmax(0,1fr)]'
+          : facts
+            ? hasAction
+              ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
+              : 'grid-cols-[110px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+            : hasAction
+              ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
+              : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
         className,
       )}
     >
@@ -103,6 +116,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             className={cn(
               'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
               facts && 'text-[12px]',
+              wrapping && 'min-h-6',
             )}
             title={facts ? item.label : undefined}
           >
@@ -111,28 +125,36 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                 aria-hidden="true"
                 className={cn(
                   "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
-                  facts && 'hidden @max-[420px]:grid',
+                  facts && (wrapping ? 'hidden' : 'hidden @max-[420px]:grid'),
                 )}
               >
                 {item.icon}
               </span>
             ) : null}
-            <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
+            <span
+              className={cn('truncate', facts && !wrapping && item.icon && '@max-[420px]:sr-only')}
+            >
               {item.label}
             </span>
           </dt>
           <dd
             className={cn(
-              'min-w-0 truncate whitespace-nowrap',
+              wrapping
+                ? 'min-h-6 min-w-0 py-[3px] leading-[18px] [overflow-wrap:anywhere]'
+                : 'min-w-0 truncate whitespace-nowrap',
               facts
                 ? 'flex items-center gap-[7px] text-left text-foreground/90'
                 : 'text-right text-foreground/85',
               item.mono && 'font-mono text-[11.5px] tabular-nums',
               facts && item.mono && 'text-[12px]',
             )}
-            title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
+            title={
+              wrapping
+                ? item.title
+                : (item.title ?? (typeof item.value === 'string' ? item.value : undefined))
+            }
           >
-            {facts && typeof item.value === 'string' ? (
+            {facts && !wrapping && typeof item.value === 'string' ? (
               <span className="min-w-0 truncate">{item.value}</span>
             ) : (
               item.value
