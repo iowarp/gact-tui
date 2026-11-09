@@ -144,6 +144,17 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  // Blur rather than click: a click outside would dismiss the narrow canvas sheet.
+  await page.evaluate(
+    () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+  );
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -224,7 +235,8 @@ function seededSettingsShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// connected?, route?, keepPointer?, platform?}. `platform: 'mac'` makes the page
+// report a Mac, for its ? keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -285,6 +297,41 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+      // Two tabs, so the active one shows its previous/next pair.
+      s(
+        'session',
+        `held-keys-tabs-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/vertical-displacement.png');
+          // Opening a file closes the list; show it again for the second file.
+          const files = page
+            .getByRole('toolbar', { name: 'Workbench lists' })
+            .getByRole('button', { name: 'Files', exact: true })
+            .filter({ visible: true })
+            .first();
+          if (!(await page.getByRole('region', { name: 'Files list' }).isVisible()))
+            await files.click();
+          await page.waitForTimeout(500);
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
     menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
@@ -645,7 +692,11 @@ const SAVED_AGENTS = [
   { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
 ];
 
-async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
+async function newContext(
+  browser,
+  stack,
+  { theme, width, connected = true, savedAgents = false, platform },
+) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
@@ -684,6 +735,11 @@ async function newContext(browser, stack, { theme, width, connected = true, save
       await route.fulfill({ response });
     });
     await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
   }
   return context;
 }
@@ -833,6 +889,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
   const page = await context.newPage();

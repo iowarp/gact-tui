@@ -136,6 +136,28 @@ export function chordText(parsed: ParsedChord, platform: KeyPlatform): string {
   return last.length > 1 && !/^\d–\d$/u.test(last) ? `${glyphs} ${last}` : `${glyphs}${last}`;
 }
 
+function windowsKeyLabel(key: string): string {
+  return KEY_LABELS.windows[key] ?? key;
+}
+
+/**
+ * One chord as the badge reads while Ctrl (⌘) is held. On Windows the held
+ * Ctrl is implied and Shift is ⇧ (`⇧B`, `Alt N`, `⇧ Esc`); a Mac shows the
+ * whole chord (`⇧⌘B`).
+ */
+export function heldChordText(parsed: ParsedChord, platform: KeyPlatform): string {
+  if (platform === 'mac' || parsed.hold) return chordText(parsed, platform);
+  const key = windowsKeyLabel(parsed.key);
+  const word = key.length > 1 && !/^\d–\d$/u.test(key);
+  const shifted = parsed.modifiers.has('shift') ? `⇧${word ? ' ' : ''}${key}` : key;
+  return parsed.modifiers.has('alt') ? `Alt ${shifted}` : shifted;
+}
+
+/** The key alone, as its cap reads (`→`, `B`), for joining a pair (`Alt ←→`). */
+export function chordKeyLabel(parsed: ParsedChord, platform: KeyPlatform): string {
+  return KEY_LABELS[platform][parsed.key] ?? parsed.key;
+}
+
 const ARIA_KEYS: Record<string, string> = {
   Esc: 'Escape',
   Up: 'ArrowUp',
