@@ -27,7 +27,7 @@ const ICON = "size-[15px] shrink-0"
  */
 const TOAST_CLASSES = {
   toast:
-    "cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-[5px] pr-1.5 pl-3 text-[12.5px] text-popover-foreground shadow-[0_10px_28px_rgba(0,0,0,.12)] dark:shadow-[0_10px_28px_rgba(0,0,0,.45)]",
+    "cn-toast flex w-[var(--width)] min-h-[42px] items-center gap-2.5 rounded-[10px] border border-border bg-popover py-[5px] pr-1.5 pl-3 text-[12.5px] text-popover-foreground shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_40%,transparent)] dark:shadow-[0_10px_28px_color-mix(in_oklab,var(--shadow-color)_75%,transparent)]",
   // Sonner centres its loader absolutely; `relative` keeps it in the icon slot.
   icon: "relative flex size-[15px] shrink-0 items-center justify-center text-primary",
   content: "flex min-w-0 flex-1 flex-col gap-0.5 py-1",
