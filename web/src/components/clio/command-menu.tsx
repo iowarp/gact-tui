@@ -65,7 +65,7 @@ import {
   MoreResultsItem,
   ResultsHeading,
 } from './global-search-results';
-import type { GlobalSearchMatches } from './use-global-search-matches';
+import { isMissingEndpoint, type GlobalSearchMatches } from './use-global-search-matches';
 import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { TextTabs } from './primitives/text-tabs';
 import { ArtifactResultGroup, FileResultGroup, MessageHitGroup } from './command-menu-work-groups';
@@ -630,7 +630,9 @@ export function ClioCommandMenu({
                           />
                         </CommandGroup>
                       ) : null}
-                      {inCommandMenuScope(activeScope, 'conversations') && memory.error ? (
+                      {inCommandMenuScope(activeScope, 'conversations') &&
+                      memory.error &&
+                      !isMissingEndpoint(memory.error) ? (
                         <p role="alert" className="px-3 py-2 text-xs text-destructive">
                           Conversation search failed. {memory.error.message}
                         </p>

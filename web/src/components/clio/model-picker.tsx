@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
@@ -36,6 +36,28 @@ function composerAnchor(trigger: HTMLElement | null): HTMLElement | null {
   return trigger?.closest<HTMLElement>('[data-slot="input-group"]') ?? trigger;
 }
 
+interface ComposerFrame {
+  width: number;
+  /** From the trigger's start edge to the composer's. */
+  alignOffset: number;
+  /** From the trigger's top edge to 6px above the composer. */
+  sideOffset: number;
+}
+
+/** The picker anchors to its trigger and is shifted to cover the composer box. */
+function measureComposer(trigger: HTMLElement | null): ComposerFrame | null {
+  const box = composerAnchor(trigger);
+  if (!trigger || !box) return null;
+  const outer = box.getBoundingClientRect();
+  const own = trigger.getBoundingClientRect();
+  if (!outer.width) return null;
+  return {
+    width: outer.width,
+    alignOffset: outer.left - own.left,
+    sideOffset: own.top - outer.top + 6,
+  };
+}
+
 const TWO_COLUMN_MIN_WIDTH = 560;
 
 /** Paint the picker before preparing a large provider catalog. */
@@ -52,15 +74,8 @@ export function ClioModelPicker({
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const anchorRef = useMemo(
-    () => ({
-      current: {
-        getBoundingClientRect: () =>
-          (composerAnchor(triggerRef.current) ?? document.body).getBoundingClientRect(),
-      },
-    }),
-    [],
-  );
+  // The composer box, measured at open: the picker spans it and sits just above it.
+  const [composerFrame, setComposerFrame] = useState<ComposerFrame | null>(null);
   // Decided at open: a large catalog mounts only after the dialog and its
   // skeleton have painted, so the click answers at once.
   const [shellPainted, setShellPainted] = useState(true);
@@ -123,10 +138,9 @@ export function ClioModelPicker({
       if (nextOpen) {
         closingForSettings.current = false;
         setActiveProvider(provider);
-        const width =
-          placement === 'composer'
-            ? (composerAnchor(triggerRef.current)?.getBoundingClientRect().width ?? 0)
-            : Math.min(640, window.innerWidth - 16);
+        const frame = placement === 'composer' ? measureComposer(triggerRef.current) : null;
+        setComposerFrame(frame);
+        const width = frame ? frame.width : Math.min(640, window.innerWidth - 16);
         // An unmeasured anchor (no layout yet) keeps the viewport's choice.
         setRoomy(width === 0 || width >= TWO_COLUMN_MIN_WIDTH);
         setShellPainted(options.length < LARGE_MODEL_CATALOG);
@@ -145,13 +159,12 @@ export function ClioModelPicker({
       <PopoverTrigger asChild ref={triggerRef}>
         {trigger}
       </PopoverTrigger>
-      {placement === 'composer' ? <PopoverAnchor virtualRef={anchorRef} /> : null}
       {/* The spec's dim behind the anchored picker; below the picker (110), above a window (100). */}
       {open
         ? createPortal(
             <div
               aria-hidden="true"
-              className="fixed inset-0 z-[105] bg-scrim/60 motion-safe:animate-in motion-safe:fade-in-0"
+              className="fixed inset-0 z-[105] bg-scrim/80 motion-safe:animate-in motion-safe:fade-in-0"
               data-slot="model-picker-backdrop"
             />,
             document.body,
@@ -160,12 +173,13 @@ export function ClioModelPicker({
       <PopoverContent
         aria-label={title}
         align="start"
+        alignOffset={composerFrame?.alignOffset ?? 0}
         avoidCollisions
         className={cn(
           // Its own data-slot skips the global popover layer, so restate it above the backdrop.
           'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-[12.5px] shadow-lg',
           placement === 'composer'
-            ? 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-(--radix-popover-trigger-width) max-w-[calc(100vw-1rem)]'
+            ? 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] max-w-[calc(100vw-1rem)]'
             : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(40rem,calc(100vw-1rem))]',
         )}
         collisionPadding={8}
@@ -181,7 +195,8 @@ export function ClioModelPicker({
         }}
         onOpenAutoFocus={(event) => event.preventDefault()}
         side={placement === 'composer' ? 'top' : 'bottom'}
-        sideOffset={6}
+        sideOffset={composerFrame?.sideOffset ?? 6}
+        style={composerFrame ? { width: composerFrame.width } : undefined}
       >
         {open && catalogStatus === 'error' ? (
           <ModelCatalogError onRetry={() => onRetryCatalog?.(activeProvider)} />

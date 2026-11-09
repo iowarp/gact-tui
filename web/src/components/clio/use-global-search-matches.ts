@@ -22,7 +22,8 @@ const GLOBAL_SEARCH_GROUP_LIMIT = 20;
  * agents and hosts that match `query`. Call it only while the palette is open;
  * it reads saved connections and probes them.
  */
-function isMissingEndpoint(error: unknown): boolean {
+/** A service without this search answers 404; that is no results, not a failure. */
+export function isMissingEndpoint(error: unknown): boolean {
   return (error as { status?: number } | null | undefined)?.status === 404;
 }
 

@@ -85,12 +85,12 @@ export function providerHealthPresentation(
 
 /**
  * One provider row's colour and state label ("Ready", "Needs API key", ...). A
- * remote model server with no answer reads "Can?t reach", the word Settings >
+ * remote model server with no answer reads "Can’t reach", the word Settings >
  * Providers uses (a loopback one is already "Not running", see `localServerNotRunning`).
  */
 export function providerGroupStatus(group: ProviderGroup): { color: string; label: string } {
   if (group.health === 'unavailable' && group.endpoint && !isLoopbackAddress(group.endpoint))
-    return { color: 'text-destructive', label: 'Can?t reach' };
+    return { color: 'text-destructive', label: 'Can’t reach' };
   return providerHealthPresentation(group.health, group.setupNeed);
 }
 

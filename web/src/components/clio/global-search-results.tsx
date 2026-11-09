@@ -189,7 +189,7 @@ export function GlobalSearchGroups({
           role="alert"
           title={matches.agentsError.message}
         >
-          Agents could not be searched. Try again, or open Settings ? Agents.
+          Agents could not be searched. Try again, or open Settings › Agents.
         </p>
       ) : null}
       {after}
