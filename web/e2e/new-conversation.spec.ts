@@ -41,7 +41,7 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
 
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
+  const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeEnabled();
   await expect.poll(() => warmups.length).toBe(1);
   expect(warmups[0]).toBe('/v1/workspaces/ws_flat_ndp/warmup');
@@ -130,7 +130,7 @@ test('draft remains usable when background preparation fails', async ({ page }) 
       creations += 1;
   });
   await page.goto('/');
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/ });
+  const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeEnabled();
   await composer.fill('Still able to compose while tools start');
   release();
@@ -231,8 +231,8 @@ test('first send creates exactly one session and negotiates interactive UI befor
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
   expect(creationCount).toBe(0);
-  await page.getByRole('combobox', { name: /Ask .+ to investigate/ }).fill(messageText);
-  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  await page.getByRole('combobox', { name: /^Ask / }).fill(messageText);
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await expect(
     page.getByRole('log', { name: 'Conversation' }).getByText(messageText, { exact: true }),

@@ -1,597 +1,93 @@
-import type {
-  ToolCallers,
-  ToolPermission,
-  ToolRule,
-  ToolSetting,
-  ToolSettingsUpdate,
-} from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useMediaQuery } from '@/hooks/use-media-query';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { SettingBadge } from './plugin-tool-setting-badge';
-import {
-  CALLERS_TEXT,
-  OUTCOME_TEXT,
-  PERMISSION_TEXT,
-  callersChoice,
-  effectiveCallers,
-  effectivePermission,
-  flagText,
-  groupModeText,
-  modeLabel,
-  permissionChoice,
-  pluginCallersText,
-  pluginDefaultSource,
-  pluginPermissionText,
-  ruleText,
-  type CallersChoice,
-  type PermissionChoice,
-} from './plugin-tool-settings-text';
+import { groupModeText } from './plugin-tool-settings-text';
+import { StateView } from './primitives/state-view';
+import { useToolSettingsEditor } from './settings-tools-editor';
+import { OutcomeModeField, ToolTableFooter } from './settings-tools-picker';
+import { ToolSettingsTable, type ToolTableSection } from './settings-tools-table';
 
 const GROUPS = [
   { id: 'read', title: 'Read-only tools' },
   { id: 'write', title: 'Write and delete tools' },
 ] as const;
-type GroupId = (typeof GROUPS)[number]['id'];
-type Detail = { kind: 'tool'; name: string } | { kind: 'group'; group: GroupId };
 
 /** A plugin's tools: permission and I/O per tool, grouped by read-only flags. */
 export function PluginToolSettings({ reference }: { reference: string }) {
   const repository = useRepository();
-  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const wide = useMediaQuery('(min-width: 640px)');
-  const key = ['tool-settings', connectionScope(settings), reference];
   const view = useQuery({
-    queryKey: key,
+    queryKey: ['tool-settings', connectionScope(settings), reference],
     queryFn: ({ signal }) => repository.toolSettings(reference, signal),
   });
+  const editor = useToolSettingsEditor();
   const [mode, setMode] = useState('');
-  const [detail, setDetail] = useState<Detail>();
-  const save = useMutation({
-    mutationFn: (update: ToolSettingsUpdate) => repository.updateToolSettings(update),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
-    onError: (error: Error) =>
-      toast.error('Tool setting not saved', { description: error.message }),
-  });
-  const remove = useMutation({
-    mutationFn: ({ tool, rule }: { tool: string; rule: ToolRule }) =>
-      repository.removeToolRule(tool, rule),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
-    onError: (error: Error) => toast.error('Rule not removed', { description: error.message }),
-  });
-  if (view.isPending) return <p role="status">Reading tool settings…</p>;
+  if (view.isPending) return <StateView kind="loading" size="row" title="Reading tool settings" />;
   if (view.error) {
     return (
-      <div role="alert" className="grid gap-2 text-sm">
-        <p>Tool settings could not be loaded: {view.error.message}</p>
-        <Button className="w-fit" variant="outline" onClick={() => void view.refetch()}>
-          Retry
-        </Button>
-      </div>
+      <StateView
+        action={{ label: 'Retry', onClick: () => void view.refetch() }}
+        detail={view.error.message}
+        kind="error"
+        size="row"
+        title="Tool settings could not be loaded"
+      />
     );
   }
   const data = view.data;
-  const shown = mode || data.approval_modes[0] || 'ask';
-  const setPermission = (tools: string[], choice: PermissionChoice) =>
-    save.mutate({ tools, permission: choice === 'default' ? null : choice });
-  const setCallers = (tools: string[], choice: CallersChoice) =>
-    save.mutate({ tools, callers: choice === 'default' ? null : choice });
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    tools: data.tools.filter((tool) => tool.group === group.id),
-  })).filter((group) => group.tools.length);
-  const editors = { setPermission, setCallers, busy: save.isPending };
-
-  if (!wide && detail) {
-    const tools =
-      detail.kind === 'tool'
-        ? data.tools.filter((tool) => tool.name === detail.name)
-        : (groups.find((group) => group.id === detail.group)?.tools ?? []);
-    return (
-      <MobileDetail
-        title={
-          detail.kind === 'tool'
-            ? detail.name
-            : `All ${GROUPS.find((g) => g.id === detail.group)!.title.toLowerCase()}`
-        }
-        tools={tools}
-        onBack={() => setDetail(undefined)}
-        onRemoveRule={(tool, rule) => remove.mutate({ tool, rule })}
-        {...editors}
-      />
-    );
+  const shown = mode && data.approval_modes.includes(mode) ? mode : data.approval_modes[0] || 'ask';
+  const sections: ToolTableSection[] = GROUPS.map((group) => {
+    const tools = data.tools.filter((tool) => tool.group === group.id);
+    return {
+      id: group.id,
+      title: group.title,
+      count: tools.length,
+      hint: groupModeText(group.id, shown, data.covering_modes),
+      bulkLabel: `All ${group.title.toLowerCase()}`,
+      tools,
+    };
+  }).filter((group) => group.tools.length);
+  if (data.servers_not_loaded.length) {
+    sections.push({
+      id: 'not-loaded',
+      title: data.servers_not_loaded.join(', '),
+      bulkLabel: '',
+      tools: [],
+      notice: {
+        text: 'Tools appear once a conversation connects its server',
+        title: `Tools of ${data.servers_not_loaded.join(', ')} appear here once a conversation has connected the server.`,
+        status: 'Not loaded yet',
+        tone: 'idle',
+      },
+    });
   }
+  const unknownFlags = data.tools.some((tool) => !tool.flags_known);
   return (
-    <div className="grid gap-5 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span id="tool-settings-mode" className="text-muted-foreground">
-          Show what happens in
-        </span>
-        <Select value={shown} onValueChange={setMode}>
-          <SelectTrigger size="sm" aria-labelledby="tool-settings-mode" className="w-auto">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {data.approval_modes.map((value) => (
-              <SelectItem key={value} value={value}>
-                {modeLabel(value)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {data.tools.some((tool) => !tool.flags_known) ? (
-        <p className="text-muted-foreground">
-          Some tools are not loaded yet: their read-only flag and their own I/O default are known
-          once a conversation has used this plugin. Until then they are listed as write tools.
-        </p>
-      ) : null}
-      {data.servers_not_loaded.length ? (
-        <p className="text-muted-foreground">
-          Tools of {data.servers_not_loaded.join(', ')} appear here once a conversation has
-          connected the server.
-        </p>
-      ) : null}
-      {!groups.length ? <p className="text-muted-foreground">This plugin has no tools.</p> : null}
-      {wide && groups.length ? (
-        // One header for every group; it stays at the top of the list while it scrolls.
-        <TooltipProvider disableHoverableContent>
-          <div className="sticky top-0 z-10 -mb-3 flex items-center justify-between gap-2 border-b bg-popover py-2 text-sm font-medium">
-            <ColumnTitle title="Tool" detail={COLUMN_HELP.tool} className="pl-0" />
-            <span className="flex gap-2">
-              <ColumnTitle title="Permission" detail={COLUMN_HELP.permission} className="w-48" />
-              <ColumnTitle title="I/O" detail={COLUMN_HELP.io} className="w-36" />
-            </span>
-          </div>
-        </TooltipProvider>
-      ) : null}
-      {groups.map((group) => (
-        <section key={group.id} aria-labelledby={`tool-group-${group.id}`} className="grid gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-            <h3 id={`tool-group-${group.id}`} className="font-medium">
-              {group.title} <span className="text-muted-foreground">({group.tools.length})</span>
-            </h3>
-            {wide ? (
-              <Controls
-                label={`All ${group.title.toLowerCase()}`}
-                permission={shared(group.tools.map(permissionChoice))}
-                callers={shared(group.tools.map(callersChoice))}
-                names={group.tools.map((tool) => tool.name)}
-                {...editors}
-              />
-            ) : null}
-          </div>
-          <p className="text-muted-foreground">
-            {groupModeText(group.id, shown, data.covering_modes)}
-          </p>
-          <ul className="grid divide-y">
-            {!wide ? (
-              <li>
-                <MobileRow
-                  name="All tools"
-                  value={summary(
-                    shared(group.tools.map(permissionChoice)),
-                    shared(group.tools.map(callersChoice)),
-                  )}
-                  onOpen={() => setDetail({ kind: 'group', group: group.id })}
-                />
-              </li>
-            ) : null}
-            {group.tools.map((tool) => (
-              <li key={tool.name}>
-                {wide ? (
-                  <ToolRow
-                    tool={tool}
-                    mode={shown}
-                    onRemoveRule={(rule) => remove.mutate({ tool: tool.name, rule })}
-                    {...editors}
-                  />
-                ) : (
-                  <MobileRow
-                    name={tool.name}
-                    value={toolSummary(tool, shown)}
-                    outcome={outcome(tool, shown)}
-                    onOpen={() => setDetail({ kind: 'tool', name: tool.name })}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-const COLUMN_HELP = {
-  tool: 'The tool, its read-only flag, its plugin default, and what a call does in the approval mode chosen above, directly and from a run_code script.',
-  permission:
-    "Whether the agent may use the tool. Always allow: it runs without asking. Needs approval: the agent asks you before each use, in every approval mode. Blocked: the tool is hidden from the agent and any call to it is refused. A D marks a default (from the plugin, this deployment, or the tool's flags and the approval mode); choosing a value saves your own rule.",
-  io: "Who calls the tool. Direct: the agent itself; its scripts cannot. Code: only run_code scripts; its schema stays out of the prompt, which saves context. Both: either. A D marks the plugin's default.",
-};
-
-/** A column title that explains its column on hover or keyboard focus. */
-function ColumnTitle({
-  title,
-  detail,
-  className = '',
-}: {
-  title: string;
-  detail: string;
-  className?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          tabIndex={0}
-          className={`cursor-help px-3 underline decoration-dotted underline-offset-4 ${className}`}
+    <div className="grid min-w-0 gap-2" data-slot="plugin-tool-settings">
+      <OutcomeModeField modes={data.approval_modes} onChange={setMode} value={shown} />
+      {unknownFlags ? (
+        <p
+          className="truncate text-xs text-faint"
+          title="A tool's read-only flag and its own I/O default are known once a conversation has used this plugin. Until then it is listed as a write tool."
         >
-          {title}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{detail}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-type Editors = {
-  setPermission: (tools: string[], choice: PermissionChoice) => void;
-  setCallers: (tools: string[], choice: CallersChoice) => void;
-  busy: boolean;
-};
-
-function shared<T extends string>(values: T[]): T | 'mixed' {
-  return values.every((value) => value === values[0]) && values.length ? values[0]! : 'mixed';
-}
-
-function choiceLabel(
-  choice: PermissionChoice | CallersChoice | 'mixed',
-  table: Record<string, { label: string }>,
-  fallback: string,
-): string {
-  if (choice === 'mixed') return 'Mixed';
-  if (choice === 'default') return fallback;
-  return table[choice]!.label;
-}
-
-function summary(
-  permission: PermissionChoice | 'mixed',
-  callers: CallersChoice | 'mixed',
-  tool?: ToolSetting,
-): string {
-  if (!tool && permission === 'default' && callers === 'default') {
-    return "Each tool's plugin default";
-  }
-  return [
-    choiceLabel(permission, PERMISSION_TEXT, tool ? pluginPermissionText(tool) : 'Plugin default'),
-    choiceLabel(callers, CALLERS_TEXT, tool ? pluginCallersText(tool) : 'Plugin default'),
-  ].join(', ');
-}
-
-/** A tool's effective values in words, each marked when it is a default. */
-function toolSummary(tool: ToolSetting, mode: string): string {
-  const permission = effectivePermission(tool, mode);
-  const callers = effectiveCallers(tool);
-  const words = (label: string, isDefault: boolean) => (isDefault ? `${label} (default)` : label);
-  return [
-    words(PERMISSION_TEXT[permission.value].label, permission.isDefault),
-    callers.value
-      ? words(CALLERS_TEXT[callers.value].label, callers.isDefault)
-      : 'I/O not known yet',
-  ].join(', ');
-}
-
-function outcome(tool: ToolSetting, mode: string): string {
-  const found = tool.outcomes[mode];
-  if (!found) return '';
-  return `In ${modeLabel(mode)}: ${OUTCOME_TEXT[found.direct]}. From a script: ${
-    OUTCOME_TEXT[found.script]
-  }.`;
-}
-
-type Shown = { value: ToolPermission | ToolCallers | ''; isDefault: boolean };
-
-function Controls({
-  label,
-  permission,
-  callers,
-  names,
-  shown,
-  setPermission,
-  setCallers,
-  busy,
-}: Editors & {
-  label: string;
-  permission: PermissionChoice | 'mixed';
-  callers: CallersChoice | 'mixed';
-  names: string[];
-  /** One tool: its effective values now, and what its defaults are. */
-  shown?: { permission: Shown; callers: Shown; defaults: { permission: Shown; callers: Shown } };
-}) {
-  const groupDefault = <span className="text-muted-foreground">Per tool</span>;
-  const trigger = (choice: string, current: Shown | undefined) =>
-    current ? (
-      <SettingBadge {...current} />
-    ) : choice === 'default' ? (
-      groupDefault
-    ) : choice && choice !== 'mixed' ? (
-      <SettingBadge value={choice as ToolPermission} isDefault={false} />
-    ) : undefined;
-  const defaultItem = (current: Shown | undefined) =>
-    current ? (
-      <span className="inline-flex items-center gap-2">
-        <SettingBadge {...current} />
-        <span className="text-muted-foreground">(default)</span>
-      </span>
-    ) : (
-      "Each tool's default"
-    );
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select
-        value={permission === 'mixed' ? '' : permission}
-        onValueChange={(value) => setPermission(names, value as PermissionChoice)}
-        disabled={busy}
-      >
-        <SelectTrigger size="sm" aria-label={`Permission: ${label}`} className="w-48 max-w-full">
-          <SelectValue placeholder="Mixed">{trigger(permission, shown?.permission)}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="default">{defaultItem(shown?.defaults.permission)}</SelectItem>
-          {(['allow', 'ask', 'deny'] as const).map((value) => (
-            <SelectItem key={value} value={value}>
-              <SettingBadge value={value} isDefault={false} />
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={callers === 'mixed' ? '' : callers}
-        onValueChange={(value) => setCallers(names, value as CallersChoice)}
-        disabled={busy}
-      >
-        <SelectTrigger size="sm" aria-label={`I/O: ${label}`} className="w-36 max-w-full">
-          <SelectValue placeholder="Mixed">{trigger(callers, shown?.callers)}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="default">{defaultItem(shown?.defaults.callers)}</SelectItem>
-          {(['direct', 'code', 'both'] as const).map((value) => (
-            <SelectItem key={value} value={value}>
-              <SettingBadge value={value} isDefault={false} />
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function SavedRules({
-  tool,
-  onRemoveRule,
-}: {
-  tool: ToolSetting;
-  onRemoveRule: (rule: ToolRule) => void;
-}) {
-  const saved = tool.rules.filter((rule) => rule.where !== 'everywhere' || rule.path_pattern);
-  if (!saved.length) return null;
-  return (
-    <ul aria-label={`Saved rules for ${tool.name}`} className="grid gap-1">
-      {saved.map((rule, index) => (
-        <li key={index} className="flex flex-wrap items-center gap-2 text-muted-foreground">
-          <span>{ruleText(rule.action, rule.where, rule.path_pattern)}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7"
-            aria-label={`Remove rule: ${ruleText(rule.action, rule.where, rule.path_pattern)}`}
-            onClick={() => onRemoveRule(rule)}
-          >
-            Remove
-          </Button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function ToolRow({
-  tool,
-  mode,
-  onRemoveRule,
-  ...editors
-}: Editors & { tool: ToolSetting; mode: string; onRemoveRule: (rule: ToolRule) => void }) {
-  return (
-    <div className="grid gap-1 py-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-4">
-      <div className="grid min-w-0 gap-0.5">
-        <span className="break-all font-medium">{tool.name}</span>
-        <span className="text-muted-foreground">
-          {flagText(tool)}. Plugin default: {pluginPermissionText(tool)} (
-          {pluginDefaultSource(tool)}); I/O {pluginCallersText(tool)}.
-        </span>
-        <span>{outcome(tool, mode)}</span>
-        <SavedRules tool={tool} onRemoveRule={onRemoveRule} />
-      </div>
-      <Controls
-        label={tool.name}
-        permission={permissionChoice(tool)}
-        callers={callersChoice(tool)}
-        names={[tool.name]}
-        shown={{
-          permission: effectivePermission(tool, mode),
-          callers: effectiveCallers(tool),
-          defaults: {
-            permission: effectivePermission({ ...tool, permission: '' }, mode),
-            callers: effectiveCallers({ ...tool, configured_callers: '' }),
-          },
-        }}
-        {...editors}
-      />
-    </div>
-  );
-}
-
-function MobileRow({
-  name,
-  value,
-  outcome: result,
-  onOpen,
-}: {
-  name: string;
-  value: string;
-  outcome?: string;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="flex w-full items-center gap-2 py-3 text-left"
-      onClick={onOpen}
-      aria-label={`${name}: ${value}`}
-    >
-      <span className="grid min-w-0 flex-1 gap-0.5">
-        <span className="break-all font-medium">{name}</span>
-        <span className="text-muted-foreground">{value}</span>
-        {result ? <span className="text-muted-foreground">{result}</span> : null}
-      </span>
-      <ChevronRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-    </button>
-  );
-}
-
-function Options<T extends string>({
-  legend,
-  selected,
-  options,
-  onChoose,
-  busy,
-}: {
-  legend: string;
-  selected: T | 'mixed';
-  options: { value: T; label: string; detail: string }[];
-  onChoose: (value: T) => void;
-  busy: boolean;
-}) {
-  return (
-    <fieldset className="grid gap-1">
-      <legend className="mb-1 font-medium">{legend}</legend>
-      <div role="radiogroup" aria-label={legend} className="grid divide-y rounded-md border">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={selected === option.value}
-            disabled={busy}
-            className="flex items-start gap-2 px-3 py-2 text-left"
-            onClick={() => onChoose(option.value)}
-          >
-            <span className="grid flex-1 gap-0.5">
-              <span>{option.label}</span>
-              <span className="text-muted-foreground">{option.detail}</span>
-            </span>
-            {selected === option.value ? (
-              <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-            ) : null}
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function MobileDetail({
-  title,
-  tools,
-  onBack,
-  onRemoveRule,
-  setPermission,
-  setCallers,
-  busy,
-}: Editors & {
-  title: string;
-  tools: ToolSetting[];
-  onBack: () => void;
-  onRemoveRule: (tool: string, rule: ToolRule) => void;
-}) {
-  const names = tools.map((tool) => tool.name);
-  const one = tools.length === 1 ? tools[0] : undefined;
-  const permissionDefault = one
-    ? `${pluginPermissionText(one)}, ${pluginDefaultSource(one)}`
-    : 'each tool keeps its plugin default';
-  const callersDefault = one ? pluginCallersText(one) : 'each tool keeps its plugin default';
-  const top = useRef<HTMLDivElement>(null);
-  // The list may be scrolled; a detail screen opens at its title.
-  useEffect(() => {
-    top.current?.scrollIntoView?.({ block: 'start' });
-  }, []);
-  return (
-    <div ref={top} className="grid gap-4 text-sm">
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="ghost" onClick={onBack} aria-label="Back to tools">
-          <ChevronLeftIcon aria-hidden className="size-4" />
-          Back
-        </Button>
-        <h3 className="break-all font-medium">{title}</h3>
-      </div>
-      <Options<PermissionChoice>
-        legend="Permission"
-        selected={shared(tools.map(permissionChoice))}
-        busy={busy}
-        onChoose={(value) => setPermission(names, value)}
-        options={[
-          {
-            value: 'default',
-            label: 'Plugin default',
-            detail: `Follow the plugin: ${permissionDefault}.`,
-          },
-          ...(['allow', 'ask', 'deny'] as const).map((value) => ({
-            value,
-            ...PERMISSION_TEXT[value],
-          })),
-        ]}
-      />
-      <Options<CallersChoice>
-        legend="I/O"
-        selected={shared(tools.map(callersChoice))}
-        busy={busy}
-        onChoose={(value) => setCallers(names, value)}
-        options={[
-          {
-            value: 'default',
-            label: 'Plugin default',
-            detail: `Follow the plugin: ${callersDefault}.`,
-          },
-          ...(['direct', 'code', 'both'] as const).map((value) => ({
-            value,
-            ...CALLERS_TEXT[value],
-          })),
-        ]}
-      />
-      {one ? (
-        <>
-          <SavedRules tool={one} onRemoveRule={(rule) => onRemoveRule(one.name, rule)} />
-          {one.description ? (
-            <p className="line-clamp-4 text-muted-foreground">{one.description}</p>
-          ) : null}
-        </>
+          Some tools are listed as write tools until a conversation loads them.
+        </p>
       ) : null}
+      {sections.length ? (
+        <>
+          <ToolSettingsTable
+            editor={editor}
+            label={`Tools of ${data.plugin}`}
+            mode={shown}
+            sections={sections}
+          />
+          <ToolTableFooter />
+        </>
+      ) : (
+        <StateView kind="empty" size="row" title="This plugin has no tools" />
+      )}
     </div>
   );
 }

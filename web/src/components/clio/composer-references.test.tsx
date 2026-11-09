@@ -44,14 +44,10 @@ describe('composer reference presentation', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ClioComposerReferenceMenu
-          activeReferenceId=""
-          onActiveOptionChange={vi.fn()}
-          onActiveReferenceChange={vi.fn()}
           onDismiss={vi.fn()}
-          onQueryChange={vi.fn()}
-          onReferencesChange={vi.fn()}
           onRestoreFocus={vi.fn()}
           onSelect={onSelect}
+          popoverId="refs"
           query="NVDA"
           searchInput
           workspaceId="workspace_1"
@@ -74,14 +70,10 @@ describe('composer reference presentation', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ClioComposerReferenceMenu
-          activeReferenceId=""
-          onActiveOptionChange={vi.fn()}
-          onActiveReferenceChange={vi.fn()}
           onDismiss={vi.fn()}
-          onQueryChange={vi.fn()}
-          onReferencesChange={vi.fn()}
           onRestoreFocus={vi.fn()}
           onSelect={onSelect}
+          popoverId="refs"
           query="data/run.h5::/entry/"
           searchInput={false}
           workspaceId="workspace_1"
@@ -96,9 +88,8 @@ describe('composer reference presentation', () => {
     expect(screen.getByRole('option', { name: /\/entry\/image group/ })).toHaveTextContent(
       'Tab to look inside',
     );
-    expect(
-      screen.getByText('Tab opens a group, Enter adds the object, Esc to close.'),
-    ).toBeVisible();
+    expect(dataset).toHaveAttribute('aria-selected', 'true');
+    expect(dataset).toHaveAttribute('id', expect.stringMatching(/^refs-option-/));
     await user.click(dataset);
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({

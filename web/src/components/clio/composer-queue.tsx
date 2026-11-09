@@ -1,46 +1,15 @@
-import type {
-  ComposerMessagePart,
-  MessageDelivery,
-  QueuedMessage,
-  WorkspaceResource,
-} from '@clio/core/v3';
+import type { MessageDelivery, QueuedMessage, WorkspaceResource } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { CheckIcon, GripVerticalIcon, SendIcon } from 'lucide-react';
-import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { referenceKindLabel } from '@/lib/composer-reference-domain';
-import { referenceKindIcon } from './composer-reference-presentation';
-import {
-  Attachment,
-  AttachmentHoverCard,
-  AttachmentHoverCardContent,
-  AttachmentHoverCardTrigger,
-  AttachmentInfo,
-  AttachmentPreview,
-  Attachments,
-} from '@/components/ai-elements/attachments';
-import {
-  Queue,
-  QueueItem,
-  QueueItemAction,
-  QueueItemActions,
-  QueueItemContent,
-  QueueList,
-  QueueSection,
-  QueueSectionContent,
-  QueueSectionLabel,
-  QueueSectionTrigger,
-} from '@/components/ai-elements/queue';
-import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
-import { Input } from '@/components/ui/input';
+import { Sortable } from '@/components/reui/sortable';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
-import { resourceAvailability, resourcePipelineStages } from './resource-availability';
-import {
-  ResourcePipelineStatusLines,
-  ResourcePipelineSummaryIcon,
-} from './resource-pipeline-status';
+import { QueuedMessageRow } from './composer-queue-row';
+import { IconButton } from './primitives/icon-button';
+import { Tag } from './primitives/tag';
 
 /** Queue state and actions passed through the shared composer. */
 export interface ComposerQueueControls {
@@ -66,7 +35,19 @@ interface ClioComposerQueueProps {
   onUpdate: (message: QueuedMessage, text: string) => Promise<void>;
 }
 
-/** Durable queued-message list composed from the AI Elements Queue primitives. */
+/** Longer queues get a header toggle so they can fold out of the way. */
+const COLLAPSIBLE_AFTER = 3;
+
+function queuedMessagesLabel(count: number): string {
+  return `${count} queued ${count === 1 ? 'message' : 'messages'}`;
+}
+
+/**
+ * The durable queue that waits above the composer: one strip the width of the
+ * composer box, a one-line count (and Paused, in words), then one line per
+ * message. Rows reorder by dragging the handle or, from the keyboard, Space
+ * on the handle, the arrow keys and Space again.
+ */
 export function ClioComposerQueue({
   busy,
   messages,
@@ -79,6 +60,7 @@ export function ClioComposerQueue({
   promoteDelivery,
   resources = [],
 }: ClioComposerQueueProps) {
+  const viewportId = useId();
   const [orderOverride, setOrderOverride] = useState<QueuedMessage[]>();
   const incomingIds = new Set(messages.map((message) => message.id));
   const orderOverrideMatches =
@@ -87,6 +69,7 @@ export function ClioComposerQueue({
     orderOverride.every((message) => incomingIds.has(message.id));
   const ordered = orderOverrideMatches ? orderOverride : messages;
   const [editing, setEditing] = useState<{ id: string; text: string }>();
+  const [collapsedPreference, setCollapsedPreference] = useState(false);
 
   const resourceById = useMemo(
     () => new Map(resources.map((resource) => [resource.id, resource])),
@@ -94,6 +77,10 @@ export function ClioComposerQueue({
   );
 
   if (ordered.length === 0) return null;
+
+  const collapsible = ordered.length > COLLAPSIBLE_AFTER;
+  const collapsed = collapsible && collapsedPreference;
+  const countLabel = queuedMessagesLabel(ordered.length);
 
   const saveEdit = async (message: QueuedMessage, text: string) => {
     try {
@@ -139,18 +126,56 @@ export function ClioComposerQueue({
   };
 
   return (
-    <Queue
+    <section
       aria-label="Queued messages"
-      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 border-composer-border bg-composer py-0.5 shadow-none backdrop-blur-none dark:bg-composer dark:shadow-none"
+      data-slot="composer-queue"
+      // The strip runs 12px under the composer box so the box's rounded top
+      // corners sit on the queue's surface instead of leaving notches.
+      className="mx-auto -mb-3 flex min-h-0 w-full max-w-4xl shrink flex-col rounded-t-[12px] border border-b-0 border-input bg-composer px-1 pt-0.5 pb-3.5"
     >
-      <QueueSection className="flex min-h-0 flex-col">
-        <QueueSectionTrigger>
-          <QueueSectionLabel
-            count={ordered.length}
-            label={paused ? 'queued messages (paused)' : 'queued messages'}
+      <div className="flex h-7 min-w-0 items-center gap-2 pr-0.5 pl-2 text-[12px] whitespace-nowrap text-muted-foreground">
+        <span aria-live="polite" className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium">{countLabel}</span>
+          {paused ? (
+            <Tag
+              title="New messages wait here until the queue resumes. Send now still works."
+              tone="warning"
+              width="auto"
+            >
+              Paused
+            </Tag>
+          ) : null}
+        </span>
+        {collapsible ? (
+          <IconButton
+            aria-controls={collapsed ? undefined : viewportId}
+            aria-expanded={!collapsed}
+            className="ml-auto"
+            icon={collapsed ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
+            onClick={() => setCollapsedPreference((value) => !value)}
+            size="sm"
           />
-        </QueueSectionTrigger>
-        <QueueSectionContent className="flex min-h-0 flex-col">
+        ) : null}
+      </div>
+      {collapsed ? null : (
+        <ScrollArea
+          className="flex min-h-0 flex-col"
+          scrollHideDelay={500}
+          type="hover"
+          viewportProps={{
+            'aria-label': countLabel,
+            className:
+              'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none',
+            id: viewportId,
+            role: 'region',
+            // The queue owns its own height: its scroll chain is otherwise
+            // capped only by the composer stack, so a long queue would grow
+            // into the conversation instead of scrolling.
+            style: { maxHeight: COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX },
+            tabIndex: 0,
+          }}
+        >
           <Sortable
             asChild
             getItemValue={(message) => message.id}
@@ -160,242 +185,35 @@ export function ClioComposerQueue({
             strategy="vertical"
             value={ordered}
           >
-            <QueueList
-              viewportProps={{
-                'aria-label': `${ordered.length} queued messages`,
-                role: 'region',
-                // The queue owns its own height: its scroll chain is otherwise
-                // capped only by the composer stack, so a long queue would grow
-                // into the conversation instead of scrolling.
-                style: { maxHeight: COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX },
-                tabIndex: 0,
-              }}
-            >
-              {ordered.map((message) => {
-                const text = message.parts.find((part) => part.type === 'text')?.text ?? '';
-                const resources = message.parts.filter((part) => part.type === 'resource_ref');
-                const contextReferences = message.parts.filter(
-                  (part) => part.type === 'context_ref',
-                );
-                const isEditing = editing?.id === message.id;
-                return (
-                  <SortableItem
-                    asChild
-                    disabled={busy}
-                    key={message.id}
-                    role="listitem"
-                    tabIndex={-1}
-                    value={message.id}
-                  >
-                    <QueueItem data-queue-live-item="">
-                      <SortableItemHandle asChild>
-                        <QueueItemAction
-                          aria-label="Reorder queued message"
-                          className="size-6 bg-transparent text-muted-foreground/45 hover:bg-transparent hover:text-foreground [&_svg]:size-3.5"
-                          tooltip="Reorder queued message"
-                        >
-                          <GripVerticalIcon />
-                        </QueueItemAction>
-                      </SortableItemHandle>
-                      {isEditing ? (
-                        <Input
-                          aria-label="Edit queued message"
-                          autoFocus
-                          className="h-7 min-w-0 flex-1"
-                          onChange={(event) =>
-                            setEditing({ id: message.id, text: event.currentTarget.value })
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === 'Escape') setEditing(undefined);
-                            if (event.key === 'Enter' && editing.text.trim()) {
-                              void saveEdit(message, editing.text);
-                            }
-                          }}
-                          value={editing.text}
-                        />
-                      ) : (
-                        <QueueItemContent className="text-foreground" title={text}>
-                          {text ||
-                            (contextReferences.length > 0 ? 'Context only' : 'Attachments only')}
-                        </QueueItemContent>
-                      )}
-                      {message.promotion_error && <details className="max-w-48 text-xs text-warning-foreground">
-                        <summary className="cursor-pointer">Needs attention</summary>
-                        <p className="break-words">{typeof message.promotion_error.detail === 'string'
-                          ? message.promotion_error.detail : JSON.stringify(message.promotion_error.detail)}</p>
-                      </details>}
-                      {contextReferences.length > 0 ? (
-                        <div className="flex min-w-0 max-w-48 shrink items-center gap-1">
-                          {contextReferences.slice(0, 2).map((reference) => {
-                            const ReferenceIcon = referenceKindIcon(reference.ref_kind);
-                            return (
-                              <span
-                                className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border px-1.5 text-xs"
-                                key={`${reference.ref_kind}:${reference.ref_id}:${reference.revision ?? ''}`}
-                                title={`${reference.label} (${referenceKindLabel(reference.ref_kind)})`}
-                              >
-                                <ReferenceIcon
-                                  aria-hidden="true"
-                                  className="size-3 shrink-0 text-primary"
-                                />
-                                <span className="truncate">{reference.label}</span>
-                              </span>
-                            );
-                          })}
-                          {contextReferences.length > 2 ? (
-                            <span
-                              aria-label={`${contextReferences.length - 2} more references`}
-                              // Matches the chips it summarises rather than
-                              // dropping to muted: against the queue's
-                              // translucent surface muted computes 4.11:1,
-                              // under the 4.5:1 floor for text this size.
-                              className="text-xs text-foreground/70"
-                            >
-                              +{contextReferences.length - 2}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {resources.length > 0 ? (
-                        <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
-                          {resources.slice(0, 2).map((resourceRef) => (
-                            <QueuedResourceAttachment
-                              key={resourceRef.resource_id}
-                              onOpen={onOpenResource}
-                              resource={resourceById.get(resourceRef.resource_id)}
-                              resourceRef={resourceRef}
-                            />
-                          ))}
-                          {resources.length > 2 ? (
-                            <span
-                              aria-label={`${resources.length - 2} more attachments`}
-                              className="inline-flex h-8 shrink-0 items-center rounded-md border border-border px-1.5 text-xs font-medium text-muted-foreground"
-                              title={resources
-                                .slice(2)
-                                .map((resource) => resource.name)
-                                .join(', ')}
-                            >
-                              +{resources.length - 2}
-                            </span>
-                          ) : null}
-                        </Attachments>
-                      ) : null}
-                      <QueueItemActions>
-                        {isEditing ? (
-                          <>
-                            <QueueItemAction
-                              aria-label="Save queued message"
-                              disabled={busy || !editing.text.trim()}
-                              onClick={() => void saveEdit(message, editing.text)}
-                              tooltip="Save queued message"
-                            >
-                              <CheckIcon />
-                            </QueueItemAction>
-                            <QueueItemAction
-                              aria-label="Cancel editing queued message"
-                              onClick={() => setEditing(undefined)}
-                              tooltip="Cancel editing"
-                            >
-                              <CloseIcon />
-                            </QueueItemAction>
-                          </>
-                        ) : (
-                          <>
-                            <QueueItemAction
-                              aria-label="Edit queued message"
-                              disabled={busy}
-                              onClick={() => setEditing({ id: message.id, text })}
-                              tooltip="Edit queued message"
-                            >
-                              <EditIcon />
-                            </QueueItemAction>
-                            <QueueItemAction
-                              aria-label="Delete queued message"
-                              disabled={busy}
-                              onClick={() =>
-                                void runAction(
-                                  () => onDelete(message),
-                                  'Queued message was not deleted',
-                                )
-                              }
-                              tooltip="Delete queued message"
-                            >
-                              <DeleteIcon />
-                            </QueueItemAction>
-                            <QueueItemAction
-                              aria-label="Send queued message now"
-                              disabled={busy}
-                              onClick={() =>
-                                void runAction(
-                                  () => onPromote(message, promoteDelivery),
-                                  'Queued message was not sent',
-                                )
-                              }
-                              tooltip="Send queued message now"
-                            >
-                              <SendIcon />
-                            </QueueItemAction>
-                          </>
-                        )}
-                      </QueueItemActions>
-                    </QueueItem>
-                  </SortableItem>
-                );
-              })}
-            </QueueList>
+            <ul className="flex flex-col gap-px">
+              {ordered.map((message) => (
+                <QueuedMessageRow
+                  busy={busy}
+                  editingText={editing?.id === message.id ? editing.text : undefined}
+                  key={message.id}
+                  message={message}
+                  onCancelEdit={() => setEditing(undefined)}
+                  onDelete={() =>
+                    void runAction(() => onDelete(message), 'Queued message was not deleted')
+                  }
+                  onEditChange={(text) => setEditing({ id: message.id, text })}
+                  onOpenResource={onOpenResource}
+                  onPromote={() =>
+                    void runAction(
+                      () => onPromote(message, promoteDelivery),
+                      'Queued message was not sent',
+                    )
+                  }
+                  onSaveEdit={(text) => void saveEdit(message, text)}
+                  onStartEdit={(text) => setEditing({ id: message.id, text })}
+                  promoteDelivery={promoteDelivery}
+                  resourceById={resourceById}
+                />
+              ))}
+            </ul>
           </Sortable>
-        </QueueSectionContent>
-      </QueueSection>
-    </Queue>
-  );
-}
-
-function QueuedResourceAttachment({
-  onOpen,
-  resource,
-  resourceRef,
-}: {
-  onOpen?: (resource: WorkspaceResource) => void;
-  resource?: WorkspaceResource;
-  resourceRef: Extract<ComposerMessagePart, { type: 'resource_ref' }>;
-}) {
-  const filename = resource?.name ?? resourceRef.name;
-  const mediaType = resource?.detected_mime || resource?.claimed_mime || '';
-  const availability = resourceAvailability(resource);
-  const stages = resourcePipelineStages(resource, availability);
-  const activate = () => {
-    if (resource) onOpen?.(resource);
-  };
-
-  return (
-    <AttachmentHoverCard closeDelay={100} openDelay={220}>
-      <AttachmentHoverCardTrigger asChild>
-        <Attachment
-          aria-label={resource && onOpen ? `Open ${filename}` : filename}
-          className="h-7 max-w-36 gap-1 px-1.5 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
-          data={{ filename, id: resourceRef.resource_id, mediaType, type: 'file', url: '' }}
-          onClick={activate}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            activate();
-          }}
-          role={resource && onOpen ? 'button' : undefined}
-          tabIndex={resource && onOpen ? 0 : undefined}
-        >
-          <AttachmentPreview className="size-4 [&_svg]:size-3" />
-          <AttachmentInfo className="max-w-20" />
-          <ResourcePipelineSummaryIcon stages={stages} />
-        </Attachment>
-      </AttachmentHoverCardTrigger>
-      <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
-        <p className="truncate text-sm font-medium">{filename}</p>
-        {mediaType ? <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p> : null}
-        <div className="mt-2">
-          <ResourcePipelineStatusLines stages={stages} />
-        </div>
-        <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
-      </AttachmentHoverCardContent>
-    </AttachmentHoverCard>
+        </ScrollArea>
+      )}
+    </section>
   );
 }

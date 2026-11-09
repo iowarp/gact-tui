@@ -1,9 +1,9 @@
 import type { CommandDefinition, SummonTargets } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { matchingSummons, summonReferences, typedSummons } from '@/lib/composer-reference-domain';
 import { commandForName, commandGroups } from '@/lib/command-table';
-import { CommandStatus } from './composer-command-menu';
+import { ClioComposerCommandMenu, CommandStatus } from './composer-command-menu';
 import { ConversationSummonedWork } from './conversation-summoned-work';
 import { summonServerLabel } from './injection-presentation';
 
@@ -42,7 +42,9 @@ const targets: SummonTargets = {
       inputs: [{ name: 'section', description: 'The section', required: true }],
     },
   ],
-  flows: [{ id: 'council', plugin: 'flows', description: 'Several models answer; one synthesizes.' }],
+  flows: [
+    { id: 'council', plugin: 'flows', description: 'Several models answer; one synthesizes.' },
+  ],
 };
 
 describe('the / menu', () => {
@@ -159,7 +161,9 @@ describe('the transcript', () => {
       />,
     );
     expect(screen.getByText('You asked for explore on this message')).toBeVisible();
-    expect(screen.getByText('You asked for the workflow draft-review on this message')).toBeVisible();
+    expect(
+      screen.getByText('You asked for the workflow draft-review on this message'),
+    ).toBeVisible();
     expect(screen.getByText('You pointed this message at the hdf5 tools')).toBeVisible();
     expect(screen.getByText('Loaded skill run-a-study')).toBeVisible();
   });
@@ -179,9 +183,7 @@ describe('the transcript', () => {
       />,
     );
     expect(screen.getByText('Started explore as you asked')).toBeVisible();
-    expect(
-      screen.getByText('The workflow draft-review was not started'),
-    ).toBeVisible();
+    expect(screen.getByText('The workflow draft-review was not started')).toBeVisible();
     expect(screen.getByText('The flow council was not started: flow_not_resolved')).toBeVisible();
   });
 
@@ -190,5 +192,55 @@ describe('the transcript', () => {
       'The person pointed this message at the hdf5 tools.\n\nLoaded 2 tools; call them.\n\n' +
       '## hdf5_list  (hdf5)\nList.\n\n## hdf5_read  (hdf5)\nRead.';
     expect(summonServerLabel({ source: 'summon_server', text })).toBe('Loaded 2 tools from hdf5');
+  });
+});
+
+describe('the / menu surface', () => {
+  const commands = [
+    row({ id: '/goal', kind: 'builtin', plugin: 'core', title: 'Set a goal' }),
+    row({ id: '/hello', kind: 'command', source: 'clio_workspace' }),
+    row({ id: '/off', enabled: false, disabled_reason: 'unavailable' }),
+  ];
+
+  function renderMenu(query: string) {
+    const onPick = vi.fn();
+    const view = render(
+      <>
+        <div
+          aria-controls="cmds"
+          contentEditable
+          data-testid="editor"
+          role="textbox"
+          tabIndex={0}
+        />
+        <ClioComposerCommandMenu
+          commands={commands}
+          onPick={onPick}
+          popoverId="cmds"
+          query={query}
+        />
+      </>,
+    );
+    return { onPick, view, editor: screen.getByTestId('editor') };
+  }
+
+  it('moves over usable commands, uses the highlighted one on Enter and closes on Escape', () => {
+    const { editor, onPick } = renderMenu('/');
+    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
+    editor.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(onPick).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(editor, { key: 'ArrowDown' });
+    fireEvent.keyDown(editor, { key: 'ArrowDown' });
+    fireEvent.keyDown(editor, { key: 'ArrowDown' });
+    const selected = screen.getByRole('option', { selected: true });
+    expect(selected).toHaveAccessibleName(/\/goal/u);
+
+    fireEvent.keyDown(editor, { key: 'Enter' });
+    expect(onPick).toHaveBeenCalledWith(commands[0]);
+
+    fireEvent.keyDown(editor, { key: 'Escape' });
+    expect(screen.queryByRole('listbox', { name: 'Suggestions' })).toBeNull();
   });
 });
