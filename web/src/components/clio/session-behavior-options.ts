@@ -29,19 +29,19 @@ export const SESSION_MODE_OPTIONS = [
   {
     value: 'edit',
     label: 'Execute',
-    description: 'Act on the request and make supported changes.',
+    description: 'Does the work, within the policy.',
     icon: PlayIcon,
   },
   {
     value: 'plan',
     label: 'Plan',
-    description: 'Develop a concrete approach before changing anything.',
+    description: 'Proposes a plan and waits for you.',
     icon: MapIcon,
   },
   {
     value: 'architect',
     label: 'Deep research',
-    description: 'Investigate broadly through specialists before proposing changes.',
+    description: 'A long, sourced investigation.',
     icon: Globe2Icon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['mode']>[];
