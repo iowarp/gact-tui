@@ -409,7 +409,8 @@ for (const size of [
     await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(0);
     const input = body
       .locator('[data-slot="details-section"]')
-      .filter({ has: body.getByRole('heading', { name: 'Arguments' }) })
+      // has is queried inside each section, so it names the heading from the page root.
+      .filter({ has: page.getByRole('heading', { name: 'Arguments', exact: true }) })
       .locator('[data-slot="details-code"]');
     await expect.poll(() => input.evaluate((e) => e.clientHeight >= e.scrollHeight)).toBe(true);
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
