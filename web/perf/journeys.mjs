@@ -254,7 +254,7 @@ export async function headerJourney(r) {
     { control: customize },
   );
   await r.overlay('open questions', 'button', /open question/u, { category: 'dialog' });
-  await r.overlay('version status', 'button', /^Version status/u);
+  await r.overlay('version status', 'button', /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u);
   await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
 

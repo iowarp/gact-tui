@@ -196,20 +196,39 @@ function catalogue({ settings, infrastructure }) {
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
     menu('menu-attention-inbox', 'button', /needs your response/u),
-    menu('menu-service-status', 'button', /^Workspace Service status/u),
-    s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^Workspace Service status/u);
-      await overlay(page);
-      await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
-      await page.waitForTimeout(400);
-    }),
+    s(
+      'session',
+      'menu-service-status',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Workspace Service status/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+      },
+      { savedAgents: true },
+    ),
+    s(
+      'session',
+      'menu-clio-add-agent',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', /^Workspace Service status/u);
+        await overlay(page);
+        await settleSavedAgents(page);
+        // By key, so moving the pointer away before the capture keeps it open.
+        await page.getByRole('menuitem', { name: /^Add an agent/u }).focus();
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(400);
+      },
+      { savedAgents: true },
+    ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
       await press(page, 'button', 'Show infrastructure status');
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
     menu('menu-open-questions', 'button', /open question/u),
-    menu('menu-version-status', 'button', /^Version status/u),
+    menu('menu-version-status', 'button', /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
@@ -430,7 +449,20 @@ function themeGaps(theme) {
 
 // --- Capture ---------------------------------------------------------------------
 
-async function newContext(browser, stack, { theme, width, connected = true }) {
+/** Saved agents settle after their availability probes and retries. */
+async function settleSavedAgents(page) {
+  await page
+    .getByRole('menuitem', { name: /lab-shared.*Offline/u })
+    .waitFor({ timeout: 4000 })
+    .catch(() => undefined);
+}
+
+const SAVED_AGENTS = [
+  { endpoint: 'https://ares.iit.edu', label: 'ares-genesis' },
+  { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+];
+
+async function newContext(browser, stack, { theme, width, connected = true, savedAgents = false }) {
   const mobile = width < 600;
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
@@ -445,17 +477,31 @@ async function newContext(browser, stack, { theme, width, connected = true }) {
   context.setDefaultTimeout(6000);
   await context.clock.setFixedTime(FROZEN_TIME);
   await context.addInitScript(
-    ({ theme, endpoint }) => {
+    ({ theme, endpoint, others }) => {
       try {
         localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme, motion: 'reduced' }));
-        if (endpoint) localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
-        else localStorage.removeItem('clio.recent-connections');
+        if (endpoint) {
+          localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint, ...others]));
+        } else localStorage.removeItem('clio.recent-connections');
       } catch {
         // Opaque-origin frames have no storage.
       }
     },
-    { theme, endpoint: connected === true ? stack.endpoint : connected || null },
+    {
+      theme,
+      endpoint: connected === true ? stack.endpoint : connected || null,
+      others: savedAgents ? SAVED_AGENTS : [],
+    },
   );
+  if (savedAgents) {
+    // Saved agents are client-side: one reachable (served by the fixture), one offline.
+    await context.route('https://ares.iit.edu/**', async (route) => {
+      const url = new URL(route.request().url());
+      const response = await route.fetch({ url: `${stack.endpoint}${url.pathname}${url.search}` });
+      await route.fulfill({ response });
+    });
+    await context.route('http://10.0.4.12:8100/**', (route) => route.abort('connectionrefused'));
+  }
   return context;
 }
 
@@ -604,6 +650,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    savedAgents: shot.savedAgents ?? false,
   });
   const page = await context.newPage();
   const errors = [];

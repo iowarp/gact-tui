@@ -10,8 +10,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationHeader } from './navigation-header';
 
 vi.mock('@/hooks/use-runtime-version', () => ({
-  useRuntimeVersion: () => ({ version: 'v0.9.5', pending: false }),
+  useRuntimeVersion: () => ({ version: '0.9.5', pending: false }),
 }));
+vi.mock('@/hooks/use-update-status', () => ({ useUpdateStatus: () => undefined }));
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
@@ -65,8 +66,8 @@ it('shows saved service addresses and prevents selecting an unavailable service'
 
   await user.click(screen.getByText('Contained'));
 
-  expect(screen.getAllByText('http://127.0.0.1:8788').length).toBeGreaterThan(0);
-  expect(screen.getByText('http://127.0.0.1:9999')).toBeVisible();
+  expect(screen.getAllByText('127.0.0.1:8788').length).toBeGreaterThan(0);
+  expect(screen.getByText('127.0.0.1:9999')).toBeVisible();
   const offline = screen.getByRole('menuitem', { name: /Offline lab/u });
   expect(offline).toHaveAttribute('data-disabled');
   await user.click(offline);
@@ -142,16 +143,16 @@ it('shows agent identity as location followed by the branded agent name', async 
   await user.click(screen.getByText('Local'));
 
   expect(screen.getByText('Talking to')).toBeVisible();
-  expect(screen.getAllByText('Local')).toHaveLength(2);
+  expect(screen.getByText(`${brand.agentName} local`)).toBeVisible();
+  expect(screen.getByText('this computer')).toBeVisible();
   expect(screen.getByText('Switch to')).toBeVisible();
-  expect(screen.getByText('Homelab')).toBeVisible();
-  expect(screen.getAllByText(brand.agentName).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByRole('menuitem', { name: /Homelab/u })).toHaveTextContent('127.0.0.1:17800');
   expect(screen.getByText('v0.9.5')).toBeVisible();
   expect(screen.getByRole('menuitem', { name: /Infrastructure/u })).toHaveAttribute(
     'href',
     '/infrastructure',
   );
-  expect(screen.getByText('http://127.0.0.1:49433')).toBeVisible();
+  expect(screen.getByText('127.0.0.1:49433')).toBeVisible();
 });
 
 it('uses a user-defined agent name instead of forcing the branded fallback', () => {
@@ -228,7 +229,7 @@ it.each(['local', 'aurora'] as const)(
       expect(screen.getByText('Switch to')).toBeVisible();
       const item = screen
         .getAllByRole('menuitem')
-        .find((node) => node.textContent?.includes(destination.endpoint));
+        .find((node) => node.textContent?.includes(new URL(destination.endpoint).host));
       expect(item).toBeDefined();
       await user.click(item!);
       expect(onConnect).toHaveBeenLastCalledWith(destination);

@@ -21,12 +21,15 @@ export interface KeyValueItem {
  */
 export const KeyValueGrid = memo(function KeyValueGrid({
   items,
+  actionColumn = false,
   className,
 }: {
   items: readonly KeyValueItem[];
+  /** Keep the action column when no row has an action, to line up with sibling rows. */
+  actionColumn?: boolean;
   className?: string;
 }) {
-  const hasAction = items.some((item) => item.action);
+  const hasAction = actionColumn || items.some((item) => item.action);
   return (
     <dl
       data-slot="key-value-grid"
@@ -53,8 +56,8 @@ export const KeyValueGrid = memo(function KeyValueGrid({
           </dt>
           <dd
             className={cn(
-              'min-w-0 truncate whitespace-nowrap text-right text-foreground',
-              item.mono && 'font-mono text-[11px] tabular-nums',
+              'min-w-0 truncate whitespace-nowrap text-right text-foreground/85',
+              item.mono && 'font-mono text-[11.5px] tabular-nums',
             )}
             title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
           >

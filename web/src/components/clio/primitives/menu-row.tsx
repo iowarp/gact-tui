@@ -2,6 +2,7 @@ import { memo, type ReactNode } from 'react';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ShortcutKeys } from './key-chip';
+import { StatusIndicator, type StatusTone } from './status-indicator';
 import { Tag, type TagTone } from './tag';
 
 export interface MenuRowProps {
@@ -9,6 +10,10 @@ export interface MenuRowProps {
   label: string;
   /** Muted words after the label; cut with an ellipsis, full text on hover. */
   description?: string;
+  /** A small faint second line under the label (a host, what a choice does). */
+  detail?: string;
+  /** A state as a mark and a word in the fixed 68px status column (Online, Offline). */
+  status?: { label: string; tone: StatusTone };
   /** A state word in the fixed 58px tag column (On, Off, Needs you). */
   tag?: { text: string; tone?: TagTone };
   /** A short mono value in the fixed 52px column (12 GB, 4 min). */
@@ -34,6 +39,8 @@ export const MenuRow = memo(function MenuRow({
   icon,
   label,
   description,
+  detail,
+  status,
   tag,
   value,
   checked,
@@ -52,14 +59,31 @@ export const MenuRow = memo(function MenuRow({
           {icon}
         </span>
       ) : null}
-      <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
-        <span className="max-w-full shrink-0 truncate">{label}</span>
-        {description ? (
-          <span title={description} className="min-w-0 truncate text-[12px] text-muted-foreground">
-            {description}
+      {detail ? (
+        <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
+          <span className="truncate">{label}</span>
+          <span title={detail} className="truncate text-[11px] text-faint">
+            {detail}
           </span>
-        ) : null}
-      </span>
+        </span>
+      ) : (
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
+          <span className="max-w-full shrink-0 truncate">{label}</span>
+          {description ? (
+            <span
+              title={description}
+              className="min-w-0 truncate text-[12px] text-muted-foreground"
+            >
+              {description}
+            </span>
+          ) : null}
+        </span>
+      )}
+      {status ? (
+        <span className="flex w-[68px] shrink-0 justify-end">
+          <StatusIndicator className="text-[11px]" label={status.label} tone={status.tone} />
+        </span>
+      ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}
       {value !== undefined ? (
         <span className="w-[52px] shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums">
