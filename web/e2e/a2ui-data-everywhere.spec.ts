@@ -107,7 +107,7 @@ async function openEarthquakeDemo(page: Page) {
   expect(published.ok()).toBe(true);
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   // Detached surface (no owning message): scroll the virtualized transcript
   // to its end so it mounts, same pattern as a2ui-smoke.spec.ts.

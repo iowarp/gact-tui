@@ -33,7 +33,8 @@
   --secondary: #ede7da;
   --secondary-foreground: #2b2a26;
   --muted: #ede7da;
-  --muted-foreground: #6b655a;
+  /* Muted text reaches 4.5:1 on every light surface, the menu highlight included. */
+  --muted-foreground: #675f53;
   --faint: #6f675b;
   --changed: #276a63;
   --hover: #ece6da;
@@ -218,7 +219,7 @@
   --syntax-token-parameter: #e8c27a;
   --syntax-token-punctuation: #b3ac9f;
   --syntax-token-link: #74b8b0;
-  --scrim: rgb(0 0 0 / 35%);
+  --scrim: rgb(10 9 8 / 62%);
   --shadow-color: rgb(0 0 0 / 60%);
   --highlight: #4a3a1a;
   --highlight-foreground: #ece6da;

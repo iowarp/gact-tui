@@ -16,7 +16,7 @@ import {
   Layers3Icon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -40,7 +40,7 @@ import {
 } from './observability-activity';
 import { WorkspaceFoldersBar } from './workspace-folders';
 import { ClioEvidenceView } from './observability-evidence';
-import { ObservabilityWork } from './observability-work';
+import { deferredComponent } from '@/lib/deferred-chunk';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
@@ -57,6 +57,11 @@ import {
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 import { ResourceLoading } from './resource-states';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
+
+// The Gantt and its date pickers load when the Gantt view first opens, not with the page.
+const ObservabilityWork = deferredComponent(() =>
+  import('./observability-work').then((module) => module.ObservabilityWork),
+);
 
 export function ClioObservabilityView({
   workspaceFolders,
@@ -359,22 +364,24 @@ export function ClioObservabilityView({
               label="Background work"
               pending={processesPending}
             />
-            <ObservabilityWork
-              familyProvenance={familyProvenance}
-              familyProvenancePending={familyProvenancePending}
-              sessionId={sessionId}
-              sessions={sessions}
-              artifacts={artifacts}
-              onOpenArtifact={onOpenArtifact}
-              executionProvenance={executionProvenance}
-              messages={messages}
-              onOpenSubagent={onOpenSubagent}
-              processes={processes}
-              workPages={workPages}
-              runs={runs}
-              subagents={subagents}
-              tools={tools}
-            />
+            <Suspense fallback={<ResourceLoading label="Loading background work" />}>
+              <ObservabilityWork
+                familyProvenance={familyProvenance}
+                familyProvenancePending={familyProvenancePending}
+                sessionId={sessionId}
+                sessions={sessions}
+                artifacts={artifacts}
+                onOpenArtifact={onOpenArtifact}
+                executionProvenance={executionProvenance}
+                messages={messages}
+                onOpenSubagent={onOpenSubagent}
+                processes={processes}
+                workPages={workPages}
+                runs={runs}
+                subagents={subagents}
+                tools={tools}
+              />
+            </Suspense>
           </TabsContent>
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
