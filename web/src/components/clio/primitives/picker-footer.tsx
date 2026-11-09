@@ -25,7 +25,8 @@ interface PickerFooterProps {
 
 /**
  * The one-line footer every picker ends with: a word, then its key. It
- * never wraps; optional hints drop out below a 28rem picker.
+ * never wraps; optional hints drop out below a 28rem picker, and any hint
+ * that still doesn't fit drops from the end.
  */
 export const PickerFooter = memo(function PickerFooter({
   hints,
@@ -42,7 +43,8 @@ export const PickerFooter = memo(function PickerFooter({
       data-slot="picker-footer"
     >
       {start}
-      <span className="ml-auto flex min-w-0 items-center gap-3">
+      {/* One line tall: hints that don't fit wrap out of sight, never under `end`. */}
+      <span className="ml-auto flex h-5 min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-4 overflow-hidden">
         {hints.map((hint) => {
           const content = (
             <>

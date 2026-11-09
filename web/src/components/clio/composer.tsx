@@ -411,6 +411,17 @@ export function ClioComposer({
             setInput(`${command.id} `);
             window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
           }}
+          onRun={(command) => {
+            setInput(command.id);
+            // The form reads the committed text, so submit on the next frame.
+            window.requestAnimationFrame(() => {
+              const form = rootRef.current?.querySelector('form');
+              const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+              if (!form || submit?.disabled) return;
+              nextDeliveryRef.current = composerDelivery(state, false);
+              form.requestSubmit();
+            });
+          }}
           onOpenChange={setCommandMenuOpen}
           popoverId={commandPopoverId}
           query={commandQuery}
@@ -672,6 +683,7 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
+                  placement="composer"
                   trigger={
                     <ComposerModelButton
                       appearance="text"

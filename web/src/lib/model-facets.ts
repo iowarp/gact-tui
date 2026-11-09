@@ -81,7 +81,14 @@ export const FACET_TAB_LABELS: Record<FacetTabId, string> = {
   other: 'Other',
 };
 
-const TAB_ORDER: readonly FacetTabId[] = ['tasks', 'input', 'output', 'capabilities', 'providers', 'other'];
+const TAB_ORDER: readonly FacetTabId[] = [
+  'tasks',
+  'input',
+  'output',
+  'capabilities',
+  'providers',
+  'other',
+];
 
 /** Hugging Face's task categories, in the order its Tasks tab lists them. */
 const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly string[] }[] = [
@@ -89,45 +96,82 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
     id: 'multimodal',
     label: 'Multimodal',
     tasks: [
-      'audio-text-to-text', 'image-text-to-text', 'image-text-to-image', 'image-text-to-video',
-      'visual-question-answering', 'document-question-answering', 'video-text-to-text',
-      'visual-document-retrieval', 'any-to-any',
+      'audio-text-to-text',
+      'image-text-to-text',
+      'image-text-to-image',
+      'image-text-to-video',
+      'visual-question-answering',
+      'document-question-answering',
+      'video-text-to-text',
+      'visual-document-retrieval',
+      'any-to-any',
     ],
   },
   {
     id: 'vision',
     label: 'Vision',
     tasks: [
-      'depth-estimation', 'image-classification', 'object-detection', 'image-segmentation',
-      'text-to-image', 'image-to-text', 'image-to-image', 'image-to-video',
-      'unconditional-image-generation', 'video-classification', 'text-to-video',
-      'zero-shot-image-classification', 'mask-generation', 'zero-shot-object-detection',
-      'text-to-3d', 'image-to-3d', 'image-feature-extraction', 'keypoint-detection', 'video-to-video',
+      'depth-estimation',
+      'image-classification',
+      'object-detection',
+      'image-segmentation',
+      'text-to-image',
+      'image-to-text',
+      'image-to-image',
+      'image-to-video',
+      'unconditional-image-generation',
+      'video-classification',
+      'text-to-video',
+      'zero-shot-image-classification',
+      'mask-generation',
+      'zero-shot-object-detection',
+      'text-to-3d',
+      'image-to-3d',
+      'image-feature-extraction',
+      'keypoint-detection',
+      'video-to-video',
     ],
   },
   {
     id: 'language',
     label: 'Language',
     tasks: [
-      'text-generation', 'text-classification', 'token-classification', 'table-question-answering',
-      'question-answering', 'zero-shot-classification', 'translation', 'summarization',
-      'feature-extraction', 'fill-mask', 'sentence-similarity', 'text-ranking',
+      'text-generation',
+      'text-classification',
+      'token-classification',
+      'table-question-answering',
+      'question-answering',
+      'zero-shot-classification',
+      'translation',
+      'summarization',
+      'feature-extraction',
+      'fill-mask',
+      'sentence-similarity',
+      'text-ranking',
     ],
   },
   {
     id: 'audio',
     label: 'Audio',
     tasks: [
-      'text-to-speech', 'text-to-audio', 'automatic-speech-recognition', 'audio-to-audio',
-      'audio-classification', 'voice-activity-detection',
+      'text-to-speech',
+      'text-to-audio',
+      'automatic-speech-recognition',
+      'audio-to-audio',
+      'audio-classification',
+      'voice-activity-detection',
     ],
   },
   {
     id: 'scientific',
     label: 'Scientific',
     tasks: [
-      'tabular-classification', 'tabular-regression', 'time-series-forecasting', 'graph-ml',
-      'robotics', 'reinforcement-learning',
+      'tabular-classification',
+      'tabular-regression',
+      'time-series-forecasting',
+      'graph-ml',
+      'robotics',
+      'reinforcement-learning',
     ],
   },
 ];
@@ -135,7 +179,12 @@ const TASK_CATEGORIES: readonly { id: string; label: string; tasks: readonly str
 function taskCategory(task: string): { id: string; label: string } {
   // A task the Hub has no term for is CLIO's own (`clio:<id>`): scientific work.
   if (task.startsWith('clio:')) return { id: 'scientific', label: 'Scientific' };
-  return TASK_CATEGORIES.find((category) => category.tasks.includes(task)) ?? { id: 'other-tasks', label: 'Other tasks' };
+  return (
+    TASK_CATEGORIES.find((category) => category.tasks.includes(task)) ?? {
+      id: 'other-tasks',
+      label: 'Other tasks',
+    }
+  );
 }
 
 function capitalized(word: string): string {
@@ -168,7 +217,9 @@ interface ChipSource {
   groupRank: number;
 }
 
-const OTHER_GROUPS: Partial<Record<ModelCapabilityAxis, { id: string; label: string; rank: number }>> = {
+const OTHER_GROUPS: Partial<
+  Record<ModelCapabilityAxis, { id: string; label: string; rank: number }>
+> = {
   price: { id: 'offer', label: 'Offer', rank: 0 },
   kind: { id: 'offer', label: 'Offer', rank: 0 },
   recent: { id: 'release', label: 'Release', rank: 1 },
@@ -181,15 +232,43 @@ function tagSource(tag: ModelCapabilityTag): ChipSource | undefined {
   const icon: FacetIcon = { kind: 'tag', tag };
   switch (tag.axis) {
     case 'input_modality':
-      return { tab: 'input', groupId: 'input', groupLabel: 'Input', label: modalityLabel(tag.value), icon, groupRank: 0 };
+      return {
+        tab: 'input',
+        groupId: 'input',
+        groupLabel: 'Input',
+        label: modalityLabel(tag.value),
+        icon,
+        groupRank: 0,
+      };
     case 'output_modality':
-      return { tab: 'output', groupId: 'output', groupLabel: 'Output', label: modalityLabel(tag.value), icon, groupRank: 0 };
+      return {
+        tab: 'output',
+        groupId: 'output',
+        groupLabel: 'Output',
+        label: modalityLabel(tag.value),
+        icon,
+        groupRank: 0,
+      };
     case 'capability':
-      return { tab: 'capabilities', groupId: 'capabilities', groupLabel: 'Capabilities', label: modelCapabilityTagLabel(tag), icon, groupRank: 0 };
+      return {
+        tab: 'capabilities',
+        groupId: 'capabilities',
+        groupLabel: 'Capabilities',
+        label: modelCapabilityTagLabel(tag),
+        icon,
+        groupRank: 0,
+      };
     default: {
       const group = OTHER_GROUPS[tag.axis];
       if (!group) return undefined;
-      return { tab: 'other', groupId: group.id, groupLabel: group.label, label: modelCapabilityTagLabel(tag), icon, groupRank: group.rank };
+      return {
+        tab: 'other',
+        groupId: group.id,
+        groupLabel: group.label,
+        label: modelCapabilityTagLabel(tag),
+        icon,
+        groupRank: group.rank,
+      };
     }
   }
 }
@@ -208,7 +287,9 @@ function entrySources(entry: FacetEntry, into: Map<ModelFilterToken, ChipSource>
           groupLabel: category.label,
           label: hubTaskLabel(task),
           icon: { kind: 'tag', tag: { ...tag, hubTasks: [task] } },
-          groupRank: [...TASK_CATEGORIES.map((item) => item.id), 'other-tasks'].indexOf(category.id),
+          groupRank: [...TASK_CATEGORIES.map((item) => item.id), 'other-tasks'].indexOf(
+            category.id,
+          ),
         });
       }
       continue;
@@ -267,6 +348,15 @@ export function buildModelFacets(
 ): FacetTab[] {
   const sources = new Map<ModelFilterToken, ChipSource>();
   for (const entry of entries) entrySources(entry, sources);
+  // An active modality token keeps its chip even when no listed model carries
+  // it: the defaults are not drawn in the search row, so this is the way off.
+  for (const token of active) {
+    const [key, value] = token.split(':');
+    if (sources.has(token) || !value || (key !== 'input' && key !== 'output')) continue;
+    const axis = key === 'input' ? 'input_modality' : 'output_modality';
+    const source = tagSource({ axis, value, evidence: [] });
+    if (source) sources.set(token, source);
+  }
   // Counts under the active tokens, then under each way of letting active
   // DEFAULT tokens give way (fewest dropped first). A chip takes the first
   // variant that lists something for it.
@@ -309,7 +399,11 @@ export function buildModelFacets(
     const tabGroups = [...groups.values()]
       .filter((group) => group.tab === id)
       .sort((left, right) => left.rank - right.rank)
-      .map(({ id: groupId, label, chips }) => ({ id: groupId, label, chips: chips.sort(byCountThenLabel) }));
+      .map(({ id: groupId, label, chips }) => ({
+        id: groupId,
+        label,
+        chips: chips.sort(byCountThenLabel),
+      }));
     return {
       id,
       label: FACET_TAB_LABELS[id],
@@ -342,10 +436,17 @@ export function mainFacetGroups(tabs: readonly FacetTab[], limit = 6): MainFacet
     for (const part of parts) {
       if (!part.chips.length) continue;
       const ordered = [...part.chips].sort(
-        (left, right) => Number(right.active) - Number(left.active) || byCountThenLabel(left, right),
+        (left, right) =>
+          Number(right.active) - Number(left.active) || byCountThenLabel(left, right),
       );
       const shown = ordered.slice(0, Math.max(limit, ordered.filter((chip) => chip.active).length));
-      clusters.push({ id: part.id, label: part.label, tab: tab.id, chips: shown, more: part.chips.length - shown.length });
+      clusters.push({
+        id: part.id,
+        label: part.label,
+        tab: tab.id,
+        chips: shown,
+        more: part.chips.length - shown.length,
+      });
     }
   }
   return clusters;
@@ -356,6 +457,9 @@ export function filterFacetGroups(groups: readonly FacetGroup[], filter: string)
   const text = filter.trim().toLowerCase();
   if (!text) return [...groups];
   return groups
-    .map((group) => ({ ...group, chips: group.chips.filter((chip) => chip.label.toLowerCase().includes(text)) }))
+    .map((group) => ({
+      ...group,
+      chips: group.chips.filter((chip) => chip.label.toLowerCase().includes(text)),
+    }))
     .filter((group) => group.chips.length);
 }
