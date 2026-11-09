@@ -282,7 +282,7 @@ export interface AskRowProps extends Omit<ComponentProps<'button'>, 'children'> 
 export function AskRows({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
-      className={cn('mt-2 -ml-[6px] flex flex-col gap-0.5 @max-[420px]/ask:ml-0', className)}
+      className={cn('mt-2 ml-[19px] flex flex-col gap-0.5 @max-[420px]/ask:ml-0', className)}
       data-slot="ask-rows"
       {...props}
     />

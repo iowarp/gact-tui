@@ -63,7 +63,7 @@ export function TechnicalDetails({
       {hint ? (
         <div className="flex min-w-0 items-center gap-2">
           {trigger}
-          <span className="min-w-0 truncate text-faint">{hint}</span>
+          <span className="min-w-0 truncate text-muted-foreground">{hint}</span>
         </div>
       ) : (
         trigger
