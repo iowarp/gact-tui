@@ -34,3 +34,13 @@ export async function ackClosePromptShown(seq: number): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('close_prompt_shown', { seq });
 }
+
+/**
+ * The desktop host opens its window hidden on a dark background and shows it when
+ * the page has committed its first frame, so launch never flashes an unpainted
+ * WebView (#739). The host reveals it on its own after a short fallback.
+ */
+export async function revealStartupWindow(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('reveal_startup_window');
+}

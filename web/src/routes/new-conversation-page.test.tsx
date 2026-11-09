@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { ReactNode } from 'react';
 import type { ClioComposerProps } from '@/components/clio/composer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -212,7 +213,7 @@ describe('new conversation reference navigation', () => {
   });
 
   it('opens desktop Downloads from a new conversation', async () => {
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
     try {
       render(
         <QueryClientProvider client={new QueryClient()}>
@@ -222,7 +223,7 @@ describe('new conversation reference navigation', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Open downloads' }));
       expect(mocks.downloads).toHaveBeenCalledOnce();
     } finally {
-      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+      clearDesktopHost();
     }
   });
 

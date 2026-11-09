@@ -1,12 +1,19 @@
 import { TransportError } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { KnownConnection } from '@/hooks/use-known-connections';
 import {
   NOT_REACHABLE_DETAIL,
+  probeConnection,
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
-import { CONNECTION_WAIT_FOR_START_MS } from '@/lib/runtime-limits';
+import { queryKeys } from '@/lib/query-keys';
+import {
+  CONNECTION_RETRY_MAX_MS,
+  CONNECTION_RETRY_MIN_MS,
+  CONNECTION_WAIT_FOR_START_MS,
+} from '@/lib/runtime-limits';
 
 /** The connect attempt as the page's mutation exposes it. */
 export interface ConnectAttempt {
@@ -53,33 +60,134 @@ export function availabilityAfterAttempt(
   };
 }
 
+function reportedReadiness(details: unknown): unknown {
+  return details && typeof details === 'object'
+    ? (details as { readiness?: unknown }).readiness
+    : undefined;
+}
+
+/**
+ * The service answered but is still bringing up its task runtime: a `/v1/*` 503
+ * (`task_runtime_starting`, `details.readiness: "starting"`). A 503 whose readiness is
+ * `failed` (`task_runtime_unavailable`) is a failure, not a start.
+ */
+export function serviceStillStarting(error: Error | null | undefined): boolean {
+  if (!(error instanceof TransportError)) return false;
+  const readiness = reportedReadiness(error.details);
+  if (readiness === 'failed' || error.code === 'task_runtime_unavailable') return false;
+  return error.status === 503 || error.code === 'task_runtime_starting' || readiness === 'starting';
+}
+
+/**
+ * Delay before automatic connect retry number `retry` (0-based): 250 ms doubling to 2 s,
+ * never sooner than the service's own `Retry-After`.
+ */
+export function connectRetryDelayMs(retry: number, retryAfterMs = 0): number {
+  const backoff = Math.min(
+    CONNECTION_RETRY_MAX_MS,
+    CONNECTION_RETRY_MIN_MS * 2 ** Math.max(0, retry),
+  );
+  return Math.max(backoff, retryAfterMs);
+}
+
+/**
+ * One run of automatic retries. Retries resend the failed attempt's own `variables`, so
+ * a new `variables` object is a new attempt by the person (or auto-connect) and starts a
+ * new chain with a fresh waiting window and backoff.
+ */
+interface RetryChain {
+  variables: ConnectionSettings;
+  startedAt: number;
+  retries: number;
+}
+
 /**
  * Whether a failed attempt is a service still coming up rather than a failure: it is
- * starting, or nothing has answered yet and the attempt is recent. The page then waits
- * and connects by itself instead of showing an error.
+ * starting (503 `task_runtime_starting`, or its probe says so), or nothing has answered
+ * yet and the attempt is recent. The page then waits and connects by itself instead of
+ * showing an error. Only those transient failures are retried, after a backoff that
+ * honours the service's `Retry-After` and within `CONNECTION_WAIT_FOR_START_MS` of the
+ * chain's first failure; anything else (an
+ * incompatible protocol, a rejected token) is shown once.
+ *
+ * `retrying` is true while a retry is scheduled, so a boot screen can stay up between
+ * attempts instead of flashing the form.
  */
 export function useConnectionWaiting(
   attempt: ConnectAttempt,
   known: readonly KnownConnection[],
-): { waiting: boolean; availability?: ConnectionAvailability } {
-  const endpoint = attempt.isError ? attemptedEndpoint(attempt) : undefined;
+): { waiting: boolean; retrying: boolean; availability?: ConnectionAvailability } {
+  const { error, isError, isPending, mutate, submittedAt, variables } = attempt;
+  const endpoint = isError ? attemptedEndpoint(attempt) : undefined;
   const availability = known.find((connection) => connection.endpoint === endpoint)?.availability;
+  const starting = isError && serviceStillStarting(error);
+  const notAnswered =
+    isError && error instanceof TransportError && error.code === 'network_unavailable';
+  const transient = starting || notAnswered;
+
+  const [chain, setChain] = useState<RetryChain | null>(null);
+  if (isError && variables && chain?.variables !== variables) {
+    setChain({ variables, startedAt: submittedAt, retries: 0 });
+  }
+  const current = chain && variables && chain.variables === variables ? chain : undefined;
+  const expired = useWaitExpired(isError ? (current?.startedAt ?? submittedAt) : null);
+  const canRetry = transient && (starting || reachable(availability)) && !expired;
+  const delayMs = connectRetryDelayMs(
+    current?.retries ?? 0,
+    error instanceof TransportError ? error.retryAfterMs : undefined,
+  );
   const retried = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!endpoint || !attempt.variables || attempt.isPending || !reachable(availability)) return;
-    if (retried.current === attempt.submittedAt) return; // once per failed attempt
-    retried.current = attempt.submittedAt;
-    attempt.mutate(attempt.variables);
-  }, [attempt, availability, endpoint]);
+    if (!endpoint || !variables || isPending || !canRetry) return;
+    if (retried.current === submittedAt) return; // once per failed attempt
+    const timer = globalThis.setTimeout(() => {
+      retried.current = submittedAt;
+      setChain((previous) =>
+        previous?.variables === variables
+          ? { ...previous, retries: previous.retries + 1 }
+          : previous,
+      );
+      mutate(variables);
+    }, delayMs);
+    return () => globalThis.clearTimeout(timer);
+  }, [canRetry, delayMs, endpoint, isPending, mutate, submittedAt, variables]);
 
-  const expired = useWaitExpired(attempt.isError ? attempt.submittedAt : null);
-  if (!endpoint) return { waiting: false };
-  const notAnswered =
-    attempt.error instanceof TransportError && attempt.error.code === 'network_unavailable';
+  if (!endpoint) return { waiting: false, retrying: false };
   return {
-    waiting: Boolean(availability?.starting) || (notAnswered && !expired),
+    waiting: Boolean(availability?.starting) || (transient && !expired),
+    retrying: Boolean(variables) && canRetry,
     availability,
+  };
+}
+
+/**
+ * Whether the agent that served this page answers at its own origin (#739 B7). An
+ * agent-served page with nothing remembered then connects by itself; when nothing
+ * answers the person gets the manual form. A service still starting counts as answered.
+ */
+export function useServedEndpointProbe(endpoint: string | undefined): {
+  pending: boolean;
+  answered: boolean;
+} {
+  const probe = useQuery({
+    queryKey: queryKeys.key('served-endpoint-probe', endpoint ?? ''),
+    queryFn: async ({ signal }) => {
+      try {
+        const availability = await probeConnection({ endpoint: endpoint ?? '' }, signal);
+        return availability.state !== 'unavailable';
+      } catch (error) {
+        return serviceStillStarting(error as Error);
+      }
+    },
+    enabled: Boolean(endpoint),
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+  });
+  return {
+    pending: Boolean(endpoint) && probe.isPending,
+    answered: Boolean(endpoint) && probe.data === true,
   };
 }
 

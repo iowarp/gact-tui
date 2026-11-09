@@ -51,10 +51,8 @@ pub struct BrandBackend {
     /// externalBin stem — installed as `<sidecar_name>{.exe}` (tauri-bundler
     /// strips the triple); dev layouts keep `<sidecar_name>-<triple>{.exe}`.
     pub sidecar_name: String,
-    /// Conventional local port to attach-first.
-    pub attach_port: u16,
-    /// Env var overriding [`Self::attach_port`].
-    pub attach_port_env: String,
+    /// Where the agent's port is configured, and the brand default (#739 B7).
+    pub port_config: PortConfig,
     /// Env var overriding the full attach URL.
     pub attach_url_env: String,
     /// Top-level repo label used only on the connect/no-install error path
@@ -63,6 +61,23 @@ pub struct BrandBackend {
     pub repo_label: Option<String>,
     /// Installer config, or `None` for connect-mode brands (no installer).
     pub install: Option<BrandInstall>,
+}
+
+/// The agent port contract from the brand's `backend.portConfig`: the agent
+/// config key and env var that set it, the default, the agent product whose
+/// config root holds `config.yaml`, and the Python module that prints it.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortConfig {
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub env: Option<String>,
+    pub default: u16,
+    #[serde(default)]
+    pub product: Option<String>,
+    #[serde(default)]
+    pub resolver: Option<String>,
 }
 
 /// Upstream installer coordinates for a managed brand. Absent (`None` on
@@ -133,10 +148,13 @@ pub(crate) fn connect_mode_error() -> String {
         .clone()
         .or_else(|| bb.install.as_ref().map(|i| i.repo_label.clone()))
         .unwrap_or_else(|| "the configured backend".to_string());
+    let overrides = match &bb.port_config.env {
+        Some(port_env) => format!("{port_env} / {}", bb.attach_url_env),
+        None => bb.attach_url_env.clone(),
+    };
     format!(
         "No backend is running. Start {label} and ensure it is listening on the \
-         attach port (override with {} / {}).",
-        bb.attach_port_env, bb.attach_url_env
+         attach port (override with {overrides})."
     )
 }
 
@@ -155,10 +173,10 @@ mod tests {
             !is_managed_install(),
             "connect-mode default must not be treated as managed"
         );
-        // Neutral, non-vendor env-var conventions.
-        assert_eq!(bb.attach_port_env, "GACT_PORT");
+        // Neutral, non-vendor conventions: no agent config to read, no port env.
+        assert!(bb.port_config.env.is_none() && bb.port_config.key.is_none());
         assert_eq!(bb.attach_url_env, "GACT_URL");
-        assert_eq!(bb.attach_port, 17800);
+        assert_eq!(bb.port_config.default, 17800);
     }
 
     /// `agent_name()` reads the generator-emitted `agentName` field (the
@@ -177,10 +195,8 @@ mod tests {
     #[test]
     fn connect_mode_error_is_brand_neutral() {
         let msg = connect_mode_error();
-        assert!(
-            msg.contains("GACT_PORT") && msg.contains("GACT_URL"),
-            "got: {msg}"
-        );
+        assert!(msg.contains("GACT_URL"), "got: {msg}");
+        assert!(!msg.contains("GACT_PORT"), "got: {msg}");
         assert!(
             !msg.to_lowercase().contains("clio"),
             "connect error must not name a vendor, got: {msg}"

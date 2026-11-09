@@ -1,6 +1,5 @@
-use std::{env, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 
-use crate::brand_backend::brand_backend;
 use crate::clio_core_registry;
 use crate::supervisor_attach_token::{
     attach_credential, probe_attach_check, url_port, AttachCheck, AttachCredential,
@@ -21,23 +20,10 @@ const ATTACH_PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 /// Any other outcome returns None and the caller falls back to spawning a
 /// fresh sidecar (managed mode) or surfacing the connect-mode error.
 ///
-/// The attach URL/port and the env vars that override them are brand-driven
-/// (`attach_url_env`, then `attach_port_env`, then `attach_port`): the neutral
-/// default uses `GACT_URL`/`GACT_PORT`/:17800, a managed brand its own
-/// convention (e.g. clio-agent's `CLIO_*`).
+/// The attach URL is the brand's URL override, else the agent's configured port
+/// (`agent_port`): the user's agent config, its env override, then the brand default.
 pub fn try_attach_existing() -> Option<BackendHandle> {
-    let bb = brand_backend();
-    let url = env::var(&bb.attach_url_env)
-        .ok()
-        .map(|s| s.trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| {
-            let port = env::var(&bb.attach_port_env)
-                .ok()
-                .and_then(|s| s.parse::<u16>().ok())
-                .unwrap_or(bb.attach_port);
-            format!("http://127.0.0.1:{port}")
-        });
+    let url = crate::agent_port::agent_endpoint();
     let endpoint = format!("{url}/v1/capabilities");
     let resp = ureq::get(&endpoint)
         .timeout(ATTACH_PROBE_TIMEOUT)

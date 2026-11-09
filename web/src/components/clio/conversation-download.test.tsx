@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { UIMessage } from 'ai';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -15,12 +16,11 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   nativeDownloads.mockClear();
-  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  clearDesktopHost();
 });
 
 it.each([true, false])('downloads readable Markdown on desktop=%s', async (desktop) => {
-  if (desktop)
-    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+  if (desktop) mockDesktopHost();
   let downloaded: Blob | undefined;
   vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
     downloaded = blob as Blob;

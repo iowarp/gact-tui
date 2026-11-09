@@ -98,6 +98,8 @@ export class TransportError extends Error {
     public readonly status?: number,
     public readonly code?: string,
     public readonly details?: unknown,
+    /** How long the service asked the client to wait before retrying (`Retry-After`). */
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'TransportError';

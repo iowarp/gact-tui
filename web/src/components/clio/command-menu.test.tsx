@@ -29,7 +29,7 @@ const artifact = {
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
-    settings: { endpoint: 'http://127.0.0.1:8787' },
+    settings: { endpoint: 'http://127.0.0.1' },
     credentialsReady: repository.credentialsReady,
   }),
 }));
@@ -231,7 +231,7 @@ describe('ClioCommandMenu workspace search', () => {
         '"from":"/workspaces/ws_current/sessions/sess_current"',
       );
       expect(screen.getByTestId('location-state')).toHaveTextContent(
-        '"endpoint":"http://127.0.0.1:8787"',
+        '"endpoint":"http://127.0.0.1"',
       );
     },
   );
@@ -252,7 +252,7 @@ describe('ClioCommandMenu workspace search', () => {
 
   it('routes a file found from Settings back into a scoped workspace canvas', async () => {
     localStorage.setItem(
-      'clio.last-workspace-route:http%3A%2F%2F127.0.0.1%3A8787',
+      'clio.last-workspace-route:http%3A%2F%2F127.0.0.1',
       '/workspaces/ws_current/sessions/sess_current',
     );
     const user = userEvent.setup();
@@ -273,7 +273,7 @@ describe('ClioCommandMenu workspace search', () => {
     'opens a file in the current new-conversation canvas (existing session=%s)',
     async (hasSession) => {
       const route = '/workspaces/ws_current/new';
-      localStorage.removeItem('clio.last-workspace-route:http%3A%2F%2F127.0.0.1%3A8787');
+      localStorage.removeItem('clio.last-workspace-route:http%3A%2F%2F127.0.0.1');
       if (!hasSession) sessionRows.mockResolvedValue([]);
       const user = userEvent.setup();
       renderMenu(vi.fn(), route, false);

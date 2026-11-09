@@ -6,6 +6,9 @@
          vite-plugin-brand.ts's transformIndexHtml, not hardcoded here, so
          a reload never falls back to a neutral placeholder. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Lets the WebView paint its default canvas in the OS scheme before the
+         stylesheet loads, instead of white (#739). themes.css takes over after. -->
+    <meta name="color-scheme" content="dark light" />
   </head>
   <body data-app-shell>
     <div id="root"></div>

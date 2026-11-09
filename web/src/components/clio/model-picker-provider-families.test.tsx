@@ -18,7 +18,7 @@ vi.mock('@/hooks/use-repository', async () => {
   return { useRepository: () => fixtures.repository };
 });
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
 const alcfOptions = Object.entries(ALCF_SERVERS).map(([providerId, name]) =>

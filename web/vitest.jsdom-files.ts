@@ -1,4 +1,4 @@
-﻿// Logic-only .ts tests run in node: no jsdom construction and no re-import per
+// Logic-only .ts tests run in node: no jsdom construction and no re-import per
 // file. These .ts files use DOM globals (document, localStorage, DOMParser,
 // KeyboardEvent, canvas) and keep jsdom, like every .tsx test. A new .ts test
 // that fails with "document is not defined" belongs here, or can opt in with a
@@ -44,6 +44,7 @@ export const jsdomTsTests = [
   'src/lib/attention-highlight-dom.test.ts',
   'src/lib/attention-sound.test.ts',
   'src/lib/clipboard.test.ts',
+  'src/lib/connection-desktop-endpoint.test.ts',
   'src/lib/github-releases.test.ts',
   'src/lib/installer-infrastructure.test.ts',
   'src/lib/legacy-credential-storage.test.ts',
@@ -54,6 +55,7 @@ export const jsdomTsTests = [
   'src/lib/shared-clock.test.ts',
   'src/lib/shortcuts/shortcuts.test.ts',
   'src/lib/surface-text-selection.test.ts',
+  'src/lib/transport/tauri-runtime.test.ts',
   'src/lib/transcript-content-selection.test.ts',
   'src/lib/update-channel.test.ts',
   'src/lib/workspace-route-memory.test.ts',

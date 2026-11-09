@@ -8,6 +8,7 @@ import '../../../src/index.css';
 
 // Render the production controls with recorded native discovery. Launch acceptance is separate.
 window.isTauri = true;
+Object.assign(window, { __CLIO_DESKTOP__: { version: 'review' } });
 const inventory: Record<string, DocumentApplication[]> = await fetch('./native-apps.json').then(
   (response) => response.json(),
 );

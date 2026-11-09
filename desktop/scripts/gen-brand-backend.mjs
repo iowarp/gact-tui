@@ -48,6 +48,35 @@ function usage() {
   );
 }
 
+/** The agent port when a brand names none. Mirrored by web/vite-plugin-brand.ts. */
+const DEFAULT_AGENT_PORT = 17800;
+
+/**
+ * Where the agent's port is configured (#739 B7). A brand's `backend.portConfig`
+ * names the agent config key, its environment override and the default; the
+ * desktop reads the agent's own config file, so the brand is only the fallback.
+ * A brand from before `portConfig` keeps its `attachPort`/`attachPortEnv`.
+ * Returns `{key, env, default, product, resolver}`: `product` names the agent's
+ * config root (clio-paths.yaml) and `resolver` the Python module that prints
+ * the resolved port. Mirrored by `resolveAgentPort` in web/vite-plugin-brand.ts.
+ */
+export function resolvePortConfig(backend) {
+  const config = backend?.portConfig;
+  const port = Number(config?.default ?? backend?.attachPort ?? DEFAULT_AGENT_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`backend.portConfig.default must be a TCP port, got ${port}`);
+  }
+  const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  const resolver = text(config?.resolver)?.match(/-m\s+([\w.]+)/)?.[1] ?? null;
+  return {
+    key: text(config?.key),
+    env: text(config?.env) ?? text(backend?.attachPortEnv),
+    default: port,
+    product: config ? (text(config.product) ?? text(backend?.sidecarName)) : null,
+    resolver,
+  };
+}
+
 /**
  * Default backend block — the neutral connect default. A brand with no
  * `backend` block resolves to connect-mode with no installer: gact-tui makes
@@ -59,8 +88,13 @@ function usage() {
 const DEFAULT_BACKEND = {
   mode: 'connect',
   sidecarName: '',
-  attachPort: 17800,
-  attachPortEnv: 'GACT_PORT',
+  portConfig: {
+    key: null,
+    env: null,
+    default: DEFAULT_AGENT_PORT,
+    product: null,
+    resolver: null,
+  },
   attachUrlEnv: 'GACT_URL',
   repoLabel: null,
   install: null,
@@ -114,8 +148,7 @@ function resolveBackend(raw) {
   return {
     mode: b.mode ?? DEFAULT_BACKEND.mode,
     sidecarName: b.sidecarName ?? DEFAULT_BACKEND.sidecarName,
-    attachPort: b.attachPort ?? DEFAULT_BACKEND.attachPort,
-    attachPortEnv: b.attachPortEnv ?? DEFAULT_BACKEND.attachPortEnv,
+    portConfig: resolvePortConfig(b),
     attachUrlEnv: b.attachUrlEnv ?? DEFAULT_BACKEND.attachUrlEnv,
     repoLabel: b.repoLabel ?? null,
     install,

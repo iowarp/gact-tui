@@ -99,6 +99,11 @@ pub(crate) fn launcher_spawn_command(
     // graceful shutdown callback, the launcher exits and its KILL_ON_JOB_CLOSE
     // Job Object reaps the backend tree instead of orphaning it.
     command.env(DESKTOP_PARENT_PID_ENV, std::process::id().to_string());
+    // The server gets its port from --port. Its config env var must not reach it:
+    // clio-core reads the same generic `CLIO_PORT` name as its own RPC port (#739 B7).
+    if let Some(port_env) = &crate::brand_backend::brand_backend().port_config.env {
+        command.env_remove(port_env);
+    }
     #[cfg(windows)]
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     command

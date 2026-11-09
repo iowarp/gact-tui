@@ -76,7 +76,7 @@ export function providerHealthPresentation(
 } {
   return {
     healthy: { color: 'text-success', label: 'Ready' },
-    checking: { color: 'text-warning animate-pulse', label: 'Checking…' },
+    checking: { color: 'text-warning motion-safe:animate-pulse', label: 'Checking…' },
     degraded: { color: 'text-destructive', label: 'Needs attention' },
     unavailable: { color: 'text-destructive', label: 'Unavailable' },
     setup: { color: 'text-muted-foreground/55', label: providerSetupNeedLabel(setupNeed) },

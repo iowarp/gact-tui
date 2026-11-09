@@ -13,6 +13,7 @@ declare module '@brand' {
     workspaceNoun: string;
     desktopReleaseUrl: string | null;
     agentReleaseUrl: string | null;
+    agentPort: number;
     themeTokens: Record<string, string>;
     landing: {
       eyebrow: string;

@@ -243,7 +243,7 @@ function ClioWorkflowArtifactSource({
     );
   }
   if (loading || !parsed) {
-    return <div className="h-32 animate-pulse rounded-lg bg-muted" />;
+    return <div className="h-32 motion-safe:animate-pulse rounded-lg bg-muted" />;
   }
   if ('error' in parsed) {
     return (

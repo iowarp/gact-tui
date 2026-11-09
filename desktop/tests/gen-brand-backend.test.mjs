@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { resolveBrandVocabulary } from '../scripts/gen-brand-backend.mjs';
+import { resolveBrandVocabulary, resolvePortConfig } from '../scripts/gen-brand-backend.mjs';
 
 /**
  * Mirrors ONLY the vocabulary defaulting rules from
@@ -66,4 +66,49 @@ test('a brand with no "name" falls back to the profile id, matching the generato
 
   assert.equal(generated.productName, 'Headless Desktop');
   assert.equal(generated.agentName, 'acme');
+});
+
+test('a brand port config names the agent config key, its env override and the default', () => {
+  assert.deepEqual(
+    resolvePortConfig({
+      sidecarName: 'clio-agent',
+      portConfig: {
+        key: 'gact.port',
+        env: 'CLIO_PORT',
+        default: 17800,
+        file: 'config.yaml',
+        resolver: 'python -m clio_agent.server_port',
+      },
+      attachPort: 17800,
+      attachPortEnv: 'CLIO_PORT',
+    }),
+    {
+      key: 'gact.port',
+      env: 'CLIO_PORT',
+      default: 17800,
+      product: 'clio-agent',
+      resolver: 'clio_agent.server_port',
+    },
+  );
+});
+
+test('a brand from before portConfig keeps its attach port and env override', () => {
+  assert.deepEqual(resolvePortConfig({ attachPort: 18000, attachPortEnv: 'CLIO_PORT' }), {
+    key: null,
+    env: 'CLIO_PORT',
+    default: 18000,
+    product: null,
+    resolver: null,
+  });
+});
+
+test('a brand with no backend has no port override and the shared default', () => {
+  assert.deepEqual(resolvePortConfig(undefined), {
+    key: null,
+    env: null,
+    default: 17800,
+    product: null,
+    resolver: null,
+  });
+  assert.throws(() => resolvePortConfig({ portConfig: { default: 70000 } }), /TCP port/);
 });

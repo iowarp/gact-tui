@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -8,7 +9,7 @@ import { completeInstallerWebSearch, readInstallerOptions } from './installer-op
 describe('desktop installer options', () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    mockDesktopHost();
   });
 
   it('reads the native infrastructure and provider selection (v4 schema)', async () => {
@@ -56,7 +57,7 @@ describe('desktop installer options', () => {
   it('records no installer preference outside Tauri, without invoking anything', async () => {
     // The plain web client has no native installer at all — it must not
     // silently assume a desktop-installer default like "codex,openai".
-    Object.assign(window, { __TAURI_INTERNALS__: undefined });
+    clearDesktopHost();
     const options = await readInstallerOptions();
     expect(options).toEqual({
       schema: 4,

@@ -1,3 +1,4 @@
+import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session, Workspace } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -58,7 +59,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   nativeDownloads.mockClear();
-  Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  clearDesktopHost();
 });
 
 it.each([
@@ -71,8 +72,7 @@ it.each([
 ] as const)(
   'downloads %s as %s through the common handler (desktop=%s)',
   async (mode, extension, desktop) => {
-    if (desktop)
-      Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    if (desktop) mockDesktopHost();
     const filename = `export-example.${extension}`;
     const exportSession = vi
       .fn()
