@@ -80,7 +80,9 @@ export const ShortcutKeys = memo(function ShortcutKeys({
   // A key this platform leaves to the OS (`mac: []`) shows nothing.
   if (!definition || !shortcutChords(definition, platform).length) return null;
   if (variant === 'caps') {
-    const chords = shortcutLabels(definition, platform);
+    const labels = shortcutLabels(definition, platform);
+    // A `cap` pair of single keys reads as one cap, as the spec's `↑↓`.
+    const chords = definition.joiner === 'cap' ? [[labels.flat().join('')]] : labels;
     return (
       <span
         data-slot="shortcut-keys"
@@ -88,7 +90,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
       >
         {chords.map((caps, chordIndex) => (
           <span key={chordIndex} className="inline-flex items-center gap-1">
-            {chordIndex > 0 && definition.joiner !== 'pair' ? (
+            {chordIndex > 0 && (definition.joiner ?? 'or') === 'or' ? (
               <span className="px-0.5 text-[11px] text-faint">or</span>
             ) : null}
             {caps.map((cap, capIndex) => (

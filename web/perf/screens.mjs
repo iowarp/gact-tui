@@ -496,7 +496,6 @@ function catalogue({ settings, infrastructure }) {
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
-    menu('composer-permission-duration', 'combobox', 'Permission duration'),
     menu('composer-attach-files', 'button', 'Attach files'),
     menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
