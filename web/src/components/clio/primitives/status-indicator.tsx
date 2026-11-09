@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
+import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type StatusTone =
@@ -39,8 +40,20 @@ export interface StatusIndicatorProps {
    * time) so it is never color alone.
    */
   display?: 'visible' | 'column';
+  /**
+   * `glyph` draws an outcome as an icon (a check, an alert, a stop sign), as
+   * activity rows do; work in progress is the same spinner either way.
+   */
+  mark?: 'dot' | 'glyph';
   className?: string;
 }
+
+const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
+  success: <CheckIcon className="size-3.5 text-primary" />,
+  error: <CircleAlertIcon className="size-3.5 text-destructive" />,
+  warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
+  stopped: <OctagonIcon className="size-3.5 text-warning" />,
+};
 
 /**
  * The one status word: a mark carrying the colour and a 12px muted word, so a
@@ -50,11 +63,24 @@ export const StatusIndicator = memo(function StatusIndicator({
   tone,
   label,
   display = 'visible',
+  mark: markStyle = 'dot',
   className,
 }: StatusIndicatorProps) {
+  const glyph = markStyle === 'glyph' ? GLYPH[tone] : undefined;
   const mark = (
     <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
-      <span className={cn('block', MARK[tone])} />
+      {glyph ?? (
+        <span
+          className={cn(
+            'block',
+            MARK[tone],
+            markStyle === 'glyph' && tone === 'running' && 'size-3',
+            markStyle === 'glyph' &&
+              tone === 'waiting' &&
+              'size-3 rounded-full border-[1.5px] border-warning border-t-transparent bg-transparent ring-0 motion-safe:animate-spin',
+          )}
+        />
+      )}
     </span>
   );
   if (display === 'column') {

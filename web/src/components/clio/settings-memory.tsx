@@ -236,7 +236,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         info="Saved facts and preferences the agent can use in later conversations."
         title="Memory and instructions"
       />
-      <div className="flex max-w-[47.5rem] min-w-0 items-center gap-2 pb-1">
+      <div className="flex min-w-0 items-center gap-2 pb-1">
         <SegmentedControl
           className="min-w-0 overflow-hidden"
           label="Memory views"
@@ -269,7 +269,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         />
       </div>
       {summary.data && !summary.data.enabled ? (
-        <div className="flex max-w-[47.5rem] min-w-0 items-center gap-2 py-2 text-[12.5px] text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2 py-2 text-[12.5px] text-muted-foreground">
           <StatusIndicator label="Memory is off" tone="stopped" />
           <span className="min-w-0 truncate">
             Saved memories are kept. Turn memory on under Create memories.
@@ -278,7 +278,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
       ) : null}
       {tab === 'memories' && accountTarget ? (
         // The list's width, so the switch row lines up with the memory rows.
-        <div className="@container max-w-[47.5rem] min-w-0">
+        <div className="@container min-w-0">
           <AccountMemoryRow workspaceId={accountTarget.id} workspaceName={accountTarget.name} />
         </div>
       ) : null}
@@ -302,7 +302,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
             />
           ) : undefined
         }
-        list={<div className="@container max-w-[47.5rem] min-w-0">{body}</div>}
+        list={<div className="@container min-w-0">{body}</div>}
       />
       <MemoryDeleteDialog
         document={deleting}

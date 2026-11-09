@@ -190,9 +190,9 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
           : { tone: integrationTone(status), label: integrationStatusLabel(status) };
   const facts: KeyValueItem[] = [
     {
-      label: 'Required',
+      label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
-      value: (row?.required ?? integration.required) === false ? 'Optional' : 'Required',
+      value: (row?.required ?? integration.required) === false ? 'No' : 'Yes',
       mono: true,
     },
     ...(row?.codex_source

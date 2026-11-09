@@ -106,9 +106,6 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
       .getByRole('region', { name: 'Conversation workspace', exact: true })
       .getByRole('region', { name: 'Agent needs your attention', exact: true }),
   ).toHaveCount(1);
-  const activity = page.getByRole('button', { name: /^Activity:/ }).last();
-  await expect(activity).toBeVisible();
-  if ((await activity.getAttribute('aria-expanded')) === 'false') await activity.click();
   await expect(
     page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
   ).toBeVisible();
@@ -425,7 +422,6 @@ for (const size of [
     });
     await page.keyboard.press('Escape');
     await expect(body).toHaveCount(0);
-    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await expect(trigger).toBeFocused();
   });
 }

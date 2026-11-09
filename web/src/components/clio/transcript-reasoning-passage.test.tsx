@@ -8,14 +8,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it('separates adjacent recorded headings without rewriting their source text', () => {
+it('names the thought by its time and offers its recorded headings on the disclosure', () => {
   render(<TranscriptReasoningPassage text="**Reviewing the dataset****Delegating the audit**" />);
-  expect(screen.getByText('Reviewing the dataset Delegating the audit')).toBeVisible();
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
-  expect(screen.queryByText('Reviewing the datasetDelegating the audit')).not.toBeInTheDocument();
+  expect(screen.getByText('Thought', { exact: true })).toBeVisible();
+  const trigger = screen.getByRole('button', {
+    name: 'Thinking: Reviewing the dataset Delegating the audit',
+  });
+  fireEvent.click(trigger);
+  // The body keeps the recorded source text; only the row's label separates the headings.
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+    /Reviewing the dataset.*Delegating the audit/u,
+  );
 });
 
-it('ticks only a known live reasoning phase and stops at its own recorded duration', () => {
+it('ticks only while thinking and settles on its own recorded duration', () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-15T18:00:00Z'));
   const view = render(
@@ -28,30 +34,35 @@ it('ticks only a known live reasoning phase and stops at its own recorded durati
   act(() => {
     vi.advanceTimersByTime(3000);
   });
-  expect(screen.getByLabelText('Reasoning phase: 3 s')).toBeVisible();
+  expect(screen.getByText('Thinking…')).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Thinking' })).toBeInTheDocument();
   view.rerender(<TranscriptReasoningPassage text="Checking the file." durationMs={2400} />);
   act(() => {
     vi.advanceTimersByTime(33_900);
   });
-  expect(screen.getByLabelText('Reasoning phase: 2.4 s')).toBeVisible();
+  expect(screen.getByText('Thought for 2 seconds')).toBeVisible();
+  expect(screen.queryByText('Thinking…')).not.toBeInTheDocument();
 });
 
 it('does not infer historical reasoning time from a following tool or the mount time', () => {
   render(<TranscriptReasoningPassage text="Earlier reasoning." />);
-  expect(screen.queryByLabelText(/Reasoning phase:/)).not.toBeInTheDocument();
+  expect(screen.getByText('Thought', { exact: true })).toBeVisible();
+  expect(screen.queryByText(/Thought for/)).not.toBeInTheDocument();
 });
 
 it.each([
   'Awaiting treatment definitions',
   '**Awaiting treatment definitions**',
   'Awaiting treatment definitions\n\n',
-])('renders a complete single-line thought as plain text without a disclosure: %s', (text) => {
-  const view = render(<TranscriptReasoningPassage text={text} />);
-  expect(screen.getByText('Awaiting treatment definitions')).toBeVisible();
-  expect(screen.getByText('Thinking', { exact: true })).toBeVisible();
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
-  expect(view.container.querySelector('[aria-expanded]')).toBeNull();
-  expect(view.container.querySelectorAll('svg')).toHaveLength(1);
+])('keeps a complete single-line thought folded behind its row: %s', (text) => {
+  render(<TranscriptReasoningPassage text={text} />);
+  const trigger = screen.getByRole('button', { name: 'Thinking: Awaiting treatment definitions' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('region', { name: 'Thinking details' })).not.toBeInTheDocument();
+  fireEvent.click(trigger);
+  expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
+    'Awaiting treatment definitions',
+  );
 });
 
 it('labels reasoning separately from execution while offering its recorded details', () => {
@@ -61,8 +72,7 @@ it('labels reasoning separately from execution while offering its recorded detai
     />,
   );
   const trigger = screen.getByRole('button', { name: 'Thinking: Reviewing the results' });
-  expect(trigger).toHaveTextContent('Reviewing the results');
-  expect(screen.getByText('Thinking', { exact: true })).toBeVisible();
+  expect(screen.getByText('Thought', { exact: true })).toBeVisible();
   fireEvent.click(trigger);
   expect(screen.getByRole('region', { name: 'Thinking details' })).toHaveTextContent(
     'The audit is still running.',
@@ -76,21 +86,19 @@ it('preserves literal underscores and the source identity in a complete thought'
       source={{ messageId: 'm', sessionId: 's', partId: 'r', field: 'text' }}
     />,
   );
+  fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
   expect(screen.getByText('Review input_values before the next step.')).toBeVisible();
   expect(view.container.querySelector('[data-part-id="r"]')).toHaveAttribute('data-field', 'text');
   expect(view.container.querySelector('[data-content-revision]')).not.toBeNull();
 });
 
 it.each([
-  'Expanding catalog search',
-  '**Expanding catalog search**\n\nTry a broader dataset query before concluding that no data exists.',
-])('keeps the activity label and summary before the right-hand duration: %s', (text) => {
-  render(<TranscriptReasoningPassage text={text} durationMs={332} />);
-  const label = screen.getByText('Thinking', { exact: true });
-  const summary = screen.getByText('Expanding catalog search', { exact: true });
-  const timing = screen.getByLabelText('Reasoning phase: 332 ms');
-  expect(label.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(summary.compareDocumentPosition(timing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  [332, 'Thought for 1 second'],
+  [6_200, 'Thought for 6 seconds'],
+  [125_000, 'Thought for 2 minutes'],
+])('names a %i ms thought "%s"', (durationMs, name) => {
+  render(<TranscriptReasoningPassage text="Expanding catalog search" durationMs={durationMs} />);
+  expect(screen.getByText(name)).toBeVisible();
 });
 
 it('keeps multi-line reasoning reachable with the keyboard after the header change', async () => {
@@ -115,37 +123,6 @@ it('keeps multi-line reasoning reachable with the keyboard after the header chan
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
 
-it('shows a long one-line thought on one line and expands it in place on click', async () => {
-  const widths = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return this.dataset.slot === 'reasoning-summary' ? 900 : 0;
-  });
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
-      disconnect() {}
-    },
-  );
-  try {
-    const view = render(
-      <TranscriptReasoningPassage text="A long thought that runs well past the width of the row." />,
-    );
-    const summary = view.container.querySelector('[data-slot="reasoning-summary"]');
-    expect(summary).toHaveClass('truncate');
-    const row = screen.getByRole('button', { name: /^Thinking: A long thought/ });
-    expect(row).toHaveAttribute('aria-expanded', 'false');
-    await userEvent.click(row);
-    expect(row).toHaveAttribute('aria-expanded', 'true');
-    expect(summary).not.toHaveClass('truncate');
-    expect(summary).toHaveClass('whitespace-pre-wrap');
-  } finally {
-    widths.mockRestore();
-    vi.unstubAllGlobals();
-  }
-});
-
 it('stays open while the thought streams and folds once it settles', async () => {
   const text = 'Comparing the rounds\nRound 1 peaked at t100; round 5 must agree.';
   const view = render(<TranscriptReasoningPassage id="r1" streaming text={text} />);
@@ -159,7 +136,9 @@ it('stays open while the thought streams and folds once it settles', async () =>
     'false',
   );
   // A reader's choice outlasts the default.
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' }));
+  await userEvent
+    .setup()
+    .click(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' }));
   view.rerender(<TranscriptReasoningPassage id="r1" streaming text={text} />);
   view.rerender(<TranscriptReasoningPassage id="r1" text={text} />);
   expect(screen.getByRole('button', { name: 'Thinking: Comparing the rounds' })).toHaveAttribute(

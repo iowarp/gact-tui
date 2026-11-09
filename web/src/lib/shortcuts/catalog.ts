@@ -95,6 +95,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('mention', 'Mention a file or agent', 'composer', ['@']),
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
   def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
+  def('queue-delete', 'Delete the queued message', 'composer', ['Delete']),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],
@@ -119,6 +120,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'pair' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
+  def('menu-open', 'Into a submenu', 'menu', ['Right']),
   def('menu-close', 'Close', 'menu', ['Esc']),
   def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
     joiner: 'pair',
