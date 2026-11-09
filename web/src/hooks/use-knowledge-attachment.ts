@@ -27,7 +27,7 @@ export function useKnowledgeAttachment(workspaceId: string, draft: ComposerDraft
       draft.onReferencesChange([
         ...draft.references,
         {
-          offset: draft.value.length,
+          offset: draft.readValue().length,
           reference: {
             kind: 'resource',
             id: resource.id,

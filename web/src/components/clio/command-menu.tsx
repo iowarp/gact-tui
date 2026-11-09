@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useMenuAction } from '@/tauri/menu-actions';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { brand } from '@brand';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
@@ -228,10 +229,8 @@ export function ClioCommandMenu({
     retry: retryUnlessMissing,
   });
 
-  // 'command-palette' used to also be reachable via the native View menu
-  // (removed, see menu_spec.rs's application-menu trim); the shared `search`
-  // shortcut toggles the palette directly, so no useMenuAction is needed.
   useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
+  useMenuAction('search', () => changeOpen(true));
   useEffect(() => {
     const openMenu = () => changeOpen(true);
     window.addEventListener('clio:open-command-menu', openMenu);
