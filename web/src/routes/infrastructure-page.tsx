@@ -199,7 +199,7 @@ export function InfrastructurePage() {
       tabIndex={-1}
     >
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-11 max-w-5xl min-w-0 items-center gap-2 px-2 whitespace-nowrap sm:px-3">
+        <div className="mx-auto flex h-11 max-w-[840px] min-w-0 items-center gap-2 px-2 whitespace-nowrap sm:px-3">
           <NamedTooltip label={`Back to ${vocab.workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
               <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
@@ -217,7 +217,7 @@ export function InfrastructurePage() {
         </div>
       </div>
       <InfraTabActionsProvider value={tabActions}>
-        <div className="mx-auto max-w-5xl px-2 sm:px-3">
+        <div className="mx-auto max-w-[840px] px-2 sm:px-3">
           <section
             aria-label={sectionDefinition.label}
             className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
