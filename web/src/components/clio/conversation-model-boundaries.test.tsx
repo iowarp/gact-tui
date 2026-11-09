@@ -101,18 +101,14 @@ describe('recorded model segments', () => {
         />
       </AppearanceProvider>,
     );
+    // The first model is named by each reply's footer, not by a divider.
     const checkpoints = document.querySelectorAll('[data-slot="model-checkpoint"]');
-    expect(checkpoints).toHaveLength(2);
-    expect(checkpoints[0]).toHaveTextContent('Using OpenAI Codex gpt-6-luna');
-    expect(checkpoints[1]).toHaveTextContent('Switched to Claude Code claude-sonnet-5');
-    expect(checkpoints[1]).toHaveAccessibleName(
+    expect(checkpoints).toHaveLength(1);
+    expect(checkpoints[0]).toHaveTextContent('Switched to Claude Code, claude-sonnet-5');
+    expect(checkpoints[0]).toHaveAccessibleName(
       'Switched to Claude Code, claude-sonnet-5. Previous model: OpenAI Codex, gpt-6-luna',
     );
-    expect(checkpoints[1]).not.toHaveTextContent('·');
-    expect(document.querySelector('[data-message-id="first"]')?.contains(checkpoints[0]!)).toBe(
-      true,
-    );
-    expect(document.querySelector('[data-message-id="next"]')?.contains(checkpoints[1]!)).toBe(
+    expect(document.querySelector('[data-message-id="next"]')?.contains(checkpoints[0]!)).toBe(
       true,
     );
     expect(screen.getByText('Content for answer.')).toBeVisible();

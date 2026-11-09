@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioToolInvocation } from './tool-invocation';
 import { withSkillPresentation } from './skill-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 afterEach(() => {
   cleanup();
@@ -131,42 +132,39 @@ describe('skill observations at three levels', () => {
 
   it('explains an empty shell result without claiming the folder was empty', async () => {
     const user = userEvent.setup();
-    render(
-      <ClioToolInvocation
-        compact
-        tool={{
-          id: 'shell',
-          session_id: 'session',
-          name: 'shell_bash',
-          state: 'succeeded',
-          presentation: {
-            action: 'Run',
-            summary: 'exit 0',
-            blocks: [
-              {
-                id: 'terminal',
-                type: 'terminal',
-                command: 'Get-ChildItem -Force',
-                text: '',
-                exit_code: 0,
-                detail: 'Working directory: D:/workspace',
-              },
-            ],
-          },
-        }}
-      />,
+    const { container } = render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'shell',
+            session_id: 'session',
+            name: 'shell_bash',
+            state: 'succeeded',
+            presentation: {
+              action: 'Run',
+              summary: 'exit 0',
+              blocks: [
+                {
+                  id: 'terminal',
+                  type: 'terminal',
+                  command: 'Get-ChildItem -Force',
+                  text: '',
+                  exit_code: 0,
+                  detail: 'Working directory: D:/workspace',
+                },
+              ],
+            },
+          }}
+        />
+      </TooltipProvider>,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Run' }));
-    // Where it ran is a folder control in the command's header, not a line of its own.
+    await user.click(screen.getByRole('button', { name: 'Show result for Run command' }));
     expect(screen.queryByText('Working directory: D:/workspace')).toBeNull();
-    const folder = screen.getByRole('button', {
-      name: 'Ran in D:/workspace. Copy the folder path',
-    });
-    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
-    await user.click(folder);
-    expect(write).toHaveBeenCalledWith('D:/workspace');
-    expect(screen.getByText('No stdout or stderr was recorded.')).toBeVisible();
-    expect(screen.getByText('Process exited with code 0.')).toBeVisible();
+    expect(container.querySelector('[data-slot="transcript-terminal"] pre')).toHaveTextContent(
+      'Get-ChildItem -Force',
+    );
+    expect(screen.getByText('No output')).toBeVisible();
   });
 
   it('keeps the recorded discovery description in the full skill viewer and removes loader instructions', async () => {

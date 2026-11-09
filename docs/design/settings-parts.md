@@ -50,8 +50,12 @@ A choice that applies at once, so it never reaches the save bar.
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
-a word), never a bare dot. Below 36rem of list width the status column narrows to at most 9.875rem, the spec's 158 px (still one width for every row) and hover actions float over the row. `ItemList` caps the list at 760 px (the spec pane width), so
-sections don't set their own max width. `confirm` is an inline confirmation ("Remove this rule?",
+a word), never a bare dot. Settings lists keep the default widths (status 158, actions 104,
+slot 84 px) so the status word sits at the same x on every page; don't pass per-section
+widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
+aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px, and hover
+actions float over the row instead of reserving their column. Sections don't set their
+own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
