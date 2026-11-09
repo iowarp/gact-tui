@@ -6,7 +6,7 @@ import { SettingsChoice, SettingsRow } from './settings-row';
 import { useWorkingContext, type WorkingContextState } from './use-working-context';
 
 /**
- * Context length as one setting row: Max or a typed number, the context in
+ * Context size as one setting row: Max or a typed number, the context in
  * force under the label. A change applies from the next turn.
  */
 export function WorkingContextRow({ state }: { state: WorkingContextState }) {
@@ -34,11 +34,11 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
         current.maximum_reason ? ` Max: ${current.maximum_reason}.` : ''
       }`}
       note={<span data-slot="context-effective">{inForce ?? 'Max: the model’s maximum.'}</span>}
-      title="Context length"
+      title="Context size"
     >
       <SettingsChoice
         id="working-context-choice"
-        label="Context length choice"
+        label="Context size choice"
         onChange={(choice) =>
           setDraft(
             choice === 'max'

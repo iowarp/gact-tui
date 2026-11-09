@@ -223,7 +223,7 @@ describe('SettingsWorkingContext', () => {
     );
     expect(screen.queryByRole('combobox', { name: 'Fit to GPU' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    const input = screen.getByLabelText('Context length');
+    const input = screen.getByLabelText('Context size');
     await user.clear(input);
     await user.type(input, '300000');
     expect(screen.getByRole('alert')).toHaveTextContent('At most 200,000 tokens');

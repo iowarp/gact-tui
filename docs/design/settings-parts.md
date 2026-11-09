@@ -28,8 +28,8 @@ The label column sits on the left and the control on the right. Use `inlineContr
 switch. `dirty` marks a value that is still waiting in the save bar.
 
 **`SettingsGroupLabel`** (same file)
-`{ children, onAdd?, addLabel?, actions?, className? }`. A small group caption
-above a block of rows. `onAdd` renders a + icon button at the right. Use
+`{ children, info?, onAdd?, addLabel?, actions?, className? }`. A small group caption
+above a block of rows. `info` is an ? right after the label. `onAdd` renders a + icon button at the right. Use
 `SplitButton` (`primitives/split-button.tsx`) for the page-level Add with
 alternatives, which has a right-aligned arrow.
 
@@ -38,11 +38,12 @@ alternatives, which has a right-aligned arrow.
 A choice that applies at once, so it never reaches the save bar.
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
-`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' }`
+`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' }`
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
-a word), never a bare dot.
+a word), never a bare dot. `confirm` is an inline confirmation ("Remove this rule?",
+Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 **`SaveBar`** (H) `components/clio/primitives/save-bar.tsx`
 `{ count, onSave, onDiscard, saving?, invalid?, error?, className? }`. One bar per page,

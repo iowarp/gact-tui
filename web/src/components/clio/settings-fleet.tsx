@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Undo2Icon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
@@ -12,6 +11,7 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelSelectField } from './model-select-field';
 import { IconButton } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 
 const roles = [
@@ -73,21 +73,19 @@ export function FleetSettingsPanel() {
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <p className="py-3 text-xs text-muted-foreground" role="status">
-          Loading helper models…
-        </p>
+        <StateView kind="loading" size="row" title="Loading helper models" />
       </section>
     );
   if (fleet.error || !fleet.data)
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <div className="flex items-center gap-3 py-2 text-xs" role="alert">
-          Helper models could not be loaded.
-          <Button onClick={() => void fleet.refetch()} size="sm" variant="outline">
-            Retry
-          </Button>
-        </div>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+          kind="error"
+          size="row"
+          title="Helper models could not be loaded."
+        />
       </section>
     );
   const data = fleet.data;
@@ -127,7 +125,10 @@ export function FleetSettingsPanel() {
             onClick={onReset}
             size="sm"
           />
-        ) : null}
+        ) : (
+          // Keeps every helper select at the same left edge, reset or not.
+          <span aria-hidden className="size-6 shrink-0" />
+        )}
         <ModelSelectField
           catalogStatus={catalogStatus}
           disabled={save.isPending || disabled}

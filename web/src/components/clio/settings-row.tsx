@@ -57,7 +57,7 @@ export function SettingsRow({
           'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
           inlineControl
             ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : 'grid-cols-1 @md:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
+            : 'grid-cols-1 @sm:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
@@ -90,7 +90,7 @@ export function SettingsRow({
         </div>
         <div
           data-slot="settings-control"
-          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end"
+          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @sm:justify-end"
         >
           {children}
         </div>
@@ -102,12 +102,15 @@ export function SettingsRow({
 /** Small muted label over a run of rows ("Response", "Model servers"), with an optional + at the right. */
 export function SettingsGroupLabel({
   children,
+  info,
   onAdd,
   addLabel,
   actions,
   className,
 }: {
   children: ReactNode;
+  /** Explanation behind an ? right after the label. */
+  info?: ReactNode;
   onAdd?: () => void;
   addLabel?: string;
   /** Other icon actions at the right end. */
@@ -123,6 +126,14 @@ export function SettingsGroupLabel({
       data-slot="settings-group-label"
     >
       <h3 className="min-w-0 truncate font-normal">{children}</h3>
+      {info ? (
+        <InfoTip
+          className="-ml-1 text-faint"
+          label={`About ${typeof children === 'string' ? children : 'this group'}`}
+        >
+          {info}
+        </InfoTip>
+      ) : null}
       <span className="flex-1" />
       {actions}
       {onAdd ? (
