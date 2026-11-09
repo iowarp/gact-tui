@@ -32,6 +32,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Root as DismissableLayer } from '@radix-ui/react-dismissable-layer';
+import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -191,6 +192,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const requestsSettled =
       deliveredKey !== undefined && (!pendingRequest || pendingRequest.key === deliveredKey);
     const [maximizeHost, setMaximizeHost] = useState<Element | null>(null);
+    // A bare host (no sheet, no workspace section) maximizes into the overlay
+    // host, never <body>: a body child restyles the whole app root.
+    const overlayHost = useOverlayContainer();
     const asideRef = useRef<HTMLElement>(null);
     const maximizeButtonRef = useRef<HTMLButtonElement>(null);
     const activeTabRef = useRef<HTMLDivElement>(null);
@@ -337,10 +341,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const toggleMaximized = (trigger?: Element | null) => {
       // Maximize covers the conversation only: the left bar stays, and the
-      // strip comes along inside the canvas. Body is the bare-host fallback.
+      // strip comes along inside the canvas.
       setMaximizeHost(
         trigger?.closest('[data-slot=sheet-content]') ??
           trigger?.closest('[data-workbench-maximize-host]') ??
+          overlayHost ??
           document.body,
       );
       setMaximized((value) => !value);
@@ -663,13 +668,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </TabsContent>
               ))}
               {orderedTabs.length === 0 ? (
-                <StateView
-                  className="h-full"
-                  detail="Pick a list on the strip, or open a file from the conversation."
-                  kind="empty"
-                  size="panel"
-                  title="No tabs open"
-                />
+                // Spec states: icon and one line saying what isn't there (conversation-states).
+                <StateView className="h-full" kind="empty" size="panel" title="No tabs open" />
               ) : null}
             </Tabs>
             {list ?? tabList.column}
@@ -708,7 +708,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               >
                 {canvas}
               </DismissableLayer>,
-              maximizeHost ?? document.body,
+              maximizeHost ?? overlayHost ?? document.body,
             )
           : canvas}
       </>

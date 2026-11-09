@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { StableInput } from '@/components/clio/primitives/stable-input';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -841,7 +842,7 @@ export const PromptInput = ({
   // Render with or without local provider
   const inner = (
     <>
-      <input
+      <StableInput
         accept={accept}
         aria-label="Upload files"
         className="hidden"

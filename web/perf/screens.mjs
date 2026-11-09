@@ -375,7 +375,7 @@ function seededSettingsShots() {
 // pending-update marker and a stand-in for the desktop host's commands.
 const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
 
-function desktopStub({ version, marker, desktop, seen, boot }) {
+function desktopStub({ version, marker, desktop, seen, boot, update }) {
   try {
     if (marker)
       localStorage.setItem(
@@ -388,12 +388,46 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
   }
   if (desktop) window.__CLIO_DESKTOP__ = { version };
   let id = 0;
+  const callbacks = new Map();
+  // With `update`, the signed feed offers it and its download stops part way:
+  // the host owns no runtime, so the page shows only the app's own download.
+  const answers = update
+    ? {
+        'plugin:updater|check': () => ({
+          rid: 1,
+          currentVersion: version,
+          version: update.version,
+          date: '2026-11-04T00:00:00Z',
+          body: '',
+          rawJson: {},
+        }),
+        has_managed_runtime: () => false,
+        managed_runtime_update_mode: () => 'external',
+        // The desktop host's own service is the fixture this run connects to.
+        get_backend: () => ({
+          url: JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')[0],
+          bearer_token: '',
+          status: { kind: 'ready' },
+        }),
+        'plugin:updater|download': ({ onEvent }) => {
+          // Channel ordering is `index` in newer @tauri-apps/api, `id` in older.
+          const send = (index, message) =>
+            callbacks.get(onEvent.id)?.({ id: index, index, message });
+          send(0, { event: 'Started', data: { contentLength: update.total } });
+          send(1, { event: 'Progress', data: { chunkLength: update.downloaded } });
+          return new Promise(() => undefined);
+        },
+      }
+    : {};
   window.__TAURI_INTERNALS__ = {
-    transformCallback: () => ++id,
-    unregisterCallback: () => undefined,
-    // Only the app version answers; everything else stays pending, as on a
-    // host that is still coming up.
-    invoke: (command) => {
+    transformCallback: (callback) => {
+      callbacks.set(++id, callback);
+      return id;
+    },
+    unregisterCallback: (callbackId) => callbacks.delete(callbackId),
+    // Only the app version (and an offered update) answers; everything else
+    // stays pending, as on a host that is still coming up.
+    invoke: (command, args) => {
       if (command === 'plugin:app|version' && version) return Promise.resolve(version);
       // Local startup: the service was found missing, and the runtime is being prepared.
       if (boot && command === 'get_backend') {
@@ -405,6 +439,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
         return Promise.resolve(
           '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
         );
+      if (answers[command]) return Promise.resolve(answers[command](args ?? {}));
       return new Promise(() => undefined);
     },
   };
@@ -412,6 +447,7 @@ function desktopStub({ version, marker, desktop, seen, boot }) {
 
 function updateShots() {
   const marker = { action: 'both', version: '0.11.4' };
+  const MB = 1024 * 1024;
   return [
     {
       surface: 'updates',
@@ -419,6 +455,29 @@ function updateShots() {
       url: SESSION,
       ready: '[data-slot="update-page"]',
       initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-downloading',
+      url: SESSION,
+      // The background check offers 0.11.4; its toast starts the update.
+      ready: '[data-sonner-toast] button',
+      setup: async (page) => {
+        await page
+          .locator('[data-sonner-toast] button')
+          .filter({ hasText: /^Update / })
+          .click();
+        await page.locator('[data-slot="step-list"]').getByText('41 of 66 MB').waitFor();
+      },
+      initScript: [
+        desktopStub,
+        {
+          desktop: true,
+          version: '0.11.3',
+          seen: '0.11.3',
+          update: { version: '0.11.4', total: 66 * MB, downloaded: 41 * MB },
+        },
+      ],
     },
     {
       surface: 'updates',
@@ -496,7 +555,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'activity-expanded', SESSION, async (page) => {
       await page
-        .getByRole('button', { name: /^Activity: / })
+        .getByRole('button', { name: /^Expand / })
         .filter({ visible: true })
         .last()
         .click();
@@ -654,6 +713,16 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s(
+      'session',
+      'dialog-allow-folder',
+      SESSION,
+      async (page) => {
+        await press(page, 'button', 'Allow opal');
+        await overlay(page);
+      },
+      { route: 'sandbox-blocked' },
+    ),
     s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
@@ -750,22 +819,78 @@ function catalogue({ settings, infrastructure }) {
         .click({ button: 'right' });
       await overlay(page);
     }),
+    // workbench-right-pocket "List hidden, tab menu open": the list's strip icon
+    // clicked again, a pinned tab first, the menu on the open middle tab.
+    s('canvas', 'tab-menu-list-hidden', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await openFile(page, 'results/vertical-displacement.png');
+      await stripList(page, 'Agent');
+      const tabs = page
+        .locator('[aria-label="Workspace canvas"] [role="tab"]')
+        .filter({ visible: true });
+      await tabs.filter({ hasText: 'stations.csv' }).first().click({ button: 'right' });
+      await overlay(page);
+      await page.getByRole('menuitem', { name: /^Pin/u }).click();
+      await page.waitForTimeout(300);
+      const image = tabs.filter({ hasText: 'vertical-displacement.png' }).first();
+      await image.click();
+      await page.waitForTimeout(300);
+      const lit = page
+        .getByRole('toolbar', { name: 'Workbench lists' })
+        .locator('button[aria-pressed="true"]')
+        .filter({ visible: true })
+        .first();
+      if (await lit.isVisible().catch(() => false)) await lit.click();
+      await page.waitForTimeout(400);
+      await image.click({ button: 'right' });
+      await overlay(page);
+    }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
+    // tab), the modes are a checked list in …. Where the list is a sheet over
+    // the tab, it hides first.
+    s('canvas', 'file-csv-more', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await stripList(page, 'Activity');
+      const more = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (
+        !(await more.click({ timeout: 2000 }).then(
+          () => true,
+          () => false,
+        ))
+      ) {
+        await page
+          .getByRole('toolbar', { name: 'Workbench lists' })
+          .locator('button[aria-pressed="true"]')
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page.waitForTimeout(400);
+        await more.click();
+      }
+      await overlay(page);
+    }),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // The former Work tab is now the Activity list's finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
-      await page
+      const show = page
         .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /^Work/u })
-        .first()
-        .click();
+        .getByRole('button', { name: 'Show finished work' })
+        .filter({ visible: true })
+        .first();
+      if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
@@ -1304,6 +1429,36 @@ async function capture(browser, stack, shot, { theme, width }) {
         await route.fulfill({ json: listing });
       },
     );
+  }
+  if (shot.route === 'sandbox-blocked') {
+    // The catalog search becomes a script the sandbox stopped from writing outside the workspace.
+    await page.route('**/v1/sessions/*/messages*', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const transcript = await (await route.fetch()).json();
+      transcript.tools = (transcript.tools ?? []).map((tool) =>
+        tool.id === 'tool_earthscope'
+          ? {
+              ...tool,
+              name: 'shell_bash',
+              title: 'Run',
+              state: 'failed',
+              input: { command: 'python qc_sites.py' },
+              error: 'Permission denied: /scratch/jc/opal/sites.csv',
+              output: {
+                boundary: {
+                  kind: 'write_denied',
+                  confidence: 'confirmed',
+                  paths: ['/scratch/jc/opal/sites.csv'],
+                  request_roots: ['/scratch/jc/opal'],
+                  message:
+                    "CLIO's sandbox blocked this write. /scratch/jc/opal is not a permitted folder.",
+                },
+              },
+            }
+          : tool,
+      );
+      await route.fulfill({ json: transcript });
+    });
   }
   if (shot.route === 'archived-sessions') {
     // The fixture archives nothing; three archived rows as the spec draws them.

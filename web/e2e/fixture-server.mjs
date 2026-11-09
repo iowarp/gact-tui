@@ -37,6 +37,7 @@ import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
 import {
   DECISION_CARDS,
+  decisionCardArtifacts,
   decisionCardInteractions,
   decisionChildSession,
 } from './fixture-decision-cards.mjs';
@@ -802,6 +803,8 @@ function transcriptMessages() {
         id: 'block_reasoning',
         type: 'reasoning',
         text: 'Compare station coverage, quality flags, and the derived displacement series.',
+        started_at: '2026-08-22T19:59:59.000Z',
+        duration_ms: 6000,
         streaming: false,
       },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
@@ -3360,6 +3363,9 @@ const server = createServer(async (request, response) => {
                 created_at: observedAt,
               },
             ]
+          : []),
+        ...(decisionCardsDemo
+          ? decisionCardArtifacts(decisionCardsDemo, { sessionId, observedAt })
           : []),
       ],
       surfaces: [
