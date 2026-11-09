@@ -50,7 +50,8 @@ test('settings controls share a trailing edge and remain within narrow windows',
     .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
   // System, Light, Dark and Notebook (Debug is offered in development builds only).
   expect(icons).toHaveLength(4);
-  expect(Math.min(...icons)).toBeGreaterThanOrEqual(15);
+  // Labelled choices use the spec's 14px chip icon, the same size as SegmentedControl.
+  expect(Math.min(...icons)).toBeGreaterThanOrEqual(14);
 });
 
 for (const theme of ['dark', 'light'] as const) {
