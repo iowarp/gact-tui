@@ -1,10 +1,12 @@
 // Shared presentation helpers for the Infrastructure > Agent foundation rows
-// (`FoundationRow` and `SandboxFoundationRow`, in infrastructure-page.tsx and
+// (`FoundationRow` and `SandboxFoundationRow`, in
+// components/clio/infrastructure-foundation-row.tsx and
 // infrastructure-sandbox-row.tsx respectively). Split out to a leaf module —
 // no React, no query state — so both row components can import it without
 // creating a cycle between the two component files.
 import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import type { ClioStatusValue } from '@/components/clio/status';
+import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { vocab } from '@/lib/brand-vocabulary';
 
 export function integrationStatus(status: string): ClioStatusValue {
@@ -17,6 +19,14 @@ export function integrationStatusLabel(status: ClioStatusValue): string {
   if (status === 'healthy') return 'Ready';
   if (status === 'degraded') return 'Needs attention';
   return 'Unavailable';
+}
+
+/** The status mark for a foundation row; its words come from integrationStatusLabel. */
+export function integrationTone(status: ClioStatusValue): StatusTone {
+  if (status === 'healthy') return 'success';
+  if (status === 'degraded') return 'warning';
+  if (status === 'connecting') return 'running';
+  return 'error';
 }
 
 export function foundationSummary(integration: ServiceIntegrationHealth): string {

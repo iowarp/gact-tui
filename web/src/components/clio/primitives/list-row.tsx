@@ -27,8 +27,19 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actions?: ReactNode;
   /** Width of the actions column in px; one value for every row of a list. */
   actionsWidth?: number;
+  /**
+   * One always-visible action after the hover actions (26px): the row's main
+   * verb (Start, Stop, Install, Open). Use an IconButton with a hover name.
+   */
+  primaryAction?: ReactNode;
   /** A trailing ⓘ (26px), always visible. */
   info?: ReactNode;
+  /**
+   * `inline` puts the description after the name on one 28px line. `stacked`
+   * puts it on a second, smaller line under the name (a 34px row), for
+   * inventories whose names need a short explanation.
+   */
+  layout?: 'inline' | 'stacked';
   selected?: boolean;
   /** For virtualized lists: the absolute position the virtualizer assigns. */
   style?: CSSProperties;
@@ -51,7 +62,9 @@ export const ListRow = memo(
       meta,
       actions,
       actionsWidth = 44,
+      primaryAction,
       info,
+      layout = 'inline',
       selected = false,
       className,
       style,
@@ -64,10 +77,12 @@ export const ListRow = memo(
         ref={ref}
         data-slot="list-row"
         data-selected={selected || undefined}
+        data-layout={layout}
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight',
+          layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-[12.5px]' : 'h-7',
           className,
         )}
         {...rest}
@@ -83,14 +98,23 @@ export const ListRow = memo(
             {icon}
           </span>
         ) : null}
-        <span className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="min-w-0 shrink truncate">{title}</span>
-          {description ? (
-            <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
-              {description}
-            </span>
-          ) : null}
-        </span>
+        {layout === 'stacked' ? (
+          <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+            <span className="min-w-0 truncate">{title}</span>
+            {description ? (
+              <span className="min-w-0 truncate text-[11px] text-faint">{description}</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="min-w-0 shrink truncate">{title}</span>
+            {description ? (
+              <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+                {description}
+              </span>
+            ) : null}
+          </span>
+        )}
         {columns}
         {badge !== undefined ? (
           <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
@@ -105,6 +129,14 @@ export const ListRow = memo(
             {actions}
           </span>
         ) : null}
+        {primaryAction !== undefined ? (
+          <span
+            data-slot="list-row-primary-action"
+            className="flex w-[26px] shrink-0 justify-center"
+          >
+            {primaryAction}
+          </span>
+        ) : null}
         {info !== undefined ? (
           <span className="flex w-[26px] shrink-0 justify-center">{info}</span>
         ) : null}
@@ -112,3 +144,37 @@ export const ListRow = memo(
     );
   }),
 );
+
+/**
+ * The small heading over a group of rows ("Errors", "Inference", "Storage on
+ * ares"). One line; an optional trailing control (a total, Edit locations)
+ * sits at the right edge.
+ */
+export const ListGroupLabel = memo(function ListGroupLabel({
+  children,
+  action,
+  className,
+  id,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  id?: string;
+}) {
+  return (
+    <div
+      data-slot="list-group-label"
+      className={cn(
+        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11.5px] font-semibold whitespace-nowrap text-muted-foreground',
+        className,
+      )}
+    >
+      <h3 className="min-w-0 truncate" id={id}>
+        {children}
+      </h3>
+      {action ? (
+        <span className="ml-auto flex shrink-0 items-center gap-1 font-normal">{action}</span>
+      ) : null}
+    </div>
+  );
+});

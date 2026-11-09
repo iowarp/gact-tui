@@ -1,14 +1,30 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoaderCircleIcon, ServerIcon } from 'lucide-react';
+import {
+  FileTextIcon,
+  FolderIcon,
+  LoaderCircleIcon,
+  PlayIcon,
+  ShieldCheckIcon,
+  ShieldIcon,
+  TerminalIcon,
+} from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { toast } from 'sonner';
 import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import { queryKeys } from '@/lib/query-keys';
 import { SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
-import { ClioStatus } from '@/components/clio/status';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { TechnicalDetails } from '@/components/clio/technical-details';
+import { InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
+import {
+  InfraRowChevron,
+  InfraRowToggle,
+  InfraRowActions,
+} from '@/components/clio/infrastructure-row-toggle';
+import { IconButton } from '@/components/clio/primitives/icon-button';
+import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
+import { StateView } from '@/components/clio/primitives/state-view';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -21,6 +37,7 @@ import {
   foundationTitle,
   integrationStatus,
   integrationStatusLabel,
+  integrationTone,
 } from './infrastructure-foundation';
 
 /** The typed reason tokens (clio_agent.runtime.sandbox / sandbox_codex) this row words specifically. */
@@ -50,6 +67,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   const [setupUnsupported, setSetupUnsupported] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [setupOutcome, setSetupOutcome] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
   const sandboxKey = queryKeys.key('sandbox-status', settings.endpoint);
   // Counts polls while setup_in_progress stays true; reset the moment it
   // isn't, and on every fresh "Set up" click (see the mutation's onMutate
@@ -167,44 +185,95 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
       ? 'Protection has not been verified on this computer. Complete setup before retrying commands.'
       : row?.summary || row?.detail || foundationSummary(integration);
 
+  const working = setup.isPending || polling;
+  const setupOffered = (status !== 'healthy' || working) && !setupUnsupported;
+  const rowStatus: InfraStatus = working
+    ? { tone: 'running', label: 'Setting up' }
+    : status === 'healthy'
+      ? { tone: 'success', label: 'Ready' }
+      : row?.reason === 'codex_enforcement_unverified'
+        ? { tone: 'idle', label: 'Not verified' }
+        : pendingRestart
+          ? { tone: 'warning', label: 'Restart needed' }
+          : { tone: integrationTone(status), label: integrationStatusLabel(status) };
+  const facts: KeyValueItem[] = [
+    {
+      label: 'Required',
+      icon: <ShieldCheckIcon />,
+      value: (row?.required ?? integration.required) === false ? 'Optional' : 'Required for use',
+    },
+    ...(row?.codex_source
+      ? [
+          {
+            label: 'Codex',
+            icon: <TerminalIcon />,
+            value: row.codex_source === 'bundled' ? `Bundled with ${vocab.agent}` : 'Found on PATH',
+          },
+        ]
+      : []),
+    ...(row?.next_action
+      ? [{ label: 'Next step', icon: <FileTextIcon />, value: row.next_action }]
+      : []),
+    ...(integration.config_source
+      ? [
+          {
+            label: 'Configured in',
+            icon: <FolderIcon />,
+            value: integration.config_source,
+            mono: true,
+          },
+        ]
+      : []),
+  ];
+  const startSetup = () => {
+    setExpanded(true);
+    setup.mutate();
+  };
+
   return (
-    <details className="group px-1 py-3">
-      <summary className="grid cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:flex sm:gap-3">
-        <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 text-sm font-medium sm:flex-1">
-          {foundationTitle(integration.name)}
-        </span>
-        <div className="col-start-2 shrink-0 justify-self-start sm:ml-auto">
-          <ClioStatus
-            label={reasonLabel ?? integrationStatusLabel(status)}
-            value={status === 'healthy' ? 'healthy' : polling ? 'connecting' : status}
-          />
-        </div>
-      </summary>
-      <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
-        <p>{summary}</p>
-        {setupOutcome ? (
-          <p role="status" className="mt-2 text-foreground">
-            {setupOutcome}
-          </p>
-        ) : null}
-        {(status !== 'healthy' || setup.isPending || polling) && !setupUnsupported ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-foreground">
-            <Button
-              disabled={setup.isPending || polling}
-              onClick={() => setup.mutate()}
-              size="sm"
-              variant="outline"
-            >
-              {setup.isPending || polling ? (
-                <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
-              ) : null}
-              {setup.isPending || polling
-                ? 'Setting up protected execution…'
-                : 'Set up protected execution'}
-            </Button>
-            {polling || setup.isPending ? (
-              <div role="status" className="w-full space-y-1">
+    <InfraRow
+      className="cursor-pointer"
+      description={reasonLabel ?? summary}
+      details={
+        expanded ? (
+          <>
+            <p className="text-[12px] whitespace-normal text-muted-foreground">{summary}</p>
+            <KeyValueGrid items={facts} />
+            {setupOutcome ? (
+              <p className="text-[12px] whitespace-normal text-foreground" role="status">
+                {setupOutcome}
+              </p>
+            ) : null}
+            {setupOffered || (pendingRestart && desktop) ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {setupOffered ? (
+                  <Button disabled={working} onClick={startSetup} size="sm" variant="outline">
+                    {working ? (
+                      <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+                    ) : (
+                      <PlayIcon aria-hidden="true" />
+                    )}
+                    {working ? 'Setting up protected execution…' : 'Set up protected execution'}
+                  </Button>
+                ) : null}
+                {pendingRestart && desktop ? (
+                  <Button
+                    disabled={restarting}
+                    onClick={() => void restart()}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <RetryIcon
+                      aria-hidden="true"
+                      className={restarting ? 'motion-safe:animate-spin' : undefined}
+                    />
+                    Restart {vocab.agent}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {working ? (
+              <div className="text-[12px] whitespace-normal text-muted-foreground" role="status">
                 <p>{row?.setup_progress?.detail || 'Starting setup…'}</p>
                 <p>
                   {row?.setup_progress
@@ -216,48 +285,56 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               </div>
             ) : null}
             {!polling && (pollGaveUpOnErrors || pollExhausted) ? (
-              <span className="text-destructive" role="status">
-                {pollGaveUpOnErrors
-                  ? `Lost touch with ${vocab.agent} while waiting: ${sandbox.error instanceof Error ? sandbox.error.message : 'connection failed'}. Try again once it reconnects.`
-                  : 'Still waiting — this is taking longer than expected. Check ' +
-                    `${vocab.agent} directly, or try again.`}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        {pendingRestart ? (
-          desktop ? (
-            <Button
-              className="mt-2"
-              disabled={restarting}
-              onClick={() => void restart()}
-              size="sm"
-              variant="outline"
-            >
-              <RetryIcon
-                aria-hidden="true"
-                className={restarting ? 'motion-safe:animate-spin' : undefined}
+              <StateView
+                action={{ label: 'Try again', onClick: () => setup.mutate() }}
+                kind="error"
+                size="row"
+                title={
+                  pollGaveUpOnErrors
+                    ? `Lost touch with ${vocab.agent} while waiting: ${sandbox.error instanceof Error ? sandbox.error.message : 'connection failed'}. Try again once it reconnects.`
+                    : `Still waiting. This is taking longer than expected. Check ${vocab.agent} directly, or try again.`
+                }
               />
-              Restart {vocab.agent}
-            </Button>
-          ) : (
-            <p className="mt-2 text-foreground">
-              Restart {vocab.agent} to activate protected execution for background tool processes
-              already running.
-            </p>
-          )
-        ) : null}
-        {integration.summary || integration.detail || integration.config_source ? (
-          <TechnicalDetails className="mt-2" title="Technical details">
-            <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
-              {integration.summary || integration.detail ? (
-                <p>{integration.summary || integration.detail}</p>
-              ) : null}
-              {integration.config_source ? <p>{integration.config_source}</p> : null}
-            </div>
-          </TechnicalDetails>
-        ) : null}
-      </div>
-    </details>
+            ) : null}
+            {pendingRestart && !desktop ? (
+              <p className="text-[12px] whitespace-normal text-foreground">
+                Restart {vocab.agent} to activate protected execution for background tool processes
+                already running.
+              </p>
+            ) : null}
+            {integration.summary || integration.detail ? (
+              <TechnicalDetails className="text-[12px]" title="Technical details">
+                <pre className="clio-scrollbar mt-1 max-h-48 overflow-auto font-mono text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+                  {[integration.summary, integration.detail].filter(Boolean).join('\n')}
+                </pre>
+              </TechnicalDetails>
+            ) : null}
+          </>
+        ) : undefined
+      }
+      icon={<ShieldIcon />}
+      onClick={() => setExpanded((open) => !open)}
+      primaryAction={
+        setupOffered && !pendingRestart ? (
+          <InfraRowActions>
+            <IconButton
+              disabled={working}
+              icon={
+                working ? <LoaderCircleIcon className="motion-safe:animate-spin" /> : <PlayIcon />
+              }
+              label="Set up"
+              onClick={startSetup}
+              size="sm"
+            />
+          </InfraRowActions>
+        ) : (
+          <InfraRowChevron expanded={expanded} />
+        )
+      }
+      status={rowStatus}
+      title={
+        <InfraRowToggle expanded={expanded}>{foundationTitle(integration.name)}</InfraRowToggle>
+      }
+    />
   );
 }

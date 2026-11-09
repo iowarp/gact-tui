@@ -4,7 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
+import { InfraList } from '@/components/clio/infrastructure-row';
 import { foundationGroups } from './infrastructure-foundation';
+
+const GROUP_LABELS = {
+  errors: 'Errors',
+  warnings: 'Warnings',
+  ready: 'Ready and working',
+} as const;
 
 /** Keep the group counts aligned with the live sandbox row after setup. */
 export function InfrastructureFoundationGroups({
@@ -26,25 +33,20 @@ export function InfrastructureFoundationGroups({
   );
   const groups = foundationGroups(rows);
   return (
-    <div className="space-y-3">
-      {(['errors', 'warnings', 'ready'] as const).map((kind) => {
-        if (!groups[kind].length) return null;
-        const label =
-          kind === 'ready' ? 'Ready and working' : kind === 'errors' ? 'Errors' : 'Warnings';
-        return (
-          <details
+    <div className="flex min-w-0 flex-col gap-1">
+      {(['errors', 'warnings', 'ready'] as const).map((kind) =>
+        groups[kind].length ? (
+          <InfraList
+            heading={GROUP_LABELS[kind]}
+            // Same columns as Computers below, so every status lines up.
+            hover={52}
             key={kind}
-            open={kind !== 'ready' && groups[kind].length > 0}
-            className="border-t"
-            aria-label={`${label} (${groups[kind].length})`}
+            meta={0}
           >
-            <summary className="cursor-pointer py-3 text-sm font-medium">
-              {label} ({groups[kind].length})
-            </summary>
-            <div className="divide-y">{groups[kind].map(renderRow)}</div>
-          </details>
-        );
-      })}
+            {groups[kind].map(renderRow)}
+          </InfraList>
+        ) : null,
+      )}
     </div>
   );
 }
