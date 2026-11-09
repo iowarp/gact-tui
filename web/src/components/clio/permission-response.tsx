@@ -31,6 +31,12 @@ const SCOPES = [
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
 
+/** The tool's own arguments: CLIO's `_clio_*` annotations ride along but are not for people. */
+function agentArguments(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !key.startsWith('_clio_')));
+}
+
 function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
   const input = interaction.payload?.tool_call?.input;
   const fields =
@@ -129,13 +135,14 @@ export function PermissionResponse({
             extraFacts={owner}
             interaction={interaction}
             pathsInline={false}
+            showCommand={!script}
             title={title}
           />
         )}
       </AskBody>
       {script ? (
         // Under a cap the script gives up height first, down to two lines with its fade and
-        // footer, so the facts above (the command) stay whole.
+        // footer, so the facts above stay whole. The script stands in for the command line.
         <AskCode
           className="flex min-h-20 shrink-[100] flex-col"
           code={script.code}
@@ -178,7 +185,7 @@ export function PermissionResponse({
         ) : null}
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
-        <AskDetails hint="raw arguments, as the agent sent them">
+        <AskDetails description="The tool's arguments, as the agent sent them.">
           <div className="grid gap-1.5">
             {owner.length ? (
               <p
@@ -205,7 +212,7 @@ export function PermissionResponse({
             {toolCall?.input === undefined ? null : (
               <AskCode
                 className="mt-0 ml-0"
-                code={JSON.stringify(toolCall.input, null, 2)}
+                code={JSON.stringify(agentArguments(toolCall.input), null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"

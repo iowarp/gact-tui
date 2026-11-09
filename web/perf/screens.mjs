@@ -929,6 +929,16 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
+    s(
+      'runs',
+      'selected',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button').first().click();
+        await page.waitForTimeout(600);
+      },
+      { ready: '[data-run-state]' },
+    ),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);

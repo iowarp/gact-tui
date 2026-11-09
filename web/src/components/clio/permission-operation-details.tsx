@@ -194,6 +194,7 @@ export function PermissionOperationDetails({
   title,
   extraFacts = [],
   pathsInline = true,
+  showCommand = true,
 }: {
   interaction: PendingInteraction;
   title?: string;
@@ -201,6 +202,8 @@ export function PermissionOperationDetails({
   extraFacts?: readonly AskFact[];
   /** Standalone use lists the files here; the card moves them into Technical details. */
   pathsInline?: boolean;
+  /** Off when the card shows the whole script instead of the command that runs it. */
+  showCommand?: boolean;
 }) {
   const { facts, command, folders, paths } = permissionOperation(interaction, { title });
   return (
@@ -216,7 +219,7 @@ export function PermissionOperationDetails({
           folders. Conversations on the primary folder share this access.
         </AskSection>
       ) : null}
-      {command ? <AskCode code={command} label="Command to run" /> : null}
+      {showCommand && command ? <AskCode code={command} label="Command to run" /> : null}
       {pathsInline && paths.length ? (
         <AskSection>
           <TechnicalDetails className="text-[11.5px] text-muted-foreground" title="Files involved">

@@ -232,6 +232,51 @@ it('pages multiple source approvals and removes the pager for the last request',
   expect(screen.getByText('Connect second dataset')).toBeVisible();
 });
 
+it('shows a script instead of its command and opens technical details in a dialog', async () => {
+  const user = userEvent.setup();
+  const script: PendingInteraction = {
+    ...request,
+    id: 'permission:qc-script',
+    title: 'Run the QC script',
+    actions: ['deny', 'allow'],
+    payload: {
+      tool_call: {
+        tool_name: 'shell_bash',
+        input: {
+          command: 'python qc_stations.py --strict --out results/qc',
+          _clio_task_description: 'Flag stations that fail QC',
+        },
+      },
+      script: { call_id: 'call_qc', code: 'import pandas as pd\nprint(pd.__version__)\n' },
+    },
+  };
+  render(
+    <ClioPendingInteractions
+      interactions={[script]}
+      viewedSessionId="session1"
+      onResponse={vi.fn(async () => undefined)}
+    />,
+  );
+  expect(screen.getByText('Flag stations that fail QC')).toBeVisible();
+  expect(screen.getByText('Python, 2 lines')).toBeVisible();
+  expect(screen.queryByText('Command to run')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  document.querySelector<HTMLElement>('[data-slot="ask-card"]')!.focus();
+  await user.keyboard('d');
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Run the QC script: Technical details',
+  });
+  expect(dialog).toHaveTextContent('python qc_stations.py --strict --out results/qc');
+  expect(dialog).not.toHaveTextContent('_clio_');
+  // The facts stay in the card; details never expand inline under them.
+  expect(document.querySelector('[data-slot="ask-card"]')).not.toContainElement(dialog);
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  // Focus goes back to the card D was pressed on, so its keys keep working.
+  expect(document.querySelector('[data-slot="ask-card"]')).toHaveFocus();
+});
+
 it('shows a readable title for retained requests with the old generic summary', () => {
   render(
     <ClioPendingInteractions
