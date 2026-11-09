@@ -6,6 +6,7 @@ import type { MermaidConfig } from './mermaid';
 import { Mermaid } from './mermaid';
 import { ZoomPan } from './zoom-pan';
 import { sanitizeMermaidSvg } from '@/components/clio/mermaid-security';
+import { StateView } from '@/components/clio/primitives/state-view';
 import { cn } from '@/lib/utils';
 import { mermaidNodeRegions } from './mermaid-node-regions';
 import { mermaidSelectableText } from './mermaid-selectable-text';
@@ -103,6 +104,9 @@ export function MermaidPreview({
           </div>
         )}
         error={renderError}
+        // Pele and the theme fonts load lazily; say so rather than show an empty body.
+        isLoading={!svgOutput && !renderError && chart.trim() !== ''}
+        loadingFallback={<StateView kind="loading" size="viewer" title="Loading diagram" />}
         fitPadding={0.94}
         imageSrc={imageSrc}
         selectableTextSvg={textLayer}

@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 beforeEach(() => {
@@ -164,7 +164,7 @@ describe('ClioComposer authoritative behavior', () => {
     renderComposer({ confirmationPolicy: 'ask', executionMode: 'execute', onBehaviorChange });
 
     await user.click(screen.getByRole('button', { name: 'Execution mode: Execute' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /PlanDevelop/ }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^Plan/ }));
 
     await waitFor(() =>
       expect(onBehaviorChange).toHaveBeenCalledWith(

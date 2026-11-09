@@ -522,7 +522,7 @@ export function SettingsSection({
   if (section === 'agents') return <AgentSettings />;
   if (section === 'plugins')
     return <PluginSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
-  if (section === 'tools' || section === 'relays')
+  if (section === 'tools' || section === 'relays' || section === 'tool-permissions')
     return (
       <ToolsSettingsTabs
         key={section}
