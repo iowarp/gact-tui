@@ -24,8 +24,8 @@ import type {
   WorkspaceSourceFolder,
 } from '@clio/core/v3';
 import { artifactDeliverables } from '@/lib/artifact-presentation';
-import { BoxesIcon, PanelRightOpenIcon } from 'lucide-react';
-import { useState, useSyncExternalStore, type RefObject } from 'react';
+import { BoxesIcon, PanelRightOpenIcon, PanelRightDashedIcon } from 'lucide-react';
+import { useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -42,8 +42,8 @@ import {
 } from '@/lib/presentation-overrides';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioInteractiveRow } from './interactive-row';
-import { SessionEvidencePopover } from './session-evidence-popover';
-import { EvidenceLayoutIcon } from './evidence-layout-icon';
+import { ConversationRail, type ConversationRailControl } from './conversation-rail';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -194,33 +194,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
 
   return (
     <div className="flex min-w-0 items-center gap-1" data-slot="composer-evidence">
-      <SessionEvidencePopover evidence={props}>
-        {({ visible, buttonRef, panelId, layout, cycle }) => (
-          <Button
-            ref={buttonRef}
-            aria-label={`Evidence layout: ${layout.charAt(0).toUpperCase() + layout.slice(1)}`}
-            aria-expanded={visible}
-            aria-controls={panelId}
-            aria-haspopup="dialog"
-            data-evidence-layout={layout}
-            onClick={() => cycle(1)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              cycle(-1);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                event.preventDefault();
-                cycle(event.key === 'ArrowLeft' ? -1 : 1);
-              }
-            }}
-            className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground"
-            size={props.toolbar ? 'icon-sm' : 'sm'}
-            title={`Evidence: ${layout}. Click for next layout; right-click for previous. ${dockLabel}`}
-            type="button"
-            variant="ghost"
-          >
-            <EvidenceLayoutIcon layout={layout} />
+      <ConversationRail evidence={props}>
+        {(rail) => (
+          <RailButton rail={rail} toolbar={props.toolbar}>
             <span
               className={
                 props.toolbar
@@ -240,9 +216,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             {!props.toolbar && showDockStatusBadge ? (
               <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
             ) : null}
-          </Button>
+          </RailButton>
         )}
-      </SessionEvidencePopover>
+      </ConversationRail>
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">
@@ -342,5 +318,54 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         </Popover>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Pins the conversation rail. Its key opens the rail at Running (or its first
+ * row) and, pressed again, closes it.
+ */
+function RailButton({
+  rail,
+  toolbar,
+  children,
+}: {
+  rail: ConversationRailControl;
+  toolbar?: boolean;
+  children: ReactNode;
+}) {
+  const { open, setOpen, buttonRef, panelId, panelRef } = rail;
+  useShortcut('conversation-runs', () => {
+    if (open) return setOpen(false);
+    setOpen(true);
+    requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      // The first run, else the Running row, else the rail's first row.
+      const running = panel?.querySelectorAll<HTMLElement>(
+        '[aria-label="Running section"] [data-rail-row]',
+      );
+      (
+        running?.[1] ??
+        running?.[0] ??
+        panel?.querySelector<HTMLElement>('[data-rail-row]')
+      )?.focus();
+    });
+  });
+  return (
+    <Button
+      ref={buttonRef}
+      aria-label="Conversation rail"
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+      onClick={() => setOpen(!open)}
+      className="h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
+      size={toolbar ? 'icon-sm' : 'sm'}
+      title={open ? 'Close the conversation rail' : 'Open the conversation rail'}
+      type="button"
+      variant="ghost"
+    >
+      <PanelRightDashedIcon aria-hidden="true" />
+      {children}
+    </Button>
   );
 }

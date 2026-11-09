@@ -15,15 +15,50 @@ const COLORS: Record<string, string> = {
 };
 const GRID = 'grid grid-cols-[minmax(0,1fr)_4rem_3.5rem] items-center gap-2';
 
+/** The thin multicolour bar: each section's share of the model's window. */
+export function ContextCompositionBar({
+  context,
+  messages = [],
+  className,
+}: {
+  context?: ContextSnapshot;
+  messages?: readonly Message[];
+  className?: string;
+}) {
+  const { used, limit, sections } = contextComposition(context, messages);
+  if (!limit) return null;
+  const scale = Math.max(limit, used, context?.prompt_breakdown?.tokens_estimated ?? 0);
+  return (
+    <div
+      role="img"
+      aria-label={`Context token composition: ${contextPercent(used, limit)} of the window used`}
+      className={cn('flex h-1 overflow-hidden rounded-full bg-muted', className)}
+    >
+      {sections.map((section) => (
+        <span
+          key={section.id}
+          className={cn('h-full', COLORS[section.id] ?? 'bg-category-4')}
+          style={{
+            width: `${Math.max(0, Math.min(100, (section.tokens_estimated / scale) * 100))}%`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /** Shared measured usage and expandable contributors for the rail and full context view. */
 export function ContextUsage({
   context,
   messages = [],
   compact = false,
+  bare = false,
 }: {
   context?: ContextSnapshot;
   messages?: readonly Message[];
   compact?: boolean;
+  /** The caller already shows the used total and the bar (the conversation rail). */
+  bare?: boolean;
 }) {
   const { used, limit, sections, reserve, free, estimated } = contextComposition(context, messages);
   const cacheRead = context?.cache_read_tokens ?? 0;
@@ -33,31 +68,21 @@ export function ContextUsage({
       className={cn('min-w-0', !compact && 'rounded-xl border p-3')}
     >
       {!compact ? <h3 className="mb-3 text-sm font-semibold">Context</h3> : null}
-      <div className="flex items-baseline justify-between gap-2 text-sm tabular-nums">
-        <strong className="font-medium">
-          {limit ? `${Math.round((used / limit) * 100)}% used` : contextTokens(used) + ' tokens'}
-        </strong>
-        <span className="text-xs text-muted-foreground">
-          {contextTokens(used)} / {limit ? contextTokens(limit) : 'Limit unknown'}
-        </span>
-      </div>
-      {limit ? (
-        <div
-          role="img"
-          aria-label="Context token composition"
-          className="my-2 flex h-1.5 overflow-hidden rounded-full bg-muted"
-        >
-          {sections.map((section) => (
-            <span
-              key={section.id}
-              className={cn('h-full', COLORS[section.id] ?? 'bg-category-4')}
-              style={{
-                width: `${Math.max(0, Math.min(100, (section.tokens_estimated / Math.max(limit, used, context?.prompt_breakdown?.tokens_estimated ?? 0)) * 100))}%`,
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
+      {bare ? null : (
+        <>
+          <div className="flex items-baseline justify-between gap-2 text-sm tabular-nums">
+            <strong className="font-medium">
+              {limit
+                ? `${Math.round((used / limit) * 100)}% used`
+                : contextTokens(used) + ' tokens'}
+            </strong>
+            <span className="text-xs text-muted-foreground">
+              {contextTokens(used)} / {limit ? contextTokens(limit) : 'Limit unknown'}
+            </span>
+          </div>
+          <ContextCompositionBar context={context} messages={messages} className="my-2 h-1.5" />
+        </>
+      )}
       <p className="mb-2 text-[11px] leading-4 text-muted-foreground">
         {estimated ? 'Estimated usage' : 'Provider-reported usage'} for the last request
         {context?.usage_recorded_at

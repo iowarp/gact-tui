@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react';
+import { memo, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { RunState } from '@clio/core/v3';
@@ -108,6 +108,15 @@ export interface RunListRowProps {
   actions?: ReactNode;
   /** Hide the workspace column (a conversation's own rail). */
   showWorkspace?: boolean;
+  /** Open the run in place (a workbench tab) instead of following its conversation link. */
+  onOpen?: () => void;
+  /** Keys on the run's name while it has focus (the rail's Delete and Shift+Enter). */
+  onTitleKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  /**
+   * `rail` sizes for a narrow conversation rail: progress and the state word
+   * appear from 380px instead of the Runs page's breakpoints.
+   */
+  density?: 'page' | 'rail';
 }
 
 /**
@@ -120,7 +129,11 @@ export const RunListRow = memo(function RunListRow({
   cancelRequested,
   actions,
   showWorkspace = true,
+  onOpen,
+  onTitleKeyDown,
+  density = 'page',
 }: RunListRowProps) {
+  const rail = density === 'rail';
   const look = LOOK[row.state] ?? {
     tone: 'info' as const,
     word: row.state,
@@ -137,7 +150,18 @@ export const RunListRow = memo(function RunListRow({
       data-run-state={row.state}
       status={<StatusIndicator display="column" label={stateLabel} tone={look.tone} />}
       title={
-        href ? (
+        onOpen ? (
+          <button
+            type="button"
+            data-rail-row=""
+            className="max-w-full truncate rounded-sm text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={row.label}
+            onClick={onOpen}
+            onKeyDown={onTitleKeyDown}
+          >
+            {row.label}
+          </button>
+        ) : href ? (
           <Link
             className="font-medium hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={row.label}
@@ -157,7 +181,10 @@ export const RunListRow = memo(function RunListRow({
             {reason}
           </span>
         ) : progress ? (
-          <span className="hidden @[520px]/runs:inline" title={progress}>
+          <span
+            className={rail ? 'hidden @[380px]/runs:inline' : 'hidden @[520px]/runs:inline'}
+            title={progress}
+          >
             {progress}
           </span>
         ) : undefined
@@ -167,6 +194,7 @@ export const RunListRow = memo(function RunListRow({
           <span
             className={cn(
               'w-[64px] shrink-0 truncate text-[12px] text-muted-foreground',
+              rail && 'hidden @[380px]/runs:block',
               look.tone === 'error' && 'text-destructive',
               look.tone === 'warning' && 'text-warning',
             )}
@@ -175,12 +203,16 @@ export const RunListRow = memo(function RunListRow({
           >
             {word}
           </span>
-          <span
-            className="hidden w-[88px] shrink-0 truncate text-[12px] text-muted-foreground @[880px]/runs:block"
-            title={`${sourceLabels[row.source]}, ${where}`}
-          >
-            {row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`}
-          </span>
+          {rail ? null : (
+            <span
+              className="hidden w-[88px] shrink-0 truncate text-[12px] text-muted-foreground @[880px]/runs:block"
+              title={`${sourceLabels[row.source]}, ${where}`}
+            >
+              {row.source === 'flow'
+                ? sourceLabels.flow
+                : `${sourceLabels[row.source]} on ${where}`}
+            </span>
+          )}
           {showWorkspace ? (
             <span
               className="hidden w-[132px] shrink-0 truncate text-[12px] text-muted-foreground @[680px]/runs:block"

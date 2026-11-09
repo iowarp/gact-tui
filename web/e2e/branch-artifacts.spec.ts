@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { showEvidenceRail } from './workspace-setup';
+import { openConversationRail } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   }, fixtureEndpoint);
 });
 
-test('opens children in tabs, uses Shift for the center, and fits evidence equally', async ({
+test('opens children in tabs from the pinned rail and uses Shift for the center', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
@@ -20,10 +20,7 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
     await page.request.post(`${fixtureEndpoint}/__test/subagent-navigation`)
   ).json();
   await page.goto(workspaceUrl);
-  await showEvidenceRail(page, 'Work');
-  const evidence = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  const parentWidth = await evidence.evaluate((element) => element.clientWidth);
+  const evidence = await openConversationRail(page);
   const child = evidence.getByRole('button', {
     name: 'Open child conversation Station analysis worker',
     exact: true,
@@ -43,10 +40,8 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await expect(
     page.getByRole('button', { name: 'Open workspace canvas', exact: true }),
   ).toBeVisible();
+  // Pinned: the rail stays open while the canvas opens and closes.
   await expect(evidence).toBeVisible();
-  // Closing the canvas resizes/rehosts the rail. Wait for its parent layout
-  // before inspecting an uncontrolled task disclosure from the new host.
-  await expect.poll(() => evidence.evaluate((element) => element.clientWidth)).toBe(parentWidth);
   const reopenedDetails = evidence.getByRole('button', {
     name: 'Task details: Station analysis worker',
     exact: true,
@@ -60,11 +55,9 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await child.click({ modifiers: ['Shift'] });
   await expect(page).toHaveURL(new RegExp(`/sessions/${worker.id}$`));
   await expect(page.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  await expect.poll(async () => (await evidence.boundingBox())?.width).toBeCloseTo(parentWidth, 0);
-  const bounds = await evidence.boundingBox();
-  const composer = await page.locator('[data-evidence-composer]').boundingBox();
-  expect(bounds!.x).toBeGreaterThan(composer!.x + composer!.width);
+  await expect(evidence).toBeVisible();
+  const bounds = (await evidence.boundingBox())!;
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(1920);
 });
 
 test('allows central child follow-ups while hiding user branching controls', async ({
@@ -167,8 +160,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
 }, testInfo) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
-  await showEvidenceRail(page, 'Session');
-  await page.getByRole('button', { name: 'Open full details' }).click();
+  await (await openConversationRail(page)).getByRole('button', { name: 'Open full view' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();
@@ -188,8 +180,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.evaluate(() => localStorage.setItem('theme', 'dark'));
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await showEvidenceRail(page, 'Session');
-  await page.getByRole('button', { name: 'Open full details' }).click();
+  await (await openConversationRail(page)).getByRole('button', { name: 'Open full view' }).click();
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();
   await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();

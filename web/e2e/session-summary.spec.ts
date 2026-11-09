@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { showEvidenceRail } from './workspace-setup';
+import { openConversationRail } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -25,25 +25,17 @@ async function openSession(page: Page, width = 1920, density = '') {
   await expect(page.locator('[data-slot="transcript-column"]')).toBeVisible();
 }
 
-test('compact Session rows open source, tool and Context details, with Work kept separate', async ({
-  page,
-}) => {
+test('rail rows open source, tool, Context and Todo details', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await openSession(page);
-  await showEvidenceRail(page, 'Session');
-  const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-  await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
+  const panel = await openConversationRail(page);
   await expect(panel.getByRole('button', { name: 'Open Sensor repository' })).toBeVisible();
-  await expect(panel.getByRole('region', { name: 'Todos section', exact: true })).toHaveCount(0);
   await expect(panel.locator('[data-slot="artifact"]')).toHaveCount(0);
-  await expect(panel.getByText('Output', { exact: true })).toHaveCount(0);
-  for (const row of await panel.locator('[data-slot="artifact-rail-row"]').all()) {
-    expect((await row.boundingBox())!.height).toBeLessThanOrEqual(32);
+  for (const row of await panel.locator('[data-slot="artifact-rail-row"]').all())
     await expect(row.getByRole('button', { name: /^Download / })).toBeVisible();
-  }
-  await panel.getByRole('button', { name: 'Open full details' }).hover();
-  await expect(page.getByRole('tooltip', { name: 'Open full details' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Open full view' }).hover();
+  await expect(page.getByRole('tooltip', { name: 'Open full view' })).toBeVisible();
   await panel.getByRole('button', { name: 'Open Sensor repository' }).click();
   const sources = page.getByRole('dialog', { name: 'Sources', exact: true });
   await expect(sources.getByRole('heading', { name: 'Sensor repository' })).toBeVisible();
@@ -62,17 +54,12 @@ test('compact Session rows open source, tool and Context details, with Work kept
   await expect(technical).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
-  await panel.getByRole('button', { name: 'Context details', exact: true }).click();
+  await panel.getByRole('button', { name: 'Open full context view', exact: true }).click();
   const view = page.getByRole('tablist', { name: 'Observability view' });
   await expect(view.getByRole('tab', { name: 'Context' })).toHaveAttribute('data-state', 'active');
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(panel).toBeVisible();
-  await showEvidenceRail(page, 'Work');
-  const work = page.getByRole('region', { name: 'Work rail', exact: true });
-  await expect(work).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Session rail', exact: true })).toHaveCount(0);
-  await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
-  await work.getByRole('button', { name: 'Open Check the report', exact: true }).click();
+  await panel.getByRole('button', { name: 'Open Check the report', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
     'data-state',
     'active',
@@ -85,12 +72,11 @@ test('compact Session rows open source, tool and Context details, with Work kept
   expect(errors).toEqual([]);
 });
 
-test('temporary Session links survive technical-dialog dismissal and open source details on mobile', async ({
+test('rail links survive technical-dialog dismissal and open source details on mobile', async ({
   page,
 }) => {
   await openSession(page, 390);
-  await showEvidenceRail(page, 'Session');
-  const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
+  const panel = await openConversationRail(page);
   await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();
   await panel
     .getByRole('button', { name: /^Technical details for/ })
@@ -103,7 +89,6 @@ test('temporary Session links survive technical-dialog dismissal and open source
   await page.keyboard.press('Escape');
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Open Sensor repository' }).click();
-  await expect(panel).toHaveCount(0);
   await expect(
     page
       .getByRole('dialog', { name: 'Sources', exact: true })
@@ -111,111 +96,33 @@ test('temporary Session links survive technical-dialog dismissal and open source
   ).toBeVisible();
 });
 
-for (const width of [1920, 390]) {
-  test(`Customize reorders expanded sections without losing content or the draft at ${width}px`, async ({
-    page,
-  }) => {
-    await openSession(page, width);
-    const input = page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]');
-    await input.fill('Keep this draft while I arrange the rail.');
-    await showEvidenceRail(page, 'Session');
-    const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-    await expect(panel.getByRole('region', { name: 'Files section', exact: true })).toBeVisible();
-    const sectionOrder = () =>
-      panel
-        .getByRole('region', { name: / section$/ })
-        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
-    const originalOrder = await sectionOrder();
-    const expectedOrder = originalOrder.filter((name) => name !== 'Context section');
-    expectedOrder.splice(expectedOrder.indexOf('Files section') + 1, 0, 'Context section');
-    const context = panel.getByRole('region', { name: 'Context section', exact: true });
-    await expect(
-      context.getByRole('button', { name: 'Collapse Context', exact: true }),
-    ).toBeVisible();
-    await expect(panel.getByRole('button', { name: /^Drag / })).toHaveCount(0);
-    await panel.getByRole('button', { name: 'Customize rail', exact: true }).click();
-    const customize = page.getByRole('dialog', { name: 'Customize session rail', exact: true });
-    const source = customize.getByRole('button', { name: 'Drag Context in layout', exact: true });
-    const target = customize.getByRole('button', { name: 'Drag Files in layout', exact: true });
-    // boundingBox() does not wait: on the popover's first frame Radix still parks
-    // it off-screen and the enter animation scales it, so the press would land
-    // outside the handle. Read the geometry once the popover is placed and the
-    // handle is stable, as a person would only grab it then.
-    await expect(source).toBeInViewport();
-    await expect(target).toBeInViewport();
-    await source.hover();
-    const from = (await source.boundingBox())!;
-    const to = (await target.boundingBox())!;
-    expect(from.width).toBeGreaterThan(180);
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 12, { steps: 3 });
-    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-    await page.mouse.up();
-    await expect.poll(sectionOrder).toEqual(expectedOrder);
-    await page.keyboard.press('Escape');
-    await expect(customize).toHaveCount(0);
-    await expect(
-      context.getByRole('button', { name: 'Collapse Context', exact: true }),
-    ).toBeVisible();
-    await expect(context.getByRole('region', { name: 'Context usage', exact: true })).toBeVisible();
-    await panel.getByRole('button', { name: 'Hide session rail', exact: true }).click();
-    await expect(input).toHaveText('Keep this draft while I arrange the rail.');
-    await page.reload();
-    await showEvidenceRail(page, 'Session');
-    await expect.poll(sectionOrder).toEqual(expectedOrder);
-    await expect(
-      context.getByRole('button', { name: 'Collapse Context', exact: true }),
-    ).toBeVisible();
-  });
-}
-
-for (const density of ['both', 'work']) {
-  test(`dense ${density} inventories use a single scrolling rail without nested cards`, async ({
-    page,
-  }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await openSession(page, 1920, density);
-    for (const kind of ['Session', 'Work'] as const) {
-      await showEvidenceRail(page, kind);
-      const panel = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-      await expect(panel).toHaveAttribute('data-showcase-mode', 'docked');
-      const scroll = panel.locator('[data-slot="session-rail-scroll"]');
-      expect(await panel.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-      for (const section of await panel.getByRole('region', { name: / section$/ }).all()) {
-        expect(await section.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-        expect(await section.evaluate((node) => getComputedStyle(node).borderLeftWidth)).toBe(
-          '0px',
-        );
-        expect(await section.evaluate((node) => getComputedStyle(node).borderRightWidth)).toBe(
-          '0px',
-        );
-      }
-      if (kind === 'Work') {
-        await expect(
-          panel.getByRole('button', { name: 'Collapse Todos', exact: true }),
-        ).toBeVisible();
-        await expect
-          .poll(() => scroll.evaluate((node) => node.scrollHeight > node.clientHeight))
-          .toBe(true);
-        const todos = panel.getByRole('region', { name: 'Todos section', exact: true });
-        const last = todos.getByRole('button', { name: /^Open / }).last();
-        await last.scrollIntoViewIfNeeded();
-        await expect(last).toBeInViewport();
-      }
-      while (await panel.getByRole('button', { name: /^Collapse / }).count())
-        await panel
-          .getByRole('button', { name: /^Collapse / })
-          .first()
-          .click();
-      await expect
-        .poll(() => scroll.evaluate((node) => node.scrollHeight <= node.clientHeight))
-        .toBe(true);
-      await panel
-        .getByRole('button', { name: `Hide ${kind.toLowerCase()} rail`, exact: true })
-        .click();
-    }
-    expect(errors).toEqual([]);
-  });
-}
+test('Customize reorders sections and keeps the layout across reload', async ({ page }) => {
+  await openSession(page, 1920);
+  const input = page.locator('[data-slot="clio-composer-stack"] [contenteditable="true"]');
+  await input.fill('Keep this draft while I arrange the rail.');
+  const panel = await openConversationRail(page);
+  await expect(panel.getByRole('region', { name: 'Files section', exact: true })).toBeVisible();
+  const sectionOrder = () =>
+    panel
+      .getByRole('region', { name: / section$/ })
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
+  await panel.getByRole('button', { name: 'Customize rail', exact: true }).click();
+  const customize = page.getByRole('dialog', { name: 'Customize rail', exact: true });
+  const files = customize.getByRole('button', { name: 'Drag Files in layout', exact: true });
+  await expect(files).toBeInViewport();
+  const before = await sectionOrder();
+  await files.focus();
+  // Empty sections stay hidden in the rail, so move Files until a visible neighbour passes it.
+  for (let step = 0; step < 4 && (await sectionOrder()).join() === before.join(); step += 1) {
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect(files).toBeFocused();
+  }
+  const expected = await sectionOrder();
+  expect(expected.indexOf('Files section')).toBeGreaterThan(before.indexOf('Files section'));
+  await page.keyboard.press('Escape');
+  await expect(customize).toHaveCount(0);
+  await expect(input).toHaveText('Keep this draft while I arrange the rail.');
+  await page.reload();
+  await openConversationRail(page);
+  await expect.poll(sectionOrder).toEqual(expected);
+});

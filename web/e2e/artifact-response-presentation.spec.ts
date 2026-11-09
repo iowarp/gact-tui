@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { showEvidenceRail } from './workspace-setup';
+import { openConversationRail } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -157,8 +157,8 @@ test('shows one latest response output while Evidence retains versions and revie
   for (const name of ['requested.pdf', 'requested.png'])
     await expect(conversation.getByRole('button', { name: `Open ${name}` })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('latest-response.png') });
-  await showEvidenceRail(page, 'Session');
-  await page.getByRole('button', { name: 'Open full details' }).click();
+  const rail = await openConversationRail(page);
+  await rail.getByRole('button', { name: 'Open full view' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
   await canvas.getByRole('button', { name: /^Artifacts/ }).click();

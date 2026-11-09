@@ -7,10 +7,17 @@ import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from '@/components/clio/connected-source-picker';
 import type { ObsidianChoice } from '@/components/clio/obsidian-source-form';
 import { DraftAgentCompositionView } from '@/components/clio/agent-composition-view';
-import { ConversationAgentControls } from '@/components/clio/conversation-agent-controls';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioComposer } from '@/components/clio/composer';
-import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
+import {
+  DraftAgentChip,
+  DraftCustomizeChip,
+  DraftWorkspaceChip,
+} from '@/components/clio/new-conversation-chips';
+import {
+  NewConversationBreadcrumb,
+  NewConversationDraft,
+} from '@/components/clio/new-conversation-draft';
 import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
@@ -28,6 +35,7 @@ import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
+import { useAgentPluginsSupported } from '@/hooks/use-session-agent';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
@@ -152,6 +160,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   );
   const defaultRef = defaults.data?.default_agent_ref || defaults.data?.agent_ref || undefined;
   const draftRef = agentChoice || defaultRef || '';
+  const openAgent = () => revealWorkbench({ kind: 'resources', section: 'agent' });
+  const agentsSupported = useAgentPluginsSupported();
   useDesktopTitleSync({ workspace: workspace?.display_name, session: 'New conversation' });
   const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
   if (error || (!data.workspaces.isPending && !workspace)) {
@@ -183,38 +193,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       }
       contextBar={
         <div className="flex min-w-0 items-center gap-2">
-          <label className="flex min-w-0 items-center gap-2 text-sm">
-            <span className="max-sm:sr-only">New conversation in</span>
-            <select
-              aria-label="Conversation workspace"
-              className="min-w-0 rounded-md border border-border bg-background px-2 py-1"
-              value={workspaceId}
-              disabled={send.isPending}
-              onChange={(event) =>
-                void navigate(newConversationRoute(event.target.value), { replace: true })
-              }
-            >
-              {(data.workspaces.data ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.display_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ConversationAgentControls
-            agents={data.installedAgents.data}
-            agentsError={data.installedAgents.error?.message}
-            pending={data.installedAgents.isPending}
-            agentRef={draftRef}
-            defaultRef={defaultRef}
-            disabled={send.isPending}
-            changes={draftChanges}
-            onSelect={(ref) => {
-              setAgentChoice(ref);
-              setDraftDelta(emptyAgentDelta);
-            }}
-            onCustomize={() => revealWorkbench({ kind: 'resources', section: 'agent' })}
-          />
+          <div className="min-w-0 flex-1">
+            <NewConversationBreadcrumb workspaceLabel={workspace?.display_name} />
+          </div>
           <ClioDraftActions
             disabled={!workspace || send.isPending}
             onOpen={(section) => revealWorkbench({ kind: 'resources', section })}
@@ -278,7 +259,41 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               : undefined)
           }
         />
-        <ClioConversationWelcome disabled={send.isPending} onSelectPrompt={draft.onValueChange}>
+        <NewConversationDraft
+          setup={
+            <>
+              <span>In</span>
+              <DraftWorkspaceChip
+                workspaces={data.workspaces.data ?? []}
+                workspaceId={workspaceId}
+                disabled={send.isPending}
+                onSelect={(id) => void navigate(newConversationRoute(id), { replace: true })}
+              />
+              <span>with</span>
+              <DraftAgentChip
+                agents={data.installedAgents.data}
+                agentsError={data.installedAgents.error?.message}
+                pending={data.installedAgents.isPending && agentsSupported !== false}
+                agentRef={draftRef}
+                defaultRef={defaultRef}
+                changes={draftChanges}
+                disabled={send.isPending}
+                onSelect={(ref) => {
+                  setAgentChoice(ref);
+                  setDraftDelta(emptyAgentDelta);
+                }}
+                onManageAgents={openAgent}
+              />
+              {draftRef ? (
+                <DraftCustomizeChip
+                  changes={draftChanges}
+                  disabled={send.isPending}
+                  onCustomize={openAgent}
+                />
+              ) : null}
+            </>
+          }
+        >
           <ClioComposer
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
@@ -316,7 +331,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             variant="welcome"
             workspaceId={workspaceId}
           />
-        </ClioConversationWelcome>
+        </NewConversationDraft>
       </div>
       {connectSource && workspace && (
         <ConnectedSourcePicker
