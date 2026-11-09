@@ -46,7 +46,7 @@ test('renders the Basic login-form example: text input works and the required ch
   // publishing — an event fired before the client's SSE connection is open
   // has no subscriber and is lost (this fixture has no replay).
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-login-form`);
   expect(published.ok()).toBe(true);

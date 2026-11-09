@@ -155,6 +155,8 @@ export function PlanDecisionControls({
             faceProps={{
               ...askKeyAttributes([String(executeNumber), 'Enter']),
               'aria-label': exitOnly ? 'Leave Plan mode' : 'Execute plan',
+              // Stacked, the label fills; the mode chip and ↵ sit at the right edge.
+              className: '@max-[420px]/ask:flex-1 @max-[420px]/ask:justify-start',
               title: canExecute
                 ? undefined
                 : 'Execution needs the complete plan. Request changes, or choose Exit Plan mode only.',
@@ -202,7 +204,7 @@ export function PlanDecisionControls({
         ))}
         {canClear ? (
           <label
-            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-[12px] text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:justify-center"
+            className="ml-2 inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-[12px] text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:justify-center"
             data-slot="plan-clear-context"
           >
             <Checkbox

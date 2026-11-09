@@ -12,6 +12,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -27,6 +29,7 @@ import {
   type OpenTake,
   type TakeRow,
 } from './file-viewer-take-hooks';
+import { foldedFrameModes, type FrameModesEntry } from './primitives/frame-modes';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
@@ -218,10 +221,16 @@ export function FrameTalkTake({
   menuLabel?: string;
   pending?: boolean;
 }) {
-  const [fold, setFold] = useState({ talk: false, copy: false, open: false });
+  const [fold, setFold] = useState<{
+    talk: boolean;
+    copy: boolean;
+    open: boolean;
+    modes: FrameModesEntry[];
+  }>({ talk: false, copy: false, open: false, modes: [] });
   const talkRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
   const openRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLSpanElement>(null);
   const busy = pending || Boolean(open?.busy);
   const anyFolded = fold.talk || fold.copy || fold.open;
   return (
@@ -257,10 +266,15 @@ export function FrameTalkTake({
               talk: folded(talkRef.current),
               copy: folded(copyRef.current),
               open: folded(openRef.current),
+              modes: foldedFrameModes(menuRef.current),
             });
         }}
       >
-        <span className={menu ? 'contents' : 'hidden group-data-[fold-open]/frame:contents'}>
+        <span
+          ref={menuRef}
+          data-frame-modes-menu=""
+          className={menu ? 'contents' : 'hidden group-data-[fold-open]/frame:contents'}
+        >
           <DropdownMenuTrigger asChild>
             <ToolbarAction label={menuLabel} aria-busy={busy}>
               {busy ? (
@@ -275,6 +289,24 @@ export function FrameTalkTake({
           </DropdownMenuTrigger>
         </span>
         <DropdownMenuContent align="end" className="w-64">
+          {fold.modes.map((group, index) => (
+            <Fragment key={`${index}:${group.label}`}>
+              {index > 0 ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuRadioGroup
+                aria-label={group.label}
+                value={group.value}
+                onValueChange={group.onChange}
+              >
+                {group.modes.map(({ value, label, icon: Icon }) => (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    <Icon aria-hidden="true" />
+                    {label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </Fragment>
+          ))}
+          {fold.modes.length > 0 && (anyFolded || menu) ? <DropdownMenuSeparator /> : null}
           {fold.talk && addToMessage ? (
             <DropdownMenuItem
               disabled={Boolean(addToMessage.reason)}

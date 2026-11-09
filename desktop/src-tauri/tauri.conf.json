@@ -4,7 +4,7 @@
   "version": "0.7.3",
   "identifier": "ai.iowarp.gact.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @clio/workspace build",
+    "beforeBuildCommand": "pnpm --filter @clio/workspace build:bundle",
     "beforeDevCommand": "pnpm --filter @clio/workspace dev",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../web/dist"

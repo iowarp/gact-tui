@@ -1,16 +1,36 @@
 import { brand } from '@brand';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { useState } from 'react';
 import type { ConnectionSettings } from '@/lib/connection';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NavigationHeader } from './navigation-header';
 
 vi.mock('@/hooks/use-runtime-version', () => ({
   useRuntimeVersion: () => ({ version: '0.9.5', pending: false }),
+}));
+vi.mock('@/hooks/use-connection-indicator-state', () => ({
+  useConnectionIndicatorState: () => 'live',
+}));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({
+    agentBehindLatest: false,
+    desktopShell: false,
+    displayedDesktopVersion: undefined,
+    latestClioVersion: undefined,
+    message: undefined,
+    recheck: vi.fn(),
+    settings: { endpoint: 'http://127.0.0.1:8788' },
+    state: 'current',
+    statusLabel: 'Version status: up to date',
+    updateAll: vi.fn(),
+    updating: false,
+    versions: [{ label: 'Agent', version: '1.2.0', testId: 'version-row-agent' }],
+  }),
 }));
 vi.mock('@/hooks/use-update-status', () => ({ useUpdateStatus: () => undefined }));
 
@@ -52,8 +72,6 @@ it('shows saved service addresses and prevents selecting an unavailable service'
             onConnect={onConnect}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[
               { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
               { endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' },
@@ -64,7 +82,7 @@ it('shows saved service addresses and prevents selecting an unavailable service'
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByTitle('Contained, this computer'));
+  await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
 
   expect(screen.getAllByText('127.0.0.1:8788').length).toBeGreaterThan(0);
   expect(screen.getByText('127.0.0.1:9999')).toBeVisible();
@@ -74,28 +92,19 @@ it('shows saved service addresses and prevents selecting an unavailable service'
   expect(onConnect).not.toHaveBeenCalled();
 });
 
-it('explains the active service status when its indicator is hovered', async () => {
-  const user = userEvent.setup();
+it('names the agent and where it runs under the product name', () => {
   render(
     <MemoryRouter>
       <TooltipProvider>
         <SidebarProvider>
           <NavigationHeader
             activeLabel="This device"
-            connectionAvailabilities={{
-              'http://127.0.0.1:8788': {
-                state: 'degraded',
-                label: 'Limited',
-                detail: 'No model is selected yet.',
-              },
-            }}
+            connectionAvailabilities={{}}
             currentPath="/"
             endpoint="http://127.0.0.1:8788"
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[{ endpoint: 'http://127.0.0.1:8788', label: 'This device' }]}
           />
         </SidebarProvider>
@@ -103,13 +112,11 @@ it('explains the active service status when its indicator is hovered', async () 
     </MemoryRouter>,
   );
 
-  await user.hover(
-    screen.getByRole('img', {
-      name: 'Service status: Limited. No model is selected yet.',
-    }),
-  );
-
-  expect(await screen.findByText('No model is selected yet.')).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: new RegExp(`^${brand.name}: .+, this computer$`, 'u') }),
+  ).toBeVisible();
+  expect(screen.getByRole('button', { name: 'New conversation' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Import conversation…' })).toBeInTheDocument();
 });
 
 it('names the agent and where it runs under the mark, and in the menu', async () => {
@@ -125,8 +132,6 @@ it('names the agent and where it runs under the mark, and in the menu', async ()
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[
               {
                 endpoint: 'http://127.0.0.1:17800',
@@ -140,7 +145,7 @@ it('names the agent and where it runs under the mark, and in the menu', async ()
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByTitle(`${brand.agentName} local, this computer`));
+  await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
 
   const menu = screen.getByRole('menu');
   expect(within(menu).getByText('Talking to')).toBeVisible();
@@ -170,8 +175,6 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
             connections={[]}
           />
         </SidebarProvider>
@@ -179,7 +182,9 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByTitle('Ares Research, this computer')).toBeVisible();
+  // The name and its place are two phrases split by a gap, not a comma.
+  expect(screen.getByText('Research')).toBeVisible();
+  expect(screen.getByText('Ares')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(
@@ -209,8 +214,6 @@ it.each(['local', 'aurora'] as const)(
           }}
           onImportSession={vi.fn()}
           onNewSession={vi.fn()}
-          onNewWorkspace={vi.fn()}
-          onOpenArchived={vi.fn()}
         />
       );
     }
@@ -251,8 +254,6 @@ it('opens the agent menu from Alt Space in a browser', async () => {
             onConnect={vi.fn()}
             onImportSession={vi.fn()}
             onNewSession={vi.fn()}
-            onNewWorkspace={vi.fn()}
-            onOpenArchived={vi.fn()}
           />
         </SidebarProvider>
       </TooltipProvider>
@@ -263,4 +264,31 @@ it('opens the agent menu from Alt Space in a browser', async () => {
   await user.keyboard('{Alt>}[Space]{/Alt}');
   expect(await screen.findByText('Talking to')).toBeVisible();
   expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+});
+
+it('opens the agent menu when the native Switch agent command asks for it', async () => {
+  render(
+    <MemoryRouter>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            connectionAvailabilities={{}}
+            connections={[]}
+            currentPath="/"
+            endpoint="http://127.0.0.1:49433"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
+    </MemoryRouter>,
+  );
+
+  let taken = false;
+  act(() => {
+    taken = requestClioMenu();
+  });
+  expect(taken).toBe(true);
+  expect(await screen.findByText('Switch to')).toBeVisible();
 });

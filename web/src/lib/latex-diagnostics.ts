@@ -1,7 +1,16 @@
 /** How the LaTeX workspace names a build problem's kind, and which kinds only warn. */
 
-/** Kinds that only warn; every other kind makes the build fail. */
-export const LATEX_WARNING_KINDS = new Set(['overfull_box', 'font_warning', 'warning']);
+/**
+ * Kinds that only warn; every other kind makes the build fail. An undefined citation or
+ * reference is a LaTeX warning: the PDF still builds, with "?" in its place.
+ */
+export const LATEX_WARNING_KINDS = new Set([
+  'overfull_box',
+  'font_warning',
+  'warning',
+  'undefined_citation',
+  'undefined_reference',
+]);
 
 const KIND_LABELS: Record<string, string> = {
   error: 'Error',

@@ -170,7 +170,8 @@ export function FileViewerShell({
   const rendererFacts = [...facts.values()].flat();
   const what = [
     ...rendererFacts,
-    ...(identity.size === undefined ? [] : [formatBytes(identity.size)]),
+    // A viewer that names itself (a dashboard) shows its own facts, not the file's size.
+    ...(identity.size === undefined || titled ? [] : [formatBytes(identity.size)]),
   ];
   const contents = [...readers.values()].at(-1);
   return (

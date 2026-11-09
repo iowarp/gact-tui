@@ -18,7 +18,8 @@
  * - Retry: try a failed step again, regenerate, reset to the start.
  * - Info: an explanation behind hover. Help: guidance about a control.
  * - More: the overflow menu of an item.
- * - Add: create a new item.
+ * - Add: create a new item (a workspace, an agent).
+ * - New conversation: the pen-on-a-page; always a new conversation, never + .
  * - Adjust: pick a level on a scale (reasoning effort).
  * - Connection settings: the sliders, as the CLIO menu's details draw the
  *   link to the agent's connection page (spec v15).
@@ -38,6 +39,7 @@ export {
   CircleHelpIcon as HelpIcon,
   EllipsisIcon as MoreIcon,
   PlusIcon as AddIcon,
+  SquarePenIcon as NewConversationIcon,
   SlidersHorizontalIcon as AdjustIcon,
   SlidersHorizontalIcon as ConnectionSettingsIcon,
   SaveIcon,
