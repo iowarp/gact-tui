@@ -161,10 +161,7 @@ const requiredImports = {
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
   // Every Settings model choice opens the shared picker through this field.
   'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
-  'web/src/components/clio/settings-prompts.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/clio/settings-frame',
-  ],
+  'web/src/components/clio/settings-prompt-editor.tsx': ['@/components/ai-elements/code-block'],
   // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
   // The ReUI Timeline of the old Reviews tab is replaced by the shared comment thread list
   // and the one comment session every viewer uses (clio-agent comments plan, rules 1 and 2;
