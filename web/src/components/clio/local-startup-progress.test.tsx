@@ -23,7 +23,9 @@ it('shows the native package output and elapsed time while startup is pending', 
   const current = screen.getByRole('listitem', { current: 'step' });
   expect(current).toHaveTextContent('Preparing the runtime and packages');
   expect(current).toHaveTextContent('2s');
-  expect(current).toHaveTextContent(/Preparing sandbox read\/execute access/u);
+  expect(
+    screen.getByRole('list', { name: 'Startup progress' }).nextElementSibling,
+  ).toHaveTextContent(/Preparing sandbox read\/execute access/u);
   fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));
   expect(screen.getAllByText(/Preparing sandbox read\/execute access/u)).toHaveLength(2);
   expect(mocks.invoke).toHaveBeenCalledWith('read_logs');

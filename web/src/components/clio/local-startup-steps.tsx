@@ -93,7 +93,7 @@ export function LocalStartupSteps({
       <p role="status" className="sr-only">
         {STEPS[current]?.label}
       </p>
-      <StepList label="Startup progress" steps={steps} />
+      <StepList label="Startup progress" logPlacement="end" steps={steps} />
       {detail || log ? (
         <TechnicalDetails
           title="Startup details"
