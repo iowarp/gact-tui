@@ -26,9 +26,11 @@ export function useProviderCatalog(enabled = true) {
     onSuccess: (catalog) => queryClient.setQueryData(queryKey, catalog),
   });
 
-  return {
-    ...query,
+  // Inherit the query result rather than spreading it: a spread reads every field, which
+  // subscribes each consumer (App, the workspace page) to all of them, so an idle stale
+  // flip re-rendered the page. Through the prototype, only the fields read are tracked.
+  return Object.assign(Object.create(query) as typeof query, {
     isRefreshing: query.isFetching || refresh.isPending,
     refreshCatalog: refresh.mutate,
-  };
+  });
 }

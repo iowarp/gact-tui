@@ -32,7 +32,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandShortcut,
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
 import {
@@ -64,9 +63,16 @@ import {
   GlobalSearchGroups,
   GlobalSearchMatchesScope,
   MoreResultsItem,
+  ResultDetail,
   ResultsHeading,
+  ResultTrail,
 } from './global-search-results';
-import { isMissingEndpoint, type GlobalSearchMatches } from './use-global-search-matches';
+import {
+  isMissingEndpoint,
+  retryUnlessMissing,
+  type GlobalSearchMatches,
+} from './use-global-search-matches';
+import { CommandMenuNoMatch } from './command-menu-no-match';
 import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { TextTabs } from './primitives/text-tabs';
 import { ArtifactResultGroup, FileResultGroup, MessageHitGroup } from './command-menu-work-groups';
@@ -134,7 +140,6 @@ export function ClioCommandMenu({
   const { text: searchText, prefixScope } = parseCommandMenuQuery(query);
   const activeScope = prefixScope ?? scope;
   const compactTabs = useMediaQuery('(max-width: 899px)');
-  const [recentThreshold] = useState(() => Date.now() - 7 * 24 * 60 * 60 * 1000);
   const navigate = useNavigate();
   const location = useLocation();
   const repository = useRepository();
@@ -221,6 +226,7 @@ export function ClioCommandMenu({
         signal,
       ),
     enabled: open && credentialsReady && !aiMode && serverQuery.length >= 2,
+    retry: retryUnlessMissing,
   });
 
   useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
@@ -279,9 +285,7 @@ export function ClioCommandMenu({
           ? `${session.title} ${workspaceNames.get(session.workspace_id) ?? ''}`
               .toLocaleLowerCase()
               .includes(normalizedQuery)
-          : session.id === sessionId ||
-            session.pinned ||
-            Date.parse(sessionInteractionAt(session)) >= recentThreshold),
+          : true),
     );
     return candidates
       .sort(
@@ -293,7 +297,7 @@ export function ClioCommandMenu({
         0,
         normalizedQuery ? COMMAND_MENU_LIMITS.searchedSessions : COMMAND_MENU_LIMITS.recentSessions,
       );
-  }, [normalizedQuery, recentThreshold, sessionId, sessions.data, workspaceNames]);
+  }, [normalizedQuery, sessions.data, workspaceNames]);
 
   const finish = (action: () => void) => {
     changeOpen(false);
@@ -416,7 +420,7 @@ export function ClioCommandMenu({
     if (activeScope !== 'settings' && counts.settings !== counts.all) return undefined;
     const first = global.commands.Settings[0]?.action;
     const route = first && 'route' in first ? first.route : '/settings/agents';
-    return `${route}?q=${encodeURIComponent(searchText.trim())}`;
+    return `${route.split('#')[0]}?q=${encodeURIComponent(searchText.trim())}`;
   };
   const searchKeyDown = (event: KeyboardEvent<HTMLInputElement>, settingsRoute?: string) => {
     if (event.nativeEvent.isComposing) return;
@@ -446,14 +450,13 @@ export function ClioCommandMenu({
     pickScope(next);
   };
   const scopeLabel = COMMAND_MENU_SCOPES.find((item) => item.value === activeScope)?.label ?? '';
-  const emptyText = (total: number) =>
-    memory.isFetching
-      ? 'Searching conversations…'
-      : !searching && (activeScope === 'files' || activeScope === 'artifacts')
-        ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
-        : searching && activeScope !== 'all' && total
-          ? `No ${scopeLabel.toLocaleLowerCase()} match. All has ${total} ${total === 1 ? 'result' : 'results'}.`
-          : 'No matching work or action.';
+  const fetching = memory.isFetching || files.isFetching;
+  const emptyText = memory.isFetching
+    ? 'Searching conversations…'
+    : !searching && (activeScope === 'files' || activeScope === 'artifacts')
+      ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
+      : 'Nothing here yet.';
+  const canAsk = credentialsReady && Boolean(searchWorkspaceId);
   const sessionRows = capRows(visibleSessions, groupLimit);
   const messageRows = capRows(memoryHits, groupLimit);
   const fileRows = capRows(matchingFiles, groupLimit);
@@ -463,7 +466,7 @@ export function ClioCommandMenu({
   return (
     <Dialog onOpenChange={changeOpen} open={open}>
       <DialogContent
-        className={`top-[10dvh] max-h-[80dvh] max-w-none translate-y-0 overflow-hidden p-0 sm:max-w-none ${aiMode ? 'w-[min(calc(100vw-1rem),max(30rem,60vw),48rem)]' : 'w-[min(calc(100vw-1rem),40rem)]'}`}
+        className={`top-[10dvh] max-h-[80dvh] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden p-0 sm:max-w-[calc(100vw-1rem)] ${aiMode ? 'w-[min(max(30rem,60vw),48rem)]' : 'w-[clamp(420px,50vw,720px)]'}`}
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -522,9 +525,11 @@ export function ClioCommandMenu({
                     label: `Ask ${vocab.agent}`,
                     shortcut: 'menu-ask',
                     onSelect: () => setAiMode(true),
-                    disabled: !credentialsReady || !searchWorkspaceId,
+                    disabled: !canAsk,
+                    end: true,
                   },
                 ];
+                const noMatch = searching && !fetching && counts[activeScope] === 0;
                 return (
                   <>
                     <CommandInput
@@ -539,17 +544,16 @@ export function ClioCommandMenu({
                         searching ? (
                           <span
                             aria-live="polite"
-                            className="flex shrink-0 items-center gap-1.5 pr-1 text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+                            className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
                           >
-                            {memory.isFetching || files.isFetching ? (
+                            {fetching && !counts.all ? (
                               <LoaderCircleIcon
-                                aria-hidden="true"
+                                aria-label="Searching"
                                 className="size-3.5 motion-safe:animate-spin"
                               />
-                            ) : null}
-                            {(memory.isFetching || files.isFetching) && !counts.all
-                              ? null
-                              : `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`}
+                            ) : (
+                              `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`
+                            )}
                           </span>
                         ) : null
                       }
@@ -564,6 +568,7 @@ export function ClioCommandMenu({
                         tabs={COMMAND_MENU_SCOPES.map((tab) => ({
                           ...tab,
                           icon: compactTabs ? SCOPE_ICONS[tab.value] : undefined,
+                          gathers: tab.value === 'more',
                           count: searching ? counts[tab.value] : undefined,
                         }))}
                         value={activeScope}
@@ -580,7 +585,18 @@ export function ClioCommandMenu({
                       </p>
                     ) : null}
                     <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5">
-                      <CommandEmpty>{emptyText(counts.all)}</CommandEmpty>
+                      {noMatch ? (
+                        <CommandMenuNoMatch
+                          canAsk={canAsk}
+                          onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
+                          onAsk={() => setAiMode(true)}
+                          query={searchText.trim()}
+                          scope={activeScope === 'all' ? undefined : scopeLabel}
+                          total={counts.all}
+                        />
+                      ) : (
+                        <CommandEmpty>{emptyText}</CommandEmpty>
+                      )}
                       {inCommandMenuScope(activeScope, 'conversations') &&
                       sessionRows.rows.length ? (
                         <CommandGroup
@@ -602,10 +618,10 @@ export function ClioCommandMenu({
                               value={`session:${session.id}`}
                             >
                               <MessageSquareTextIcon aria-hidden="true" />
-                              <span className="min-w-0 flex-1 truncate">
+                              <span className="min-w-0 flex-[0_1_auto] truncate">
                                 <SearchHighlight text={session.title} query={searchText} />
                               </span>
-                              <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
+                              <ResultDetail>
                                 <SearchHighlight
                                   text={
                                     workspaceNames.get(session.workspace_id) ??
@@ -613,12 +629,13 @@ export function ClioCommandMenu({
                                   }
                                   query={searchText}
                                 />
-                              </span>
-                              <ClioRelativeTime
-                                compact
-                                className="w-14 shrink-0 text-right text-xs whitespace-nowrap tabular-nums"
-                                timestamp={sessionInteractionAt(session)}
-                              />
+                              </ResultDetail>
+                              <ResultTrail>
+                                <ClioRelativeTime
+                                  compact
+                                  timestamp={sessionInteractionAt(session)}
+                                />
+                              </ResultTrail>
                             </CommandItem>
                           ))}
                           <MoreResultsItem
@@ -691,10 +708,10 @@ export function ClioCommandMenu({
                                   onSelect={() => void openWorkspace(item.id)}
                                 >
                                   <FolderIcon aria-hidden="true" />
-                                  <span className="min-w-0 flex-1 truncate">
+                                  <span className="min-w-0 flex-[0_1_auto] truncate">
                                     <SearchHighlight text={item.display_name} query={searchText} />
                                   </span>
-                                  <CommandShortcut>Workspace</CommandShortcut>
+                                  <ResultTrail>Workspace</ResultTrail>
                                 </CommandItem>
                               ))}
                               <MoreResultsItem

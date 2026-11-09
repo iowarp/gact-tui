@@ -15,9 +15,10 @@ test('session creation expands downward from a stable corner and keeps actions r
   page.on('pageerror', (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
-  await page.getByRole('button', { name: 'Create or import', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
+  // New conversation opens a draft in place; the full creation dialog is reached from New workspace.
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
+  await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
   const fields = dialog.getByRole('region', { name: 'Creation options', exact: true });
   const advanced = dialog.getByRole('button', { name: 'Advanced session behavior', exact: true });
   await dialog
@@ -102,8 +103,8 @@ test('session creation expands downward from a stable corner and keeps actions r
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
-  await page.getByRole('button', { name: 'Create or import', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
+  await page.getByRole('button', { name: 'New workspace', exact: true }).click();
+  await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
   await advanced.click();
   const phoneBox = (await dialog.boundingBox())!;
   // Below 600 px the frame is a bottom sheet across the whole width.
@@ -148,19 +149,17 @@ test('a create menu opened while the conversation is loading stays open once it 
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   const restoring = page.getByText('Restoring saved messages now', { exact: false });
   await expect(restoring).toBeVisible();
-  const trigger = page.getByRole('button', { name: 'Create or import', exact: true });
+  // The left bar's header menu: it must survive the shell finishing its load.
+  const trigger = page.locator('[data-sidebar="header"] [data-connection-state]');
   await trigger.click();
-  const newSession = page.getByRole('menuitem', { name: 'New session', exact: true });
-  await expect(newSession).toBeVisible();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
 
   releaseSessions();
   // The open menu hides the rest of the page from the accessibility tree, so
   // read the shell through attributes rather than roles.
   await expect(page.locator('[aria-label="Workspace canvas loading"]')).toHaveCount(0);
   await expect(restoring).toHaveCount(0);
-  await expect(page.locator('[aria-label="Create or import"]')).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
-  await expect(newSession).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu).toBeVisible();
 });

@@ -502,7 +502,7 @@ export function RenameResourceDialog({
   return (
     <DialogFrame
       confirm={{
-        label: pending ? 'Saving?' : 'Save name',
+        label: pending ? 'Saving…' : 'Save name',
         disabled: pending || !name,
         onConfirm: confirm,
       }}
@@ -518,8 +518,8 @@ export function RenameResourceDialog({
           Name
         </Label>
         <Input
-          autoFocus
           className="h-[30px] text-[12.5px] md:text-[12.5px]"
+          data-initial-focus=""
           id="rename-resource"
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -567,7 +567,7 @@ export function DeleteResourceDialog({
     <DialogFrame
       alert
       confirm={{
-        label: pending ? 'Removing?' : `Remove ${target.kind}`,
+        label: pending ? 'Removing…' : `Remove ${target.kind}`,
         tone: 'destructive',
         disabled: pending,
         onConfirm: () => void remove(),

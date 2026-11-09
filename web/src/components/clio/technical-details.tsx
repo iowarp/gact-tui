@@ -1,8 +1,11 @@
 import { ChevronRightIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
+
+const TRIGGER_CLASS =
+  'flex w-fit shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
 
 /**
  * Collapsed-by-default disclosure for technical/raw content: protocol wire
@@ -46,10 +49,7 @@ export function TechnicalDetails({
   const trigger = (
     <CollapsibleTrigger
       {...triggerProps}
-      className={cn(
-        'flex w-fit cursor-pointer items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-        summaryClassName,
-      )}
+      className={cn(TRIGGER_CLASS, 'font-medium', summaryClassName)}
     >
       <ChevronRightIcon
         aria-hidden="true"
@@ -77,5 +77,33 @@ export function TechnicalDetails({
       )}
       <CollapsibleContent className={contentClassName}>{children}</CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/**
+ * The same Technical details line for a surface that opens the content in a dialog frame
+ * instead of inline (a decision card, whose facts must stay in view).
+ */
+export function TechnicalDetailsButton({
+  title,
+  keyChip,
+  className,
+  ...buttonProps
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'type' | 'title'> & {
+  title: string;
+  /** The key chip after the title, for a surface that opens it with a key (D). */
+  keyChip?: ReactNode;
+}) {
+  return (
+    <button
+      {...buttonProps}
+      aria-haspopup="dialog"
+      className={cn(TRIGGER_CLASS, className)}
+      type="button"
+    >
+      <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
+      {title}
+      {keyChip}
+    </button>
   );
 }

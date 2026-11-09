@@ -364,7 +364,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <SelectTrigger
             aria-label="Prompt workspace"
             className={cn(
-              'h-7! min-w-0 shrink gap-1.5 px-2 text-xs',
+              'h-7! min-w-0 shrink gap-1.5 px-2 text-xs *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate',
               tight ? 'order-last w-full *:data-[slot=select-value]:flex-1' : 'w-44',
             )}
             size="sm"

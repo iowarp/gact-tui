@@ -152,7 +152,7 @@ export interface CascaderItemProps
 
 /** One row. Branch presses navigate instead of selecting, vetoed here with
  *  `preventBaseUIHandler()` on `onClick` (Enter too) and on `onMouseUp`. */
-const CascaderItem = React.memo(function CascaderItem({
+const CascaderOptionItem = React.memo(function CascaderOptionItem({
   node,
   index,
   depth,
@@ -833,6 +833,45 @@ export function getCascaderMoreProps(
     childrenError: false,
   };
 }
+
+/** A `static` node's row: its `renderItem` body in a named group. */
+function CascaderStaticRow({
+  node,
+  depth,
+  className,
+  style,
+  ref,
+  'data-index': dataIndex,
+}: CascaderItemProps & { 'data-index'?: number }) {
+  const { renderItem } = useCascaderRender();
+  const body = renderItem?.(node, {
+    branch: false,
+    selected: false,
+    disabled: false,
+    depth: depth ?? 0,
+    count: 0,
+    path: [],
+  });
+  return (
+    <div
+      ref={ref as React.Ref<HTMLDivElement>}
+      role="group"
+      aria-label={node.label}
+      data-slot="cascader-static"
+      data-index={dataIndex}
+      style={style}
+      className={cn('flex w-full items-center', ROW_FLUSH_CLASS, className)}
+    >
+      {body ?? node.label}
+    </div>
+  );
+}
+
+const CascaderItem = React.memo(function CascaderItem(
+  props: CascaderItemProps & { 'data-index'?: number },
+) {
+  return props.node.static ? <CascaderStaticRow {...props} /> : <CascaderOptionItem {...props} />;
+});
 
 export interface CascaderItemsProps {
   /** Replaces the default row for every item. */
