@@ -105,20 +105,20 @@ describe('viewer states', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a too-large file by its size, in words, leaving its download to Open in the frame', () => {
-    render(<ViewerTooLarge source={binary} />, { wrapper: framed() });
+  it('shows a too-large file by its size, in words, with Preview and Download', async () => {
+    repository.readWorkspaceFileBytes.mockResolvedValue(new Uint8Array([1]));
+    const onPreview = vi.fn();
+    render(<ViewerTooLarge onPreview={onPreview} source={binary} />, { wrapper: framed() });
     const state = document.querySelector('[data-kind="too-large"]') as HTMLElement;
     expect(state).toHaveTextContent('2.1 GB');
     expect(state).toHaveTextContent('Too large to preview');
-    // A browser has no app for it, and the frame's Open menu holds the one download.
-    expect(within(state).queryAllByRole('button')).toHaveLength(0);
-  });
-
-  it('offers Download in a too-large state outside a frame', async () => {
-    repository.readWorkspaceFileBytes.mockResolvedValue(new Uint8Array([1]));
-    render(<ViewerTooLarge source={binary} />, { wrapper: framed(null) });
-    const state = document.querySelector('[data-kind="too-large"]') as HTMLElement;
-    expect(within(state).getAllByRole('button')).toHaveLength(1);
+    expect(
+      within(state)
+        .getAllByRole('button')
+        .map((button) => button.ariaLabel),
+    ).toEqual(['Preview', 'Download']);
+    await userEvent.click(within(state).getByRole('button', { name: 'Preview' }));
+    expect(onPreview).toHaveBeenCalledTimes(1);
     await userEvent.click(within(state).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
       expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
@@ -128,17 +128,22 @@ describe('viewer states', () => {
     );
   });
 
-  it('names the format of a file with no preview and adds it to the frame facts', () => {
+  it('names the format of a file with no preview, adds it to the frame facts and offers Download', () => {
     const setFacts = vi.fn();
     render(<ViewerNoPreview source={binary} />, { wrapper: framed(setFacts) });
     const state = document.querySelector('[data-kind="no-preview"]') as HTMLElement;
     expect(state).toHaveTextContent('.grib2');
     expect(state).toHaveTextContent('No preview for this format');
-    expect(within(state).queryByRole('button', { name: 'Download' })).toBeNull();
+    // A browser has no app for the format, so Download is the way out.
+    expect(
+      within(state)
+        .getAllByRole('button')
+        .map((button) => button.ariaLabel),
+    ).toEqual(['Download']);
     expect(setFacts).toHaveBeenCalledWith(expect.any(String), ['.grib2']);
   });
 
-  it('offers Open when the browser can show the file', () => {
+  it('offers Open beside Download when the browser can show the file', () => {
     render(<ViewerNoPreview source={{ ...binary, path: 'clip.webm', mediaType: 'video/webm' }} />, {
       wrapper: framed(),
     });
@@ -147,7 +152,7 @@ describe('viewer states', () => {
       within(state)
         .getAllByRole('button')
         .map((button) => button.ariaLabel),
-    ).toEqual(['Open in a browser tab']);
+    ).toEqual(['Open in a browser tab', 'Download']);
   });
 
   it('resolves a change made elsewhere with Keep current or Use mine', async () => {

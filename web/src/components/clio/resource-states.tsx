@@ -1,4 +1,4 @@
-import { BoxIcon, DownloadIcon } from 'lucide-react';
+import { BoxIcon, DownloadIcon, EyeIcon } from 'lucide-react';
 import { useContext } from 'react';
 import {
   Empty,
@@ -109,41 +109,54 @@ export function ViewerReadError({ error, onRetry }: { error?: string; onRetry?: 
 const BROWSER_READABLE = /^(?:application\/pdf|image\/|text\/|video\/|audio\/)/u;
 
 /**
- * Too large and No preview's ways out, as icons. Open appears only where it shows the
+ * Too large and No preview's ways out, as named icons: Preview (load it anyway) or
+ * Open, then Download of the original bytes. Open appears only where it shows the
  * file (the system app on the desktop, a browser tab for a format the browser reads).
- * Under a frame bar, Open ▾ holds the file's one download, so the body adds none;
- * elsewhere the body's Download is it.
  */
-function useViewerFileActions(source: FileViewerSource): {
+function useViewerFileActions(
+  source: FileViewerSource,
+  onPreview?: () => void,
+): {
   action?: StateAction;
   secondaryAction?: StateAction;
 } {
-  const framed = useContext(FileViewerFactsRegistry) !== undefined;
   const take = useOpenTake(source, NO_FORMATS);
   const identity = fileViewerIdentity(source);
   const row = take.rows.find((candidate) => candidate.id === 'download');
   const disabled = !identity.available || take.busy;
-  const open: StateAction | undefined =
-    inTauri() || BROWSER_READABLE.test(identity.mediaType)
+  const first: StateAction | undefined = onPreview
+    ? { label: 'Preview', icon: <EyeIcon />, disabled, onClick: onPreview }
+    : inTauri() || BROWSER_READABLE.test(identity.mediaType)
       ? { label: take.face.label, icon: take.face.icon, disabled, onClick: take.face.run }
       : undefined;
-  if (framed) return { action: open };
   const download: StateAction = {
     label: 'Download',
     icon: <DownloadIcon />,
     disabled: disabled || Boolean(row?.reason),
     onClick: () => row?.onSelect?.(),
   };
-  return open ? { action: download, secondaryAction: open } : { action: download };
+  return { action: download, secondaryAction: first };
 }
 
 const NO_FORMATS: never[] = [];
 
-/** Too large: the size, in words, with Open and Download; nothing is read into the page. */
-export function ViewerTooLarge({ source, size }: { source: FileViewerSource; size?: number }) {
+/**
+ * Too large: the size, in words, with Preview (when the viewer can load it anyway)
+ * and Download; nothing is read into the page until Preview is chosen.
+ */
+export function ViewerTooLarge({
+  source,
+  size,
+  onPreview,
+}: {
+  source: FileViewerSource;
+  size?: number;
+  /** Load the file into the viewer despite its size. */
+  onPreview?: () => void;
+}) {
   const identity = fileViewerIdentity(source);
   const bytes = size ?? identity.size;
-  const actions = useViewerFileActions(source);
+  const actions = useViewerFileActions(source, onPreview);
   return (
     <StateView
       {...actions}

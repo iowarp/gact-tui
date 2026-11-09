@@ -21,12 +21,13 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 
 /**
- * How far the frame bar has folded, one group per step: facts, folders, Open,
- * Copy, then @ with the modes folding to one icon, then only the name,
+ * How far the frame bar has folded, one group per step: the secondary facts,
+ * folders, Open, Copy, the position fact (a page, a row count; marked
+ * `data-frame-position`), then @ with the modes folding to one icon, then only the name,
  * comments and the … menu. Children hide on the bar's `data-fold-*` flags
  * (`group-data-[fold-open]/frame:hidden`).
  */
-const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'talk', 'name'] as const;
+const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'position', 'talk', 'name'] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
@@ -121,7 +122,7 @@ export const FrameBar = memo(function FrameBar({
         {what ? (
           <div
             data-frame-fit=""
-            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-faint group-data-[fold-facts]/frame:hidden"
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-faint group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
           </div>
