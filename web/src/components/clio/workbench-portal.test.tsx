@@ -173,6 +173,8 @@ it.each(['desktop', 'sheet'] as const)(
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Architecture diagram' })).toBeVisible();
     expect(document.querySelector('[data-maximized=true]')).not.toBeNull();
+    // Floating conversation surfaces hide under a maximized canvas through this flag.
+    expect(document.body).toHaveAttribute('data-canvas-maximized');
 
     await user.click(screen.getByRole('textbox', { name: 'Diagram notes' }));
     expect(screen.getByRole('dialog', { name: 'Architecture diagram' })).toBeVisible();
@@ -183,6 +185,7 @@ it.each(['desktop', 'sheet'] as const)(
 
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
+    expect(document.body).not.toHaveAttribute('data-canvas-maximized');
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Maximize canvas' })).toHaveFocus(),
     );

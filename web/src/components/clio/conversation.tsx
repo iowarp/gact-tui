@@ -40,7 +40,7 @@ import {
   projectA2UIActionMessages,
   surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
-import { PresentationNavigation } from './presentation-navigation';
+import { PresentationNavigation, usePresentationNavigation } from './presentation-navigation';
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import { useConversationColumn } from './use-conversation-column';
@@ -78,8 +78,9 @@ const EARLIER_LOAD_THRESHOLD_PX = 600;
 
 export function ClioConversation(props: ClioConversationProps) {
   const inRouter = useInRouterContext();
+  const navigation = usePresentationNavigation(props);
   return (
-    <PresentationNavigation.Provider value={props}>
+    <PresentationNavigation.Provider value={navigation}>
       <TranscriptDisclosures sessionId={props.sessionId ?? props.messages[0]?.session_id}>
         {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
       </TranscriptDisclosures>
