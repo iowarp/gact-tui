@@ -3,8 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { SourceWindowContext } from '@/lib/source-window';
 
-/** Matches the highlighted block's text-sm line height. Unit: CSS px. */
-const SOURCE_LINE_HEIGHT_PX = 20;
+/** Matches the highlighted source's 11.5px/1.65 lines. Unit: CSS px. */
+const SOURCE_LINE_HEIGHT_PX = 19;
 /** Rows from the end at which a windowed file asks for its next window. */
 const END_REACHED_ROWS = 200;
 
@@ -46,7 +46,7 @@ export function VirtualSourceLines({
       {...props}
       ref={scrollRef}
       className={cn(
-        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-foreground text-sm',
+        'min-h-0 min-w-0 overflow-auto bg-background font-mono text-[11.5px] leading-[19px] text-foreground',
         className,
       )}
       data-slot="virtual-source"

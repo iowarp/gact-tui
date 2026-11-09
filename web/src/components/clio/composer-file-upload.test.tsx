@@ -41,15 +41,33 @@ function renderComposer(contextReferences = false) {
   );
 }
 
+async function openDropSurface(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Attach files' }));
+  await user.click(screen.getByRole('menuitem', { name: 'From connected data…' }));
+  await user.click(screen.getByRole('button', { name: 'Choose files' }));
+}
+
 describe('ClioComposer file upload surface', () => {
-  it('opens from the direct action and delegates browsing to the existing picker', async () => {
+  it('opens the system file picker straight from the attach menu', async () => {
     const user = userEvent.setup();
     renderComposer();
     const picker = screen.getByLabelText('Upload files');
     const open = vi.spyOn(picker, 'click');
 
     await user.click(screen.getByRole('button', { name: 'Attach files' }));
-    await user.click(screen.getByRole('button', { name: 'Choose files' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Upload files…' }));
+
+    expect(open).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('delegates browsing from the drop surface to the existing picker', async () => {
+    const user = userEvent.setup();
+    renderComposer(true);
+    const picker = screen.getByLabelText('Upload files');
+    const open = vi.spyOn(picker, 'click');
+
+    await openDropSurface(user);
 
     const dialog = screen.getByRole('dialog', { name: 'Add attachments' });
     expect(dialog).toBeVisible();
@@ -58,16 +76,6 @@ describe('ClioComposer file upload surface', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Select files' }));
     expect(open).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog', { name: 'Add attachments' })).not.toBeInTheDocument();
-  });
-
-  it('opens from the attach button beside the reference button', async () => {
-    const user = userEvent.setup();
-    renderComposer(true);
-
-    await user.click(screen.getByRole('button', { name: 'Attach files' }));
-    await user.click(screen.getByRole('button', { name: 'Choose files' }));
-
-    expect(screen.getByRole('dialog', { name: 'Add attachments' })).toBeVisible();
   });
 
   it('opens for a file drag anywhere and attaches a document-level drop', async () => {
@@ -93,8 +101,7 @@ describe('ClioComposer file upload surface', () => {
     renderComposer();
     const file = new File(['data'], 'observations.csv', { type: 'text/csv' });
 
-    await user.click(screen.getByRole('button', { name: 'Attach files' }));
-    await user.click(screen.getByRole('button', { name: 'Choose files' }));
+    await openDropSurface(user);
     fireEvent.drop(screen.getByRole('region', { name: 'File drop area' }), {
       dataTransfer: { files: [file], types: ['Files'] },
     });
