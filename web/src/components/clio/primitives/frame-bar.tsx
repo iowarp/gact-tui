@@ -39,7 +39,7 @@ export const FrameBar = memo(function FrameBar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {where}
         {what ? (
-          <div className="hidden min-w-0 items-center gap-2 text-[11px] text-faint @2xl:flex">
+          <div className="hidden min-w-0 items-center gap-2 text-[11px] text-muted-foreground @2xl:flex">
             {what}
           </div>
         ) : null}

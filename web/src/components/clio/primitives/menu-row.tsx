@@ -10,7 +10,7 @@ export interface MenuRowProps {
   label: string;
   /** Muted words after the label; cut with an ellipsis, full text on hover. */
   description?: string;
-  /** A small faint second line under the label (a host, what a choice does). */
+  /** A small muted second line under the label (a host, what a choice does). */
   detail?: string;
   /** A state as a mark and a word in the fixed 72px status column (Online, Offline). */
   status?: { label: string; tone: StatusTone };
