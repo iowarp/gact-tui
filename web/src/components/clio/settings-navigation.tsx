@@ -1,7 +1,7 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
-import { hostSection, matchingSettingsSections } from '@/lib/settings-window-route';
+import { groupedSettingsSections, hostSection } from '@/lib/settings-window-route';
 import { Link } from 'react-router-dom';
 import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { SettingsScopeIcon } from '@/components/clio/settings-scope-icon';
@@ -35,20 +35,6 @@ export interface SettingsNavigationProps {
   onClearFilter?: () => void;
 }
 
-const SCOPE_ORDER = ['App', 'Workspace', 'Agent'];
-
-function grouped(sections: SettingsDestination[], filter = '') {
-  const matched = filter.trim() ? matchingSettingsSections(sections, filter) : undefined;
-  const listed = sections.filter((item) => !item.host && (!matched || matched.has(item.id)));
-  const groups = [...new Set(listed.map((item) => item.group ?? 'App'))].sort(
-    (a, b) => SCOPE_ORDER.indexOf(a) - SCOPE_ORDER.indexOf(b),
-  );
-  return groups.map((group) => ({
-    group,
-    items: listed.filter((item) => (item.group ?? 'App') === group),
-  }));
-}
-
 function openGlobalSearch() {
   window.dispatchEvent(new Event('clio:open-command-menu'));
 }
@@ -64,7 +50,7 @@ export function SettingsNavigation({
   onClearFilter,
 }: SettingsNavigationProps) {
   const current = hostSection(sections, section);
-  const groups = grouped(sections, filter);
+  const groups = groupedSettingsSections(sections, filter);
   const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   return (
     <div className="flex flex-col">
@@ -182,13 +168,17 @@ export function SettingsSectionPicker({
             <span className="truncate">Show every section</span>
           </DropdownMenuItem>
         ) : null}
-        {grouped(sections, filter).map(({ group, items }) => (
+        {groupedSettingsSections(sections, filter).map(({ group, items }) => (
           <div key={group}>
             <DropdownMenuLabel className="truncate">
               {scopeLabels[group] ?? group}
             </DropdownMenuLabel>
             {items.map(({ id, label, icon: Icon }) => (
-              <DropdownMenuItem asChild key={id}>
+              <DropdownMenuItem
+                asChild
+                className="aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+                key={id}
+              >
                 <Link
                   aria-current={id === current ? 'page' : undefined}
                   state={linkState}
@@ -240,7 +230,7 @@ function SettingsFilterBar({
   );
 }
 
-function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
+export function NavBadge({ badge }: { badge?: { count: number; label: string } }) {
   if (!badge?.count) return null;
   return (
     <Badge

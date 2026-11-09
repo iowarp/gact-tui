@@ -165,6 +165,7 @@ export const WindowShell = memo(function WindowShell({
   onOpenChange,
   title,
   navigation,
+  rail,
   children,
   toolbar,
   search,
@@ -176,8 +177,14 @@ export const WindowShell = memo(function WindowShell({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  /** The section list on the left (hidden below 600 px; use a select there). */
+  /**
+   * The section list on the left. With a `rail` it shows from 1024 px and the
+   * rail takes 768-1023 px; without one it shows from 768 px. Below 768 px use a
+   * picker in the toolbar.
+   */
   navigation?: ReactNode;
+  /** The section list folded to icons for 768-1023 px. */
+  rail?: ReactNode;
   /** Controls in the title row, before ×. */
   toolbar?: ReactNode;
   /** A wide search field right after the title. */
@@ -243,9 +250,20 @@ export const WindowShell = memo(function WindowShell({
           {navigation ? (
             <nav
               aria-label={`${title} sections`}
-              className="hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5 min-[768px]:block"
+              className={cn(
+                'hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5',
+                rail ? 'min-[1024px]:block' : 'min-[768px]:block',
+              )}
             >
               {navigation}
+            </nav>
+          ) : null}
+          {rail ? (
+            <nav
+              aria-label={`${title} scopes`}
+              className="hidden w-11 shrink-0 flex-col items-center border-r border-border bg-sidebar pt-2.5 min-[768px]:max-[1023px]:flex"
+            >
+              {rail}
             </nav>
           ) : null}
           <div

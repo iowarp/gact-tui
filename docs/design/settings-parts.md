@@ -54,8 +54,16 @@ Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Ma
 `data-initial-focus`.
 
 **`WindowShell`** (same file)
-`{ open, onOpenChange, title, navigation?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
-The full window frame. Only the Settings window uses it today.
+`{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
+The full window frame. Only the Settings window uses it today. The window
+narrows in the spec's order: from 1024 px `navigation` shows; at 768–1023 px
+`rail` replaces it; below 768 px both hide and a `toolbar` picker takes over.
+Without a `rail`, `navigation` shows from 768 px.
+
+**`SettingsNavRail`** `components/clio/settings-nav-rail.tsx`
+Takes the same props as `SettingsNavigation`. It is one named icon per scope
+(App, workspace, agent) with the waiting-change count. Hover, click, Enter or
+→ opens that scope's sections beside the rail.
 
 **Picker field** `components/clio/model-select-field.tsx`
 
