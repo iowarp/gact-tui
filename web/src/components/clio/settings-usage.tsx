@@ -1,12 +1,12 @@
 import type { FleetSpend } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { InfoIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { BILLING_ORDER, billingLabel, spendDetails, type UsageMode } from '@/lib/fleet-usage';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';

@@ -153,18 +153,22 @@ const requiredImports = {
     '@/components/clio/run-actions',
   ],
   'web/src/components/clio/run-list-row.tsx': ['@/components/clio/primitives/list-row'],
+  // The default model is chosen through the shared Settings picker field, which names it.
   'web/src/components/clio/settings-session-defaults.tsx': [
     '@/components/ui/select',
-    './composer-model-label',
+    './model-select-field',
   ],
   // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
   'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
   // Every Settings model choice opens the shared picker through this field.
   'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
+  // Prompts are flat item rows with a detail pane (settings.html); the rendered
+  // preview keeps the shared CodeBlock in the editor.
   'web/src/components/clio/settings-prompts.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/clio/settings-frame',
+    './primitives/item-row',
+    './primitives/detail-pane',
   ],
+  'web/src/components/clio/settings-prompts-editor.tsx': ['@/components/ai-elements/code-block'],
   // Its readable view is the shared file-text-view (#681); the LaTeX source keeps CodeBlock.
   // The ReUI Timeline of the old Reviews tab is replaced by the shared comment thread list
   // and the one comment session every viewer uses (clio-agent comments plan, rules 1 and 2;
