@@ -16,6 +16,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { TechnicalDetails } from '@/components/clio/technical-details';
+import { sandboxReasonLabel } from '@/components/clio/sandbox-acknowledgement';
 import { InfraRow, type InfraStatus } from '@/components/clio/infrastructure-row';
 import {
   InfraRowChevron,
@@ -39,12 +40,6 @@ import {
   integrationStatusLabel,
   integrationTone,
 } from './infrastructure-foundation';
-
-/** The typed reason tokens (clio_agent.runtime.sandbox / sandbox_codex) this row words specifically. */
-const SANDBOX_REASON_LABELS: Record<string, string> = {
-  codex_enforcement_unverified: 'Not verified yet on this computer',
-  sandbox_fence_pending_restart: `Set up, restart ${vocab.agent} to activate`,
-};
 
 /** Never poll forever: 600 × SANDBOX_SETUP_POLL_MS (10 minutes) is well past any real UAC/provisioning wait. */
 const MAX_SANDBOX_SETUP_POLLS = 600;
@@ -175,9 +170,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   };
 
   const status = integrationStatus(row?.status ?? integration.status);
-  const reasonLabel = row?.reason
-    ? (SANDBOX_REASON_LABELS[row.reason] ?? humanizeProtocolValue(row.reason))
-    : undefined;
+  const reasonLabel = row?.reason ? sandboxReasonLabel(row.reason) : undefined;
   const pendingRestart = row?.reason === 'sandbox_fence_pending_restart';
   const summary = pendingRestart
     ? `Setup finished. Restart ${vocab.agent} to protect tool processes that were already running.`
