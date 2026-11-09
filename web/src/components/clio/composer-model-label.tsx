@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ClioModelOption } from '@/lib/model-options';
+import { type ClioModelOption, compactModelName } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
@@ -85,14 +85,4 @@ export function ComposerModelButton({
       </Tooltip>
     </TooltipProvider>
   );
-}
-
-function compactModelName(provider: string, modelId: string, label: string): string {
-  if (provider === 'codex') {
-    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
-    if (familyName)
-      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
-  }
-  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
-  return label;
 }

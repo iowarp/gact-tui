@@ -99,6 +99,16 @@ const MODIFIER_LABELS: Record<KeyPlatform, Record<Modifier, string>> = {
 };
 const MODIFIER_ORDER: readonly Modifier[] = ['ctrl', 'alt', 'shift', 'meta'];
 
+/**
+ * Modifier names for pointer gestures in help text (`⌘-click`, `Ctrl-click`).
+ * On a Mac, Ctrl-click is a right-click, so the primary modifier is ⌘.
+ */
+export function gestureModifiers(platform: KeyPlatform) {
+  return platform === 'mac'
+    ? { primary: '⌘', primaryShift: '⇧⌘', alt: '⌥' }
+    : { primary: 'Ctrl', primaryShift: 'Ctrl+Shift', alt: 'Alt' };
+}
+
 const KEY_LABELS: Record<KeyPlatform, Record<string, string>> = {
   windows: { Enter: '↵', Up: '↑', Down: '↓', Left: '←', Right: '→' },
   mac: { Enter: '↩', Up: '↑', Down: '↓', Left: '←', Right: '→', Delete: '⌫', Backspace: '⌫' },
@@ -259,6 +269,8 @@ const RESERVED: Record<KeyPlatform, readonly string[]> = {
     'Cmd+Space',
     'Cmd+1–9',
     'Shift+Cmd+3–5',
+    // The Help menu's search over the menu bar.
+    'Shift+Cmd+/',
     'Alt+Cmd+M',
     'Alt+Cmd+I',
     'Alt+Cmd+J',

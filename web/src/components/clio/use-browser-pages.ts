@@ -26,3 +26,24 @@ export function useBrowserPages(sessionId: string) {
 export function browserPageLabel(page: Pick<BrowserPage, 'label' | 'title' | 'host'>): string {
   return page.label || page.title || page.host || 'Browser';
 }
+
+const LOCAL_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])(:\d+)?(\/|$)/iu;
+
+/**
+ * The address a person typed, as the URL the shared browser opens: a bare
+ * host gets `https://` (`http://` for this computer). Only web addresses
+ * open; anything else returns undefined.
+ */
+export function normalizeBrowserAddress(text: string): string | undefined {
+  const value = text.trim();
+  if (!value || /\s/u.test(value)) return undefined;
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//iu.test(value);
+  if (!hasScheme && !LOCAL_HOST.test(value) && !/^[^/]+\.[^/]+/u.test(value)) return undefined;
+  const candidate = hasScheme ? value : `${LOCAL_HOST.test(value) ? 'http' : 'https'}://${value}`;
+  try {
+    const url = new URL(candidate);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}

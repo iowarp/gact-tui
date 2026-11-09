@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { ScanEyeIcon } from 'lucide-react';
 import { useNearViewport } from '@/hooks/use-near-viewport';
+import { cn } from '@/lib/utils';
+import { StateView, type StateAction } from './primitives/state-view';
 import { VIEWER_ARTIFACT_URI } from './viewer-file-schema';
-
 
 export interface ViewerFileGateProps {
   /** What the viewer shows, for the placeholder and messages (for example "3D view"). */
@@ -55,25 +56,31 @@ export function ViewerFileGate({
   let body: ReactNode;
   if (invalid !== undefined)
     body = (
-      <Message {...size} role="alert">
-        This view&apos;s file is not a registered artifact: {invalid}
-      </Message>
+      <Message
+        {...size}
+        kind="error"
+        title={`This view's file is not a registered artifact: ${invalid}`}
+      />
     );
   else if (missing)
-    body = <Message {...size}>Nothing is selected for this {noun} yet.</Message>;
+    body = <Message {...size} kind="empty" title={`Nothing is selected for this ${noun} yet.`} />;
   else if (lost)
     body = (
-      <Message {...size} role="alert">
-        <span>
-          This {noun} lost its graphics context; the browser keeps only a few open at once.
-        </span>
-        <Button onClick={reload} size="sm" variant="outline">
-          Reload view
-        </Button>
-      </Message>
+      <Message
+        {...size}
+        action={{ label: 'Reload view', onClick: reload }}
+        kind="error"
+        title={`This ${noun} lost its graphics context; the browser keeps only a few open at once.`}
+      />
     );
   else if (!near)
-    body = <Message {...size}>The {noun} loads when it scrolls into view.</Message>;
+    body = (
+      <Message
+        {...size}
+        kind="unavailable"
+        title={`The ${noun} loads when it scrolls into view.`}
+      />
+    );
   else body = <div key={mount}>{children}</div>;
   return (
     <div className="min-w-0" data-slot="viewer-file-gate" ref={frame}>
@@ -82,24 +89,29 @@ export function ViewerFileGate({
   );
 }
 
+/** A gated viewer's state, in the shared viewer-state look inside the viewer's own box. */
 function Message({
   heightClass,
   height,
-  role,
-  children,
+  kind,
+  title,
+  action,
 }: {
   heightClass: string;
   height?: number;
-  role?: 'alert';
-  children?: ReactNode;
+  kind: 'error' | 'empty' | 'unavailable';
+  title: string;
+  action?: StateAction;
 }) {
   return (
-    <div
-      className={`${heightClass} flex flex-col items-center justify-center gap-2 rounded-lg border p-4 text-center text-sm text-muted-foreground`}
-      role={role}
-      style={height ? { height } : undefined}
-    >
-      {children}
+    <div className={cn(heightClass, 'rounded-lg border')} style={height ? { height } : undefined}>
+      <StateView
+        action={action}
+        icon={kind === 'unavailable' ? ScanEyeIcon : undefined}
+        kind={kind}
+        size="viewer"
+        title={title}
+      />
     </div>
   );
 }
