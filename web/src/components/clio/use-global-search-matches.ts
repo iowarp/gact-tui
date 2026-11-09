@@ -27,6 +27,11 @@ export function isMissingEndpoint(error: unknown): boolean {
   return (error as { status?: number } | null | undefined)?.status === 404;
 }
 
+/** Retry a failed search twice, but not one the service does not offer. */
+export function retryUnlessMissing(failures: number, error: Error): boolean {
+  return !isMissingEndpoint(error) && failures < 2;
+}
+
 export function useGlobalSearchMatches(
   query: string,
   scope: CommandMenuScope,
@@ -45,11 +50,13 @@ export function useGlobalSearchMatches(
     enabled: credentialsReady && searching,
     queryKey: queryKeys.key('agents', settings.endpoint, connectionScope(settings)),
     queryFn: ({ signal }) => repository.agents(signal),
+    retry: retryUnlessMissing,
   });
   const targets = useQuery({
     enabled: credentialsReady && searching,
     queryKey: ['infrastructure-targets', settings.endpoint, connectionScope(settings)],
     queryFn: ({ signal }) => repository.infrastructureTargets(signal),
+    retry: retryUnlessMissing,
   });
   const commands = useMemo(() => {
     const browsing: readonly GlobalSearchCommand['group'][] =
@@ -63,7 +70,7 @@ export function useGlobalSearchMatches(
     const matched = globalSearchCommands(inTauri()).filter((item) =>
       searching
         ? matchesGlobalSearch(query, item.label, item.group, item.keywords)
-        : browsing.includes(item.group),
+        : !item.setting && browsing.includes(item.group),
     );
     return {
       Actions: matched.filter((item) => item.group === 'Actions'),
