@@ -1,6 +1,6 @@
 // One-command deterministic screenshot capture of every surface and state.
 //
-//   pnpm screens [--widths 1680,1280] [--themes dark,light]
+//   pnpm screens [--widths 1680,1280] [--themes dark,light]   (also notebook-dark, notebook-light)
 //                [--only settings,canvas] [--out test-results/screens]
 //                [--merge]   update an earlier manifest in --out instead of replacing it
 //                [--probes]  record type scale, wraps, contrast, key glyphs and
@@ -623,9 +623,11 @@ function probe() {
     if (!own) continue;
     if (element.closest('svg,[aria-hidden="true"],script,style')) continue;
     const rect = element.getBoundingClientRect();
-    if (!inView(rect)) continue;
+    if (!inView(rect) || rect.width <= 2 || rect.height <= 2) continue;
     const style = getComputedStyle(element);
     if (style.visibility === 'hidden' || Number(style.opacity) < 0.3) continue;
+    // Screen-reader-only text (clipped to nothing) is not visible type.
+    if (/rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)|inset\(50%\)/u.test(`${style.clip} ${style.clipPath}`)) continue;
     const key = `${Math.round(parseFloat(style.fontSize) * 2) / 2}px/${style.fontWeight}`;
     const entry = scale.get(key) ?? { count: 0, sample: own.slice(0, 40), family: style.fontFamily.split(',')[0] };
     entry.count += 1;
@@ -709,13 +711,16 @@ const MAC_AGENT =
 
 async function newContext(browser, stack, { theme, width, connected = true, platform }) {
   const mobile = width < 600;
+  // "notebook-dark"/"notebook-light" select the Notebook theme, which follows
+  // the system colour scheme.
+  const [themeId, scheme = themeId] = theme.split('-');
   const context = await browser.newContext({
     ...(platform === 'mac' ? { userAgent: MAC_AGENT } : {}),
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: scheme === 'light' ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -732,7 +737,7 @@ async function newContext(browser, stack, { theme, width, connected = true, plat
         // Opaque-origin frames have no storage.
       }
     },
-    { theme, endpoint: connected === true ? stack.endpoint : connected || null },
+    { theme: themeId, endpoint: connected === true ? stack.endpoint : connected || null },
   );
   return context;
 }
