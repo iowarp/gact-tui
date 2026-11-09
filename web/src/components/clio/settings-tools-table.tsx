@@ -47,7 +47,13 @@ import {
 import { IconButton } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import type { RowStatus, ToolEditor } from './settings-tools-editor';
-import { ChoicePicker, ValueMark, type PickerOption } from './settings-tools-picker';
+import {
+  ChoicePicker,
+  SummaryPicker,
+  ValueMark,
+  type PickerAction,
+  type PickerOption,
+} from './settings-tools-picker';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -68,24 +74,19 @@ const CALLERS = ['direct', 'code', 'both'] as const;
 
 /*
  * One column template for every row, folding as the table narrows: below
- * 32rem each row stacks, the name on its own line and both pickers under it
- * (see `STACK`); then Tool, Permission and I/O; from 44rem
- * the approval mode's outcome; from 56rem the script's outcome too. The
- * columns keep the spec's widths (128, 176 and 120px); the sub line carries the
- * outcomes a narrower table folds away.
+ * 32rem each row is one summary row (the name over its values and outcomes,
+ * and › opening one picker for both choices); then Tool, Permission and I/O;
+ * from 44rem the approval mode's outcome; from 56rem the script's outcome too.
+ * The columns keep the spec's widths (128, 176 and 120px); the sub line
+ * carries the outcomes a narrower table folds away.
  */
 const COLUMNS =
-  'grid items-center gap-x-2.5 gap-y-1 grid-cols-[20px_minmax(0,1fr)_minmax(0,1fr)_24px] @min-[32rem]/tools:gap-y-0 @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
+  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
 const MODE_CELL = 'hidden min-w-0 @min-[44rem]/tools:flex';
-/** Stacked rows (below 32rem): the icon and slot span both lines, the pickers share the second. */
-const STACK = {
-  lead: '@max-[32rem]/tools:row-span-2',
-  name: '@max-[32rem]/tools:col-span-2',
-  permission: '@max-[32rem]/tools:col-start-2 @max-[32rem]/tools:row-start-2',
-  io: '@max-[32rem]/tools:col-start-3 @max-[32rem]/tools:row-start-2',
-  slot: '@max-[32rem]/tools:col-start-4 @max-[32rem]/tools:row-span-2 @max-[32rem]/tools:row-start-1',
-  notice: '@max-[32rem]/tools:col-[2/-1] @max-[32rem]/tools:row-start-2',
-};
+/** Cells a summary row (below 32rem) folds into its sub line and picker. */
+const WIDE = 'hidden @min-[32rem]/tools:flex';
+/** Parts of the sub line only a summary row shows. */
+const NARROW_ONLY = '@min-[32rem]/tools:hidden';
 const SCRIPT_CELL = 'hidden min-w-0 @min-[56rem]/tools:flex';
 
 export interface ToolTableSection {
@@ -205,10 +206,47 @@ function Outcome({ value, className }: { value: ToolOutcome; className?: string 
 }
 
 /** An outcome folded into the row's second line. */
-function OutcomeMark({ value, text }: { value: ToolOutcome; text: string }) {
+function OutcomeMark({
+  value,
+  text,
+  className,
+}: {
+  value: ToolOutcome;
+  text: string;
+  className?: string;
+}) {
   return (
-    <span className="flex min-w-0" title={OUTCOME_TITLE[value]}>
+    <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
       <StatusIndicator className="text-xs text-faint" label={text} tone={OUTCOME_TONE[value]} />
+    </span>
+  );
+}
+
+/** A value a summary row shows in its sub line: the mark, D for a default, and the word. */
+function ValueSummary({
+  icon,
+  label,
+  isDefault,
+  chosen,
+  className,
+}: {
+  icon: Icon;
+  label: string;
+  isDefault: boolean;
+  chosen: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1.5',
+        chosen ? 'text-primary' : 'text-muted-foreground',
+        className,
+      )}
+    >
+      <ValueMark icon={icon} isDefault={isDefault} />
+      {label}
+      {isDefault ? <span className="sr-only">, default</span> : null}
     </span>
   );
 }
@@ -256,23 +294,29 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
   const byRule = !tool.permission && savedRules(tool).length > 0;
   const permissionLabel = PERMISSION_TEXT[permission.value].label;
   const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Not known yet';
+  const permissionIcon = PERMISSION_ICON[permission.value];
+  const callersIcon = callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon;
+  const choosePermission = (value: ToolPermission) =>
+    editor.save({ tools: [tool.name], permission: value === permissionDefault ? null : value });
+  const chooseCallers = (value: ToolCallers) =>
+    editor.save({ tools: [tool.name], callers: value === callersDefault ? null : value });
   return (
     <li
       className={cn(
         COLUMNS,
-        'group/row min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
+        'group/row relative min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
       )}
       data-tool={tool.name}
     >
       <span
         aria-label={kind.label}
-        className={cn('grid place-items-center text-muted-foreground', STACK.lead)}
+        className="grid place-items-center text-muted-foreground"
         role="img"
         title={kind.label}
       >
         <kind.icon className="size-4" />
       </span>
-      <span className={cn('grid min-w-0 gap-0.5', STACK.name)}>
+      <span className="grid min-w-0 gap-0.5">
         <span
           className="truncate font-mono text-[12.5px] font-medium text-foreground"
           title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
@@ -284,54 +328,65 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
             {status.message}
           </span>
         ) : (
-          <>
-            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[56rem]/tools:flex">
-              <span className="shrink-0">{flagText(tool)}</span>
-              <span className="truncate" title={sourceText(tool)}>
-                {sourceText(tool)}
-              </span>
-            </span>
-            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[44rem]/tools:flex @min-[56rem]/tools:hidden">
-              <span className="shrink-0">{flagText(tool)}</span>
-              {outcome ? (
-                <OutcomeMark text={SCRIPT_OUTCOME_TEXT[outcome.script]} value={outcome.script} />
-              ) : null}
-            </span>
+          // One line whatever the width: the values (summary rows only), the
+          // outcomes the columns fold away, then the reason, truncating last.
+          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-faint">
+            <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
+            <ValueSummary
+              chosen={!permission.isDefault}
+              className={NARROW_ONLY}
+              icon={permissionIcon}
+              isDefault={permission.isDefault}
+              label={permissionLabel}
+            />
+            <ValueSummary
+              chosen={!callers.isDefault}
+              className={NARROW_ONLY}
+              icon={callersIcon}
+              isDefault={callers.isDefault && Boolean(callers.value)}
+              label={callersLabel}
+            />
             {outcome ? (
-              <span className="hidden min-w-0 gap-3 overflow-hidden @min-[32rem]/tools:flex @min-[44rem]/tools:hidden">
-                <OutcomeMark
-                  text={
-                    outcome.direct === 'unavailable'
-                      ? "Agent can't call it"
-                      : `${OUTCOME_TEXT[outcome.direct]}${byRule ? ' by a rule' : ''}`
-                  }
-                  value={outcome.direct}
-                />
-                <OutcomeMark text={SCRIPT_OUTCOME_TEXT[outcome.script]} value={outcome.script} />
-              </span>
+              <OutcomeMark
+                className="shrink-0 @min-[44rem]/tools:hidden"
+                text={
+                  outcome.direct === 'unavailable'
+                    ? "Agent can't call it"
+                    : `${OUTCOME_TEXT[outcome.direct]}${byRule ? ' by a rule' : ''}`
+                }
+                value={outcome.direct}
+              />
             ) : null}
-          </>
+            {outcome ? (
+              <OutcomeMark
+                className="min-w-0 @min-[44rem]/tools:shrink-0 @min-[56rem]/tools:hidden"
+                text={SCRIPT_OUTCOME_TEXT[outcome.script]}
+                value={outcome.script}
+              />
+            ) : null}
+            <span
+              className="hidden min-w-0 truncate @min-[44rem]/tools:inline"
+              title={sourceText(tool)}
+            >
+              {sourceText(tool)}
+            </span>
+          </span>
         )}
       </span>
       <span className={MODE_CELL}>{outcome ? <Outcome value={outcome.direct} /> : null}</span>
       <span className={SCRIPT_CELL}>{outcome ? <Outcome value={outcome.script} /> : null}</span>
       <ChoicePicker
         chosen={!permission.isDefault}
-        className={STACK.permission}
+        className={WIDE}
         disabled={busy}
-        icon={PERMISSION_ICON[permission.value]}
+        icon={permissionIcon}
         iconClassName={
           permission.isDefault && permission.value === 'deny' ? 'text-destructive' : undefined
         }
         isDefault={permission.isDefault}
         label={permissionLabel}
         name={`Permission: ${tool.name}`}
-        onChoose={(value) =>
-          editor.save({
-            tools: [tool.name],
-            permission: value === permissionDefault ? null : value,
-          })
-        }
+        onChoose={choosePermission}
         options={permissionOptions(permissionDefault)}
         search={`Permission for ${tool.name}`}
         selected={permission.value}
@@ -339,15 +394,13 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
       />
       <ChoicePicker
         chosen={!callers.isDefault}
-        className={STACK.io}
+        className={WIDE}
         disabled={busy}
-        icon={callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon}
+        icon={callersIcon}
         isDefault={callers.isDefault && Boolean(callers.value)}
         label={callersLabel}
         name={`I/O: ${tool.name}`}
-        onChoose={(value) =>
-          editor.save({ tools: [tool.name], callers: value === callersDefault ? null : value })
-        }
+        onChoose={chooseCallers}
         options={callersOptions(callersDefault)}
         search={`I/O for ${tool.name}`}
         selected={callers.value || undefined}
@@ -358,8 +411,65 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
         }
       />
       <RowSlot editor={editor} mode={mode} status={status} tool={tool} />
+      <SummaryPicker
+        actions={rowActions(tool, editor)}
+        className={NARROW_ONLY}
+        detail={<ToolFacts mode={mode} tool={tool} />}
+        disabled={busy}
+        groups={[
+          {
+            heading: 'Permission',
+            options: permissionOptions(permissionDefault),
+            selected: permission.value,
+            onChoose: (value) => choosePermission(value as ToolPermission),
+          },
+          {
+            heading: 'I/O',
+            options: callersOptions(callersDefault),
+            selected: callers.value || undefined,
+            onChoose: (value) => chooseCallers(value as ToolCallers),
+          },
+        ]}
+        name={`Permission and I/O: ${tool.name}`}
+        search={`Choices for ${tool.name}`}
+      />
     </li>
   );
+}
+
+/** What the columns and the sub line say about a tool, in sentences. */
+function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
+  const outcome = tool.outcomes[mode];
+  return (
+    <>
+      <span className="font-mono text-foreground">{tool.name}</span>
+      {tool.description ? <span>{tool.description}</span> : null}
+      <span>
+        {flagText(tool)}. {sourceText(tool)}.
+      </span>
+      {outcome ? (
+        <span>
+          In {modeLabel(mode)}: {OUTCOME_TITLE[outcome.direct]}. From a script:{' '}
+          {OUTCOME_TITLE[outcome.script]}.
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** Use defaults, then each saved rule's removal. */
+function rowActions(tool: ToolSetting, editor: ToolEditor): PickerAction[] {
+  return [
+    {
+      label: 'Use defaults',
+      disabled: !tool.permission && !tool.configured_callers,
+      onSelect: () => editor.save({ tools: [tool.name], permission: null, callers: null }),
+    },
+    ...savedRules(tool).map((rule) => ({
+      label: `Remove rule: ${ruleText(rule.action, rule.where, rule.path_pattern)}`,
+      onSelect: () => editor.removeRule(tool.name, rule),
+    })),
+  ];
 }
 
 /** The trailing slot: ✓ after a save, the error mark, and the row's menu. */
@@ -374,10 +484,8 @@ function RowSlot({
   status?: RowStatus;
   editor: ToolEditor;
 }) {
-  const rules = savedRules(tool);
-  const outcome = tool.outcomes[mode];
   return (
-    <span className={cn('relative grid size-6 place-items-center', STACK.slot)}>
+    <span className="relative hidden size-6 place-items-center @min-[32rem]/tools:grid">
       {status?.kind === 'saved' ? (
         <span
           aria-label="Saved"
@@ -403,49 +511,29 @@ function RowSlot({
             className={cn(
               'absolute inset-0 grid place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:visible focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:visible',
               'invisible group-hover/row:visible',
-              !status && '@max-[32rem]/tools:visible',
             )}
             title="Rules and reset"
             type="button"
           >
-            <MoreIcon className="size-4 @max-[32rem]/tools:hidden" />
-            <ChevronRightIcon className="hidden size-4 @max-[32rem]/tools:block" />
+            <MoreIcon className="size-4" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel className="grid gap-1 text-xs font-normal whitespace-normal text-muted-foreground">
-            <span className="font-mono text-foreground">{tool.name}</span>
-            {tool.description ? <span>{tool.description}</span> : null}
-            <span>
-              {flagText(tool)}. {sourceText(tool)}.
-            </span>
-            {outcome ? (
-              <span>
-                In {modeLabel(mode)}: {OUTCOME_TITLE[outcome.direct]}. From a script:{' '}
-                {OUTCOME_TITLE[outcome.script]}.
-              </span>
-            ) : null}
+            <ToolFacts mode={mode} tool={tool} />
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            disabled={!tool.permission && !tool.configured_callers}
-            onSelect={() => editor.save({ tools: [tool.name], permission: null, callers: null })}
-          >
-            Use defaults
-          </DropdownMenuItem>
-          {rules.map((rule, index) => {
-            const text = ruleText(rule.action, rule.where, rule.path_pattern);
-            return (
-              <DropdownMenuItem
-                key={`${rule.scope}:${rule.scope_id}:${rule.action}:${index}`}
-                onSelect={() => editor.removeRule(tool.name, rule)}
-              >
-                <span className="truncate" title={`Remove rule: ${text}`}>
-                  Remove rule: {text}
-                </span>
-              </DropdownMenuItem>
-            );
-          })}
+          {rowActions(tool, editor).map((action, index) => (
+            <DropdownMenuItem
+              disabled={action.disabled}
+              key={`${action.label}:${index}`}
+              onSelect={action.onSelect}
+            >
+              <span className="truncate" title={action.label}>
+                {action.label}
+              </span>
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
     </span>
@@ -504,13 +592,25 @@ function GroupRow({
       ? []
       : [`${section.count} ${section.count === 1 ? 'tool' : 'tools'}`]);
   const changed = section.tools.some((tool) => tool.permission || tool.configured_callers);
+  const permissionIcon =
+    permission === 'mixed' || permission === 'default' ? AdjustIcon : PERMISSION_ICON[permission];
+  const callersIcon =
+    callers === 'mixed' || callers === 'default' ? AdjustIcon : CALLERS_ICON[callers];
+  const choosePermission = (value: ToolPermission | 'default') =>
+    editor.save({ tools: names, permission: value === 'default' ? null : value });
+  const chooseCallers = (value: ToolCallers | 'default') =>
+    editor.save({ tools: names, callers: value === 'default' ? null : value });
+  const summary = hasTools && !section.notice;
   return (
-    <div className={cn(COLUMNS, 'group/group mt-1.5 min-h-10 py-1')} data-tool-group={section.id}>
+    <div
+      className={cn(COLUMNS, 'group/group relative mt-1.5 min-h-10 py-1')}
+      data-tool-group={section.id}
+    >
       {hasTools ? (
         <button
           aria-expanded={open}
           aria-label={`${open ? 'Collapse' : 'Expand'} ${section.title}`}
-          className="grid size-5 place-items-center rounded text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          className="relative z-10 grid size-5 place-items-center rounded text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
           onClick={onToggle}
           type="button"
         >
@@ -525,28 +625,58 @@ function GroupRow({
           <ChevronRightIcon className="size-3.5" />
         </span>
       )}
-      <span className={cn('grid min-w-0 gap-0.5', STACK.name)}>
+      <span
+        className={cn('grid min-w-0 gap-0.5', section.notice && '@max-[32rem]/tools:col-span-2')}
+      >
         <h3 className="truncate text-[13px] font-semibold text-foreground" title={section.hint}>
           {section.title}
         </h3>
-        {section.notice || meta.length ? (
-          <span className="flex min-w-0 gap-3 text-xs whitespace-nowrap text-faint">
+        {section.notice || meta.length || summary ? (
+          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-faint">
             {section.notice ? (
               <span className="truncate" title={section.notice.title ?? section.notice.text}>
                 {section.notice.text}
               </span>
             ) : (
-              meta.map((part) => (
-                <span className="truncate first:shrink-0" key={part}>
+              meta.map((part, index) => (
+                <span
+                  className={cn(
+                    // The count stays whole; a long server name gives way first.
+                    index === 0 && meta.length > 1 ? 'min-w-0 truncate' : 'shrink-0',
+                  )}
+                  key={part}
+                  title={part}
+                >
                   {part}
                 </span>
               ))
             )}
+            {summary ? (
+              <>
+                <ValueSummary
+                  chosen={permission !== 'mixed' && permission !== 'default'}
+                  className={NARROW_ONLY}
+                  icon={permissionIcon}
+                  isDefault={false}
+                  label={permissionLabel}
+                />
+                <ValueSummary
+                  chosen={callers !== 'mixed' && callers !== 'default'}
+                  className={NARROW_ONLY}
+                  icon={callersIcon}
+                  isDefault={false}
+                  label={callersLabel}
+                />
+              </>
+            ) : null}
           </span>
         ) : null}
       </span>
       {section.notice ? (
-        <span className={cn('col-[3/-1] flex min-w-0', STACK.notice)} title={section.notice.title}>
+        <span
+          className="col-span-2 col-start-2 row-start-2 flex min-w-0 @min-[32rem]/tools:col-[3/-1] @min-[32rem]/tools:row-start-1"
+          title={section.notice.title}
+        >
           <StatusIndicator
             className={cn('text-[12px]', section.notice.tone === 'idle' && 'text-faint')}
             label={section.notice.status}
@@ -560,18 +690,12 @@ function GroupRow({
           <ChoicePicker<ToolPermission | 'default'>
             bulk
             chosen={permission !== 'mixed' && permission !== 'default'}
-            className={STACK.permission}
+            className={WIDE}
             disabled={busy}
-            icon={
-              permission === 'mixed' || permission === 'default'
-                ? AdjustIcon
-                : PERMISSION_ICON[permission]
-            }
+            icon={permissionIcon}
             label={permissionLabel}
             name={`Permission: ${section.bulkLabel}`}
-            onChoose={(value) =>
-              editor.save({ tools: names, permission: value === 'default' ? null : value })
-            }
+            onChoose={choosePermission}
             options={[PER_TOOL, ...permissionOptions()]}
             search={`Permission for ${section.bulkLabel.toLowerCase()}`}
             selected={permission === 'mixed' ? undefined : permission}
@@ -580,14 +704,12 @@ function GroupRow({
           <ChoicePicker<ToolCallers | 'default'>
             bulk
             chosen={callers !== 'mixed' && callers !== 'default'}
-            className={STACK.io}
+            className={WIDE}
             disabled={busy}
-            icon={callers === 'mixed' || callers === 'default' ? AdjustIcon : CALLERS_ICON[callers]}
+            icon={callersIcon}
             label={callersLabel}
             name={`I/O: ${section.bulkLabel}`}
-            onChoose={(value) =>
-              editor.save({ tools: names, callers: value === 'default' ? null : value })
-            }
+            onChoose={chooseCallers}
             options={[PER_TOOL, ...callersOptions()]}
             search={`I/O for ${section.bulkLabel.toLowerCase()}`}
             selected={callers === 'mixed' ? undefined : callers}
@@ -596,10 +718,7 @@ function GroupRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <IconButton
-                className={cn(
-                  'invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible',
-                  STACK.slot,
-                )}
+                className="invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible @max-[32rem]/tools:hidden"
                 icon={<MoreIcon />}
                 label={`More for ${section.bulkLabel.toLowerCase()}`}
               />
@@ -613,6 +732,33 @@ function GroupRow({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <SummaryPicker
+            actions={[
+              {
+                label: 'Reset all to defaults',
+                disabled: busy || !changed,
+                onSelect: () => editor.save({ tools: names, permission: null, callers: null }),
+              },
+            ]}
+            className={NARROW_ONLY}
+            disabled={busy}
+            groups={[
+              {
+                heading: 'Permission',
+                options: [PER_TOOL, ...permissionOptions()],
+                selected: permission === 'mixed' ? undefined : permission,
+                onChoose: (value) => choosePermission(value as ToolPermission | 'default'),
+              },
+              {
+                heading: 'I/O',
+                options: [PER_TOOL, ...callersOptions()],
+                selected: callers === 'mixed' ? undefined : callers,
+                onChoose: (value) => chooseCallers(value as ToolCallers | 'default'),
+              },
+            ]}
+            name={`Permission and I/O: ${section.bulkLabel}`}
+            search={`Choices for ${section.bulkLabel.toLowerCase()}`}
+          />
         </>
       ) : null}
     </div>

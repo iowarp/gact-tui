@@ -1,3 +1,4 @@
+import { GlobeIcon, ServerIcon, WrenchIcon } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -17,9 +18,9 @@ import { ToolPermissionsSettings } from './settings-tool-permissions';
 type ToolsTab = 'tool-permissions' | 'tools' | 'relays';
 
 const TABS = [
-  { value: 'tool-permissions', label: 'Tools' },
-  { value: 'tools', label: 'MCP servers' },
-  { value: 'relays', label: 'Remote tools' },
+  { value: 'tool-permissions', label: 'Tools', icon: <WrenchIcon /> },
+  { value: 'tools', label: 'MCP servers', icon: <ServerIcon /> },
+  { value: 'relays', label: 'Remote tools', icon: <GlobeIcon /> },
 ] as const;
 
 function tabOf(section: string): ToolsTab {
@@ -98,7 +99,8 @@ export function ToolsSettingsTabs({
 
 /**
  * The page switch folds with the page's width, as the spec's tab row does:
- * all three pages, then the current page and ⋯ for the others. ← → still
+ * all three pages by icon and name, then the others as icons, then the
+ * current page and ⋯ for the others. ← → still
  * move through all three.
  */
 function PageTabs({
@@ -118,8 +120,20 @@ function PageTabs({
   };
   return (
     <>
-      <div className="hidden min-w-0 @[35rem]/toolspage:flex" data-fold="full">
+      <div className="hidden min-w-0 @[46.25rem]/toolspage:flex" data-fold="full">
         <SegmentedControl
+          label="Tools pages"
+          onValueChange={onValueChange}
+          options={TABS}
+          value={value}
+        />
+      </div>
+      <div
+        className="hidden min-w-0 @[35rem]/toolspage:flex @[46.25rem]/toolspage:hidden"
+        data-fold="icons"
+      >
+        <SegmentedControl
+          iconOnly="others"
           label="Tools pages"
           onValueChange={onValueChange}
           options={TABS}
@@ -148,6 +162,7 @@ function PageTabs({
             >
               {TABS.map((row) => (
                 <DropdownMenuRadioItem key={row.value} value={row.value}>
+                  {row.icon}
                   {row.label}
                 </DropdownMenuRadioItem>
               ))}
