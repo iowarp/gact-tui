@@ -96,7 +96,9 @@ export function PromptEditorDialog({
   const [draft, setDraft] = useState<PromptDraft>(() =>
     editing ? draftForPrompt(editing) : emptyDraft,
   );
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>(
+    () => editing?.validation_errors ?? [],
+  );
   const [renderedText, setRenderedText] = useState('');
   const context = workspaceId ? { workspaceId } : {};
   const resolved = useQuery({

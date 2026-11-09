@@ -76,7 +76,9 @@ test('allows central child follow-ups while hiding user branching controls', asy
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation.getByText('Baseline complete.', { exact: true })).toBeVisible();
   await conversation.getByText('Baseline complete.', { exact: true }).hover();
-  await expect(page.getByRole('button', { name: 'Branch from here', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Fork into a new conversation', exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole('button', { name: /Return to parent conversation/ }).first(),
   ).toBeVisible();
@@ -121,10 +123,18 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   const original = await page.request.get(`${fixtureEndpoint}/v1/sessions/sess_flat_ndp/messages`);
   const before = (await original.json()).messages.length;
   const forkResponse = page.waitForResponse((response) => response.url().endsWith('/fork'));
-  await page.getByRole('button', { name: 'Branch from here', exact: true }).first().press('Enter');
+  // Reply actions are named on hover; reveal the first reply's actions.
+  const reply = page
+    .locator('[data-slot="message-completion-footer"]')
+    .filter({ has: page.locator('[aria-label="Fork into a new conversation"]') })
+    .first();
+  await reply.hover();
+  await reply
+    .getByRole('button', { name: 'Fork into a new conversation', exact: true })
+    .press('Enter');
   const branch = await (await forkResponse).json();
   await expect(page).toHaveURL(new RegExp(`/sessions/${branch.id}$`));
-  await expect(page.getByText('Loading conversation', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Loading messages…', { exact: true })).toHaveCount(0);
   const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeVisible();
   await expect(

@@ -64,7 +64,7 @@ describe('folders settings', { timeout: 20_000 }, () => {
     expect(within(primary).getByText('Workspace folder')).toBeVisible();
     expect(within(primary).getByText(primaryPath)).toBeVisible();
     const additional = screen.getByRole('group', { name: 'Additional folders' });
-    expect(within(additional).getByText('earthscope-raw')).toBeVisible();
+    expect(within(additional).getByText('D:\\data\\earthscope-raw')).toBeVisible();
     expect(within(additional).getByText('Read and write')).toBeVisible();
     expect(screen.getByText(/Running tools pick up folder changes/)).toBeVisible();
   });

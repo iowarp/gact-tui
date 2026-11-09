@@ -57,7 +57,6 @@ export function InstalledPluginList({
             selected={selected === plugin.ref}
             size={size}
             status={row.status}
-            statusWidth={size === 'sm' ? 140 : undefined}
           />
         );
       })}

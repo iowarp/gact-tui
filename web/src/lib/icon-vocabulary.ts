@@ -20,6 +20,8 @@
  * - More: the overflow menu of an item.
  * - Add: create a new item.
  * - Adjust: pick a level on a scale (reasoning effort).
+ * - Connection settings: the sliders, as the CLIO menu's details draw the
+ *   link to the agent's connection page (spec v15).
  */
 export {
   SettingsIcon,
@@ -37,6 +39,7 @@ export {
   EllipsisIcon as MoreIcon,
   PlusIcon as AddIcon,
   SlidersHorizontalIcon as AdjustIcon,
+  SlidersHorizontalIcon as ConnectionSettingsIcon,
   SaveIcon,
   TargetIcon as GoalIcon,
   Repeat2Icon as LoopIcon,
