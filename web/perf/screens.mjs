@@ -1,7 +1,7 @@
 // One-command deterministic screenshot capture of every surface and state.
 //
 //   pnpm screens [--widths 1680,1280] [--themes dark,light]   (also notebook-dark, notebook-light)
-//                [--only settings,canvas] [--out test-results/screens]
+//                [--only settings,canvas,!settings--usage] [--out test-results/screens]
 //                [--merge]   update an earlier manifest in --out instead of replacing it
 //                [--probes]  record type scale, wraps, contrast, key glyphs and
 //                            status words per capture (see perf/spec-review.mjs)
@@ -1159,7 +1159,10 @@ async function main() {
   try {
     log(`stack on ${stack.baseURL} (service ${stack.endpoint})`);
     await applyScenario(stack, {});
-    const filters = only.split(',').filter(Boolean);
+    // `--only a,b,!c`: keep states matching a or b, then drop those matching c.
+    const terms = only.split(',').filter(Boolean);
+    const filters = terms.filter((term) => !term.startsWith('!'));
+    const excludes = terms.filter((term) => term.startsWith('!')).map((term) => term.slice(1));
     const all = catalogue(await discover(browser, stack));
     const catalogueMaxWidth = new Map(
       all
@@ -1168,8 +1171,9 @@ async function main() {
     );
     const shots = all.filter(
       (shot) =>
-        !filters.length ||
-        filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
+        (!filters.length ||
+          filters.some((filter) => `${shot.surface}--${shot.state}`.includes(filter))) &&
+        !excludes.some((filter) => `${shot.surface}--${shot.state}`.includes(filter)),
     );
     log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
