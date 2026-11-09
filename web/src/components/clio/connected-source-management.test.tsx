@@ -24,6 +24,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from './connected-source-picker';
+import { chooseTrackingConversation } from './connected-source-picker.test-helpers';
 import { sessionReads } from '@/test/session-reads';
 
 afterEach(cleanup);
@@ -106,10 +107,7 @@ it('relinks an existing unlinked source from Files without a composer draft', as
   await user.click(await screen.findByRole('button', { name: 'Link folder' }));
   expect(await screen.findByText('Choose a conversation to track this work.')).toBeVisible();
   expect(repository.linkConnectedSource).not.toHaveBeenCalled();
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Track work in' }),
-    await screen.findByRole('option', { name: 'Source work' }),
-  );
+  await chooseTrackingConversation(user, 'Source work');
   await user.click(screen.getByRole('button', { name: 'Link folder' }));
   await waitFor(() =>
     expect(repository.linkConnectedSource).toHaveBeenCalledWith(
@@ -216,9 +214,8 @@ describe('with no conversations in the workspace', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
     const track = await screen.findByRole('combobox', { name: 'Track work in' });
-    await waitFor(() => expect(track).toHaveDisplayValue('New conversation'));
-    expect(screen.queryByRole('option', { name: 'Choose a conversation' })).toBeNull();
-    expect(screen.getByText('Starts “OPAL inputs” to track this work.')).toBeVisible();
+    await waitFor(() => expect(track).toHaveTextContent('New conversation'));
+    expect(track).toHaveAccessibleDescription('Named “OPAL inputs”');
     return { user, track };
   };
 
@@ -241,7 +238,7 @@ describe('with no conversations in the workspace', () => {
       title: 'OPAL inputs',
     });
     expect(screen.queryByText('Choose a conversation to track this work.')).toBeNull();
-    await waitFor(() => expect(track).toHaveDisplayValue('OPAL inputs'));
+    await waitFor(() => expect(track).toHaveTextContent('OPAL inputs'));
   });
 
   it('downloads into the started conversation and reuses it for later work', async () => {

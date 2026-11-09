@@ -279,7 +279,14 @@ export function ConnectedSourceDetail({
         ? (await repository.beginSourceDraft(workspaceId, source.id)).id
         : undefined;
       const operation = await repository
-        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess, trackingSession)
+        .transferConnectedSource(
+          workspaceId,
+          source.id,
+          [path],
+          draftId,
+          downloadAccess,
+          trackingSession,
+        )
         .catch(async (error: unknown) => {
           if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
           throw error;
@@ -300,7 +307,6 @@ export function ConnectedSourceDetail({
   };
   return (
     <div className="space-y-4">
-      {tracking.control}
       <Button variant="ghost" size="sm" onClick={onBack}>
         <ArrowLeftIcon aria-hidden="true" />
         Back
@@ -331,6 +337,7 @@ export function ConnectedSourceDetail({
           </div>
         </div>
       </div>
+      {tracking.control}
       {onSelect && (ready || (source.linked && source.connected && canAccessSource)) && (
         <Button
           variant="outline"

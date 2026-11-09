@@ -1,9 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Select as SelectPrimitive } from 'radix-ui';
 import { useId, useRef, useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectSeparator } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { NewConversationIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { recentSessionsWith } from '@/lib/session-pages';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { SettingsSelectField } from './model-select-field';
+import { SettingsRow } from './settings-row';
 
 const NEW_CONVERSATION = 'new';
 
@@ -26,6 +31,7 @@ export function useSourceTrackingSession({
   const { settings } = useConnectionSettings();
   const [selected, setSelected] = useState('');
   const created = useRef<Promise<string> | undefined>(undefined);
+  const fieldId = useId();
   const hintId = useId();
   const listKey = ['source-task-sessions', settings.endpoint, workspaceId];
   const sessions = useQuery({
@@ -61,35 +67,48 @@ export function useSourceTrackingSession({
     return created.current;
   };
 
+  const isNew = choice === NEW_CONVERSATION;
+  const current = isNew
+    ? 'New conversation'
+    : sessions.data?.find((session) => session.id === choice)?.title;
   const control = sessionId ? null : (
-    <div className="grid gap-1 text-sm">
-      <label className="grid gap-1">
-        <span>Track work in</span>
-        <select
-          className="h-9 rounded-md border bg-background px-2"
-          value={choice}
-          aria-describedby={choice === NEW_CONVERSATION ? hintId : undefined}
-          onChange={(event) => {
-            created.current = undefined;
-            setSelected(event.target.value);
-          }}
-        >
-          {!empty && <option value="">Choose a conversation</option>}
-          <option value={NEW_CONVERSATION}>New conversation</option>
+    <SettingsRow
+      title="Track work in"
+      htmlFor={fieldId}
+      fullWidth
+      note={isNew ? <span id={hintId}>Named “{sourceLabel}”</span> : null}
+      error={sessions.error?.message}
+    >
+      <Select
+        value={choice}
+        onValueChange={(value) => {
+          created.current = undefined;
+          setSelected(value);
+        }}
+      >
+        <SelectPrimitive.Trigger asChild>
+          <SettingsSelectField
+            id={fieldId}
+            icon={isNew ? <NewConversationIcon /> : undefined}
+            value={current}
+            placeholder="Choose a conversation"
+            aria-describedby={isNew ? hintId : undefined}
+          />
+        </SelectPrimitive.Trigger>
+        <SelectContent>
+          <SelectItem value={NEW_CONVERSATION}>
+            <NewConversationIcon aria-hidden="true" />
+            New conversation
+          </SelectItem>
+          {sessions.data?.length ? <SelectSeparator /> : null}
           {sessions.data?.map((session) => (
-            <option key={session.id} value={session.id}>
+            <SelectItem key={session.id} value={session.id}>
               {session.title}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
-      {choice === NEW_CONVERSATION && (
-        <span id={hintId} className="text-xs text-muted-foreground">
-          Starts “{sourceLabel}” to track this work.
-        </span>
-      )}
-      {sessions.error && <span role="alert">{sessions.error.message}</span>}
-    </div>
+        </SelectContent>
+      </Select>
+    </SettingsRow>
   );
 
   return { control, resolve };
