@@ -193,7 +193,8 @@ export function ClioComposerCommandMenu({
   const open = dismissedQuery !== query;
   const optionId = (command: CommandDefinition) =>
     `${popoverId}-option-${encodeURIComponent(commandKey(command))}`;
-  const active = choices.find((command) => commandKey(command) === activeKey);
+  // The first runnable row is highlighted until the arrows move, so Enter runs it.
+  const active = choices.find((command) => commandKey(command) === activeKey) ?? choices[0];
   const activeOptionId = open && active ? optionId(active) : undefined;
 
   useEffect(() => {
@@ -267,7 +268,7 @@ export function ClioComposerCommandMenu({
         role="listbox"
       >
         {total === 0 ? (
-          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-faint">
+          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-muted-foreground">
             <span className="truncate">No command matches.</span>
           </div>
         ) : null}
@@ -291,7 +292,9 @@ export function ClioComposerCommandMenu({
           </div>
         ))}
       </div>
-      <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      {total ? (
+        <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      ) : null}
     </ComposerSuggestionPopup>
   );
 }

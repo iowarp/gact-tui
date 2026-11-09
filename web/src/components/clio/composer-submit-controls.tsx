@@ -12,7 +12,7 @@ import { ClioStatus } from './status';
 
 /** The 28px square the row ends with, filled so it reads as the primary action. */
 const SQUARE =
-  'size-7 rounded-[8px] bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
+  'size-7 rounded-[8px] border-0 bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
 
 /**
  * Send, or while work runs a flat Queue (Enter) or Steer (Ctrl/⌘ Enter) icon

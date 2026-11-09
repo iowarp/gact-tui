@@ -186,7 +186,7 @@ export function ClioComposerQueue({
             aria-controls={collapsed ? undefined : viewportId}
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
-            className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
+            className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-hover aria-expanded:hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
             onClick={() => setCollapsedPreference((value) => !value)}
             size="xs"
             type="button"

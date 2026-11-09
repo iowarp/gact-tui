@@ -226,23 +226,22 @@ describe('the / menu surface', () => {
     return { onPick, onRun, view, editor: screen.getByTestId('editor') };
   }
 
-  it('fills on Tab, runs the highlighted command on Enter and closes on Escape', () => {
+  it('highlights the first row, fills on Tab, runs on Enter and closes on Escape', () => {
     const { editor, onPick, onRun } = renderMenu('/');
-    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
-    editor.dispatchEvent(enter);
-    expect(enter.defaultPrevented).toBe(false);
-    expect(onRun).not.toHaveBeenCalled();
+    const first = screen.getByRole('option', { selected: true });
+    expect(first).toHaveAccessibleName(/\/goal/u);
 
     fireEvent.keyDown(editor, { key: 'Tab' });
     expect(onPick).toHaveBeenCalledWith(commands[0]);
 
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
-    fireEvent.keyDown(editor, { key: 'ArrowDown' });
     const selected = screen.getByRole('option', { selected: true });
     expect(selected).toHaveAccessibleName(/\/goal/u);
 
-    fireEvent.keyDown(editor, { key: 'Enter' });
+    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
+    editor.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
     expect(onRun).toHaveBeenCalledWith(commands[0]);
 
     fireEvent.keyDown(editor, { key: 'Escape' });
