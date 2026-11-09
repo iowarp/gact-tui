@@ -19,7 +19,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { AskCode, AskFacts, AskSection, type AskFact } from './ask-card';
 import { TechnicalDetails } from './technical-details';
-import { permissionOperationLabel } from './permission-operation-labels';
+import { permissionCommand, permissionOperationLabel } from './permission-operation-labels';
 
 const SOURCE_ACCESS: Record<string, string> = {
   read_only: 'Read only',
@@ -59,10 +59,9 @@ function permissionOperation(
     call?.input && typeof call.input === 'object' ? (call.input as Record<string, unknown>) : {};
   const name = access?.operation ?? call?.tool_name ?? interaction.source.tool_name ?? '';
   const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
-  const command = access?.command || text('command');
+  const { command, computer } = permissionCommand(interaction);
   const path = text('path') || text('output_path');
   const cwd = access?.cwd || interaction.payload?.execution?.cwd || text('cwd');
-  const computer = access?.computer || interaction.payload?.execution?.computer || '';
   const isWebRequest = name === 'web_fetch' || name === 'web_search' || name === 'browser_host';
   const isSourceConnection = name === 'connected_data_connect';
   const resources = Array.isArray(input.resources)
