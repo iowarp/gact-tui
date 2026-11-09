@@ -3,7 +3,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useProviderActions } from './provider-actions';
-import type { ProviderActionFlow } from './provider-action-steps';
+import type { ProviderActionFlow } from './provider-action-flows';
 import { ProviderSetupAction } from './provider-setup-action';
 import { providerActionError } from './provider-setup-state';
 
