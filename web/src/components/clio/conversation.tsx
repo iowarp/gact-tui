@@ -40,7 +40,7 @@ import {
   projectA2UIActionMessages,
   surfaceAwaitsPendingResponse,
 } from './conversation-message-projection';
-import { PresentationNavigation } from './presentation-navigation';
+import { PresentationNavigation, usePresentationNavigation } from './presentation-navigation';
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import {
@@ -84,78 +84,6 @@ export function ClioConversation(props: ClioConversationProps) {
         {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
       </TranscriptDisclosures>
     </PresentationNavigation.Provider>
-  );
-}
-
-// Only the navigation fields, so a parent render that leaves them unchanged does not
-// re-render every row's context consumers (links, hover cards, variant runs).
-function usePresentationNavigation({
-  artifacts,
-  interactions,
-  messages,
-  onInteractionResponse,
-  onOpenArtifact,
-  onOpenFile,
-  onOpenFileReference,
-  onOpenFlow,
-  onOpenFolder,
-  onOpenResource,
-  onOpenSubagent,
-  onOpenTasks,
-  onOpenWebPage,
-  onOpenWork,
-  resources,
-  sessionId,
-  subagents,
-  surfaces,
-  tools,
-  workspaceId,
-}: ClioConversationProps) {
-  return useMemo(
-    () => ({
-      artifacts,
-      interactions,
-      messages,
-      onInteractionResponse,
-      onOpenArtifact,
-      onOpenFile,
-      onOpenFileReference,
-      onOpenFlow,
-      onOpenFolder,
-      onOpenResource,
-      onOpenSubagent,
-      onOpenTasks,
-      onOpenWebPage,
-      onOpenWork,
-      resources,
-      sessionId,
-      subagents,
-      surfaces,
-      tools,
-      workspaceId,
-    }),
-    [
-      artifacts,
-      interactions,
-      messages,
-      onInteractionResponse,
-      onOpenArtifact,
-      onOpenFile,
-      onOpenFileReference,
-      onOpenFlow,
-      onOpenFolder,
-      onOpenResource,
-      onOpenSubagent,
-      onOpenTasks,
-      onOpenWebPage,
-      onOpenWork,
-      resources,
-      sessionId,
-      subagents,
-      surfaces,
-      tools,
-      workspaceId,
-    ],
   );
 }
 
