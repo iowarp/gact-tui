@@ -284,8 +284,10 @@ for (const layout of [
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe('rgba(0, 0, 0, 0)');
-        // Zoom out and Zoom in are the format icons; the zoom and page are frame facts.
-        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible();
+        // At this width the frame bar is at its narrowest fold (workbench-lineage
+        // step 6): the format icons, Zoom out and Zoom in, are rows in ⋯.
+        await expect(toolbar).toHaveAttribute('data-fold-modes-menu');
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeHidden();
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
           width: element.clientWidth,
@@ -293,8 +295,9 @@ for (const layout of [
         }));
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
-        await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeVisible();
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        await expect(page.getByRole('menuitem', { name: /^Zoom out/u })).toBeVisible();
+        await expect(page.getByRole('menuitem', { name: /^Zoom in/u })).toBeVisible();
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();

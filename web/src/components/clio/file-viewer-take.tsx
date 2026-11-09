@@ -29,7 +29,12 @@ import {
   type OpenTake,
   type TakeRow,
 } from './file-viewer-take-hooks';
-import { foldedFrameModes, type FrameModesEntry } from './primitives/frame-modes';
+import {
+  foldedFrameModes,
+  foldedFrameTools,
+  type FrameModesEntry,
+  type FrameToolEntry,
+} from './primitives/frame-modes';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
@@ -226,7 +231,8 @@ export function FrameTalkTake({
     copy: boolean;
     open: boolean;
     modes: FrameModesEntry[];
-  }>({ talk: false, copy: false, open: false, modes: [] });
+    tools: FrameToolEntry[];
+  }>({ talk: false, copy: false, open: false, modes: [], tools: [] });
   const talkRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
   const openRef = useRef<HTMLSpanElement>(null);
@@ -267,6 +273,7 @@ export function FrameTalkTake({
               copy: folded(copyRef.current),
               open: folded(openRef.current),
               modes: foldedFrameModes(menuRef.current),
+              tools: foldedFrameTools(menuRef.current),
             });
         }}
       >
@@ -306,7 +313,28 @@ export function FrameTalkTake({
               </DropdownMenuRadioGroup>
             </Fragment>
           ))}
-          {fold.modes.length > 0 && (anyFolded || menu) ? <DropdownMenuSeparator /> : null}
+          {fold.tools.length > 0 ? (
+            <>
+              {fold.modes.length > 0 ? <DropdownMenuSeparator /> : null}
+              {fold.tools.map((tool, index) => (
+                <DropdownMenuItem
+                  key={`${index}:${tool.label}`}
+                  disabled={tool.disabled}
+                  onSelect={() => tool.button.click()}
+                >
+                  <MenuRow
+                    icon={tool.icon}
+                    label={tool.label}
+                    description={tool.reason}
+                    checked={tool.checked}
+                  />
+                </DropdownMenuItem>
+              ))}
+            </>
+          ) : null}
+          {fold.modes.length + fold.tools.length > 0 && (anyFolded || menu) ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {fold.talk && addToMessage ? (
             <DropdownMenuItem
               disabled={Boolean(addToMessage.reason)}

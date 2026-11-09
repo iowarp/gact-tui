@@ -26,7 +26,9 @@ import { cn } from '@/lib/utils';
  * `data-frame-position`), then the modes folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
- * `useFrameModes`), then the group rules go and the gaps tighten. Children hide
+ * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
+ * group rules go: only the name, comments and the … menu remain (Download stays
+ * so the original bytes are one click away). Then the gaps tighten. Children hide
  * on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
@@ -144,15 +146,15 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 group-data-[fold-modes-menu]/frame:[&_[data-frame-tool]]:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
         >
-          <FrameDivider />
+          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           {format}
         </div>
       ) : null}
       {actions ? (
         <>
-          <FrameDivider />
+          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
         </>
       ) : null}

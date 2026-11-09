@@ -1037,6 +1037,25 @@ function catalogue({ settings, infrastructure }) {
         settleMs: 1500,
       }),
     ),
+    // A diagram's zoom icons leave the bar with the modes (workbench-lineage
+    // step 6: the name, comments and …) and are rows in its … menu.
+    s(
+      'viewer',
+      'mermaid-more',
+      SESSION,
+      async (page) => {
+        await openFile(page, 'diagrams/pipeline.mmd');
+        await page.waitForTimeout(1200);
+        await page
+          .getByRole('toolbar', { name: 'File' })
+          .filter({ visible: true })
+          .getByRole('button', { name: 'File actions' })
+          .first()
+          .click();
+        await overlay(page);
+      },
+      { scenario: { specFiles: true } },
+    ),
     s(
       'viewer',
       'state-loading',
