@@ -7,6 +7,7 @@ import type {
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
+import type { ObservabilityView } from './observability-view-storage';
 import type { CanvasResourceKind } from './workbench-resource-browser';
 import { fileName, type WorkbenchTab } from './workbench-shared';
 
@@ -32,7 +33,8 @@ export type ClioWorkbenchOpenRequest =
   /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
   | { kind: 'flow'; handle: string; label?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
-  | { kind: 'session' }
+  /** `view` names the timeline tab's view; without one, Activity shows its list. */
+  | { kind: 'session'; view?: ObservabilityView }
   /** The Science log tab, as `openView` opens a study view in it. */
   | { kind: 'science-log' }
   | { kind: 'terminal'; cwd: string }

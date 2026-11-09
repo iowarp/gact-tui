@@ -53,7 +53,7 @@ describe('A2UI response notices', () => {
     const { open, respond } = mount(interaction);
     expect(screen.getByText('Review cleanup')).toBeVisible();
     expect(screen.getByText('Researcher')).toBeVisible();
-    expect(document.querySelector('[data-slot="pending-a2ui"]')).toBeNull();
+    expect(document.querySelector('[data-response-surface="a2ui"]')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Go to question' }));
     expect(open).toHaveBeenCalledTimes(1);
     expect(open).toHaveBeenCalledWith(interaction);

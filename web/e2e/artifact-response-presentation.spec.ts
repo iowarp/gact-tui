@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openConversationRail } from './workspace-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
@@ -157,32 +157,16 @@ test('shows one latest response output while Evidence retains versions and revie
   for (const name of ['requested.pdf', 'requested.png'])
     await expect(conversation.getByRole('button', { name: `Open ${name}` })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('latest-response.png') });
-  const rail = await openConversationRail(page);
-  await rail.getByRole('button', { name: 'Open full view' }).click();
-  const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
-  await canvas.getByRole('button', { name: /^Artifacts/ }).click();
-  await expect(
-    canvas.getByRole('button', { name: 'Open sunflower-garden.html', exact: true }),
-  ).toHaveCount(2);
-  await expect(
-    canvas.locator('p[title="text/html"]').filter({ has: page.getByText('v1', { exact: true }) }),
-  ).toHaveText(/HTML\s*512 B\s*v1/u);
-  await expect(
-    canvas.locator('p[title="text/html"]').filter({ has: page.getByText('v2', { exact: true }) }),
-  ).toHaveText(/HTML\s*512 B\s*v2/u);
-  // The compact inventory retains all versions and review evidence without
-  // repeating the transcript's Output badges on each produced file.
+  // The workbench Artifacts list keeps every produced version and review file;
+  // each version opens in its own tab, whose file toolbar downloads it.
+  await showWorkbenchList(page, 'Artifacts');
+  const canvas = page.getByRole('region', { name: 'Artifacts list', exact: true });
   for (const name of new Set(rows.map((row) => row.name))) {
     const versions = name === 'sunflower-garden.html' ? 2 : 1;
     await expect(canvas.getByRole('button', { name: `Open ${name}`, exact: true })).toHaveCount(
       versions,
     );
-    await expect(canvas.getByRole('button', { name: `Download ${name}`, exact: true })).toHaveCount(
-      versions,
-    );
   }
-  await expect(canvas.getByText('Output', { exact: true })).toHaveCount(0);
   await expect(canvas.getByRole('button', { name: 'Open review.png' })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open working.pdf' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('retained-evidence.png') });

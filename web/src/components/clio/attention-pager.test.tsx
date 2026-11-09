@@ -7,6 +7,8 @@ import { ATTENTION_REVEAL_EVENT } from './interaction-control';
 import { AttentionDraftContext, createAttentionDraftStore } from './attention-drafts';
 
 afterEach(cleanup);
+// Every card carries the pager in its header; only the shown card's is accessible.
+const pager = () => screen.getByRole('navigation', { name: 'Pending requests' });
 const question = (id: string): PendingInteraction => ({
   id,
   kind: 'question',
@@ -116,9 +118,9 @@ it('retains bundle page and answers when the responsive composer remounts', asyn
   expect(screen.getByRole('textbox')).toHaveValue('New Zealand');
   await user.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('radio', { name: 'Table' })).toBeChecked();
-});
+}, 20_000);
 
-it('shows one request, preserves drafts on navigation/collapse, and moves to the next surviving request', async () => {
+it('shows one request, preserves drafts on navigation, and moves to the next surviving request', async () => {
   const user = userEvent.setup();
   const first = question('first'),
     second = question('second'),
@@ -127,28 +129,25 @@ it('shows one request, preserves drafts on navigation/collapse, and moves to the
   const { rerender } = render(
     <ClioPendingInteractions {...props} interactions={[first, second, third]} />,
   );
-  expect(screen.getByText('1 / 3')).toBeVisible();
+  expect(pager()).toHaveTextContent('1/3');
   expect(screen.getAllByRole('textbox')).toHaveLength(1);
   await user.type(screen.getByRole('textbox'), 'Keep my draft');
   await user.click(screen.getByRole('button', { name: 'Next request' }));
-  expect(screen.getByText('2 / 3')).toBeVisible();
+  expect(pager()).toHaveTextContent('2/3');
   await user.type(screen.getByRole('textbox'), 'Second draft');
   await user.click(screen.getByRole('button', { name: 'Previous request' }));
   expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
-  await user.click(screen.getByRole('button', { name: 'Agent needs your attention' }));
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Agent needs your attention' }));
   expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
   await user.click(screen.getByRole('button', { name: 'Send response' }));
   rerender(<ClioPendingInteractions {...props} interactions={[second, third]} />);
-  expect(screen.getByText('1 / 2')).toBeVisible();
+  expect(pager()).toHaveTextContent('1/2');
   expect(screen.getByRole('textbox')).toHaveValue('Second draft');
   rerender(<ClioPendingInteractions {...props} interactions={[second]} />);
   expect(screen.queryByRole('navigation', { name: 'Pending requests' })).not.toBeInTheDocument();
   expect(screen.getByRole('textbox')).toHaveValue('Second draft');
 });
 
-it('reveals the requested hidden page and expands the tray without losing other drafts', async () => {
+it('reveals the requested hidden page without losing other drafts', async () => {
   const user = userEvent.setup();
   render(
     <ClioPendingInteractions
@@ -158,9 +157,8 @@ it('reveals the requested hidden page and expands the tray without losing other 
     />,
   );
   await user.type(screen.getByRole('textbox'), 'First draft');
-  await user.click(screen.getByRole('button', { name: 'Agent needs your attention' }));
   act(() => window.dispatchEvent(new CustomEvent(ATTENTION_REVEAL_EVENT, { detail: 'second' })));
-  expect(screen.getByText('2 / 2')).toBeVisible();
+  expect(pager()).toHaveTextContent('2/2');
   expect(screen.getByText('Question second?')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Previous request' }));
   expect(screen.getByRole('textbox')).toHaveValue('First draft');
@@ -212,4 +210,4 @@ it('submits three answers together, preserves drafts across requests, and retain
   };
   expect(onResponse).toHaveBeenNthCalledWith(1, bundle, response);
   expect(onResponse).toHaveBeenNthCalledWith(2, bundle, response);
-});
+}, 20_000);

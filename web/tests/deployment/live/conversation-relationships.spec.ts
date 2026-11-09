@@ -297,7 +297,7 @@ test('fork checkpoint, family Gantt, relationship navigation and output lineage'
   ).toBeVisible();
   await capture('docs-conversation-output-lineage', '[aria-label="Artifact lineage graph"]');
   await page.setViewportSize({ width: 1440, height: 940 });
-  await page.getByRole('tab', { name: 'Observability', exact: true }).click();
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await page.getByRole('button', { name: 'Select Offset sensitivity' }).click();
   await inspector.getByRole('link', { name: 'Open conversation', exact: true }).click();
   await expect(page).toHaveURL(

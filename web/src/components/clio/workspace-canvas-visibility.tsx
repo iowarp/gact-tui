@@ -1,14 +1,21 @@
 import type { PropsWithChildren } from 'react';
 
-import { WorkspaceCanvasVisibilityContext } from './workspace-canvas-visibility-context';
+import {
+  WorkspaceCanvasControlContext,
+  WorkspaceCanvasVisibilityContext,
+  type WorkspaceCanvasControl,
+} from './workspace-canvas-visibility-context';
 
 export function WorkspaceCanvasVisibilityProvider({
   children,
+  control,
   visible,
-}: PropsWithChildren<{ visible: boolean }>) {
+}: PropsWithChildren<{ visible: boolean; control?: WorkspaceCanvasControl }>) {
   return (
     <WorkspaceCanvasVisibilityContext.Provider value={visible}>
-      {children}
+      <WorkspaceCanvasControlContext.Provider value={control}>
+        {children}
+      </WorkspaceCanvasControlContext.Provider>
     </WorkspaceCanvasVisibilityContext.Provider>
   );
 }

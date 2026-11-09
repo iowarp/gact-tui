@@ -253,7 +253,6 @@ export async function headerJourney(r) {
     { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
     { control: customize },
   );
-  await r.overlay('open questions', 'button', /open question/u, { category: 'dialog' });
   await r.overlay('version status', 'button', /^Version status/u);
   await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
@@ -430,32 +429,72 @@ export async function workbenchJourney(r) {
       { control: open },
     );
   }
-  await r.overlay('canvas tab menu', 'button', 'Open a canvas tab');
-  for (const item of ['File explorer', 'Workspace resources', 'Session artifacts', 'Work']) {
-    const menu = r.control('button', 'Open a canvas tab');
-    if (!(await r.visible(menu))) break;
-    const opened = await menu
-      .click({ timeout: 5000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!opened) {
-      r.steps.push({
-        scenario: r.scenario,
-        name: `open canvas tab: ${item}`,
-        category: 'tab',
-        skipped: 'canvas tab menu button not clickable',
-      });
-      continue;
-    }
-    const entry = page.getByRole('menuitem', { name: new RegExp(`^${item}`, 'u') }).first();
+  const strip = page.getByRole('toolbar', { name: 'Workbench lists' });
+  for (const item of ['Files', 'Sources', 'Artifacts', 'Activity']) {
+    const button = strip.getByRole('button', { name: item, exact: true }).first();
+    if (!(await r.visible(button))) break;
+    if ((await button.getAttribute('aria-pressed')) === 'true') continue;
     await r.measure(
-      `open canvas tab: ${item}`,
+      `show list: ${item}`,
       'tab',
-      () => entry.click(),
-      { css: '[role="tabpanel"]', changed: true },
-      { control: entry, close: undefined },
+      () => button.click(),
+      { css: `[aria-label="${item} list"]` },
+      { control: button, close: undefined },
     );
-    await page.keyboard.press('Escape').catch(() => undefined);
+  }
+  const activity = page
+    .getByRole('region', { name: 'Activity list' })
+    .locator('[data-kind="tool"], [data-kind="turn"]')
+    .first();
+  if (await r.visible(activity, 1000)) {
+    // The tab takes the row's name; its accessible name adds the status after a comma.
+    const name = (await activity.getAttribute('aria-label'))?.split(', ')[0];
+    await r.measure(
+      'open canvas tab: Activity detail',
+      'tab',
+      () => activity.click(),
+      { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: name },
+      { control: activity, close: undefined },
+    );
+  }
+  const timeline = page
+    .getByRole('region', { name: 'Activity list' })
+    .getByRole('button', { name: 'Open timeline and context' });
+  if (await r.visible(timeline, 1000)) {
+    await r.measure(
+      'open canvas tab: Timeline',
+      'tab',
+      () => timeline.click(),
+      {
+        css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]',
+        text: 'Timeline',
+      },
+      { control: timeline, close: undefined },
+    );
+  }
+  const agent = strip.getByRole('button', { name: 'Agent', exact: true }).first();
+  if (await r.visible(agent, 1000)) {
+    await r.measure(
+      'open canvas tab: Agent',
+      'tab',
+      () => agent.click(),
+      { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
+      { control: agent, close: undefined },
+    );
+  }
+  // A fresh pocket opens no tab, so the menu is measured once the Agent tab is open.
+  const activeTab = page
+    .locator('[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]')
+    .filter({ visible: true })
+    .first();
+  if (await r.visible(activeTab, 1500)) {
+    await r.measure(
+      'tab context menu',
+      'menu',
+      () => activeTab.click({ button: 'right' }),
+      OVERLAY,
+      { close: 'Escape', control: activeTab },
+    );
   }
   const tabs = await page.locator('[aria-label="Workspace canvas"] [role="tab"]').all();
   for (const tab of tabs.slice(0, 8)) {
@@ -490,21 +529,32 @@ export async function workbenchJourney(r) {
  */
 export async function fileViewerJourney(r, entries) {
   const { page } = r;
-  const filesTab = page
-    .locator('[aria-label="Workspace canvas"] [role="tab"]', { hasText: /^Files$/u })
+  const filesButton = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Files', exact: true })
+    .filter({ visible: true })
     .first();
   if (
-    (await r.visible(filesTab, 1000)) &&
-    (await filesTab.getAttribute('aria-selected')) !== 'true'
+    (await r.visible(filesButton, 1000)) &&
+    (await filesButton.getAttribute('aria-pressed')) !== 'true'
   ) {
-    await filesTab.click();
+    await filesButton.click();
     await waitIdle(page, 500);
   }
+  const list = page.getByRole('region', { name: 'Files list' });
   for (const entry of entries) {
     const { path, content, after } = typeof entry === 'string' ? { path: entry } : entry;
+    // Over a narrow panel the list steps aside after each pick; show it again.
+    if (!(await r.visible(list, 300)) && (await r.visible(filesButton, 300))) {
+      await filesButton.click();
+      await waitIdle(page, 300);
+    }
     const name = path.split('/').pop();
     for (const part of path.split('/').slice(0, -1)) {
-      const folder = r.control('button', `Expand folder ${part}`, { exact: true });
+      const folder = list
+        .getByRole('button', { name: `Expand folder ${part}`, exact: true })
+        .filter({ visible: true })
+        .first();
       if (await r.visible(folder, 3000)) {
         await r.measure(
           `expand folder ${part}`,
@@ -515,7 +565,7 @@ export async function fileViewerJourney(r, entries) {
         );
       }
     }
-    const file = page
+    const file = list
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();

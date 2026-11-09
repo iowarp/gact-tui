@@ -32,7 +32,5 @@ export function ConversationInteractionActivity({
       />
     );
   }
-  return (
-    <AgentAnswerActivity compact={compact} interaction={interaction} onResponse={onResponse} />
-  );
+  return <AgentAnswerActivity compact={compact} interaction={interaction} />;
 }

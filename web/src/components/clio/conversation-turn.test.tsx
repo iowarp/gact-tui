@@ -142,23 +142,15 @@ describe('ConversationTurn correlated work placement', () => {
         />,
       );
 
-      expect(screen.getByText('Review execution plan')).toBeVisible();
+      expect(screen.getByRole('heading', { name: 'Plan' })).toBeVisible();
       expect(await screen.findByRole('heading', { name: 'Implementation plan' })).toBeVisible();
-      expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
-      expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
-      const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
-      expect(executeChoice).toBeChecked();
-      const clearContext = screen.getByRole('checkbox', {
-        name: /clear conversation context/i,
-      });
-      expect(clearContext).toBeEnabled();
-      expect(screen.getByRole('radio', { name: /reject plan with comments/i })).toBeVisible();
-      fireEvent.click(executeChoice);
-      expect(executeChoice).toBeChecked();
-      expect(clearContext).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Execution mode, Auto-execute' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Execute plan' })).toBeEnabled();
+      expect(screen.getByRole('checkbox', { name: /Clear context first/u })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Request changes' })).toBeVisible();
       if (mode === 'chain') {
         fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-        expect(screen.getByText('Review execution plan')).toBeVisible();
+        expect(screen.getByRole('heading', { name: 'Plan' })).toBeVisible();
         expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
       }
     },

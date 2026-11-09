@@ -1,11 +1,42 @@
-import type { PendingInteraction } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import type { Artifact, PendingInteraction } from '@clio/core/v3';
+import { cleanup, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadMarkdownText } from '@/components/ai-elements/markdown-text-loader';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { PlanExitResponse } from './plan-exit-interaction';
-import { PlanDecisionControls } from './plan-decision-controls';
 
-afterEach(cleanup);
+function render(ui: ReactElement) {
+  return rtlRender(ui, { wrapper: TooltipProvider });
+}
+
+beforeAll(async () => {
+  await loadMarkdownText();
+}, 60_000);
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+const PLAN = [
+  '# Soil moisture regrid',
+  '',
+  'Regrid SMAP L3 for 2020–2023 to 0.25°.',
+  '',
+  '## Steps',
+  '',
+  '1. Fix the grid bounds in `align_grids.sh`',
+  '2. Regrid 2020–2023 on four ranks',
+  '3. Check the 14 Opal sites against the probes',
+  '4. Write `out/qc.csv` and a summary plot',
+  '',
+  '## Risks',
+  '',
+  '- Two sites sit on a grid edge.',
+  '- 2020 granules use the older QC flags.',
+].join('\n');
 
 function planInteraction(overrides: Partial<PendingInteraction> = {}): PendingInteraction {
   return {
@@ -19,95 +50,64 @@ function planInteraction(overrides: Partial<PendingInteraction> = {}): PendingIn
     source: { protocol: 'native', tool_name: 'plan_exit' },
     created_at: '2026-09-02T00:00:00Z',
     actions: ['answer', 'cancel'],
+    payload: {
+      options: [
+        { label: 'Approve — auto-execute', value: 'auto' },
+        { label: 'Approve — interactive', value: 'interactive' },
+        { label: 'Exit plan mode only', value: 'exit_only' },
+        { label: 'Reject — keep planning', value: 'reject' },
+        { label: 'Also clear context (modifier)', value: 'clear_context' },
+      ],
+      plan_exit: {
+        recommended_mode: 'interactive',
+        plan_file: 'D:/workspace/plans/soil-regrid.md',
+        plan_content: PLAN,
+        plan_content_status: 'complete',
+      },
+    },
     ...overrides,
   };
 }
 
-describe('PlanExitResponse', () => {
-  it('offers two explicit decisions and requests revision comments only after rejection', async () => {
+function withPlan(
+  plan: NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>,
+  overrides: Partial<PendingInteraction> = {},
+) {
+  const base = planInteraction();
+  return planInteraction({ ...overrides, payload: { ...base.payload, plan_exit: plan } });
+}
+
+function card() {
+  return document.querySelector<HTMLElement>('[data-slot="ask-card"]')!;
+}
+
+// user-event is slow on a busy machine.
+describe('PlanExitResponse', { timeout: 30_000 }, () => {
+  it('previews the plan, says what it holds, and executes in the mode chosen inside the button', async () => {
     const user = userEvent.setup();
-    const interaction = planInteraction({
-      payload: {
-        options: [
-          { label: 'Auto', value: 'auto' },
-          { label: 'Reject', value: 'reject' },
-          { label: 'Clear context', value: 'clear_context' },
-        ],
-        plan_exit: { plan_content: '# Plan', plan_content_status: 'complete' },
-      },
-    });
-    const onResponse = vi.fn(async () => undefined);
-    render(<PlanDecisionControls interaction={interaction} onResponse={onResponse} />);
-    expect(screen.getAllByRole('radio')).toHaveLength(2);
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'Reject plan with comments' }));
-    expect(onResponse).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Request changes' })).toBeDisabled();
-    await user.type(
-      screen.getByRole('textbox', { name: 'What should change?' }),
-      'Add rollback steps.',
-    );
-    await user.keyboard('{Escape}');
-    expect(screen.getByRole('radio', { name: 'Reject plan with comments' })).toHaveFocus();
-    await user.click(screen.getByRole('radio', { name: 'Reject plan with comments' }));
-    expect(screen.getByRole('textbox')).toHaveValue('Add rollback steps.');
-    await user.click(screen.getByRole('button', { name: 'Request changes' }));
-    expect(onResponse).toHaveBeenCalledWith(interaction, {
-      action: 'answer',
-      answer: 'Add rollback steps.',
-      selected_options: ['reject'],
-    });
-  });
-  it('renders the saved plan and submits its decision with a modifier', async () => {
-    const user = userEvent.setup();
-    const interaction = planInteraction({
-      payload: {
-        question_id: 'plan_exit',
-        question_kind: 'choice',
-        plan_exit: {
-          summary: 'Add authoritative Plan mode wiring and qualify the lifecycle.',
-          recommended_mode: 'interactive',
-          risk_notes: 'The session mode must change before submission.',
-          plan_file: 'D:/workspace/plans/plan.md',
-          plan_content: '# Implementation plan\n\n1. Wire the mode.\n2. Verify approval.',
-          plan_content_status: 'complete',
-        },
-        options: [
-          { label: 'Approve — auto-execute', value: 'auto' },
-          { label: 'Reject — keep planning', value: 'reject' },
-          { label: 'Also clear context (modifier)', value: 'clear_context' },
-        ],
-      },
-    });
+    const interaction = planInteraction();
     const onResponse = vi.fn(async () => undefined);
     render(
       <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
     );
 
-    expect(screen.getByText('Review execution plan')).toBeVisible();
-    const planHeading = await screen.findByRole(
-      'heading',
-      { name: 'Implementation plan' },
-      { timeout: 10_000 },
+    expect(card()).toHaveAttribute('data-ask-kind', 'plan');
+    expect(card()).toHaveAttribute('id', expect.stringContaining('plan_exit'));
+    expect(screen.getByRole('heading', { name: 'Plan' })).toBeVisible();
+    expect(screen.getByText('plans/soil-regrid.md')).toHaveAttribute(
+      'title',
+      'D:/workspace/plans/soil-regrid.md',
     );
-    expect(planHeading).toBeVisible();
-    expect(planHeading.closest('.space-y-2')).not.toBeNull();
-    const recommendation = screen.getByRole('heading', { name: 'Execution recommendation' });
-    const risks = screen.getByRole('heading', { name: 'Risks' });
-    const planContent = planHeading.closest('[data-slot="plan-content"]');
-    expect(recommendation.closest('[data-slot="plan-content"]')).toBe(planContent);
-    expect(risks.closest('[data-slot="plan-content"]')).toBe(planContent);
-    expect(planContent).toHaveTextContent('Interactive');
-    expect(planContent).toHaveTextContent('The session mode must change before submission.');
-    expect(document.querySelector('[data-slot="plan-footer"]')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
-    await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
-    // A size-container wrapper collapsed this group after selection in the real browser.
     expect(
-      screen.getByRole('radio', { name: /^Execute plan$/u }).closest('[data-slot="field-group"]'),
-    ).toBeNull();
-    expect(screen.getByRole('radio', { name: /^Execute plan$/u })).toBeChecked();
-    await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
+      await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
+    ).toBeVisible();
+    expect(screen.getByText('4 steps, execution recommendation, 2 risks')).toBeVisible();
+    expect(screen.getByText('Plan ready')).toBeVisible();
+    // Recommended mode is the default; the trigger names it.
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Interactive' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Auto-execute' }));
+    expect(screen.getByRole('button', { name: 'Execution mode, Auto-execute' })).toBeVisible();
+    await user.click(screen.getByRole('checkbox', { name: /Clear context first/u }));
     await user.click(screen.getByRole('button', { name: 'Execute plan' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
@@ -116,70 +116,73 @@ describe('PlanExitResponse', () => {
     });
   });
 
-  it('submits Interactive as the authoritative ask posture choice', async () => {
+  it('answers to the card keys: C toggles clear context, Enter executes', async () => {
     const user = userEvent.setup();
-    const interaction = planInteraction({
-      payload: {
-        question_id: 'plan_exit_interactive',
-        question_kind: 'choice',
-        plan_exit: {
-          summary: 'Review the interactive execution plan.',
-          plan_content: '# Interactive plan\n\n1. Execute with confirmations.',
-          plan_content_status: 'complete',
-        },
-        options: [
-          { label: 'Approve — auto-execute', value: 'auto' },
-          { label: 'Approve — interactive', value: 'interactive' },
-          { label: 'Approve — exit only', value: 'exit_only' },
-        ],
-      },
-    });
+    const interaction = planInteraction();
     const onResponse = vi.fn(async () => undefined);
     render(
       <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
     );
-
-    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
-    await user.click(screen.getByRole('option', { name: 'Interactive' }));
-    await user.click(screen.getByRole('button', { name: 'Execute plan' }));
-
+    card().focus();
+    await user.keyboard('c');
+    expect(screen.getByRole('checkbox', { name: /Clear context first/u })).toBeChecked();
+    card().focus();
+    await user.keyboard('{Enter}');
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
-      selected_options: ['interactive'],
+      selected_options: ['interactive', 'clear_context'],
     });
   });
 
-  it('never enables execution when the complete saved plan is unavailable', async () => {
+  it('requests changes with a one-line note that survives closing it', async () => {
     const user = userEvent.setup();
-    const interaction = planInteraction({
-      id: 'question:plan_exit_unavailable',
-      actions: ['answer'],
-      payload: {
-        question_id: 'plan_exit_unavailable',
-        question_kind: 'choice',
-        plan_exit: {
-          summary: 'Plan review failed to load.',
-          plan_file: 'D:/workspace/plans/plan.md',
-          plan_content_status: 'unavailable',
-        },
-        options: [
-          { label: 'Approve — auto-execute', value: 'auto' },
-          { label: 'Exit plan mode only', value: 'exit_only' },
-          { label: 'Reject — keep planning', value: 'reject' },
-        ],
-      },
+    const interaction = planInteraction();
+    const onResponse = vi.fn(async () => undefined);
+    render(
+      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request changes' }));
+    const note = screen.getByRole('textbox', { name: 'What should change?' });
+    await waitFor(() => expect(note).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    await user.type(note, 'Add rollback steps.');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Request changes' })).toHaveFocus();
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.keyboard('2');
+    expect(screen.getByRole('textbox')).toHaveValue('Add rollback steps.');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      answer: 'Add rollback steps.',
+      selected_options: ['reject'],
     });
+  });
+
+  it('never executes an unavailable plan but can still leave Plan mode', async () => {
+    const user = userEvent.setup();
+    const interaction = withPlan(
+      {
+        summary: 'Plan review failed to load.',
+        plan_file: 'D:/workspace/plans/plan.md',
+        plan_content_status: 'unavailable',
+        plan_content_error: 'File not found',
+      },
+      { actions: ['answer'] },
+    );
     const onResponse = vi.fn(async () => undefined);
     render(
       <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
     );
 
-    expect(screen.getByText(/saved plan is unavailable/i)).toBeVisible();
-    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
-    await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
+    expect(screen.getByText('Plan unavailable')).toBeVisible();
+    expect(screen.getByText(/saved plan could not be loaded/iu)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
-    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
-    await user.click(screen.getByRole('option', { name: 'Exit Plan mode only' }));
+    expect(screen.queryByRole('button', { name: 'Dismiss plan review' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Interactive' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Exit Plan mode only' }));
     await user.click(screen.getByRole('button', { name: 'Leave Plan mode' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
@@ -187,23 +190,133 @@ describe('PlanExitResponse', () => {
     });
   });
 
-  it('keeps the accepted plan and its recorded decision in the lifecycle', async () => {
+  it('says when the plan is still being written or cut short', () => {
+    const { unmount } = render(
+      <PlanExitResponse
+        interaction={withPlan({ summary: 'Drafting' })}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+    expect(screen.getByText('Plan still writing…')).toBeVisible();
+    expect(screen.getByText('The agent is still writing the plan.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
+    unmount();
+
+    render(
+      <PlanExitResponse
+        interaction={withPlan({
+          plan_content: '# Long plan',
+          plan_content_status: 'truncated',
+          plan_content_chars: 4800,
+          plan_content_included_chars: 1200,
+        })}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+    expect(screen.getByText('Plan truncated')).toBeVisible();
+    expect(screen.getByText('Showing 1,200 of 4,800 characters')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
+  });
+
+  it('opens the saved plan beside the conversation with O', async () => {
+    const user = userEvent.setup();
+    const onOpenArtifact = vi.fn();
+    const artifact = { artifact_id: 'plan_v1' } as unknown as Artifact;
+    render(
+      <PlanExitResponse
+        artifact={artifact}
+        interaction={planInteraction()}
+        onOpenArtifact={onOpenArtifact}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+    card().focus();
+    await user.keyboard('o');
+    expect(onOpenArtifact).toHaveBeenCalledWith(artifact);
+    await user.click(screen.getByRole('button', { name: /Open plan/u }));
+    expect(onOpenArtifact).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows all of a long plan in place when there is nowhere to open it', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(400);
+    render(
+      <PlanExitResponse
+        interaction={planInteraction()}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+    const preview = document.querySelector('[data-slot="plan-preview"] > div')!;
+    expect(preview).toHaveAttribute('data-plan-clipped', 'true');
+    await user.click(screen.getByRole('button', { name: /Show all/u }));
+    expect(preview).not.toHaveAttribute('data-plan-clipped');
+    expect(screen.getByRole('button', { name: /Show less/u })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('dismisses, reports its own failure and stays disabled while answering', async () => {
+    const user = userEvent.setup();
+    const interaction = planInteraction();
+    const onResponse = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <PlanExitResponse
+        interaction={interaction}
+        onResponse={onResponse}
+        responseError={new Error('Session closed')}
+        showOwner
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Response unavailableSession closed');
+    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Dismiss plan review' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'cancel' });
+    rerender(
+      <PlanExitResponse disabled interaction={interaction} onResponse={onResponse} showOwner />,
+    );
+    expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Request changes' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /Clear context first/u })).toBeDisabled();
+  });
+
+  it('offers only what the server offered', () => {
+    const base = planInteraction();
+    render(
+      <PlanExitResponse
+        interaction={{
+          ...base,
+          actions: ['answer', 'defer'],
+          payload: { ...base.payload, options: [{ label: 'Auto', value: 'auto' }] },
+        }}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Request changes' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Execution mode, Auto-execute' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'defer' })).toHaveAttribute(
+      'title',
+      'This client cannot offer "defer" yet.',
+    );
+  });
+
+  it('folds an approved plan into one row and keeps the plan a click away', async () => {
+    const user = userEvent.setup();
     const interaction = planInteraction({
       status: 'answered',
       requires_human_response: false,
       actions: [],
       payload: {
-        answer_metadata: { selected_options: ['auto'] },
-        options: [{ label: 'Approve — auto-execute', value: 'auto' }],
-        plan_exit: {
-          summary: 'Create the requested file after approval.',
-          plan_file: 'D:/workspace/.clio/plans/plan.md',
-          plan_content: '# Accepted implementation plan\n\n1. Create the file.',
-          plan_content_status: 'complete',
-        },
+        ...planInteraction().payload,
+        answer_metadata: { selected_options: ['interactive', 'clear_context'] },
       },
     });
-
     render(
       <PlanExitResponse
         interaction={interaction}
@@ -211,34 +324,29 @@ describe('PlanExitResponse', () => {
         showOwner={false}
       />,
     );
-
-    expect(
-      await screen.findByRole('heading', { name: 'Accepted implementation plan' }),
-    ).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('Approved in Auto-execute mode');
+    const row = screen.getByRole('status');
+    expect(row).toHaveTextContent('Plan approvedInteractive, context cleared');
+    expect(row).toHaveAttribute('data-plan-decision', 'interactive');
     expect(screen.queryByRole('button', { name: 'Execute plan' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show plan' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
+    ).toBeVisible();
   });
 
-  it('keeps composer revision feedback visible with the reviewed plan', async () => {
+  it('keeps the requested changes on the folded row', () => {
     const interaction = planInteraction({
       status: 'answered',
       requires_human_response: false,
       actions: [],
       payload: {
+        ...planInteraction().payload,
         answer_metadata: {
           answer: 'Add rollback and verification steps.',
           selected_options: ['reject'],
         },
-        options: [{ label: 'Request changes — keep planning', value: 'reject' }],
-        plan_exit: {
-          summary: 'Create the requested file after approval.',
-          plan_file: 'D:/workspace/.clio/plans/plan.md',
-          plan_content: '# Implementation plan\n\n1. Create the file.',
-          plan_content_status: 'complete',
-        },
       },
     });
-
     render(
       <PlanExitResponse
         interaction={interaction}
@@ -246,8 +354,7 @@ describe('PlanExitResponse', () => {
         showOwner={false}
       />,
     );
-
-    expect(screen.getByRole('status')).toHaveTextContent('Changes requested');
+    expect(within(screen.getByRole('status')).getByText('Changes requested')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('Add rollback and verification steps.');
   });
 });

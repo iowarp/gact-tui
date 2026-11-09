@@ -24,7 +24,6 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Frame } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
@@ -38,9 +37,12 @@ import {
   persistViewportHeight,
 } from './a2ui-response-viewport-resize';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
-import { InteractionFrameHeader } from './interaction-frame-header';
-import { ResponseErrorNotice } from './pending-interaction-notices';
+import { AskError } from './ask-card';
+import { respondFromControl } from './interaction-control';
+import { QuestionCard, QuestionFooter } from './interaction-frame-header';
+import { canDismissQuestion } from './question-card-model';
+import { IconButton } from './primitives/icon-button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SurfaceReferenceContext } from './surface-reference-context';
 
 type InteractionResponseHandler = (
@@ -51,6 +53,8 @@ type InteractionResponseHandler = (
 interface PendingA2UIResponseProps {
   /** Native questions reuse this persistent resizable viewport for their visual and answer controls. */
   renderBody?: (viewport: 'inline' | 'fullscreen') => ReactNode;
+  /** The answer may be written in the composer instead. */
+  allowsComposer?: boolean;
   showFullPrompt?: boolean;
   actionLifecycle?: A2UIActionLifecycle;
   disabled?: boolean;
@@ -64,8 +68,9 @@ interface PendingA2UIResponseProps {
   showOwner: boolean;
 }
 
-/** Presents a pending interactive surface as the tray's only bordered box — no nested chrome of its own. */
+/** A pending interactive surface inside the question card, resizable and openable full screen. */
 export function PendingA2UIResponse({
+  allowsComposer,
   renderBody,
   showFullPrompt,
   actionLifecycle,
@@ -149,10 +154,11 @@ export function PendingA2UIResponse({
     }
   };
   const controls = (
-    <>
-      <Button
-        aria-label="Resize interactive surface"
+    <TooltipProvider>
+      <IconButton
         className="cursor-ns-resize touch-none"
+        icon={<GripHorizontalIcon aria-hidden="true" />}
+        label="Resize interactive surface"
         onClick={() => {
           if (suppressResizeClick.current) {
             suppressResizeClick.current = false;
@@ -169,51 +175,30 @@ export function PendingA2UIResponse({
         onPointerDown={beginResize}
         onPointerMove={updateResize}
         onPointerUp={endResize}
-        size="icon-sm"
-        title="Drag or activate to resize interactive surface"
+        size="sm"
         type="button"
-        variant="ghost"
-      >
-        <GripHorizontalIcon aria-hidden="true" />
-      </Button>
-      <Button
-        aria-label="Open interactive surface full screen"
+      />
+      <IconButton
+        icon={<Maximize2Icon aria-hidden="true" />}
+        label="Open interactive surface full screen"
         onClick={() => setFullscreen(true)}
-        size="icon-sm"
-        title="Open full screen"
+        size="sm"
         type="button"
-        variant="ghost"
-      >
-        <Maximize2Icon aria-hidden="true" />
-      </Button>
-    </>
+      />
+    </TooltipProvider>
   );
   return (
     <SurfaceReferenceContext.Provider value={fullscreen ? referenceAndClose : enclosingReference}>
-      <Frame
-        className="min-w-0 self-stretch rounded-none bg-transparent p-0"
-        data-interaction-kind={interaction.kind}
-        data-slot="pending-a2ui"
-        dense
-        id={pendingInteractionDomId(interaction.id)}
-        spacing="sm"
-        tabIndex={-1}
-        variant="ghost"
+      <QuestionCard
+        data-response-surface="a2ui"
+        headerActions={controls}
+        interaction={interaction}
+        ownerLabel={ownerLabel}
+        showFullPrompt={showFullPrompt}
+        showOwner={showOwner}
       >
-        <InteractionFrameHeader
-          actions={controls}
-          disabled={disabled}
-          interaction={interaction}
-          onCancel={
-            (interaction.actions ?? []).includes('cancel')
-              ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-              : undefined
-          }
-          ownerLabel={ownerLabel}
-          showOwner={showOwner}
-          showFullPrompt={showFullPrompt}
-        />
-        <div className="relative min-w-0" data-slot="a2ui-response-viewport-wrapper">
+        <AskError error={responseError} />
+        <div className="relative mt-2 min-w-0" data-slot="a2ui-response-viewport-wrapper">
           <div
             className={cn(
               'min-h-24 min-w-0 max-h-[calc(100dvh-17rem)] overflow-auto overscroll-contain',
@@ -237,13 +222,12 @@ export function PendingA2UIResponse({
               } as CSSProperties
             }
           >
-            <ResponseErrorNotice error={responseError} />
             {/* Portal host for the inline placement — see `surfaceBody` below. */}
             <div className="contents" ref={setInlineHost} />
           </div>
           <button
             aria-label="Corner resize handle"
-            className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted/70 text-muted-foreground opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted/70 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
             data-slot="a2ui-response-corner-resize"
             onPointerCancel={endResize}
             onPointerDown={beginResize}
@@ -260,7 +244,17 @@ export function PendingA2UIResponse({
             <MoveDiagonal2Icon aria-hidden="true" className="size-3.5" />
           </button>
         </div>
-      </Frame>
+        <QuestionFooter
+          allowsComposer={allowsComposer}
+          disabled={disabled}
+          interaction={interaction}
+          onDismiss={
+            canDismissQuestion(interaction)
+              ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
+              : undefined
+          }
+        />
+      </QuestionCard>
       <Dialog onOpenChange={setFullscreen} open={fullscreen}>
         <DialogContent
           aria-describedby={undefined}
@@ -282,7 +276,7 @@ export function PendingA2UIResponse({
           }}
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-            <DialogTitle className="min-w-0 truncate text-sm">
+            <DialogTitle className="min-w-0 truncate text-[13.5px] font-medium">
               {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
             </DialogTitle>
             <Button onClick={() => setFullscreen(false)} size="sm" type="button" variant="ghost">
@@ -336,7 +330,7 @@ function A2UISurfaceBody({
 }) {
   if (!interaction.source.surface_id) {
     return (
-      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
         This response has no {PROTOCOL.a2ui} surface to open.
       </p>
@@ -344,7 +338,7 @@ function A2UISurfaceBody({
   }
   if (rawSurface && rawSurface.session_id !== interaction.owner_session_id) {
     return (
-      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
         This {PROTOCOL.a2ui} surface was rejected: it was addressed to a different session.
       </p>
@@ -352,7 +346,7 @@ function A2UISurfaceBody({
   }
   if (!rawSurface) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
         <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
         <span className="flex-1">{PROTOCOL.a2ui} surface is loading.</span>
         {onRefetchSurface ? (

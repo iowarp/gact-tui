@@ -24,6 +24,20 @@ export async function openConversationRail(page: Page): Promise<Locator> {
   return rail;
 }
 
+/**
+ * Open the workspace canvas and show one of its lists (Files, Sources,
+ * Artifacts, Activity, ?) from the strip on its outer edge.
+ */
+export async function showWorkbenchList(page: Page, name: string): Promise<void> {
+  const open = page.getByRole('button', { name: 'Open workspace canvas', exact: true });
+  if (await open.isVisible()) await open.click();
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists', exact: true })
+    .getByRole('button', { name, exact: true });
+  if ((await item.getAttribute('aria-pressed')) !== 'true') await item.click();
+  await expect(page.getByRole('region', { name: `${name} list`, exact: true })).toBeVisible();
+}
+
 /** Reset the shared server and retain browser error checks for each workspace case. */
 export function setupWorkspaceBrowser(): void {
   const unexpectedErrors = new WeakMap<Page, string[]>();

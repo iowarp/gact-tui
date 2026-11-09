@@ -1,7 +1,8 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { createRef } from 'react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { createRef, type PropsWithChildren, type ReactElement } from 'react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,25 @@ vi.mock('./resource-viewers', () => ({
     <article aria-label={`Artifact view: ${artifact.name}`}>{artifact.name}</article>
   ),
 }));
+
+/** The Files list beside the tabs reads through the real workspace's query context. */
+function render(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return renderComponent(ui, {
+    wrapper: ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
+// These tests concern the maximized portal, not the list beside the tabs.
+beforeEach(() => {
+  for (const workspace of ['workspace_1', 'escape_workspace'])
+    window.localStorage.setItem(
+      `clio.workbench-tabs.v1:${workspace}`,
+      JSON.stringify({ tabs: [], listView: null }),
+    );
+});
 
 afterEach(() => {
   cleanup();
@@ -125,7 +145,7 @@ it.each(['desktop', 'sheet'] as const)(
         files={[]}
         onOpenSubagent={vi.fn()}
         onUndoDiff={vi.fn()}
-        requestedOpen={{ key: 'session', request: { kind: 'session' } }}
+        requestedOpen={{ key: 'session', request: { kind: 'session', view: 'work' } }}
         sessionId="escape_session"
         sessionView={<DiagramPreview />}
         workspaceId="escape_workspace"
@@ -139,7 +159,9 @@ it.each(['desktop', 'sheet'] as const)(
             {canvas}
           </SheetContent>
         </Sheet>
-      ) : canvas,
+      ) : (
+        canvas
+      ),
     );
     await user.click(screen.getByRole('button', { name: 'Maximize canvas' }));
     await user.click(screen.getByRole('button', { name: 'Expand diagram' }));
@@ -163,6 +185,12 @@ it.each(['desktop', 'sheet'] as const)(
     );
     if (host === 'sheet') {
       expect(screen.getByRole('dialog', { name: 'Workspace files' })).toBeVisible();
+      // Focus restored to Maximize shows its hover name; Escape takes that layer first.
+      if (screen.queryByRole('tooltip')) {
+        await user.keyboard('{Escape}');
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: 'Workspace files' })).toBeVisible();
+      }
       await user.keyboard('{Escape}');
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     }

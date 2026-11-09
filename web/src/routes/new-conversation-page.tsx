@@ -105,7 +105,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
   const {
-    activeRequest,
+    requests,
     revealWorkbench,
     openSubagent,
     openWorkspaceFile,
@@ -205,7 +205,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         </div>
       }
       statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} tokens={0} />}
-      workbenchRevealKey={activeRequest?.key}
+      workbenchReveal={requests}
       workbench={
         <ClioWorkbench
           workspaceId={workspaceId}
@@ -246,7 +246,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           diffActionPending={diffActions.undo.isPending}
           onOpenSubagent={openSubagent}
           onOpenTerminal={terminalActions.onOpenTerminal}
-          requestedOpen={activeRequest}
+          requests={requests}
         />
       }
     >

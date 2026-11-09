@@ -62,6 +62,11 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Open Check the report', exact: true }).click();
+  // Work folds into Activity: the todo list is one row that opens the full Work tab.
+  await page
+    .getByRole('region', { name: 'Activity list', exact: true })
+    .getByRole('button', { name: /^Todos, / })
+    .click();
   await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
     'data-state',
     'active',

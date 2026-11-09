@@ -320,7 +320,7 @@ describe('ClioPendingInteractions explicitly inline A2UI kind', () => {
     });
     const onResponse = renderPending([interaction]);
 
-    await user.click(screen.getByRole('button', { name: 'Cancel question' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss question' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'cancel' });
   });
 });

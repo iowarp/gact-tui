@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openConversationRail } from './workspace-setup';
+import { openConversationRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -131,7 +131,11 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await page.getByRole('button', { name: /Return to parent conversation/ }).click();
   await expect(page).toHaveURL(/sessions\/sess_flat_ndp$/);
   const branchLink = page.getByRole('link').filter({ hasText: branch.title });
-  await expect(page.getByText('Read the station evidence table', { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator('[data-slot="pending-interaction-title"]')
+      .getByText('Read the station evidence table', { exact: true }),
+  ).toBeVisible();
   await expect(branchLink).toBeVisible();
   await branchLink.click();
   await expect(composer).toBeVisible();
@@ -144,10 +148,8 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
 }, testInfo) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
-  await (await openConversationRail(page)).getByRole('button', { name: 'Open full view' }).click();
-  const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
-  await canvas.getByRole('button', { name: /^Artifacts/ }).click();
+  await showWorkbenchList(page, 'Artifacts');
+  const canvas = page.getByRole('region', { name: 'Artifacts list', exact: true });
   const category = canvas.getByRole('combobox', { name: 'Artifact category' });
   await expect(category).toBeVisible();
   await category.click();
@@ -164,9 +166,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.evaluate(() => localStorage.setItem('theme', 'dark'));
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await (await openConversationRail(page)).getByRole('button', { name: 'Open full view' }).click();
-  await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
-  await canvas.getByRole('button', { name: /^Artifacts/ }).click();
+  await showWorkbenchList(page, 'Artifacts');
   await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('artifact-filters-dark.png') });
 });
