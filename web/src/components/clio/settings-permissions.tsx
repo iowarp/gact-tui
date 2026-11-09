@@ -2,7 +2,9 @@ import { queryKeys } from '@/lib/query-keys';
 import type { PermissionPolicy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CheckCircle2Icon,
   FolderKeyIcon,
+  KeyRoundIcon,
   Globe2Icon,
   LoaderCircleIcon,
   ShieldCheckIcon,
@@ -52,6 +54,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioStatus } from './status';
+import { SettingsSectionHeading as SectionHeading } from './settings-section-heading';
 
 type PolicyKind = NonNullable<PermissionPolicy['kind']>;
 
@@ -609,5 +612,61 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
         </AlertDialogContent>
       </AlertDialog>
     </Frame>
+  );
+}
+
+export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const permissions = useQuery({
+    queryKey: queryKeys.key('permissions', settings.endpoint),
+    queryFn: ({ signal }) => repository.permissions(signal),
+  });
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Review requests that need your decision. The agent cannot approve its own protected actions."
+        title="Permissions"
+      />
+      <Frame spacing="lg">
+        <FrameHeader>
+          <FrameTitle>Requests</FrameTitle>
+          <FrameDescription>
+            Only decisions reported by the service are shown here.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="grid gap-2">
+          {permissions.data?.map((permission) => (
+            <Alert
+              key={permission.id}
+              variant={permission.risk === 'high' ? 'destructive' : 'default'}
+            >
+              <KeyRoundIcon aria-hidden="true" />
+              <AlertTitle>{permission.tool_name}</AlertTitle>
+              <AlertDescription>
+                {permission.reason ?? 'No reason was provided.'}, {permission.status ?? 'pending'}
+              </AlertDescription>
+            </Alert>
+          ))}
+          {permissions.data?.length === 0 ? (
+            <Alert>
+              <CheckCircle2Icon aria-hidden="true" />
+              <AlertTitle>No permission requests</AlertTitle>
+              <AlertDescription>
+                There are no pending or recorded decisions on this connection.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {permissions.isError ? (
+            <Alert variant="destructive">
+              <KeyRoundIcon aria-hidden="true" />
+              <AlertTitle>Permissions unavailable</AlertTitle>
+              <AlertDescription>{permissions.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </FramePanel>
+      </Frame>
+      <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
+    </div>
   );
 }
