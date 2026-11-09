@@ -176,7 +176,7 @@ export function DesktopTitleBar() {
   // platform; macOS's native Cmd+Comma overlaps harmlessly (settings
   // navigation is idempotent). Keys and labels come from the shared catalog.
   // Registered ahead of the early return for the hooks-order reason above.
-  useShortcut('app-menu', () => setMenuOpen(true));
+  useShortcut('app-menu', () => setMenuOpen(true), { enabled: inTauri() });
   useShortcut('new-conversation', () => dispatchMenuAction('new-session'));
   useShortcut('settings', () => dispatchMenuAction('open-settings'));
   useShortcut('fullscreen', () => void runWindowAction('toggleFullscreen'));

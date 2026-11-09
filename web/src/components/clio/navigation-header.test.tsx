@@ -64,7 +64,7 @@ it('shows saved service addresses and prevents selecting an unavailable service'
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText('Contained'));
+  await user.click(screen.getByText('Contained · this computer'));
 
   expect(screen.getAllByText('127.0.0.1:8788').length).toBeGreaterThan(0);
   expect(screen.getByText('127.0.0.1:9999')).toBeVisible();
@@ -112,7 +112,7 @@ it('explains the active service status when its indicator is hovered', async () 
   expect(await screen.findByText('No model is selected yet.')).toBeVisible();
 });
 
-it('shows agent identity as location followed by the branded agent name', async () => {
+it('names the agent and where it runs under the mark, and in the menu', async () => {
   const user = userEvent.setup();
   render(
     <MemoryRouter>
@@ -140,7 +140,7 @@ it('shows agent identity as location followed by the branded agent name', async 
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText('Local'));
+  await user.click(screen.getByText(`${brand.agentName} local · this computer`));
 
   expect(screen.getByText('Talking to')).toBeVisible();
   expect(screen.getByText(`${brand.agentName} local`)).toBeVisible();
@@ -178,8 +178,7 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByText('Ares')).toBeVisible();
-  expect(screen.getByText('Research')).toBeVisible();
+  expect(screen.getByText('Ares Research · this computer')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(
@@ -236,3 +235,31 @@ it.each(['local', 'aurora'] as const)(
     }
   },
 );
+
+it('opens the agent menu from Alt Space in a browser', async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <TooltipProvider>
+        <SidebarProvider>
+          <NavigationHeader
+            connectionAvailabilities={{}}
+            connections={[]}
+            currentPath="/"
+            endpoint="http://127.0.0.1:49433"
+            onConnect={vi.fn()}
+            onImportSession={vi.fn()}
+            onNewSession={vi.fn()}
+            onNewWorkspace={vi.fn()}
+            onOpenArchived={vi.fn()}
+          />
+        </SidebarProvider>
+      </TooltipProvider>
+    </MemoryRouter>,
+  );
+
+  expect(screen.queryByText('Talking to')).toBeNull();
+  await user.keyboard('{Alt>}[Space]{/Alt}');
+  expect(await screen.findByText('Talking to')).toBeVisible();
+  expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+});

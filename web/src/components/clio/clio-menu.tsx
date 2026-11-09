@@ -30,6 +30,7 @@ import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
 import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
+import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { useRuntimeVersion } from '@/hooks/use-runtime-version';
 import { useUpdateStatus, type UpdateStatus } from '@/hooks/use-update-status';
@@ -212,6 +213,7 @@ export function ClioMenuContent({
           type="search"
           value={query}
         />
+        {desktop ? null : <ShortcutKeys id="app-menu" variant="caps" />}
       </label>
       <div className="p-1.5 text-[12.5px]">
         <DropdownMenuLabel className={GROUP_LABEL}>Talking to</DropdownMenuLabel>
@@ -223,11 +225,15 @@ export function ClioMenuContent({
             {KIND_ICON[identity.kind]}
           </span>
           <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
-            <span className="truncate text-[13px] font-medium">{identity.name}</span>
-            <span className="truncate text-[11px] text-muted-foreground">{identity.place}</span>
+            <span className="truncate font-medium">{identity.name}</span>
+            <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
           </span>
           <span className="flex w-[72px] shrink-0 justify-end">
-            <StatusIndicator label={activeStatus.label} tone={activeStatus.tone} />
+            <StatusIndicator
+              className="text-accent-foreground"
+              label={activeStatus.label}
+              tone={activeStatus.tone}
+            />
           </span>
         </div>
         <div className="mr-2 mb-1 ml-[15px] border-l border-border py-0.5 pl-4">
@@ -265,10 +271,11 @@ export function ClioMenuContent({
               connectionAvailabilities,
               connection.endpoint,
             );
+            const unavailable = availability.state === 'unavailable';
             return (
               <DropdownMenuItem
-                className="min-h-[30px] py-[3px] text-[12.5px] [&_svg:not([class*='size-'])]:size-[15px]"
-                disabled={availability.state === 'unavailable'}
+                className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
+                disabled={unavailable}
                 key={connection.endpoint}
                 onSelect={() => void onConnect(connection)}
                 title={`${connection.endpoint}. ${availability.label}: ${availability.detail}`}
@@ -278,6 +285,7 @@ export function ClioMenuContent({
                   detail={saved.address}
                   icon={KIND_ICON[saved.kind]}
                   label={saved.name}
+                  muted={unavailable}
                   status={availabilityStatus(availability, false)}
                 />
               </DropdownMenuItem>

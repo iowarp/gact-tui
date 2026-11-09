@@ -26,6 +26,8 @@ export interface MenuRowProps {
   submenu?: boolean;
   /** An ⓘ explanation button, kept outside the row's main action. */
   info?: ReactNode;
+  /** An unreachable choice: dims the icon and mutes the name, keeping every word readable. */
+  muted?: boolean;
   className?: string;
 }
 
@@ -47,6 +49,7 @@ export const MenuRow = memo(function MenuRow({
   shortcut,
   submenu = false,
   info,
+  muted = false,
   className,
 }: MenuRowProps) {
   return (
@@ -54,21 +57,26 @@ export const MenuRow = memo(function MenuRow({
       {icon ? (
         <span
           aria-hidden="true"
-          className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
+          className={cn(
+            "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
+            muted && 'opacity-50',
+          )}
         >
           {icon}
         </span>
       ) : null}
       {detail ? (
         <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
-          <span className="truncate">{label}</span>
+          <span className={cn('truncate', muted && 'text-muted-foreground')}>{label}</span>
           <span title={detail} className="truncate text-[11px] text-muted-foreground">
             {detail}
           </span>
         </span>
       ) : (
         <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
-          <span className="max-w-full shrink-0 truncate">{label}</span>
+          <span className={cn('max-w-full shrink-0 truncate', muted && 'text-muted-foreground')}>
+            {label}
+          </span>
           {description ? (
             <span
               title={description}
