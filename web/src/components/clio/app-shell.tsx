@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -184,6 +185,7 @@ export function ClioAppShell({
   }, [desktopWorkbench, workbenchOpen]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  const leftPocketKey = useShortcutPresentation('left-pocket');
 
   // A strip chord with the pocket closed opens it at that strip item. The
   // desktop panel keeps the workbench mounted (it handles the chord itself);
@@ -211,7 +213,14 @@ export function ClioAppShell({
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
     >
-      <DesktopWorkspaceToolbar navigation={<SidebarTrigger />}>
+      <DesktopWorkspaceToolbar
+        navigation={
+          <span className="inline-flex">
+            <SidebarTrigger aria-keyshortcuts={leftPocketKey?.aria} />
+            <HeldKeyBadge id="left-pocket" />
+          </span>
+        }
+      >
         <div className="min-w-0 flex-1">{contextBar}</div>
         {toolbarActions}
         {hasWorkbench && (
@@ -321,6 +330,7 @@ export function ClioAppShell({
           </SheetContent>
         </Sheet>
       ) : null}
+      <HeldKeysScrim />
     </SidebarProvider>
   );
 }
