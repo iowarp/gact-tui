@@ -125,6 +125,7 @@ export function PresentationItem({ block }: { block: ToolPresentationBlock }) {
             </Button>
           </DialogTrigger>
           <ResultDialogContent
+            icon={<InfoIcon />}
             title={block.label || 'Result details'}
             description="Recorded details for this result."
           >
