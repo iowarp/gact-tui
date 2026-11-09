@@ -118,8 +118,34 @@ export class Recorder {
       .first();
   }
 
+  /** Hover the left-bar row that owns a hover-revealed action, as a person would. */
+  async revealRowAction(role, label) {
+    if (
+      await this.control(role, label)
+        .isVisible()
+        .catch(() => false)
+    )
+      return;
+    const matches = this.page.getByRole(role, { name: label, includeHidden: true });
+    const count = Math.min(await matches.count(), 20);
+    for (let index = 0; index < count; index += 1) {
+      const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+      if (!(await row.isVisible().catch(() => false))) continue;
+      // Leave the previous control first so its tooltip closes instead of covering the row.
+      const viewport = this.page.viewportSize();
+      if (viewport) await this.page.mouse.move(viewport.width / 2, viewport.height / 2);
+      await this.page.waitForTimeout(120);
+      const box = await row.boundingBox();
+      await row.hover(
+        box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {},
+      );
+      return;
+    }
+  }
+
   /** Press a control by role/name and wait for a new menu/dialog/listbox. */
   async overlay(name, role, label, extra = {}) {
+    await this.revealRowAction(role, label);
     const control = this.control(role, label);
     return this.measure(name, extra.category ?? 'menu', () => control.click(), OVERLAY, {
       close: 'Escape',
@@ -207,16 +233,12 @@ export async function shellJourney(r) {
       close: 'Escape',
     },
   );
-  await r.overlay('create or import menu', 'button', 'Create or import');
+  await r.overlay('agent menu', 'button', /^[^:]+: .+, this computer$/u);
   await r.overlay('workspace actions menu', 'button', /^Workspace actions for /u);
   await r.overlay('session row actions menu', 'button', /^Session actions for /u);
-  await r.overlay('attention inbox', 'button', /needs your response/u);
+  await r.overlay('attention inbox', 'button', /^Notifications|needs your response/u);
   await r.overlay('service status menu', 'button', /^Workspace Service status/u);
-  const infraStatus = r.control('button', 'Show infrastructure status');
-  await r.measure('infrastructure status', 'toggle', () => infraStatus.click(), OVERLAY, {
-    control: infraStatus,
-    close: () => r.control('button', /infrastructure status/u).click(),
-  });
+  await r.overlay('infrastructure status', 'button', /^Infrastructure: /u);
   // The rail (also "Toggle Sidebar") sits under the navigation resize handle;
   // the header trigger is the control people press.
   const toggle = page.locator('button[data-sidebar="trigger"]').filter({ visible: true }).first();
@@ -261,8 +283,6 @@ export async function headerJourney(r) {
     { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
     { control: customize },
   );
-  await r.overlay('version status', 'button', /^Version status/u);
-  await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
 
 export async function railJourney(r) {
@@ -297,7 +317,8 @@ export async function railJourney(r) {
     minCount: 1,
   });
   // The draft opens from the top bar's new-conversation control; measure its
-  // in-app route change from a conversation.
+  // in-app route change from a conversation. A history push is not an input
+  // event, so the measurement starts at the push.
   await r.measure(
     'new conversation draft',
     'navigation',
@@ -306,7 +327,7 @@ export async function railJourney(r) {
         history.pushState({}, '', path);
         dispatchEvent(new PopStateEvent('popstate'));
       }, '/workspaces/ws_flat_ndp/new'),
-    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation' },
+    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation', noInput: true },
     { timeoutMs: 8000 },
   );
   await page.goto(new URL(SESSION_URL, page.url()).href);
@@ -360,6 +381,93 @@ export async function composerJourney(r) {
   await r.overlay('reasoning effort', 'button', /^Reasoning effort/u);
   await r.overlay('execution mode', 'button', /^Execution mode/u);
   await r.overlay('confirmation policy', 'button', /^Confirmation policy/u);
+  await attachmentJourney(r);
+}
+
+const ATTACHMENT_CHIP = '[data-slot="composer-attachment-chip"]';
+
+/** Attach two files through the composer file input; ready when both chips show. */
+async function attachmentJourney(r) {
+  const { page } = r;
+  const input = page.locator('input[type="file"][multiple]').first();
+  if ((await input.count()) === 0) {
+    r.steps.push({
+      scenario: r.scenario,
+      name: 'attachment add',
+      category: 'toggle',
+      skipped: 'control not found',
+    });
+    return;
+  }
+  // setInputFiles emits no pointer/key event, so the step dispatches the
+  // change itself and marks that moment as the input.
+  await r.measure(
+    'attachment add',
+    'toggle',
+    () =>
+      input.evaluate((element) => {
+        const files = new DataTransfer();
+        files.items.add(
+          new File(['site,lat\nopal-01,1\n'], 'soil_sites.csv', { type: 'text/csv' }),
+        );
+        files.items.add(new File(['# Probe notes\n'], 'probe_notes.md', { type: 'text/markdown' }));
+        element.files = files.files;
+        window.__perf.state.lastInput = performance.now();
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      }),
+    { css: ATTACHMENT_CHIP, minCount: 2 },
+    {
+      close: async () => {
+        for (const name of ['soil_sites.csv', 'probe_notes.md']) {
+          await page
+            .getByRole('button', { name: `Remove ${name}` })
+            .first()
+            .click({ timeout: 2000 })
+            .catch(() => {});
+        }
+      },
+    },
+  );
+}
+
+/**
+ * Seeded queue: reload with six queued messages, then measure collapsing and
+ * expanding the list and a server-published row joining it.
+ */
+export async function queueJourney(r, { reload, append }) {
+  const { page } = r;
+  await reload();
+  const hide = r.control('button', 'Hide queued messages');
+  await r.measure(
+    'queue hide',
+    'toggle',
+    () => hide.click(),
+    { css: '[aria-label="Show queued messages"]' },
+    { control: hide },
+  );
+  const show = r.control('button', 'Show queued messages');
+  await r.measure(
+    'queue show',
+    'toggle',
+    () => show.click(),
+    { css: '[aria-label="Hide queued messages"]' },
+    { control: show },
+  );
+  const rows = '[data-slot="composer-queue"] [role="listitem"]';
+  const count = await page.locator(rows).count();
+  if (count === 0) return;
+  // Includes the fixture round trip, so it reports without a ready budget.
+  await r.measure(
+    'queue row arrives',
+    'server-event',
+    async () => {
+      await page.evaluate(() => {
+        window.__perf.state.lastInput = performance.now();
+      });
+      await append();
+    },
+    { css: rows, minCount: count + 1 },
+  );
 }
 
 export async function transcriptJourney(r) {
@@ -375,9 +483,15 @@ export async function transcriptJourney(r) {
       { control: activity },
     );
   }
+  // A conversation wider than 760 px shows the minimap rail instead of the
+  // outline button, so the outline is measured where it appears.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 700, height: viewport.height });
   await r.overlay('transcript outline', 'button', 'Open transcript outline', {
     category: 'dialog',
   });
+  await page.setViewportSize(viewport);
+  await waitIdle(page);
   const jump = r.control('button', /^Jump to user message 2$/u);
   await r.measure(
     'minimap jump',
@@ -433,7 +547,6 @@ export async function workbenchJourney(r) {
       'open workspace canvas',
       'toggle',
       () => open.click(),
-      // The workbench is an <aside>: its complementary role is implicit.
       { css: 'aside[aria-label="Workspace canvas"]' },
       { control: open },
     );
@@ -530,6 +643,29 @@ export async function workbenchJourney(r) {
   if (await r.visible(restore, 1000)) await restore.click();
 }
 
+/** Scroll a virtualized list's scroller a page at a time until `target` is rendered. */
+async function scrollTreeTo(list, target, visible) {
+  for (let page = 0; page < 200; page += 1) {
+    if (await visible(target, page === 0 ? 1000 : 150)) return;
+    const moved = await list.evaluate((root, first) => {
+      const scroller = [root, ...root.querySelectorAll('*')].find(
+        (node) =>
+          node.scrollHeight > node.clientHeight + 1 &&
+          /auto|scroll/u.test(getComputedStyle(node).overflowY),
+      );
+      if (!scroller) return false;
+      if (first && scroller.scrollTop > 0) {
+        scroller.scrollTop = 0;
+        return true;
+      }
+      const before = scroller.scrollTop;
+      scroller.scrollTop += Math.max(1, scroller.clientHeight * 0.8);
+      return scroller.scrollTop !== before;
+    }, page === 0);
+    if (!moved) return;
+  }
+}
+
 /**
  * Open files in the workbench. An entry is a path or `{ path, content, after }`:
  * `content` is text that only appears once the file body is rendered (the
@@ -578,24 +714,8 @@ export async function fileViewerJourney(r, entries) {
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();
-    // A long tree mounts only the rows near view: scroll to the file like a
-    // reader would, outside the measured click.
-    for (let page_ = 0; page_ < 400 && !(await file.count()); page_ += 1) {
-      const atEnd = await list
-        .locator('[role="tree"]')
-        .first()
-        .evaluate((tree) => {
-          const viewport = tree.closest('[data-slot="scroll-area-viewport"]') ?? tree.parentElement;
-          if (!viewport) return true;
-          const before = viewport.scrollTop;
-          viewport.scrollTop += viewport.clientHeight * 0.8;
-          return viewport.scrollTop === before;
-        })
-        .catch(() => true);
-      await page.waitForTimeout(16);
-      if (atEnd) break;
-    }
-    if (await file.count()) await file.scrollIntoViewIfNeeded();
+    // The tree is virtualized: scroll it until the row is rendered.
+    await scrollTreeTo(list, file, (locator, ms) => r.visible(locator, ms));
     const preview = '[aria-label="Workspace file preview"]';
     const step = await r.measure(
       `open file ${name}`,
@@ -753,16 +873,18 @@ export async function exploreJourney(r) {
   }
   await page.locator(MESSAGE).first().waitFor({ timeout: 30_000 });
   await waitIdle(page, 1000);
-  const create = r.control('button', /^New session in /u);
+  await r.revealRowAction('button', /^New conversation in /u);
+  const create = r.control('button', /^New conversation in /u);
   await r.measure('new session dialog', 'dialog', () => create.click(), OVERLAY, {
     control: create,
   });
-  const workspaceTab = r.control('tab', 'Workspace', { exact: true });
+  // The Create dialog picks Session or Workspace with a radio group.
+  const workspaceTab = r.control('radio', 'Workspace', { exact: true });
   await r.measure(
     'create dialog: workspace tab',
     'tab',
     () => workspaceTab.click(),
-    { css: '[role="dialog"] [role="tab"][aria-selected="true"]', text: 'Workspace' },
+    { css: '[role="dialog"] [role="radio"][aria-checked="true"]', text: 'Workspace' },
     { control: workspaceTab, close: 'Escape' },
   );
   await r.close('Escape');

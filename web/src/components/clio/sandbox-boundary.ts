@@ -1,3 +1,6 @@
+import type { ToolInvocation } from '@clio/core/v3';
+import { operationInput } from './tool-operation-data';
+
 /**
  * A tool result's sandbox diagnosis (`boundary`, #1905): set by the server when a
  * confined command or script failed at CLIO's sandbox boundary. Shell results arrive
@@ -10,6 +13,8 @@ export interface SandboxBoundary {
   paths: string[];
   request_roots: string[];
   message: string;
+  /** The script or program the blocked call ran, read from the call's command. */
+  program?: string;
 }
 
 function asBoundary(value: unknown): SandboxBoundary | undefined {
@@ -55,4 +60,23 @@ export function sandboxBoundary(output: unknown, depth = 0): SandboxBoundary | u
     if (found) return found;
   }
   return undefined;
+}
+
+/** The script a shell command ran (`python qc_sites.py` ? qc_sites.py), else its program. */
+export function blockedProgram(command: unknown): string | undefined {
+  if (typeof command !== 'string') return undefined;
+  const words = command
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word && !word.startsWith('-'));
+  const script = words.find((word, index) => index > 0 && /\.[a-z0-9]{1,5}$/iu.test(word));
+  return (script ?? words[0])?.split(/[\\/]/u).pop() || undefined;
+}
+
+/** A call's sandbox boundary, naming what the call ran. */
+export function toolSandboxBoundary(tool: ToolInvocation | undefined): SandboxBoundary | undefined {
+  const boundary = sandboxBoundary(tool?.output);
+  if (!boundary || !tool) return boundary;
+  const program = blockedProgram(operationInput(tool).command);
+  return program ? { ...boundary, program } : boundary;
 }

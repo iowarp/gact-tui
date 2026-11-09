@@ -5,7 +5,7 @@ import type {
   ProviderModelRefreshResult,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { queryKeys } from '@/lib/query-keys';
@@ -14,6 +14,7 @@ import { openExternalUrl } from '@/tauri/external-url';
 import { storeProviderCredential } from '@/tauri/secure-credentials';
 import { useOwnedState } from './provider-owned-state';
 import { refreshModelsWithClient } from './provider-model-refresh';
+import { verifySignedInProvider } from './provider-sign-in-verify';
 import { toast } from 'sonner';
 
 /** The visible progress text of a running provider action. */
@@ -31,6 +32,8 @@ export type ProviderActionStage =
   | 'Opening sign-in…'
   | 'Waiting for you to log in…'
   | 'Logging in…'
+  | `Verifying ${string}…`
+  | 'Loading models…'
   | 'Logging out…';
 
 /**
@@ -134,12 +137,51 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     if (catalog) queryClient.setQueryData(modelsKey, catalog);
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
   };
-  const signInComplete = async () => {
+  const signedOut = async () => {
     setStage('Finding models…');
-    setAuthFlow(undefined);
-    setAuthPaste('');
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
     setStage(undefined);
+  };
+  // A sign-in wait still running when the panel closes stops with it.
+  const verifications = useRef(new Set<AbortController>());
+  useEffect(() => {
+    const running = verifications.current;
+    return () => running.forEach((controller) => controller.abort());
+  }, []);
+  /**
+   * A completed sign-in is not a usable provider yet: the agent may still be
+   * installing the provider's client and verifying its models, and reports
+   * it signed out meanwhile. Hold "Verifying…" until it reports ready, then
+   * load its models, so the panel never falls back to Log in.
+   */
+  const signInComplete = async () => {
+    const name = preset?.label ?? 'the provider';
+    setAuthFlow(undefined);
+    setAuthPaste('');
+    setStage(`Verifying ${name}…`);
+    const controller = new AbortController();
+    verifications.current.add(controller);
+    try {
+      const verified = await verifySignedInProvider({
+        read: async () => {
+          const configuration = await repository.languageModelConfiguration(controller.signal);
+          queryClient.setQueryData(configurationKey, configuration);
+          return configuration.presets.find((item) => item.id === presetId);
+        },
+        check: () => repository.providerHandshake(presetId, { apiBase, refresh: true }),
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      setStage('Loading models…');
+      if (verified.check) setHandshakeResult(verified.check);
+      await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
+      if (!verified.ready) {
+        setAuthFailedReason(`${name} is signed in but not ready yet. Check it again in a moment.`);
+      }
+    } finally {
+      verifications.current.delete(controller);
+      setStage(undefined);
+    }
   };
 
   const refreshModels = useMutation({
@@ -236,7 +278,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       setStage('Logging out…');
       return repository.logoutProvider(presetId);
     },
-    onSuccess: () => signInComplete(),
+    onSuccess: () => signedOut(),
     ...settle,
   });
 

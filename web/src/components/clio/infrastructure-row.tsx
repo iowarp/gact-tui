@@ -12,6 +12,10 @@ import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { cn } from '@/lib/utils';
 
+/** Infrastructure facts: a 46% label column, right-aligned values, 25px rows. */
+export const INFRA_FACTS_GRID =
+  'max-w-[440px] auto-rows-[25px] grid-cols-[46%_minmax(0,1fr)] gap-y-0';
+
 interface InfraColumns {
   /** Status column: mark and words ("Running", "2 connected"). */
   status: number;
@@ -101,14 +105,39 @@ export interface InfraRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ti
   selected?: boolean;
 }
 
+/**
+ * Under 480px the row keeps its name: the status word moves from its column to
+ * the start of the sub-line (the mark keeps a 16px column), the meta column is
+ * already gone, and hover actions float over the row's end instead of holding
+ * empty width.
+ */
+const NARROW_STATUS =
+  'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
+const NARROW_ACTIONS =
+  '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:absolute @max-[480px]/infra:[&>[data-slot=list-row-actions]]:top-1/2 @max-[480px]/infra:[&>[data-slot=list-row-actions]]:-translate-y-1/2 @max-[480px]/infra:[&>[data-slot=list-row-actions]]:rounded-[5px] @max-[480px]/infra:[&>[data-slot=list-row-actions]]:bg-hover @max-[480px]/infra:[&>[data-slot=list-row-actions]]:pl-1 @max-[480px]/infra:data-selected:[&>[data-slot=list-row-actions]]:bg-menu-highlight';
+
 /** A two-line inventory row with fixed status, meta and action columns. */
 export const InfraRow = memo(
   forwardRef<HTMLDivElement, InfraRowProps>(function InfraRow(
-    { icon, title, description, status, meta, actions, primaryAction, details, ...rest },
+    { icon, title, description, status, meta, actions, primaryAction, details, className, ...rest },
     ref,
   ) {
     const columns = useContext(InfraColumnsContext);
     const metaTitle = typeof meta === 'string' ? meta : undefined;
+    // The word is read once, from the status column. A narrow row shows it again here as
+    // generated content, so it is neither announced nor found twice.
+    const subLine = status ? (
+      <>
+        <span
+          aria-hidden="true"
+          data-label={status.label}
+          className="mr-2 hidden before:content-[attr(data-label)] @max-[480px]/infra:inline"
+        />
+        {description}
+      </>
+    ) : (
+      description
+    );
     return (
       <div className="min-w-0" role="listitem">
         <ListRow
@@ -116,10 +145,10 @@ export const InfraRow = memo(
           layout="stacked"
           icon={icon}
           title={title}
-          description={description}
+          description={subLine}
           columns={
             <>
-              <span className="flex shrink-0 overflow-hidden" style={{ width: columns.status }}>
+              <span className={NARROW_STATUS} style={{ width: columns.status }}>
                 {status ? <StatusIndicator label={status.label} tone={status.tone} /> : null}
               </span>
               {columns.meta ? (
@@ -136,6 +165,19 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
+          className={cn(
+            columns.hover &&
+              (columns.pinned
+                ? cn(
+                    NARROW_ACTIONS,
+                    '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:right-[34px]',
+                  )
+                : cn(
+                    NARROW_ACTIONS,
+                    '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:right-2',
+                  )),
+            className,
+          )}
           {...rest}
         />
         {details ? <InfraRowDetails>{details}</InfraRowDetails> : null}

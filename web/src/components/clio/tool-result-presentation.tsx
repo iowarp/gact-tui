@@ -6,7 +6,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { PresentationLink } from './presentation-link';
-import { sandboxBoundary } from './sandbox-boundary';
+import { toolSandboxBoundary } from './sandbox-boundary';
 import { SandboxBoundaryNotice } from './sandbox-boundary-notice';
 import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
@@ -50,7 +50,7 @@ export function ToolResultPresentation(props: {
   summaryInHeader?: boolean;
 }) {
   // A call that failed at the sandbox says so above its result (#1905).
-  const boundary = sandboxBoundary(props.tool.output);
+  const boundary = toolSandboxBoundary(props.tool);
   const body = <ToolResultBody {...props} />;
   if (!boundary) return body;
   return (

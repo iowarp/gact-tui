@@ -12,6 +12,7 @@ import { providerGroupStatus, providerRunning, type PickerNodeData } from './mod
 import type { ProviderFilterCount } from './model-picker-tree';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
+import { providerActionStageWord } from './provider-action-flows';
 import type { ProviderSearchCount } from './use-model-picker-search-view';
 
 interface PickerRowLabelProps {
@@ -95,6 +96,14 @@ export function PickerRowLabel({
             title={node.data.group.detail}
           >
             {providerGroupStatus(node.data.group).label}
+          </span>
+        ) : stage ? (
+          <span
+            className="shrink-0 text-[11px] text-muted-foreground"
+            data-slot="provider-row-status"
+            title={stage}
+          >
+            {providerActionStageWord(stage)}
           </span>
         ) : null}
         {managingVisibility && onToggleVisibility ? (

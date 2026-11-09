@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { brand } from '@brand';
 import { CircleAlertIcon } from 'lucide-react';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -111,28 +112,37 @@ export function UpdatePage() {
 
   if (step === 'failed') {
     return (
-      <div data-slot="update-page" className="flex size-full min-h-0 bg-background">
-        <StateView
-          kind="error"
-          size="page"
-          title="Update did not finish"
-          className="m-auto min-h-0 w-full"
-          action={{
-            label: 'Dismiss',
-            icon: null,
-            onClick: () => {
-              clearPendingUpdateMarker();
-              reset();
-            },
-          }}
-          link={{ label: 'Details', onClick: () => setDetails(true) }}
-        />
+      <div
+        data-slot="update-page"
+        className="clio-scrollbar grid size-full min-h-0 overflow-y-auto bg-background"
+      >
+        {/* The running page's column, so the error lands where its steps were. */}
+        <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
+          <BrandStatusHeader
+            tone="error"
+            status={version ? `Not updated to ${version}` : 'Not updated'}
+          />
+          <StateView
+            kind="error"
+            title="Update did not finish"
+            className="min-h-0 py-0"
+            action={{
+              label: 'Dismiss',
+              icon: null,
+              onClick: () => {
+                clearPendingUpdateMarker();
+                reset();
+              },
+            }}
+            link={{ label: 'Details', onClick: () => setDetails(true) }}
+          />
+        </section>
         <DialogFrame
           open={details}
           onOpenChange={setDetails}
           icon={<CircleAlertIcon />}
           title="Update details"
-          description={version ? `Updating ${vocab.product} to ${version}` : undefined}
+          description={version ? `Updating ${brand.wordmark} to ${version}` : undefined}
         >
           <p className="text-[13px] leading-5 break-words">
             {reason || `${vocab.agent} could not be reached after the update.`}
@@ -147,7 +157,8 @@ export function UpdatePage() {
     );
   }
 
-  const title = version ? `Updating ${vocab.product} to ${version}` : `Updating ${vocab.product}`;
+  // One name on the page: the header's wordmark ("Updating CLIO to 0.11.4" under "CLIO").
+  const title = version ? `Updating ${brand.wordmark} to ${version}` : `Updating ${brand.wordmark}`;
   return (
     <div
       data-slot="update-page"

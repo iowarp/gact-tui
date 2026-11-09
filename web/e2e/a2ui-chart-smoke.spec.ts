@@ -100,7 +100,7 @@ async function expectRenderedChart(chartView: Locator) {
 test('renders a clio.chart.v1 scatter preset over inline data', async ({ page }) => {
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`);
   expect(published.ok()).toBe(true);
@@ -128,7 +128,7 @@ test('keeps the chart background and legend readable across a live theme change'
 }, testInfo) => {
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
   expect(
     (
       await page.request.post(`${fixtureEndpoint}/__test/a2ui-chart-demo`, {
@@ -210,7 +210,7 @@ test('links selection between clio.chart.v1 and clio.data-table.v1 sharing one p
 }) => {
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-linked-selection-demo`);
   expect(published.ok()).toBe(true);
