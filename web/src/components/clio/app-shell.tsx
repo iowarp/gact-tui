@@ -17,6 +17,8 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { useUpdatePane } from './update-page-host';
+import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 
 export interface ClioAppShellProps {
@@ -114,6 +116,12 @@ function storedWorkbenchShare(): number {
   return Number.isFinite(value) && value >= 0.15 && value <= 0.7 ? value : DEFAULT_WORKBENCH_SHARE;
 }
 
+/** The workbench's pixel width from its remembered share of the window. */
+function workbenchWidth(): string {
+  const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth;
+  return `${Math.max(320, Math.round(storedWorkbenchShare() * viewport))}px`;
+}
+
 export function ClioAppShell({
   navigation,
   contextBar,
@@ -126,6 +134,7 @@ export function ClioAppShell({
 }: ClioAppShellProps) {
   const subscribedRevealKey = useWorkbenchRequest(workbenchReveal)?.key;
   const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
+  const updating = useUpdatePane();
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
   // The split workbench needs enough room for both its 400 px conversation
   // panel and 320 px canvas after the desktop navigation rail is accounted for.
@@ -145,10 +154,7 @@ export function ClioAppShell({
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // Read once: the panel keeps its share of the group as the window resizes.
-  const [workbenchDefaultSize] = useState(
-    () =>
-      `${Math.max(320, Math.round(storedWorkbenchShare() * (typeof window === 'undefined' ? 1280 : window.innerWidth)))}px`,
-  );
+  const [workbenchDefaultSize] = useState(workbenchWidth);
   const rememberWorkbenchWidth = useCallback((size: PanelSize) => {
     if (size.inPixels < 320 || typeof window === 'undefined' || !window.innerWidth) return;
     window.localStorage.setItem(
@@ -180,8 +186,16 @@ export function ClioAppShell({
 
   useEffect(() => {
     if (!desktopWorkbench) return;
-    if (workbenchOpen) workbenchPanelRef.current?.expand();
-    else workbenchPanelRef.current?.collapse();
+    const panel = workbenchPanelRef.current;
+    if (!workbenchOpen) {
+      panel?.collapse();
+      return;
+    }
+    if (!panel?.isCollapsed()) return;
+    // The group stores sizes as shares of its width, which can change after it
+    // mounts (the left bar settling), so open at the remembered pixel width.
+    panel.expand();
+    panel.resize(workbenchWidth());
   }, [desktopWorkbench, workbenchOpen]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
@@ -212,6 +226,7 @@ export function ClioAppShell({
     <section
       className="flex h-full min-w-0 flex-col bg-background"
       aria-label="Conversation workspace"
+      data-slot="conversation-surface"
     >
       <DesktopWorkspaceToolbar
         navigation={
@@ -234,7 +249,7 @@ export function ClioAppShell({
           </ToolbarAction>
         )}
       </DesktopWorkspaceToolbar>
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
       {statusStrip && (
         <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
       )}
@@ -253,7 +268,7 @@ export function ClioAppShell({
       className="relative isolate h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
       {/* The maximized canvas covers this section (the conversation), not the
-          left bar; `isolate` keeps it under popovers such as the rail. */}
+          left bar; the rail hides while it is maximized. */}
       <section aria-label="Session workspace" data-workbench-maximize-host="">
         {hasWorkbench && desktopWorkbench ? (
           <ResizablePanelGroup className="h-full" orientation="horizontal">

@@ -1,5 +1,6 @@
 import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
-import { memo, type MouseEvent, type ReactNode } from 'react';
+import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { HelpIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
@@ -61,6 +62,15 @@ export interface RunListRowProps {
   onSelect?: (row: RunRow) => void;
   /** Hide the workspace column (a conversation's own rail). */
   showWorkspace?: boolean;
+  /** Open the run in place (a workbench tab) from its name. */
+  onOpen?: (event: MouseEvent<HTMLButtonElement>) => void;
+  /** Keys on the run's name while it has focus (the rail's Delete and Shift+Enter). */
+  onTitleKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  /**
+   * `rail` sizes for a narrow conversation rail: the state word always shows, so the
+   * status mark is never the only cue; the source icon and an empty time drop.
+   */
+  density?: 'page' | 'rail';
 }
 
 /**
@@ -77,7 +87,11 @@ export const RunListRow = memo(function RunListRow({
   selected = false,
   onSelect,
   showWorkspace = true,
+  onOpen,
+  onTitleKeyDown,
+  density = 'page',
 }: RunListRowProps) {
+  const rail = density === 'rail';
   const look = runLook(row);
   const stateLabel = runStateLabel(row, cancelRequested);
   const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
@@ -107,6 +121,9 @@ export const RunListRow = memo(function RunListRow({
         <button
           aria-current={selected ? 'true' : undefined}
           className="max-w-full truncate rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          data-rail-row={rail ? '' : undefined}
+          onClick={onOpen}
+          onKeyDown={onTitleKeyDown}
           title={progress ? `${row.label}: ${progress}` : row.label}
           type="button"
         >
@@ -143,18 +160,23 @@ export const RunListRow = memo(function RunListRow({
             )}
           </span>
           <span
-            className="w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums"
+            className={cn(
+              'w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums',
+              rail && 'w-[56px]',
+            )}
             data-slot="run-state-word"
             title={progress ?? stateLabel}
           >
             {counted ?? word}
           </span>
-          <NamedTooltip label={source}>
-            <span className="hidden w-3.5 shrink-0 text-muted-foreground @[560px]/runs:flex">
-              <RunSourceIcon className="size-3.5" source={row.source} />
-              <span className="sr-only">{source}</span>
-            </span>
-          </NamedTooltip>
+          {rail ? null : (
+            <NamedTooltip label={source}>
+              <span className="hidden w-3.5 shrink-0 text-muted-foreground @[560px]/runs:flex">
+                <RunSourceIcon className="size-3.5" source={row.source} />
+                <span className="sr-only">{source}</span>
+              </span>
+            </NamedTooltip>
+          )}
           {showWorkspace ? (
             <span
               className="hidden w-[92px] shrink-0 truncate text-[11px] text-muted-foreground @[680px]/runs:block"
@@ -163,17 +185,19 @@ export const RunListRow = memo(function RunListRow({
               {row.workspaceLabelFields.name}
             </span>
           ) : null}
-          <time
-            className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground"
-            dateTime={row.updatedAt}
-            title={fullWhen(row.updatedAt)}
-          >
-            {compactWhen(row.updatedAt)}
-          </time>
+          {rail && !row.updatedAt ? null : (
+            <time
+              className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground"
+              dateTime={row.updatedAt}
+              title={fullWhen(row.updatedAt)}
+            >
+              {compactWhen(row.updatedAt)}
+            </time>
+          )}
         </>
       }
       actions={actions ?? null}
-      actionsWidth={RUN_ACTIONS_WIDTH}
+      actionsWidth={rail ? 28 : RUN_ACTIONS_WIDTH}
     />
   );
 });

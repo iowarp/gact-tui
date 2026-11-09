@@ -192,6 +192,16 @@ function seededSettingsShots() {
       },
       { keepPointer: true },
     ),
+    // A saved server, unlike a built-in runtime, shows Remove as a direct action.
+    seeded(
+      'providers-row-actions-custom',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'Workstation').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();
@@ -232,11 +242,80 @@ function seededSettingsShots() {
   ];
 }
 
+// The update flow and What's new, driven through the real recovery path: a
+// pending-update marker and a stand-in for the desktop host's commands.
+const APP_VERSION = JSON.parse(readFileSync(resolve(webRoot, '../package.json'), 'utf8')).version;
+
+function desktopStub({ version, marker, desktop, seen, boot }) {
+  try {
+    if (marker)
+      localStorage.setItem(
+        'clio.pending-update',
+        JSON.stringify({ ...marker, startedAt: Date.now() }),
+      );
+    if (seen) localStorage.setItem('clio.whatsNew.desktopVersion', seen);
+  } catch {
+    // Opaque-origin frames have no storage.
+  }
+  if (desktop) window.__CLIO_DESKTOP__ = { version };
+  let id = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++id,
+    unregisterCallback: () => undefined,
+    // Only the app version answers; everything else stays pending, as on a
+    // host that is still coming up.
+    invoke: (command) => {
+      if (command === 'plugin:app|version' && version) return Promise.resolve(version);
+      // Local startup: the service was found missing, and the runtime is being prepared.
+      if (boot && command === 'get_backend') {
+        const detail =
+          (boot.calls = (boot.calls ?? 0) + 1) > 1 ? 'installing_runtime' : 'checking_existing';
+        return Promise.resolve({ url: '', bearer_token: '', status: { kind: 'starting', detail } });
+      }
+      if (boot && command === 'read_logs')
+        return Promise.resolve(
+          '=== backend boot log ===\nUsing CPython 3.12.8\nResolved 214 packages in 1.8s\n',
+        );
+      return new Promise(() => undefined);
+    },
+  };
+}
+
+function updateShots() {
+  const marker = { action: 'both', version: '0.11.4' };
+  return [
+    {
+      surface: 'updates',
+      state: 'update-progress',
+      url: SESSION,
+      ready: '[data-slot="update-page"]',
+      initScript: [desktopStub, { marker }],
+    },
+    {
+      surface: 'updates',
+      state: 'update-failed',
+      url: SESSION,
+      ready: '[data-slot="update-page"] [role="alert"]',
+      initScript: [desktopStub, { marker, version: '0.11.3' }],
+    },
+    {
+      surface: 'updates',
+      state: 'whats-new',
+      url: '/',
+      connected: false,
+      ready: '[role="dialog"]',
+      allowLoading: true,
+      initScript: [desktopStub, { desktop: true, version: APP_VERSION, seen: '0.11.3-beta.11' }],
+    },
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?, platform?}. `platform: 'mac'` makes the page
-// report a Mac, for its ? keys.
+// connected?, route?, keepPointer?, platform?, decision?, initScript?: [fn, arg]
+// run before the app}. `platform: 'mac'` makes the page report a Mac, for its ?
+// keys. `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -249,6 +328,16 @@ function catalogue({ settings, infrastructure }) {
     });
   return [
     s('connect', 'first-run', '/', null, { connected: false, ready: 'main' }),
+    s('connect', 'local-startup', '/', null, {
+      connected: false,
+      ready: '[aria-label="Startup progress"] [aria-current="step"]',
+      allowLoading: true,
+      settleMs: 2500,
+      initScript: [
+        desktopStub,
+        { desktop: true, version: APP_VERSION, seen: APP_VERSION, boot: {} },
+      ],
+    }),
     s('connect', 'unreachable-service', '/', null, {
       connected: 'http://127.0.0.1:9',
       ready: 'main',
@@ -286,6 +375,28 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Technical details');
       await page.waitForTimeout(400);
     }),
+    // Data-dependent card parts: the script ask (Rest of this script) paged
+    // 1/2, the Runs on / Asked by / Folders facts, the plan, a dismissible question.
+    ...['script', 'facts', 'plan', 'question'].map((card) =>
+      s('session', `decision-${card}`, SESSION, null, {
+        decision: card,
+        ready: '[data-slot="ask-card"]',
+      }),
+    ),
+    s(
+      'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        // Transcript rows have their own Technical details; open the card's.
+        await page
+          .locator('[data-slot="ask-card"]')
+          .getByRole('button', { name: 'Technical details' })
+          .click();
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
     s(
       'session',
       'transcript-outline',
@@ -368,6 +479,13 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
+    s('session', 'menu-conversation-export', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await overlay(page);
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+    }),
     menu(
       'menu-version-status',
       'button',
@@ -378,7 +496,6 @@ function catalogue({ settings, infrastructure }) {
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
-    menu('composer-permission-duration', 'combobox', 'Permission duration'),
     menu('composer-attach-files', 'button', 'Attach files'),
     menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
@@ -403,8 +520,46 @@ function catalogue({ settings, infrastructure }) {
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
+      await press(page, 'button', /^New session in /u);
+      await overlay(page);
+      await press(page, 'button', 'Advanced session behavior');
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
     }),
     s(
       'session',
@@ -504,6 +659,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     ...seededSettingsShots(),
+    ...updateShots(),
     s('settings', 'dialog-allow-folder', '/settings/folders', async (page) => {
       await press(page, 'button', 'Add folder', { exact: true });
       await overlay(page);
@@ -761,7 +917,7 @@ async function newContext(
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -950,6 +1106,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     platform: shot.platform,
     savedAgents: shot.savedAgents ?? false,
   });
+  if (shot.initScript) await context.addInitScript(...shot.initScript);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]));
@@ -1178,6 +1335,15 @@ function renderReport(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
+async function showDecisionCard(stack, card) {
+  const response = await fetch(`${stack.fixtureEndpoint}/__test/decision-cards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card }),
+  });
+  if (!response.ok) throw new Error(`decision card ${card} failed: ${response.status}`);
+}
+
 async function main() {
   const stack = await startStack({ portOffset, fixedClock: FIXTURE_TIME });
   const browser = await chromium.launch();
@@ -1225,6 +1391,7 @@ async function main() {
         }
         scenarioKey = key;
       }
+      if (shot.decision) await showDecisionCard(stack, shot.decision);
       for (const theme of themes) {
         for (const width of widths) {
           if (shot.maxWidth && width > shot.maxWidth) continue;
@@ -1234,6 +1401,7 @@ async function main() {
             log(`  skipped ${shot.surface}--${shot.state} ${theme} ${width}: ${result.reason}`);
         }
       }
+      if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }
     const manifest = {

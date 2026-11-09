@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MarkdownText } from '@/components/ai-elements/markdown';
 import {
   Accordion,
@@ -5,92 +6,91 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { changelogSections, type ChangelogEntry } from '@/lib/changelog';
+import { cn } from '@/lib/utils';
 import type { WhatsNewTab } from './whats-new-dialog';
 
-/** Keep the newest notes visible, with older releases available on demand. */
-export function ReleaseChanges({ tab }: { tab: WhatsNewTab }) {
-  const [latest, ...older] = tab.entries;
-  if (!latest) return null;
+const LIST =
+  'text-[12.5px] leading-[1.7] font-normal text-foreground [&_strong]:font-semibold [&_code]:wrap-anywhere [&_code]:font-normal [&_pre]:max-w-full [&_pre]:overflow-x-auto';
+
+// The spec's plain bullet list rather than the transcript's spaced prose lists.
+const COMPONENTS = {
+  ul: ({ children }: { children?: ReactNode }) => (
+    <ul className="list-disc pl-[18px]">{children}</ul>
+  ),
+  ol: ({ children }: { children?: ReactNode }) => (
+    <ol className="list-decimal pl-[18px]">{children}</ol>
+  ),
+  li: ({ children }: { children?: ReactNode }) => <li>{children}</li>,
+  p: ({ children }: { children?: ReactNode }) => <p>{children}</p>,
+};
+
+/** The changes as one short list; a version line only when the update spans several. */
+export function ReleaseChanges({
+  tab,
+  expanded = false,
+}: {
+  tab: WhatsNewTab;
+  expanded?: boolean;
+}) {
+  if (!tab.entries.length) return null;
+  const several = tab.entries.length > 1;
   return (
-    <ScrollArea
-      className="min-h-0 pr-3"
-      viewportProps={{ 'aria-label': `${tab.label} changes`, role: 'region', tabIndex: 0 }}
+    <div
+      aria-label={`${tab.label} changes`}
+      role="region"
+      tabIndex={0}
+      className={cn(
+        'clio-scrollbar -mr-2 overflow-y-auto pt-2.5 pr-2 outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        expanded ? 'max-h-[min(70vh,640px)]' : 'max-h-[min(46vh,360px)]',
+      )}
     >
-      <div className="space-y-5 pb-2">
-        <p className="text-xs leading-5 text-muted-foreground">{tab.description}</p>
-        <section aria-label={`Version ${latest.version}`}>
-          <ReleaseHeading entry={latest} />
-          <ReleaseBody entry={latest} />
+      {tab.entries.map((entry) => (
+        <section key={entry.version} aria-label={`Version ${entry.version}`} className="pb-2">
+          {several ? <ReleaseHeading entry={entry} /> : null}
+          <ReleaseBody entry={entry} />
         </section>
-        {older.length ? (
-          <div className="border-t pt-3">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Earlier changes in this update
-            </p>
-            <Accordion type="multiple">
-              {older.map((entry) => (
-                <AccordionItem key={entry.version} value={entry.version}>
-                  <AccordionTrigger>
-                    <ReleaseHeading entry={entry} compact />
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <ReleaseBody entry={entry} />
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        ) : null}
-      </div>
-    </ScrollArea>
+      ))}
+    </div>
   );
 }
 
-function ReleaseHeading({ entry, compact = false }: { entry: ChangelogEntry; compact?: boolean }) {
+function ReleaseHeading({ entry }: { entry: ChangelogEntry }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <span className={compact ? 'text-sm font-medium' : 'text-base font-semibold'}>
-        Version {entry.version}
-      </span>
-      {entry.date ? (
-        <time className="text-xs font-normal text-muted-foreground" dateTime={entry.date}>
-          {entry.date}
-        </time>
-      ) : null}
+    <div className="mt-1 flex items-baseline gap-2 text-[11.5px] text-muted-foreground">
+      <span className="font-medium text-foreground">{entry.version}</span>
+      {entry.date ? <time dateTime={entry.date}>{entry.date}</time> : null}
     </div>
   );
 }
 
 function ReleaseBody({ entry }: { entry: ChangelogEntry }) {
   return (
-    <div className="mt-3 space-y-5">
+    <div className="space-y-1.5">
       {changelogSections(entry.body).map((section, index) => {
         const content = (
-          <MarkdownText
-            mode="static"
-            className="text-sm font-normal leading-6 [&_p]:font-normal [&_li]:font-normal [&_li]:pl-1 [&_li+li]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:font-semibold [&_code]:wrap-anywhere [&_code]:font-normal [&_pre]:max-w-full [&_pre]:overflow-x-auto"
-          >
+          <MarkdownText mode="static" className={LIST} components={COMPONENTS}>
             {section.body}
           </MarkdownText>
         );
         if (section.title && /^(notes|technical details|internal changes)$/iu.test(section.title)) {
           return (
             <Accordion key={index} type="single" collapsible>
-              <AccordionItem value="notes" className="border-t">
-                <AccordionTrigger className="text-xs text-muted-foreground">
+              <AccordionItem value="notes" className="border-0">
+                <AccordionTrigger className="py-1 text-[11.5px] font-normal text-muted-foreground hover:no-underline">
                   {section.title}
                 </AccordionTrigger>
-                <AccordionContent>{content}</AccordionContent>
+                <AccordionContent className="pb-1">{content}</AccordionContent>
               </AccordionItem>
             </Accordion>
           );
         }
         return (
-          <div key={index} className="space-y-2">
+          <div key={index}>
             {section.title ? (
-              <h4 className="text-xs font-semibold tracking-wide text-primary">{section.title}</h4>
+              <h4 className="mt-1 text-[11.5px] font-medium text-muted-foreground">
+                {section.title}
+              </h4>
             ) : null}
             {content}
           </div>

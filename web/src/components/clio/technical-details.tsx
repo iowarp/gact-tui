@@ -26,6 +26,7 @@ export function TechnicalDetails({
   shortcut,
   hint,
   triggerProps,
+  onOpenChange,
 }: {
   children: ReactNode;
   className?: string;
@@ -40,6 +41,7 @@ export function TechnicalDetails({
   hint?: string;
   /** Extra attributes for the trigger, e.g. the key a surface maps to it. */
   triggerProps?: Record<string, string>;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const trigger = (
     <CollapsibleTrigger
@@ -63,7 +65,7 @@ export function TechnicalDetails({
     </CollapsibleTrigger>
   );
   return (
-    <Collapsible className={cn('group', className)}>
+    <Collapsible className={cn('group', className)} onOpenChange={onOpenChange}>
       {beside || hint ? (
         <div className={cn('flex min-w-0 items-center', beside ? 'gap-1' : 'gap-2')}>
           {beside}
