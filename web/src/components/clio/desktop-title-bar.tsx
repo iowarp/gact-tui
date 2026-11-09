@@ -1,7 +1,14 @@
 import { brand } from '@brand';
 import {
+  AppWindowIcon,
   ArrowLeftIcon,
+  ArrowLeftRightIcon,
   ArrowRightIcon,
+  BookOpenIcon,
+  BotIcon,
+  DownloadIcon,
+  EyeIcon,
+  FileIcon,
   KeyboardIcon,
   LayersIcon,
   Link2Icon,
@@ -54,6 +61,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
+import { SwitchAgentItem } from '@/components/clio/clio-menu';
+import { useKnownConnections } from '@/hooks/use-known-connections';
+import { useSwitchConnection } from '@/hooks/use-switch-connection';
+import type { ConnectionSettings } from '@/lib/connection';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
 import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
@@ -163,6 +175,37 @@ function MenuActionItem({
   );
 }
 
+/**
+ * The saved agents other than the current one. It mounts only while the
+ * Switch to submenu is open, so their availability is probed on demand.
+ */
+function SwitchAgentItems() {
+  const { settings } = useConnectionSettings();
+  const connections = useKnownConnections();
+  const switchConnection = useSwitchConnection();
+  const others = connections.filter((connection) => connection.endpoint !== settings.endpoint);
+  const switchTo = async (connection: ConnectionSettings) => {
+    try {
+      await switchConnection(connection);
+    } catch (error) {
+      toast.error('Could not switch agent service', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+  if (!others.length) {
+    return <p className="px-2 py-1.5 text-[12px] text-muted-foreground">No other saved agents</p>;
+  }
+  return others.map((connection) => (
+    <SwitchAgentItem
+      availability={connection.availability}
+      connection={connection}
+      key={connection.endpoint}
+      onConnect={switchTo}
+    />
+  ));
+}
+
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
   const setWorkspaceToolbarHost = useDesktopWorkspaceToolbar((state) => state.setHost);
@@ -257,7 +300,10 @@ export function DesktopTitleBar() {
             <DropdownMenuLabel>{brand.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>File</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <FileIcon aria-hidden="true" />
+                File
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="new-session" shortcut="new-conversation">
                   <AddIcon aria-hidden="true" />
@@ -271,7 +317,10 @@ export function DesktopTitleBar() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <EyeIcon aria-hidden="true" />
+                View
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="search" shortcut="search">
                   <SearchIcon aria-hidden="true" />
@@ -315,25 +364,49 @@ export function DesktopTitleBar() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Agent</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <BotIcon aria-hidden="true" />
+                Agent
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="connection-settings">
                   <ConnectionSettingsIcon aria-hidden="true" />
                   Connection settings
                 </MenuActionItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowLeftRightIcon aria-hidden="true" />
+                    Switch to
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-[300px]">
+                    <SwitchAgentItems />
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <MenuActionItem action="manage-agents">
                   <ServerIcon aria-hidden="true" />
                   Manage agents
                 </MenuActionItem>
                 <DropdownMenuSeparator />
-                <MenuActionItem action="connect-by-address">
-                  <Link2Icon aria-hidden="true" />
-                  Connect by address…
-                </MenuActionItem>
-                <MenuActionItem action="manage-agent-services">
-                  <TerminalSquareIcon aria-hidden="true" />
-                  Connect over SSH…
-                </MenuActionItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <AddIcon aria-hidden="true" />
+                    Add an agent…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-56">
+                    <MenuActionItem action="connect-by-address">
+                      <Link2Icon aria-hidden="true" />
+                      Connect by address
+                    </MenuActionItem>
+                    <MenuActionItem action="manage-agent-services">
+                      <TerminalSquareIcon aria-hidden="true" />
+                      Connect over SSH
+                    </MenuActionItem>
+                    <MenuActionItem action="install-agent">
+                      <DownloadIcon aria-hidden="true" />
+                      Install {brand.agentName} on a computer
+                    </MenuActionItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <MenuActionItem action="open-infrastructure" shortcut="infrastructure">
                   <LayersIcon aria-hidden="true" />
@@ -342,7 +415,10 @@ export function DesktopTitleBar() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Window</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <AppWindowIcon aria-hidden="true" />
+                Window
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <DropdownMenuItem onSelect={() => void runWindowAction('minimize')}>
                   <MinusIcon aria-hidden="true" />
@@ -355,10 +431,13 @@ export function DesktopTitleBar() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Help</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <HelpIcon aria-hidden="true" />
+                Help
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="min-w-56">
                 <MenuActionItem action="help-docs">
-                  <HelpIcon aria-hidden="true" />
+                  <BookOpenIcon aria-hidden="true" />
                   Documentation
                 </MenuActionItem>
                 <MenuActionItem action="keyboard-shortcuts" shortcut="shortcuts">
@@ -377,7 +456,7 @@ export function DesktopTitleBar() {
               Settings
             </MenuActionItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void runWindowAction('quit')}>
+            <DropdownMenuItem onSelect={() => void runWindowAction('quit')}>
               <CloseIcon aria-hidden="true" />
               Quit {brand.wordmark}
             </DropdownMenuItem>
