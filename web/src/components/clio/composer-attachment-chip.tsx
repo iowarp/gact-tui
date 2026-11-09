@@ -68,7 +68,11 @@ export function ComposerAttachmentChip({
       )}
     >
       {/* The spec chip draws no status mark; the full pipeline state stays announced. */}
-      <span role="img" aria-label={`Attachment status: ${stages.overallLabel}`} className="sr-only" />
+      <span
+        role="img"
+        aria-label={`Attachment status: ${stages.overallLabel}`}
+        className="sr-only"
+      />
       <button
         type="button"
         aria-label={`Open ${name}`}
