@@ -102,6 +102,23 @@ compile_python() {
     || die "bundled Python failed its import smoke after precompile"
 }
 
+# The notary service also looks inside zip-format archives for unsigned code.
+# Wheels in the runtime are installed by hash at first launch, so they cannot be
+# re-signed here; name the ones that carry native code so a notarization
+# rejection points straight at them.
+report_archives() {
+  local archive count found=0
+  while IFS= read -r -d '' archive; do
+    count="$(zipinfo -1 "$archive" 2>/dev/null | grep -cE '\.(so|dylib)$' || true)"
+    [ "${count:-0}" -gt 0 ] || continue
+    if [ "$found" -eq 0 ]; then
+      log "archives with native code that are not signed here (notarization may reject them):"
+      found=1
+    fi
+    log "  ${archive#"$RUNTIME"/}: $count native file(s)"
+  done < <(find "$RUNTIME" -type f \( -name '*.whl' -o -name '*.zip' -o -name '*.jar' \) -print0)
+}
+
 # Universal files carry slices for an architecture the per-arch runtime
 # cannot run anyway; dropping them saves space and signing time.
 thin_runtime() {
@@ -251,3 +268,4 @@ fi
 
 verify_runtime
 log "verified $((LIBS + EXECS)) Mach-O files and $BUNDLES bundles"
+report_archives
