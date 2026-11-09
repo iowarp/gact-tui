@@ -10,12 +10,13 @@ export type StatusTone =
   | 'error'
   | 'info'
   | 'idle'
+  | 'inactive'
   | 'stopped';
 
 /**
  * Shape as well as color, so the mark never relies on color alone: a spinner
  * for work in progress, a hollow ring for idle, a square for stopped, a dot
- * for an outcome. A label always goes with it.
+ * for an outcome, a faint dot for something switched off. A label always goes with it.
  */
 const MARK: Record<StatusTone, string> = {
   running:
@@ -26,6 +27,7 @@ const MARK: Record<StatusTone, string> = {
   error: 'size-1.5 rounded-full bg-destructive',
   info: 'size-1.5 rounded-full bg-info',
   idle: 'size-1.5 rounded-full border border-faint',
+  inactive: 'size-1.5 rounded-full bg-faint',
   stopped: 'size-1.5 rounded-[1px] bg-muted-foreground',
 };
 

@@ -135,12 +135,12 @@ export function serverStatusWords(
   status: ServerStatus,
   address: string,
   label: string,
-): { tone: 'success' | 'idle' | 'stopped' | 'error'; label: string; hint?: string } {
+): { tone: 'success' | 'idle' | 'inactive' | 'error'; label: string; hint?: string } {
   if (status.kind === 'running') return { tone: 'success', label: 'Running' };
   if (status.kind === 'unknown') return { tone: 'idle', label: 'Not checked yet' };
   if (isLoopbackAddress(address))
     return {
-      tone: 'stopped',
+      tone: 'inactive',
       label: 'Not running',
       hint: `Start ${label} and load a model, then check again.`,
     };

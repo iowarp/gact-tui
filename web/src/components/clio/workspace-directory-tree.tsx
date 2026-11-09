@@ -38,7 +38,7 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
   const expanded = new Set(expandedPaths);
   return (
     <FileTree
-      className="rounded-none border-0 bg-transparent font-sans text-xs"
+      className="rounded-none border-0 bg-transparent"
       expanded={expanded}
       onExpandedChange={(paths) => client.setQueryData(expansionKey, [...paths])}
       onSelect={props.onSelect}

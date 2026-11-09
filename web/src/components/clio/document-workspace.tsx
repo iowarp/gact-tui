@@ -38,7 +38,7 @@ import { type FileViewerAction, useFileViewerActions } from './file-viewer-actio
 import { FileViewerInformationHost } from './file-viewer-context';
 import { useFileViewerFacts } from './file-viewer-facts';
 import { FileViewerInformation } from './file-viewer-information';
-import { FrameOpenButton } from './file-viewer-take';
+import { FrameDownloadButton, FrameOpenButton } from './file-viewer-take';
 import { useOpenTake } from './file-viewer-take-hooks';
 import { FileReadView } from './file-text-view';
 import { ClioPdfPreview } from './pdf-preview';
@@ -414,7 +414,7 @@ export function ClioDocumentWorkspace({
   );
 }
 
-/** Open ▾ for a document outside a file viewer, with the same rows the frame would show. */
+/** Download and Open ▾ for a document outside a file viewer, as the frame would show them. */
 function StandaloneDocumentOpen({
   artifact,
   actions,
@@ -427,7 +427,12 @@ function StandaloneDocumentOpen({
     actions.filter((action) => action.kind === 'download'),
     { otherApps: false, rows: actions.filter((action) => action.kind === 'open') },
   );
-  return <FrameOpenButton take={take} />;
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <FrameDownloadButton take={take} />
+      <FrameOpenButton take={take} />
+    </span>
+  );
 }
 
 /** The sent threads beside Comments, for a document outside a frame. */
@@ -492,7 +497,6 @@ function DocumentPreview({
   onRetryPreview: () => void;
   text?: string;
 }) {
-  const session = useCommentSession();
   if (!manifest) return fallback;
   if (previewError && !previewPending) {
     return (
@@ -511,14 +515,7 @@ function DocumentPreview({
       // The viewer owns its own scroll region so it can mount only the pages in
       // view, which needs a bounded box to scroll inside.
       <div className="h-full min-h-0 w-full">
-        <ClioPdfPreview
-          bytes={content}
-          fit={fit}
-          name={manifest.name}
-          onSelection={(anchor) => {
-            if (session?.active && session.mode === 'text') session.addMark(anchor);
-          }}
-        />
+        <ClioPdfPreview bytes={content} fit={fit} name={manifest.name} />
       </div>
     );
   }

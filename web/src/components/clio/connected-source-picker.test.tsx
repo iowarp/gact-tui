@@ -623,7 +623,7 @@ describe('connected source picker', () => {
     fixtures.repository.connectedSources.mockResolvedValue([]);
     rendered.rerender(view());
     finish?.({ id: 'res_old', name: 'input.csv', revision: 1, detected_mime: 'text/csv' });
-    await screen.findByText('Bring your data into this workspace');
+    await screen.findByText('Nothing connected yet.');
     expect(onSelect).not.toHaveBeenCalled();
   });
   it('keeps selection during refresh and attaches source-bound resource identity', async () => {
@@ -744,7 +744,7 @@ describe('connected source picker', () => {
       fixtures[field] = 'different';
       fixtures.repository.connectedSources.mockResolvedValue([]);
       rendered.rerender(view());
-      await screen.findByText('Bring your data into this workspace');
+      await screen.findByText('Nothing connected yet.');
       expect(screen.queryByRole('heading', { name: 'OPAL inputs' })).not.toBeInTheDocument();
       expect(
         client.getQueryData([

@@ -685,7 +685,7 @@ function ObservabilityTab({
   return (
     <TabsTrigger
       aria-label={label}
-      className="h-full min-w-max shrink-0 gap-1 px-1.5 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
+      className="h-full min-w-max flex-none shrink-0 gap-1 px-2 text-xs focus-visible:ring-inset group-data-horizontal/tabs:after:bottom-0"
       title={label}
       value={value}
     >

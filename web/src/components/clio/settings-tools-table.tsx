@@ -72,7 +72,7 @@ const CALLERS = ['direct', 'code', 'both'] as const;
  * the approval mode's outcome; from 50rem the script's outcome too.
  */
 const COLUMNS =
-  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_8.5rem_5.5rem_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[40rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[50rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
+  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_8.5rem_5.5rem_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_10rem_6.5rem_24px] @min-[40rem]/tools:grid-cols-[20px_minmax(0,1fr)_7rem_10rem_6.5rem_24px] @min-[50rem]/tools:grid-cols-[20px_minmax(0,1fr)_7rem_7rem_10rem_6.5rem_24px]';
 const MODE_CELL = 'hidden min-w-0 @min-[40rem]/tools:flex';
 const SCRIPT_CELL = 'hidden min-w-0 @min-[50rem]/tools:flex';
 
