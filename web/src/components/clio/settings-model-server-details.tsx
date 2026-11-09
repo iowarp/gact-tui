@@ -133,8 +133,12 @@ export function ModelServerDetails({
       title={label}
     >
       <div className="grid gap-1" data-slot="model-server-details">
-        <p className="mb-1.5 truncate text-xs text-faint" data-slot="detail-meta">
-          {kind} · {where}
+        <p
+          className="mb-1.5 flex min-w-0 gap-3 text-xs text-faint whitespace-nowrap"
+          data-slot="detail-meta"
+        >
+          <span className="truncate">{kind}</span>
+          <span className="truncate">{where}</span>
         </p>
         <KeyValueGrid items={summary} />
         <SettingsGroupLabel className="mt-3">
