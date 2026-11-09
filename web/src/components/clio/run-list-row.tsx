@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import type { RunState } from '@clio/core/v3';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { KeyValueGrid } from '@/components/clio/primitives/key-value-grid';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
-import { MetaValue, Tag, type TagTone } from '@/components/clio/primitives/tag';
+import { MetaValue } from '@/components/clio/primitives/tag';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import {
   RUN_ACTIONS_WIDTH,
@@ -19,28 +20,28 @@ import {
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
 
 /**
- * Develop's states folded onto four looks: running, queued, failed and done.
- * Waiting is amber, cancelled and interrupted are grey, needs inspection is
- * amber with its reason.
+ * Develop's states folded onto a status mark and one plain word in a fixed
+ * column: a spinner while working, a ring when queued, a dot for an outcome.
+ * Failed and needs-inspection words take the error and warning tone.
  */
-const LOOK: Partial<Record<RunState, { tone: StatusTone; tag: TagTone; word: string }>> = {
-  running: { tone: 'running', tag: 'info', word: 'running' },
-  recovering: { tone: 'running', tag: 'info', word: 'recovering' },
-  stopping: { tone: 'running', tag: 'neutral', word: 'stopping' },
-  cancellation_requested: { tone: 'running', tag: 'neutral', word: 'stopping' },
-  pause_requested: { tone: 'waiting', tag: 'neutral', word: 'pausing' },
-  paused: { tone: 'stopped', tag: 'neutral', word: 'paused' },
-  queued: { tone: 'idle', tag: 'neutral', word: 'queued' },
-  waiting_user: { tone: 'waiting', tag: 'warning', word: 'reply' },
-  waiting_permission: { tone: 'waiting', tag: 'warning', word: 'approve' },
-  task_state_uncertain: { tone: 'warning', tag: 'warning', word: 'inspect' },
-  recovery_required: { tone: 'warning', tag: 'warning', word: 'inspect' },
-  completed: { tone: 'success', tag: 'success', word: 'done' },
-  failed: { tone: 'error', tag: 'danger', word: 'failed' },
-  cancelled: { tone: 'stopped', tag: 'neutral', word: 'cancelled' },
-  interrupted: { tone: 'stopped', tag: 'neutral', word: 'halted' },
-  stopped: { tone: 'stopped', tag: 'neutral', word: 'stopped' },
-  yielded: { tone: 'idle', tag: 'neutral', word: 'idle' },
+const LOOK: Partial<Record<RunState, { tone: StatusTone; word: string }>> = {
+  running: { tone: 'running', word: 'running' },
+  recovering: { tone: 'running', word: 'recovering' },
+  stopping: { tone: 'running', word: 'stopping' },
+  cancellation_requested: { tone: 'running', word: 'stopping' },
+  pause_requested: { tone: 'waiting', word: 'pausing' },
+  paused: { tone: 'stopped', word: 'paused' },
+  queued: { tone: 'idle', word: 'queued' },
+  waiting_user: { tone: 'waiting', word: 'reply' },
+  waiting_permission: { tone: 'waiting', word: 'approve' },
+  task_state_uncertain: { tone: 'warning', word: 'inspect' },
+  recovery_required: { tone: 'warning', word: 'inspect' },
+  completed: { tone: 'success', word: 'done' },
+  failed: { tone: 'error', word: 'failed' },
+  cancelled: { tone: 'stopped', word: 'cancelled' },
+  interrupted: { tone: 'stopped', word: 'halted' },
+  stopped: { tone: 'stopped', word: 'stopped' },
+  yielded: { tone: 'idle', word: 'idle' },
 };
 
 function fullWhen(iso: string): string {
@@ -110,8 +111,8 @@ export interface RunListRowProps {
 }
 
 /**
- * One run on one line: status, name, progress or a failed run's reason,
- * execution, workspace, state word, time, hover actions and details. Every
+ * One run on one line: status mark, name, progress or a failed run's reason,
+ * state word, execution, workspace, time, hover actions and details. Every
  * column has one width; source and workspace drop first as the list narrows.
  */
 export const RunListRow = memo(function RunListRow({
@@ -122,7 +123,6 @@ export const RunListRow = memo(function RunListRow({
 }: RunListRowProps) {
   const look = LOOK[row.state] ?? {
     tone: 'info' as const,
-    tag: 'neutral' as const,
     word: row.state,
   };
   const stateLabel = runStateLabel(row, cancelRequested);
@@ -165,6 +165,17 @@ export const RunListRow = memo(function RunListRow({
       columns={
         <>
           <span
+            className={cn(
+              'w-[64px] shrink-0 truncate text-[12px] text-muted-foreground',
+              look.tone === 'error' && 'text-destructive',
+              look.tone === 'warning' && 'text-warning',
+            )}
+            data-slot="run-state-word"
+            title={stateLabel}
+          >
+            {word}
+          </span>
+          <span
             className="hidden w-[88px] shrink-0 truncate text-[12px] text-muted-foreground @[880px]/runs:block"
             title={`${sourceLabels[row.source]}, ${where}`}
           >
@@ -179,11 +190,6 @@ export const RunListRow = memo(function RunListRow({
             </span>
           ) : null}
         </>
-      }
-      badge={
-        <Tag title={stateLabel} tone={look.tag}>
-          {word}
-        </Tag>
       }
       meta={
         <MetaValue>
