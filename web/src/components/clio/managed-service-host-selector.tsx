@@ -64,7 +64,7 @@ export function ManagedServiceHostSelector({
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={`Computer: ${selectedName}`}
-              className="h-7 w-[132px] justify-start gap-1.5 px-2 text-[12px] font-normal"
+              className="h-7 w-[132px] min-w-[52px] shrink justify-start gap-1.5 px-2 text-[12px] font-normal"
               size="sm"
               variant="outline"
             >
