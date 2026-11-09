@@ -50,7 +50,9 @@ alternatives, which has a right-aligned arrow.
 
 **`SettingsChoice`** (same file)
 `{ id, label, value, onChange, options: { value, label, description?, icon? }[] }`.
-A choice that applies at once, so it never reaches the save bar.
+A choice that applies at once, so it never reaches the save bar. In a row narrower than
+28rem, options with an icon show only the icon, with the name on hover and as the
+accessible name (Appearance → Theme at 390 px).
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
 `ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
@@ -86,7 +88,8 @@ and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no
 the left. The chips are hidden from screen readers, so a button's name stays its label.
 The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap). Below
 600 px it becomes a full-width bottom sheet and drops the chips (spec: dialogs grow to 100%
-and drop the key hints before anything else folds). A section that needs a wider dialog
+and drop the key hints before anything else folds); there the description wraps instead of
+truncating. A section that needs a wider dialog
 passes its own `w-[clamp(...)]`. With `keyboard: false` or a disabled confirm, the confirm
 button has no chip. The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
@@ -115,6 +118,13 @@ the viewport thresholds are ours:
 | < 1024 px | notes and ⓘ hide, rows stack (`NARROW_HIDDEN` in `lib/settings-fold.ts`)                                                                      |
 | < 880 px  | `rail` replaces `navigation`                                                                                                                  |
 | < 600 px  | the window fills the screen, the rail hides and `picker` takes the title's place (the title stays for screen readers); search becomes an icon |
+
+Below 600 px a `DialogFrame` is a bottom sheet, so `NARROW_HIDDEN` hides notes and ⓘ in
+its body as well; above that, dialogs keep them (they portal outside the window content).
+Below 600 px a one-line `StateView size="row"` in a settings body takes `ROW_STATE_WRAP`
+(same file) so its sentence wraps instead of ellipsizing, and a list wrapper in a section
+body uses `grid-cols-1` (not a bare `grid`) so wide item rows never widen the column
+past the window.
 
 Without a `rail`, `navigation` shows from 600 px. `toolbar` holds other title-row
 controls before the ×.

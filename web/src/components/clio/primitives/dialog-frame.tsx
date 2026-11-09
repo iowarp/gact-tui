@@ -144,7 +144,7 @@ export const DialogFrame = memo(function DialogFrame({
         {description ? (
           <DialogDescription
             title={description}
-            className="-mt-2 truncate pr-3.5 pb-1 pl-[18px] text-[12.5px] [overflow-wrap:normal]"
+            className="-mt-2 truncate pr-3.5 pb-1 pl-[18px] text-[12.5px] [overflow-wrap:normal] max-[599px]:whitespace-normal"
           >
             {description}
           </DialogDescription>

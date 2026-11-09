@@ -201,7 +201,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
             <SelectContent>
               {primarySessions.map((session) => (
                 <SelectItem key={session.id} value={session.id}>
-                  {sessionLabel(session)}
+                  <span className="min-w-0 truncate">{sessionLabel(session)}</span>
                 </SelectItem>
               ))}
             </SelectContent>

@@ -96,7 +96,7 @@ export function SettingsRow({
             </div>
           ) : null}
           {error ? (
-            <div className="mt-0.5 truncate text-xs text-destructive" role="alert">
+            <div className="mt-0.5 text-xs text-destructive" role="alert">
               {error}
             </div>
           ) : null}
@@ -194,7 +194,8 @@ export function SettingsChoice({
         <Label
           key={option}
           htmlFor={`${id}-${option}`}
-          title={description}
+          // Icon choices drop to icon-only in a narrow row; the title keeps the name.
+          title={Icon ? (description ? `${name}: ${description}` : name) : description}
           className={cn(
             'flex h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[0.3125rem] px-2.5 text-xs font-normal whitespace-nowrap text-muted-foreground hover:text-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring',
             value === option && 'bg-menu-highlight text-foreground',
@@ -211,7 +212,7 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className="min-w-0 truncate">{name}</span>
+          <span className={cn('min-w-0 truncate', Icon && '@max-md:sr-only')}>{name}</span>
         </Label>
       ))}
     </RadioGroup>
