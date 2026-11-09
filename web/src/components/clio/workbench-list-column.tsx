@@ -45,6 +45,8 @@ import { BrowserNewPage } from './browser-new-page';
 import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
+import { WorkbenchListResizeHandle } from './workbench-list-resize';
+import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
 import type { WorkbenchTab } from './workbench-shared';
 
@@ -160,11 +162,15 @@ export function WorkbenchListSection({
   wide?: boolean;
   children: ReactNode;
 }) {
+  const { share, sectionRef, resizeTo, commit, reset } = useWorkbenchListWidth(
+    wide ? 'wide' : 'list',
+  );
   return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list"
       data-overlay={overlay || undefined}
+      ref={sectionRef}
       className={cn(
         'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
         // Too narrow for both: the list is a sheet over the whole tab area, its
@@ -172,9 +178,21 @@ export function WorkbenchListSection({
         // tab), and a pick closes it.
         overlay
           ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : cn('h-full min-w-[180px]', wide ? 'w-[46%]' : 'w-[36%]'),
+          : // The tabs keep 280 px beside the list and the 44 px strip.
+            'relative h-full max-w-[calc(100%-324px)] min-w-[180px]',
       )}
+      style={overlay ? undefined : { width: `${Math.round(share * 1000) / 10}%` }}
     >
+      {overlay ? null : (
+        <WorkbenchListResizeHandle
+          commit={commit}
+          reset={reset}
+          resizeTo={resizeTo}
+          sectionRef={sectionRef}
+          share={share}
+          title={title}
+        />
+      )}
       {children}
     </section>
   );
