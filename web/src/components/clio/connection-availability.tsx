@@ -31,7 +31,7 @@ export function ConnectionAvailabilityIndicator({
           <ClioStatus
             className={cn(
               compact &&
-                'border-0 bg-transparent px-1 py-0 shadow-none group-data-selected/list-row:text-foreground',
+                'border-0 bg-transparent px-1 py-0 shadow-none group-data-selected/list-row:text-accent-foreground',
             )}
             detail={availability.detail}
             label={availability.label}
