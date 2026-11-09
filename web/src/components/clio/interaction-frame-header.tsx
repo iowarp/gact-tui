@@ -1,108 +1,149 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
-import { CloseIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
-import { FrameHeader, FrameTitle } from '@/components/reui/frame';
-import { Button } from '@/components/ui/button';
+import { vocab } from '@/lib/brand-vocabulary';
+import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
+import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
-import { TechnicalDetails } from './technical-details';
+import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
 
-interface InteractionFrameHeaderProps {
-  className?: string;
-  interaction: PendingInteraction;
-  ownerLabel?: string;
-  showOwner: boolean;
-  onCancel?: () => void;
-  actions?: ReactNode;
-  disabled?: boolean;
-  showFullPrompt?: boolean;
-  questionTitle?: string;
-  progress?: ReactNode;
-  questionnaire?: boolean;
+const TITLE_LIMIT = 120;
+
+/** A short question is the title; a long one keeps a short title and reads in full below. */
+function splitQuestion(text: string, fallback: string | undefined) {
+  const trimmed = text.trim();
+  const [first = '', ...rest] = trimmed.split(/\r?\n/u);
+  if (first.trim().length <= TITLE_LIMIT)
+    return { title: plainQuestionText(first), body: rest.join('\n').trim() || undefined };
+  const label =
+    fallback &&
+    fallback.trim() !== trimmed &&
+    fallback.length <= TITLE_LIMIT &&
+    !fallback.includes('\n')
+      ? plainQuestionText(fallback)
+      : `${vocab.agent} asks`;
+  return { title: label, body: trimmed };
 }
 
-/** Shared compact heading for questions and interactive response surfaces. */
-export function InteractionFrameHeader({
-  className,
+const ICONS = {
+  mcp_task_input: ClipboardPenLineIcon,
+  a2ui: BoxesIcon,
+} as const;
+
+export interface QuestionCardProps extends Omit<AskCardProps, 'kind' | 'icon' | 'title'> {
+  interaction: PendingInteraction;
+  ownerLabel?: string;
+  showOwner?: boolean;
+  /** Show a long question in full instead of in a short scrolling block. */
+  showFullPrompt?: boolean;
+  /** The question asked, when it is not the interaction's own prompt (a bundle page). */
+  heading?: string;
+  /** Extra classes for a long question's scrolling block. */
+  promptClassName?: string;
+}
+
+/** The one frame every question shares: the question as title, who asks, then the answer. */
+export function QuestionCard({
   interaction,
   ownerLabel,
-  showOwner,
-  onCancel,
-  actions,
-  disabled,
+  showOwner = false,
   showFullPrompt,
-  questionTitle,
-  progress,
-  questionnaire,
-}: InteractionFrameHeaderProps) {
-  const isPlanExit = interaction.source.tool_name === 'plan_exit';
-  const Icon =
-    interaction.kind === 'mcp_task_input'
-      ? ClipboardPenLineIcon
-      : interaction.kind === 'a2ui'
-        ? BoxesIcon
-        : MessageCircleQuestionIcon;
+  heading,
+  promptClassName,
+  children,
+  ...props
+}: QuestionCardProps) {
+  const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
   return (
-    <FrameHeader
-      className={cn('relative flex-row items-start gap-2', actions ? 'pr-28' : 'pr-10', className)}
+    <AskCard
+      data-interaction-kind={interaction.kind}
+      icon={ICONS[interaction.kind as keyof typeof ICONS] ?? MessageCircleQuestionIcon}
+      id={pendingInteractionDomId(interaction.id)}
+      kind="question"
+      owner={
+        showOwner ? (
+          <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show />
+        ) : undefined
+      }
+      title={title}
+      titleText={title}
+      {...props}
     >
-      {questionnaire ? null : (
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-          <FrameTitle
-            className={cn(
-              'min-w-0 flex-1 break-words',
-              questionnaire ? 'text-base font-semibold leading-snug' : 'font-normal',
-              !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pb-1 pr-1',
-            )}
-            data-slot="pending-interaction-title"
-          >
-            <QuestionMarkdown>
-              {questionTitle ??
-                (isPlanExit ? interaction.title : (interaction.prompt ?? interaction.title))}
-            </QuestionMarkdown>
-          </FrameTitle>
-          {progress ? (
-            <div className="shrink-0 pt-0.5 text-xs text-muted-foreground">{progress}</div>
-          ) : null}
-        </div>
-        <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
-        {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
-          <>
-            <p className="mt-1 text-xs text-muted-foreground">
-              The specialist could not answer this, so it needs you.
-            </p>
-            {interaction.fallback_detail ? (
-              <TechnicalDetails
-                className="mt-1 text-xs text-muted-foreground"
-                title="Technical details"
-              >
-                <code>{interaction.fallback_detail}</code>
-              </TechnicalDetails>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-      {actions || onCancel ? (
-        <div className="absolute right-2 top-1 flex items-center gap-0.5">
-          {actions}
-          {onCancel ? (
-            <Button
-              aria-label="Cancel question"
-              disabled={disabled}
-              onClick={onCancel}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <CloseIcon aria-hidden="true" />
-            </Button>
-          ) : null}
-        </div>
+      {body ? (
+        <AskSection
+          className={cn(
+            'mt-1 text-foreground/85 [&_.text-sm]:text-[12.5px]',
+            !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pr-1',
+            promptClassName,
+          )}
+          data-slot="question-prompt"
+        >
+          <QuestionMarkdown>{body}</QuestionMarkdown>
+        </AskSection>
       ) : null}
-    </FrameHeader>
+      {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
+        <AskSection className="mt-1 text-[12px] text-muted-foreground">
+          The specialist could not answer this, so it needs you.
+        </AskSection>
+      ) : null}
+      {children}
+      {interaction.routing_state === 'agent_elicitation_fallback_to_human' &&
+      interaction.fallback_detail ? (
+        <AskDetails>
+          <code className="font-mono break-all">{interaction.fallback_detail}</code>
+        </AskDetails>
+      ) : null}
+    </AskCard>
+  );
+}
+
+/** The quiet hints under a question: answer in the composer, and Esc to dismiss. */
+export function QuestionFooter({
+  interaction,
+  allowsComposer,
+  disabled,
+  onDismiss,
+  children,
+}: {
+  interaction: PendingInteraction;
+  /** The question takes a written answer the composer can carry. */
+  allowsComposer?: boolean;
+  disabled?: boolean;
+  onDismiss?: () => void;
+  children?: ReactNode;
+}) {
+  const composer = useComposerAnswer(interaction);
+  const showComposer = allowsComposer && composer.available;
+  if (!showComposer && !onDismiss && !children) return null;
+  return (
+    <AskFooter>
+      {children}
+      {showComposer ? (
+        composer.answering ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5" data-slot="question-answering">
+            <EditIcon aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="truncate">Type your answer in the message box below</span>
+          </span>
+        ) : (
+          <AskHint disabled={disabled} onClick={composer.start}>
+            <EditIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-3px]" />
+            Or type your own answer below
+          </AskHint>
+        )
+      ) : null}
+      {onDismiss ? (
+        <AskHint
+          aria-label="Dismiss question"
+          askKey="Escape"
+          disabled={disabled}
+          onClick={onDismiss}
+        >
+          Dismiss
+        </AskHint>
+      ) : null}
+    </AskFooter>
   );
 }

@@ -261,7 +261,6 @@ export async function headerJourney(r) {
     { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
     { control: customize },
   );
-  await r.overlay('open questions', 'button', /open question/u, { category: 'dialog' });
   await r.overlay('version status', 'button', /^Version status/u);
   await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }

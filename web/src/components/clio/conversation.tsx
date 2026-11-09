@@ -3,7 +3,6 @@ import { useContext } from 'react';
 import { useInRouterContext, useLocation } from 'react-router-dom';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
 import { highlightSearchPassage } from '@/lib/search-passage';
-import { inlineQuestionDomId } from '@/lib/inline-question';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import type { McpAppIdentity } from '@clio/core/v3';
 import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
@@ -22,7 +21,6 @@ import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
-import { OpenQuestionsTracker } from './open-questions-tracker';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
@@ -480,11 +478,8 @@ function ConversationBody({
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           if (focusAttentionEvidence(messageId, new URLSearchParams(query))) return;
-          // An agent question's card is the landmark for its tool call when shown.
-          const activity = activityId
-            ? (document.getElementById(inlineQuestionDomId(activityId)) ??
-              document.getElementById(`tool-${activityId}`))
-            : null;
+          // A tool call's activity row is the landmark for its deep link.
+          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
           if (activity) {
             activity.scrollIntoView({ block: 'center' });
             activity.focus({ preventScroll: true });
@@ -518,7 +513,6 @@ function ConversationBody({
 
   return (
     <div className="relative h-full min-h-0">
-      <OpenQuestionsTracker interactions={entities.interactions ?? []} bottomInset={bottomInset} />
       {messages.length > 0 ? (
         <>
           <ClioTranscriptMinimap

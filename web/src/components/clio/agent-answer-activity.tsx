@@ -1,4 +1,4 @@
-import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type { PendingInteraction } from '@clio/core/v3';
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
@@ -20,8 +20,6 @@ import { revealPendingInteraction } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
-import { isToolAnchoredQuestion } from '@/lib/inline-question';
-import { InlineQuestionCard } from './inline-question-card';
 
 /**
  * Scrolls the transcript reader straight to this interaction's card in the
@@ -52,25 +50,13 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
 export function AgentAnswerActivity({
   interaction,
   compact = false,
-  onResponse,
 }: {
   interaction: PendingInteraction;
   compact?: boolean;
-  onResponse?: (
-    interaction: PendingInteraction,
-    response: PendingInteractionResponse,
-  ) => Promise<void>;
 }) {
+  // A pending question is answered once, in the ask card above the composer;
+  // the log keeps only its activity row.
   if (!isAgentMcpInteraction(interaction)) {
-    // The agent's own pending question is answered right here, in the log.
-    if (
-      !compact &&
-      onResponse &&
-      interaction.status === 'pending' &&
-      isToolAnchoredQuestion(interaction)
-    ) {
-      return <InlineQuestionCard interaction={interaction} onResponse={onResponse} />;
-    }
     return <HumanQuestionActivity compact={compact} interaction={interaction} />;
   }
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';

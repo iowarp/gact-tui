@@ -44,12 +44,14 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/tests/review/folder-access.html');
     await expect(
-      page.getByText('Move the measurements you selected into the results folder.'),
+      page.getByText('Move the measurements you selected into the results folder.', {
+        exact: true,
+      }),
     ).toBeInViewport();
     await expect(page.getByText('Research PC')).toBeInViewport();
     await expect(page.getByText('C:\\Users\\Alice\\Downloads', { exact: true })).toBeVisible();
     await expect(page.getByText(/including after restart/)).toBeVisible();
-    const allow = page.getByRole('button', { name: 'Allow for workspace' });
+    const allow = page.getByRole('button', { name: 'Allow for this workspace' });
     const deny = page.getByRole('button', { name: 'Deny', exact: true });
     await expect(allow).toBeInViewport();
     await expect(deny).toBeInViewport();
