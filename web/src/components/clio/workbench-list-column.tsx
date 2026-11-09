@@ -125,7 +125,8 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
         // tab), and a pick closes it.
         overlay
           ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : 'h-full w-[36%] min-w-[180px]',
+          : // Spec `.bc` is 36%; Activity's wider rows take `.bc.w`, 46%.
+            cn('h-full min-w-[180px]', view === 'activity' ? 'w-[46%]' : 'w-[36%]'),
       )}
     >
       {view === 'activity' ? (
@@ -248,12 +249,9 @@ function FilesList({
             changedPaths.size ? (
               <>
                 <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
-                <p
-                  className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint"
-                  title="Teal: changed in this conversation"
-                >
+                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
                   <span className="truncate">
-                    <span className="text-changed">Teal</span>: changed by the agent
+                    <span className="text-changed">Teal</span>: changed in this conversation
                   </span>
                 </p>
               </>
