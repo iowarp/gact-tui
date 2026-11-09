@@ -184,9 +184,12 @@ fn relaunch_after_exit(dest: &Path) -> std::io::Result<()> {
 }
 
 /// Check where the app runs from and, when it is translocated or on its disk
-/// image, ask (without blocking startup) to move it into Applications.
+/// image, ask (without blocking startup) to move it into Applications. The
+/// prompt waits until the startup window is visible and attaches to it as a
+/// sheet; raised against the hidden window it never appears.
 #[cfg(target_os = "macos")]
 pub(crate) fn offer_move_to_applications<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
     let Some(source) = std::env::current_exe()
@@ -213,18 +216,26 @@ pub(crate) fn offer_move_to_applications<R: tauri::Runtime>(app: &tauri::AppHand
 
     let app_name = crate::menu::native_app_name(app);
     let handle = app.clone();
-    app.dialog()
-        .message(prompt_message(&app_name, location, &dest_dir))
-        .title(prompt_title(&app_name))
-        .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Move to Applications".into(),
-            "Not Now".into(),
-        ))
-        .show(move |accepted| {
+    crate::startup_window::after_reveal(move || {
+        let window = handle.get_webview_window(crate::startup_window::STARTUP_WINDOW);
+        let mut prompt = handle
+            .dialog()
+            .message(prompt_message(&app_name, location, &dest_dir))
+            .title(prompt_title(&app_name))
+            .kind(MessageDialogKind::Info)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Move to Applications".into(),
+                "Not Now".into(),
+            ));
+        if let Some(window) = &window {
+            prompt = prompt.parent(window);
+        }
+        let move_handle = handle.clone();
+        prompt.show(move |accepted| {
             if !accepted {
                 return;
             }
+            let handle = move_handle;
             std::thread::spawn(move || {
                 let outcome = move_bundle(&source, &dest_dir).and_then(|dest| {
                     relaunch_after_exit(&dest)
@@ -243,16 +254,22 @@ pub(crate) fn offer_move_to_applications<R: tauri::Runtime>(app: &tauri::AppHand
                         crate::supervisor_boot_log::boot_log_line(&format!(
                             "app location: move failed: {error}"
                         ));
-                        handle
+                        let mut failure = handle
                             .dialog()
                             .message(move_failed_message(&app_name, &dest_dir, &error))
                             .title(prompt_title(&app_name))
-                            .kind(MessageDialogKind::Warning)
-                            .show(|_| {});
+                            .kind(MessageDialogKind::Warning);
+                        if let Some(window) =
+                            handle.get_webview_window(crate::startup_window::STARTUP_WINDOW)
+                        {
+                            failure = failure.parent(&window);
+                        }
+                        failure.show(|_| {});
                     }
                 }
             });
         });
+    });
 }
 
 #[cfg(test)]
