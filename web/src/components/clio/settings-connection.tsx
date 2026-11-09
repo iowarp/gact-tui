@@ -218,7 +218,7 @@ export function ConnectionsSettings() {
         </SettingsRow>
       ) : null}
 
-      <div className="w-full @3xl:w-[60%]">
+      <div className="w-full">
         <SettingsGroupLabel
           actions={
             <IconButton

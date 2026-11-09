@@ -265,8 +265,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         />
       </SettingsRow>
 
-      {/* The same column as the rows above, so lists line up with the controls. */}
-      <div className="w-full @3xl:w-[60%]" data-slot="folders-lists">
+      {/* Item lists fill the content column; only setting rows take 60%. */}
+      <div className="w-full" data-slot="folders-lists">
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>

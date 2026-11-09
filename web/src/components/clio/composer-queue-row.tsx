@@ -19,6 +19,7 @@ import { SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Input } from '@/components/ui/input';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { referenceKindIcon } from './composer-reference-presentation';
 import { IconButton } from './primitives/icon-button';
@@ -88,6 +89,7 @@ export function QueuedMessageRow({
   // Leaving the field would otherwise drop focus to the page; return it to
   // the row's Edit so the keyboard keeps its place in the queue.
   const editButtonRef = useRef<HTMLButtonElement>(null);
+  const rowRef = useRef<HTMLLIElement>(null);
   const wasEditing = useRef(isEditing);
   useEffect(() => {
     if (wasEditing.current && !isEditing) {
@@ -97,11 +99,24 @@ export function QueuedMessageRow({
     wasEditing.current = isEditing;
   }, [isEditing]);
 
+  // Delete (⌫ on a Mac) removes the row focus is in and keeps focus in the queue.
+  useShortcut(
+    'queue-delete',
+    () => {
+      const row = rowRef.current;
+      const neighbour = row?.nextElementSibling ?? row?.previousElementSibling;
+      if (neighbour instanceof HTMLElement) neighbour.focus();
+      onDelete();
+    },
+    { enabled: !busy && !isEditing, region: rowRef },
+  );
+
   return (
     <SortableItem asChild disabled={busy} role="listitem" tabIndex={-1} value={message.id}>
       <li
         className="group/queue-row flex min-w-0 flex-col rounded-[6px] hover:bg-hover focus-within:bg-hover"
         data-queue-live-item=""
+        ref={rowRef}
       >
         <div className="flex h-7 min-w-0 items-center gap-1.5 pr-0.5 text-[13px] whitespace-nowrap">
           <SortableItemHandle asChild>
@@ -194,6 +209,7 @@ export function QueuedMessageRow({
                   icon={<DeleteIcon />}
                   label="Delete"
                   onClick={onDelete}
+                  shortcut="queue-delete"
                   size="sm"
                 />
               </span>
