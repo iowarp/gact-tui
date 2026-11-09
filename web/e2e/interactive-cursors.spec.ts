@@ -20,7 +20,7 @@ for (const theme of ['light', 'dark'] as const) {
     await newSession.click();
 
     const create = page.getByRole('dialog', { name: 'Create', exact: true });
-    await expect(create.getByRole('tab', { name: 'Workspace', exact: true })).toHaveCSS(
+    await expect(create.getByRole('radio', { name: 'Workspace', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
     );
