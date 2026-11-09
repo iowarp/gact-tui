@@ -100,9 +100,13 @@ const requiredImports = {
     '@/components/ui/button',
     '@/components/ui/select',
   ],
-  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
+  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
+  'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
+  'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
+  // The Files list is a windowed flat tree built from the file-tree row parts.
+  'web/src/components/clio/workbench-file-tree.tsx': ['@/components/ai-elements/file-tree'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
-    '@/components/ai-elements/file-tree',
+    './workbench-file-tree',
     './artifact-card',
     './resource-viewers',
   ],
@@ -144,6 +148,10 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
     './data-grid-table',
   ],
+  // File tables (CSV, TSV, JSON records) use the dense spec grid: a line-number
+  // gutter and one virtualized scroll instead of the paginated card table.
+  'web/src/components/clio/csv-view.tsx': ['./file-data-grid'],
+  'web/src/components/clio/file-data-grid.tsx': ['./primitives/dense-grid'],
   // RC1 S4 deliberately replaces the runs DataGrid with grouped rows on the
   // shared ListRow primitive (fixed status/source/workspace/state/time columns,
   // details in a popover) so runs align with the conversation rail and bell.

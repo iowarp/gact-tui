@@ -39,6 +39,34 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
         await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
       ).toBeLessThanOrEqual(1);
       await expect(choices.getByRole('radio', { name: `${size}%`, exact: true })).toBeChecked();
+      const themeOptions = await page
+        .getByRole('radiogroup', { name: 'Theme', exact: true })
+        .locator('label')
+        .evaluateAll((labels) =>
+          labels.map((label) => {
+            const outer = label.getBoundingClientRect();
+            const text = label.querySelector(':scope > span')!.getBoundingClientRect();
+            const icon = label.querySelector(':scope > svg')!.getBoundingClientRect();
+            return {
+              left: outer.left,
+              right: outer.right,
+              textLeft: text.left,
+              textRight: text.right,
+              iconLeft: icon.left,
+              iconRight: icon.right,
+              overlap:
+                Math.max(0, Math.min(text.right, icon.right) - Math.max(text.left, icon.left)) *
+                Math.max(0, Math.min(text.bottom, icon.bottom) - Math.max(text.top, icon.top)),
+            };
+          }),
+        );
+      for (const option of themeOptions) {
+        expect(option.textLeft).toBeGreaterThanOrEqual(option.left);
+        expect(option.textRight).toBeLessThanOrEqual(option.right);
+        expect(option.iconLeft).toBeGreaterThanOrEqual(option.left);
+        expect(option.iconRight).toBeLessThanOrEqual(option.right);
+        expect(option.overlap).toBe(0);
+      }
       if (size === 150 && (width === 3840 || width === 390)) {
         await page.screenshot({ path: testInfo.outputPath(`settings-${size}-${width}.png`) });
       }

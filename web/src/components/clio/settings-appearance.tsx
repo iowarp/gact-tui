@@ -1,3 +1,5 @@
+import type { ComponentType, SVGProps } from 'react';
+import { BugIcon, MonitorCogIcon, MoonIcon, NotebookPenIcon, SunIcon } from 'lucide-react';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -10,17 +12,25 @@ import {
 } from '@/providers/appearance-provider';
 import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
 
+const THEME_ICONS: Record<ThemeId, ComponentType<SVGProps<SVGSVGElement>>> = {
+  light: SunIcon,
+  dark: MoonIcon,
+  notebook: NotebookPenIcon,
+  debug: BugIcon,
+};
+
 const THEME_DESCRIPTIONS: Partial<Record<ThemeId, string>> = {
   notebook: 'Paper, ink and verdigris. Follows your system light or dark setting.',
   debug: 'Development only: every color is red, so anything else skips the theme.',
 };
 
 const themeOptions = [
-  { value: 'system', label: 'System' },
+  { value: 'system', label: 'System', icon: MonitorCogIcon },
   ...THEMES.filter((theme) => !theme.development || import.meta.env.DEV).map((theme) => ({
     value: theme.id,
     label: theme.label,
     description: THEME_DESCRIPTIONS[theme.id],
+    icon: THEME_ICONS[theme.id],
   })),
 ];
 

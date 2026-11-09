@@ -26,6 +26,7 @@ import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
 import { createSettingsFixture } from './settings-fixture.mjs';
+import { createAgentFixture } from './agent-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -1439,6 +1440,7 @@ const settingsFixture = createSettingsFixture({
   sessionId,
   workspaceId,
 });
+const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
 // Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
@@ -1918,6 +1920,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     sessionSummary.reset();
     settingsFixture.reset();
+    agentFixture.reset();
     branchArtifacts.reset();
     session.state = 'running';
     session.updated_at = observedAt;
@@ -2440,6 +2443,7 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
+        x_clio_agent_plugins: true,
         ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
@@ -3497,37 +3501,8 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
-  if (request.method === 'GET' && url.pathname === '/v1/agents') {
-    sendJson(response, {
-      agents: [{ ref: 'clio/standard', id: 'standard', name: 'CLIO', plugins: [], kind: 'agent' }],
-    });
-    return;
-  }
-  if (request.method === 'GET' && url.pathname === '/v1/plugins') {
-    sendJson(response, { plugins: [], default_marketplace_error: null });
-    return;
-  }
-  if (request.method === 'GET' && /^\/v1\/sessions\/[^/]+\/agent$/u.test(url.pathname)) {
-    sendJson(response, {
-      session_id: url.pathname.split('/')[3],
-      delta: { add: [], remove: [] },
-      subagent: false,
-      resolution: {
-        agent: { ref: 'clio/standard', id: 'standard', name: 'CLIO', kind: 'agent' },
-        plugins: [
-          {
-            id: 'core',
-            kind: 'plugin',
-            marketplace: 'clio-builtin',
-            provenance: { source: 'core', via: 'core', label: 'core' },
-            removable: false,
-          },
-        ],
-        prompt: { sections: [] },
-      },
-    });
-    return;
-  }
+  // Agents, the plugin catalog and each session's composable agent.
+  if (await agentFixture.handle(request, url, response)) return;
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {
     response.writeHead(204, commonHeaders());
     response.end();

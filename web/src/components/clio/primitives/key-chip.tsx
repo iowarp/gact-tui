@@ -106,9 +106,18 @@ export const ShortcutKeys = memo(function ShortcutKeys({
  * The badge a control shows while Ctrl (⌘) is held: the whole key, ⌘
  * included. Place it inside a `relative` control; it does not take space.
  */
-export function HeldKeyBadge({ id, className }: { id: string; className?: string }) {
+export function HeldKeyBadge({
+  id,
+  position,
+  className,
+}: {
+  id: string;
+  /** One key of a range shortcut. */
+  position?: number;
+  className?: string;
+}) {
   const held = useCommandKeyHeld();
-  const presentation = useShortcutPresentation(held ? id : undefined);
+  const presentation = useShortcutPresentation(held ? id : undefined, position);
   if (!presentation) return null;
   return (
     <span

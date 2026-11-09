@@ -1,18 +1,55 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Download, type Locator, type Page } from '@playwright/test';
 
-/** Open a primary file tab or a secondary inspection view through File actions. */
+/**
+ * Open a file view: a visible mode tab, the folded modes menu of a narrow
+ * frame bar, or a secondary inspection view through File actions.
+ */
 export async function selectFileView(page: Page, viewer: Locator, name: string): Promise<void> {
   const tab = viewer.getByRole('tab', { name, exact: true });
-  if (await tab.count()) {
+  if (await tab.isVisible()) {
     await tab.click();
-    await expect(tab).toHaveAttribute('aria-selected', 'true');
-  } else if (['Source', 'Read document', 'HTML preview', 'Data'].includes(name)) {
-    await viewer.getByRole('button', { name: 'File representations', exact: true }).click();
-    await page.getByRole('menuitemradio', { name, exact: true }).click();
-    await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
-  } else {
-    await viewer.getByRole('button', { name: 'File actions', exact: true }).click();
-    await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
-    await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
+    // A narrow frame bar may refold its modes once the new view settles.
+    await expect(
+      viewer.getByRole('tab', { name, exact: true, includeHidden: true }),
+    ).toHaveAttribute('aria-selected', 'true');
+    return;
   }
+  // The frame bar's folded modes, or a document's own representations menu.
+  const foldedModes = viewer
+    .locator('[data-modes-folded]')
+    .or(viewer.getByRole('button', { name: 'File representations', exact: true }))
+    .filter({ visible: true })
+    .first();
+  if (await foldedModes.isVisible()) {
+    await foldedModes.click();
+    const mode = page.getByRole('menuitemradio', { name, exact: true });
+    if (await mode.count()) {
+      await mode.click();
+      await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
+      return;
+    }
+    await page.keyboard.press('Escape');
+  }
+  await viewer.getByRole('button', { name: 'File actions', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+  await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
+}
+
+/** Open ▾'s rows: from its chevron, or from the … menu once the frame bar folds Open away. */
+export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<void> {
+  const chevron = toolbar.getByRole('button', { name: 'Open options', exact: true });
+  if (await chevron.isVisible()) {
+    await chevron.click();
+    return;
+  }
+  await toolbar.getByRole('button', { name: /^(File actions|More actions)$/u }).click();
+  await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+}
+
+/** Download the original bytes through Open ▾ › Download. */
+export async function downloadFromFrame(page: Page, toolbar: Locator): Promise<Download> {
+  const download = page.waitForEvent('download');
+  await openFrameOpenMenu(page, toolbar);
+  await page.getByRole('menuitem', { name: /^Download/u }).click();
+  return download;
 }

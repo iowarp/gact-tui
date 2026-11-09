@@ -3,6 +3,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { PropsWithChildren } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
+import { useWorkbenchRequest } from '@/lib/workbench-request-store';
 import { useWorkbenchNavigation } from './use-workbench-navigation';
 
 const fixtures = vi.hoisted(() => ({
@@ -31,10 +32,11 @@ function setup(allSessions: Session[] = []) {
     <MemoryRouter initialEntries={['/workspaces/ws/sessions/root']}>{children}</MemoryRouter>
   );
   return renderHook(
-    () => ({
-      navigation: useWorkbenchNavigation({ allSessions, workspaceId: 'ws' }),
-      location: useLocation(),
-    }),
+    () => {
+      const navigation = useWorkbenchNavigation({ allSessions, workspaceId: 'ws' });
+      const activeRequest = useWorkbenchRequest(navigation.requests);
+      return { navigation: { ...navigation, activeRequest }, location: useLocation() };
+    },
     { wrapper },
   );
 }

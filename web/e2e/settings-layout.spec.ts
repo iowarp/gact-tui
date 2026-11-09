@@ -20,7 +20,7 @@ test('appearance settings stay within narrow windows and apply the theme', async
           getComputedStyle(control.parentElement!).gridTemplateColumns.trim().split(/\s+/u).length >
           1;
         return {
-          centre: box.x + box.width / 2,
+          right: box.right,
           // Two-column rows end their control at the row's trailing edge; stacked rows start it.
           edgeGap: inner ? (wide ? box.right - inner.right : inner.left - box.left) : 0,
           overflow: control.scrollWidth - control.clientWidth,
@@ -30,7 +30,7 @@ test('appearance settings stay within narrow windows and apply the theme', async
     expect(metrics.length).toBeGreaterThan(0);
     for (const metric of metrics) {
       expect(metric.overflow).toBeLessThanOrEqual(1);
-      expect(Math.abs(metric.centre - metrics[0]!.centre)).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.right - metrics[0]!.right)).toBeLessThanOrEqual(1);
       expect(Math.abs(metric.edgeGap)).toBeLessThanOrEqual(1);
     }
     const pane = page.getByRole('region', { name: 'Settings content' });
@@ -41,6 +41,14 @@ test('appearance settings stay within narrow windows and apply the theme', async
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole('radio', { name: 'Dark', exact: true }).check();
   await expect(page.locator('html')).toHaveClass(/dark/);
+  const icons = await page
+    .getByRole('radiogroup', { name: 'Theme' })
+    .locator('svg')
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
+  // System, Light, Dark and Notebook (Debug is offered in development builds only).
+  expect(icons).toHaveLength(4);
+  // Labelled choices use the spec's 14px chip icon, the same size as SegmentedControl.
+  expect(Math.min(...icons)).toBeGreaterThanOrEqual(14);
 });
 
 for (const theme of ['dark', 'light'] as const) {
