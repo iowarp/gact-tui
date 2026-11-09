@@ -1,7 +1,6 @@
 import type { AttentionBlock, ToolInvocation } from '@clio/core/v3';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
 import { toolResultText } from './attention-highlight-sources';
+import { contentRevision } from '@/lib/content-revision';
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -34,7 +33,7 @@ export function verifiedToolField(block: AttentionBlock, tool: ToolInvocation): 
   if (
     text === undefined ||
     !block.content_revision ||
-    bytesToHex(sha256(new TextEncoder().encode(text))) !== block.content_revision
+    contentRevision(text) !== block.content_revision
   )
     return;
   return text;

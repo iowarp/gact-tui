@@ -30,6 +30,7 @@ import {
   useConnectionWaiting,
   useServedEndpointProbe,
 } from '@/lib/connection-attempt';
+import { ServiceVersionError } from '@/lib/service-version-error';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
@@ -55,7 +56,7 @@ import {
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
+import { vocab } from '@/lib/brand-vocabulary';
 import {
   lastWorkspaceRoute,
   rememberWorkspaceRoute,
@@ -166,9 +167,7 @@ export function ConnectionPage() {
           .catch(() => undefined),
       ]);
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
-        throw new Error(
-          `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
-        );
+        throw new ServiceVersionError(PROTOCOL_VERSION, capabilities.gact_versions);
       }
       if (health?.readiness === 'starting') {
         // Reading workspaces now only earns a 503; wait for readiness (#739 B1).
@@ -458,6 +457,7 @@ export function ConnectionPage() {
                     const failed = availabilityFailed(availability);
                     return (
                       <ListRow
+                        className="min-h-[30px]"
                         columns={
                           <span className="flex w-[104px] shrink-0 justify-end">
                             {failed ? (
@@ -523,6 +523,7 @@ export function ConnectionPage() {
                           </span>
                         }
                         selected={selected}
+                        selectedTone="accent"
                         title={
                           <button
                             aria-pressed={selected}
@@ -576,7 +577,7 @@ export function ConnectionPage() {
                     mutation.error instanceof InfrastructureTargetGoneError &&
                     mutation.variables ? (
                       <Button
-                        className="h-6 px-2 text-[11.5px]"
+                        className="px-[9px] text-[11.5px]"
                         onClick={() => {
                           const goneEndpoint = mutation.variables.endpoint;
                           void forget(goneEndpoint);
@@ -587,10 +588,11 @@ export function ConnectionPage() {
                           );
                           setDeployOpen(true);
                         }}
+                        size="xs"
                         type="button"
                         variant="outline"
                       >
-                        Remove it and deploy {vocab.agent} again
+                        Remove and redeploy
                       </Button>
                     ) : undefined
                   }
