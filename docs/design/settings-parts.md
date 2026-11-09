@@ -97,6 +97,10 @@ confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on th
 `facts` is the form for dialog and ask-card facts: a fixed 110 px label column (the spec's
 `grid-template-columns:110px minmax(0,1fr)`), 24 px rows and left-aligned values. Below a
 420 px container the labels give way to their icons. `rows` is the settings-sheet form, with a 118 px label.
+Settings dialogs that state what an action means (the spec's "plain value rows", such as
+Folders' Allow writing to a folder) use `SettingsRow`s, not `facts`: a foreground label and
+a right-aligned 12.5 px value that keeps one line while it fits and wraps only when the
+dialog is too narrow for it.
 
 **`WindowShell`** (same file)
 `{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
