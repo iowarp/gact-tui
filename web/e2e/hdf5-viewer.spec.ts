@@ -173,6 +173,12 @@ test('on the app origin, the desktop CSP blocks the HDF5 viewer', async ({ page 
       });
     },
   );
+  // A fulfilled document has no server address, so Chromium places it in the
+  // public address space and its Local Network Access check refuses every
+  // fetch to the loopback fixture service. The app then reports the workspace
+  // unavailable and unmounts the viewer before h5web loads. The real document
+  // is served from loopback, where the check does not apply.
+  await page.context().grantPermissions(['local-network-access']);
   await page.addInitScript((connection) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
   }, endpoint);
