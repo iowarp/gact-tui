@@ -427,9 +427,11 @@ function Frames() {
         className="flex min-w-0 overflow-hidden border-b border-border"
       >
         {[
+          { id: 'plan', label: 'plan.md', pinned: true },
           { id: 'notes', label: 'analysis-notes.md', dirty: true },
           { id: 'plot', label: 'station-offsets-by-campaign-and-instrument.png' },
-          { id: 'data', label: 'offsets.parquet' },
+          { id: 'data', label: 'offsets.parquet', changed: true },
+          { id: 'compact', label: 'soil_qc.py', compact: true },
         ].map((item) => (
           <FrameTab
             key={item.id}
@@ -437,6 +439,9 @@ function Frames() {
             icon={<FileTextIcon />}
             active={tab === item.id}
             dirty={item.dirty}
+            changed={item.changed}
+            pinned={item.pinned}
+            compact={item.compact}
             onSelect={() => setTab(item.id)}
             onClose={noop}
           />

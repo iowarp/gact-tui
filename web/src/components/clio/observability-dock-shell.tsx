@@ -99,6 +99,8 @@ export interface ClioObservabilityDockProps {
   onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
+  /** The views offered; the workbench lists evidence and the timeline in Activity instead. */
+  views?: readonly ObservabilityView[];
   onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;

@@ -25,3 +25,19 @@ export function useFileViewerActions(actions: readonly FileViewerAction[]) {
     return () => register?.(id);
   }, [register, id, actions]);
 }
+
+/** Reads what the viewer shows as text, for Copy ▾ Contents. */
+export type FileViewerContentsReader = () => string | undefined | Promise<string | undefined>;
+
+/**
+ * The frame's Copy ▾ face: a renderer that shows text (a document's text, a
+ * file's decoded source) registers how to read it instead of adding its own
+ * copy button; without one, the frame copies text files from their bytes.
+ */
+export const FileViewerContentsRegistry = createContext<
+  ((id: string, read?: FileViewerContentsReader) => void) | undefined
+>(undefined);
+
+export function useFileViewerContentsRegistry() {
+  return useContext(FileViewerContentsRegistry);
+}

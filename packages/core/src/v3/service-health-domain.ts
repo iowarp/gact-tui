@@ -11,6 +11,14 @@ export interface ServiceIntegrationHealth {
   next_action?: string;
   endpoint?: string;
   required?: boolean;
+  /** Typed reason token (e.g. `codex_not_installed`); the `sandbox` row's, absent once ready. */
+  reason?: string;
+  /** `sandbox` row only: agent tools run inside an OS write fence now. */
+  active?: boolean;
+  /** `sandbox` row only: the fence resolved off, so the person must acknowledge running without it. */
+  acknowledgement_required?: boolean;
+  /** `sandbox` row only: the warning to show, present exactly when acknowledgement is required. */
+  warning?: string;
 }
 
 export interface ServiceHealth {

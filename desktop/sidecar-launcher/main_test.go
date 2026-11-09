@@ -317,6 +317,7 @@ func TestSpawnEnvCarriesManifestEnvAndToken(t *testing.T) {
 		envBearer + "=secret-token",
 		envGactContractVer + "=0.2",
 		envBootHeartbeat + "=1",
+		"PYTHONDONTWRITEBYTECODE=1",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("spawn env missing %q", want)

@@ -28,10 +28,13 @@ describe('JSON resource view', () => {
     expect(screen.getByRole('tab', { name: 'Data' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('heading', { name: 'runs' })).not.toBeInTheDocument();
     expect(screen.getByText('run-021')).toBeVisible();
-    expect(screen.getByText('113.828325')).toHaveAttribute('title', '113.82832450388318');
+    expect(screen.getByRole('gridcell', { name: '113.828325' })).toHaveAttribute(
+      'title',
+      '113.82832450388318',
+    );
 
     await user.click(screen.getByRole('tab', { name: 'Source' }));
-    expect(screen.getByRole('button', { name: 'Copy batch-005.json' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy contents' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Source of batch-005.json' })).toHaveTextContent(
       'mean_biomass',
     );
@@ -43,7 +46,7 @@ describe('JSON resource view', () => {
     render(<ClioJsonResourceView content={content} title="status.json" />);
 
     expect(screen.queryByRole('tab', { name: 'Data' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy status.json' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy contents' })).toBeVisible();
   });
 
   it('does not discard mixed array entries to fabricate a table', () => {

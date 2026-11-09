@@ -100,6 +100,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('lineage', 'Lineage', 'tab', ['Ctrl+Shift+L']),
   def('add-to-message', 'Add to message', 'tab', ['Ctrl+Shift+Enter']),
   def('comment', 'Comment on the selection', 'tab', ['Ctrl+Alt+M'], { mac: ['Alt+Cmd+A'] }),
+  def('comments', 'Comments', 'tab', ['Ctrl+Shift+K']),
   def('copy', 'Copy, with nothing selected', 'tab', ['Ctrl+C']),
   def('maximize', 'Maximize', 'tab', ['Alt+Enter']),
   def('previous-tab', 'Previous tab', 'tab', ['Alt+Left']),
