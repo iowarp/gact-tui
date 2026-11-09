@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useKeyPlatform } from '@/lib/shortcuts/hooks';
+import { gestureModifiers } from '@/lib/shortcuts/keys';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
@@ -114,6 +116,7 @@ const DEFAULT_CHART_HEIGHT = 320;
 
 /** A Vega-Lite chart over inline or artifact rows, with a selection linkable across components. */
 export function ClioChart(props: ClioChartProps) {
+  const keys = gestureModifiers(useKeyPlatform());
   const { accessibility, componentId, height = DEFAULT_CHART_HEIGHT, title, weight } = props;
   const { entityField, facetField, preset, xType } = props;
   const xField = props.xField ?? chartChannelField(props.spec, 'x');
@@ -646,7 +649,7 @@ export function ClioChart(props: ClioChartProps) {
           </TooltipTrigger>
           <TooltipContent align="end" side="bottom">
             {selectsSeries
-              ? 'Drag to select points. Ctrl-drag selects whole curves. Shift adds or removes.'
+              ? `Drag to select points. ${keys.primary}-drag selects whole curves. Shift adds or removes.`
               : 'Box select. Drag a rectangle to select rows. Click again to exit.'}
           </TooltipContent>
         </Tooltip>
@@ -676,7 +679,7 @@ export function ClioChart(props: ClioChartProps) {
       linkable && selectionField ? (
         <span>
           {zoomParam
-            ? 'Click a point to select it. Ctrl-click selects its curve. Shift-click toggles a point; Ctrl+Shift-click merges or removes a curve. Drag selects points; Ctrl-drag selects curves. Alt+drag pans and Ctrl+wheel zooms.'
+            ? `Click a point to select it. ${keys.primary}-click selects its curve. Shift-click toggles a point; ${keys.primaryShift}-click merges or removes a curve. Drag selects points; ${keys.primary}-drag selects curves. ${keys.alt}-drag pans and ${keys.primary}-scroll zooms.`
             : 'Choose Box select or hold Shift and drag to select matching rows.'}
         </span>
       ) : undefined,
