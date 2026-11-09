@@ -8,6 +8,7 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { useComposerDelivery } from '@/hooks/use-composer-delivery';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 
 /** One visible send action follows the same state/modifier rule as Enter. Stop stays independent. */
 export function ComposerSubmitControls({
@@ -25,6 +26,9 @@ export function ComposerSubmitControls({
 }) {
   const { delivery, label } = useComposerDelivery(state);
   const attachments = usePromptInputAttachments();
+  // A native title can't hold key caps, so it takes the catalog's one-line form.
+  const send = useShortcutPresentation('send')?.text ?? 'Enter';
+  const steer = useShortcutPresentation('steer')?.text ?? 'Ctrl Enter';
   const Icon =
     delivery === 'queued' ? ListPlusIcon : delivery === 'steer' ? CornerDownRightIcon : SendIcon;
   return (
@@ -48,10 +52,10 @@ export function ComposerSubmitControls({
         onClick={onSubmit}
         title={
           delivery === 'queued'
-            ? 'Queue for after current work (Enter). Ctrl/Cmd+Enter steers instead.'
+            ? `Queue for after current work (${send}). ${steer} steers instead.`
             : delivery === 'steer'
-              ? 'Send feedback before the next model iteration (Ctrl/Cmd+Enter).'
-              : 'Send message (Enter or Ctrl/Cmd+Enter).'
+              ? `Send feedback before the next model iteration (${steer}).`
+              : `Send message (${send} or ${steer}).`
         }
         type="submit"
         variant={delivery === 'steer' ? 'outline' : 'default'}

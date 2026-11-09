@@ -48,6 +48,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { cn } from '@/lib/utils';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { shortcutMatches } from '@/lib/shortcuts/registry';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import type { SubagentOpenTarget } from './subagent-card';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
@@ -245,6 +247,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     // Lazy useState initializer (not useRef().current, which reads a ref
     // during render) computes the restored state exactly once.
     const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
+    const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
     const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);
@@ -453,7 +456,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                         >
                           <SortableItemHandle asChild>
                             <TabsTrigger
-                              aria-keyshortcuts="Delete Alt+ArrowLeft Alt+ArrowRight"
+                              aria-keyshortcuts={[closeTabKeys, 'Alt+ArrowLeft Alt+ArrowRight']
+                                .filter(Boolean)
+                                .join(' ')}
                               className={cn(
                                 'h-8 w-full justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
                                 active
@@ -467,7 +472,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                                 closeTab(tab.id);
                               }}
                               onKeyDown={(event) => {
-                                if (event.key === 'Delete') {
+                                if (shortcutMatches('close-tab', event.nativeEvent)) {
                                   event.preventDefault();
                                   closeTab(tab.id);
                                   return;

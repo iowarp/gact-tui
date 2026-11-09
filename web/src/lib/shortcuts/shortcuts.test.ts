@@ -39,6 +39,22 @@ describe('chords', () => {
     expect(shortcutText(getShortcut('previous-conversation')!, 'windows')).toBe('Alt ↑');
   });
 
+  it('leaves macOS keys to macOS and reads the Mac ⌫ key (#739)', () => {
+    // ⇧⌘/ searches the Mac menu bar, which is the app menu there.
+    expect(shortcutChords(getShortcut('app-menu')!, 'mac')).toEqual([]);
+    expect(shortcutText(getShortcut('app-menu')!, 'windows')).toBe('Alt Space');
+    expect(shortcutText(getShortcut('close-tab')!, 'mac')).toBe('⌘⌫');
+    const backspace = { key: 'Backspace', code: 'Backspace', ctrlKey: false, altKey: false };
+    const closeTab = getShortcut('close-tab')!;
+    expect(
+      shortcutChords(closeTab, 'mac').some((chord) =>
+        chordMatches(chord, { ...backspace, shiftKey: false, metaKey: true }),
+      ),
+    ).toBe(true);
+    expect(shortcutText(getShortcut('reload')!, 'mac')).toBe('⌘R');
+    expect(shortcutText(getShortcut('downloads')!, 'mac')).toBe('⌘J');
+  });
+
   it('matches exactly and reports the position of a range', () => {
     const range = parseChord('Ctrl+Shift+1–7', 'windows');
     const event = {
