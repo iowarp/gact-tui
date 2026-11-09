@@ -1,7 +1,6 @@
-import { ChevronRightIcon } from 'lucide-react';
-import { connectionAgentName, connectionLocation } from './connection-names';
+import { agentIdentity } from './connection-names';
 
-/** "Location › Agent" for a saved connection, as the left bar and the CLIO menu show it. */
+/** "CLIO local", then "this computer": the agent's name and where it runs, split by a layout gap. */
 export function AgentConnectionIdentity({
   endpoint,
   label,
@@ -11,13 +10,11 @@ export function AgentConnectionIdentity({
   label?: string;
   location?: string;
 }) {
-  const displayLocation = connectionLocation(endpoint, location);
-  const name = connectionAgentName(label, displayLocation);
+  const { name, place } = agentIdentity(endpoint, label, location);
   return (
-    <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="truncate">{displayLocation}</span>
-      <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
-      <span className="shrink-0 font-medium text-foreground">{name}</span>
+    <span className="flex min-w-0 items-baseline gap-1.5" title={`${name}, ${place}`}>
+      <span className="max-w-[60%] shrink-0 truncate">{name}</span>
+      <span className="min-w-0 truncate">{place}</span>
     </span>
   );
 }

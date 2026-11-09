@@ -80,7 +80,6 @@ export function RemindersList({
                 onClick={() => onEdit(prompt)}
               />
             }
-            actionsWidth={30}
             icon={<BellIcon />}
             key={prompt.id}
             meta={<MetaLine parts={metaParts(prompt, meta)} />}
@@ -99,7 +98,6 @@ export function RemindersList({
                 />
               )
             }
-            slotWidth={44}
             status={
               <span
                 className="flex min-w-0"
@@ -111,7 +109,6 @@ export function RemindersList({
                 />
               </span>
             }
-            statusWidth={96}
             tabIndex={0}
             title={name}
           />

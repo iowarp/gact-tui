@@ -71,14 +71,14 @@ export function CatalogToolset({
   return (
     <div className="flex min-w-0 flex-col gap-2" data-slot="tool-catalog">
       {builtin.length ? (
-        <InfraList heading="Built in" hover={26} pinned={false}>
+        <InfraList heading="Built in" hover={26} meta={128} pinned={false}>
           {builtin.map((entry) => (
             <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
           ))}
         </InfraList>
       ) : null}
       {mcp.length ? (
-        <InfraList heading="MCP servers" hover={26} pinned={false}>
+        <InfraList heading="MCP servers" hover={26} meta={128} pinned={false}>
           {mcp.map((entry) => (
             <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
           ))}

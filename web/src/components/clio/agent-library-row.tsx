@@ -67,7 +67,6 @@ export function AgentRow({
   metadata,
   selected = false,
   slot,
-  slotWidth = 72,
 }: {
   agent: AgentEntry;
   agents: readonly AgentEntry[];
@@ -78,7 +77,6 @@ export function AgentRow({
   selected?: boolean;
   /** Right column (the Default tag). Pass `null` to keep the column empty but aligned. */
   slot?: ReactNode;
-  slotWidth?: number;
 }) {
   const name = agent.name || agent.id;
   const open = (event: MouseEvent<HTMLDivElement>) => {
@@ -103,7 +101,6 @@ export function AgentRow({
       onKeyDown={onKeyDown}
       selected={selected}
       slot={slot}
-      slotWidth={slotWidth}
       tabIndex={0}
       title={<span title={name}>{name}</span>}
       actions={
