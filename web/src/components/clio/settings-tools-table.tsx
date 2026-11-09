@@ -162,7 +162,7 @@ function HeaderRow({ mode }: { mode: string }) {
     <div
       className={cn(
         COLUMNS,
-        'sticky top-0 z-10 hidden min-h-[34px] border-b border-border bg-popover text-[11.5px] text-muted-foreground @min-[32rem]/tools:grid',
+        'sticky top-0 z-10 hidden min-h-[34px] border-b border-border bg-background text-[11.5px] text-muted-foreground @min-[32rem]/tools:grid',
       )}
       data-slot="tools-table-header"
     >

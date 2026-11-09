@@ -290,6 +290,7 @@ function AgentComposition({
             : undefined
         }
         title={title}
+        titleShown={!embedded}
       />
       {library ? (
         <details className="px-3.5 pb-2 text-[12px]">
