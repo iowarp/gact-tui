@@ -620,7 +620,24 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
 
   const minimapBounds = await minimap.boundingBox();
   expect(minimapBounds).not.toBeNull();
-  const conversationScrollTop = await conversation.evaluate((element) => element.scrollTop);
+  // Rail input must not move the reader. Measure the reader's distance from the
+  // latest edge rather than raw scrollTop: a dense row re-measuring above the
+  // viewport, or the latest-anchored log growing, shifts scrollTop by tens of
+  // pixels without the reader moving (CI saw 177897 -> 177941), whereas a leaked
+  // wheel or a landmark jump moves it by thousands.
+  const readerOffsetFromLatest = () =>
+    conversation.evaluate((element) =>
+      Math.round(element.scrollHeight - element.clientHeight - element.scrollTop),
+    );
+  let settledOffset = Number.NaN;
+  await expect
+    .poll(async () => {
+      const previous = settledOffset;
+      settledOffset = await readerOffsetFromLatest();
+      return settledOffset === previous;
+    })
+    .toBe(true);
+  const conversationOffsetFromLatest = settledOffset;
   if (minimapBounds) {
     await page.mouse.move(
       minimapBounds.x + minimapBounds.width / 2,
@@ -645,9 +662,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(railPreviewTitle).toHaveCSS('font-weight', '600');
   await expect(railPreview).toContainText('Sanitized evidence ledger entry 2.');
   await expect(railPreview.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
-  await expect
-    .poll(() => conversation.evaluate((element) => element.scrollTop))
-    .toBe(conversationScrollTop);
+  await expect.poll(readerOffsetFromLatest).toBe(conversationOffsetFromLatest);
   if (minimapBounds) await page.mouse.wheel(0, 50_000);
   // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
   // marker only proves that the minimap itself is present; it does not prove

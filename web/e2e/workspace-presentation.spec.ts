@@ -248,7 +248,7 @@ test('SVG previews stay centred through pane resizing and zoom', async ({ page }
   await page.screenshot({ path: testInfo.outputPath('image-centred-wide-dark.png') });
 });
 
-test('an unsupported workspace file uses one shared original download', async ({
+test('an unsupported workspace file downloads its original from the frame and the state', async ({
   page,
 }, testInfo) => {
   const bytes = Buffer.from([137, 72, 68, 70, 13, 10, 26, 10]);
@@ -271,10 +271,13 @@ test('an unsupported workspace file uses one shared original download', async ({
   await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
   const state = preview.locator('[data-slot="state-view"][data-kind="no-preview"]');
   await expect(state).toContainText('.h5');
-  await expect(state.getByRole('button', { name: 'Download', exact: true })).toHaveCount(1);
   await expect(preview.locator('[data-slot="frame-bar"]')).toHaveCount(1);
   const downloaded = await downloadFromFrame(page, preview);
   expect(downloaded.suggestedFilename()).toBe('run.h5');
   expect(await readFile((await downloaded.path())!)).toEqual(bytes);
+  // The state body offers the same original download, so it is never a dead end.
+  const fromState = page.waitForEvent('download');
+  await state.getByRole('button', { name: 'Download', exact: true }).click();
+  expect((await fromState).suggestedFilename()).toBe('run.h5');
   await page.screenshot({ path: testInfo.outputPath('unsupported-file-shared-toolbar.png') });
 });
