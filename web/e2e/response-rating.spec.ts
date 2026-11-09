@@ -9,13 +9,18 @@ test('ratings toggle off and a top-right comment action attaches editable feedba
   const fixture = await installResponseRatingFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.session.workspace_id}/sessions/${fixture.session.id}`);
   await expect(page.getByText(fixture.text, { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Rate response', exact: true }).click();
+  // Reply actions are named on hover; reveal them before each use.
+  const rating = async (name: string) => {
+    await page.locator(`#message-${fixture.messageId}`).hover();
+    return page.getByRole('button', { name, exact: true });
+  };
+  await (await rating('Rate response')).click();
   await page.getByRole('menuitemradio', { name: 'Good response' }).click();
-  await page.getByRole('button', { name: 'Rated good response', exact: true }).click();
+  await (await rating('Rated good response')).click();
   await page.getByRole('menuitemradio', { name: 'Good response' }).click();
-  await page.getByRole('button', { name: 'Rate response', exact: true }).click();
+  await (await rating('Rate response')).click();
   await page.getByRole('menuitemradio', { name: 'Bad response' }).click();
-  await page.getByRole('button', { name: 'Rated bad response', exact: true }).click();
+  await (await rating('Rated bad response')).click();
   const add = page.getByRole('menuitem', { name: 'Add feedback comment' });
   await expect
     .poll(async () => {
@@ -39,15 +44,15 @@ test('ratings toggle off and a top-right comment action attaches editable feedba
     page.getByRole('button', { name: 'Rated bad response, with comment' }),
   ).toBeFocused();
   await page.reload();
-  await page.getByRole('button', { name: 'Rated bad response, with comment' }).click();
+  await (await rating('Rated bad response, with comment')).click();
   await page.getByRole('menuitemradio', { name: 'Bad response' }).click();
-  await page.getByRole('button', { name: 'Rate response, with comment' }).click();
+  await (await rating('Rate response, with comment')).click();
   await page.getByRole('menuitem', { name: 'Edit feedback comment' }).click();
   await expect(comment).toHaveValue('The labels are useful; please explain the units.');
   await comment.fill('An unsaved change.');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Rate response, with comment' })).toBeFocused();
-  await page.getByRole('button', { name: 'Rate response, with comment' }).click();
+  await (await rating('Rate response, with comment')).click();
   await page.getByRole('menuitem', { name: 'Edit feedback comment' }).click();
   await expect(comment).toHaveValue('The labels are useful; please explain the units.');
   await comment.fill('');

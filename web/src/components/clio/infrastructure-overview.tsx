@@ -176,7 +176,7 @@ export function InfrastructureOverview({
             ? 'SSH'
             : 'Direct'
         }
-        className="mt-2 hidden min-h-[320px] flex-1 flex-col justify-center rounded-md border border-border @[520px]/overview:flex"
+        className="mt-1.5 hidden flex-col border-t border-border @[520px]/overview:flex"
         client={inTauri() ? 'Desktop app' : 'Browser'}
         data={data}
         reconnecting={reconnecting}

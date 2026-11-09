@@ -7,10 +7,6 @@ export interface ClioConversationWelcomeProps {
   children: ReactNode;
   /** The “In [workspace] with [agent] Customize” line, supplied by the draft page; omitted when nothing can change. */
   context?: ReactNode;
-  /** Unused since starter prompts were removed. Remove once the draft page stops passing it. */
-  disabled?: boolean;
-  /** Unused since starter prompts were removed. Remove once the draft page stops passing it. */
-  onSelectPrompt?: (prompt: string) => void;
 }
 
 /** An empty conversation: the brand mark, one line of welcome, its context, then the composer. */

@@ -442,7 +442,6 @@ describe('exported subagent tree without subagent records', () => {
         view={views.sess_l1}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /^Activity:/ }));
     // Each call's row names its child as a link, collapsed and expanded alike.
     await user.click(screen.getByRole('button', { name: 'level 1~1' }));
     expect(onOpenSession).toHaveBeenLastCalledWith('sess_fork');

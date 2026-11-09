@@ -105,7 +105,7 @@ export function useShortcutPresentation(
 
 export interface UseShortcutOptions {
   enabled?: boolean;
-  /** Required for "the tab you're in" keys: focus must be inside it. */
+  /** Focus must be inside it; required for "the tab you're in" keys. */
   region?: RefObject<Element | null>;
   allowInTextField?: boolean;
   overrideHandled?: boolean;

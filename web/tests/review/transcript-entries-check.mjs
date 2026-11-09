@@ -59,8 +59,12 @@ try {
   const groups = page.getByRole('button', { name: /^Activity:/ });
   const thinking = page.locator('[data-slot="transcript-reasoning-text"]');
   const footer = page.locator('[data-slot="message-completion-footer"]');
-  await expect(footer).toContainText('8 (4 failed) tool calls');
   await expect(footer).not.toContainText('·');
+  await footer.locator('[data-slot="message-reply-meta"]').hover();
+  await expect(page.getByRole('region', { name: 'This reply used' })).toContainText(
+    '8 tool calls, 4 failed',
+  );
+  await page.mouse.move(0, 0);
   const checkpoints = page.locator('[data-slot="model-checkpoint"]');
   await expect(checkpoints).toHaveCount(2);
   await expect(checkpoints.last()).toContainText('Switched to Claude Code');

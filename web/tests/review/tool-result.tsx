@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
 import { AppearanceProvider } from '../../src/providers/appearance-provider';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 import { PresentationNavigation } from '../../src/components/clio/presentation-navigation';
 import { ClioToolInvocation } from '../../src/components/clio/tool-invocation';
 
@@ -12,17 +13,21 @@ const client = new QueryClient();
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}>
     <AppearanceProvider>
-      <PresentationNavigation.Provider
-        value={{ artifacts: {}, subagents: {}, onOpenFile: () => {} }}
-      >
-        <main className="mx-auto max-w-3xl p-6">
-          <h1 className="mb-4 text-sm text-muted-foreground">Shared tool result browser fixture</h1>
-          <ClioToolInvocation
-            tool={tool}
-            compact={new URLSearchParams(location.search).has('compact')}
-          />
-        </main>
-      </PresentationNavigation.Provider>
+      <TooltipProvider delayDuration={450}>
+        <PresentationNavigation.Provider
+          value={{ artifacts: {}, subagents: {}, onOpenFile: () => {} }}
+        >
+          <main className="mx-auto max-w-3xl p-6">
+            <h1 className="mb-4 text-sm text-muted-foreground">
+              Shared tool result browser fixture
+            </h1>
+            <ClioToolInvocation
+              tool={tool}
+              compact={new URLSearchParams(location.search).has('compact')}
+            />
+          </main>
+        </PresentationNavigation.Provider>
+      </TooltipProvider>
     </AppearanceProvider>
   </QueryClientProvider>,
 );

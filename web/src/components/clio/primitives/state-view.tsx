@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { RetryIcon } from '@/lib/icon-vocabulary';
+import { InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './icon-button';
 
@@ -24,7 +24,9 @@ export type StateKind =
   | 'unavailable'
   | 'too-large'
   | 'no-preview'
-  | 'changed-elsewhere';
+  | 'changed-elsewhere'
+  /** A quiet fact in a flow (forked here, compacted here); not announced. */
+  | 'marker';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -35,6 +37,7 @@ const ICON: Record<Exclude<StateKind, 'loading'>, Icon> = {
   'too-large': FileWarningIcon,
   'no-preview': FileQuestionIcon,
   'changed-elsewhere': GitCompareArrowsIcon,
+  marker: InfoIcon,
 };
 
 /** A viewer body's glyphs, as the frame spec draws them. */
@@ -59,8 +62,11 @@ export interface StateAction {
 
 export interface StateViewProps {
   kind: StateKind;
-  /** The one line: what is loading, missing, failed or held back. */
-  title: string;
+  /**
+   * The one line: what is loading, missing, failed or held back. A marker's
+   * line may carry a link; only a string line repeats itself on hover.
+   */
+  title: ReactNode;
   /**
    * The one action. `error` defaults its label to Retry, `unavailable` to
    * Why?. `changed-elsewhere` takes two (Keep current, Use mine).
@@ -122,7 +128,9 @@ export const StateView = memo(function StateView({
       ? ({ role: 'status', 'aria-live': 'polite', 'aria-busy': true } as const)
       : kind === 'error'
         ? ({ role: 'alert' } as const)
-        : ({ role: 'status' } as const);
+        : kind === 'marker'
+          ? {}
+          : ({ role: 'status' } as const);
   const actionLabel =
     action?.label ?? (kind === 'error' ? 'Retry' : kind === 'unavailable' ? 'Why?' : undefined);
   return (
@@ -165,7 +173,7 @@ export const StateView = memo(function StateView({
         )}
       >
         <span
-          title={title}
+          title={typeof title === 'string' ? title : undefined}
           className={cn('min-w-0 max-w-full truncate', !row && 'text-foreground')}
         >
           {title}
@@ -234,7 +242,7 @@ function ViewerState({
     return (
       <div
         {...liveRegion(kind)}
-        aria-label={title}
+        aria-label={typeof title === 'string' ? title : undefined}
         data-kind={kind}
         data-size="viewer"
         data-slot="state-view"
@@ -278,7 +286,7 @@ function ViewerState({
       {detail ? (
         <span
           title={detail}
-          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-faint"
+          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-muted-foreground"
         >
           {detail}
         </span>
@@ -296,7 +304,7 @@ function ViewerState({
               <IconButton
                 key={entry.label}
                 className={cn(
-                  'size-[30px] shrink-0 rounded-[6px] text-faint [&_svg:not([class*=size-])]:size-5',
+                  'size-[30px] shrink-0 rounded-[6px] text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-5',
                 )}
                 disabled={entry.disabled}
                 icon={entry.icon}

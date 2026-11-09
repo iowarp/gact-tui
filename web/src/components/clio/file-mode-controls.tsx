@@ -92,7 +92,7 @@ export function FoldedFileModes({
         <ToolbarAction
           label={label}
           data-modes-folded=""
-          className="hidden w-9 gap-0.5 group-data-[fold-talk]/frame:inline-flex"
+          className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex"
         >
           <ActiveIcon aria-hidden="true" />
           <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
@@ -144,7 +144,7 @@ export function FileModeControls({
           data-slot="viewer-modes"
           className={cn(
             MODE_SEGMENT_CLASS,
-            'group-data-horizontal/tabs:h-7 group-data-[fold-talk]/frame:hidden',
+            'group-data-horizontal/tabs:h-7 group-data-[fold-modes]/frame:hidden',
           )}
         >
           {modes.map((mode) => (

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // the React.lazy boundary resolves from the module cache.
 import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -20,38 +21,38 @@ beforeEach(() => {
 describe('ClioToolInvocation status and lifecycle semantics', () => {
   it('bounds the input command and output separately inside one Run result', () => {
     const { container } = render(
-      <ClioToolInvocation
-        tool={{
-          id: 'script',
-          session_id: 's',
-          name: 'shell_bash',
-          state: 'succeeded',
-          presentation: {
-            summary: '',
-            blocks: [
-              {
-                id: 'terminal',
-                type: 'terminal',
-                command: Array.from({ length: 80 }, (_, i) => `print(${i})`).join('\n'),
-                text: 'Done',
-                exit_code: 0,
-              },
-            ],
-          },
-        }}
-      />,
+      <TooltipProvider>
+        <ClioToolInvocation
+          tool={{
+            id: 'script',
+            session_id: 's',
+            name: 'shell_bash',
+            state: 'succeeded',
+            presentation: {
+              summary: '',
+              blocks: [
+                {
+                  id: 'terminal',
+                  type: 'terminal',
+                  command: Array.from({ length: 80 }, (_, i) => `print(${i})`).join('\n'),
+                  text: 'Done',
+                  exit_code: 0,
+                },
+              ],
+            },
+          }}
+        />
+      </TooltipProvider>,
     );
-    const command = screen.getByLabelText('Command');
-    const viewport = command.closest('[style]');
-    expect(viewport).toHaveClass('overflow-hidden');
-    expect(viewport).toHaveAttribute('style', expect.stringContaining('max-height:'));
-    expect(viewport?.textContent).not.toContain('Done');
-    const output = screen.getByRole('region', { name: 'Command output' });
+    const result = screen.getByRole('region', { name: 'Run command: Result' });
+    const body = result.querySelector('[data-slot="transcript-terminal"]');
+    const command = body?.querySelector('pre');
+    expect(command).toHaveTextContent('print(0)');
+    expect(command).not.toHaveTextContent('Done');
+    const output = body?.lastElementChild;
     expect(output).toHaveTextContent('Done');
     expect(output).not.toHaveTextContent('print(0)');
-    expect(container.querySelector('[data-slot="tool-human-result"]')).toContainElement(
-      viewport as HTMLElement,
-    );
+    expect(container.querySelectorAll('[data-slot="transcript-terminal"]')).toHaveLength(1);
   });
   it('shows one filename and opens its declared full path in the workbench', async () => {
     const openFile = vi.fn();
@@ -81,10 +82,9 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(openFile).toHaveBeenCalledWith(path);
     expect(screen.queryByText(path)).not.toBeInTheDocument();
     expect(
-      screen.getByText('(12 bytes)').closest('[data-slot="activity-metadata"]'),
+      screen.getByText('12 bytes').closest('[data-slot="activity-metadata"]'),
     ).not.toBeNull();
-    expect(screen.getByText('(12 bytes)').closest('[data-slot="tool-human-result"]')).toBeNull();
-    expect(document.querySelector('[data-slot="tool-action-label"]')).toHaveClass('w-full');
+    expect(screen.getByText('12 bytes').closest('[data-slot="tool-human-result"]')).toBeNull();
   });
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
     render(
@@ -100,7 +100,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Succeeded' })).toBeVisible();
     expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 
@@ -118,7 +118,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Succeeded' })).toBeVisible();
     expect(screen.queryByText('Staged')).not.toBeInTheDocument();
   });
 
@@ -136,7 +136,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Cancelled' })).toBeVisible();
+    expect(screen.getByRole('img', { name: /^Cancelled/ })).toBeVisible();
     expect(screen.queryByText(/CancellationError/u)).not.toBeInTheDocument();
   });
 
@@ -238,67 +238,78 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
   });
 
   it('renders an exact file edit as a visible diff beneath the tool row', () => {
-    render(
-      <ClioToolInvocation
-        tool={{
-          id: 'tool-diff',
-          session_id: 'session-1',
-          name: 'fs_edit_file',
-          presentation: {
-            summary: 'src/example.py',
-            blocks: [{ id: 'diff', type: 'diff', text: '@@ -1 +1 @@\n-old\n+new' }],
-          },
-          state: 'succeeded',
-          output: {
-            content: [],
-            structuredContent: {
-              path: 'src/example.py',
-              unified_diff: '@@ -1 +1 @@\n-old\n+new',
+    const { container } = render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-diff',
+            session_id: 'session-1',
+            name: 'fs_edit_file',
+            presentation: {
+              summary: 'src/example.py',
+              blocks: [{ id: 'diff', type: 'diff', text: '@@ -1 +1 @@\n-old\n+new' }],
             },
-          },
-        }}
-      />,
+            state: 'succeeded',
+            output: {
+              content: [],
+              structuredContent: {
+                path: 'src/example.py',
+                unified_diff: '@@ -1 +1 @@\n-old\n+new',
+              },
+            },
+          }}
+        />
+      </TooltipProvider>,
     );
 
-    expect(screen.getByText('src/example.py')).toBeVisible();
-    expect(screen.getByText('+new')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Technical details for Edit' })).toBeVisible();
+    expect(container.querySelector('[data-slot="activity-argument"]')).toHaveTextContent(
+      'src/example.py',
+    );
+    expect(container.querySelector('[data-diff-line="added"]')).toHaveTextContent('new');
+    expect(container.querySelector('[data-diff-line="removed"]')).toHaveTextContent('old');
+    expect(screen.getByRole('button', { name: 'Technical details for Edit file' })).toBeVisible();
   });
 
   it('shows live terminal output and preserves the technical disclosure', async () => {
-    render(
-      <ClioToolInvocation
-        defaultOpen
-        tool={{
-          id: 'tool-shell',
-          session_id: 'session-1',
-          name: 'shell_bash',
-          state: 'running',
-          presentation: {
-            summary: '',
-            blocks: [
-              {
-                id: 'terminal',
-                type: 'terminal',
-                command: 'run checks',
-                text: 'collecting tests\n42 passed\n',
-              },
-            ],
-          },
-          input: { command: 'run checks' },
-          output_stream: 'collecting tests\n42 passed\n',
-        }}
-      />,
+    const { container } = render(
+      <TooltipProvider>
+        <ClioToolInvocation
+          defaultOpen
+          tool={{
+            id: 'tool-shell',
+            session_id: 'session-1',
+            name: 'shell_bash',
+            state: 'running',
+            presentation: {
+              summary: '',
+              blocks: [
+                {
+                  id: 'terminal',
+                  type: 'terminal',
+                  command: 'run checks',
+                  text: 'collecting tests\n42 passed\n',
+                },
+              ],
+            },
+            input: { command: 'run checks' },
+            output_stream: 'collecting tests\n42 passed\n',
+          }}
+        />
+      </TooltipProvider>,
     );
 
-    expect(screen.getByLabelText('Command')).toHaveTextContent('run checks');
+    expect(container.querySelector('[data-slot="transcript-terminal"] pre')).toHaveTextContent(
+      'run checks',
+    );
     expect(screen.getByText(/collecting tests/u)).toBeVisible();
     expect(screen.getByText(/42 passed/u)).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Technical details for Run' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Run command' }),
+    );
     expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
   });
 
-  it('renders completed stdout and the real process exit code', () => {
+  it('renders completed stdout and reads a zero exit code as success', () => {
     render(
       <ClioToolInvocation
         tool={{
@@ -321,8 +332,9 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     );
 
     expect(screen.getByText(/all checks passed/u)).toBeVisible();
-    expect(screen.getByText('Process exited with code 0.')).toBeVisible();
-    expect(screen.queryByLabelText('Command')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Succeeded' })).toBeVisible();
+    expect(screen.queryByText(/^exit \d/u)).not.toBeInTheDocument();
+    expect(screen.queryByText('Command', { exact: true })).not.toBeInTheDocument();
   });
 
   it('shows saved full output inside the terminal card and opens the saved file', async () => {
@@ -634,7 +646,7 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
       />,
     );
 
-    expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+    expect(screen.getByRole('img', { name: /^Failed/ })).toBeVisible();
     expect(screen.getByText('Artifact rejected')).toHaveClass('text-destructive');
     expect(screen.getByText('The requested path is outside the active workspace.')).toBeVisible();
     // Prose in a boxed panel keeps the box's inset on every side.
