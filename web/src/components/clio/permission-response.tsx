@@ -2,6 +2,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import {
+  AskBody,
   AskButton,
   AskCard,
   AskCode,
@@ -106,25 +107,28 @@ export function PermissionResponse({
       icon={ShieldQuestionIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="permission"
-      meta={flowTrust ? undefined : toolName}
-      metaMono
       title={title}
       titleText={title}
     >
-      {flowTrust ? (
-        <AskSection className="mt-1">
-          <FlowTrustDetails request={flowTrust} />
-        </AskSection>
-      ) : (
-        <PermissionOperationDetails
-          extraFacts={owner}
-          interaction={interaction}
-          pathsInline={false}
-          title={title}
-        />
-      )}
+      <AskBody>
+        {flowTrust ? (
+          <AskSection className="mt-1">
+            <FlowTrustDetails request={flowTrust} />
+          </AskSection>
+        ) : (
+          <PermissionOperationDetails
+            extraFacts={owner}
+            interaction={interaction}
+            pathsInline={false}
+            title={title}
+          />
+        )}
+      </AskBody>
       {script ? (
+        // Under a cap the script gives up height first, down to two lines with its fade and
+        // footer, so the facts above (the command) stay whole.
         <AskCode
+          className="flex min-h-20 shrink-[100] flex-col"
           code={script.code}
           label="Script"
           meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
@@ -162,6 +166,11 @@ export function PermissionResponse({
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint="raw arguments, as the agent sent them">
           <div className="grid gap-1.5">
+            {toolName && !flowTrust ? (
+              <p className="min-w-0 truncate" title={toolName}>
+                Tool <span className="font-mono text-foreground/90">{toolName}</span>
+              </p>
+            ) : null}
             {(toolName === 'web_fetch' || toolName === 'web_search') &&
             interaction.payload?.execution?.cwd ? (
               <p className="break-all">Working folder: {interaction.payload.execution.cwd}</p>
@@ -169,12 +178,12 @@ export function PermissionResponse({
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
             {toolCall?.input === undefined ? null : (
               <AskCode
+                className="mt-0 ml-0"
                 code={JSON.stringify(toolCall.input, null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"
                 name="Arguments"
-                meta={toolName}
                 previewLines={12}
               />
             )}

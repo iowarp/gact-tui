@@ -313,8 +313,9 @@ function updateShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?, platform?, initScript?: [fn, arg] run
-// before the app}. `platform: 'mac'` makes the page report a Mac, for its ? keys.
+// connected?, route?, keepPointer?, platform?, decision?, initScript?: [fn, arg]
+// run before the app}. `platform: 'mac'` makes the page report a Mac, for its ?
+// keys. `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -374,6 +375,28 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Technical details');
       await page.waitForTimeout(400);
     }),
+    // Data-dependent card parts: the script ask (Rest of this script) paged
+    // 1/2, the Runs on / Asked by / Folders facts, the plan, a dismissible question.
+    ...['script', 'facts', 'plan', 'question'].map((card) =>
+      s('session', `decision-${card}`, SESSION, null, {
+        decision: card,
+        ready: '[data-slot="ask-card"]',
+      }),
+    ),
+    s(
+      'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        // Transcript rows have their own Technical details; open the card's.
+        await page
+          .locator('[data-slot="ask-card"]')
+          .getByRole('button', { name: 'Technical details' })
+          .click();
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
     s(
       'session',
       'transcript-outline',
@@ -868,7 +891,7 @@ async function newContext(
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -1286,6 +1309,15 @@ function renderReport(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
+async function showDecisionCard(stack, card) {
+  const response = await fetch(`${stack.fixtureEndpoint}/__test/decision-cards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card }),
+  });
+  if (!response.ok) throw new Error(`decision card ${card} failed: ${response.status}`);
+}
+
 async function main() {
   const stack = await startStack({ portOffset, fixedClock: FIXTURE_TIME });
   const browser = await chromium.launch();
@@ -1333,6 +1365,7 @@ async function main() {
         }
         scenarioKey = key;
       }
+      if (shot.decision) await showDecisionCard(stack, shot.decision);
       for (const theme of themes) {
         for (const width of widths) {
           if (shot.maxWidth && width > shot.maxWidth) continue;
@@ -1342,6 +1375,7 @@ async function main() {
             log(`  skipped ${shot.surface}--${shot.state} ${theme} ${width}: ${result.reason}`);
         }
       }
+      if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }
     const manifest = {
