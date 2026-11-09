@@ -101,7 +101,9 @@ export const ListRow = memo(
           aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
           style={style}
           className={cn(
-            // A container, so a narrow row drops its time and hover columns (spec `.xc.n2`).
+            // A container, so a narrow row sheds columns by its own width (spec U7): below
+            // 600px its empty and hover-only columns; below 280px (`.xc.n2`, a fifth of the
+            // window) its elapsed time, and its name becomes the icon's hover name.
             'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
@@ -113,12 +115,13 @@ export const ListRow = memo(
           {icon ? (
             <span
               aria-hidden="true"
+              title={typeof title === 'string' ? title : undefined}
               className="grid size-3.5 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
             >
               {icon}
             </span>
           ) : null}
-          <span className="shrink-0 text-foreground max-[480px]:hidden">{title}</span>
+          <span className="shrink-0 text-foreground @max-[280px]/activity:sr-only">{title}</span>
           <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
@@ -143,7 +146,12 @@ export const ListRow = memo(
             </span>
           ) : null}
           {meta !== undefined ? (
-            <span className="flex w-11 shrink-0 justify-end max-[480px]:hidden @max-[600px]/activity:hidden">
+            <span
+              className={cn(
+                'flex w-11 shrink-0 justify-end @max-[280px]/activity:hidden',
+                meta === null && '@max-[600px]/activity:hidden',
+              )}
+            >
               {meta}
             </span>
           ) : null}

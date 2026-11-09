@@ -210,6 +210,7 @@ export const StateView = memo(function StateView({
           <Button
             variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
             size={row ? 'xs' : 'default'}
+            disabled={action.disabled}
             className={kind === 'changed-elsewhere' ? undefined : 'text-foreground'}
             onClick={action.onClick}
           >
