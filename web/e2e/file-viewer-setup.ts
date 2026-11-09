@@ -46,15 +46,10 @@ export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<v
   await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
 }
 
-/** Download the original bytes with the frame's Download, or through Open once folded. */
+/** Download the original bytes with the frame's Download, which never folds. */
 export async function downloadFromFrame(page: Page, toolbar: Locator): Promise<Download> {
   const download = page.waitForEvent('download');
   // The frame bar comes before any state body that repeats the download.
-  const button = toolbar.getByRole('button', { name: 'Download', exact: true }).first();
-  if (await button.isVisible()) await button.click();
-  else {
-    await openFrameOpenMenu(page, toolbar);
-    await page.getByRole('menuitem', { name: /^Download/u }).click();
-  }
+  await toolbar.getByRole('button', { name: 'Download', exact: true }).first().click();
   return download;
 }
