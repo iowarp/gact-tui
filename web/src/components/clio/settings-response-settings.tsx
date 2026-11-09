@@ -43,7 +43,7 @@ interface SettingsResponseSettingsProps {
   dirty?: ReadonlySet<string>;
   disabled?: boolean;
   onEdit: (name: ResponseSettingName, value: string) => void;
-  /** Rows that lead the Response group (the context size). */
+  /** The context size row: after Longest reply when the model takes one, else first. */
   leading?: ReactNode;
 }
 
@@ -102,11 +102,13 @@ export function SettingsResponseSettings({
     ));
 
   if (shown.length <= INLINE_SETTINGS_LIMIT) {
+    const at = shown.findIndex((parameter) => parameter.name === 'max_tokens') + 1;
     return (
       <section aria-label="Response settings" data-slot="response-settings">
         <SettingsGroupLabel>Response</SettingsGroupLabel>
+        {rows(shown.slice(0, at))}
         {leading}
-        {rows(shown)}
+        {rows(shown.slice(at))}
         {note}
       </section>
     );
@@ -221,7 +223,7 @@ function ParameterRow({
       aria-invalid={error ? true : undefined}
       aria-label={parameter.label}
       autoComplete="off"
-      className="h-[1.875rem] w-[6.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums placeholder:font-sans placeholder:text-[0.71875rem] placeholder:text-faint md:text-xs"
+      className="h-[1.875rem] w-[7rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums placeholder:font-sans placeholder:text-[0.71875rem] placeholder:text-faint md:text-xs"
       data-slot="response-setting-input"
       disabled={disabled}
       id={id}

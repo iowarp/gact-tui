@@ -116,37 +116,35 @@ export function FleetSettingsPanel() {
         )
       : undefined;
     return (
-      <>
+      // The select fills the value column; inline-size containment keeps a long
+      // model name from widening that column, so every select shares one left
+      // edge. The reset sits just outside it, in the gap before the column.
+      <div className="relative flex w-full min-w-0 items-center gap-2 [contain:inline-size]">
         {choice ? (
           <IconButton
+            className="@md:absolute @md:right-full @md:mr-2"
             disabled={save.isPending}
             icon={<Undo2Icon />}
             label="Use conversation model"
             onClick={onReset}
             size="sm"
           />
-        ) : (
-          // Keeps every helper select at the same left edge, reset or not.
-          <span aria-hidden className="size-6 shrink-0" />
-        )}
-        {/* One fixed width, so a long model name does not widen its own row's column. */}
-        <div className="w-[13.5rem] min-w-0 shrink">
-          <ModelSelectField
-            catalogStatus={catalogStatus}
-            disabled={save.isPending || disabled}
-            id={id}
-            label={title}
-            modelId={choice?.model_id}
-            onChange={onChoose}
-            onRetryCatalog={() => void catalog.refetch()}
-            option={option}
-            options={options}
-            placeholder={unset}
-            providerId={choice?.provider_id}
-            title={pickerTitle}
-          />
-        </div>
-      </>
+        ) : null}
+        <ModelSelectField
+          catalogStatus={catalogStatus}
+          disabled={save.isPending || disabled}
+          id={id}
+          label={title}
+          modelId={choice?.model_id}
+          onChange={onChoose}
+          onRetryCatalog={() => void catalog.refetch()}
+          option={option}
+          options={options}
+          placeholder={unset}
+          providerId={choice?.provider_id}
+          title={pickerTitle}
+        />
+      </div>
     );
   };
   return (

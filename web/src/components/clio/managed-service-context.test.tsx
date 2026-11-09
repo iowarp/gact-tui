@@ -236,6 +236,9 @@ describe('SettingsWorkingContext', () => {
       choice: 'number',
       tokens: 64_000,
     });
-    expect(await screen.findByText(/In force: 64,000 tokens/u)).toBeVisible();
+    // In force now matches the field, so no note repeats it.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+    expect(input).toHaveValue(64_000);
+    expect(screen.queryByText(/In force:/u)).toBeNull();
   });
 });

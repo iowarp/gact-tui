@@ -6,34 +6,38 @@ import { SettingsChoice, SettingsRow } from './settings-row';
 import { useWorkingContext, type WorkingContextState } from './use-working-context';
 
 /**
- * Context size as one setting row: Max or a typed number, the context in
- * force under the label. A change applies from the next turn.
+ * Context size as one setting row: Max or a typed number. The context in force
+ * shows under the label only when it differs from the field. A change applies
+ * from the next turn.
  */
 export function WorkingContextRow({ state }: { state: WorkingContextState }) {
   const { current, value, draft, setDraft, error, saving } = state;
   const effective = modelEffectiveContext(current);
-  const inForce = effective
-    ? `In force: ${
-        effective.length !== undefined
-          ? `${formatTokens(effective.length)} tokens`
-          : 'the engine’s own default'
-      }${effective.reason ? ` (${effective.reason})` : ''}`
-    : undefined;
   const shown =
     value.choice === 'number'
       ? value.tokens
       : value.choice === 'max' && current.maximum !== undefined
         ? String(current.maximum)
         : '';
+  const inForce =
+    effective?.length !== undefined && String(effective.length) !== shown
+      ? effective.length
+      : undefined;
   return (
     <SettingsRow
       dirty={Boolean(draft)}
       error={error}
       htmlFor="working-context-tokens"
       info={`How much of the conversation this model is given each turn. Compaction keeps the conversation within it. A change applies from the next turn.${
-        current.maximum_reason ? ` Max: ${current.maximum_reason}.` : ''
+        current.maximum_reason ? ` Max: ${current.maximum_reason}.` : ' Max: the model’s maximum.'
       }`}
-      note={<span data-slot="context-effective">{inForce ?? 'Max: the model’s maximum.'}</span>}
+      note={
+        inForce !== undefined ? (
+          <span data-slot="context-effective" title={effective?.reason}>
+            In force: {formatTokens(inForce)} tokens
+          </span>
+        ) : undefined
+      }
       title="Context size"
     >
       <SettingsChoice

@@ -19,6 +19,7 @@ import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SpendSummary, UsageSummary } from './fleet-usage';
+import { InfoTip } from './info-tip';
 import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
@@ -195,15 +196,18 @@ export function UsageSettings() {
   const estimated = fleet.data?.estimated_sessions ?? 0;
   return (
     <section aria-label="Usage" className="flex flex-col gap-4">
-      <SettingsSectionHeading
-        actions={
-          accounts.length ? (
-            <SegmentedControl label="Show" onValueChange={choose} options={MODES} value={mode} />
-          ) : undefined
-        }
-        info={`Account limits and usage recorded by ${vocab.agent}.`}
-        title="Usage"
-      />
+      {/* The title-row controls end on the list's right edge. */}
+      <div className="max-w-[760px]">
+        <SettingsSectionHeading
+          actions={
+            accounts.length ? (
+              <SegmentedControl label="Show" onValueChange={choose} options={MODES} value={mode} />
+            ) : undefined
+          }
+          info={`Account limits and usage recorded by ${vocab.agent}.`}
+          title="Usage"
+        />
+      </div>
       {fleet.isPending ? (
         <StateView kind="loading" size="row" title="Loading usage" />
       ) : fleet.error || !fleet.data ? (
@@ -226,17 +230,33 @@ export function UsageSettings() {
           }
           list={
             <div className="grid gap-2">
-              <ItemList className="border-t border-border/70" label="Accounts">
-                {accounts.map((account) => (
-                  <AccountRow
-                    account={account}
-                    key={account.id}
-                    mode={mode}
-                    onDetails={() => setDetailsId(account.id)}
-                    selected={account.id === detailsId}
-                  />
-                ))}
-              </ItemList>
+              <div className="max-w-[760px]">
+                <SettingsGroupLabel
+                  actions={
+                    <span className="flex items-center gap-1" data-slot="usage-delegation-caption">
+                      Delegated work
+                      <InfoTip className="text-faint" label="About delegated work">
+                        Turn an account on to let {vocab.agent} run delegated work on it without
+                        asking.
+                      </InfoTip>
+                    </span>
+                  }
+                  className="mt-0"
+                >
+                  Accounts
+                </SettingsGroupLabel>
+                <ItemList className="border-t border-border/70" label="Accounts">
+                  {accounts.map((account) => (
+                    <AccountRow
+                      account={account}
+                      key={account.id}
+                      mode={mode}
+                      onDetails={() => setDetailsId(account.id)}
+                      selected={account.id === detailsId}
+                    />
+                  ))}
+                </ItemList>
+              </div>
               {estimated ? (
                 <p className="text-xs text-muted-foreground">
                   {estimated} older conversation{estimated === 1 ? ' is' : 's are'} counted under
@@ -248,12 +268,14 @@ export function UsageSettings() {
           }
         />
       ) : (
-        <StateView
-          action={{ label: 'Open Providers', onClick: () => navigate('/settings/providers') }}
-          kind="empty"
-          size="row"
-          title="No account connected"
-        />
+        <div className="max-w-[760px]">
+          <StateView
+            action={{ label: 'Open Providers', onClick: () => navigate('/settings/providers') }}
+            kind="empty"
+            size="row"
+            title="No account connected"
+          />
+        </div>
       )}
     </section>
   );
