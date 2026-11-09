@@ -59,6 +59,7 @@ vi.mock('@/tauri/external-url', () => ({ openExternalUrl: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import { SystemVersionStatus } from './navigation-version-status';
 import { setUpdateChannel } from '@/lib/update-channel';
@@ -78,13 +79,15 @@ function renderStatus() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <SidebarProvider>
-        <ul>
-          <li>
-            <SystemVersionStatus />
-          </li>
-        </ul>
-      </SidebarProvider>
+      <TooltipProvider>
+        <SidebarProvider>
+          <ul>
+            <li>
+              <SystemVersionStatus />
+            </li>
+          </ul>
+        </SidebarProvider>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }

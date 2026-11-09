@@ -14,6 +14,8 @@ export interface CardScenario {
   width?: number;
   /** The first response fails, so the card shows its own error. */
   failFirst?: boolean;
+  /** The capture presses this button first (a disclosure such as Technical details). */
+  open?: string;
   /** Transcript rows instead of the docked card. */
   view?: 'answered-rows';
 }
@@ -136,6 +138,21 @@ const folderAccess = base('permission:folder-access', {
       access: 'read_write',
       scope: 'workspace',
     },
+  },
+});
+
+/** Every fact at once: Runs on, Asked by and Folders. */
+const allFacts = base('permission:facts', {
+  ...folderAccess,
+  title: 'Run command',
+  owner_session_id: NDP,
+  source: { protocol: 'native', tool_name: 'run_command' },
+  actions: ['allow', 'allow_session', 'allow_workspace', 'deny'],
+  payload: {
+    ...folderAccess.payload,
+    permission_id: 'facts',
+    execution: EXECUTION,
+    tool_call: runCommand.payload?.tool_call,
   },
 });
 
@@ -378,6 +395,19 @@ export const SCENARIOS: Record<string, CardScenario> = {
     ownerLabels: OWNERS,
   },
   'permission-access': { spec: 'Permission', closest: true, interactions: [folderAccess] },
+  'permission-facts': {
+    spec: 'Permission',
+    closest: true,
+    interactions: [allFacts],
+    ownerLabels: OWNERS,
+  },
+  'permission-arguments': {
+    spec: 'Permission',
+    closest: true,
+    interactions: [runCommand],
+    ownerLabels: OWNERS,
+    open: 'Technical details',
+  },
   'permission-web': {
     spec: 'Permission',
     closest: true,

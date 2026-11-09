@@ -3,10 +3,12 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { SHORTCUT_CATALOG, type ShortcutDefinition } from './catalog';
 import {
   chordAria,
+  chordKeyLabel,
   chordLabels,
   chordMatches,
   chordPosition,
   chordText,
+  heldChordText,
   isEditableTarget,
   isTextFieldChord,
   parseChord,
@@ -107,6 +109,28 @@ export function shortcutText(definition: ShortcutDefinition, platform: KeyPlatfo
   return shortcutChords(definition, platform)
     .map((chord) => chordText(chord, platform))
     .join(joiner);
+}
+
+/**
+ * The held-key badge text: the first chord, without the held Ctrl on Windows.
+ * A `pair` sharing its modifiers joins as one badge (`Alt ←→`).
+ */
+export function heldShortcutText(
+  definition: ShortcutDefinition,
+  platform: KeyPlatform,
+  pair?: ShortcutDefinition,
+): string | undefined {
+  const [first] = shortcutChords(definition, platform);
+  if (!first) return undefined;
+  const text = heldChordText(first, platform);
+  const [second] = pair ? shortcutChords(pair, platform) : [];
+  if (!second) return text;
+  const same =
+    first.modifiers.size === second.modifiers.size &&
+    [...first.modifiers].every((modifier) => second.modifiers.has(modifier));
+  return same
+    ? `${text}${chordKeyLabel(second, platform)}`
+    : `${text} ${heldChordText(second, platform)}`;
 }
 
 /** The `aria-keyshortcuts` value for this platform. */

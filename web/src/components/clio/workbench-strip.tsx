@@ -49,6 +49,8 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       onClick={() => onSelect(item.id)}
       shortcut={item.position ? 'strip-position' : undefined}
       shortcutPosition={item.position}
+      // Under its icon, inside the rail: left of the rail is pocket content (tree labels).
+      shortcutSide="under-icon"
       tooltipSide="left"
       // The lit cell carries the spec's 2px primary bar on the window edge, no fill.
       className="h-9 w-11 rounded-none hover:bg-transparent aria-pressed:bg-transparent aria-pressed:after:absolute aria-pressed:after:inset-y-2 aria-pressed:after:right-0 aria-pressed:after:w-0.5 aria-pressed:after:rounded-full aria-pressed:after:bg-primary"

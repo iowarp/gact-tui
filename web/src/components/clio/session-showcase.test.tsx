@@ -67,18 +67,18 @@ const evidence = {
 };
 
 describe('session showcase inventory', () => {
-  it('shows the context breakdown and flat artifact rows in Session, with work kept separate', () => {
+  it('keeps the context bar visible, folds its breakdown and lists running children as runs', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const view = render(
+    render(
       <QueryClientProvider client={client}>
         <SessionRailContent
-          kind="session"
           onOpenSource={vi.fn()}
           evidence={{
             ...evidence,
             contextFrames: [],
             tools: [],
             runs: [],
+            onOpenCanvas: vi.fn(),
             context: {
               session_id: 'session',
               provenance: {
@@ -94,33 +94,20 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
+    const context = screen.getByRole('region', { name: 'Context section' });
+    expect(within(context).getByRole('img', { name: /^Context token composition/ })).toBeVisible();
+    expect(within(context).getByRole('button', { name: 'Expand Context' })).toHaveTextContent(
+      '2.2K of 10K',
+    );
+    expect(screen.queryByText('Tool definitions')).not.toBeInTheDocument();
+    await userEvent.click(within(context).getByRole('button', { name: 'Expand Context' }));
     expect(screen.getByText('Tool definitions')).toBeVisible();
     expect(screen.getByText('Messages')).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Context token composition' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Tasks section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
-    view.rerender(
-      <QueryClientProvider client={client}>
-        <SessionRailContent
-          kind="work"
-          onOpenSource={vi.fn()}
-          evidence={{
-            ...evidence,
-            contextFrames: [],
-            tools: [],
-            runs: [],
-          }}
-        />
-      </QueryClientProvider>,
-    );
+    expect(screen.getByRole('button', { name: 'Open full context view' })).toBeVisible();
+    const running = screen.getByRole('region', { name: 'Running section' });
+    expect(within(running).getByRole('button', { name: 'Researcher' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Tasks section' })).toBeInTheDocument();
-    const background = screen.getByRole('region', { name: 'Background tasks section' });
-    expect(
-      within(background).getByRole('button', { name: 'Task details: Researcher' }),
-    ).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Child agents section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Artifacts section' })).not.toBeInTheDocument();
     client.clear();
   });
   it('keeps live questions reachable through the existing workspace answer owner', async () => {
@@ -155,6 +142,7 @@ describe('session showcase inventory', () => {
         </QuestionAnswerContext.Provider>
       </QueryClientProvider>,
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Questions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
     expect(openQuestion).toHaveBeenCalledWith(interaction);
     client.clear();
@@ -192,10 +180,12 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('Sensor repository')).toBeVisible();
-    expect(await screen.findByText('Check the report')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
+    expect(await screen.findByText('Check the report')).toBeVisible();
     expect(await screen.findByText('Review tomorrow')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
+    expect(await screen.findByText('Sensor repository')).toBeVisible();
     expect(screen.queryByText('Disconnected source')).not.toBeInTheDocument();
     expect(repository.sessionWork).toHaveBeenCalledWith('session', 0, expect.any(AbortSignal));
     expect(repository.scheduledTurns).toHaveBeenCalledWith('session', expect.any(AbortSignal));
@@ -238,7 +228,6 @@ describe('session showcase inventory', () => {
     render(
       <QueryClientProvider client={client}>
         <SessionRailContent
-          kind="work"
           evidence={{
             ...evidence,
             contextFrames: [],
@@ -256,10 +245,12 @@ describe('session showcase inventory', () => {
       </QueryClientProvider>,
     );
     const plan = await screen.findByRole('region', { name: 'Plan section' });
+    fireEvent.click(within(plan).getByRole('button', { name: 'Expand Plan' }));
     expect(await within(plan).findByText('Find the regression.')).toBeVisible();
     const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
     expect(regions.indexOf('Plan section')).toBeLessThan(regions.indexOf('Todos section'));
-    const plans = screen.getByRole('region', { name: 'Plans section' });
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Earlier plans' }));
+    const plans = screen.getByRole('region', { name: 'Earlier plans section' });
     expect(within(plans).queryByText('Same plan')).not.toBeInTheDocument();
     expect(await within(plans).findByText('Older plan')).toBeInTheDocument();
     client.clear();
@@ -345,10 +336,12 @@ describe('session showcase inventory', () => {
         />
       </QueryClientProvider>,
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Connected sources' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Sensor repository' }));
     expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({ id: 'source' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand Todos' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Expand Schedules' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Check the report' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Open Review tomorrow' }));
     expect(onOpenWork).toHaveBeenCalledTimes(2);
     client.clear();

@@ -43,6 +43,7 @@ import { fileViewerReference } from './file-viewer-location';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
@@ -275,6 +276,10 @@ export function WorkbenchTabRow({
                 })}
               </TabsList>
             </Sortable>
+            {/* At the strip's visible end, so it never hides the active tab's name. */}
+            {tabs.length > 1 ? (
+              <HeldKeyBadge id="previous-tab" pairId="next-tab" side="inside-end" />
+            ) : null}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-60" onKeyDown={menuAcceleratorKeyDown}>

@@ -1,24 +1,12 @@
 import { brand } from '@brand';
-import { ChevronRightIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { BrandIcon } from '@/components/clio/brand-icon';
-import { ConnectStatusLine } from '@/components/clio/connect-frame';
+import { Spinner } from '@/components/ui/spinner';
 import { vocab } from '@/lib/brand-vocabulary';
-import type { DesktopBootStage } from '@/lib/desktop-boot-stage';
-
-const STARTUP_STEPS = [
-  'Checking the local service',
-  'Preparing the local runtime and packages',
-  'Starting the local service',
-  'Opening the workspace',
-] as const;
-
-const STAGE_STEP: Record<DesktopBootStage, number> = {
-  checking_existing: 0,
-  installing_runtime: 1,
-  starting_service: 2,
-  opening_workspace: 3,
-};
+import { STARTUP_STEP_OF, type DesktopBootStage } from '@/lib/desktop-boot-stage';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { BrandIcon } from './brand-icon';
+import { LocalStartupSteps } from './local-startup-steps';
+import { useStartupLog } from './use-startup-log';
+import { StateView } from './primitives/state-view';
 
 const STAGE_DETAIL: Record<DesktopBootStage, string> = {
   checking_existing: `Looking for a local ${vocab.agent} service`,
@@ -27,7 +15,7 @@ const STAGE_DETAIL: Record<DesktopBootStage, string> = {
   opening_workspace: 'Restoring your local workspace',
 };
 
-/** The local startup splash: the brand, one status line per step, and the details on request. */
+/** The local startup page: what is starting, the steps with their times, the details on request. */
 export function DesktopBoot({
   detail,
   stage,
@@ -36,46 +24,36 @@ export function DesktopBoot({
   detail?: string;
   stage: DesktopBootStage;
 }) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const current = STAGE_STEP[stage];
-
-  useEffect(() => {
-    const startedAt = Date.now();
-    const interval = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-
+  const log = useStartupLog(inTauri(), true);
   return (
     <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
-      <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center gap-1 px-6 py-16">
-        <h1 className="mb-2.5 flex items-center gap-2.5 font-heading text-[16px] font-semibold">
-          <BrandIcon className="size-[22px] shrink-0 text-primary" />
-          {`Starting ${brand.name}`}
-        </h1>
-        <ol aria-label="Startup progress" aria-live="polite" className="m-0 list-none p-0">
-          {STARTUP_STEPS.map((label, index) => (
-            <li key={label}>
-              <ConnectStatusLine
-                meta={index === current ? `${elapsedSeconds}s` : undefined}
-                tone={index < current ? 'done' : index === current ? 'working' : 'pending'}
-              >
-                {label}
-              </ConnectStatusLine>
-            </li>
-          ))}
-        </ol>
-        <details className="group mt-1.5 -mx-2 text-[12.5px] text-muted-foreground">
-          <summary className="flex min-h-[30px] cursor-pointer list-none items-center gap-2 rounded-[6px] px-2 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <ChevronRightIcon
-              aria-hidden="true"
-              className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
-            />
-            Startup details
-          </summary>
-          <p className="m-0 px-2 pt-1 pl-[30px] text-[12px]">{detail ?? STAGE_DETAIL[stage]}</p>
-        </details>
+      <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
+        <div className="mb-[18px] -ml-[10%] flex h-[46px] min-w-0 items-center gap-2.5 px-2.5 whitespace-nowrap">
+          <BrandIcon className="size-[18px] shrink-0 text-accent-foreground" />
+          <span className="flex min-w-0 flex-col gap-px">
+            <span className="font-heading text-[14px] font-semibold">{brand.wordmark}</span>
+            <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-warning-foreground">
+              <Spinner
+                aria-hidden="true"
+                className="size-[9px] shrink-0 motion-reduce:animate-none"
+              />
+              <span className="truncate">{`${vocab.agent} local, starting`}</span>
+            </span>
+          </span>
+        </div>
+        <StateView
+          kind="loading"
+          className="min-h-0 py-0 pb-3"
+          title={
+            <h1 className="m-0 inline text-[length:inherit] font-[inherit]">{`Starting ${vocab.agent} local`}</h1>
+          }
+        />
+        <LocalStartupSteps
+          current={STARTUP_STEP_OF[stage]}
+          detail={detail ?? STAGE_DETAIL[stage]}
+          log={log}
+          running
+        />
       </section>
     </main>
   );

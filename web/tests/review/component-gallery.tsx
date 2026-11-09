@@ -668,7 +668,7 @@ function Overlays() {
           <ListRow title="Show keys while holding Ctrl" badge={<Tag tone="on">On</Tag>} />
         </div>
       </WindowShell>
-      <ShortcutSheet open={sheet} onOpenChange={setSheet} scope="catalog" />
+      <ShortcutSheet open={sheet} onOpenChange={setSheet} />
     </div>
   );
 }
