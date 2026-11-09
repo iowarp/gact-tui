@@ -209,6 +209,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       return () => observer.disconnect();
     }, [maximized]);
 
+    // Floating surfaces over the conversation (the rail) hide under a maximized
+    // canvas. A body attribute, unlike `body:has(...)`, does not make every DOM
+    // mutation re-check and restyle the whole document.
+    useEffect(() => {
+      if (!maximized) return;
+      document.body.setAttribute('data-canvas-maximized', '');
+      return () => document.body.removeAttribute('data-canvas-maximized');
+    }, [maximized]);
+
     // A list shown beside the tabs does not turn into an overlay when the panel narrows.
     const [overlayNarrow, setOverlayNarrow] = useState(narrow);
     if (overlayNarrow !== narrow) {
