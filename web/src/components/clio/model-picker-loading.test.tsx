@@ -83,7 +83,8 @@ async function dropDefault(user: ReturnType<typeof userEvent.setup>, token: stri
     within(panel).getByRole('tab', { name: token.startsWith('input:') ? 'Input' : 'Output' }),
   );
   const chip = panel.querySelector(`[data-token="${token}"]`);
-  if (!(chip instanceof HTMLElement)) throw new Error(`no ${token} chip in the Filters panel: ${panel.textContent}`);
+  if (!(chip instanceof HTMLElement))
+    throw new Error(`no ${token} chip in the Filters panel: ${panel.textContent}`);
   await user.click(chip);
   await user.keyboard('{Escape}');
 }

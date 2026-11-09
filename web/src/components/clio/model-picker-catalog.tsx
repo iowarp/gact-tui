@@ -63,6 +63,8 @@ interface ModelPickerCatalogProps {
   presets: readonly LanguageModelPreset[];
   provider?: string;
   showColumns: boolean;
+  /** The narrowest picker: row 2's chips fold into the Filters button. */
+  foldFilters?: boolean;
   facetsOpen: boolean;
   setFacetsOpen: (open: boolean) => void;
   onProviderChange: (providerId: string | undefined) => void;
@@ -90,6 +92,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   presets,
   provider,
   showColumns,
+  foldFilters = false,
   facetsOpen,
   setFacetsOpen,
   onProviderChange,
@@ -389,7 +392,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               shown={search.matches}
               tokens={tokens}
               total={search.total}
-              compact={grouped}
+              compact={foldFilters}
+              single={grouped}
             />
           </div>
         </CascaderNav>
@@ -460,14 +464,18 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 {managingVisibility ? 'Done' : `Hidden ${hiddenProviders.size}`}
               </Button>
             }
-            hints={footerHints(showColumns)}
+            hints={foldFilters && panel.column.bar ? [] : footerHints(showColumns)}
             start={
               <>
                 {panel.column.bar ? (
                   <div
                     className={cn(
-                      '-ms-2 h-full shrink-0 border-e',
-                      showColumns ? 'w-[calc(50%-.5px)]' : 'w-[min(60%,22rem)]',
+                      '-ms-2 h-full border-e',
+                      showColumns
+                        ? 'w-[calc(50%-.5px)] shrink-0'
+                        : foldFilters
+                          ? 'min-w-0 flex-1'
+                          : 'w-[min(60%,22rem)] shrink-0',
                     )}
                     data-slot="picker-provider-bar"
                   >

@@ -138,7 +138,9 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
   const column: ProviderPanelColumn = {
     ...(usable
       ? {}
-      : { empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} /> }),
+      : {
+          empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} />,
+        }),
     footer: hasSetup ? setup : undefined,
     bar: usable ? (
       <ProviderPanelFooter

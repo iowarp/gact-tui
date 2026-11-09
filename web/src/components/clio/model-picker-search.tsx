@@ -2,7 +2,6 @@ import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NamedTooltip } from './primitives/icon-button';
-import { ShortcutKeys } from './primitives/key-chip';
 import { isQuickFilterToken, quickFilters, toggleQuickFilter } from '@/lib/model-quick-filters';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
@@ -50,10 +49,12 @@ interface ModelPickerSearchProps {
   /** Repository searches run remotely on submission rather than filtering a loaded catalog. */
   onSearch?: () => void;
   /**
-   * A narrow picker (one column): row 2 folds into a labelled "Filters Alt+↓"
-   * button and shows above the filter panel while it is open.
+   * The narrowest picker (under 400px): row 2 folds into the Filters button
+   * and shows above the filter panel while it is open.
    */
   compact?: boolean;
+  /** One column: the count is the matches alone ("6"), as each group states its own. */
+  single?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -88,6 +89,7 @@ export function ModelPickerSearch({
   inputId,
   onSearch,
   compact = false,
+  single = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
@@ -205,38 +207,19 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
+          aria-label={
+            single
+              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+              : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+          }
           className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
-          {shown} / {total}
+          {shown}
+          {single ? '' : ` / ${total}`}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
-        {hasFilters && compact ? (
-          <button
-            aria-expanded={facetsOpen}
-            aria-label={chosen.length ? `Filters, ${chosen.length} on` : 'Filters'}
-            className={cn(
-              'relative ms-1 inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-[12px] whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-              facetsOpen &&
-                'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-            data-slot="model-filters-button"
-            onClick={() => onFacetsOpenChange(!facetsOpen)}
-            type="button"
-          >
-            <AdjustIcon aria-hidden="true" className="size-[15px]" />
-            Filters
-            {chosen.length ? (
-              <span aria-hidden="true" className="font-mono text-[11px] tabular-nums">
-                {chosen.length}
-              </span>
-            ) : null}
-            <span aria-hidden="true" className="inline-flex">
-              <ShortcutKeys id="menu-filters" variant="inline" />
-            </span>
-          </button>
-        ) : hasFilters ? (
+        {hasFilters ? (
           <>
             <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
             <TooltipProvider disableHoverableContent>
