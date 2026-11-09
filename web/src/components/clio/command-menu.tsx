@@ -413,7 +413,8 @@ export function ClioCommandMenu({
     global: GlobalSearchMatches,
     counts: Record<CommandMenuScope, number>,
   ) => {
-    if (!searching || !counts.all || counts.settings !== counts.all) return undefined;
+    if (!searching || !counts.settings) return undefined;
+    if (activeScope !== 'settings' && counts.settings !== counts.all) return undefined;
     const first = global.commands.Settings[0]?.action;
     const route = first && 'route' in first ? first.route : '/settings/agents';
     return `${route}?q=${encodeURIComponent(searchText.trim())}`;
@@ -463,7 +464,7 @@ export function ClioCommandMenu({
   return (
     <Dialog onOpenChange={changeOpen} open={open}>
       <DialogContent
-        className={`top-[10dvh] max-h-[80dvh] max-w-none translate-y-0 overflow-hidden p-0 sm:max-w-none ${aiMode ? 'w-[min(calc(100vw-1rem),max(30rem,60vw),48rem)]' : 'w-[min(calc(100vw-1rem),max(30rem,56vw),45rem)]'}`}
+        className={`top-[10dvh] max-h-[80dvh] max-w-none translate-y-0 overflow-hidden p-0 sm:max-w-none ${aiMode ? 'w-[min(calc(100vw-1rem),max(30rem,60vw),48rem)]' : 'w-[min(calc(100vw-1rem),40rem)]'}`}
         showCloseButton={false}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
@@ -512,7 +513,7 @@ export function ClioCommandMenu({
                   ...(settingsRoute
                     ? [
                         {
-                          label: 'Open in Settings',
+                          label: 'All in Settings',
                           shortcut: 'menu-all-results',
                           onSelect: () => openRoute(settingsRoute),
                         },
@@ -530,6 +531,7 @@ export function ClioCommandMenu({
                     <CommandInput
                       ref={searchInput}
                       autoFocus
+                      flush
                       className="min-w-0"
                       onValueChange={setQuery}
                       placeholder="Search work, files, artifacts, or actions…"
@@ -546,7 +548,9 @@ export function ClioCommandMenu({
                                 className="size-3.5 motion-safe:animate-spin"
                               />
                             ) : null}
-                            {counts.all} {counts.all === 1 ? 'result' : 'results'}
+                            {(memory.isFetching || files.isFetching) && !counts.all
+                              ? null
+                              : `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`}
                           </span>
                         ) : null
                       }
@@ -576,7 +580,7 @@ export function ClioCommandMenu({
                         {credentialError}
                       </p>
                     ) : null}
-                    <CommandList className="max-h-[min(60dvh,34rem)]">
+                    <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5">
                       <CommandEmpty>{emptyText(counts.all)}</CommandEmpty>
                       {inCommandMenuScope(activeScope, 'conversations') &&
                       sessionRows.rows.length ? (

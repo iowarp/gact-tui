@@ -22,6 +22,10 @@ const GLOBAL_SEARCH_GROUP_LIMIT = 20;
  * agents and hosts that match `query`. Call it only while the palette is open;
  * it reads saved connections and probes them.
  */
+function isMissingEndpoint(error: unknown): boolean {
+  return (error as { status?: number } | null | undefined)?.status === 404;
+}
+
 export function useGlobalSearchMatches(
   query: string,
   scope: CommandMenuScope,
@@ -52,7 +56,9 @@ export function useGlobalSearchMatches(
         ? ['Settings']
         : scope === 'more'
           ? ['Infrastructure']
-          : ['Navigation', 'Actions'];
+          : scope === 'actions'
+            ? ['Navigation', 'Actions']
+            : ['Navigation'];
     const matched = globalSearchCommands(inTauri()).filter((item) =>
       searching
         ? matchesGlobalSearch(query, item.label, item.group, item.keywords)
@@ -67,16 +73,19 @@ export function useGlobalSearchMatches(
   }, [query, scope, searching]);
   const matchedConnections = useMemo(
     () =>
-      connections.filter((item) =>
-        matchesGlobalSearch(
-          query,
-          'connections services',
-          item.label,
-          item.location,
-          item.endpoint,
-        ),
-      ),
-    [connections, query],
+      // Browsing, saved connections belong to More only: All starts on places.
+      !searching && scope !== 'more'
+        ? []
+        : connections.filter((item) =>
+            matchesGlobalSearch(
+              query,
+              'connections services',
+              item.label,
+              item.location,
+              item.endpoint,
+            ),
+          ),
+    [connections, query, scope, searching],
   );
   const matchedAgents = useMemo(
     () =>
@@ -117,8 +126,9 @@ export function useGlobalSearchMatches(
     connections: matchedConnections,
     agents: matchedAgents,
     targets: matchedTargets,
-    agentsError: searching ? agents.error : null,
-    targetsError: searching ? targets.error : null,
+    // A backend without the endpoint (404) has nothing to search: not an error.
+    agentsError: searching && !isMissingEndpoint(agents.error) ? agents.error : null,
+    targetsError: searching && !isMissingEndpoint(targets.error) ? targets.error : null,
     switching,
     counts: {
       actions: commands.Actions.length + commands.Navigation.length,

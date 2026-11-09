@@ -20,6 +20,8 @@ export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group
   action: { route: string } | { theme: ThemePreference };
   /** A catalog shortcut that does the same from anywhere. */
   shortcut?: string;
+  /** Where the row lives, as muted trailing text: "Settings ? App". */
+  trail?: string;
 }
 
 /** Match all typed terms across names, categories and aliases without a remote request. */
@@ -74,6 +76,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         ...item,
         id: `settings:${item.id}`,
         group: 'Settings',
+        trail: item.group ? `Settings ? ${item.group}` : 'Settings',
         keywords: `${item.group ?? ''} ${item.keywords ?? ''}`,
         action: { route: `/settings/${item.id}` },
       }),
