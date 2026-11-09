@@ -19,6 +19,8 @@ import {
 import { ForcedTheme } from '../../src/theme/forced-theme';
 import '../../src/index.css';
 import { Button } from '../../src/components/ui/button';
+import { Input } from '../../src/components/ui/input';
+import { SettingsRow } from '../../src/components/clio/settings-row';
 import { TooltipProvider } from '../../src/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -424,6 +426,38 @@ function ListAndDetail() {
   );
 }
 
+function LineRows() {
+  const rows = [
+    { name: 'Ollama', meta: 'localhost:11434', tone: 'success', label: 'Running' },
+    { name: 'LM Studio', meta: 'localhost:1234', tone: 'stopped', label: 'Stopped' },
+    { name: LONG_NAME, meta: LONG_PATH, tone: 'error', label: 'Unreachable' },
+  ] as const;
+  return (
+    <ItemList label="Local model servers" className="max-w-xl p-1.5">
+      {rows.map((row, index) => (
+        <ItemRow
+          key={row.name}
+          size="line"
+          icon={<TerminalIcon />}
+          title={row.name}
+          meta={row.meta}
+          selected={index === 0}
+          status={<StatusIndicator tone={row.tone} label={row.label} />}
+          statusWidth={112}
+          actions={<IconButton label="Edit" icon={<EditIcon />} size="sm" />}
+          actionsWidth={30}
+          slot={
+            <Button size="xs" variant="outline">
+              Use
+            </Button>
+          }
+          slotWidth={48}
+        />
+      ))}
+    </ItemList>
+  );
+}
+
 function Menus() {
   return (
     <div className="flex flex-wrap items-start gap-4">
@@ -583,13 +617,18 @@ function Overlays() {
         open={dialog}
         onOpenChange={setDialog}
         icon={<FolderIcon />}
-        title="Share this conversation"
-        description="People with the link can read the transcript and its files."
-        confirm={{ label: 'Create link', onConfirm: noop }}
+        title="Add server"
+        help="A server adds its tools to every conversation on this agent."
+        confirm={{ label: 'Add', onConfirm: noop }}
       >
-        <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
-          {LONG_PATH}
-        </MiddleTruncate>
+        <SettingsRow htmlFor="gallery-server-name" title="Name">
+          <Input defaultValue="home-assistant" id="gallery-server-name" />
+        </SettingsRow>
+        <SettingsRow title="Folder">
+          <MiddleTruncate className="font-mono text-[12px] text-muted-foreground">
+            {LONG_PATH}
+          </MiddleTruncate>
+        </SettingsRow>
       </DialogFrame>
       <DialogFrame
         open={destructive}
@@ -663,6 +702,9 @@ function Gallery() {
             </Section>
             <Section title="List and detail pane">
               <ListAndDetail />
+            </Section>
+            <Section title="One-line item rows">
+              <LineRows />
             </Section>
             <Section title="Menus">
               <Menus />

@@ -57,7 +57,7 @@ export function SettingsRow({
           'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
           inlineControl
             ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : 'grid-cols-1 @sm:grid-cols-[minmax(0,1fr)_minmax(52%,max-content)]',
+            : 'grid-cols-1 @sm:grid-cols-[minmax(7rem,1fr)_minmax(52%,max-content)]',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}

@@ -36,9 +36,17 @@ pub enum Predefined {
     Hide,
     HideOthers,
     ShowAll,
+    Minimize,
+    /// Zoom on macOS.
+    Maximize,
+    Fullscreen,
+    /// Cmd+W: the same close request as the window close button, so it opens
+    /// the "keep running?" prompt rather than quitting.
+    CloseWindow,
+    BringAllToFront,
 }
 
-/// A top-level submenu (the macOS application menu / Edit).
+/// A top-level submenu (the macOS application menu, Edit, Window, Help).
 #[derive(Clone, Copy, Debug)]
 pub struct SubmenuSpec {
     pub title: &'static str,
@@ -51,12 +59,14 @@ pub struct SubmenuSpec {
 /// this and both the runtime menu and the tests move together.
 ///
 /// This menu is macOS-only (see the `#[cfg(target_os = "macos")]` gate
-/// around `app.set_menu` in `lib.rs`) and deliberately holds only the two
-/// submenus macOS itself expects an app to own: the application menu (About
-/// / Settings / the hide group / Quit) and Edit (native clipboard/undo).
-/// Everything that used to live in File/View/Help is reachable through the
-/// product-owned title bar's hamburger menu instead, on every platform —
-/// see `web/src/components/clio/desktop-title-bar.tsx`.
+/// around `app.set_menu` in `lib.rs`) and holds the submenus macOS itself
+/// expects an app to own: the application menu (About / Settings / the hide
+/// group / Quit), Edit (native clipboard/undo), Window (minimize, zoom, full
+/// screen, close and the window list macOS adds) and Help (documentation and
+/// the menu search macOS adds). Product actions that used to live in File and
+/// View are reachable through the product-owned title bar's hamburger menu
+/// instead, on every platform — see
+/// `web/src/components/clio/desktop-title-bar.tsx`.
 pub const MENU_SPEC: &[SubmenuSpec] = &[
     SubmenuSpec {
         // macOS replaces this title with the running app's own display name
@@ -106,7 +116,33 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
             Item::Predefined(Predefined::SelectAll),
         ],
     },
+    SubmenuSpec {
+        // Registered as the NSApp windows menu (`menu::register_app_roles`),
+        // so macOS appends the open-window list.
+        title: WINDOW_MENU_TITLE,
+        items: &[
+            Item::Predefined(Predefined::Minimize),
+            Item::Predefined(Predefined::Maximize),
+            Item::Predefined(Predefined::Fullscreen),
+            Item::Separator,
+            Item::Predefined(Predefined::CloseWindow),
+            Item::Separator,
+            Item::Predefined(Predefined::BringAllToFront),
+        ],
+    },
+    SubmenuSpec {
+        // Registered as the NSApp help menu, so macOS adds menu search.
+        title: HELP_MENU_TITLE,
+        items: &[Item::Action {
+            id: "help-docs",
+            label: "Documentation",
+            accel: None,
+        }],
+    },
 ];
+
+pub const WINDOW_MENU_TITLE: &str = "Window";
+pub const HELP_MENU_TITLE: &str = "Help";
 
 /// Map a menu item id to its action-id, or `None` for predefined items
 /// (Undo/Redo/Cut/Copy/Paste/Select-All) and any unknown id.

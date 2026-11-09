@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
+import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
   SettingsNavigation,
   SettingsSearchButton,
@@ -92,7 +93,10 @@ export function SettingsWindow() {
   const destination = destinations.find((item) => item.id === section);
   const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
   const scopeLine: SettingsScope = {
-    group: destination?.group === 'Agent' || destination?.group === 'Workspace' ? destination.group : 'App',
+    group:
+      destination?.group === 'Agent' || destination?.group === 'Workspace'
+        ? destination.group
+        : 'App',
     line:
       destination?.group === 'Agent'
         ? `${agentName}, applies to every conversation on this agent`
@@ -150,6 +154,7 @@ export function SettingsWindow() {
         if (!open) void navigate(background ?? workspaceRoute);
       }}
       open
+      rail={<SettingsNavRail {...navigation} />}
       search={<SettingsSearchButton />}
       title="Settings"
       toolbar={<SettingsSectionPicker {...navigation} />}
