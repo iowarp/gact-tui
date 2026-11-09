@@ -29,7 +29,8 @@ export function MetricView(props: {
   if (dashboard) {
     // A dashboard stat: an 18px figure over an 11px label, inline with its row.
     // In a narrow dashboard the stats stack and each reads figure then label.
-    // A unit the label already names is not repeated.
+    // A unit the label already names is not repeated. There, on touch, a stat's actions
+    // wait for a tap on it (spec 390 fold), as a pointer's wait for hover.
     const unit =
       props.unit && !props.label.toLowerCase().includes(props.unit.toLowerCase())
         ? props.unit
@@ -39,13 +40,16 @@ export function MetricView(props: {
     return (
       <div
         {...a2uiAccessibilityProps(props.accessibility)}
-        className="group relative min-w-0 @max-[24rem]/dashboard:flex @max-[24rem]/dashboard:items-baseline @max-[24rem]/dashboard:gap-2 @max-[24rem]/dashboard:pe-16"
+        className="group group/stat relative min-w-0 outline-none @max-[24rem]/dashboard:flex @max-[24rem]/dashboard:items-baseline @max-[24rem]/dashboard:gap-2 @max-[24rem]/dashboard:pe-16"
         data-slot="a2ui-stat"
         role="group"
         style={dataViewFlexStyle(props.weight)}
+        tabIndex={-1}
         title={[`${props.label}: ${value}`, note].filter(Boolean).join('\n')}
       >
-        <SurfaceToolbar capabilities={metricCapabilities} />
+        <span className="contents [@media(hover:none)]:@max-[24rem]/dashboard:invisible [@media(hover:none)]:@max-[24rem]/dashboard:group-focus-within/stat:visible">
+          <SurfaceToolbar capabilities={metricCapabilities} />
+        </span>
         <p className="truncate text-[18px] font-semibold leading-tight tabular-nums text-foreground @max-[24rem]/dashboard:shrink-0">
           {String(props.value)}
           {unit ? (
