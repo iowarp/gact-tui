@@ -42,7 +42,8 @@ export function AgentTabHeader({
       <h2 className="min-w-0 truncate font-medium text-foreground" title={title}>
         {title}
       </h2>
-      <span className="ml-auto min-w-0 truncate text-[11px] text-faint">
+      {/* Notes fold first: in a narrow tab the title and actions keep the line. */}
+      <span className="ml-auto min-w-0 truncate text-[11px] text-faint @max-[24rem]/agent-tab:hidden">
         Changed settings are teal
       </span>
       {reset ? (
