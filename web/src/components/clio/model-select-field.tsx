@@ -6,10 +6,8 @@ import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioModelPicker } from './model-picker';
 
-export interface SettingsSelectFieldProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  'value'
-> {
+export interface SettingsSelectFieldProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'value'> {
   icon?: ReactNode;
   /** The chosen value's words; `placeholder` shows muted when empty. */
   value?: ReactNode;
@@ -26,6 +24,8 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
         data-slot="settings-select-field"
         className={cn(
           'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-input/30 px-2.5 text-[0.78125rem] whitespace-nowrap text-foreground outline-none',
+          // Inset like the row's text fields (the spec's dark field fill).
+          'dark:bg-sidebar dark:hover:bg-input/30',
           'hover:bg-input/50 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60',
           'aria-expanded:border-ring aria-expanded:ring-2 aria-expanded:ring-ring/30',
           "[&_svg:not([class*='size-'])]:size-3.5",
@@ -34,7 +34,10 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
         {...props}
       >
         {icon ? (
-          <span aria-hidden="true" className="grid shrink-0 place-items-center text-muted-foreground">
+          <span
+            aria-hidden="true"
+            className="grid shrink-0 place-items-center text-muted-foreground"
+          >
             {icon}
           </span>
         ) : null}

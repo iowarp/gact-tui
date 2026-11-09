@@ -115,12 +115,15 @@ export function SettingsRow({
 /** Small muted label over a run of rows ("Response", "Model servers"), with an optional + at the right. */
 export function SettingsGroupLabel({
   children,
+  info,
   onAdd,
   addLabel,
   actions,
   className,
 }: {
   children: ReactNode;
+  /** Explanation behind an ? right after the label. */
+  info?: ReactNode;
   onAdd?: () => void;
   addLabel?: string;
   /** Other icon actions at the right end. */
@@ -136,6 +139,14 @@ export function SettingsGroupLabel({
       data-slot="settings-group-label"
     >
       <h3 className="min-w-0 truncate font-normal">{children}</h3>
+      {info ? (
+        <InfoTip
+          className="-ml-1 text-faint"
+          label={`About ${typeof children === 'string' ? children : 'this group'}`}
+        >
+          {info}
+        </InfoTip>
+      ) : null}
       <span className="flex-1" />
       {actions}
       {onAdd ? (
