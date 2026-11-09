@@ -21,6 +21,7 @@ import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
+import { useLocalProfile } from './settings-profile-store';
 import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
@@ -48,6 +49,8 @@ export function ClioNavigation({
   attentions,
 }: ClioNavigationProps) {
   const location = useLocation();
+  const profileName = useLocalProfile().profile.name;
+  const initials = profileInitials(profileName);
   const { settings } = useConnectionSettings();
   const knownConnections = useKnownConnections();
   const activeConnection = useMemo(() => [{ ...settings, endpoint }], [endpoint, settings]);
@@ -168,12 +171,31 @@ export function ClioNavigation({
             />
           </SidebarContent>
           <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1 group-data-[collapsible=icon]:hidden">
-              <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
-                <UserRoundIcon aria-hidden="true" className="size-3.5" />
-              </span>
-              <span className="truncate text-[13px]">Local profile</span>
-            </div>
+            <NamedTooltip label="Profile" side="top">
+              <Link
+                className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-[6px] px-1 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring group-data-[collapsible=icon]:hidden"
+                state={{ endpoint, from: location.pathname }}
+                to="/settings/profile"
+              >
+                <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
+                  {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
+                </span>
+                <span className="flex min-w-0 flex-col leading-tight">
+                  {profileName ? (
+                    <span className="truncate text-[13px] text-foreground">{profileName}</span>
+                  ) : null}
+                  <span
+                    className={
+                      profileName
+                        ? 'truncate text-[11px] text-faint'
+                        : 'truncate text-[13px] text-foreground'
+                    }
+                  >
+                    Local profile
+                  </span>
+                </span>
+              </Link>
+            </NamedTooltip>
             <IconButton
               icon={<ArchiveIcon />}
               label="Archived conversations"
@@ -247,6 +269,16 @@ export function ClioNavigation({
 }
 
 /** Opens the conversation above or below the current one, in the left bar's visible order. */
+/** Up to two initials from the profile name, e.g. "Jaime Cernuda" → "JC". */
+function profileInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? [words[0], words[words.length - 1]] : words;
+  return letters
+    .map((word) => Array.from(word)[0] ?? '')
+    .join('')
+    .toUpperCase();
+}
+
 function stepConversation(step: -1 | 1) {
   const links = [
     ...document.querySelectorAll<HTMLAnchorElement>('[data-session-row] a[data-active]'),
