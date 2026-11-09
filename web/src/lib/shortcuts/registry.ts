@@ -124,8 +124,8 @@ export function shortcutAria(
 
 export interface ShortcutHandlerOptions {
   /**
-   * For "the tab you're in" keys: the region focus must be inside. Without
-   * it, a tab-scoped key never fires.
+   * The region focus must be inside. Without it, a tab-scoped key never
+   * fires and any other key fires anywhere.
    */
   region?: () => Element | null;
   /** Fire inside a text field even for a key the field would type. */
@@ -170,7 +170,9 @@ function dispatch(event: KeyboardEvent) {
     for (const chord of shortcutChords(definition, platform)) {
       if (!chordMatches(chord, event)) continue;
       if (editable && !options.allowInTextField && isTextFieldChord(chord, platform)) continue;
-      if (definition.group === 'tab' && !inRegion(options.region?.() ?? null, event)) continue;
+      // Tab keys need a region; any other key with a mounted region fires only inside it.
+      const region = options.region?.() ?? null;
+      if ((definition.group === 'tab' || region) && !inRegion(region, event)) continue;
       event.preventDefault();
       registration.handler()(event, chordPosition(chord, event));
       return;

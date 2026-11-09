@@ -85,12 +85,8 @@ export function WorkspaceTranscript({
   damaged: boolean;
   navigationActions: ReturnType<typeof useWorkspaceNavigationActions>['navigationActions'];
   showWelcome: boolean;
-  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
-  welcomeDisabled?: boolean;
   dockedComposerHeight: number;
   composer: (variant: 'docked' | 'welcome') => ReactNode;
-  /** Unused: the welcome has no starter prompts. Remove once workspace-page stops passing it. */
-  onSelectPrompt?: (prompt: string) => void;
   onOpenReference: (reference: WorkspaceReference) => void;
   /** A background task's link opens the session's background tasks (Evidence). */
   onOpenTasks: () => void;

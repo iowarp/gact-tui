@@ -20,6 +20,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { brand } from '@brand';
 import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -328,6 +329,11 @@ export function ClioComposer({
   );
   const [commandMenuOpen, setCommandMenuOpen] = useState(true);
   const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
+  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
+  useShortcut('stop', () => onStop?.(), {
+    enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
+    region: rootRef,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
