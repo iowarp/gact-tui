@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 /**
  * Every keyboard shortcut, written once. The tooltip, the menu's right
  * column, the held-key badge and the shortcut sheet all read from here, so a
@@ -74,7 +75,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('next-region', 'Next region', 'anywhere', ['F6']),
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
   // On a Mac the menu bar is the app menu, and ⇧⌘/ searches it; the app takes no key.
-  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: [] }),
+  // Named after the menu's own trigger, the brand wordmark ("CLIO menu").
+  def('app-menu', `${brand.wordmark} menu`, 'anywhere', ['Alt+Space'], { mac: [] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
   def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
   // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.

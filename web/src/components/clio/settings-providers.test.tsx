@@ -577,7 +577,9 @@ describe('ProvidersSettings', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Details' }));
 
     const pane = await screen.findByRole('complementary', { name: 'vLLM' });
-    expect(within(pane).getByText('Endpoint')).toBeVisible();
+    expect(within(pane).getByText('Address')).toBeVisible();
+    expect(within(pane).queryByText('connection refused')).toBeNull();
+    await user.click(within(pane).getByRole('button', { name: 'Technical details' }));
     expect(within(pane).getByText('connection refused')).toBeVisible();
     expect(within(pane).getByText('Unreachable')).toBeVisible();
     expect(vllm).toHaveAttribute('data-selected');
