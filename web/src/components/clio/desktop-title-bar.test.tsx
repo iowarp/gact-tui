@@ -308,7 +308,7 @@ describe('DesktopTitleBar', () => {
     expect(titleContext.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('shortcuts_bind_new_session_settings_fullscreen: Ctrl+N, Ctrl+comma, and F11 all work on Windows/Linux', () => {
+  it('shortcuts_bind_new_session_fullscreen: Ctrl+N and F11 work on Windows/Linux; App owns Ctrl+comma', () => {
     const action = vi.fn();
     window.addEventListener(MENU_ACTION_EVENT, action);
     renderTitleBar();
@@ -317,9 +317,8 @@ describe('DesktopTitleBar', () => {
     fireEvent.keyDown(window, { ctrlKey: true, key: ',' });
     fireEvent.keyDown(window, { key: 'F11' });
 
-    expect(action).toHaveBeenCalledTimes(2);
-    expect(action).toHaveBeenNthCalledWith(1, expect.objectContaining({ detail: 'new-session' }));
-    expect(action).toHaveBeenNthCalledWith(2, expect.objectContaining({ detail: 'open-settings' }));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledWith(expect.objectContaining({ detail: 'new-session' }));
     expect(runDesktopWindowAction).toHaveBeenCalledWith('toggleFullscreen');
     window.removeEventListener(MENU_ACTION_EVENT, action);
   });

@@ -1,14 +1,18 @@
-import { vocab } from '@/lib/brand-vocabulary';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClioModelPicker } from './model-picker';
+import { Undo2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
-import { useConnectionSettings } from '@/providers/connection-provider';
+import { vocab } from '@/lib/brand-vocabulary';
 import { connectionScope } from '@/lib/connection-scope';
+import type { ClioModelOption } from '@/lib/model-options';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { ModelSelectField } from './model-select-field';
+import { IconButton } from './primitives/icon-button';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
 
 const roles = [
   ['goals', 'Goals', 'Checks evidence of completion and guides the next step.'],
@@ -35,7 +39,16 @@ const roles = [
   ],
 ] as const;
 
-/** Independent evaluator choices; null inherits the conversation model. */
+interface FleetChoice {
+  provider_id: string;
+  model_id: string;
+}
+
+/**
+ * Helper models, as setting rows under the Models page: each role's field
+ * opens the one model picker; ↶ returns it to the conversation's model.
+ * Null inherits the conversation model (memory roles: the server default).
+ */
 export function FleetSettingsPanel() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -51,94 +64,130 @@ export function FleetSettingsPanel() {
       repository.updateFleetSettings(input),
     onSuccess: (data) => client.setQueryData(key, data),
   });
-  if (fleet.isPending) return <p role="status">Loading Fleet…</p>;
+  const heading = (
+    <SettingsGroupLabel className="mt-6">
+      <span id="settings-helper-models">Helper models</span>
+    </SettingsGroupLabel>
+  );
+  if (fleet.isPending)
+    return (
+      <section aria-labelledby="settings-helper-models">
+        {heading}
+        <p className="py-3 text-xs text-muted-foreground" role="status">
+          Loading helper models…
+        </p>
+      </section>
+    );
   if (fleet.error || !fleet.data)
     return (
-      <div role="alert">
-        Fleet could not be loaded. <Button onClick={() => void fleet.refetch()}>Retry</Button>
-      </div>
+      <section aria-labelledby="settings-helper-models">
+        {heading}
+        <div className="flex items-center gap-3 py-2 text-xs" role="alert">
+          Helper models could not be loaded.
+          <Button onClick={() => void fleet.refetch()} size="sm" variant="outline">
+            Retry
+          </Button>
+        </div>
+      </section>
     );
   const data = fleet.data;
-  return (
-    <section className="flex max-w-3xl flex-col gap-4" aria-label="Fleet models">
-      <div>
-        <h2 className="text-lg font-semibold">Fleet</h2>
-        <p className="text-sm text-muted-foreground">
-          Choose models for search and evaluation. By default, each uses the conversation’s model.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3 border-b py-3">
-        <div className="min-w-48 flex-1">
-          <h3 className="font-medium">{vocab.agent} Search</h3>
-          <p className="text-sm text-muted-foreground">
-            Answers questions and finds conversations, messages, and files. Press Tab in search to
-            use it.
-            {data.search === undefined ? ' Update this connection’s agent to enable search.' : ''}
-          </p>
-        </div>
-        <ClioModelPicker
-          title={`Choose ${vocab.agent} Search model`}
-          options={options}
-          model={data.search?.model_id}
-          provider={data.search?.provider_id}
-          catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
-          onRetryCatalog={() => void catalog.refetch()}
-          trigger={
-            <Button variant="outline" disabled={save.isPending || data.search === undefined}>
-              {data.search?.model_id ?? 'Conversation or service model'}
-            </Button>
-          }
-          onChange={(model) =>
-            save.mutate({ ...data, search: { provider_id: model.providerId, model_id: model.id } })
-          }
-        />
-        {data.search ? (
-          <Button
-            variant="ghost"
+  const catalogStatus = catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready';
+  const field = ({
+    id,
+    title,
+    pickerTitle,
+    choice,
+    unset,
+    disabled = false,
+    onChoose,
+    onReset,
+  }: {
+    id: string;
+    title: string;
+    pickerTitle: string;
+    choice: FleetChoice | null | undefined;
+    unset: string;
+    disabled?: boolean;
+    onChoose: (model: ClioModelOption) => void;
+    onReset: () => void;
+  }) => {
+    const option = choice
+      ? options.find(
+          (candidate) =>
+            candidate.providerId === choice.provider_id && candidate.id === choice.model_id,
+        )
+      : undefined;
+    return (
+      <>
+        {choice ? (
+          <IconButton
             disabled={save.isPending}
-            onClick={() => save.mutate({ ...data, search: null })}
-          >
-            Use conversation model
-          </Button>
+            icon={<Undo2Icon />}
+            label="Use conversation model"
+            onClick={onReset}
+            size="sm"
+          />
         ) : null}
-      </div>
+        <ModelSelectField
+          catalogStatus={catalogStatus}
+          disabled={save.isPending || disabled}
+          id={id}
+          label={title}
+          modelId={choice?.model_id}
+          onChange={onChoose}
+          onRetryCatalog={() => void catalog.refetch()}
+          option={option}
+          options={options}
+          placeholder={unset}
+          providerId={choice?.provider_id}
+          title={pickerTitle}
+        />
+      </>
+    );
+  };
+  return (
+    <section aria-labelledby="settings-helper-models" data-slot="helper-models">
+      {heading}
+      <SettingsRow
+        description={`Answers questions and finds conversations, messages, and files. Press Tab in search to use it.`}
+        htmlFor="fleet-search"
+        note={
+          data.search === undefined ? 'Update this connection’s agent to enable search.' : undefined
+        }
+        title={`${vocab.agent} Search`}
+      >
+        {field({
+          id: 'fleet-search',
+          title: `${vocab.agent} Search`,
+          pickerTitle: `Choose ${vocab.agent} Search model`,
+          choice: data.search,
+          unset: 'Conversation or service model',
+          disabled: data.search === undefined,
+          onChoose: (model) =>
+            save.mutate({ ...data, search: { provider_id: model.providerId, model_id: model.id } }),
+          onReset: () => save.mutate({ ...data, search: null }),
+        })}
+      </SettingsRow>
       {data.spotter !== undefined ? (
-        <div className="flex flex-wrap items-center gap-3 border-b py-3">
-          <div className="min-w-48 flex-1">
-            <h3 className="font-medium">SPOTTER review</h3>
-            <p className="text-sm text-muted-foreground">
-              Watches actions under SPOTTER review. A conversation can choose its own model.
-            </p>
-          </div>
-          <ClioModelPicker
-            title="Choose SPOTTER model"
-            options={options}
-            model={data.spotter?.model_id}
-            provider={data.spotter?.provider_id}
-            catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
-            onRetryCatalog={() => void catalog.refetch()}
-            trigger={
-              <Button variant="outline" disabled={save.isPending}>
-                {data.spotter?.model_id ?? 'Conversation model'}
-              </Button>
-            }
-            onChange={(model) =>
+        <SettingsRow
+          description="Watches actions under SPOTTER review. A conversation can choose its own model."
+          htmlFor="fleet-spotter"
+          title="SPOTTER review"
+        >
+          {field({
+            id: 'fleet-spotter',
+            title: 'SPOTTER review',
+            pickerTitle: 'Choose SPOTTER model',
+            choice: data.spotter,
+            unset: 'Conversation model',
+            onChoose: (model) =>
               save.mutate({
                 ...data,
                 spotter: { provider_id: model.providerId, model_id: model.id },
-              })
-            }
-          />
-          {data.spotter ? (
-            <Button
-              variant="ghost"
-              disabled={save.isPending}
-              onClick={() => save.mutate({ ...data, spotter: null })}
-            >
-              Use conversation model
-            </Button>
-          ) : null}
-        </div>
+              }),
+            onReset: () => save.mutate({ ...data, spotter: null }),
+          })}
+        </SettingsRow>
       ) : null}
       {roles
         .filter(([role]) => role in data.judges)
@@ -147,53 +196,43 @@ export function FleetSettingsPanel() {
           // Memory roles never borrow the conversation's model (MD13).
           const unset = role.startsWith('memory_') ? 'Server default model' : 'Conversation model';
           return (
-            <div key={role} className="flex flex-wrap items-center gap-3 border-b py-3">
-              <div className="min-w-48 flex-1">
-                <h3 className="font-medium">{title}</h3>
-                <p className="text-sm text-muted-foreground">{description}</p>
-              </div>
-              <ClioModelPicker
-                title={`Choose ${title} judge`}
-                options={options}
-                model={choice?.model_id}
-                provider={choice?.provider_id}
-                catalogStatus={catalog.isPending ? 'loading' : catalog.isError ? 'error' : 'ready'}
-                onRetryCatalog={() => void catalog.refetch()}
-                trigger={
-                  <Button variant="outline" disabled={save.isPending}>
-                    {choice?.model_id ?? unset}
-                  </Button>
-                }
-                onChange={(model) =>
+            <SettingsRow
+              description={description}
+              htmlFor={`fleet-${role}`}
+              key={role}
+              title={title}
+            >
+              {field({
+                id: `fleet-${role}`,
+                title,
+                pickerTitle: `Choose ${title} judge`,
+                choice,
+                unset,
+                onChoose: (model) =>
                   save.mutate({
                     ...data,
                     judges: {
                       ...data.judges,
                       [role]: { provider_id: model.providerId, model_id: model.id },
                     },
-                  })
-                }
-              />
-              {choice ? (
-                <Button
-                  variant="ghost"
-                  disabled={save.isPending}
-                  onClick={() => save.mutate({ ...data, judges: { ...data.judges, [role]: null } })}
-                >
-                  Use conversation model
-                </Button>
-              ) : null}
-            </div>
+                  }),
+                onReset: () => save.mutate({ ...data, judges: { ...data.judges, [role]: null } }),
+              })}
+            </SettingsRow>
           );
         })}
       {data.explore_nudge ? (
         <ExploreNudgeSetting
-          value={data.explore_nudge}
-          pending={save.isPending}
           onChange={(explore_nudge) => save.mutate({ ...data, explore_nudge })}
+          pending={save.isPending}
+          value={data.explore_nudge}
         />
       ) : null}
-      {save.error ? <p role="alert">{save.error.message}</p> : null}
+      {save.error ? (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {save.error.message}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -212,39 +251,42 @@ function ExploreNudgeSetting({
   const [draft, setDraft] = useState<number>();
   const after = draft ?? value.after;
   return (
-    <div className="flex flex-col gap-3 border-b py-3">
-      <label className="flex flex-wrap items-center justify-between gap-3">
-        <span className="min-w-48 flex-1">
-          <span className="block font-medium">Suggest Explore while searching</span>
-          <span className="block text-sm text-muted-foreground">
-            After a run of searches and reads, remind the agent that Explore can take over the
-            search. It is a suggestion; the agent decides.
-          </span>
-        </span>
+    <>
+      <SettingsRow
+        description="After a run of searches and reads, remind the agent that Explore can take over the search. It is a suggestion; the agent decides."
+        htmlFor="fleet-explore-nudge"
+        inlineControl
+        title="Suggest Explore while searching"
+      >
         <Switch
           aria-label="Suggest Explore while searching"
           checked={value.enabled}
           disabled={pending}
+          id="fleet-explore-nudge"
           onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
-      </label>
-      <div className="flex items-center gap-3 text-sm">
-        <span className="min-w-48">Reads before the suggestion</span>
+      </SettingsRow>
+      <SettingsRow
+        description="How many searches and reads in a row before the suggestion."
+        title="Reads before the suggestion"
+      >
         <Slider
           aria-label="Reads before the Explore suggestion"
-          min={2}
-          max={20}
-          step={1}
-          value={[after]}
+          className="min-w-20 flex-1"
           disabled={pending || !value.enabled}
+          max={20}
+          min={2}
           onValueChange={(next) => setDraft(next[0])}
           onValueCommit={(next) => {
-            if (next[0] !== undefined && next[0] !== value.after) onChange({ ...value, after: next[0] });
+            if (next[0] !== undefined && next[0] !== value.after)
+              onChange({ ...value, after: next[0] });
             setDraft(undefined);
           }}
+          step={1}
+          value={[after]}
         />
-        <span className="tabular-nums">{after}</span>
-      </div>
-    </div>
+        <span className="w-6 shrink-0 text-right text-xs tabular-nums">{after}</span>
+      </SettingsRow>
+    </>
   );
 }

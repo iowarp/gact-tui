@@ -2,6 +2,7 @@ import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { ShortcutKeys } from './primitives/key-chip';
 
 /**
  * Collapsed-by-default disclosure for technical/raw content: protocol wire
@@ -21,27 +22,52 @@ export function TechnicalDetails({
   contentClassName,
   summaryClassName,
   title,
+  shortcut,
+  hint,
+  triggerProps,
 }: {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
   summaryClassName?: string;
   title: string;
+  /** A key chip after the title, for a surface that opens it with a key (D). */
+  shortcut?: string;
+  /** A quiet line beside the trigger saying what is inside. */
+  hint?: string;
+  /** Extra attributes for the trigger, e.g. the key a surface maps to it. */
+  triggerProps?: Record<string, string>;
 }) {
+  const trigger = (
+    <CollapsibleTrigger
+      {...triggerProps}
+      className={cn(
+        'flex w-fit cursor-pointer items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+        summaryClassName,
+      )}
+    >
+      <ChevronRightIcon
+        aria-hidden="true"
+        className="size-3 shrink-0 transition-transform group-data-[state=open]:rotate-90"
+      />
+      {title}
+      {shortcut ? (
+        <span aria-hidden="true" className="ml-1 inline-flex">
+          <ShortcutKeys keys={[shortcut]} variant="inline" />
+        </span>
+      ) : null}
+    </CollapsibleTrigger>
+  );
   return (
     <Collapsible className={cn('group', className)}>
-      <CollapsibleTrigger
-        className={cn(
-          'flex w-fit cursor-pointer items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-          summaryClassName,
-        )}
-      >
-        <ChevronRightIcon
-          aria-hidden="true"
-          className="size-3 shrink-0 transition-transform group-data-[state=open]:rotate-90"
-        />
-        {title}
-      </CollapsibleTrigger>
+      {hint ? (
+        <div className="flex min-w-0 items-center gap-2">
+          {trigger}
+          <span className="min-w-0 truncate text-muted-foreground">{hint}</span>
+        </div>
+      ) : (
+        trigger
+      )}
       <CollapsibleContent className={contentClassName}>{children}</CollapsibleContent>
     </Collapsible>
   );

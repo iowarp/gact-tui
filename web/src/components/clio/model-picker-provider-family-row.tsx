@@ -1,7 +1,6 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import { IconTile } from '@/components/reui/icon-tile';
 import { cn } from '@/lib/utils';
+import { ProviderLogoMark } from './provider-logo-mark';
 import type { ProviderFamilyNodeData } from './model-picker-model';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
@@ -20,10 +19,8 @@ export function ProviderFamilyRow({
 }) {
   return (
     <>
-      <IconTile aria-hidden="true" size="sm" variant="outline">
-        <ModelSelectorLogo className="size-5" provider="argonne" />
-      </IconTile>
-      <span className="min-w-0 flex-1 truncate text-start font-medium">{data.group.name}</span>
+      <ProviderLogoMark provider="argonne" />
+      <span className="min-w-0 flex-1 truncate text-start">{data.group.name}</span>
       {onToggleVisibility ? (
         <ProviderEyeToggle
           asStaticElement={eyeAsStaticElement}

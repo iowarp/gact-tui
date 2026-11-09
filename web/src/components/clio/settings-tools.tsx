@@ -81,6 +81,7 @@ export function ToolsSettings({
   initialWorkspaceId,
   initialSessionId,
   embedded = false,
+  heading = true,
   computerLabel,
   filter = '',
   showAdd = true,
@@ -88,6 +89,8 @@ export function ToolsSettings({
   initialWorkspaceId?: string;
   initialSessionId?: string;
   embedded?: boolean;
+  /** False when a surrounding page (Tools and MCP servers tabs) owns the h1. */
+  heading?: boolean;
   computerLabel?: string;
   filter?: string;
   showAdd?: boolean;
@@ -196,15 +199,15 @@ export function ToolsSettings({
     onError: (error) => toast.error(error.message),
   });
   return (
-    <div className="grid gap-6">
-      {!embedded ? (
+    <div className="@container grid gap-6">
+      {!embedded && heading ? (
         <SettingsSectionHeading
           description="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
           title="MCP tools"
         />
       ) : null}
       <section aria-labelledby="mcp-services-heading" className="grid gap-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-end @2xl:justify-between">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold" id="mcp-services-heading">
               {sessionId
@@ -220,7 +223,7 @@ export function ToolsSettings({
               </p>
             ) : null}
           </div>
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end md:w-auto">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end @2xl:w-auto @2xl:shrink-0">
             {!embedded && workspaces.data?.length ? (
               <Field className="w-full sm:w-56">
                 <FieldLabel htmlFor="tools-workspace">Workspace</FieldLabel>

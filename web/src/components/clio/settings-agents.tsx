@@ -50,24 +50,30 @@ export function AgentSettings() {
       toast.success(`Deleted ${agent.name || agent.ref}`);
     },
   });
+  const heading = (
+    <SettingsSectionHeading
+      description="Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
+      title="Agents"
+    />
+  );
   if (supported === false) {
     return (
-      <Alert>
-        <AlertTitle>Plugins are not available on this service</AlertTitle>
-        <AlertDescription>
-          The connected service does not compose agents from plugins.
-        </AlertDescription>
-      </Alert>
+      <div className="grid gap-6">
+        {heading}
+        <Alert>
+          <AlertTitle>Plugins are not available on this service</AlertTitle>
+          <AlertDescription>
+            The connected service does not compose agents from plugins.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const installed = agents.data?.filter((agent) => agent.kind !== 'user') ?? [];
   return (
     <div className="grid gap-6">
-      <SettingsSectionHeading
-        description="Explore an agent’s plugins and prompt, change its composition, and save your own local variation."
-        title="Agents"
-      />
+      {heading}
       {agents.error ? (
         <Alert variant="destructive">
           <AlertTitle>Agents unavailable</AlertTitle>

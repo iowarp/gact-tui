@@ -176,6 +176,30 @@ describe('collapsed navigation preview', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('keeps the preview when an opened menu covers a pointer that has not moved', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <button aria-haspopup="menu" aria-expanded="true" aria-controls="sidebar-menu">
+            Workspace actions
+          </button>
+          {createPortal(<div id="sidebar-menu">Edit workspace</div>, document.body)}
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    const panel = container.querySelector('[data-slot="sidebar-container"]')!;
+    panel.getBoundingClientRect = () => new DOMRect(0, 0, 256, 800);
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    // A modal menu disables pointer events under the stationary pointer.
+    fireEvent.pointerLeave(sidebar, { clientX: 100, clientY: 100, relatedTarget: document.body });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    fireEvent.pointerMove(screen.getByText('Edit workspace'), { clientX: 400, clientY: 100 });
+    expect(sidebar).toHaveAttribute('data-preview', 'true');
+    fireEvent.pointerMove(document.body, { clientX: 900, clientY: 700 });
+    expect(sidebar).not.toHaveAttribute('data-preview');
+  });
+
   it('lets a portaled menu consume Escape without closing the navigation preview', () => {
     const { container } = render(
       <SidebarProvider defaultOpen={false}>

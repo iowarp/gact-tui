@@ -47,6 +47,7 @@ import { ClioStatus } from './status';
 import { DateTimeField } from './date-time-field';
 import { LoadingFeedback, LoadingFailure } from './loading-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SettingsSectionHeading } from './settings-section-heading';
 
 type ScheduleKind = 'once' | 'repeating';
 type RepeatPreset = 'daily' | 'weekdays' | 'weekly' | 'advanced';
@@ -100,13 +101,10 @@ function repeatLabel(schedule: ScheduledTurn) {
 
 function SectionHeading() {
   return (
-    <header>
-      <h1 className="text-xl font-semibold tracking-tight">Scheduled work</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">
-        Ask an existing session to continue once or on a repeating schedule. Each instruction runs
-        in that session with its existing agent, model, context, and access rules.
-      </p>
-    </header>
+    <SettingsSectionHeading
+      description="Ask an existing session to continue once or on a repeating schedule. Each instruction runs in that session with its existing agent, model, context, and access rules."
+      title="Scheduled work"
+    />
   );
 }
 

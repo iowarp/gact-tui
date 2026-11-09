@@ -67,10 +67,15 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await composer.fill('This is a temporary draft');
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
+  // Settings is a window: closing it returns to the route behind it.
+  await page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
-  await expect(composer).toHaveText('');
-  await expect.poll(() => warmups.length).toBe(2);
+  // The draft page stays mounted behind the Settings window, so the draft survives.
+  await expect(composer).toHaveText('This is a temporary draft');
+  expect(warmups).toHaveLength(1);
 
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
@@ -87,12 +92,16 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
     .toBe(sessionRoute);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('link', { name: 'Back to workspace', exact: true }).click();
+  // Settings is a window: closing it returns to the route behind it.
+  await page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   expect(sessionCreations).toEqual([]);
-  expect(warmups).toHaveLength(2);
+  expect(warmups).toHaveLength(1);
   expect(errors).toEqual([]);
 });
 
