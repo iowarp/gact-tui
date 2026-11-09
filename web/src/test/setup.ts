@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach } from 'vitest';
-import { resetDesktopHostDetection } from '@/lib/transport/tauri-runtime';
+import { clearDesktopHost } from '@/test/desktop-host';
 
-// Desktop detection is computed once per page; each test starts from its own globals.
-beforeEach(resetDesktopHostDetection);
+// Desktop detection is computed once per page; each test starts as a plain browser
+// page, even when an earlier file in the same worker mocked the desktop host.
+beforeEach(clearDesktopHost);
 
 // jsdom has no layout engine. Geometry-specific tests replace this with real
 // row fixtures; browser qualification verifies wrapping against actual layout.
