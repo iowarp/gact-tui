@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { approvalOptionViews } from './approval-option-availability';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
@@ -299,6 +300,7 @@ export function ClioComposerBehaviorControls({
             >
               <ModeIcon aria-hidden="true" />
               <span className="@max-[420px]/composer:hidden">{modeLabel}</span>
+              <HeldKeyBadge id="mode" side="top-edge" />
             </Button>
           </DropdownMenuTrigger>
         </NamedTooltip>

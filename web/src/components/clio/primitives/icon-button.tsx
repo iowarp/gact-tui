@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { HeldKeyBadge } from './key-chip';
+import { HeldKeyBadge, type HeldKeySide } from './key-chip';
 import { focusIsQuiet } from './quiet-focus';
 
 interface NamedTooltipProps {
@@ -64,6 +64,8 @@ export interface IconButtonProps
   shortcut?: string;
   /** One key of a range shortcut (the strip's icons by position). */
   shortcutPosition?: number;
+  /** Where the held-key badge sits (below by default). */
+  shortcutSide?: HeldKeySide;
   /** 28px (default), 26px for the composer's toolbar row, or 22px for dense rows. */
   size?: 'default' | 'toolbar' | 'sm';
   /** A small count on the corner (comments, unread). */
@@ -84,6 +86,7 @@ export const IconButton = memo(function IconButton({
   icon,
   shortcut,
   shortcutPosition,
+  shortcutSide,
   size = 'default',
   count,
   tooltipSide,
@@ -127,7 +130,9 @@ export const IconButton = memo(function IconButton({
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-      {shortcut ? <HeldKeyBadge id={shortcut} position={shortcutPosition} /> : null}
+      {shortcut ? (
+        <HeldKeyBadge id={shortcut} position={shortcutPosition} side={shortcutSide} />
+      ) : null}
     </Button>
   );
   if (!tooltip) return button;

@@ -35,6 +35,7 @@ import { fileViewerReference } from './file-viewer-location';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
@@ -253,6 +254,9 @@ export function WorkbenchTabRow({
                               value={tab.id}
                             >
                               {children}
+                              {active && tabs.length > 1 ? (
+                                <HeldKeyBadge id="previous-tab" pairId="next-tab" side="above" />
+                              ) : null}
                             </TabsTrigger>
                           </SortableItemHandle>
                         )}

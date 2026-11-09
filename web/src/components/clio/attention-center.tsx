@@ -24,6 +24,7 @@ import {
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
 import { IconButton } from './primitives/icon-button';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { ListRow } from './primitives/list-row';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ClioRelativeTime } from './relative-time';
@@ -146,6 +147,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
             type="button"
           >
             <BellRingIcon aria-hidden="true" />
+            <HeldKeyBadge id="notifications" />
             <Badge
               className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[9px]"
               variant="default"

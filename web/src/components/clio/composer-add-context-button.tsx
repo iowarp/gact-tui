@@ -41,6 +41,8 @@ export function ComposerAddContextButtons({
           icon={<AtSignIcon />}
           label="Add a reference"
           onClick={onOpenReferences}
+          shortcut="mention"
+          shortcutSide="top-edge"
           size="toolbar"
           tooltipSide="top"
           type="button"

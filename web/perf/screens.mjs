@@ -126,6 +126,14 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Holds the command key past the half-second delay; the shot keeps it held. */
+async function holdCommandKey(page) {
+  const mac = await page.evaluate(() => /Mac/u.test(navigator.platform));
+  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await page.keyboard.down(mac ? 'Meta' : 'Control');
+  await page.waitForTimeout(900);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -134,7 +142,8 @@ async function typeInComposer(page, text) {
 
 // --- Shot catalogue ------------------------------------------------------------
 //
-// Each shot: {surface, state, url, setup?, ready?, scenario?, connected?, route?}.
+// Each shot: {surface, state, url, setup?, ready?, scenario?, connected?, route?,
+// platform?}. `platform: 'mac'` makes the page report a Mac, for its ⌘ keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -195,6 +204,20 @@ function catalogue({ settings, infrastructure }) {
       // Wider layouts show the transcript minimap instead of the outline button.
       { maxWidth: 1024 },
     ),
+    // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
+    ...['windows', 'mac'].flatMap((platform) => [
+      s('session', `held-keys-${platform}`, SESSION, holdCommandKey, { platform }),
+      s(
+        'session',
+        `held-keys-pocket-${platform}`,
+        SESSION,
+        async (page) => {
+          await openFile(page, 'results/stations.csv');
+          await holdCommandKey(page);
+        },
+        { platform },
+      ),
+    ]),
     menu('menu-search-work', 'button', 'Search work'),
     menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
@@ -500,14 +523,23 @@ function themeGaps(theme) {
 
 // --- Capture ---------------------------------------------------------------------
 
-async function newContext(browser, stack, { theme, width, connected = true }) {
+/** `notebook-dark` is the Notebook theme under a dark system scheme. */
+function themeParts(theme) {
+  const [id, scheme] = theme.startsWith('notebook-')
+    ? ['notebook', theme.slice(9)]
+    : [theme, theme];
+  return { id, scheme: scheme === 'light' ? 'light' : 'dark' };
+}
+
+async function newContext(browser, stack, { theme, width, connected = true, platform }) {
   const mobile = width < 600;
+  const { id: themeId, scheme } = themeParts(theme);
   const context = await browser.newContext({
     viewport: { width, height: VIEWPORTS[width] ?? 900 },
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: scheme,
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -515,17 +547,25 @@ async function newContext(browser, stack, { theme, width, connected = true }) {
   context.setDefaultTimeout(6000);
   await context.clock.setFixedTime(FROZEN_TIME);
   await context.addInitScript(
-    ({ theme, endpoint }) => {
+    ({ themeId, endpoint }) => {
       try {
-        localStorage.setItem('clio.appearance.v1', JSON.stringify({ theme, motion: 'reduced' }));
+        localStorage.setItem(
+          'clio.appearance.v1',
+          JSON.stringify({ theme: themeId, motion: 'reduced' }),
+        );
         if (endpoint) localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
         else localStorage.removeItem('clio.recent-connections');
       } catch {
         // Opaque-origin frames have no storage.
       }
     },
-    { theme, endpoint: connected === true ? stack.endpoint : connected || null },
+    { themeId, endpoint: connected === true ? stack.endpoint : connected || null },
   );
+  if (platform === 'mac') {
+    await context.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' });
+    });
+  }
   return context;
 }
 
@@ -674,6 +714,7 @@ async function capture(browser, stack, shot, { theme, width }) {
     theme,
     width,
     connected: shot.connected ?? true,
+    platform: shot.platform,
   });
   const page = await context.newPage();
   const errors = [];
@@ -747,8 +788,8 @@ async function capture(browser, stack, shot, { theme, width }) {
     await page.screenshot({ path: file, fullPage: true, animations: 'disabled', caret: 'hide' });
     result.file = relative(outDir, file).replaceAll('\\', '/');
     result.ok = true;
-    if (theme === 'light' || theme === 'dark')
-      result.themeGaps = await page.evaluate(themeGaps, theme);
+    if (themeParts(theme).id !== 'debug')
+      result.themeGaps = await page.evaluate(themeGaps, themeParts(theme).scheme);
     result.dimensions = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
       height: document.documentElement.scrollHeight,

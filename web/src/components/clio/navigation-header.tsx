@@ -1,9 +1,11 @@
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import { ArchiveIcon, ChevronDownIcon, FolderGit2Icon, SearchIcon, UploadIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
+import { useCommandKeyHeld } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import { AgentConnectionIdentity } from './agent-connection-identity';
 import { ClioMenuContent } from './clio-menu';
 import {
@@ -56,6 +58,7 @@ export function NavigationHeader({
   attentionControl,
 }: NavigationHeaderProps) {
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
+  const commandKeyHeld = useCommandKeyHeld();
 
   return (
     <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
@@ -138,8 +141,13 @@ export function NavigationHeader({
             <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
             <ShortcutKeys
               id="search"
-              className="ml-auto text-[10px] group-data-[collapsible=icon]:hidden"
+              className={cn(
+                'ml-auto text-[10px] group-data-[collapsible=icon]:hidden',
+                // The held badge takes its place.
+                commandKeyHeld && 'invisible',
+              )}
             />
+            <HeldKeyBadge id="search" side="inside-end" />
           </SidebarMenuButton>
         </SidebarMenuItem>
         {attentionControl}

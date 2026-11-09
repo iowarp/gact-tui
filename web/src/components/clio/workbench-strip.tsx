@@ -49,6 +49,7 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       onClick={() => onSelect(item.id)}
       shortcut={item.position ? 'strip-position' : undefined}
       shortcutPosition={item.position}
+      shortcutSide="start"
       tooltipSide="left"
     />
   );
