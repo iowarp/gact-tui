@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { KnownConnection } from '@/hooks/use-known-connections';
 import {
-  NOT_REACHABLE_DETAIL,
   probeConnection,
+  unavailableFromError,
   type ConnectionAvailability,
+  type UnavailableReason,
 } from '@/hooks/use-connection-availability';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
 import { queryKeys } from '@/lib/query-keys';
@@ -58,11 +59,7 @@ export function availabilityAfterAttempt(
   if (reachable(connection.availability) || connection.availability.starting) {
     return connection.availability;
   }
-  return {
-    state: 'unavailable',
-    label: 'Not reachable',
-    detail: attempt.error?.message || NOT_REACHABLE_DETAIL,
-  };
+  return unavailableFromError(attempt.error);
 }
 
 /** The connect attempt's error, when that attempt was for this service. */
@@ -80,9 +77,19 @@ export function noAnswer(error: Error | null | undefined): boolean {
   return error instanceof TransportError && error.code === 'network_unavailable';
 }
 
+const FAILURE_CAUSE: Readonly<Record<Exclude<UnavailableReason, 'failed'>, string>> = {
+  'no-answer': 'no answer',
+  timeout: 'no response in time',
+  incompatible: 'incompatible version',
+  error: 'the service reported an error',
+};
+
 /**
- * A failed service row's one line. When the attempt's own error line already says why
- * (a refused token, an incompatible protocol), the row keeps to its short state.
+ * A failed service row's one line: the cause that was actually observed, in plain words.
+ * "No answer" is only a network failure; version numbers stay in the diagnostics. A row
+ * without a name already shows its address, so only a named row repeats the host. When
+ * the attempt's own error line below the list already says why (a refused token, an
+ * incompatible version), the row keeps to "Can't connect".
  */
 export function knownServiceFailure(
   connection: KnownConnection,
@@ -90,11 +97,15 @@ export function knownServiceFailure(
   attempt: ConnectAttempt,
 ): string {
   const error = attemptErrorFor(connection, attempt);
-  if (error && !noAnswer(error)) return availability.label;
-  if (availability.label === 'Not reachable') {
-    return `Can't connect: no answer from ${new URL(connection.endpoint).host}`;
-  }
-  return `Can't connect: ${availability.detail}`;
+  if (error && !noAnswer(error)) return "Can't connect";
+  const reason = availability.reason ?? 'failed';
+  const cause =
+    reason === 'failed'
+      ? availability.detail
+      : reason === 'no-answer' && connection.label
+        ? `no answer from ${new URL(connection.endpoint).host}`
+        : FAILURE_CAUSE[reason];
+  return `Can't connect: ${cause}`;
 }
 
 function reportedReadiness(details: unknown): unknown {
