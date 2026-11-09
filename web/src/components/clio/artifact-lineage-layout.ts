@@ -5,6 +5,7 @@ import type {
   ArtifactVersion,
 } from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
+import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 
 export type LineageNodeKind = 'file' | 'action' | 'gap' | 'self';
@@ -111,8 +112,8 @@ export function layoutArtifactLineage(
       id: 'gap:no-record',
       kind: 'gap',
       name: 'No recorded source',
-      detail: 'not made in CLIO',
-      tip: 'CLIO has no record of what made this file.',
+      detail: `not made in ${vocab.agent}`,
+      tip: `${vocab.agent} has no record of what made this file.`,
     });
     edges.push({ from: 'gap:no-record', to: lineage.root });
   }
@@ -149,7 +150,7 @@ function describeNode(
       kind: 'action',
       name: tool,
       detail: failed ? status : 'ran',
-      tip: `${failed ? `Ended ${status}` : 'Ran by CLIO'}. Opens in Activity.`,
+      tip: `${failed ? `Ended ${status}` : `Ran by ${vocab.agent}`}. Opens in Activity.`,
       callId: stringField(node, 'call_id') || node.id.replace(/^activity:/u, ''),
       tool,
       sessionId: stringField(node, 'session_id') || undefined,
@@ -164,7 +165,7 @@ function describeNode(
       kind: 'gap',
       name: 'Edited outside',
       detail: name,
-      tip: `${name} changed outside CLIO, so the record breaks here. Opens the file.`,
+      tip: `${name} changed outside ${vocab.agent}, so the record breaks here. Opens the file.`,
       artifact: self ? undefined : artifactFromNode(node, fallback),
     };
   }
@@ -224,7 +225,7 @@ export function layoutVersionChain(
   const placed = ordered.map((version): Omit<LineageGraphNode, 'x' | 'y' | 'width'> => {
     const self = version.version === current;
     const tool = typeof version.producer['tool'] === 'string' ? version.producer['tool'] : '';
-    const by = version.custody_gap ? 'outside CLIO' : tool || 'CLIO';
+    const by = version.custody_gap ? `outside ${vocab.agent}` : tool || vocab.agent;
     const age = shortAge(version.created_at, now);
     return {
       id: version.artifact_id,

@@ -251,10 +251,13 @@ export function FileViewerShell({
   };
   const rendererFacts =
     selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat();
-  const what =
-    selectedValue === LINEAGE_VIEW
-      ? rendererFacts
-      : [...rendererFacts, ...(identity.size === undefined ? [] : [formatBytes(identity.size)])];
+  // Each mode states its own fact, as the frame spec does: Render what the renderer
+  // draws (rows, pages), Source the bytes, Lineage the version and its graph.
+  const size = identity.size === undefined ? [] : [formatBytes(identity.size)];
+  const showingSource =
+    !frameActive && sourceMode !== undefined && renderer?.value === sourceMode.value;
+  const positioned = selectedValue === LINEAGE_VIEW || (!showingSource && rendererFacts.length > 0);
+  const what = positioned ? rendererFacts : size;
   const contents = [...readers.values()].at(-1);
   return (
     <ViewerToolbarHost.Provider value={toolbarHost}>
@@ -302,9 +305,7 @@ export function FileViewerShell({
                                   key={`${index}:${fact}`}
                                   className="tabular-nums"
                                   // The renderer's first fact says where you are; it outlasts the rest.
-                                  data-frame-position={
-                                    index === 0 && rendererFacts.length > 0 ? '' : undefined
-                                  }
+                                  data-frame-position={index === 0 && positioned ? '' : undefined}
                                 >
                                   {fact}
                                 </span>

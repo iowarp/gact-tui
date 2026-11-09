@@ -1,5 +1,6 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 import { layoutArtifactLineage, layoutVersionChain } from './artifact-lineage-layout';
 
 const artifact: Artifact = {
@@ -92,8 +93,8 @@ describe('layoutVersionChain', () => {
       Date.UTC(2026, 0, 10),
     );
     expect(graph.nodes.map((node) => [node.name, node.detail, node.kind])).toEqual([
-      ['v1', '3d, CLIO', 'file'],
-      ['v2', '2d, outside CLIO', 'gap'],
+      ['v1', `3d, ${vocab.agent}`, 'file'],
+      ['v2', `2d, outside ${vocab.agent}`, 'gap'],
       ['v3', '24h, soil_qc.py', 'self'],
     ]);
     expect(graph.edges).toHaveLength(2);
