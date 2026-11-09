@@ -11,25 +11,25 @@ import {
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
-import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useAttentionResponse } from '@/hooks/use-attention-response';
+import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
 import { playAttentionSound } from '@/lib/attention-sound';
-import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
-import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
 import { IconButton } from './primitives/icon-button';
-import { HeldKeyBadge } from './primitives/key-chip';
 import { ListRow } from './primitives/list-row';
 import { permissionCommand } from './permission-operation-labels';
+import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
@@ -204,7 +204,7 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const shortcut = useShortcutPresentation('notifications');
+  const versions = useSystemVersionStatus();
   const entries = useMemo(
     () =>
       sessions
@@ -220,184 +220,203 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
   const respond = useAttentionResponse();
   useShortcut('notifications', () => setOpen((current) => !current));
 
+  const updateReady = versions.state === 'available';
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
-      ? 'Notifications'
-      : entries.length === 1
-        ? `${entries[0]!.session.title} needs your response`
-        : `${entries.length} sessions need your response`;
-  const accessibleLabel =
-    responseCount === 0
-      ? 'Notifications; nothing needs you'
-      : `${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
+      ? updateReady
+        ? 'Notifications: update ready'
+        : 'Notifications'
+      : `${
+          entries.length === 1
+            ? `${entries[0]!.session.title} needs your response`
+            : `${entries.length} sessions need your response`
+        }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
 
   return (
-    <SidebarMenuItem className="shrink-0">
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <SidebarMenuButton
-            aria-keyshortcuts={shortcut?.aria}
-            aria-label={accessibleLabel}
-            className="relative size-8 overflow-visible text-muted-foreground hover:text-foreground"
-            tooltip={shortcut ? `${label} (${shortcut.text})` : label}
-            type="button"
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <IconButton
+          className={cn(
+            'shrink-0',
+            responseCount > 0 && 'text-action hover:text-action',
+            responseCount === 0 && updateReady && 'text-info',
+          )}
+          count={responseCount || undefined}
+          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
+          label={label}
+          shortcut="notifications"
+          tooltipSide="bottom"
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        alignOffset={-6}
+        className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        collisionPadding={8}
+        onOpenAutoFocus={(event) => {
+          // Start on the first notification, not the settings button; an
+          // empty list keeps focus on the popover itself.
+          event.preventDefault();
+          const first = listRef.current?.querySelector<HTMLElement>('a[href]');
+          (first ?? (event.currentTarget as HTMLElement | null))?.focus();
+        }}
+        side="bottom"
+      >
+        <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
+          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <IconButton
+            className="ml-auto"
+            icon={<AdjustIcon />}
+            label="Notification settings"
+            onClick={() => {
+              setOpen(false);
+              navigate('/settings/notifications');
+            }}
+            size="sm"
+          />
+        </div>
+        <section aria-labelledby="attention-needs-you" className="px-1.5 pb-2">
+          <h3
+            className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
+            id="attention-needs-you"
           >
+            <span>Needs you</span>
             {responseCount > 0 ? (
-              <BellRingIcon aria-hidden="true" />
-            ) : (
-              <BellIcon aria-hidden="true" />
-            )}
-            <HeldKeyBadge id="notifications" />
-            {responseCount > 0 ? (
-              <Badge
-                className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
-                variant="default"
-              >
-                {responseCount > 9 ? '9+' : responseCount}
-              </Badge>
+              <span className="text-warning tabular-nums">{responseCount}</span>
             ) : null}
-          </SidebarMenuButton>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          alignOffset={-6}
-          className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
-          collisionPadding={8}
-          onOpenAutoFocus={(event) => {
-            // Start on the first notification, not the settings button; an
-            // empty list keeps focus on the popover itself.
-            event.preventDefault();
-            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
-            (first ?? (event.currentTarget as HTMLElement | null))?.focus();
-          }}
-          side="bottom"
-        >
-          <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
-            <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
-            <IconButton
-              className="ml-auto"
-              icon={<AdjustIcon />}
-              label="Notification settings"
-              onClick={() => {
-                setOpen(false);
-                navigate('/settings/notifications');
-              }}
-              size="sm"
-            />
-          </div>
-          <section aria-labelledby="attention-needs-you" className="px-1.5 pb-2">
-            <h3
-              className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
-              id="attention-needs-you"
-            >
-              <span>Needs you</span>
-              {responseCount > 0 ? (
-                <span className="text-warning tabular-nums">{responseCount}</span>
-              ) : null}
-            </h3>
-            {rows.length === 0 ? (
-              <p className="px-2.5 pt-0.5 pb-1 text-[12px] text-faint">Nothing needs you.</p>
-            ) : null}
-            <div
-              className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
-              onKeyDown={moveFocus}
-              ref={listRef}
-            >
-              {rows.map((row) => {
-                const KindIcon = row.kind.icon;
-                const { session } = row;
-                const to = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
-                const deciding =
-                  respond.isPending && respond.variables?.interaction.id === row.permission?.id;
-                const decide = (action: 'allow' | 'deny') => {
-                  if (!row.permission) return;
-                  respond.mutate(
-                    { interaction: row.permission, action },
-                    {
-                      onError: () =>
-                        toast.error("Couldn't send your answer", {
-                          description: `Open ${session.title} to answer it there.`,
-                        }),
-                    },
-                  );
-                };
-                return (
-                  <div
-                    className="rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover"
-                    data-slot="attention-request"
-                    key={row.key}
-                  >
-                    <Link
-                      aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
-                      className="block outline-none"
-                      onClick={() => setOpen(false)}
-                      to={to}
-                    >
-                      <ListRow
-                        description={<span title={row.detailText}>{row.detail}</span>}
-                        icon={<KindIcon aria-hidden="true" className="text-warning" />}
-                        meta={
-                          <ClioRelativeTime
-                            className="text-[11px] text-faint"
-                            compact
-                            label="Asked"
-                            timestamp={row.timestamp}
-                          />
-                        }
-                        primaryAction={row.permission ? undefined : row.kind.action}
-                        title={
-                          <span title={`${session.title} ${row.kind.verb}`}>
-                            <span className="font-semibold text-foreground">{session.title}</span>{' '}
-                            {row.kind.verb}
-                          </span>
-                        }
-                        variant="notice"
-                      />
-                    </Link>
-                    {row.permission ? (
-                      <div
-                        aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                        className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
-                        role="group"
-                      >
-                        <Button
-                          className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
-                          disabled={deciding}
-                          onClick={() => decide('allow')}
-                          size="xs"
-                        >
-                          Allow
-                        </Button>
-                        <Button
-                          className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
-                          disabled={deciding}
-                          onClick={() => decide('deny')}
-                          size="xs"
-                          variant="ghost"
-                        >
-                          Deny
-                        </Button>
-                        <Link
-                          aria-hidden="true"
-                          className="ml-auto font-medium text-accent-foreground hover:underline"
-                          data-duplicate-link=""
-                          onClick={() => setOpen(false)}
-                          tabIndex={-1}
-                          to={to}
-                        >
-                          {row.kind.action}
-                        </Link>
-                      </div>
-                    ) : null}
-                  </div>
+          </h3>
+          {rows.length === 0 ? (
+            <p className="px-2.5 pt-0.5 pb-1 text-[12px] text-faint">Nothing needs you.</p>
+          ) : null}
+          <div
+            className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
+            onKeyDown={moveFocus}
+            ref={listRef}
+          >
+            {rows.map((row) => {
+              const KindIcon = row.kind.icon;
+              const { session } = row;
+              const to = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
+              const deciding =
+                respond.isPending && respond.variables?.interaction.id === row.permission?.id;
+              const decide = (action: 'allow' | 'deny') => {
+                if (!row.permission) return;
+                respond.mutate(
+                  { interaction: row.permission, action },
+                  {
+                    onError: () =>
+                      toast.error("Couldn't send your answer", {
+                        description: `Open ${session.title} to answer it there.`,
+                      }),
+                  },
                 );
-              })}
+              };
+              return (
+                <div
+                  className="rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover"
+                  data-slot="attention-request"
+                  key={row.key}
+                >
+                  <Link
+                    aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                    className="block outline-none"
+                    onClick={() => setOpen(false)}
+                    to={to}
+                  >
+                    <ListRow
+                      description={<span title={row.detailText}>{row.detail}</span>}
+                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                      meta={
+                        <ClioRelativeTime
+                          className="text-[11px] text-faint"
+                          compact
+                          label="Asked"
+                          timestamp={row.timestamp}
+                        />
+                      }
+                      primaryAction={row.permission ? undefined : row.kind.action}
+                      title={
+                        <span title={`${session.title} ${row.kind.verb}`}>
+                          <span className="font-semibold text-foreground">{session.title}</span>{' '}
+                          {row.kind.verb}
+                        </span>
+                      }
+                      variant="notice"
+                    />
+                  </Link>
+                  {row.permission ? (
+                    <div
+                      aria-label={`Decide: ${session.title} ${row.kind.verb}`}
+                      className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
+                      role="group"
+                    >
+                      <Button
+                        className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
+                        disabled={deciding}
+                        onClick={() => decide('allow')}
+                        size="xs"
+                      >
+                        Allow
+                      </Button>
+                      <Button
+                        className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                        disabled={deciding}
+                        onClick={() => decide('deny')}
+                        size="xs"
+                        variant="ghost"
+                      >
+                        Deny
+                      </Button>
+                      <Link
+                        aria-hidden="true"
+                        className="ml-auto font-medium text-accent-foreground hover:underline"
+                        data-duplicate-link=""
+                        onClick={() => setOpen(false)}
+                        tabIndex={-1}
+                        to={to}
+                      >
+                        {row.kind.action}
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        {updateReady ? (
+          <section aria-labelledby="attention-agent" className="px-1.5 pb-2">
+            <h3
+              className="px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
+              id="attention-agent"
+            >
+              {vocab.agent}
+            </h3>
+            <div className="rounded-[8px] px-2.5 py-2" data-slot="attention-update">
+              <ListRow
+                description={versions.message}
+                icon={<ProductUpdateIcon state={versions.state} />}
+                primaryAction={
+                  versions.desktopShell ? (
+                    <button
+                      className="hover:underline disabled:opacity-50"
+                      disabled={versions.updating}
+                      onClick={() => versions.updateAll()}
+                      type="button"
+                    >
+                      Update
+                    </button>
+                  ) : undefined
+                }
+                title={<span className="font-semibold text-foreground">Update ready</span>}
+                variant="notice"
+              />
             </div>
           </section>
-        </PopoverContent>
-      </Popover>
-    </SidebarMenuItem>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -10,18 +10,17 @@ UI aren't tracked.
 
 ### Changed
 
-- A study's Views are the dashboards its conversations attached to it. Their charts
-  and tables update live as entries arrive, and exports keep each view with its data.
-- Large workspaces open faster: conversations and older messages load as you scroll.
-- On Windows, security checks and first-run setup show their progress until they finish.
+- A study's Views update live as entries arrive
+- Large workspaces open faster
+- Windows setup shows its progress until it finishes
 
 ### Fixed
 
-- Reopening a child conversation after closing its canvas works reliably again.
+- Reopening a child conversation works again
 
 ### Removed
 
-- Plugin-declared views, and the Views tab outside a study.
+- Plugin views, and Views outside a study
 
 ## [0.11.3-beta.11] - 2026-10-21
 

@@ -14,6 +14,9 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), warning: v
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
 const respond = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false, variables: undefined }));
 vi.mock('@/hooks/use-attention-response', () => ({ useAttentionResponse: () => respond }));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({ state: 'current', desktopShell: false, updating: false }),
+}));
 
 const baseSession: Session = {
   id: 'sess_1',
@@ -172,7 +175,7 @@ describe('ClioAttentionCenter', () => {
 
   it('keeps the bell with no badge when nothing needs a response', async () => {
     render(<Center attentions={{}} sessions={[baseSession]} />);
-    const bell = screen.getByRole('button', { name: 'Notifications; nothing needs you' });
+    const bell = screen.getByRole('button', { name: 'Notifications' });
     expect(within(bell).queryByText(/\d/)).toBeNull();
     fireEvent.click(bell);
     const dialog = await screen.findByRole('dialog');
