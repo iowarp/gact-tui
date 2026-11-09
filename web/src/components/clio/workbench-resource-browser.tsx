@@ -214,7 +214,7 @@ export function FileBrowser({
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <IconButton
-            aria-pressed={!hideDotFiles}
+            aria-pressed={hideDotFiles}
             icon={<ListFilterIcon />}
             label="Filter files"
             size="sm"
