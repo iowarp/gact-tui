@@ -230,6 +230,26 @@ function availabilityFromError(error: unknown): ConnectionAvailability {
   return unavailableFromError(error);
 }
 
+const INTERNAL_EXCEPTIONS: ReadonlySet<string> = new Set([
+  'TypeError',
+  'ReferenceError',
+  'RangeError',
+  'SyntaxError',
+]);
+
+/** The plain reason shown for a connection that failed on an unexpected exception. */
+export const UNEXPECTED_CONNECT_ERROR = 'unexpected error';
+
+/**
+ * A programming exception raised while connecting (for example a missing desktop
+ * bridge), as `Name: message` for technical details. It is never the reason a person
+ * reads; domain failures return undefined.
+ */
+export function internalException(error: unknown): string | undefined {
+  if (!(error instanceof Error) || !INTERNAL_EXCEPTIONS.has(error.name)) return undefined;
+  return `${error.name}: ${error.message}`;
+}
+
 /**
  * An unavailable service, labelled by what actually happened: nothing answered, it did
  * not answer in time, it is a different version, or it answered with an error. The
@@ -281,6 +301,16 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
         2,
       ),
       reason: 'error',
+    };
+  }
+  const internal = internalException(error);
+  if (internal) {
+    return {
+      state: 'unavailable',
+      label: 'Not available',
+      detail: UNEXPECTED_CONNECT_ERROR,
+      diagnostics: internal,
+      reason: 'failed',
     };
   }
   return {

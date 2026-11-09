@@ -12,7 +12,7 @@ export function RingSpinner({ className }: { className?: string }) {
       aria-hidden="true"
       data-slot="ring-spinner"
       className={cn(
-        'block size-3 shrink-0 rounded-full border-2 border-primary/30 border-t-primary motion-safe:animate-spin motion-safe:will-change-transform',
+        'block size-3 shrink-0 rounded-full border-2 border-spin-track border-t-primary motion-safe:animate-spin motion-safe:will-change-transform',
         className,
       )}
     />

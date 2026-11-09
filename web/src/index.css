@@ -158,6 +158,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-faint: var(--faint);
   --color-changed: var(--changed);
+  --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
   --color-key: var(--key);

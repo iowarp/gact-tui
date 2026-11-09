@@ -15,8 +15,8 @@ export function ChartHeader({
   actions: ReactNode;
 }) {
   return (
-    // A narrow dashboard gives the title the full width. Its actions wrap below it on touch;
-    // with a pointer they take no line and float over the chart's top corner.
+    // A narrow dashboard gives the title the full width. Its actions take no line: they float
+    // over the chart's top corner once the chart is hovered or, on touch, tapped (`group/chart`).
     <div
       className={cn(
         'mb-2 flex min-w-0 items-start gap-3',
@@ -50,7 +50,7 @@ export function ChartHeader({
         className={cn(
           'flex shrink-0 items-center gap-0.5',
           dashboard &&
-            'relative z-10 @max-[24rem]/dashboard:ms-auto [@media(hover:hover)]:@max-[24rem]/dashboard:h-0 [@media(hover:hover)]:@max-[24rem]/dashboard:items-start',
+            'relative z-10 @max-[24rem]/dashboard:ms-auto @max-[24rem]/dashboard:h-0 @max-[24rem]/dashboard:items-start [@media(hover:none)]:@max-[24rem]/dashboard:invisible [@media(hover:none)]:@max-[24rem]/dashboard:group-focus-within/chart:visible',
         )}
       >
         {actions}
