@@ -4,7 +4,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -14,6 +16,7 @@ import {
   APPEARANCE_STORAGE_KEY as STORAGE_KEY,
   DARK_SCHEME_QUERY,
   DEFAULT_THEME_PREFERENCE,
+  followSystemScheme,
   parseThemePreference,
   readThemePreference,
   resolveTheme,
@@ -92,9 +95,15 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     () => resolveTheme(preferences.theme, systemDark),
     [preferences.theme, systemDark],
   );
-  // The boot script applied the stored theme before first paint; this keeps
-  // <html> in step with later choices and OS scheme changes, without a reload.
-  useEffect(() => {
+  // The boot script applied the stored theme before first paint. OS scheme
+  // changes switch <html> from the media-query event, in their own frame; a
+  // choice made here switches before the browser paints the new render.
+  const themePreference = useRef(preferences.theme);
+  useLayoutEffect(() => {
+    themePreference.current = preferences.theme;
+  }, [preferences.theme]);
+  useLayoutEffect(() => followSystemScheme(() => themePreference.current), []);
+  useLayoutEffect(() => {
     switchTheme(document.documentElement, resolvedTheme);
   }, [resolvedTheme]);
   useEffect(() => {

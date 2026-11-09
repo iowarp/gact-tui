@@ -1,7 +1,7 @@
-import { lazy, Suspense, useState, type ComponentType } from 'react';
+import { lazy, memo, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useLocation, type Location } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
@@ -18,9 +18,11 @@ import { ClioSelectionActionToolbar } from '@/components/clio/selection-actions'
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
+import { SettingsWindow } from '@/routes/settings-window';
 import {
   installRoutePrefetch,
   loadedRouteChunk,
@@ -58,7 +60,6 @@ function lazyRoute<Name extends RouteChunk>(
 const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
 const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
 const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
-const SettingsPage = lazyRoute('settings', (module) => module.SettingsPage);
 
 function RouteFallback() {
   return (
@@ -84,6 +85,14 @@ function ProviderCatalogWarmup() {
   return null;
 }
 
+/** The app's own routes, re-rendered only when the location they show changes. */
+const BackgroundRoutes = memo(
+  function BackgroundRoutes({ location, children }: { location: Location; children: ReactNode }) {
+    return <Routes location={location}>{children}</Routes>;
+  },
+  (previous, next) => previous.location === next.location,
+);
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,6 +104,16 @@ export default function App() {
       ? location.pathname
       : returnRouteFromState(location.state, settings.endpoint),
   };
+  const settingsBackground = settingsBackgroundRoute(location, settings.endpoint);
+  // While Settings is open the page behind it keeps its last location object,
+  // so moving between settings sections never re-renders the workspace.
+  const [behindSettings, setBehindSettings] = useState<Location>(location);
+  const routesLocation = settingsBackground
+    ? behindSettings.pathname === settingsBackground
+      ? behindSettings
+      : { ...location, pathname: settingsBackground, search: '', hash: '' }
+    : location;
+  if (routesLocation !== behindSettings) setBehindSettings(routesLocation);
   useNativeMenuBridge();
   // Secondary routes load on idle or link hover, not on their first visit.
   useEffect(() => installRoutePrefetch(), []);
@@ -107,11 +126,13 @@ export default function App() {
     if (!desktopHost || !credentialsReady) return;
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
-  useMenuAction('open-settings', () =>
+  const openSettings = () =>
     navigate('/settings/general', {
       state: settingsReturnState,
-    }),
-  );
+    });
+  useMenuAction('open-settings', openSettings);
+  // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
+  useShortcut('settings', openSettings);
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
   useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
@@ -131,7 +152,7 @@ export default function App() {
         <SandboxInactiveBanner />
         <div className="min-h-0 flex-1">
           <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <BackgroundRoutes location={routesLocation}>
               <Route element={<ConnectionPage />} path="/" />
               <Route
                 element={<WorkspacePage />}
@@ -140,13 +161,20 @@ export default function App() {
               <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
               <Route element={<RunsPage />} path="/runs" />
               <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
-              <Route element={<SettingsPage />} path="/settings/:section" />
+              {/* Settings is a window over the app; without a workspace behind it the
+                  app area stays empty. */}
+              <Route element={<div className="h-full bg-background" />} path="/settings/:section" />
               <Route element={<McpOAuthReturn />} path="/oauth/mcp" />
               <Route element={<UnknownRouteRedirect />} path="*" />
-            </Routes>
+            </BackgroundRoutes>
           </Suspense>
         </div>
       </div>
+      {isSettingsRoute(location.pathname) ? (
+        <Routes>
+          <Route element={<SettingsWindow />} path="/settings/:section" />
+        </Routes>
+      ) : null}
       <Toaster closeButton richColors />
       {/* Fixed + full-viewport, so it covers the desktop title bar's own
           connection pill too -- not just the routed content below. */}

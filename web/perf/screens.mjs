@@ -211,7 +211,6 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-open-questions', 'button', /open question/u),
     menu('menu-version-status', 'button', /^Version status/u),
     menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
@@ -219,7 +218,8 @@ function catalogue({ settings, infrastructure }) {
     menu('composer-execution-mode', 'button', /^Execution mode/u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
     menu('composer-permission-duration', 'combobox', 'Permission duration'),
-    menu('composer-add-context', 'button', 'Add context'),
+    menu('composer-attach-files', 'button', 'Attach files'),
+    menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
       await typeInComposer(
         page,
@@ -322,7 +322,7 @@ function catalogue({ settings, infrastructure }) {
       }),
     ),
     s('settings', 'models-default-picker', '/settings/models', async (page) => {
-      await press(page, 'button', 'Change', { exact: true });
+      await press(page, 'button', 'Default model', { exact: true });
       await overlay(page);
     }),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {

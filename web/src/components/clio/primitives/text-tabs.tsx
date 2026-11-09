@@ -1,0 +1,92 @@
+import { memo, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import { NamedTooltip } from './icon-button';
+
+export interface TextTab<Value extends string> {
+  value: Value;
+  label: string;
+  /** Shown before the label; it is the whole tab when the strip is compact. */
+  icon?: ReactNode;
+  /** Results or items behind the tab, right of the label in tabular figures. */
+  count?: number;
+}
+
+export interface TextTabsProps<Value extends string> {
+  /** Names the tab strip ("Result type"). */
+  label: string;
+  tabs: readonly TextTab<Value>[];
+  value: Value;
+  onValueChange: (value: Value) => void;
+  /** Icons only, each with its name and count on hover (narrow windows). */
+  compact?: boolean;
+  /** The panel the tabs control, for `aria-controls`. */
+  controls?: string;
+  /** Keep focus where it is (a search field) when a tab is pressed. */
+  keepFocus?: boolean;
+  className?: string;
+}
+
+/**
+ * Text tabs that move between places or result types (All, Conversations,
+ * Files). Each tab is one line; counts never wrap and sit in fixed figures.
+ * Peer modes of one thing use `SegmentedControl` instead.
+ */
+function TextTabsImpl<Value extends string>({
+  label,
+  tabs,
+  value,
+  onValueChange,
+  compact = false,
+  controls,
+  keepFocus = false,
+  className,
+}: TextTabsProps<Value>) {
+  return (
+    <div
+      aria-label={label}
+      className={cn('flex h-8 min-w-0 items-stretch gap-3 overflow-hidden whitespace-nowrap', className)}
+      data-slot="text-tabs"
+      role="tablist"
+    >
+      {tabs.map((tab) => {
+        const selected = tab.value === value;
+        const name = tab.count === undefined ? tab.label : `${tab.label}, ${tab.count}`;
+        const button = (
+          <button
+            aria-controls={controls}
+            aria-label={compact ? name : undefined}
+            aria-selected={selected}
+            className={cn(
+              'relative inline-flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
+              'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground after:opacity-0',
+              selected && 'font-medium text-foreground after:opacity-100',
+              '[&_svg]:size-3.5 [&_svg]:shrink-0',
+            )}
+            data-state={selected ? 'active' : 'inactive'}
+            key={tab.value}
+            onClick={() => onValueChange(tab.value)}
+            onMouseDown={keepFocus ? (event) => event.preventDefault() : undefined}
+            role="tab"
+            tabIndex={keepFocus ? -1 : selected ? 0 : -1}
+            type="button"
+          >
+            {tab.icon}
+            {compact && tab.icon ? null : <span>{tab.label}</span>}
+            {tab.count === undefined ? null : (
+              <span className="text-[11px] text-muted-foreground tabular-nums">{tab.count}</span>
+            )}
+          </button>
+        );
+        return compact && tab.icon ? (
+          <NamedTooltip key={tab.value} label={name}>
+            {button}
+          </NamedTooltip>
+        ) : (
+          button
+        );
+      })}
+    </div>
+  );
+}
+
+export const TextTabs = memo(TextTabsImpl) as typeof TextTabsImpl;

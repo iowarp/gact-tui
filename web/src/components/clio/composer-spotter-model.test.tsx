@@ -156,10 +156,7 @@ describe('Composer SPOTTER model', () => {
     const onSubmit = renderComposer({ variant: 'welcome' });
 
     await user.click(await screen.findByRole('button', { name: 'Choose SPOTTER model' }));
-    await user.type(
-      screen.getByRole('combobox', { name: /investigate, build, explain, or act/u }),
-      'Watch this run',
-    );
+    await user.type(screen.getByRole('combobox', { name: /^Ask /u }), 'Watch this run');
     await user.keyboard('{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({

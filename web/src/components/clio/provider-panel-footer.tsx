@@ -1,7 +1,8 @@
 import { LoaderCircleIcon, LogOutIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { IconButton } from './primitives/icon-button';
 import { RefreshButton } from './refresh-button';
-import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { CheckConnectionIcon } from '@/lib/icon-vocabulary';
 import type { ProviderActions } from './provider-setup-state';
 
@@ -24,10 +25,11 @@ interface ProviderPanelFooterProps {
 }
 
 /**
- * The single action row under a usable provider's models: Refresh (check the
- * provider again), Reload (rediscover its model list), Settings, and Log out /
- * Remove key only where the provider supports it. A running action's stage
- * shows at the end of the row -- the row is what it affects.
+ * The single action row under a usable provider's models: what the provider is
+ * doing (or its latest failure) on the left, and icon actions on the right --
+ * Refresh (check the provider again), Reload models (rediscover its list),
+ * Settings, and Log out / Remove key only where the provider supports it. Each
+ * icon names itself on hover.
  */
 export function ProviderPanelFooter({
   actions,
@@ -38,71 +40,78 @@ export function ProviderPanelFooter({
 }: ProviderPanelFooterProps) {
   const busy = Boolean(actions.stage) || Boolean(logOut?.busy);
   return (
-    <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center border-t px-1 py-1.5"
-      data-slot="provider-panel-footer"
-    >
-      <RefreshButton
-        className="px-1.5"
-        label="Refresh"
-        idleIcon={CheckConnectionIcon}
-        title="Check connection, sign-in and available models"
-        refreshing={actions.handshake.isPending}
-        disabled={busy}
-        onRefresh={() => actions.handshake.mutateAsync()}
-        size="xs"
-        type="button"
-        variant="ghost"
+    <TooltipProvider disableHoverableContent>
+      <div
+        className="flex h-9 min-w-0 shrink-0 flex-nowrap items-center gap-0.5 overflow-hidden border-t px-1.5"
+        data-slot="provider-panel-footer"
       >
-        Refresh
-      </RefreshButton>
-      <RefreshButton
-        className="px-1.5"
-        label="Reload models"
-        title="Rediscover models; update the provider client first if needed"
-        refreshing={actions.refreshModels.isPending}
-        disabled={busy}
-        onRefresh={() => actions.refreshModels.mutateAsync()}
-        size="xs"
-        type="button"
-        variant="ghost"
-      >
-        Reload
-      </RefreshButton>
-      {settings}
-      {logOut ? (
-        <Button
-          className="px-1.5"
+        {actions.stage ? (
+          <span
+            className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-xs text-muted-foreground"
+            data-slot="provider-panel-stage"
+            role="status"
+          >
+            <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+            <span className="truncate">{actions.stage}</span>
+          </span>
+        ) : error ? (
+          <span
+            className="min-w-0 flex-1 truncate text-xs text-destructive"
+            role="alert"
+            title={error}
+          >
+            {error}
+          </span>
+        ) : !busy && info ? (
+          <span
+            className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+            role="status"
+            title={info}
+          >
+            {info}
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1" />
+        )}
+        <RefreshButton
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          iconOnly
+          label="Refresh"
+          idleIcon={CheckConnectionIcon}
+          title="Refresh: check connection, sign-in and models"
+          refreshing={actions.handshake.isPending}
           disabled={busy}
-          onClick={logOut.run}
-          size="xs"
+          onRefresh={() => actions.handshake.mutateAsync()}
+          size="icon-xs"
           type="button"
           variant="ghost"
-        >
-          <LogOutIcon data-icon="inline-start" />
-          {logOut.label}
-        </Button>
-      ) : null}
-      <span className="min-w-0 flex-1" />
-      {actions.stage ? (
-        <span
-          className="flex min-w-0 items-center gap-1.5 truncate pe-1 text-xs text-muted-foreground"
-          data-slot="provider-panel-stage"
-          role="status"
-        >
-          <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-          {actions.stage}
-        </span>
-      ) : error ? (
-        <span className="min-w-0 truncate pe-1 text-xs text-destructive" role="alert" title={error}>
-          {error}
-        </span>
-      ) : null}
-      {!busy && !error && info ? (
-        <p className="w-full text-xs text-muted-foreground" role="status">
-          {info}
-        </p>
-      ) : null}
-    </div>
+        />
+        <RefreshButton
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          iconOnly
+          label="Reload models"
+          title="Reload models, updating the provider client first if needed"
+          refreshing={actions.refreshModels.isPending}
+          disabled={busy}
+          onRefresh={() => actions.refreshModels.mutateAsync()}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        />
+        {logOut ? (
+          <IconButton
+            className="shrink-0"
+            disabled={busy}
+            icon={<LogOutIcon aria-hidden="true" />}
+            label={logOut.label}
+            onClick={logOut.run}
+            size="sm"
+            tooltipSide="top"
+            type="button"
+          />
+        ) : null}
+        {settings}
+      </div>
+    </TooltipProvider>
   );
 }

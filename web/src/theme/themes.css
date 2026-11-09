@@ -107,7 +107,7 @@
   --syntax-token-parameter: #e36209;
   --syntax-token-punctuation: #24292e;
   --syntax-token-link: #032f62;
-  --scrim: oklch(0 0 0 / 10%);
+  --scrim: rgb(10 9 8 / 40%);
   --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-200);
   --highlight-foreground: var(--color-blue-950);
@@ -211,7 +211,7 @@
   --syntax-token-parameter: #ffab70;
   --syntax-token-punctuation: #e1e4e8;
   --syntax-token-link: #dbedff;
-  --scrim: oklch(0 0 0 / 10%);
+  --scrim: rgb(10 9 8 / 62%);
   --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-800);
   --highlight-foreground: var(--color-blue-50);
@@ -315,7 +315,7 @@
   --syntax-token-parameter: #6e4e12;
   --syntax-token-punctuation: #5e594f;
   --syntax-token-link: #2f6f6a;
-  --scrim: rgb(43 42 38 / 18%);
+  --scrim: rgb(10 9 8 / 40%);
   --shadow-color: rgb(43 42 38 / 30%);
   --highlight: #f2e3c4;
   --highlight-foreground: #2b2a26;
@@ -419,7 +419,7 @@
   --syntax-token-parameter: #e8c27a;
   --syntax-token-punctuation: #b3ac9f;
   --syntax-token-link: #74b8b0;
-  --scrim: rgb(0 0 0 / 35%);
+  --scrim: rgb(10 9 8 / 62%);
   --shadow-color: rgb(0 0 0 / 60%);
   --highlight: #4a3a1a;
   --highlight-foreground: #e8e3d8;
