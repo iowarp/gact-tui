@@ -22,8 +22,8 @@ const SHEET_WIDTH = [
   '',
   'sm:w-[min(26rem,calc(100vw-2rem))]',
   'sm:w-[min(42rem,calc(100vw-2rem))]',
-  'sm:w-[min(58rem,calc(100vw-2rem))]',
-  'sm:w-[min(74rem,calc(100vw-2rem))]',
+  'sm:w-[min(64rem,calc(100vw-2rem))]',
+  'sm:w-[min(84rem,calc(100vw-2rem))]',
 ] as const;
 const SHEET_COLUMNS = [
   '',
