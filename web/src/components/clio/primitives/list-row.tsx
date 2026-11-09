@@ -44,7 +44,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * `activity` is the transcript's activity row: a 12px disclosure column
    * (`leading`) before the icon, 12.5px text, and the right edge ordered
    * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
-   * the time it explains. Empty columns keep their width.
+   * the time it explains. Empty columns keep their width; below 600px the row
+   * drops its hover actions, elapsed and an empty badge so the text keeps room.
    */
   variant?: 'list' | 'activity';
   /** The 12px column before the icon (an expand chevron) in `activity` rows. */
@@ -100,7 +101,10 @@ export const ListRow = memo(
           aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
           style={style}
           className={cn(
-            'group/list-row relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
+            // A container, so a narrow row sheds columns by its own width (spec U7): below
+            // 600px its empty and hover-only columns; below 280px (`.xc.n2`, a fifth of the
+            // window) its elapsed time, and its name becomes the icon's hover name.
+            'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
           {...rest}
@@ -111,30 +115,45 @@ export const ListRow = memo(
           {icon ? (
             <span
               aria-hidden="true"
+              title={typeof title === 'string' ? title : undefined}
               className="grid size-3.5 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
             >
               {icon}
             </span>
           ) : null}
-          <span className="shrink-0 text-foreground max-[480px]:hidden">{title}</span>
+          <span className="shrink-0 text-foreground @max-[280px]/activity:sr-only">{title}</span>
           <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
           {columns}
           {badge !== undefined ? (
-            <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
+            <span
+              className={cn(
+                'flex w-[58px] shrink-0 justify-end',
+                badge === null && '@max-[600px]/activity:hidden',
+              )}
+            >
+              {badge}
+            </span>
           ) : null}
           {actions !== undefined ? (
             <span
               data-slot="list-row-actions"
               style={{ width: actionsWidth }}
-              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden"
+              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
             >
               {actions}
             </span>
           ) : null}
           {meta !== undefined ? (
-            <span className="flex w-11 shrink-0 justify-end max-[480px]:hidden">{meta}</span>
+            <span
+              className={cn(
+                'flex w-11 shrink-0 justify-end @max-[280px]/activity:hidden',
+                meta === null && '@max-[600px]/activity:hidden',
+              )}
+            >
+              {meta}
+            </span>
           ) : null}
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
           {primaryAction !== undefined ? (
@@ -200,7 +219,8 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+              // Keeps a readable start (never a one-letter stub); the title truncates first.
+              <span className="min-w-[min(5rem,35%)] flex-1 truncate text-[12px] text-muted-foreground">
                 {description}
               </span>
             ) : null}

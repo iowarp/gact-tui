@@ -133,8 +133,15 @@ export default function App() {
   useMenuAction('open-settings', openSettings);
   // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
   useShortcut('settings', openSettings);
+  useMenuAction('connection-settings', () =>
+    navigate('/settings/connections', { state: settingsReturnState }),
+  );
+  useMenuAction('manage-agents', () => navigate('/?intent=connect'));
+  useMenuAction('connect-by-address', () => navigate('/?intent=connect&mode=address'));
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
-  useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
+  const openInfrastructure = () => navigate('/infrastructure', { state: settingsReturnState });
+  useShortcut('infrastructure', openInfrastructure);
+  useMenuAction('open-infrastructure', openInfrastructure);
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
@@ -176,8 +183,7 @@ export default function App() {
         </Routes>
       ) : null}
       <Toaster />
-      {/* Fixed + full-viewport, so it covers the desktop title bar's own
-          connection pill too -- not just the routed content below. */}
+      {/* The update page where no app shell hosts it in its content pane. */}
       <UpdateRestartOverlay />
       {/* One toolbar for every selectable surface; actions register per page. */}
       <ClioSelectionActionToolbar />

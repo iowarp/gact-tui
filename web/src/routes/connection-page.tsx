@@ -3,10 +3,10 @@ import { brand } from '@brand';
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  FolderClockIcon,
   GlobeIcon,
   LaptopIcon,
   ServerIcon,
+  TerminalSquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
@@ -66,11 +66,13 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { cn } from '@/lib/utils';
 
-/** One icon per known-connection source, so the list reads at a glance without a legend. */
-function connectionSourceIcon(source: KnownConnection['source']) {
-  if (source === 'managed') return LaptopIcon;
-  if (source === 'infrastructure') return ServerIcon;
-  return FolderClockIcon;
+/** The spec's row glyphs: this computer, a CLIO reached over SSH, or a service by address. */
+function connectionSourceIcon(connection: KnownConnection) {
+  if (connection.source === 'managed' || connection.infrastructure?.targetId === 'local') {
+    return LaptopIcon;
+  }
+  if (connection.infrastructure) return TerminalSquareIcon;
+  return ServerIcon;
 }
 
 function knownCandidate(connection: KnownConnection): ConnectionSettings {
@@ -102,10 +104,10 @@ export function ConnectionPage() {
   } = useConnectionSettings();
   // The DEFAULT view: every CLIO the person can click without typing an
   // address (recents, the desktop-managed local service, reachable
-  // Infrastructure deployments — see the hook). The manual "Connect by
+  // Infrastructure deployments â€” see the hook). The manual "Connect by
   // address" form is secondary, reached only through `manualModeRequested`
   // (an explicit "Add a service" click) or because there is nothing known
-  // yet to list at all — CLIO is for non-technical people, and ip:port is
+  // yet to list at all â€” CLIO is for non-technical people, and ip:port is
   // the non-default way in.
   const knownConnections = useKnownConnections();
   const initialKnownConnection =
@@ -331,7 +333,7 @@ export function ConnectionPage() {
     mutation.reset();
   };
   const submitLabel = mutation.isPending
-    ? 'Connecting…'
+    ? 'Connectingâ€¦'
     : showManualForm
       ? 'Connect'
       : 'Open workspace';
@@ -340,7 +342,7 @@ export function ConnectionPage() {
     knownMode &&
     selectedConnection !== undefined &&
     availabilityFailed(availabilityAfterAttempt(selectedConnection, mutation));
-  // The row already carries "no answer from …", so the form does not repeat it.
+  // The row already carries "no answer from â€¦", so the form does not repeat it.
   const errorShownInRow =
     selectedFailed &&
     selectedConnection !== undefined &&
@@ -450,7 +452,7 @@ export function ConnectionPage() {
                 >
                   {knownConnections.map((connection) => {
                     const selected = connection.endpoint === selectedEndpoint;
-                    const Icon = connectionSourceIcon(connection.source);
+                    const Icon = connectionSourceIcon(connection);
                     const host = new URL(connection.endpoint).host;
                     const name = connection.label || host;
                     const availability = availabilityAfterAttempt(connection, mutation);
@@ -577,7 +579,6 @@ export function ConnectionPage() {
                     mutation.error instanceof InfrastructureTargetGoneError &&
                     mutation.variables ? (
                       <Button
-                        className="px-[9px] text-[11.5px]"
                         onClick={() => {
                           const goneEndpoint = mutation.variables.endpoint;
                           void forget(goneEndpoint);
@@ -588,7 +589,7 @@ export function ConnectionPage() {
                           );
                           setDeployOpen(true);
                         }}
-                        size="xs"
+                        size="compact"
                         type="button"
                         variant="outline"
                       >

@@ -1,5 +1,10 @@
 import { toolResultRecord, asRecord } from './tool-result-shared';
-import type { AttentionBlock, ToolInvocation, WorkspaceResource } from '@clio/core/v3';
+import type {
+  AttentionBlock,
+  PendingInteraction,
+  ToolInvocation,
+  WorkspaceResource,
+} from '@clio/core/v3';
 import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
@@ -18,6 +23,7 @@ import { flowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
+import { WaitingForYou } from './agent-answer-activity';
 import { ActivityInfoButton } from './activity-row';
 import { TechnicalDetailsLink, ToolTechnicalDetailsDialog } from './tool-technical-details';
 import { useToolDuration } from './use-tool-duration';
@@ -52,8 +58,11 @@ export function ClioToolInvocation({
   compact = false,
   surface = 'transcript',
   flowResult = true,
+  waitingFor,
 }: {
   tool?: ToolInvocation;
+  /** The user's pending answer this call is paused on; its row says "waiting for you". */
+  waitingFor?: PendingInteraction;
   defaultOpen?: boolean;
   embedded?: boolean;
   compact?: boolean;
@@ -204,6 +213,7 @@ export function ClioToolInvocation({
           onExpandedChange={setResultOpen}
           duration={duration}
           surface={surface}
+          waiting={waitingFor ? <WaitingForYou interaction={waitingFor} /> : undefined}
           // A call the sandbox blocked says so before it is opened (#1905).
           badge={boundary ? <SandboxBoundaryBadge boundary={boundary} /> : undefined}
           attention={

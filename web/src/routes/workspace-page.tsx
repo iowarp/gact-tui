@@ -193,9 +193,18 @@ export function WorkspacePage() {
       revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
+        artifacts: entities.artifacts,
+        onOpenArtifact: openArtifact,
         capabilityError: data.interactionCapabilityError ?? undefined,
         error: data.interactionsError ?? undefined,
         onRefetchSurfaces: data.refetchInteractionSurfaces,
+        onOpenScript: (interaction, callId) =>
+          revealWorkbench({
+            kind: 'tool-call',
+            callId,
+            sessionId: interaction.owner_session_id,
+            label: 'Script',
+          }),
         ownerLabels: interactionOwnerLabels,
         surfaces: data.interactionSurfaces,
         viewedSessionId: sessionId,
@@ -226,22 +235,34 @@ export function WorkspacePage() {
       sessionLookupPending)
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
+    // Mirror the hydrated tree's providers and shell key so finishing hydration
+    // updates the shell in place instead of remounting the sidebar (which would
+    // close any menu opened while the conversation was loading).
     return (
-      <>
-        <ClioCommandMenu onOpenResource={revealWorkbench} />
-        <ClioAppShell
-          navigation={sideNavigation}
-          contextBar={
-            <div className="min-w-0 truncate text-sm font-medium">
-              {rememberedSession?.title ?? 'Opening conversation'}
-            </div>
-          }
-          statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
-          workbench={<div aria-label="Workspace canvas loading" className="h-full bg-background" />}
-        >
-          <WorkspaceHydrating />
-        </ClioAppShell>
-      </>
+      <WorkspaceSessionProviders
+        workspaceId={workspaceId}
+        sessionId={sessionId}
+        attention={attention.availability}
+      >
+        <QuestionAnswerContext.Provider value={questionAnswering.context}>
+          <ClioCommandMenu onOpenResource={revealWorkbench} />
+          <ClioAppShell
+            key="shell"
+            navigation={sideNavigation}
+            contextBar={
+              <div className="min-w-0 truncate text-sm font-medium">
+                {rememberedSession?.title ?? 'Opening conversation'}
+              </div>
+            }
+            statusStrip={<WorkspaceLiveStatusStrip work={work} sessionId={sessionId} />}
+            workbench={
+              <div aria-label="Workspace canvas loading" className="h-full bg-background" />
+            }
+          >
+            <WorkspaceHydrating />
+          </ClioAppShell>
+        </QuestionAnswerContext.Provider>
+      </WorkspaceSessionProviders>
     );
   }
   if (queryError && !session) {
@@ -317,6 +338,7 @@ export function WorkspacePage() {
           workspaceId={workspaceId}
         />
         <ClioAppShell
+          key="shell"
           toolbarActions={
             <WorkspaceObservabilityDock
               data={data}

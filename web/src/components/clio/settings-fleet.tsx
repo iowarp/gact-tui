@@ -81,12 +81,14 @@ export function FleetSettingsPanel() {
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <StateView
-          action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
-          kind="error"
-          size="row"
-          title="Helper models could not be loaded."
-        />
+        <div className="w-full @3xl:w-[60%]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+            kind="error"
+            size="row"
+            title={fleet.error?.message || 'The agent could not load the helper models.'}
+          />
+        </div>
       </section>
     );
   const data = fleet.data;
@@ -119,11 +121,13 @@ export function FleetSettingsPanel() {
     return (
       // The select fills the value column; inline-size containment keeps a long
       // model name from widening that column, so every select shares one left
-      // edge. The reset sits just outside it, in the gap before the column.
+      // edge. The reset sits just outside it, in the gap before the column; when
+      // the row stacks it moves up to the end of the label line, so the select
+      // keeps the row's full width.
       <div className="relative flex w-full min-w-0 items-center gap-2 [contain:inline-size]">
         {choice ? (
           <IconButton
-            className="@md:absolute @md:right-full @md:mr-2"
+            className="absolute right-0 bottom-[calc(100%+0.375rem)] @md:right-full @md:bottom-auto @md:mr-2 max-[1023px]:in-data-window-content:right-0! max-[1023px]:in-data-window-content:bottom-[calc(100%+0.375rem)]! max-[1023px]:in-data-window-content:mr-0!"
             disabled={save.isPending}
             icon={<Undo2Icon />}
             label="Use conversation model"
