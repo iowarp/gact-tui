@@ -2,12 +2,11 @@ import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
-import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { AskButton, AskCard, AskError, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { PlanDecision, PlanDecisionControls } from './plan-decision-controls';
 import { planArtifact } from './plan-artifact';
@@ -297,18 +296,6 @@ export function PlanExitResponse({
   return (
     <AskCard
       data-interaction-kind="plan_exit"
-      headerActions={
-        actions.includes('cancel') ? (
-          <IconButton
-            {...askKeyAttributes(['Escape'])}
-            disabled={disabled}
-            icon={<CloseIcon aria-hidden="true" />}
-            label="Dismiss plan review"
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'cancel' }))}
-            size="sm"
-          />
-        ) : undefined
-      }
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="plan"

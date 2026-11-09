@@ -1,4 +1,5 @@
 import {
+  createContext,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -21,12 +22,13 @@ import { Button } from '@/components/ui/button';
 import type { highlightCode } from '@/components/ai-elements/code-block';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
-import { TechnicalDetails } from './technical-details';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -35,14 +37,15 @@ import { TechnicalDetails } from './technical-details';
  */
 export type AskKind = 'question' | 'permission' | 'plan' | 'verify';
 
+// A question is amber in every theme: `question`, not `action`, which a brand may recolor.
 const EDGE: Record<AskKind, string> = {
-  question: 'border-l-action',
+  question: 'border-l-question',
   permission: 'border-l-warning',
   plan: 'border-l-primary',
   verify: 'border-l-info',
 };
 const TONE: Record<AskKind, string> = {
-  question: 'text-action',
+  question: 'text-question',
   permission: 'text-warning',
   plan: 'text-primary',
   verify: 'text-info',
@@ -110,6 +113,9 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   headerActions?: ReactNode;
 }
 
+/** The card's title as text, so its Technical details dialog can name it. */
+const AskTitleContext = createContext<string | undefined>(undefined);
+
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
 export function AskCard({
   kind,
@@ -136,14 +142,14 @@ export function AskCard({
       }}
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
-        // and the options stay. Open Technical details lift the cap; the dock scrolls the card.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
+        // and the options stay. Technical details open in a dialog, so the cap holds.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
         EDGE[kind],
         className,
       )}
       {...props}
     >
-      {/* With Technical details open the dock scrolls the card; the title and pager stay. The
+      {/* When the dock scrolls an uncapped card, the title and pager stay. The
           header repeats the card's top edge (border, radius, kind edge) so it stays with them, and
           shows a hairline once content scrolls under it. */}
       <header
@@ -181,7 +187,7 @@ export function AskCard({
           {owner}
         </div>
       ) : null}
-      {children}
+      <AskTitleContext.Provider value={titleText}>{children}</AskTitleContext.Provider>
     </section>
   );
 }
@@ -421,35 +427,67 @@ export function AskHint({
   );
 }
 
-/** Technical details: collapsed, small, under a rule; D opens it. */
+/** Technical details: a quiet line under the options; it or D opens them in the dialog frame. */
 export function AskDetails({
   children,
   title = 'Technical details',
-  hint,
+  description,
 }: {
   children: ReactNode;
   title?: string;
-  hint?: string;
+  /** What is inside, under the dialog's title. */
+  description?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const subject = useContext(AskTitleContext);
+  // Radix returns focus only to its own trigger; give it back to the card or button that opened it.
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open || !opener.current) return;
+    opener.current.focus({ preventScroll: true });
+    opener.current = null;
+  }, [open]);
   return (
-    <AskSection className="mt-2 shrink-0 scroll-mb-3" data-slot="ask-details" ref={ref}>
-      <TechnicalDetails
-        className="text-[11.5px] text-muted-foreground"
-        contentClassName="mt-1"
-        hint={hint}
-        // Opening lifts the card's cap; bring the details into the dock's view.
-        onOpenChange={(open) => {
-          if (open)
-            requestAnimationFrame(() => ref.current?.scrollIntoView?.({ block: 'nearest' }));
+    <AskSection
+      className="mt-2 shrink-0 text-[11.5px] text-muted-foreground"
+      data-slot="ask-details"
+    >
+      <button
+        {...askKeyAttributes(['d'])}
+        aria-haspopup="dialog"
+        className="flex h-6 w-fit cursor-pointer items-center gap-1 whitespace-nowrap outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={(event) => {
+          const active = document.activeElement;
+          opener.current =
+            active instanceof HTMLElement && active !== document.body
+              ? active
+              : event.currentTarget;
+          setOpen(true);
         }}
-        shortcut="D"
-        summaryClassName="h-6 font-normal"
-        title={title}
-        triggerProps={askKeyAttributes(['d'])}
+        type="button"
       >
-        {children}
-      </TechnicalDetails>
+        <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0" />
+        {title}
+        <AskKeyChip askKey="d" className="ml-1" />
+      </button>
+      <DialogFrame
+        className="w-[clamp(360px,56vw,760px)]"
+        description={description}
+        icon={<InfoIcon className="size-4" />}
+        onOpenChange={setOpen}
+        open={open}
+        title={subject ? `${subject}: ${title}` : title}
+      >
+        <div
+          aria-label={title}
+          className="-mr-3 grid max-h-[65dvh] min-w-0 gap-3 overflow-auto overscroll-contain pr-3 pb-2 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]"
+          data-slot="ask-details-body"
+          role="region"
+          tabIndex={0}
+        >
+          {children}
+        </div>
+      </DialogFrame>
     </AskSection>
   );
 }
