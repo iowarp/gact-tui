@@ -94,7 +94,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   onProviderChange,
 }: ModelPickerCatalogProps) {
   const [query, setQuery] = useState('');
-  // ONE state, ONE footer button (v15 ruling): "Hidden (N)" IS the manage
+  // ONE state, ONE footer button (v15 ruling): "Hidden N" IS the manage
   // action. On: every row -- hidden or shown, configured or not -- appears,
   // and the eye toggle on each becomes interactive. Off: hidden providers
   // (and not-yet-configured presets) drop back out of the list.
@@ -237,6 +237,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   return (
     <Cascader
       closeOnSelect={false}
+      estimateRowSize={30}
       indicator
       inline
       inputValue={query}
@@ -346,8 +347,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           search.searching && '[&_[data-slot=cascader-item-trailing]]:hidden',
         )}
       >
-        <CascaderNav>
-          <div className="flex w-full min-w-0 items-center gap-1 pe-8">
+        <CascaderNav className="gap-0 border-border p-0">
+          <div className="flex w-full min-w-0 items-center">
             <ModelPickerSearch
               availableTokens={tree.availableTokens}
               onQueryChange={handleQueryChange}
@@ -357,6 +358,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               onFacetsOpenChange={setFacetsOpen}
               onTokensChange={setTokens}
               query={query}
+              quietTokens={DEFAULT_FILTER_TOKENS}
               shown={search.matches}
               tokens={tokens}
               total={search.total}
@@ -411,14 +413,14 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         )}
         <CascaderFooter className="mt-auto p-0">
           <PickerFooter
-            className="h-10 border-t-0 px-2"
+            className="h-9 border-t-0 px-2"
             end={
               <Button
                 aria-pressed={managingVisibility}
-                className="shrink-0"
+                className="shrink-0 text-[11.5px] font-normal text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
                 data-slot="provider-visibility-mode"
                 onClick={() => setManagingVisibility((current) => !current)}
-                size="sm"
+                size="xs"
                 type="button"
                 variant={managingVisibility ? 'secondary' : 'ghost'}
               >
@@ -427,21 +429,34 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 ) : (
                   <EyeIcon data-icon="inline-start" />
                 )}
-                {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
+                {managingVisibility ? 'Done' : `Hidden ${hiddenProviders.size}`}
               </Button>
             }
             hints={footerHints(showColumns)}
             start={
-              loading || prepared.size < visibleProviders.length ? (
-                <LoadingFeedback
-                  label={loading ? 'Refreshing models…' : 'Loading remaining models…'}
-                />
-              ) : search.emptyProviders ? (
-                <span className="min-w-0 truncate" data-slot="providers-without-matches">
-                  {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
-                  with no matches
-                </span>
-              ) : null
+              <>
+                {panel.column.bar ? (
+                  <div
+                    className={cn(
+                      '-ms-2 h-full shrink-0 border-e',
+                      showColumns ? 'w-[calc(50%-.5px)]' : 'w-[min(60%,22rem)]',
+                    )}
+                    data-slot="picker-provider-bar"
+                  >
+                    {panel.column.bar}
+                  </div>
+                ) : null}
+                {loading || prepared.size < visibleProviders.length ? (
+                  <LoadingFeedback
+                    label={loading ? 'Refreshing models…' : 'Loading remaining models…'}
+                  />
+                ) : search.emptyProviders ? (
+                  <span className="min-w-0 truncate" data-slot="providers-without-matches">
+                    {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
+                    with no matches
+                  </span>
+                ) : null}
+              </>
             }
           />
         </CascaderFooter>

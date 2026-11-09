@@ -12,14 +12,16 @@ import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-foote
 import { providerActionError } from './provider-setup-state';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
 import { Button } from '@/components/ui/button';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { NamedTooltip } from './primitives/icon-button';
 import { Link, useInRouterContext } from 'react-router-dom';
 
 export interface ProviderPanelColumn {
   /** The column's content when it has no rows (setup, or a log in). */
   empty?: ReactNode;
+  /** Setup under the providers: the endpoint editor and client status. */
   footer?: ReactNode;
+  /** The provider bar: the picker footer's leading segment. */
+  bar?: ReactNode;
 }
 
 /**
@@ -132,33 +134,24 @@ export function useProviderPanel({ group, preset, open, notice, onClose }: UsePr
       : preset.requires_api_key
         ? { label: 'Remove key', run: () => providerActions.removeApiKey.mutate(), busy: false }
         : undefined;
-  const column: ProviderPanelColumn = usable
-    ? {
-        footer: (
-          <>
-            {setup}
-            <ProviderPanelFooter
-              actions={providerActions}
-              error={notice ?? providerActionError(providerActions, group)}
-              info={providerActions.refreshNotice}
-              settings={settings}
-              logOut={logOut}
-            />
-          </>
-        ),
-      }
-    : {
-        empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} />,
-        footer: (
-          <>
-            {setup}
-            <TooltipProvider disableHoverableContent>
-              <div className="flex h-9 shrink-0 items-center justify-end border-t px-1.5">
-                {settings}
-              </div>
-            </TooltipProvider>
-          </>
-        ),
-      };
+  const hasSetup = Boolean(preset) || Boolean(componentStatus);
+  const column: ProviderPanelColumn = {
+    ...(usable
+      ? {}
+      : { empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} /> }),
+    footer: hasSetup ? setup : undefined,
+    bar: usable ? (
+      <ProviderPanelFooter
+        actions={providerActions}
+        error={notice ?? providerActionError(providerActions, group)}
+        group={group}
+        info={providerActions.refreshNotice}
+        settings={settings}
+        logOut={logOut}
+      />
+    ) : (
+      <ProviderPanelFooter group={group} settings={settings} />
+    ),
+  };
   return { column, stage };
 }
