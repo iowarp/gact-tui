@@ -79,7 +79,8 @@ export function NavigationHeader({
                 <span className="grid size-6 shrink-0 place-items-center text-primary">
                   <BrandIcon className="size-5" />
                 </span>
-                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                {/* Folded, the name stays for assistive technology: the icon alone has none. */}
+                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:sr-only">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
                     <TooltipProvider delayDuration={150}>

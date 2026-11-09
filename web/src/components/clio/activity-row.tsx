@@ -175,7 +175,12 @@ export const ActivityRow = memo(
           title={name}
           description={
             <>
-              {link ? <span className="flex min-w-0 shrink-0 items-center">{link}</span> : null}
+              {link ? (
+                // The agent name stays whole when it fits; if the row is narrower, it ends in …
+                <span className="flex min-w-0 max-w-[min(16rem,100%)] shrink-0 items-center [&>*]:min-w-0">
+                  {link}
+                </span>
+              ) : null}
               {argument !== undefined && argument !== null && argument !== '' ? (
                 <span
                   data-slot="activity-argument"

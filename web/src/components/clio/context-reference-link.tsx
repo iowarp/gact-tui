@@ -43,7 +43,7 @@ export function ContextReferenceLink({
       title={kind}
       type="button"
     >
-      {createElement(referenceKindIcon(block.ref_kind), {
+      {createElement(referenceKindIcon(block.ref_kind, block.label), {
         'aria-hidden': 'true',
         className: 'size-3.5 shrink-0',
       })}

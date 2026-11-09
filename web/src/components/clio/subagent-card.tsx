@@ -76,7 +76,7 @@ function AgentLink({
   const navigation = useContext(PresentationNavigation);
   const open = onOpen ?? navigation?.onOpenSubagent;
   const className =
-    'max-w-[16rem] truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
+    'max-w-full truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-[3px]';
   if (!subagent?.child_session_id || !open) {
     return (
       <span className={className.replace(/ underline.*$/u, '')} data-slot="delegate-agent">
@@ -128,7 +128,7 @@ function DelegateDetailsDialog({
       : []),
     ...(subagent ? [{ label: 'State', value: clioStatusLabel(subagent.state) }] : []),
     ...(subagent?.duration_ms !== undefined
-      ? [{ label: 'Execution time', value: formatDuration(subagent.duration_ms, 'tenths') }]
+      ? [{ label: 'Execution time', value: formatDuration(subagent.duration_ms, 'elapsed') }]
       : []),
     ...(subagent?.origin ? [{ label: 'Skill', value: subagent.origin.name, mono: true }] : []),
   ];
