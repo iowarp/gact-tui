@@ -1,17 +1,26 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import { CircleArrowUpIcon, LoaderCircleIcon } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import {
+  CircleArrowUpIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  LoaderCircleIcon,
+  LogInIcon,
+} from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
 import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
-import { providerCredentialKind } from '@/lib/provider-availability';
+import { providerCredentialKind, providerNeedsReauthentication } from '@/lib/provider-availability';
 import { providerManagedClientVendor } from '@/lib/provider-presentation';
-import { SettingsIcon } from '@/lib/icon-vocabulary';
+import { CheckConnectionIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { useProviderActions } from './provider-actions';
+import { ProviderLoginButton } from './provider-login-button';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
-import { providerActionError } from './provider-setup-state';
+import { ProviderSetupAction } from './provider-setup-action';
+import { providerActionError, providerSetupFlow } from './provider-setup-state';
+import { RefreshButton } from './refresh-button';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -27,6 +36,8 @@ export interface ProviderPanelColumn {
   bar?: ReactNode;
   /** One column: the same actions as the row that ends the provider's group. */
   manage?: ReactNode;
+  /** Under the manage row while a fix needs the person: the key field or the sign-in hand-off. */
+  manageDetail?: ReactNode;
 }
 
 /**
@@ -65,6 +76,7 @@ export function useProviderPanel({
   foldActions = false,
 }: UseProviderPanelInput) {
   const inRouter = useInRouterContext();
+  const [keyEntry, setKeyEntry] = useState(false);
   const providerActions = useProviderActions({
     presetId: group?.id ?? '',
     apiBase: group?.endpoint ?? preset?.api_base ?? '',
@@ -186,21 +198,136 @@ export function useProviderPanel({
     </Button>
   ) : null;
   const manageSettings = settingsLink('size-[22px] [&_svg]:size-[13px]');
-  const settingsItem = (
+  const settingsMenuItem = (label: string) => (
     <DropdownMenuItem asChild>
       {inRouter ? (
         <Link to={settingsHref} onClick={onClose}>
           {settingsIcon}
-          Provider settings
+          {label}
         </Link>
       ) : (
         <a href={settingsHref} onClick={onClose}>
           {settingsIcon}
-          Provider settings
+          {label}
         </a>
       )}
     </DropdownMenuItem>
   );
+  const settingsItem = settingsMenuItem('Provider settings');
+  // A provider that is not usable yet ends its group with its one fix, inline:
+  // the Log in split, Add key, Install or Check again (the spec's provider bar).
+  const flow = providerSetupFlow(group, preset);
+  const refused = providerNeedsReauthentication(preset, group.failure);
+  const setupBusy = Boolean(providerActions.stage);
+  const logIn = () => providerActions.authenticate.mutate('browser');
+  const useCode =
+    preset?.provider === 'codex' ? () => providerActions.authenticate.mutate('device') : undefined;
+  const checkLabel = group.health === 'setup' ? 'Check' : 'Check again';
+  const compactButton = 'h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px]';
+  const manageSetup =
+    flow === 'sign_in' ? (
+      <ProviderLoginButton
+        disabled={setupBusy}
+        label={refused ? 'Sign in again' : 'Log in'}
+        menuItems={settingsMenuItem('Set up in provider settings')}
+        onLogIn={logIn}
+        onUseCode={useCode}
+        size="xs"
+      />
+    ) : flow === 'api_key' ? (
+      <Button
+        aria-expanded={keyEntry}
+        className={compactButton}
+        disabled={setupBusy}
+        onClick={() => setKeyEntry((current) => !current)}
+        size="xs"
+        type="button"
+        variant="outline"
+      >
+        <KeyRoundIcon data-icon="inline-start" />
+        Add key
+      </Button>
+    ) : flow === 'install' ? (
+      <Button
+        className={compactButton}
+        disabled={setupBusy}
+        onClick={() => providerActions.installProvider.mutate()}
+        size="xs"
+        type="button"
+        variant="outline"
+      >
+        <DownloadIcon data-icon="inline-start" />
+        Install
+      </Button>
+    ) : (
+      <RefreshButton
+        className="size-[22px] shrink-0 text-muted-foreground hover:text-foreground [&_svg]:size-[13px]"
+        disabled={setupBusy}
+        iconOnly
+        idleIcon={CheckConnectionIcon}
+        label={checkLabel}
+        onRefresh={() => providerActions.handshake.mutateAsync()}
+        refreshing={providerActions.handshake.isPending}
+        size="icon-xs"
+        type="button"
+        variant="ghost"
+      />
+    );
+  const manageSetupItems =
+    flow === 'sign_in' ? (
+      <>
+        <DropdownMenuItem disabled={setupBusy} onSelect={logIn}>
+          <LogInIcon aria-hidden="true" />
+          {refused ? 'Sign in again' : 'Log in'}
+        </DropdownMenuItem>
+        {useCode ? (
+          <DropdownMenuItem disabled={setupBusy} onSelect={useCode}>
+            Log in with a code instead
+          </DropdownMenuItem>
+        ) : null}
+      </>
+    ) : flow === 'api_key' ? (
+      <DropdownMenuItem disabled={setupBusy} onSelect={() => setKeyEntry(true)}>
+        <KeyRoundIcon aria-hidden="true" />
+        Add key
+      </DropdownMenuItem>
+    ) : flow === 'install' ? (
+      <DropdownMenuItem
+        disabled={setupBusy}
+        onSelect={() => providerActions.installProvider.mutate()}
+      >
+        <DownloadIcon aria-hidden="true" />
+        Install
+      </DropdownMenuItem>
+    ) : (
+      <DropdownMenuItem
+        disabled={setupBusy}
+        onSelect={() => void providerActions.handshake.mutateAsync()}
+      >
+        <CheckConnectionIcon aria-hidden="true" />
+        {checkLabel}
+      </DropdownMenuItem>
+    );
+  // The key field, or the sign-in hand-off (browser, code, paste) while a log in waits.
+  const manageDetail =
+    !usable && (providerActions.authFlow || (keyEntry && flow === 'api_key')) ? (
+      <div
+        className="w-full ps-6 pe-2 pb-2"
+        data-slot="provider-manage-detail"
+        // The list's arrow and Enter keys stay with the picker's search field.
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        <ProviderSetupAction
+          actions={providerActions}
+          align="start"
+          flow={flow}
+          loginLabel={refused ? 'Sign in again' : undefined}
+          offerCode={Boolean(useCode)}
+          preset={preset}
+          providerLabel={group.name}
+        />
+      </div>
+    ) : undefined;
   const column: ProviderPanelColumn = {
     ...(usable
       ? {}
@@ -235,14 +362,19 @@ export function useProviderPanel({
       />
     ) : (
       <ProviderPanelFooter
+        actions={providerActions}
+        error={providerActionError(providerActions, group)}
         group={group}
         settings={manageSettings}
         settingsItem={settingsItem}
+        setup={manageSetup}
+        setupItems={manageSetupItems}
         fold={foldActions}
         update={update}
         variant="manage"
       />
     ),
+    manageDetail,
   };
   return { column, stage };
 }

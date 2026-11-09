@@ -33,6 +33,8 @@ import {
 } from '@/lib/model-filter-tokens';
 import {
   MANAGE_NODE_PREFIX,
+  MODEL_NODE_PREFIX,
+  MORE_NODE_PREFIX,
   modelNodeValue,
   PROVIDER_NODE_PREFIX,
   type PickerNodeData,
@@ -182,6 +184,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     query,
   });
   const { toggleCollapsed, matchesText, searching } = search;
+  // One column lists a few of each provider's models, then "N more" opens the rest.
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
   const providerNodes = useMemo(() => {
     if (grouped) {
       // One flat list: each provider's header, then its models and the manage
@@ -202,11 +206,20 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 },
               ]
             : [];
-        return [{ ...header, hasChildren: true }, ...(children ?? []), ...manage];
+        return [
+          { ...header, hasChildren: true },
+          ...previewModels(
+            children ?? [],
+            group,
+            searching || openGroups.has(group?.id ?? ''),
+            provider && model ? `${provider}:${model}` : '',
+          ),
+          ...manage,
+        ];
       });
     }
     return searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded);
-  }, [grouped, tree.nodes, alcfExpanded, searching, search.collapsed]);
+  }, [grouped, tree.nodes, alcfExpanded, searching, search.collapsed, openGroups, provider, model]);
   const { facetTabs, maxInputPrice } = useModelPickerFacets(
     tree.entries,
     tokens,
@@ -288,6 +301,11 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       onPathChange={(nextPath, details) => {
         const header = nextPath.length === 1 ? nextPath[0] : undefined;
         if (grouped) {
+          if (details.reason === 'drill' && header?.startsWith(MORE_NODE_PREFIX)) {
+            const groupId = header.slice(MORE_NODE_PREFIX.length);
+            setOpenGroups((current) => new Set(current).add(groupId));
+            return;
+          }
           if (details.reason === 'drill' && header?.startsWith(PROVIDER_NODE_PREFIX)) {
             const groupId = header.slice(PROVIDER_NODE_PREFIX.length);
             toggleCollapsed(groupId);
@@ -348,6 +366,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       }
       renderLabel={(node, state) => (
         <PickerRowLabel
+          flush={grouped}
           stage={
             node.data?.kind === 'provider' && node.data.group.id === activeGroup?.id
               ? activeStage
@@ -457,9 +476,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             <CascaderList className="w-full flex-1" maxHeight="100%">
               <CascaderVirtualItems />
             </CascaderList>
-            {/* Each group's manage row carries its actions; a provider that is
-                not usable yet shows how to set it up below the list. */}
-            {activeGroup ? (loadingModels ? loadingPanel : panel.column.empty) : null}
+            {/* Each group's manage row carries its actions and, for a provider
+                that is not usable yet, its fix. */}
+            {activeGroup && loadingModels ? loadingPanel : null}
           </>
         )}
         <CascaderFooter className="mt-auto p-0">
@@ -484,6 +503,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               </Button>
             }
             hints={footerHints(showColumns)}
+            hintsAlign={showColumns ? 'end' : 'start'}
             start={
               <>
                 {showColumns && panel.column.bar ? (
@@ -513,6 +533,38 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     </Cascader>
   );
 });
+
+/** One column: models a provider's group lists before its "N more" row. */
+const GROUP_PREVIEW = 3;
+
+/**
+ * A provider's first models in one column, the chosen one always among them,
+ * then a dim "N more" row that opens the rest (all of them while searching).
+ */
+function previewModels(
+  children: CascaderNode<PickerNodeData>[],
+  group: ProviderGroup | undefined,
+  all: boolean,
+  /** `provider:model` of the chosen model, or empty. */
+  chosenKey: string,
+): CascaderNode<PickerNodeData>[] {
+  if (all || !group || children.length <= GROUP_PREVIEW + 1) return children;
+  let shown = children.slice(0, GROUP_PREVIEW);
+  const chosen = chosenKey
+    ? children.findIndex((child) => child.value === MODEL_NODE_PREFIX + chosenKey)
+    : -1;
+  if (chosen >= GROUP_PREVIEW) shown = [...shown.slice(0, -1), children[chosen]!];
+  const hidden = children.length - shown.length;
+  return [
+    ...shown,
+    {
+      value: MORE_NODE_PREFIX + group.id,
+      label: `${hidden} more`,
+      hasChildren: true,
+      data: { kind: 'provider-more', group, hidden },
+    },
+  ];
+}
 
 /**
  * Word, then key: the picker's keys. One column keeps only Choose and Close

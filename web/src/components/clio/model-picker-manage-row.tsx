@@ -12,6 +12,8 @@ interface ProviderManageRowProps {
 /**
  * One column: the row that ends a provider's group, with its status and the
  * provider bar's actions (pickers-search.html, "a manage row ends each group").
+ * A provider that is not usable yet offers its fix there, and the key field
+ * or sign-in hand-off opens under it while it needs the person.
  */
 export function ProviderManageRow({ group, preset, onClose, fold }: ProviderManageRowProps) {
   const panel = useProviderPanel({
@@ -22,5 +24,11 @@ export function ProviderManageRow({ group, preset, onClose, fold }: ProviderMana
     autoCheck: false,
     foldActions: fold,
   });
-  return panel.column.manage ?? null;
+  if (!panel.column.manageDetail) return panel.column.manage ?? null;
+  return (
+    <div className="flex w-full min-w-0 flex-col">
+      {panel.column.manage}
+      {panel.column.manageDetail}
+    </div>
+  );
 }

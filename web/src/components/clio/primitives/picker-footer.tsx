@@ -22,6 +22,8 @@ interface PickerFooterProps {
   start?: ReactNode;
   /** Right edge: a hidden-items count. */
   end?: ReactNode;
+  /** `start`: the hints lead the line (a narrow picker), `end` stays free. */
+  hintsAlign?: 'start' | 'end';
   className?: string;
 }
 
@@ -34,6 +36,7 @@ export const PickerFooter = memo(function PickerFooter({
   hints,
   start,
   end,
+  hintsAlign = 'end',
   className,
 }: PickerFooterProps) {
   return (
@@ -49,7 +52,9 @@ export const PickerFooter = memo(function PickerFooter({
       <span
         className={cn(
           'flex h-5 min-w-0 flex-wrap items-center gap-x-3 gap-y-4 overflow-hidden',
-          hints.some((hint) => hint.end) ? 'flex-1' : 'ml-auto justify-end',
+          hintsAlign === 'start' || hints.some((hint) => hint.end)
+            ? 'flex-1'
+            : 'ml-auto justify-end',
         )}
       >
         {hints.map((hint) => {

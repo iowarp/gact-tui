@@ -205,6 +205,35 @@ describe('ClioModelPicker: a usable provider', () => {
 });
 
 describe('ClioModelPicker: a provider that is not usable yet', () => {
+  it('one column: its manage row offers Log in, and the sign-in hand-off opens under it', async () => {
+    setWideViewport(false);
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-1',
+      browser: {
+        authorization_url: 'https://auth.openai.com/oauth/authorize?state=1',
+        loopback: true,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending', reason: '' });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    const manage = await screen.findByRole('group', { name: 'Manage Codex' });
+    expect(manage).toHaveTextContent('Needs sign-in');
+    expect(repository.authenticateProvider).not.toHaveBeenCalled();
+
+    await user.click(within(manage).getByRole('button', { name: 'Log in' }));
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', {
+        force: true,
+        method: 'browser',
+      }),
+    );
+    expect(await screen.findByLabelText('Complete Codex sign-in')).toBeVisible();
+  });
+
   it('signed out: one sentence and Log in; opening it never starts a flow', async () => {
     repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
     const user = await open([codexProviderRow, options[1]!]);

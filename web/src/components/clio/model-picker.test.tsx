@@ -307,6 +307,35 @@ describe('ClioModelPicker', () => {
     expect(screen.getByText('Luna')).toBeVisible();
   });
 
+  it('one column lists a few models per provider, keeps the chosen one, and "N more" opens the rest', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    const vllm = Array.from({ length: 7 }, (_, index) => ({
+      ...options[1]!,
+      id: `model-${index}`,
+      label: `Model ${index}`,
+    }));
+    renderPicker(
+      <ClioModelPicker
+        model="model-6"
+        onChange={vi.fn()}
+        options={[options[0]!, ...vllm]}
+        provider="local-vllm"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.getByText('Model 0')).toBeVisible();
+    expect(screen.queryByText('Model 2')).not.toBeInTheDocument();
+    expect(screen.getByText('Model 6')).toBeVisible();
+    await user.click(screen.getByRole('option', { name: /^4 more/ }));
+    for (let index = 0; index < 7; index += 1) {
+      expect(screen.getByText(`Model ${index}`)).toBeVisible();
+    }
+    expect(screen.queryByRole('option', { name: /more$/ })).not.toBeInTheDocument();
+  });
+
   it('reports unavailable provider failures once instead of listing fake models', async () => {
     const user = userEvent.setup();
     renderPicker(

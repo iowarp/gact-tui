@@ -49,6 +49,13 @@ interface ProviderPanelFooterProps {
   fold?: boolean;
   /** Settings as a More menu item, for `fold`. */
   settingsItem?: ReactNode;
+  /**
+   * A provider that is not usable yet: its one fix (the Log in split, Add key,
+   * Install or Check again) in place of Refresh and Reload models.
+   */
+  setup?: ReactNode;
+  /** The same fix as More menu items, for `fold`. */
+  setupItems?: ReactNode;
   className?: string;
 }
 
@@ -82,12 +89,17 @@ export function ProviderPanelFooter({
   update,
   fold = false,
   settingsItem,
+  setup,
+  setupItems,
   className,
 }: ProviderPanelFooterProps) {
   const busy = Boolean(actions?.stage) || Boolean(logOut?.busy);
   const age = group.freshness ? freshnessAge(group.freshness) : undefined;
   const manage = variant === 'manage';
   const status = providerGroupStatus(group);
+  const ready = group.health === 'healthy';
+  // A provider fixing itself offers its fix, not the check and reload of a usable one.
+  const providerActions = setup === undefined ? actions : undefined;
   const iconClass = manage ? 'size-[22px] [&_svg]:size-[13px]' : undefined;
   return (
     <TooltipProvider disableHoverableContent>
@@ -129,12 +141,23 @@ export function ProviderPanelFooter({
           data-slot="provider-bar-status"
         />
         {manage && !actions?.stage && !error && !(!busy && info) ? (
+          // Ready reads as its age alone ("● 2m"); anything else says what is wrong.
           <span
-            className="min-w-0 flex-1 truncate"
+            className={cn('min-w-0 flex-1 truncate', !ready && status.color)}
             data-slot="provider-manage-status"
-            title={group.freshness ? `Checked ${formatFreshness(group.freshness)}` : group.detail}
+            title={
+              (!ready && group.detail) ||
+              (group.freshness ? `Checked ${formatFreshness(group.freshness)}` : group.detail)
+            }
           >
-            {age ? `${status.label}, ${age}` : status.label}
+            {ready && age ? (
+              <>
+                <span className="sr-only">{status.label}, checked </span>
+                {age}
+              </>
+            ) : (
+              status.label
+            )}
           </span>
         ) : null}
         {age && !manage && !actions?.stage ? (
@@ -182,18 +205,19 @@ export function ProviderPanelFooter({
               />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-44" side="top">
-              {actions ? (
+              {setupItems}
+              {providerActions ? (
                 <>
                   <DropdownMenuItem
                     disabled={busy}
-                    onSelect={() => void actions.handshake.mutateAsync()}
+                    onSelect={() => void providerActions.handshake.mutateAsync()}
                   >
                     <CheckConnectionIcon aria-hidden="true" />
                     Refresh
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={busy}
-                    onSelect={() => void actions.refreshModels.mutateAsync()}
+                    onSelect={() => void providerActions.refreshModels.mutateAsync()}
                   >
                     <RefreshIcon aria-hidden="true" />
                     Reload models
@@ -210,7 +234,8 @@ export function ProviderPanelFooter({
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
-        {actions && !(manage && fold) ? (
+        {manage && !fold && setup && !actions?.stage ? setup : null}
+        {providerActions && !(manage && fold) ? (
           <>
             <RefreshButton
               className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
@@ -218,9 +243,9 @@ export function ProviderPanelFooter({
               label="Refresh"
               idleIcon={CheckConnectionIcon}
               title="Refresh: check connection, sign-in and models"
-              refreshing={actions.handshake.isPending}
+              refreshing={providerActions.handshake.isPending}
               disabled={busy}
-              onRefresh={() => actions.handshake.mutateAsync()}
+              onRefresh={() => providerActions.handshake.mutateAsync()}
               size="icon-xs"
               type="button"
               variant="ghost"
@@ -230,9 +255,9 @@ export function ProviderPanelFooter({
               iconOnly
               label="Reload models"
               title="Reload models, updating the provider client first if needed"
-              refreshing={actions.refreshModels.isPending}
+              refreshing={providerActions.refreshModels.isPending}
               disabled={busy}
-              onRefresh={() => actions.refreshModels.mutateAsync()}
+              onRefresh={() => providerActions.refreshModels.mutateAsync()}
               size="icon-xs"
               type="button"
               variant="ghost"
