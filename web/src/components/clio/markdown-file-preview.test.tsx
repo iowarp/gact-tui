@@ -14,13 +14,13 @@ it('copies the current view from one control outside the source block', async ()
   const user = userEvent.setup();
   render(<MarkdownFilePreview name="agenda.md" content={source} />);
   await screen.findByRole('heading', { name: 'Agenda' });
-  await user.click(screen.getByRole('button', { name: 'Copy agenda.md' }));
+  await user.click(screen.getByRole('button', { name: 'Copy contents' }));
   await waitFor(() => expect(copyText).toHaveBeenCalledWith('AgendaPractice first.\n'));
   vi.mocked(copyText).mockClear();
   await user.click(screen.getByRole('tab', { name: 'Source' }));
-  expect(screen.getAllByRole('button', { name: 'Copy agenda.md' })).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: 'Copy contents' })).toHaveLength(1);
   expect(screen.getByRole('tabpanel', { name: 'Source' }).querySelector('button')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Copy agenda.md' }));
+  await user.click(screen.getByRole('button', { name: 'Copy contents' }));
   await waitFor(() => expect(copyText).toHaveBeenCalledWith(source));
 });
 it('renders inline dollar math in a saved file and retains the exact source', async () => {
@@ -58,5 +58,5 @@ it('renders the document by default and preserves the complete source including 
   expect(screen.getByText('Document metadata')).toBeVisible();
   await userEvent.setup().click(screen.getByRole('tab', { name: /^Source$/ }));
   expect(screen.getByRole('tabpanel', { name: 'Source' })).toHaveTextContent('name: Evidence');
-  expect(screen.getByRole('button', { name: 'Copy evidence.md' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copy contents' })).toBeVisible();
 });

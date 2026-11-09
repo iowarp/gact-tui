@@ -117,8 +117,8 @@ it('shows command, computer, folders, reason and real duration before technical 
   ).toBeVisible();
   expect(screen.getByText(/including after restart/)).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Allow for session' })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Allow for workspace' }));
+  expect(screen.queryByRole('button', { name: 'Allow for this session' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Allow for this workspace' }));
   expect(respond).toHaveBeenCalledWith(request, { action: 'allow_workspace' });
 });
 
@@ -179,6 +179,10 @@ it.each([
   expect(screen.queryByText('Read only')).not.toBeInTheDocument();
 });
 
+/** Every page keeps its own header pager mounted; only the shown page's is visible. */
+const visiblePager = (text: string) =>
+  screen.getAllByText(text).find((element) => !element.closest('[hidden]'));
+
 it('pages multiple source approvals and removes the pager for the last request', async () => {
   const user = userEvent.setup();
   const first = permission('read_only');
@@ -187,13 +191,13 @@ it('pages multiple source approvals and removes the pager for the last request',
   const { rerender } = render(
     <ClioPendingInteractions {...props} interactions={[first, second]} />,
   );
-  expect(screen.getByText('1 / 2')).toBeVisible();
+  expect(visiblePager('1/2')).toBeVisible();
   expect(screen.getByText('Connect Alta observations')).toBeVisible();
   // Other pages stay mounted to preserve each request's draft and selected duration.
   expect(screen.getByText('Connect second dataset')).not.toBeVisible();
   expect(screen.getAllByRole('button', { name: 'Allow once' })).toHaveLength(1);
   await user.click(screen.getByRole('button', { name: 'Next request' }));
-  expect(screen.getByText('2 / 2')).toBeVisible();
+  expect(visiblePager('2/2')).toBeVisible();
   expect(screen.getByText('Connect second dataset')).toBeVisible();
   expect(screen.getByText('Connect Alta observations')).not.toBeVisible();
   rerender(<ClioPendingInteractions {...props} interactions={[second]} />);

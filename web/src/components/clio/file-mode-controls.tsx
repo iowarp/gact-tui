@@ -1,6 +1,7 @@
+import { ChevronDownIcon } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,15 +9,22 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction } from './viewer-toolbar';
 
 export interface FileMode {
   value: string;
   label: string;
+  /** A longer hover name than the label. */
+  title?: string;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
 }
 
-/** File representations use one responsive control in the owning toolbar. */
+/**
+ * The frame bar's Format: a file's representations as one segmented group of
+ * named icons. When the frame bar folds @ away it folds too, to the active
+ * icon with a chevron that lists them all.
+ */
 export function FileModeControls({
   modes,
   value,
@@ -35,33 +43,42 @@ export function FileModeControls({
       <TooltipProvider delayDuration={200}>
         <TabsList
           aria-label={label}
-          className="h-7 shrink-0 gap-0.5 bg-transparent p-0 @max-[480px]/viewer:hidden"
+          data-slot="viewer-modes"
+          className="inline-flex h-7 flex-none shrink-0 justify-start gap-px rounded-[7px] border border-input bg-transparent p-[2px] group-data-horizontal/tabs:h-7 group-data-[fold-talk]/frame:hidden"
         >
-          {modes.map(({ value, label, icon: Icon }) => (
-            <Tooltip key={value}>
-              <TooltipTrigger asChild>
-                <TabsTrigger aria-label={label} className="size-7 flex-none p-0" value={value}>
-                  <Icon aria-hidden="true" />
-                  <span className="sr-only">{label}</span>
+          {modes.map(({ value: mode, label: modeLabel, title, icon: Icon }) => (
+            <NamedTooltip key={mode} label={title || modeLabel}>
+              {/* The tooltip trigger sets its own data-state; keep it off the tab. */}
+              <span className="inline-flex">
+                <TabsTrigger
+                  className="h-[22px] w-[26px] flex-none rounded-[5px] border-0 px-0 text-muted-foreground shadow-none hover:bg-hover hover:text-foreground data-[state=active]:bg-menu-highlight data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-menu-highlight"
+                  value={mode}
+                  aria-label={modeLabel}
+                >
+                  <Icon aria-hidden="true" className="size-3.5" />
                 </TabsTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{label}</TooltipContent>
-            </Tooltip>
+              </span>
+            </NamedTooltip>
           ))}
         </TabsList>
       </TooltipProvider>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <ToolbarAction label={label} className="@min-[480px]/viewer:hidden">
+          <ToolbarAction
+            label={label}
+            data-modes-folded=""
+            className="hidden w-9 gap-0.5 group-data-[fold-talk]/frame:inline-flex"
+          >
             <ActiveIcon aria-hidden="true" />
+            <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
           </ToolbarAction>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-            {modes.map(({ value, label, icon: Icon }) => (
-              <DropdownMenuRadioItem key={value} value={value}>
+            {modes.map(({ value: mode, label: modeLabel, icon: Icon }) => (
+              <DropdownMenuRadioItem key={mode} value={mode}>
                 <Icon aria-hidden="true" />
-                {label}
+                {modeLabel}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

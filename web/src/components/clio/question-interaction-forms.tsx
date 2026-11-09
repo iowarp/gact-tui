@@ -5,8 +5,6 @@ import type {
 } from '@clio/core/v3';
 import { AlertTriangleIcon, ExternalLinkIcon } from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Field,
@@ -23,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
-import { ResponseErrorNotice } from './pending-interaction-notices';
+import { AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 
@@ -76,33 +74,35 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
 
   return (
     <QuestionFrame {...props}>
-      <ResponseErrorNotice error={props.responseError} />
-      <FieldGroup className="gap-3">
-        {fields.map((field) => (
-          <SchemaField
-            prefix={interaction.id}
-            disabled={props.disabled || sending}
-            error={errors[field.name]}
-            field={field}
-            key={field.name}
-            onChange={(value) => {
-              setValues((current) => ({ ...current, [field.name]: value }));
-              setFieldErrors((current) => {
-                if (!current[field.name]) return current;
-                const next = { ...current };
-                delete next[field.name];
-                return next;
-              });
-            }}
-            value={values[field.name]}
-          />
-        ))}
-      </FieldGroup>
-      <div className="mt-2 flex justify-end">
-        <Button size="sm" disabled={props.disabled || sending} onClick={() => void submit()}>
+      <AskError error={props.responseError} />
+      <AskSection>
+        <FieldGroup className="gap-2.5 text-[12.5px]">
+          {fields.map((field) => (
+            <SchemaField
+              prefix={interaction.id}
+              disabled={props.disabled || sending}
+              error={errors[field.name]}
+              field={field}
+              key={field.name}
+              onChange={(value) => {
+                setValues((current) => ({ ...current, [field.name]: value }));
+                setFieldErrors((current) => {
+                  if (!current[field.name]) return current;
+                  const next = { ...current };
+                  delete next[field.name];
+                  return next;
+                });
+              }}
+              value={values[field.name]}
+            />
+          ))}
+        </FieldGroup>
+      </AskSection>
+      <AskOptions aria-label="Answer">
+        <AskButton disabled={props.disabled || sending} onClick={() => void submit()} primary>
           {sending ? 'Sending…' : 'Send response'}
-        </Button>
-      </div>
+        </AskButton>
+      </AskOptions>
     </QuestionFrame>
   );
 }
@@ -141,27 +141,50 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
   return (
     <QuestionFrame {...props}>
       {interaction.payload?.punycode_warning ? (
-        <Alert className="mb-3" variant="destructive">
-          <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>Look-alike address warning</AlertTitle>
-          <AlertDescription>Check both host forms before opening this link.</AlertDescription>
-        </Alert>
+        <AskSection
+          className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-warning"
+          role="note"
+        >
+          <AlertTriangleIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="font-medium">Look-alike address warning</span>
+          <span className="truncate text-muted-foreground">
+            Check both host forms before opening this link.
+          </span>
+        </AskSection>
       ) : null}
-      <dl className="grid gap-2 text-sm">
-        <UrlDetail label="Full URL" value={url} />
-        {interaction.payload?.punycode_host ? (
-          <UrlDetail label="Decoded host" value={interaction.payload.punycode_host} />
-        ) : null}
-        {interaction.payload?.punycode_host_raw ? (
-          <UrlDetail label="ACE host" value={interaction.payload.punycode_host_raw} />
-        ) : null}
-      </dl>
-      {navigationError ? <FieldError className="mt-3">{navigationError}</FieldError> : null}
-      <ResponseErrorNotice error={props.responseError} />
-      <div className="mt-2 flex flex-wrap justify-end gap-2">
-        <Button
-          size="sm"
+      <AskFacts
+        facts={[
+          { label: 'Full URL', value: url, title: url, mono: true },
+          ...(interaction.payload?.punycode_host
+            ? [{ label: 'Decoded host', value: interaction.payload.punycode_host, mono: true }]
+            : []),
+          ...(interaction.payload?.punycode_host_raw
+            ? [{ label: 'ACE host', value: interaction.payload.punycode_host_raw, mono: true }]
+            : []),
+        ]}
+      />
+      {navigationError ? (
+        <AskSection className="mt-2 text-[12px] text-destructive" role="alert">
+          {navigationError}
+        </AskSection>
+      ) : null}
+      <AskError error={props.responseError} />
+      <AskOptions aria-label="Link">
+        <AskButton
+          disabled={props.disabled || sending || !url}
+          hint="Enter"
+          number={1}
+          onClick={() => void accept()}
+          primary
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
+            Open link
+          </span>
+        </AskButton>
+        <AskButton
           disabled={props.disabled || sending}
+          hint="Escape"
           onClick={() =>
             void props
               .onResponse(interaction, {
@@ -170,19 +193,10 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
               })
               .catch(() => undefined)
           }
-          variant="outline"
         >
           Decline
-        </Button>
-        <Button
-          size="sm"
-          disabled={props.disabled || sending || !url}
-          onClick={() => void accept()}
-        >
-          <ExternalLinkIcon aria-hidden="true" />
-          Open link
-        </Button>
-      </div>
+        </AskButton>
+      </AskOptions>
     </QuestionFrame>
   );
 }
@@ -395,13 +409,4 @@ function fieldErrorsFromMessage(
     (field) => message.includes(`'${field.name}'`) || message.includes(`"${field.name}"`),
   );
   return matched ? { [matched.name]: message } : {};
-}
-
-function UrlDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="break-all font-mono text-xs">{value}</dd>
-    </div>
-  );
 }

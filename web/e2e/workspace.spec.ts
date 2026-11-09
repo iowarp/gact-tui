@@ -128,14 +128,18 @@ test('opens the unresolved task from the status strip in the actual task view', 
   await expect(inspect).toHaveText(/running; 1 task needs inspection$/);
   await inspect.click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await expect(canvas.getByRole('tab', { name: 'Evidence', exact: true })).toHaveAttribute(
-    'data-state',
-    'active',
+  const activity = canvas.getByRole('region', { name: 'Activity list', exact: true });
+  await expect(activity).toBeVisible();
+  const task = activity.getByRole('button', { name: 'Prepare dataset, needs inspection' });
+  await expect(task).toContainText('needs inspection');
+  await task.click();
+  await expect(canvas.getByRole('tab', { name: 'Prepare dataset', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
   );
-  const tasks = canvas.getByRole('button', { name: 'Background tasks, 1 recorded' });
-  if ((await tasks.getAttribute('aria-expanded')) === 'false') await tasks.click();
-  await expect(canvas.getByRole('button', { name: 'Task details: Prepare dataset' })).toBeVisible();
-  await expect(canvas.getByText('Tool: Needs inspection', { exact: true })).toBeVisible();
+  await expect(canvas.getByRole('toolbar', { name: 'Activity actions' })).toContainText(
+    'needs inspection',
+  );
 });
 
 test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
@@ -151,6 +155,11 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await showEvidenceRail(page, 'Session');
     await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+    // Full details lands on the Activity list; the Gantt and Context are its Timeline tab.
+    await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
+    // A 320px workbench shows its list as a sheet over the tab; this test reads the tab.
+    const hideActivity = canvas.getByRole('button', { name: 'Hide Activity', exact: true });
+    if (await hideActivity.isVisible()) await hideActivity.click();
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();
     if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
@@ -170,7 +179,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
       if (mode === 'maximized') {
         await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
       }
-      for (const label of ['Evidence', 'Timeline', 'Gantt', 'Context']) {
+      // Evidence and the event timeline moved to the Activity list; the tab keeps these.
+      for (const label of ['Gantt', 'Context']) {
         const tab = strip.getByRole('tab', { name: label, exact: true });
         await tab.click();
         await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
@@ -351,7 +361,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
 
   await page.goto(workspaceUrl);
   const attention = page.getByRole('region', { name: 'Agent needs your attention' });
-  await expect(attention.getByRole('button', { name: 'Agent needs your attention' })).toBeVisible();
+  await expect(attention).toBeVisible();
   await settleConversationAtLatest(page);
   const activity = page.getByRole('button', { name: /^Activity:/ }).last();
   await expect(activity).toHaveAttribute('aria-expanded', 'false');
@@ -400,7 +410,6 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await fallback.getByText('Technical details').click();
   await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
 
-  await attention.getByRole('button', { name: 'Agent needs your attention' }).click();
   await settleConversationAtLatest(page);
   const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
   await expect(appFrame.getByText('Ready', { exact: true })).toBeVisible();
@@ -505,13 +514,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(pendingResponses).toBeVisible();
-  const pendingResponsesTrigger = pendingResponses.getByRole('button', {
-    name: 'Agent needs your attention',
-  });
-  await expect(pendingResponsesTrigger).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await pendingResponses.getByRole('button', { name: 'Next request' }).click();
-  await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
+  await expect(pendingResponses.getByRole('button', { name: /Station table/ })).toBeVisible();
   await pendingResponses.getByRole('button', { name: 'Previous request' }).click();
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
@@ -524,9 +529,10 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await expect(composerStack).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(composerStack).toHaveCSS('background-image', 'none');
   await expect(composerStack.locator('..')).toHaveCSS('position', 'absolute');
-  const responseSurface = await pendingResponses.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const responseSurface = await pendingResponses
+    .locator('[data-slot="ask-card"]:visible')
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(responseSurface).not.toBe('rgba(0, 0, 0, 0)');
   const expandedConversationBounds = await conversation.boundingBox();
   const expandedMinimapBounds = await minimap.boundingBox();
@@ -553,27 +559,6 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
       return Math.abs(paddingBottom - (composer?.height ?? 0));
     })
     .toBeLessThanOrEqual(2);
-  await pendingResponsesTrigger.click();
-  await expect(
-    pendingResponses.getByText('Read the station evidence table', { exact: true }),
-  ).not.toBeVisible();
-  await expect
-    .poll(async () => (await composerStack.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
-    .toBeLessThan((expandedComposerBounds?.height ?? 0) - 100);
-  await expect
-    .poll(async () =>
-      Math.abs(
-        ((await conversation.boundingBox())?.height ?? 0) -
-          (expandedConversationBounds?.height ?? 0),
-      ),
-    )
-    .toBeLessThanOrEqual(2);
-  await expect
-    .poll(async () =>
-      Math.abs(((await minimap.boundingBox())?.height ?? 0) - (expandedMinimapBounds?.height ?? 0)),
-    )
-    .toBeLessThanOrEqual(2);
-  await pendingResponsesTrigger.click();
   const approvalTitle = pendingResponses.getByText('Read the station evidence table', {
     exact: true,
   });
@@ -708,25 +693,21 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
-  const observabilityTab = canvas.getByRole('tab', { name: 'Observability' });
+  // A fresh pocket opens on the Activity list; Timeline is one button away.
+  await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
+  const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
-  // tech closes the tab through the Delete shortcut announced with it. It stays
-  // faintly visible at rest because touch has no hover to reveal it.
+  // tech closes the tab through the Delete shortcut announced with it. On touch it
+  // stays faintly visible at rest, since there is no hover to reveal it.
   const observabilityClose = observabilityTab
     .locator('..')
-    .locator('[data-slot="canvas-tab-close"]');
-  // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
-  // shortcuts grew the keyboard equivalent alongside Delete.
-  await expect(observabilityTab).toHaveAttribute(
-    'aria-keyshortcuts',
-    'Delete Alt+ArrowLeft Alt+ArrowRight',
-  );
+    .locator('[data-slot="frame-tab-close"]');
+  await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
-  await expect(observabilityClose).toHaveCSS('opacity', '0.7');
-  await observabilityTab.hover();
+  // The active tab always shows its close mark.
   await expect(observabilityClose).toHaveCSS('opacity', '1');
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
   await expect(canvas).toHaveCSS('position', 'fixed');
@@ -745,8 +726,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await page.getByRole('button', { name: 'Allow once' }).click();
   await expect(page.getByText('Read the station evidence table')).toHaveCount(0);
 
-  await page.getByRole('radio', { name: /Station table/ }).click();
-  await page.getByRole('button', { name: 'Send response' }).click();
+  await page.getByRole('button', { name: /Station table/ }).click();
   await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
@@ -964,7 +944,11 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Observability' })).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Workspace canvas' }).getByRole('toolbar', {
+      name: 'Workbench lists',
+    }),
+  ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toHaveCount(0);
@@ -1132,7 +1116,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Short as well as narrow. The queue has its own 136 px bound and the
   // pending-response stack has a responsive viewport bound, so both must keep
   // wheel and keyboard scrolling local when they compete for composer space.
-  await page.setViewportSize({ height: 720, width: 848 });
+  await page.setViewportSize({ height: 600, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
@@ -1147,7 +1131,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
   // One compact page replaces the stack. Expand its real technical details to
   // exercise overflow; the normal short permission correctly needs no scrolling.
-  await pendingResponses.getByText('Technical details', { exact: true }).click();
+  await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
 
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();
