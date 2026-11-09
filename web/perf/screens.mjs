@@ -6,6 +6,7 @@
 //                [--probes]  record type scale, wraps, contrast, key glyphs and
 //                            status words per capture (see perf/spec-review.mjs)
 //                [--concurrency N]  capture one state's themes × widths in parallel
+//                [--seed '/__test/x={"k":1};/__test/y']  fixture seeds before every shot
 //
 // Drives the same fixture stack as the perf harness (perf/stack.mjs) with a
 // frozen clock, UTC, reduced motion, disabled animations and a fixture reset
@@ -38,6 +39,17 @@ const scale = Number(option('scale', '1'));
 const probes = args.includes('--probes');
 // Captures of one state run in parallel (themes × widths); seeded states don't.
 const concurrency = Math.max(1, Number(option('concurrency', '1')));
+// --seed '/__test/a={"k":1};/__test/b' POSTs extra fixture seeds before every
+// shot, e.g. a branch's richer Settings data, so reviews see populated sections.
+const globalSeeds = option('seed', '')
+  .split(';')
+  .filter(Boolean)
+  .map((entry) => {
+    const at = entry.indexOf('=');
+    return at < 0
+      ? { path: entry }
+      : { path: entry.slice(0, at), data: JSON.parse(entry.slice(at + 1)) };
+  });
 // The fixture's static records date from 2026-08-22; the fixture processes'
 // own clock sits two minutes before the page clock so relative times read
 // "2 min ago" on every run.
@@ -905,7 +917,7 @@ async function capture(browser, stack, shot, { theme, width }) {
   });
   // Fixture seeds (`/__test/...` or service POSTs) for states such as the
   // question tray; the fixture is reset again after the shot.
-  for (const seed of shot.fixture ?? []) {
+  for (const seed of [...globalSeeds, ...(shot.fixture ?? [])]) {
     const { path, data } = typeof seed === 'string' ? { path: seed } : seed;
     await fetch(`${stack.fixtureEndpoint}${path}`, {
       method: 'POST',
@@ -1129,7 +1141,7 @@ async function main() {
           .map((width) => ({ theme, width })),
       );
       // Seeded shots change fixture state, so they run one at a time.
-      const lanes = shot.fixture?.length ? 1 : concurrency;
+      const lanes = shot.fixture?.length || globalSeeds.length ? 1 : concurrency;
       const queue = [...jobs];
       await Promise.all(
         Array.from({ length: Math.min(lanes, jobs.length) }, async () => {
