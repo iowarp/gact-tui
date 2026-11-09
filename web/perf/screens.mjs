@@ -520,8 +520,24 @@ function catalogue({ settings, infrastructure }) {
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
+      await press(page, 'button', /^New session in /u);
+      await overlay(page);
+      await press(page, 'button', 'Advanced session behavior');
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await overlay(page);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
       await page.keyboard.press('Control+/');

@@ -78,6 +78,7 @@ it('renames from the header using the shared resource dialog', async () => {
   const { actions, user, open } = setup();
   await open();
   await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+  expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeVisible();
   await user.clear(screen.getByRole('textbox', { name: 'Name' }));
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Renamed review');
   await user.click(screen.getByRole('button', { name: 'Save name' }));
