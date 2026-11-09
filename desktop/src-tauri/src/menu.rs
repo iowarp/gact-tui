@@ -1,16 +1,16 @@
 //! Native macOS application menu for GACT Desktop (1.0 item 9).
 //!
-//! Builds ONLY the macOS global application menu (About / Settings / the
-//! hide group / Quit) plus Edit, Window and Help, and wires its
-//! non-predefined item activations to a single Tauri event the React
-//! frontend listens for.
+//! Builds the macOS menu bar: the app menu (About / Settings / the hide group
+//! / Quit), File, Edit, View, Agent, Window and Help. Every non-predefined
+//! item emits a single Tauri event the React frontend dispatches through
+//! `dispatchMenuAction`, so the bar runs the same workflows as the in-app
+//! controls.
 //! Windows and Linux never call [`build_menu`] at all — see the
 //! `#[cfg(target_os = "macos")]` gate in `lib.rs` — because those platforms
 //! use the product-owned title bar exclusively (a second, OS-drawn menu
-//! strip there would be a redundant, off-brand menu bar). The product
-//! actions that used to live in a native File/View menu are reachable through that
-//! same title bar's hamburger menu on every platform instead — see
-//! `web/src/components/clio/desktop-title-bar.tsx`.
+//! strip there would be a redundant, off-brand menu bar). That title bar's
+//! app menu (`web/src/components/clio/desktop-title-bar.tsx`) uses the same
+//! File / View / Agent / Window / Help grouping.
 //!
 //! ## Event contract (the JS side relies on this EXACTLY)
 //!
@@ -99,8 +99,8 @@ fn build_predefined<R: Runtime>(
 /// Build the full native menu tree from [`MENU_SPEC`].
 ///
 /// Top-level submenus: the macOS **application menu** (About / Settings /
-/// the hide group / Quit), **Edit**, **Window** and **Help**. Edit and
-/// Window are made entirely of
+/// the hide group / Quit), **File**, **Edit**, **View**, **Agent**, **Window**
+/// and **Help**. Edit is made entirely of
 /// [`PredefinedMenuItem`]s so the OS provides native clipboard / undo
 /// behavior. Accelerators use the `CmdOrCtrl` modifier so they render as Cmd
 /// on macOS (the only platform this menu is ever built on).
