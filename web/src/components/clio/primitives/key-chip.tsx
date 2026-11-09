@@ -286,7 +286,7 @@ interface HeldKeyBadgeProps {
   keys?: readonly string[];
   /** One key of a range shortcut. */
   position?: number;
-  /** The other half of a pair, joined into one badge (`Alt ??`). */
+  /** The other half of a pair, joined into one badge (`Alt ←→`). */
   pairId?: string;
   /** Where it sits against the control: under it (default), over it, to its left, inside its right end, or on it. */
   side?: HeldKeySide;
@@ -294,8 +294,8 @@ interface HeldKeyBadgeProps {
 }
 
 /**
- * The badge a control shows while Ctrl (?) is held: on Windows the key
- * without the held Ctrl (`?B`), on a Mac the whole key (`??B`). Place it
+ * The badge a control shows while Ctrl (⌘) is held: on Windows the key
+ * without the held Ctrl (`⇧B`), on a Mac the whole key (`⇧⌘B`). Place it
  * inside the control; it takes no space, floats above every clip and stays in
  * the window.
  */
@@ -355,7 +355,7 @@ export function HeldKeyBadge({
 }
 
 /**
- * While Ctrl (?) is held the app dims behind its key badges. Mount once.
+ * While Ctrl (⌘) is held the app dims behind its key badges. Mount once.
  */
 export function HeldKeysScrim() {
   const held = useCommandKeyHeld();

@@ -1,4 +1,4 @@
-import { cloneElement, type ComponentProps, type ReactElement } from 'react';
+import { type ComponentProps, type ReactElement } from 'react';
 import { DropdownMenuItem, DropdownMenuShortcut } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +18,7 @@ export function KeyMenuItem({
   label: string;
   /** One letter, or `Enter`. */
   menuKey?: string;
-  /** Marks the row by its icon; the label keeps the menu's text tone. */
+  /** A destructive row: label and icon in the destructive tone (`.mi.ds`). */
   destructive?: boolean;
 }) {
   return (
@@ -26,11 +26,10 @@ export function KeyMenuItem({
       aria-keyshortcuts={menuKey}
       className={cn('whitespace-nowrap', className)}
       data-menu-key={menuKey?.toLowerCase()}
+      variant={destructive ? 'destructive' : 'default'}
       {...props}
     >
-      {destructive
-        ? cloneElement(icon, { className: cn(icon.props.className, 'text-destructive!') })
-        : icon}
+      {icon}
       <span className="min-w-0 truncate">{label}</span>
       {menuKey ? (
         <DropdownMenuShortcut aria-hidden="true" className="font-mono">

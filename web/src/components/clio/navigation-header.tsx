@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useCommandKeyHeld, useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { useClioMenuRequest } from '@/lib/clio-menu-request';
+import { isSettingsRoute } from '@/lib/settings-window-route';
 import { cn } from '@/lib/utils';
 import { AgentConnectionIdentity } from './agent-connection-identity';
 import { ClioMenuContent } from './clio-menu';
@@ -64,6 +66,8 @@ export function NavigationHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
+  // Behind Settings the CLIO menu is covered, so the request falls through.
+  useClioMenuRequest(() => setMenuOpen(true), !isSettingsRoute(currentPath));
 
   return (
     <SidebarHeader className="gap-1 px-2 pb-2 pt-2">
@@ -81,8 +85,8 @@ export function NavigationHeader({
                 </span>
                 {/* Folded, the name stays for assistive technology: the icon alone has none. */}
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:sr-only">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
+                  <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
+                  <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-muted-foreground">
                     <TooltipProvider delayDuration={150}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -107,8 +111,6 @@ export function NavigationHeader({
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
                     <AgentConnectionIdentity
                       endpoint={endpoint}
                       label={activeLabel}
