@@ -86,7 +86,8 @@ export function SandboxInactiveStrip({
       <div className="min-w-0 flex-1 basis-[min(100%,20rem)]">
         <TruncatedText className="font-medium text-foreground">{warning}</TruncatedText>
         {detail ? (
-          <TruncatedText className="text-muted-foreground">{`${detail}.`}</TruncatedText>
+          // The next step is the point of the strip, so it wraps rather than truncating.
+          <p className="text-pretty break-words text-muted-foreground">{`${detail}.`}</p>
         ) : null}
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
