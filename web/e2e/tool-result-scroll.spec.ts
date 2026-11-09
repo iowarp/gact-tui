@@ -403,10 +403,14 @@ for (const size of [
     });
     const body = dialog.getByRole('region', { name: 'Scrollable result content' });
     await expect(body).toBeVisible();
-    // Lazy syntax highlighting replaces its bounded fallback. Exercise keyboard
-    // scrolling against the loaded panes, not during that geometry transition.
-    await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(2);
-    const input = body.getByRole('heading', { name: 'Arguments' }).locator('..');
+    // Arguments and Result are each one line-numbered block at full height; the
+    // dialog body is the only scroller.
+    await expect(body.locator('[data-slot="details-code"]')).toHaveCount(2);
+    await expect(body.locator('[data-slot="code-block-scroll"]')).toHaveCount(0);
+    const input = body
+      .locator('[data-slot="details-section"]')
+      .filter({ has: body.getByRole('heading', { name: 'Arguments' }) })
+      .locator('[data-slot="details-code"]');
     await expect.poll(() => input.evaluate((e) => e.clientHeight >= e.scrollHeight)).toBe(true);
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await body.focus();
