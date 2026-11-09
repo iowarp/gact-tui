@@ -113,8 +113,9 @@ export interface RunListRowProps {
   /** Keys on the run's name while it has focus (the rail's Delete and Shift+Enter). */
   onTitleKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
   /**
-   * `rail` sizes for a narrow conversation rail: progress and the state word
-   * appear from 380px instead of the Runs page's breakpoints.
+   * `rail` sizes for a narrow conversation rail: progress appears from 380px
+   * instead of the Runs page's breakpoints; the state word always shows, so
+   * the status mark is never the only cue.
    */
   density?: 'page' | 'rail';
 }
@@ -194,7 +195,7 @@ export const RunListRow = memo(function RunListRow({
           <span
             className={cn(
               'w-[64px] shrink-0 truncate text-[12px] text-muted-foreground',
-              rail && 'hidden @[380px]/runs:block',
+              rail && 'w-[56px]',
               look.tone === 'error' && 'text-destructive',
               look.tone === 'warning' && 'text-warning',
             )}
@@ -231,8 +232,9 @@ export const RunListRow = memo(function RunListRow({
         </MetaValue>
       }
       actions={actions ?? null}
-      actionsWidth={RUN_ACTIONS_WIDTH}
-      info={<RunDetails row={row} stateLabel={stateLabel} />}
+      actionsWidth={rail ? 28 : RUN_ACTIONS_WIDTH}
+      // In the rail the name opens the run's full view, which holds these details.
+      info={rail ? undefined : <RunDetails row={row} stateLabel={stateLabel} />}
     />
   );
 });
