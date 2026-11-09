@@ -5,6 +5,8 @@ import { expect, type Download, type Locator, type Page } from '@playwright/test
  * frame bar, or a secondary inspection view through File actions.
  */
 export async function selectFileView(page: Page, viewer: Locator, name: string): Promise<void> {
+  // Mode tabs fold into a menu as the bar measures; choose the path once it holds still.
+  await frameSettled(viewer.locator('[data-slot="frame-bar"]').first());
   const tab = viewer.getByRole('tab', { name, exact: true });
   if (await tab.isVisible()) {
     await tab.click();
@@ -41,6 +43,19 @@ export async function selectFileView(page: Page, viewer: Locator, name: string):
 /** Open ▾'s rows: from its chevron, or from the … menu once the frame bar folds Open away. */
 export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<void> {
   // The bar refits as its facts arrive; choose the path once its folds hold still.
+  await frameSettled(toolbar);
+  const chevron = toolbar.getByRole('button', { name: 'Open options', exact: true });
+  if (await chevron.isVisible()) {
+    await chevron.click();
+    return;
+  }
+  await toolbar.getByRole('button', { name: /^(File actions|More actions)$/u }).click();
+  await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+}
+
+/** Wait until the frame bar's fold step reads the same twice, 200ms apart. */
+async function frameSettled(toolbar: Locator): Promise<void> {
+  if (!(await toolbar.count())) return;
   let last: string | undefined;
   await expect
     .poll(
@@ -53,13 +68,6 @@ export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<v
       { intervals: [200] },
     )
     .toBe(true);
-  const chevron = toolbar.getByRole('button', { name: 'Open options', exact: true });
-  if (await chevron.isVisible()) {
-    await chevron.click();
-    return;
-  }
-  await toolbar.getByRole('button', { name: /^(File actions|More actions)$/u }).click();
-  await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
 }
 
 /** Download the original bytes with the frame's Download, which never folds. */
