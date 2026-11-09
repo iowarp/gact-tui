@@ -191,11 +191,19 @@ export function ClioDocumentPdfViewer({
     viewportHeight: scroll.viewport,
   });
   const windowedPages = pdfPageNumbers(pageWindow);
-  // The page under the middle of the view.
-  const currentPage = Math.min(
-    pageCount,
-    Math.max(1, Math.floor((scroll.top + scroll.viewport / 2) / Math.max(1, pageHeightPx)) + 1),
-  );
+  // The page whose upper half has reached the top of the view, so short pages that all fit
+  // still read as page 1; the end of a scrolled document is its last page.
+  const pageStride = Math.max(1, pageHeightPx);
+  const atEnd = scroll.top > 0 && scroll.top + scroll.viewport >= pageCount * pageStride - 1;
+  const currentPage = atEnd
+    ? pageCount
+    : Math.min(
+        pageCount,
+        Math.max(
+          1,
+          Math.floor((scroll.top + Math.min(scroll.viewport, pageStride) / 2) / pageStride) + 1,
+        ),
+      );
   const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
   useFileViewerFacts(pageFact ? [pageFact, ...(zoomFact ? [zoomFact] : [])] : undefined);
