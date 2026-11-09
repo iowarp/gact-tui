@@ -68,7 +68,9 @@ import { cn } from '@/lib/utils';
 
 /** The spec's row glyphs: this computer, a CLIO reached over SSH, or a service by address. */
 function connectionSourceIcon(connection: KnownConnection) {
-  if (connection.source === 'managed') return LaptopIcon;
+  if (connection.source === 'managed' || connection.infrastructure?.targetId === 'local') {
+    return LaptopIcon;
+  }
   if (connection.infrastructure) return TerminalSquareIcon;
   return ServerIcon;
 }

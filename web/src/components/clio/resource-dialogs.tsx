@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -32,18 +32,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { ClioPathPicker } from './path-picker';
+import { DialogFrame } from './primitives/dialog-frame';
+import { SegmentedControl } from './primitives/segmented-control';
 import {
   SESSION_APPROVAL_OPTIONS,
   SESSION_MODE_OPTIONS,
   SESSION_MODE_PATCHES,
 } from './session-behavior-options';
+import { SettingsRow } from './settings-row';
+
+// Anchored from the top so opening Advanced grows the dialog downward.
+const CREATE_FRAME = 'top-[max(1rem,calc(50dvh-11rem))] translate-y-0';
+const SELECT_FIELD =
+  'w-full min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -201,83 +208,74 @@ function CreateResourceDialog({
     }
   };
 
+  const kindLabel = createKind === 'workspace' ? vocab.workspace : createKind;
   return (
-    <Dialog onOpenChange={(open) => onCreateKindChange(open ? createKind : null)} open>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>Create</DialogTitle>
-          <DialogDescription>Start a session or create a workspace.</DialogDescription>
-        </DialogHeader>
-        <Tabs
-          className="min-h-0 gap-4"
-          onValueChange={(value) => onCreateKindChange(value as 'workspace' | 'session')}
+    <DialogFrame
+      className={CREATE_FRAME}
+      confirm={{
+        label: pending ? 'Creating…' : `Create ${kindLabel}`,
+        disabled:
+          pending ||
+          (createKind === 'workspace' ? !rootPath.trim() : !selectedWorkspaceId || !title.trim()),
+        onConfirm: () => void submit(),
+      }}
+      description={`Start a session or create a ${vocab.workspace}.`}
+      onOpenChange={(open) => onCreateKindChange(open ? createKind : null)}
+      open
+      title="Create"
+      titleActions={
+        <SegmentedControl
+          className="mr-1"
+          label="What to create"
+          onValueChange={onCreateKindChange}
+          options={[
+            { value: 'session', label: 'Session' },
+            { value: 'workspace', label: capitalize(vocab.workspace) },
+          ]}
           value={createKind}
-        >
-          <TabsList className="grid w-full shrink-0 grid-cols-2">
-            <TabsTrigger value="session">Session</TabsTrigger>
-            <TabsTrigger value="workspace">{capitalize(vocab.workspace)}</TabsTrigger>
-          </TabsList>
-          <div
-            className="-mr-2 min-h-0 overflow-y-auto pr-2 [scrollbar-gutter:stable]"
-            role="region"
-            aria-label="Creation options"
-            tabIndex={0}
-          >
-            <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="workspace">
-              <WorkspaceFields
-                name={workspaceName}
-                onNameChange={setWorkspaceName}
-                onPathChange={setRootPath}
-                path={rootPath}
-                workspaces={workspaces}
-              />
-            </TabsContent>
-            <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="session">
-              <SessionFields
-                approvalMode={approvalMode}
-                agents={agents}
-                agentRef={agentRef}
-                mode={mode}
-                onApprovalModeChange={(value) => updateBehavior('approval_mode', value)}
-                onAgentRefChange={(value) => updateBehavior('agent_ref', value)}
-                onModeChange={(value) => updateBehavior('mode', value)}
-                onRoutingModeChange={(value) => updateBehavior('routing_mode', value)}
-                onTitleChange={setTitle}
-                onWorkspaceIdChange={setWorkspaceId}
-                routingMode={routingMode}
-                title={title}
-                workspaceId={selectedWorkspaceId}
-                workspaces={workspaces}
-              />
-            </TabsContent>
-            {error ? (
-              <p className="mt-4 text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </Tabs>
-        <DialogFooter className="shrink-0">
-          <Button onClick={() => onCreateKindChange(null)} type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            disabled={
-              pending ||
-              (createKind === 'workspace'
-                ? !rootPath.trim()
-                : !selectedWorkspaceId || !title.trim())
-            }
-            onClick={() => void submit()}
-            type="button"
-          >
-            {pending
-              ? 'Creating…'
-              : `Create ${createKind === 'workspace' ? vocab.workspace : createKind}`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        />
+      }
+    >
+      <div
+        aria-label="Creation options"
+        className="-mx-[18px] -mt-2 max-h-[min(34rem,calc(50dvh-1rem))] overflow-y-auto px-[18px] [scrollbar-gutter:stable]"
+        role="region"
+        tabIndex={0}
+      >
+        <div hidden={createKind !== 'workspace'}>
+          <WorkspaceFields
+            name={workspaceName}
+            onNameChange={setWorkspaceName}
+            onPathChange={setRootPath}
+            path={rootPath}
+            workspaces={workspaces}
+          />
+        </div>
+        <div hidden={createKind !== 'session'}>
+          <SessionFields
+            approvalMode={approvalMode}
+            agents={agents}
+            agentRef={agentRef}
+            mode={mode}
+            onApprovalModeChange={(value) => updateBehavior('approval_mode', value)}
+            onAgentRefChange={(value) => updateBehavior('agent_ref', value)}
+            onModeChange={(value) => updateBehavior('mode', value)}
+            onRoutingModeChange={(value) => updateBehavior('routing_mode', value)}
+            onTitleChange={setTitle}
+            onWorkspaceIdChange={setWorkspaceId}
+            routingMode={routingMode}
+            title={title}
+            workspaceId={selectedWorkspaceId}
+            workspaces={workspaces}
+          />
+        </div>
+        {error ? (
+          <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </DialogFrame>
   );
 }
 
@@ -295,9 +293,12 @@ function WorkspaceFields({
   workspaces: readonly Workspace[];
 }) {
   return (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="new-workspace-name">{capitalize(vocab.workspace)} name</FieldLabel>
+    <>
+      <SettingsRow
+        description={`The short name shown throughout the ${vocab.workspace}.`}
+        htmlFor="new-workspace-name"
+        title={`${capitalize(vocab.workspace)} name`}
+      >
         <Input
           autoFocus
           id="new-workspace-name"
@@ -305,10 +306,11 @@ function WorkspaceFields({
           placeholder="EarthScope analysis"
           value={name}
         />
-        <FieldDescription>The short name shown throughout the {vocab.workspace}.</FieldDescription>
-      </Field>
-      <Field>
-        <FieldLabel>{capitalize(vocab.workspace)} folder</FieldLabel>
+      </SettingsRow>
+      <SettingsRow
+        description={`This becomes the ${vocab.workspace} boundary. Files on disk are not moved.`}
+        title={`${capitalize(vocab.workspace)} folder`}
+      >
         <ClioPathPicker
           knownFolders={workspaces.flatMap((workspace) =>
             (workspace.source_folders?.length
@@ -330,11 +332,8 @@ function WorkspaceFields({
           placeholder={`Choose the ${vocab.workspace} folder`}
           value={path}
         />
-        <FieldDescription>
-          This becomes the {vocab.workspace} boundary. Files on disk are not moved.
-        </FieldDescription>
-      </Field>
-    </FieldGroup>
+      </SettingsRow>
+    </>
   );
 }
 
@@ -361,9 +360,8 @@ function SessionFields(props: SessionFieldsProps) {
     useSpotterAvailability(props.workspaceId),
   );
   return (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="new-session-title">Session name</FieldLabel>
+    <>
+      <SettingsRow htmlFor="new-session-title" title="Session name">
         <Input
           autoFocus
           id="new-session-title"
@@ -371,11 +369,10 @@ function SessionFields(props: SessionFieldsProps) {
           placeholder="Investigate station anomalies"
           value={props.title}
         />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="new-session-workspace">{capitalize(vocab.workspace)}</FieldLabel>
+      </SettingsRow>
+      <SettingsRow htmlFor="new-session-workspace" title={capitalize(vocab.workspace)}>
         <Select onValueChange={props.onWorkspaceIdChange} value={props.workspaceId}>
-          <SelectTrigger id="new-session-workspace">
+          <SelectTrigger className={SELECT_FIELD} id="new-session-workspace">
             <SelectValue placeholder={`Choose a ${vocab.workspace}`} />
           </SelectTrigger>
           <SelectContent>
@@ -386,11 +383,14 @@ function SessionFields(props: SessionFieldsProps) {
             ))}
           </SelectContent>
         </Select>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="new-session-agent">Agent</FieldLabel>
+      </SettingsRow>
+      <SettingsRow
+        description="The agent's plugins bring its tools, skills and guidance. You can add or remove plugins in the conversation."
+        htmlFor="new-session-agent"
+        title="Agent"
+      >
         <Select onValueChange={props.onAgentRefChange} value={props.agentRef}>
-          <SelectTrigger id="new-session-agent">
+          <SelectTrigger className={SELECT_FIELD} id="new-session-agent">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -403,26 +403,22 @@ function SessionFields(props: SessionFieldsProps) {
             ))}
           </SelectContent>
         </Select>
-        <FieldDescription>
-          The agent&apos;s plugins bring its tools, skills and guidance. You can add or remove
-          plugins in the conversation.
-        </FieldDescription>
-      </Field>
-      <Collapsible className="border-t pt-2">
+      </SettingsRow>
+      <Collapsible>
         <CollapsibleTrigger asChild>
           <Button
-            className="group w-full justify-between px-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+            className="group h-9 w-full justify-between px-0 text-[13px] font-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
             type="button"
             variant="ghost"
           >
             Advanced session behavior
             <ChevronDownIcon
               aria-hidden="true"
-              className="transition-transform group-data-[state=open]:rotate-180"
+              className="text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
             />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 grid gap-4 pb-1 data-[state=closed]:hidden sm:grid-cols-2">
+        <CollapsibleContent className="data-[state=closed]:hidden">
           <BehaviorSelect
             id="new-session-mode"
             label="Default work mode"
@@ -449,7 +445,7 @@ function SessionFields(props: SessionFieldsProps) {
           />
         </CollapsibleContent>
       </Collapsible>
-    </FieldGroup>
+    </>
   );
 }
 
@@ -473,10 +469,9 @@ function BehaviorSelect({
   value: string;
 }) {
   return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <SettingsRow htmlFor={id} note={description} title={label}>
       <Select onValueChange={onChange} value={value}>
-        <SelectTrigger id={id}>
+        <SelectTrigger className={SELECT_FIELD} id={id}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -490,8 +485,7 @@ function BehaviorSelect({
           })}
         </SelectContent>
       </Select>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-    </Field>
+    </SettingsRow>
   );
 }
 

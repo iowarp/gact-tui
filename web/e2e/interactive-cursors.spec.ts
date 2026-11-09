@@ -20,7 +20,7 @@ for (const theme of ['light', 'dark'] as const) {
     await newSession.click();
 
     const create = page.getByRole('dialog', { name: 'Create', exact: true });
-    await expect(create.getByRole('tab', { name: 'Workspace', exact: true })).toHaveCSS(
+    await expect(create.getByRole('radio', { name: 'Workspace', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
     );
@@ -66,7 +66,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(filesList).toHaveCSS('cursor', 'pointer');
     const tree = page.getByRole('region', { name: 'Workspace file tree', exact: true });
     await tree.getByRole('button', { name: 'Expand folder results', exact: true }).click();
-    await tree.getByRole('treeitem', { name: /stations\.csv/ }).first().click();
+    await tree
+      .getByRole('treeitem', { name: /stations\.csv/ })
+      .first()
+      .click();
     // Canvas tabs are also reorder handles: retain their explicit grab cursor.
     await expect(page.getByRole('tab', { name: /stations\.csv/ }).first()).toHaveCSS(
       'cursor',

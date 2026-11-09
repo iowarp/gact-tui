@@ -356,7 +356,7 @@ function catalogue({ settings, infrastructure }) {
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', /^New session in /u);
       await overlay(page);
-      await press(page, 'tab', 'Workspace', { exact: true });
+      await press(page, 'radio', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
     s('canvas', 'activity', SESSION, openCanvas),

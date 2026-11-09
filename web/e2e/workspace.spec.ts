@@ -319,9 +319,9 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
   await newSession.click();
   const create = page.getByRole('dialog', { name: 'Create', exact: true });
-  await expect(create.getByRole('tab', { name: 'Session', exact: true })).toHaveAttribute(
-    'data-state',
-    'active',
+  await expect(create.getByRole('radio', { name: 'Session', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
   );
   await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
     'flat-NDP',
