@@ -24,6 +24,7 @@ import {
   useEffect,
   useEffectEvent,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -179,6 +180,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     // Over a narrow panel the list lays over the tab: open only after a pick on the strip.
     const [overlayOpen, setOverlayOpen] = useState(false);
     const [maximized, setMaximized] = useState(false);
+    // Tab bodies wait until the latest open request is delivered: revealing
+    // the canvas must not mount the previous tab only to replace it.
+    const subscribedRequest = useWorkbenchRequest(requests);
+    const pendingRequest = requestedOpen ?? subscribedRequest;
+    const [deliveredKey, setDeliveredKey] = useState<string>();
+    const requestsSettled =
+      deliveredKey !== undefined && (!pendingRequest || pendingRequest.key === deliveredKey);
     const [maximizeHost, setMaximizeHost] = useState<Element | null>(null);
     const asideRef = useRef<HTMLElement>(null);
     const maximizeButtonRef = useRef<HTMLButtonElement>(null);
@@ -558,7 +566,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 key={tab.id}
                 value={tab.id}
               >
-                {canvasVisible ? (
+                {/* Only the active tab: Radix Presence renders an outgoing panel once more
+                    before unmounting it, which would mount a tab that is being left. */}
+                {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
                   <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
                     <PresentationNavigation.Provider
                       value={{
@@ -645,9 +655,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         {/* Keep request delivery outside the portal: maximizing remounts its
             contents and must not replay a previously handled open request. */}
         <WorkbenchRequestDispatcher
+          active={pendingRequest}
+          onDelivered={setDeliveredKey}
           onOpen={openRequest}
-          requestedOpen={requestedOpen}
-          requests={requests}
         />
         <PendingStripDispatcher
           onTake={takePendingStripPosition}
@@ -692,21 +702,21 @@ function PendingStripDispatcher({
 }
 
 function WorkbenchRequestDispatcher({
+  active,
+  onDelivered,
   onOpen,
-  requestedOpen,
-  requests,
 }: {
+  active?: { key: string; request: ClioWorkbenchOpenRequest };
+  onDelivered: (key: string) => void;
   onOpen: (request: ClioWorkbenchOpenRequest) => void;
-  requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
-  requests?: WorkbenchRequestSource;
 }) {
-  const subscribed = useWorkbenchRequest(requests);
-  const active = requestedOpen ?? subscribed;
   // Compact layouts mount the workbench only after their sheet opens. Keeping
   // the event in props lets this mounted child deliver the first resource
   // request instead of silently showing only the default Activity tab.
-  useEffect(() => {
+  // Layout effects: the first request lands before paint, in the mount's own commit.
+  useLayoutEffect(() => {
     if (active) onOpen(active.request);
-  }, [onOpen, active]);
+    onDelivered(active?.key ?? '');
+  }, [onDelivered, onOpen, active]);
   return null;
 }
