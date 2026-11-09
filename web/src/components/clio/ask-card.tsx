@@ -135,13 +135,13 @@ export function AskCard({
     >
       <header className="flex min-h-[26px] min-w-0 items-center gap-[9px]">
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
-        <h3
+        <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
           data-slot="pending-interaction-title"
           title={titleText}
         >
           {title}
-        </h3>
+        </h2>
         {meta ? (
           <span
             className={cn(
