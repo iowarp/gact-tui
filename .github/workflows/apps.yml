@@ -291,8 +291,9 @@ jobs:
             xvfb \
             patchelf
       - run: pnpm install --frozen-lockfile
-      - name: Build webview
-        run: pnpm build
+      # Tauri's beforeBuildCommand (build:bundle) builds the webview without
+      # repeating the type check, which the checks job runs and which needs a
+      # >2 GB heap that 7 GB macOS runners do not give Node by default.
       - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
       # Every library test, gated per platform by #[cfg]. Single-threaded because
@@ -401,8 +402,7 @@ jobs:
           ditto "$app/Contents/Resources/gact-runtime" desktop/src-tauri/gact-runtime
           hdiutil detach -quiet "$mount"
           test -f desktop/src-tauri/gact-runtime/runtime.json
-      - name: Build web
-        run: pnpm --filter @clio/workspace build
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
       - name: Generate brand backend descriptor
         run: pnpm --filter @clio/desktop gen-brand-backend
       - name: Build sidecar launcher
@@ -624,8 +624,7 @@ jobs:
       # this the installer embeds whatever descriptor happens to be committed.
       - name: Generate brand backend descriptor
         run: pnpm --filter @clio/desktop gen-brand-backend
-      - name: Build web
-        run: pnpm build
+      # The web bundle is built by Tauri's beforeBuildCommand (build:bundle).
       - name: Set up Apple signing
         id: apple
         if: runner.os == 'macOS'
