@@ -70,6 +70,14 @@ idle CPU and unbounded transcript reads. Each budget is checked against the
 [baseline](perf/baseline/README.md); change a budget only with evidence from a
 report.
 
+### Memory cycles
+
+`node web/perf/cycles.mjs [--cycles 10] [--only settings,command-menu]` opens
+and closes sessions, viewers and dialogs repeatedly against the built `web/dist`.
+It reports heap, DOM nodes, listeners and detached nodes after forced GC. Growth
+that scales with the cycle count is a leak; a fixed step after warm-up is a cache.
+Add `--snapshots` to save heap snapshots that name what grew.
+
 ## `pnpm screens`
 
 `web/perf/screens.mjs` captures each catalogued surface and state at 1680,
