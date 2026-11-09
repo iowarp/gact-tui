@@ -172,13 +172,13 @@ export function ToolPermissionsSettings() {
   return (
     <div className="@container/page grid min-w-0 gap-3" data-slot="tool-permissions">
       {toolbar ? (
-        <div className="flex min-w-0 items-center gap-4">
+        <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField
-            className="w-[min(22.5rem,45%)] shrink"
+            className="w-[min(22.5rem,45%)] shrink @max-[36rem]/page:w-full"
             onChange={setFilter}
             value={filter}
           />
-          <span className="flex-1" />
+          <span className="flex-1 @max-[36rem]/page:hidden" />
           <span className="hidden @min-[36rem]/page:inline-flex">
             <DefaultLegend />
           </span>
