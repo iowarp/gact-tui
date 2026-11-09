@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   Artifact as ArtifactEntity,
   BrowserPage,
   SubagentRun,
@@ -136,8 +136,10 @@ function ListHeader({
   onHide: () => void;
 }) {
   return (
-    <div className="flex h-[34px] shrink-0 items-center gap-1 border-b border-border pr-1 pl-2.5">
-      <h2 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{title}</h2>
+    <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5">
+      <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
+        {title}
+      </h2>
       {actions}
       <IconButton
         icon={<PanelRightCloseIcon />}
@@ -212,7 +214,7 @@ function FilesList({
         />
       </div>
       {changedPaths.size ? (
-        <p className="flex h-7 shrink-0 items-center gap-1.5 truncate border-t border-border px-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <p className="flex h-7 shrink-0 items-center gap-1.5 truncate border-t border-border px-2.5 text-[11px] whitespace-nowrap text-faint">
           <span className="font-medium text-changed">Teal</span>
           <span className="truncate">changed in this conversation</span>
         </p>
@@ -303,7 +305,7 @@ function SourceRow({
             <Tag tone="neutral">{resource.state}</Tag>
           ) : undefined
         }
-        className="cursor-pointer"
+        className="cursor-pointer text-[12.5px]"
         icon={<PaperclipIcon />}
         meta={<MetaValue>{formatCompactBytes(resource.received_size)}</MetaValue>}
         onClick={onOpen}
@@ -370,7 +372,7 @@ function ArtifactsList({
                         ? true
                         : undefined
                     }
-                    className="cursor-pointer"
+                    className="cursor-pointer text-[12.5px]"
                     columns={
                       versioned ? (
                         <span className="w-7 shrink-0 text-right font-mono text-[11px] text-faint tabular-nums">
@@ -434,7 +436,7 @@ function TerminalList({
         <div key={tab.id} role="listitem" title={tab.label}>
           <ListRow
             aria-current={tab.id === activeTabId || undefined}
-            className="cursor-pointer"
+            className="cursor-pointer text-[12.5px]"
             icon={<TerminalSquareIcon />}
             onClick={() => onSelectTab(tab.id)}
             onKeyDown={activateOnKey(() => onSelectTab(tab.id))}
@@ -448,7 +450,7 @@ function TerminalList({
       {onOpenTerminal && !terminals.length ? (
         <div role="listitem">
           <ListRow
-            className="cursor-pointer text-muted-foreground"
+            className="cursor-pointer text-[12.5px] text-muted-foreground"
             icon={<AddIcon />}
             onClick={onOpenTerminal}
             onKeyDown={activateOnKey(onOpenTerminal)}
@@ -493,7 +495,7 @@ function BrowserList({
             <ListRow
               aria-current={activeTabId === id || undefined}
               badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
-              className="cursor-pointer"
+              className="cursor-pointer text-[12.5px]"
               description={page.host || 'Blank page'}
               icon={<GlobeIcon />}
               onClick={() => onOpenBrowserPage(page)}

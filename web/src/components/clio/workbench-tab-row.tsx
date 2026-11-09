@@ -180,7 +180,7 @@ export function WorkbenchTabRow({
       <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
           <div
-            className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
+            className="@container no-scrollbar min-w-0 flex-1 self-stretch overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
             data-fit={fit}
             data-slot="canvas-tab-row"
             onContextMenu={(event: MouseEvent<HTMLDivElement>) => {
@@ -205,7 +205,7 @@ export function WorkbenchTabRow({
               strategy="horizontal"
               value={tabs as WorkbenchTab[]}
             >
-              <TabsList className="h-8 w-max justify-start gap-0.5 rounded-none bg-transparent p-0">
+              <TabsList className="h-full w-max items-stretch justify-start gap-0.5 rounded-none bg-transparent p-0">
                 {tabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = workbenchTabLabel(tab);
