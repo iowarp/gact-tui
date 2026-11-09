@@ -1,10 +1,3 @@
-import {
-  ExternalLinkIcon,
-  GitForkIcon,
-  PackageOpenIcon,
-  Share2Icon,
-  Undo2Icon,
-} from 'lucide-react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
@@ -133,18 +126,12 @@ export function ClioSessionActions({
       ) : null}
       {onFork ? (
         <KeyMenuItem
-          icon={<GitForkIcon aria-hidden="true" />}
           label="Fork into a new conversation"
           menuKey="F"
           onSelect={() => void run(onFork)}
         />
       ) : null}
-      <KeyMenuItem
-        icon={<Share2Icon aria-hidden="true" />}
-        label="Share read-only link"
-        menuKey="L"
-        onSelect={() => setSharing(true)}
-      />
+      <KeyMenuItem label="Share read-only link" menuKey="L" onSelect={() => setSharing(true)} />
       {management ? (
         <SessionExportMenu
           onExport={(mode) =>
@@ -165,20 +152,17 @@ export function ClioSessionActions({
       <DropdownMenuSeparator />
       {onOpenSystemTerminal ? (
         <KeyMenuItem
-          icon={<ExternalLinkIcon aria-hidden="true" />}
           label="Open in system terminal"
           menuKey="T"
           onSelect={() => void run(onOpenSystemTerminal)}
         />
       ) : null}
       <KeyMenuItem
-        icon={<PackageOpenIcon aria-hidden="true" />}
         label="Compact conversation…"
         menuKey="C"
         onSelect={() => setConfirmation('compact')}
       />
       <KeyMenuItem
-        icon={<Undo2Icon aria-hidden="true" />}
         label="Remove last message…"
         menuKey="V"
         onSelect={() => setConfirmation('undo')}

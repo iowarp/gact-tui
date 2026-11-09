@@ -181,7 +181,9 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByText('Research, Ares')).toBeVisible();
+  // The name and its place are two phrases split by a gap, not a comma.
+  expect(screen.getByText('Research')).toBeVisible();
+  expect(screen.getByText('Ares')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(

@@ -1,20 +1,6 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import {
-  ChevronRightIcon,
-  ClipboardIcon,
-  FolderOpenIcon,
-  LoaderCircleIcon,
-  PinIcon,
-  PinOffIcon,
-} from 'lucide-react';
-import {
-  AddIcon,
-  DeleteIcon,
-  EditIcon,
-  MoreIcon,
-  NewConversationIcon,
-  SettingsIcon,
-} from '@/lib/icon-vocabulary';
+import { ChevronRightIcon, LoaderCircleIcon } from 'lucide-react';
+import { AddIcon, MoreIcon, NewConversationIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
@@ -58,6 +44,7 @@ interface WorkspaceNavigationProps {
   activeSessionId: string;
   actions: ResourceActions;
   onCreateSession: (workspaceId: string) => void;
+  onImportSession?: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -118,6 +105,7 @@ export function WorkspaceNavigation({
   activeSessionId,
   actions,
   onCreateSession,
+  onImportSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -226,6 +214,7 @@ export function WorkspaceNavigation({
         label={labels.get(workspace.id) ?? { name: workspace.display_name, qualifiers: [] }}
         onAction={onAction}
         onCreateSession={onCreateSession}
+        onImportSession={onImportSession}
         onDelete={onDelete}
         onEditWorkspace={onEditWorkspace}
         onExpandedChange={(open) =>
@@ -306,6 +295,7 @@ export function WorkspaceNavigation({
           }
           onAction={onAction}
           onCreateSession={onCreateSession}
+          onImportSession={onImportSession}
           onDelete={onDelete}
           onEditWorkspace={onEditWorkspace}
           onExpandedChange={(open) =>
@@ -391,6 +381,7 @@ interface LooseConversationsProps {
   actions: ResourceActions;
   onExpandedChange: (open: boolean) => void;
   onCreateSession: (workspaceId: string) => void;
+  onImportSession?: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -411,6 +402,7 @@ function LooseConversations({
   actions,
   onExpandedChange,
   onCreateSession,
+  onImportSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -437,6 +429,7 @@ function LooseConversations({
             label={label}
             onAction={onAction}
             onCreateSession={onCreateSession}
+            onImportSession={onImportSession}
             onDelete={onDelete}
             onEditWorkspace={onEditWorkspace}
             onOpenWorkspaceFiles={onOpenWorkspaceFiles}
@@ -482,6 +475,7 @@ interface WorkspaceTreeItemProps {
   onExpandedChange: (open: boolean) => void;
   setSessionLimitExpanded: (open: boolean) => void;
   onCreateSession: (workspaceId: string) => void;
+  onImportSession?: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -503,6 +497,7 @@ function WorkspaceTreeItem({
   onExpandedChange,
   setSessionLimitExpanded,
   onCreateSession,
+  onImportSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -534,6 +529,7 @@ function WorkspaceTreeItem({
               label={label}
               onAction={onAction}
               onCreateSession={onCreateSession}
+              onImportSession={onImportSession}
               onDelete={onDelete}
               onEditWorkspace={onEditWorkspace}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
@@ -651,6 +647,7 @@ interface WorkspaceActionsMenuProps {
   activeWorkspaceId: string;
   actions: ResourceActions;
   onCreateSession: (workspaceId: string) => void;
+  onImportSession?: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -664,6 +661,7 @@ function WorkspaceActionsMenu({
   activeWorkspaceId,
   actions,
   onCreateSession,
+  onImportSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -678,7 +676,14 @@ function WorkspaceActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[290px]">
         <DropdownMenuItem menuKey="N" onSelect={() => onCreateSession(workspace.id)}>
-          <NewConversationIcon aria-hidden="true" /> New conversation here
+          New conversation here
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!onImportSession}
+          menuKey="I"
+          onSelect={() => onImportSession?.(workspace.id)}
+        >
+          Import conversation here…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -690,17 +695,16 @@ function WorkspaceActionsMenu({
             )
           }
         >
-          {workspace.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
           {workspace.pinned ? 'Unpin' : 'Pin'}
         </DropdownMenuItem>
         <DropdownMenuItem
           menuKey="R"
           onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
         >
-          <EditIcon aria-hidden="true" /> Rename
+          Rename
         </DropdownMenuItem>
         <DropdownMenuItem menuKey="S" onSelect={() => onEditWorkspace(workspace.id)}>
-          <SettingsIcon aria-hidden="true" /> Workspace settings…
+          Workspace settings…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -708,10 +712,10 @@ function WorkspaceActionsMenu({
           menuKey="O"
           onSelect={() => onOpenWorkspaceFiles?.()}
         >
-          <FolderOpenIcon aria-hidden="true" /> Open folder
+          Open folder
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void copyText(workspace.path)}>
-          <ClipboardIcon aria-hidden="true" /> Copy folder path
+          Copy folder path
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -719,7 +723,7 @@ function WorkspaceActionsMenu({
           onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
           variant="destructive"
         >
-          <DeleteIcon aria-hidden="true" /> Remove workspace…
+          Remove workspace…
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

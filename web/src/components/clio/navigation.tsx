@@ -72,6 +72,9 @@ export function ClioNavigation({
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
+  // The workspace chosen by "Import conversation here"; the service files the
+  // import there when the blob names an existing workspace.
+  const importWorkspaceRef = useRef<string | undefined>(undefined);
 
   const navigate = useNavigate();
   const draftMatch = useMatch('/workspaces/:workspaceId/new');
@@ -110,10 +113,15 @@ export function ClioNavigation({
   // the direct paths below (the header's import button, per-session export)
   // already cover them, so no useMenuAction registration is needed for
   // either.
-  const importSession = () => importInputRef.current?.click();
+  const importSession = (workspaceId?: string) => {
+    importWorkspaceRef.current = workspaceId;
+    importInputRef.current?.click();
+  };
   useMenuAction('new-session', () => openNewSession());
   useShortcut('new-conversation-browser', () => openNewSession(), { allowInTextField: true });
-  useShortcut('import-conversation', importSession, { allowInTextField: true });
+  useShortcut('import-conversation', () => importSession(), {
+    allowInTextField: true,
+  });
   useShortcut('previous-conversation', () => stepConversation(-1), { allowInTextField: true });
   useShortcut('next-conversation', () => stepConversation(1), { allowInTextField: true });
   useEffect(() => {
@@ -147,7 +155,7 @@ export function ClioNavigation({
             connectionAvailabilities={connectionAvailabilities}
             endpoint={endpoint}
             onConnect={switchService}
-            onImportSession={importSession}
+            onImportSession={() => importSession()}
             onNewSession={() => openNewSession()}
             connections={knownConnections}
           />
@@ -164,6 +172,7 @@ export function ClioNavigation({
               onDelete={setDeleteTarget}
               onDownloadSession={downloadSession}
               onEditWorkspace={setWorkspaceEditorId}
+              onImportSession={importSession}
               onNewWorkspace={() => setCreateKind('workspace')}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={setRenameTarget}
@@ -224,12 +233,14 @@ export function ClioNavigation({
         className="sr-only"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
+          const workspaceId = importWorkspaceRef.current;
           event.currentTarget.value = '';
+          importWorkspaceRef.current = undefined;
           if (!file) return;
           void file
             .text()
             .then((text) => JSON.parse(text) as unknown)
-            .then((value) => actions.importSession(value))
+            .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
             .then(() => toast.success('Session imported'))
             .catch((error: unknown) =>
               toast.error(error instanceof Error ? error.message : 'Session import failed'),
@@ -287,4 +298,15 @@ function stepConversation(step: -1 | 1) {
   const current = links.findIndex((link) => link.dataset.active === 'true');
   const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
   target?.click();
+}
+
+/** Points an export blob at the chosen workspace, keeping its other fields. */
+function importBlobInto(value: unknown, workspaceId: string | undefined): unknown {
+  if (!workspaceId || typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const blob = value as Record<string, unknown>;
+  const workspace =
+    typeof blob.workspace === 'object' && blob.workspace !== null ? blob.workspace : {};
+  return { ...blob, workspace: { ...workspace, id: workspaceId } };
 }

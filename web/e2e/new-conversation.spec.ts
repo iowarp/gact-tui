@@ -252,3 +252,18 @@ test('first send creates exactly one session and negotiates interactive UI befor
   expect(messageCount).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test('the folded rail new-conversation button opens the draft at 768px', async ({ page }) => {
+  const reset = await page.request.post(`${endpoint}/__test/reset`);
+  expect(reset.ok()).toBe(true);
+  await page.addInitScript((connection) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
+  }, endpoint);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(sessionRoute);
+  const navigation = page.getByRole('navigation', { name: 'Workspace navigation' });
+  await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeAttached();
+  await navigation.getByRole('button', { name: 'New conversation', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
+  await expect(page.getByRole('combobox', { name: /^Ask / })).toBeEnabled();
+});

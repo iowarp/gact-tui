@@ -1,16 +1,10 @@
 import type { Session, SessionExportMode } from '@clio/core/v3';
-import {
-  ArrowUpRightIcon,
-  BellRingIcon,
-  GitForkIcon,
-  LoaderCircleIcon,
-  PinIcon,
-  PinOffIcon,
-} from 'lucide-react';
+import { BellRingIcon, GitForkIcon, PinIcon, PinOffIcon } from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -152,7 +146,6 @@ function SessionRow({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[290px]" onKeyDown={selectMenuKey}>
                 <KeyMenuItem
-                  icon={<ArrowUpRightIcon aria-hidden="true" />}
                   label="Open"
                   menuKey="Enter"
                   onSelect={() => {
@@ -211,7 +204,7 @@ function SessionRow({
                 role="status"
                 title="Working now"
               >
-                <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+                <RingSpinner />
               </span>
             ) : (
               <span className="inline-flex items-center">
@@ -219,7 +212,7 @@ function SessionRow({
                 <ClioRelativeTime
                   className={cn(
                     'text-[11px] group-data-selected/list-row:text-accent-foreground/80',
-                    unseen ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                    unseen ? 'text-foreground' : 'text-muted-foreground',
                   )}
                   compact
                   timestamp={sessionInteractionAt(session)}
@@ -237,7 +230,6 @@ function SessionRow({
                   : unseen || needsAttention
                     ? 'text-foreground'
                     : 'text-foreground/85 group-hover/list-row:text-foreground',
-                unseen && 'font-medium',
               )}
               data-active={active}
               onClick={() => onVisit(session)}

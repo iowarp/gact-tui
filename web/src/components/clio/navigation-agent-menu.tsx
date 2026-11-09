@@ -100,7 +100,14 @@ export function NavigationAgentMenu({
                 label={line.label}
                 tone={line.tone}
               />
-              <span className="truncate">{line.text}</span>
+              {line.parts ? (
+                <span className="flex min-w-0 gap-2">
+                  <span className="shrink-0">{line.parts[0]}</span>
+                  <span className="truncate">{line.parts[1]}</span>
+                </span>
+              ) : (
+                <span className="truncate">{line.text}</span>
+              )}
             </span>
           </span>
         </SidebarMenuButton>
@@ -120,6 +127,8 @@ export function NavigationAgentMenu({
 
 interface StatusLine {
   text: string;
+  /** Shown as two phrases split by a layout gap instead of a comma. */
+  parts?: readonly [string, string];
   label: string;
   tone: StatusTone;
   className?: string;
@@ -151,9 +160,14 @@ function statusLine(
     return { text: `Connecting to ${name}`, label: 'Connecting', tone: 'running' };
   }
   if (updateReady) {
-    return { text: `${name}, update ready`, label: 'Update ready', tone: 'info' };
+    return {
+      text: `${name}, update ready`,
+      parts: [name, 'update ready'],
+      label: 'Update ready',
+      tone: 'info',
+    };
   }
-  return { text: `${name}, ${place}`, label: 'Live', tone: 'success' };
+  return { text: `${name}, ${place}`, parts: [name, place], label: 'Live', tone: 'success' };
 }
 
 function placeWords(location: string): string {
