@@ -57,7 +57,8 @@ export function SettingsRow({
           'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
           inlineControl
             ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : 'grid-cols-1 @sm:grid-cols-[minmax(7rem,1fr)_minmax(52%,max-content)]',
+            : // Two columns from a 28rem row, or 24rem inside a dialog body.
+              'grid-cols-1 @md:grid-cols-[minmax(6rem,1fr)_minmax(52%,max-content)] @sm:in-data-[slot=dialog-frame-body]:grid-cols-[minmax(6rem,1fr)_minmax(52%,max-content)]',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
@@ -90,7 +91,12 @@ export function SettingsRow({
         </div>
         <div
           data-slot="settings-control"
-          className="flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @sm:justify-end"
+          className={cn(
+            'flex w-full min-w-0 items-center justify-start gap-2 whitespace-nowrap @md:justify-end @sm:in-data-[slot=dialog-frame-body]:justify-end',
+            // The settings field (.xf): 30 px, 12.5 px text; numbers 12 px mono, right-aligned.
+            '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
+            '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-[0.75rem]',
+          )}
         >
           {children}
         </div>
