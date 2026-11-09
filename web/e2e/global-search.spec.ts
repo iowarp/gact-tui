@@ -98,7 +98,7 @@ test('a file found from a new conversation retains its unsent draft and route', 
   const fixture = await installSearchFixture(page, endpoint);
   const route = `/workspaces/${fixture.workspace.id}/new`;
   await page.goto(route);
-  const composer = page.getByRole('combobox', { name: /Ask .+ to investigate/u });
+  const composer = page.getByRole('combobox', { name: /^Ask /u });
   await composer.fill('Keep this unsent review draft.');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');

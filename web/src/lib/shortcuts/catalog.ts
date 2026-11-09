@@ -89,6 +89,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('new-line', 'New line', 'composer', ['Shift+Enter']),
   def('mention', 'Mention a file or agent', 'composer', ['@']),
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
+  def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],

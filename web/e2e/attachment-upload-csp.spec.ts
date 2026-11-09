@@ -204,7 +204,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
   });
   await page.goto(workspaceUrl);
   const composer = page.locator('form').filter({
-    has: page.getByRole('combobox', { name: /Ask .* to investigate, build, explain, or act/ }),
+    has: page.getByRole('combobox', { name: /^Ask / }),
   });
   await page
     .getByLabel('Upload files')
@@ -232,7 +232,7 @@ test('a sent image leaves the composer and opens in the common file viewer', asy
       new URL(response.url()).pathname === '/v1/sessions/sess_flat_ndp/messages',
   );
   await page.keyboard.down('Control');
-  await composer.getByRole('button', { name: 'Steer current work', exact: true }).click();
+  await composer.getByRole('button', { name: 'Steer', exact: true }).click();
   await page.keyboard.up('Control');
   expect((await accepted).ok()).toBe(true);
   await expect(

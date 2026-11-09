@@ -505,14 +505,6 @@ export const SEARCH_DEBOUNCE_MS = 180;
 export const REFERENCE_ROW_LIMIT = 100;
 
 /**
- * Tallest the composer's reference popover grows before its list scrolls.
- * Unit: CSS length. It opens upwards from the composer, so it is bounded by the
- * viewport as well as by a fixed ceiling: the smaller of a comfortable reading
- * height and whatever the window leaves above the composer.
- */
-export const REFERENCE_POPOVER_MAX_HEIGHT = 'min(38rem, calc(100vh - 10rem))';
-
-/**
  * Widest an inline reference token grows in the composer before its label is
  * truncated. Unit: CSS length. Long enough for a recognisable file name, short
  * enough that two or three tokens still share a line with the prose.
@@ -543,11 +535,10 @@ export const DATA_GRID_PAGE_SIZES: number[] = [10, 25, 50, 100];
 
 /**
  * Rendered height of one compact queued-message row. Unit: pixels.
- * A 28 px (`min-h-7`) row plus its 4 px vertical padding and the 1 px gap the
- * list puts between rows. Kept beside the viewport bound below so the two can
- * only move together.
+ * A 28 px (`h-7`) row plus the 1 px gap the list puts between rows. Kept
+ * beside the viewport bound below so the two can only move together.
  */
-export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 33;
+export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 29;
 
 /**
  * Height of the queued-message viewport before it scrolls. Unit: pixels.

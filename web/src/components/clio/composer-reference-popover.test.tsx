@@ -24,7 +24,7 @@ afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 function placeCaret(editor: HTMLElement, offset: number): void {
@@ -113,8 +113,7 @@ const readmeReference = {
 };
 
 async function openPicker(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Add context' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
+  await user.click(screen.getByRole('button', { name: 'Add a reference' }));
   const search = await screen.findByPlaceholderText(/Search evidence/);
   // The menu that opened this hands focus back to its own trigger as it closes,
   // so the search box is focused here rather than relying on that race.

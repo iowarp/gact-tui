@@ -1,15 +1,21 @@
 import type { RunState } from '@clio/core/v3';
-import { CornerDownRightIcon, ListPlusIcon, SendIcon } from 'lucide-react';
+import { ArrowUpIcon, CornerDownRightIcon, ListPlusIcon, SquareIcon } from 'lucide-react';
 import type { MouseEvent } from 'react';
-import {
-  PromptInputButton,
-  PromptInputSubmit,
-  usePromptInputAttachments,
-} from '@/components/ai-elements/prompt-input';
-import { ClioStatus } from './status';
+import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useComposerDelivery } from '@/hooks/use-composer-delivery';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { IconButton } from './primitives/icon-button';
+import { ClioStatus } from './status';
 
-/** One visible send action follows the same state/modifier rule as Enter. Stop stays independent. */
+/** The 28px square the row ends with, filled so it reads as the primary action. */
+const SQUARE =
+  'rounded-[8px] bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
+
+/**
+ * Send, or while work runs Queue (Enter) and Steer (Ctrl/⌘ Enter) beside Stop.
+ * The visible action follows the same state and modifier rule as the keys.
+ */
 export function ComposerSubmitControls({
   state,
   disabled,
@@ -23,48 +29,94 @@ export function ComposerSubmitControls({
   onSubmit: (event: MouseEvent<HTMLButtonElement>) => void;
   onStop?: () => void;
 }) {
-  const { delivery, label } = useComposerDelivery(state);
+  const { delivery } = useComposerDelivery(state);
   const attachments = usePromptInputAttachments();
-  const Icon =
-    delivery === 'queued' ? ListPlusIcon : delivery === 'steer' ? CornerDownRightIcon : SendIcon;
+  const sendable = hasContent || attachments.files.length > 0;
+  const running = state === 'running';
   return (
     <>
       {state === 'waiting_permission' || state === 'waiting_user' ? (
-        <ClioStatus value={state} />
+        <ClioStatus className="shrink-0 px-1 whitespace-nowrap" value={state} />
       ) : null}
-      <PromptInputButton
-        aria-label={
-          delivery === 'queued'
-            ? 'Queue message'
-            : delivery === 'steer'
-              ? 'Steer current work'
-              : 'Submit'
-        }
-        aria-keyshortcuts={delivery === 'steer' ? 'Control+Enter Meta+Enter' : 'Enter'}
-        // Idle (nothing to send): a muted button with full-strength text, not a faded
-        // primary whose light text washes out on the Notebook theme's paper.
-        className="gap-1.5 disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-        disabled={disabled || (!hasContent && attachments.files.length === 0)}
-        onClick={onSubmit}
-        title={
-          delivery === 'queued'
-            ? 'Queue for after current work (Enter). Ctrl/Cmd+Enter steers instead.'
-            : delivery === 'steer'
-              ? 'Send feedback before the next model iteration (Ctrl/Cmd+Enter).'
-              : 'Send message (Enter or Ctrl/Cmd+Enter).'
-        }
-        type="submit"
-        variant={delivery === 'steer' ? 'outline' : 'default'}
-      >
-        <Icon aria-hidden="true" />
-        <span>{label}</span>
-      </PromptInputButton>
-      {state === 'running' || state === 'queued' ? (
-        <PromptInputSubmit
-          onStop={onStop}
-          status={state === 'running' ? 'streaming' : 'submitted'}
+      {!running ? (
+        <IconButton
+          className={SQUARE}
+          disabled={disabled || !sendable}
+          icon={<ArrowUpIcon />}
+          label="Send"
+          onClick={onSubmit}
+          shortcut="send"
+          tooltipSide="top"
+          type="submit"
+        />
+      ) : delivery === 'steer' ? (
+        <IconButton
+          className={SQUARE}
+          disabled={disabled || !sendable}
+          icon={<CornerDownRightIcon />}
+          label="Steer"
+          onClick={onSubmit}
+          shortcut="steer"
+          tooltipSide="top"
+          type="submit"
+        />
+      ) : (
+        <QueueButton disabled={disabled || !sendable} onSubmit={onSubmit} />
+      )}
+      {running || state === 'queued' ? (
+        <IconButton
+          className={SQUARE}
+          disabled={!onStop}
+          icon={<SquareIcon className="size-3 fill-current" />}
+          label="Stop"
+          onClick={onStop}
+          shortcut="stop"
+          tooltipSide="top"
+          type="button"
         />
       ) : null}
     </>
+  );
+}
+
+/** Queue names both keys: Enter queues, Ctrl/⌘ Enter steers the running turn. */
+function QueueButton({
+  disabled,
+  onSubmit,
+}: {
+  disabled: boolean;
+  onSubmit: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const send = useShortcutPresentation('send');
+  const steer = useShortcutPresentation('steer');
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <IconButton
+          aria-keyshortcuts={[send?.aria, steer?.aria].filter(Boolean).join(' ') || undefined}
+          className={SQUARE}
+          disabled={disabled}
+          icon={<ListPlusIcon />}
+          label="Queue"
+          onClick={onSubmit}
+          tooltip={false}
+          type="submit"
+        />
+      </TooltipTrigger>
+      <TooltipContent
+        className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 px-2 py-1 text-[11.5px] font-medium"
+        side="top"
+        sideOffset={4}
+      >
+        <span>Queue</span>
+        <kbd className="justify-self-end rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
+          {send?.text}
+        </kbd>
+        <span>Steer instead</span>
+        <kbd className="justify-self-end rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
+          {steer?.text}
+        </kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 }
