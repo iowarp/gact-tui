@@ -20,8 +20,9 @@ export function useComposerSources(
   const { settings } = useConnectionSettings();
   const repository = useRepository();
   const queryClient = useQueryClient();
-  // The shared source and provider lists tell whether this service offers
-  // connected data at all; with neither, the route would open onto a dead end.
+  // The source list tells whether this service offers connected data at all
+  // (it shares the session inventory's query); a 404 means it doesn't, and the
+  // route would open onto a dead end.
   const storageScope = connectionScope(settings);
   const sourceProbe = useQuery({
     queryKey: ['connected-storage', storageScope, workspaceId, 'sources'],
@@ -30,20 +31,13 @@ export function useComposerSources(
     retry: false,
     staleTime: 60_000,
   });
-  const providerProbe = useQuery({
-    queryKey: ['connected-storage', storageScope, 'accounts'],
-    queryFn: ({ signal }) => repository.storageProviders(signal),
-    enabled: Boolean(workspaceId),
-    retry: false,
-    staleTime: 60_000,
-  });
-  const offers = (probe: { error: unknown }, count: number | undefined) =>
-    Boolean(count) ||
-    Boolean(probe.error && !(probe.error instanceof TransportError && probe.error.status === 404));
   const offered =
     Boolean(workspaceId) &&
-    (offers(sourceProbe, sourceProbe.data?.length) ||
-      offers(providerProbe, providerProbe.data?.providers.length));
+    (sourceProbe.isSuccess ||
+      Boolean(
+        sourceProbe.error &&
+          !(sourceProbe.error instanceof TransportError && sourceProbe.error.status === 404),
+      ));
   const lifecycle = useSourceDraftLifecycle(workspaceId);
   const [location, setLocation] = useState<{ folder: string; downloaded: boolean }>();
   const scope = `${connectionScope(settings)}:${workspaceId}:${sessionId ?? 'draft'}`;

@@ -52,12 +52,8 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
       />
     );
   if (!command.enabled)
-    return (
-      <StatusNote
-        detail={detail || 'This command cannot run.'}
-        label="Unavailable"
-      />
-    );
+    // A specific reason reads inline in the row; only a bare one gets the tag.
+    return detail ? null : <StatusNote detail="This command cannot run." label="Unavailable" />;
   if (command.ambiguous)
     return (
       <StatusNote
@@ -86,10 +82,16 @@ const KEY_HINTS = [
 const commandKey = (command: CommandDefinition) =>
   `${command.kind}:${command.qualified_id}:${command.source}`;
 
+const NAMED_STATES = new Set(['command_shadowed', 'command_name_reserved']);
+
 /** The faint words after a command's id: its title, or what it does. */
 function commandDetail(command: CommandDefinition): string {
-  // A disabled row's reason is its status, on hover.
-  if (!command.enabled) return '';
+  // Shadowed and reserved rows say so in their tag, with the reason on hover;
+  // any other unavailable command gives its reason here.
+  if (!command.enabled)
+    return NAMED_STATES.has(command.disabled_reason ?? '')
+      ? ''
+      : command.disabled_detail || command.disabled_reason || '';
   if (command.title && command.title !== command.id) return command.title;
   return command.description || command.argument_hint || '';
 }

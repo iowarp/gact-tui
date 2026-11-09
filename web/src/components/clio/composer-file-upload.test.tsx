@@ -65,13 +65,11 @@ async function openDropSurface(user: ReturnType<typeof userEvent.setup>) {
 
 describe('ClioComposer file upload surface', () => {
   it('offers no connected-data route on a service without connected data', async () => {
-    const missing = () => new TransportError('Not Found', 404);
-    repository.connectedSources.mockRejectedValue(missing());
-    repository.storageProviders.mockRejectedValue(missing());
+    repository.connectedSources.mockRejectedValue(new TransportError('Not Found', 404));
     const user = userEvent.setup();
     renderComposer();
     const open = vi.spyOn(screen.getByLabelText('Upload files'), 'click');
-    await vi.waitFor(() => expect(repository.storageProviders).toHaveBeenCalled());
+    await vi.waitFor(() => expect(repository.connectedSources).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const attach = screen.getByRole('button', { name: 'Attach files' });
