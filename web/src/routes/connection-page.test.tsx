@@ -484,7 +484,7 @@ it('offers to remove and redeploy a saved connection whose infrastructure target
   expect(alert).toHaveTextContent(
     'Ares lab is not known on this computer. Remove it and deploy it again to reconnect.',
   );
-  const recover = within(alert).getByRole('button', { name: /Remove it and deploy/u });
+  const recover = within(alert).getByRole('button', { name: 'Remove and redeploy' });
 
   await user.click(recover);
 
@@ -541,7 +541,8 @@ it('keeps a service the probe cannot reach closed, and lets Retry make the real 
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText("Can't connect: no answer from 127.0.0.1:9999")).toBeVisible();
+  // A local failure is not reported as "no answer"; the row gives what happened.
+  expect(await screen.findByText("Can't connect: Connection refused")).toBeVisible();
   expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled();
 
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
@@ -691,7 +692,6 @@ it('auto-connects to a draft without minting a persistent session', async () => 
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
   expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
-
 
 // The bounded session reads, answered from this test's session list.
 Object.assign(

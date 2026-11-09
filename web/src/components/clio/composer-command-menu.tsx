@@ -85,8 +85,8 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
 const KEY_HINTS = [
-  { id: 'menu-move', label: 'Move' },
-  { id: 'menu-pick', label: 'Use' },
+  { id: 'menu-fill', label: 'Fill' },
+  { id: 'menu-pick', label: 'Run' },
   { id: 'menu-close', label: 'Close' },
 ] as const;
 
@@ -155,20 +155,25 @@ const CommandOption = memo(function CommandOption({
 
 /**
  * The `/` menu above the composer: one line per command, grouped by where it
- * comes from. The editor keeps focus; the arrows move a highlight, Enter uses
- * the highlighted command (with none highlighted it still sends the message)
- * and Escape closes the menu until the command is edited.
+ * comes from. The editor keeps focus; the arrows move a highlight, Tab fills
+ * the highlighted (or first) command so arguments can follow, Enter runs the
+ * highlighted command (with none highlighted it still sends the message) and
+ * Escape closes the menu until the command is edited.
  */
 export function ClioComposerCommandMenu({
   commands,
   query,
   onPick,
+  onRun,
   onOpenChange,
   popoverId,
 }: {
   commands: readonly CommandDefinition[];
   query: string;
+  /** Fills the command into the composer so arguments can follow (Tab, or a press). */
   onPick: (command: CommandDefinition) => void;
+  /** Runs the highlighted command as it stands (Enter). */
+  onRun: (command: CommandDefinition) => void;
   onOpenChange?: (open: boolean) => void;
   popoverId: string;
 }) {
@@ -188,7 +193,8 @@ export function ClioComposerCommandMenu({
   const open = dismissedQuery !== query;
   const optionId = (command: CommandDefinition) =>
     `${popoverId}-option-${encodeURIComponent(commandKey(command))}`;
-  const active = choices.find((command) => commandKey(command) === activeKey);
+  // The first runnable row is highlighted until the arrows move, so Enter runs it.
+  const active = choices.find((command) => commandKey(command) === activeKey) ?? choices[0];
   const activeOptionId = open && active ? optionId(active) : undefined;
 
   useEffect(() => {
@@ -199,9 +205,9 @@ export function ClioComposerCommandMenu({
   useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
   useEffect(() => onOpenChange?.(open), [onOpenChange, open]);
 
-  const latest = useRef({ active, choices, onPick, open, query });
+  const latest = useRef({ active, choices, onPick, onRun, open, query });
   useLayoutEffect(() => {
-    latest.current = { active, choices, onPick, open, query };
+    latest.current = { active, choices, onPick, onRun, open, query };
   });
 
   // The editor's own key handler sends the message on Enter, so the menu's keys
@@ -229,9 +235,12 @@ export function ClioComposerCommandMenu({
             : (at + step + current.choices.length) % current.choices.length;
         const command = current.choices[next];
         if (command) setHighlight({ key: commandKey(command), query: current.query });
+      } else if (event.key === 'Tab' && !event.shiftKey && current.choices.length) {
+        take();
+        current.onPick(current.active ?? current.choices[0]!);
       } else if (event.key === 'Enter' && !event.shiftKey && current.active) {
         take();
-        current.onPick(current.active);
+        current.onRun(current.active);
       }
     };
     editor.addEventListener('keydown', onKeyDown);
@@ -259,7 +268,7 @@ export function ClioComposerCommandMenu({
         role="listbox"
       >
         {total === 0 ? (
-          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-faint">
+          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-muted-foreground">
             <span className="truncate">No command matches.</span>
           </div>
         ) : null}
@@ -283,7 +292,9 @@ export function ClioComposerCommandMenu({
           </div>
         ))}
       </div>
-      <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      {total ? (
+        <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+      ) : null}
     </ComposerSuggestionPopup>
   );
 }

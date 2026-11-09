@@ -25,8 +25,11 @@ page renders exactly one `level={1}` heading, the page h1.
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
 `{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. A row takes 60% of a wide page; `fullWidth` keeps the whole width for a wide control
-(a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
+switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
+with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
+(group labels with a control, a save bar under rows) use the same `@3xl:w-[60%]`.
+Item lists, tables and list-detail panes fill the column. `fullWidth` keeps the whole width for a
+wide control (a path or a long select). `dirty` marks a value that is still waiting in the save bar. The description sits
 behind the ⓘ beside the title, together with provenance and effect. Rows turn two-column
 from a 28rem container (20rem inside a `DialogFrame` body) and stack below it. Text and
 number inputs placed in the control get the spec field (`.xf`) automatically: 30 px,
@@ -50,7 +53,7 @@ status, actions and slot columns have fixed widths that every row in an `ItemLis
 a word), never a bare dot. Settings lists keep the default widths (status 158, actions 104,
 slot 84 px) so the status word sits at the same x on every page; don't pass per-section
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
-aligned. Below 42rem of list width the status column narrows to at most 7.5rem and hover
+aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px, and hover
 actions float over the row instead of reserving their column. Sections don't set their
 own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
@@ -69,10 +72,20 @@ for typed values only. It binds Ctrl S / ⌘S.
 `{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, help?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
-The footer carries the key hints on the left (Esc and the cancel label, Ctrl ↵ and the
-confirm label) and plain Cancel and confirm buttons on the right. The body is marked
+The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
+and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
+the left. The chips are hidden from screen readers, so a button's name stays its label.
+Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
+100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
+confirm, the confirm button has no chip. The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
+
+**`KeyValueGrid`** `components/clio/primitives/key-value-grid.tsx`
+`{ items: { label, icon?, value, mono?, title?, action? }[], variant?: 'compact' | 'facts' | 'rows', actionColumn?, className? }`.
+`facts` is the form for dialog and ask-card facts: a fixed 110 px label column (the spec's
+`grid-template-columns:110px minmax(0,1fr)`), 24 px rows and left-aligned values. Below a
+420 px container the labels give way to their icons. `rows` is the settings-sheet form, with a 118 px label.
 
 **`WindowShell`** (same file)
 `{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
