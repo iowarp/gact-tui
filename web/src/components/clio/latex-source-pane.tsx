@@ -2,13 +2,6 @@ import { useEffect, useMemo, useRef } from 'react';
 import { CircleAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import type { LatexDiagnostic } from '@clio/core/v3';
 import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { CommentCapture } from './comments/comment-capture';
 import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
 
@@ -18,18 +11,14 @@ import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
  * a line asks where it lands in the PDF; selecting text makes a comment mark on this file.
  */
 export function LatexSourcePane({
-  files,
   texts,
   file,
-  onFile,
   diagnostics,
   activeLine,
   onLine,
 }: {
-  files: string[];
   texts: Record<string, string>;
   file: string;
-  onFile: (file: string) => void;
   diagnostics: LatexDiagnostic[];
   activeLine?: number;
   onLine: (line: number) => void;
@@ -45,7 +34,6 @@ export function LatexSourcePane({
     }
     return found;
   }, [diagnostics, file]);
-  const problemsIn = (name: string) => diagnostics.filter((item) => item.file === name).length;
 
   useEffect(() => {
     if (!activeLine) return;
@@ -58,31 +46,9 @@ export function LatexSourcePane({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="latex-source">
-      <div className="flex shrink-0 items-center gap-2 border-b px-2 py-1">
-        <Select value={file} onValueChange={onFile}>
-          <SelectTrigger aria-label="Source file" className="h-8 min-w-0 max-w-full" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {files.map((name) => {
-              const count = problemsIn(name);
-              return (
-                <SelectItem key={name} value={name}>
-                  <span className="font-mono text-xs">{name}</span>
-                  {count ? (
-                    <span className="text-xs text-muted-foreground">
-                      {count} {count === 1 ? 'problem' : 'problems'}
-                    </span>
-                  ) : null}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </div>
       {text === undefined ? (
         <p className="p-4 text-sm text-muted-foreground">
-          {files.includes(file)
+          {file
             ? 'This file is too large to show here; it is still part of the build.'
             : 'Choose a source file.'}
         </p>
@@ -90,7 +56,7 @@ export function LatexSourcePane({
         <CommentCapture className="min-h-0 flex-1" sourcePath={file}>
           <div
             aria-label={`Source of ${file}`}
-            className="h-full overflow-auto font-mono text-xs leading-5"
+            className="h-full overflow-auto font-mono text-[12.5px] leading-[19px]"
             ref={scroller}
             role="region"
           >
@@ -123,7 +89,7 @@ export function LatexSourcePane({
                       data-comment-skip=""
                     >
                       <span
-                        className="flex w-5 shrink-0 select-none justify-center pt-0.5"
+                        className="flex w-5 shrink-0 select-none justify-center pt-[2.5px]"
                         data-comment-skip=""
                       >
                         {problems.length ? (

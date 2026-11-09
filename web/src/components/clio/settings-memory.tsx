@@ -236,7 +236,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         info="Saved facts and preferences the agent can use in later conversations."
         title="Memory and instructions"
       />
-      <div className="flex min-w-0 items-center gap-2 pb-1">
+      <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2">
         <SegmentedControl
           className="min-w-0 overflow-hidden"
           label="Memory views"

@@ -247,6 +247,7 @@ export function SystemSettings() {
   const list = (
     <div className="@container min-w-0">
       <SettingsGroupLabel
+        className="mt-2"
         actions={
           integrations.length ? (
             <span className="tabular-nums">
@@ -310,7 +311,7 @@ export function SystemSettings() {
     </div>
   );
   return (
-    <div className="grid gap-1">
+    <div className="min-w-0">
       <SettingsSectionHeading
         info="Review service health, storage, activity and automation hooks. Status comes from your connected service."
         title="Health"

@@ -223,13 +223,15 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : null}
             <div
               className={
-                message.role === 'user' ? 'group/prompt flex min-w-0 flex-col items-end' : undefined
+                message.role === 'user'
+                  ? 'group/prompt relative mb-2 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]'
+                  : undefined
               }
             >
               <MessageContent
                 className={cn(
                   message.role === 'assistant' && 'w-full gap-1',
-                  message.role === 'user' && 'max-w-[85%] sm:max-w-[72%]',
+                  message.role === 'user' && 'max-w-full',
                 )}
               >
                 {message.blocks.length === 0 &&
@@ -385,7 +387,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </MessageContent>
               {message.role === 'user' ? (
                 <div
-                  className="mt-0.5 flex h-[22px] max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
+                  className={cn(
+                    'mt-0.5 flex h-[22px] max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+                    // Nothing stays in view: the row takes no height; time and actions show on hover.
+                    !pendingSteer && !executionMode && !marked && 'sm:mt-0 sm:h-0',
+                  )}
                   data-slot="user-message-actions"
                 >
                   {pendingSteer ? (
@@ -430,8 +436,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   <div
                     className={cn(
                       'flex items-center gap-3',
+                      // On hover it sits in the empty space left of the bubble, so it reserves no
+                      // height under it. Opacity, not visibility, keeps the actions focusable.
                       !pendingSteer &&
-                        'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
+                        'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-0 sm:mr-2 sm:h-[22px] sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
+                      // A queued prompt keeps only its × in view; time, mark and copy show on hover.
+                      pendingSteer &&
+                        'sm:[&>time]:opacity-0 sm:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-0 sm:group-hover/prompt:[&>time]:opacity-100 sm:group-hover/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100 sm:group-focus-within/prompt:[&>time]:opacity-100 sm:group-focus-within/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100',
                     )}
                   >
                     <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
