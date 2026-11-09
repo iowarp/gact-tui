@@ -137,8 +137,13 @@ export const ItemRow = memo(
           ) : null}
         </span>
         {confirm ? (
+          // The confirming action is solid, not the tinted destructive button.
           <span
-            className="col-[3/-1] flex min-w-0 items-center justify-end gap-2"
+            className={cn(
+              'col-[3/-1] flex min-w-0 items-center justify-end gap-2',
+              '[&_[data-variant=destructive]]:bg-destructive [&_[data-variant=destructive]]:text-background [&_[data-variant=destructive]:hover]:bg-destructive/90',
+              'dark:[&_[data-variant=destructive]]:bg-[color-mix(in_oklab,var(--destructive)_45%,var(--background))] dark:[&_[data-variant=destructive]]:text-foreground dark:[&_[data-variant=destructive]:hover]:bg-[color-mix(in_oklab,var(--destructive)_55%,var(--background))]',
+            )}
             data-slot="item-row-confirm"
           >
             {confirm}

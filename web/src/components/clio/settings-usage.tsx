@@ -18,6 +18,7 @@ import {
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
+import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SpendSummary, UsageSummary } from './fleet-usage';
 import { InfoTip } from './info-tip';
@@ -31,6 +32,7 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SpendRow } from './settings-usage-spend';
+import { TechnicalDetails } from './technical-details';
 
 const MODE_KEY = 'clio.usage.mode';
 
@@ -130,7 +132,6 @@ function AccountDetails({
 }) {
   const switchId = `delegation-${account.id}`;
   const facts = [
-    { label: 'Billing', value: billingLabel(account.billing) },
     { label: 'Health', value: account.health.charAt(0).toUpperCase() + account.health.slice(1) },
     ...(account.endpoint ? [{ label: 'Endpoint', value: account.endpoint, mono: true }] : []),
     ...(account.failure ? [{ label: 'Reason', value: account.failure, mono: true }] : []),
@@ -159,8 +160,14 @@ function AccountDetails({
           <DelegationSwitch account={account} id={switchId} />
           {vocab.agent} may use this account
         </label>
-        <SettingsGroupLabel className="mt-3">Technical details</SettingsGroupLabel>
-        <KeyValueGrid items={facts} />
+        <TechnicalDetails
+          className="mt-3"
+          contentClassName="pt-1"
+          summaryClassName="text-xs font-normal"
+          title="Technical details"
+        >
+          <KeyValueGrid items={facts} />
+        </TechnicalDetails>
       </div>
     </DetailPane>
   );
@@ -206,9 +213,10 @@ export function UsageSettings() {
   );
   const totals = total ? spendDetails(total) : undefined;
   return (
-    <section aria-label="Usage" className="flex flex-col gap-4">
-      {/* The title-row controls end on the list's right edge. */}
-      <div className="max-w-[760px]">
+    <section aria-label="Usage" className="@container flex flex-col gap-4">
+      {/* The title-row controls end on the list's right edge, also beside the
+          details pane (ListDetailLayout's list column is the other 58%). */}
+      <div className={cn('max-w-[760px]', opened && 'w-[58%] @max-[40rem]:w-full')}>
         <SettingsSectionHeading
           actions={
             accounts.length ? (
@@ -222,12 +230,14 @@ export function UsageSettings() {
       {fleet.isPending ? (
         <StateView kind="loading" size="row" title="Loading usage" />
       ) : fleet.error || !fleet.data ? (
-        <StateView
-          action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
-          kind="error"
-          size="row"
-          title="Usage could not be loaded"
-        />
+        <div className="max-w-[760px]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+            kind="error"
+            size="row"
+            title="The agent could not load usage."
+          />
+        </div>
       ) : accounts.length ? (
         <ListDetailLayout
           detail={
@@ -341,10 +351,7 @@ function totalSpend(spends: FleetSpend[]): FleetSpend | undefined {
 
 function UsageTotal({ children }: { children: string }) {
   return (
-    <span
-      className="min-w-0 truncate font-mono text-xs font-semibold tabular-nums"
-      title={children}
-    >
+    <span className="min-w-0 truncate text-[13px] font-normal tabular-nums" title={children}>
       {children}
     </span>
   );
