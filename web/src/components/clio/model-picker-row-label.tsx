@@ -147,7 +147,7 @@ export function PickerRowLabel({
         onTagToken={onTagToken}
         tags={displayedTags(allTags)}
       />
-      <KeyCap className="hidden h-[18px] min-w-[18px] px-1 text-[10px] in-data-highlighted:inline-flex">
+      <KeyCap size="row" className="hidden in-data-highlighted:inline-flex">
         ↵
       </KeyCap>
     </span>
