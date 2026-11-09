@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
-import { ConfigureIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
@@ -134,13 +134,13 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           <SidebarMenuButton
             aria-keyshortcuts={shortcut?.aria}
             aria-label={`${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`}
-            className="relative size-8 text-muted-foreground hover:text-foreground"
+            className="relative size-8 overflow-visible text-muted-foreground hover:text-foreground"
             tooltip={shortcut ? `${label} (${shortcut.text})` : label}
             type="button"
           >
             <BellRingIcon aria-hidden="true" />
             <Badge
-              className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full px-1 text-[9.5px] font-bold"
+              className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
               variant="default"
             >
               {responseCount > 9 ? '9+' : responseCount}
@@ -151,7 +151,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
           align="end"
           className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
           onOpenAutoFocus={(event) => {
-            // Start on the first notification, not the settings gear.
+            // Start on the first notification, not the settings button.
             const first = listRef.current?.querySelector<HTMLElement>('a[href]');
             if (!first) return;
             event.preventDefault();
@@ -163,7 +163,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
             <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
             <IconButton
               className="ml-auto"
-              icon={<ConfigureIcon />}
+              icon={<AdjustIcon />}
               label="Notification settings"
               onClick={() => {
                 setOpen(false);

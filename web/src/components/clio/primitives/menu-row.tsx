@@ -12,7 +12,10 @@ export interface MenuRowProps {
   description?: string;
   /** A small muted second line under the label (a host, what a choice does). */
   detail?: string;
-  /** A state as a mark and a word in the fixed 72px status column (Online, Offline). */
+  /**
+   * A state as a mark and a word, left-aligned in the 62px status column with
+   * the 34px action column after it (Online, Offline).
+   */
   status?: { label: string; tone: StatusTone };
   /** A state word in the fixed 58px tag column (On, Off, Needs you). */
   tag?: { text: string; tone?: TagTone };
@@ -95,7 +98,7 @@ export const MenuRow = memo(function MenuRow({
         </span>
       )}
       {status ? (
-        <span className="flex w-[72px] shrink-0 justify-end">
+        <span className="mr-[34px] flex min-w-[62px] shrink-0">
           <StatusIndicator label={status.label} tone={status.tone} />
         </span>
       ) : null}
