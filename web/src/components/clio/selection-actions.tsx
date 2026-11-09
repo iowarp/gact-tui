@@ -2,13 +2,17 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { useSelectionActionRegistry } from '@/hooks/use-selection-action';
 import {
   transcriptSelection,
   createSelectionActionRegistry,
+  type SelectionAction,
   type SelectionTarget,
 } from '@/lib/selection-actions';
+import { fileTextSelection } from '@/lib/selection-actions-file';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 
 /** Owns the one selection-action registry every selectable surface shares. */
 export function SelectionActionsProvider({ children }: { children: ReactNode }) {
@@ -28,7 +32,7 @@ const TOOLBAR_GAP_PX = 8;
 
 function currentAnchor(): Anchor | undefined {
   const selection = window.getSelection();
-  const target = transcriptSelection(selection);
+  const target = transcriptSelection(selection) ?? fileTextSelection(selection);
   if (!target || !selection) return undefined;
   const range = selection.getRangeAt(0);
   // Environments without layout (tests, some embedded views) have no range geometry.
@@ -45,9 +49,11 @@ function isSelectionMenuKey(event: KeyboardEvent): boolean {
 }
 
 /**
- * The small action menu shown over a selection in an agent answer. It lists
+ * The small action menu shown over a selection in an agent answer or a file
+ * viewer's text. It lists
  * whatever the registry offers for that selection, so a new action (More
  * details, Understand attention, ...) is a registration, not a toolbar change.
+ * An action with a catalog shortcut shows its key and answers it while shown.
  *
  * Keyboard: with text selected (e.g. by caret browsing), Shift+F10 or the menu
  * key moves focus into the menu; Tab moves between actions, Enter runs one, and
@@ -60,6 +66,7 @@ export function ClioSelectionActionToolbar() {
   useEffect(() => registry.subscribe(registryChanged), [registry]);
   const [anchor, setAnchor] = useState<Anchor>();
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const overlay = useOverlayContainer();
 
   useEffect(() => {
     let frame = 0;
@@ -116,28 +123,60 @@ export function ClioSelectionActionToolbar() {
       style={{ left: anchor.left, top: Math.max(anchor.top, TOOLBAR_GAP_PX) }}
     >
       <ButtonGroup>
-        {actions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <Button
-              className="h-7 gap-1.5 px-2 text-xs"
-              key={action.id}
-              onClick={() => {
-                action.run(anchor.target);
-                window.getSelection()?.removeAllRanges();
-                setAnchor(undefined);
-              }}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Icon aria-hidden="true" className="size-3.5" />
-              {action.label}
-            </Button>
-          );
-        })}
+        {actions.map((action) => (
+          <SelectionActionButton
+            action={action}
+            key={action.id}
+            onRun={() => {
+              action.run(anchor.target);
+              window.getSelection()?.removeAllRanges();
+              setAnchor(undefined);
+            }}
+          />
+        ))}
       </ButtonGroup>
     </div>,
-    document.body,
+    overlay ?? document.body,
+  );
+}
+
+const DOCUMENT_REGION = {
+  get current() {
+    return typeof document === 'undefined' ? null : document.documentElement;
+  },
+};
+
+/**
+ * One action of the menu, with its key beside the label. Its key works while
+ * the menu is up, wherever focus is: the selection, not a tab, is its scope.
+ */
+function SelectionActionButton({ action, onRun }: { action: SelectionAction; onRun: () => void }) {
+  const Icon = action.icon;
+  const presentation = useShortcutPresentation(action.shortcut);
+  useShortcut(action.shortcut ?? '', onRun, {
+    enabled: Boolean(action.shortcut),
+    region: DOCUMENT_REGION,
+  });
+  return (
+    <Button
+      aria-keyshortcuts={presentation?.aria}
+      className="h-7 gap-1.5 px-2 text-xs"
+      onClick={onRun}
+      size="sm"
+      type="button"
+      variant="ghost"
+    >
+      <Icon aria-hidden="true" className="size-3.5" />
+      {action.label}
+      {presentation ? (
+        <kbd
+          aria-hidden="true"
+          className="font-mono text-[10.5px] font-normal text-muted-foreground"
+          data-slot="selection-action-shortcut"
+        >
+          {presentation.text}
+        </kbd>
+      ) : null}
+    </Button>
   );
 }

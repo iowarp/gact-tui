@@ -2,12 +2,29 @@ import {
   HDF5_VIEWER_PROTOCOL,
   HOST_SOURCE,
   isViewerMessage,
+  type Hdf5Mode,
   type HostMessage,
+  type ViewerMessage,
 } from '@clio/hdf5-viewer/protocol';
+import {
+  ChartLineIcon,
+  ImageIcon,
+  PanelLeftIcon,
+  TableIcon,
+  TagsIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useThemeKey } from '@/theme/runtime';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { HDF5_LOCATOR_SEPARATOR } from './composer-hdf5-references';
+import { useFileViewerContentsRegistry } from './file-viewer-action-context';
+import { useFileViewerFacts } from './file-viewer-facts';
+import { entityFacts, valuesAsTsv, type ViewerEntity } from './hdf5-viewer-facts';
 import { currentViewerLocation, HDF5_VIEWER_PATH } from './hdf5-viewer-location';
+import { NamedTooltip } from './primitives/icon-button';
+import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 
 /** The h5web viewer page, built from packages/hdf5-viewer and served by the web app. */
 export const HDF5_VIEWER_URL = `/${HDF5_VIEWER_PATH}`;
@@ -78,6 +95,8 @@ export function Hdf5ViewerFrame({
     theme,
   });
   const selectionRef = useRef({ fileKey, locator });
+  const [entity, setEntity] = useState<ViewerEntity>();
+  const [view, setView] = useState<ViewerView>();
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -144,6 +163,17 @@ export function Hdf5ViewerFrame({
           );
           onSelectRef.current?.(message.locator);
           return;
+        case 'entity':
+          setEntity({
+            locator: message.locator,
+            kind: message.kind,
+            shape: message.shape,
+            dtype: message.dtype,
+          });
+          return;
+        case 'modes':
+          setView({ modes: message.modes, mode: message.mode, explorer: message.explorer });
+          return;
       }
     };
 
@@ -162,17 +192,127 @@ export function Hdf5ViewerFrame({
     target.postMessage(initMessage(initRef.current), viewer.origin);
   }, [fileKey, path, locator, revision, theme, viewer.origin]);
 
-  return (
-    // No sandbox: the page is first-party, and h5web's exports need
-    // downloads. Isolation comes from the separate origin on desktop.
-    <iframe
-      className="block size-full min-h-[32rem] border-0 bg-background"
-      data-hdf5-viewer={path}
-      ref={iframeRef}
-      src={viewer.src}
-      title={`HDF5 viewer: ${path}`}
-    />
+  const show = useCallback(
+    (request: { mode?: Hdf5Mode; explorer?: boolean }) => {
+      const message: HostMessage = { source: HOST_SOURCE, type: 'show', ...request };
+      iframeRef.current?.contentWindow?.postMessage(message, viewer.origin);
+      setView((current) => current && { ...current, ...request });
+    },
+    [viewer.origin],
   );
+
+  useFileViewerFacts(entityFacts(entity));
+  const registerContents = useFileViewerContentsRegistry();
+  const contentsId = useId();
+  const readContents = useCallback(async () => {
+    if (!entity) return path;
+    const reference = `${path}${HDF5_LOCATOR_SEPARATOR}${entity.locator}`;
+    if (!copiesValues(entity)) return reference;
+    try {
+      const bytes = await repository.readWorkspaceHdf5(workspaceId, 'data', {
+        file: path,
+        path: entity.locator,
+        format: 'json',
+      });
+      return valuesAsTsv(JSON.parse(new TextDecoder().decode(bytes))) ?? reference;
+    } catch {
+      return reference;
+    }
+  }, [entity, path, repository, workspaceId]);
+  useEffect(() => {
+    registerContents?.(contentsId, readContents);
+    return () => registerContents?.(contentsId);
+  }, [registerContents, contentsId, readContents]);
+
+  return (
+    <>
+      {view ? <Hdf5Modes view={view} onShow={show} /> : null}
+      {/* No sandbox: the page is first-party, and h5web's exports need
+          downloads. Isolation comes from the separate origin on desktop. */}
+      <iframe
+        className="block size-full min-h-[32rem] border-0 bg-background"
+        data-hdf5-viewer={path}
+        ref={iframeRef}
+        src={viewer.src}
+        title={`HDF5 viewer: ${path}`}
+      />
+    </>
+  );
+}
+
+type ViewerView = Omit<Extract<ViewerMessage, { type: 'modes' }>, 'source' | 'type'>;
+
+const MODES: Record<Hdf5Mode, { label: string; icon: LucideIcon }> = {
+  table: { label: 'Table', icon: TableIcon },
+  plot: { label: 'Plot', icon: ChartLineIcon },
+  image: { label: 'Image', icon: ImageIcon },
+  attributes: { label: 'Attributes', icon: TagsIcon },
+};
+
+// FileModeControls' segmented look; these modes live in the viewer page, not in shell tabs.
+const MODES_CLASS =
+  'inline-flex h-7 shrink-0 gap-px rounded-[7px] border border-input bg-transparent p-[2px]';
+const MODE_CLASS =
+  'inline-flex h-[22px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-menu-highlight aria-pressed:text-foreground [&_svg]:size-3.5';
+
+/**
+ * The open object's modes as the frame's segmented Format icons, and the
+ * object tree's toggle. Choosing Attributes again returns to the display.
+ */
+function Hdf5Modes({
+  view,
+  onShow,
+}: {
+  view: ViewerView;
+  onShow: (request: { mode?: Hdf5Mode; explorer?: boolean }) => void;
+}) {
+  const display = view.modes.find((mode) => mode !== 'attributes');
+  return (
+    <ViewerToolbarContent>
+      <TooltipProvider delayDuration={200}>
+        {view.modes.length ? (
+          <div aria-label="Show as" className={MODES_CLASS} data-slot="viewer-modes" role="group">
+            {view.modes.map((mode) => {
+              const { label, icon: Icon } = MODES[mode];
+              const pressed = view.mode === mode;
+              return (
+                <NamedTooltip key={mode} label={label}>
+                  <button
+                    aria-label={label}
+                    aria-pressed={pressed}
+                    className={MODE_CLASS}
+                    type="button"
+                    onClick={() => {
+                      if (!pressed) onShow({ mode });
+                      else if (mode === 'attributes' && display) onShow({ mode: display });
+                    }}
+                  >
+                    <Icon aria-hidden="true" />
+                  </button>
+                </NamedTooltip>
+              );
+            })}
+          </div>
+        ) : null}
+        <ToolbarAction
+          aria-pressed={view.explorer}
+          label="Explorer"
+          onClick={() => onShow({ explorer: !view.explorer })}
+        >
+          <PanelLeftIcon aria-hidden="true" />
+        </ToolbarAction>
+      </TooltipProvider>
+    </ViewerToolbarContent>
+  );
+}
+
+/** Most values Copy reads to give them as a table; larger datasets copy their reference. */
+const MAX_COPIED_VALUES = 250_000;
+
+function copiesValues(entity: ViewerEntity): boolean {
+  if (entity.kind !== 'dataset' || !entity.shape || entity.shape.length > 2) return false;
+  if (entity.dtype === 'compound' || entity.dtype === 'string') return false;
+  return entity.shape.reduce((count, dim) => count * dim, 1) <= MAX_COPIED_VALUES;
 }
 
 type InitState = { path: string; locator?: string; revision: number; theme?: 'light' | 'dark' };

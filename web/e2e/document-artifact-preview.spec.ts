@@ -284,7 +284,8 @@ for (const layout of [
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe('rgba(0, 0, 0, 0)');
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toBeVisible();
+        // Zoom out and Zoom in are the format icons; the zoom and page are frame facts.
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible();
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
           width: element.clientWidth,
@@ -297,10 +298,14 @@ for (const layout of [
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
-        await expect(
-          page.getByRole('dialog', { name: 'Copy to another workspace', exact: true }),
-        ).toBeVisible();
+        const copyDialog = page.getByRole('dialog', {
+          name: 'Copy to another workspace',
+          exact: true,
+        });
+        await expect(copyDialog).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        // The closing dialog still hides the frame bar from the accessibility tree.
+        await expect(copyDialog).toBeHidden();
         const saved = await downloadFromFrame(page, toolbar);
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
@@ -328,11 +333,8 @@ for (const layout of [
         await selectFileView(page, viewer, 'Preview');
         await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
         const document = canvas.getByRole('region', { name: 'Document workspace' });
-        await expect(
-          document.getByText(`${item.pages} ${item.pages === 1 ? 'page' : 'pages'}`, {
-            exact: true,
-          }),
-        ).toBeVisible();
+        // A folded bar keeps its facts in the DOM, so the page fact is attached, not visible.
+        await expect(toolbar.getByText(`1 / ${item.pages}`, { exact: true })).toBeAttached();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
         await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
@@ -354,20 +356,23 @@ for (const layout of [
           width: innerWidth,
           density: devicePixelRatio,
         }));
+        const pageWidth = () =>
+          fittedPage.evaluate((element) => Math.round(element.getBoundingClientRect().width));
+        const fittedWidth = await pageWidth();
         await pdfScroller.hover();
         await page.keyboard.down('Control');
-        await page.mouse.wheel(0, 120);
+        await page.mouse.wheel(0, -120);
         await page.keyboard.up('Control');
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toHaveText(
-          '85%',
-        );
+        await expect(toolbar.getByText('115%', { exact: true })).toBeAttached();
+        await expect.poll(pageWidth).toBeGreaterThan(fittedWidth);
         expect(
           await page.evaluate(() => ({ width: innerWidth, density: devicePixelRatio })),
         ).toEqual(windowGeometry);
-        await canvas.getByRole('button', { name: 'Reset zoom', exact: true }).click();
-        await expect(canvas.getByRole('button', { name: 'Reset zoom', exact: true })).toHaveText(
-          '100%',
-        );
+        // Zooming out stops where the page fits.
+        await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        await expect(toolbar.getByText('115%', { exact: true })).toHaveCount(0);
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeDisabled();
+        await expect.poll(pageWidth).toBe(fittedWidth);
         await expect.poll(pageFits).toBe(true);
         await expect
           .poll(async () =>

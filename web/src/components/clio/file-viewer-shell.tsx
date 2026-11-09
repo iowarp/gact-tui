@@ -118,6 +118,11 @@ export function FileViewerShell({
     : (primaryTabs[0]?.value ?? requested);
   const modes = primaryTabs.length > 1;
   const identity = fileViewerIdentity(source);
+  // The selection menu quotes a passage with its file: the workspace path, else the name.
+  const selectionPath =
+    source.kind === 'workspace'
+      ? source.path
+      : (source.kind === 'artifact' && source.verifiedWorkspacePath) || identity.name;
   const [informationHost, setInformationHost] = useState<HTMLDivElement | null>(null);
   const [formatActions, registerActions] = useRegistry(sameActions);
   const [facts, registerFacts] = useRegistry(sameFacts);
@@ -255,13 +260,25 @@ export function FileViewerShell({
                             }
                           />
                           {!showIdentity && tabs.length === 1 ? (
-                            <div className="min-h-0 flex-1 overflow-hidden">{tabs[0]?.content}</div>
+                            <div
+                              className="min-h-0 flex-1 overflow-hidden"
+                              data-selection-surface="file"
+                              data-file-path={selectionPath}
+                              data-file-name={identity.name}
+                              data-workspace-id={source.workspaceId}
+                            >
+                              {tabs[0]?.content}
+                            </div>
                           ) : (
                             tabs.map((tab) => (
                               <TabsContent
                                 key={tab.value}
                                 className="m-0 min-h-0 overflow-hidden"
                                 value={tab.value}
+                                data-selection-surface="file"
+                                data-file-path={selectionPath}
+                                data-file-name={identity.name}
+                                data-workspace-id={source.workspaceId}
                                 {...(tab.secondary || !modes
                                   ? { 'aria-label': tab.label, 'aria-labelledby': undefined }
                                   : {})}
