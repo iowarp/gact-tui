@@ -5,7 +5,6 @@ import {
   FolderIcon,
   PinIcon,
   PinOffIcon,
-  XIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -37,6 +36,7 @@ import {
   addReferenceToComposer,
   useComposerReferenceAvailable,
 } from '@/lib/composer-reference-requests';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
@@ -314,7 +314,7 @@ export function WorkbenchTabRow({
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem data-accelerator="C" onSelect={() => onClose(menuTab.id)}>
-                <MenuRow accelerator="C" icon={<XIcon />} label="Close" />
+                <MenuRow accelerator="C" icon={<CloseIcon />} label="Close" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="O"
