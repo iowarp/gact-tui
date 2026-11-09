@@ -741,7 +741,9 @@ function catalogue({ settings, infrastructure }) {
       'dialog-allow-folder',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Allow opal');
+        // From the keyboard, so the focus ring shows where it starts (Cancel), as the spec draws.
+        await control(page, 'button', 'Allow opal').focus();
+        await page.keyboard.press('Enter');
         await overlay(page);
       },
       { route: 'sandbox-blocked' },
