@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffRows } from './diff-lines';
+import { diffRows } from './diff-rows';
 
 describe('diffRows', () => {
   it('numbers lines by file, drops patch headers and marks hunks', () => {
