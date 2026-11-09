@@ -760,8 +760,9 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete?', { exact: true });
-      await overlay(page);
+      await press(page, 'menuitem', /^Delete?/u);
+      await page.getByRole('alertdialog').or(page.getByRole('dialog')).first().waitFor();
+      await page.waitForTimeout(300);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
       await page.keyboard.press('Control+/');
@@ -790,9 +791,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
         await page.waitForTimeout(300);
       },
@@ -803,9 +802,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived-delete',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
         await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
         await page.waitForTimeout(300);
@@ -927,7 +924,8 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
-    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'h3' }),
+    // The welcome title; the left bar's headings are folded away at narrow widths.
+    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'main h1' }),
     ...settings.map(({ href, name }) =>
       s('settings', slug(name), href, null, {
         ready: 'main',
