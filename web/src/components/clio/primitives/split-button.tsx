@@ -9,6 +9,7 @@ import {
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
+import { menuAcceleratorKeyDown } from './menu-row';
 
 export interface SplitButtonProps {
   /** The primary action's name; with `icon` only, it is the hover name. */
@@ -100,8 +101,7 @@ export const SplitButton = memo(function SplitButton({
       data-disabled={valued && disabled ? '' : undefined}
       className={cn(
         'group/split inline-flex shrink-0 items-center rounded-[6px]',
-        valued &&
-          'h-7 rounded-[7px] text-[12.5px] font-medium whitespace-nowrap',
+        valued && 'h-7 rounded-[7px] text-[12.5px] font-medium whitespace-nowrap',
         valued &&
           (variant === 'default'
             ? 'bg-primary text-primary-foreground data-disabled:bg-muted data-disabled:text-muted-foreground'
@@ -156,7 +156,11 @@ export const SplitButton = memo(function SplitButton({
             </Button>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={valued ? 'start' : 'end'} className="min-w-48">
+        <DropdownMenuContent
+          align={valued ? 'start' : 'end'}
+          className="min-w-48"
+          onKeyDown={menuAcceleratorKeyDown}
+        >
           {children}
         </DropdownMenuContent>
       </DropdownMenu>

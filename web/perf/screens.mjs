@@ -89,26 +89,29 @@ async function openCanvas(page) {
   }
 }
 
-async function canvasTab(page, item) {
+/** Show one of the workbench lists (Files, Sources, ?) from the strip. */
+async function stripList(page, name) {
   await openCanvas(page);
-  await press(page, 'button', 'Open a canvas tab');
-  await page
-    .getByRole('menuitem', { name: new RegExp(`^${item}`, 'u') })
+  const item = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name, exact: true })
     .filter({ visible: true })
-    .first()
-    .click();
+    .first();
+  await item.waitFor({ state: 'visible', timeout: 4000 });
+  if ((await item.getAttribute('aria-pressed')) !== 'true') await item.click();
   await page.waitForTimeout(800);
 }
 
 async function openFile(page, path) {
-  await canvasTab(page, 'File explorer');
+  await stripList(page, 'Files');
+  const list = page.getByRole('region', { name: 'Files list' });
   const parts = path.split('/');
   for (const part of parts.slice(0, -1)) {
-    const folder = control(page, 'button', `Expand folder ${part}`, { exact: true });
+    const folder = list.getByRole('button', { name: `Expand folder ${part}`, exact: true });
     if (await folder.isVisible().catch(() => false)) await folder.click();
     await page.waitForTimeout(300);
   }
-  await page
+  await list
     .locator('[role="treeitem"]:not([aria-expanded])')
     .filter({ hasText: parts.at(-1) })
     .filter({ visible: true })
@@ -241,20 +244,66 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'tab', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
-    s('canvas', 'observability', SESSION, openCanvas),
-    s('canvas', 'tab-menu', SESSION, async (page) => {
-      await openCanvas(page);
-      await press(page, 'button', 'Open a canvas tab');
+    s('canvas', 'activity', SESSION, openCanvas),
+    s('canvas', 'tab-context-menu', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page
+        .locator('[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]')
+        .filter({ visible: true })
+        .first()
+        .click({ button: 'right' });
       await overlay(page);
     }),
-    s('canvas', 'file-explorer', SESSION, (page) => canvasTab(page, 'File explorer')),
+    s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    s('canvas', 'file-source', SESSION, (page) => openFile(page, 'scripts/regrid_stations.py')),
+    s('canvas', 'file-diff', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await page
+        .getByRole('region', { name: 'Activity list' })
+        .getByRole('button', { name: /regrid_stations\.py/u })
+        .first()
+        .click();
+      await page.waitForTimeout(800);
+    }),
+    // A list chosen with a tab open: a sheet over the tab at the default
+    // width, beside the tab once the pocket is wide (maximized).
+    s('canvas', 'narrow-sheet', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await stripList(page, 'Files');
+    }),
+    s('canvas', 'list-beside', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await press(page, 'button', 'Maximize canvas');
+      await page.waitForTimeout(600);
+      await stripList(page, 'Files');
+    }),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
-    s('canvas', 'workspace-resources', SESSION, (page) => canvasTab(page, 'Workspace resources')),
-    s('canvas', 'session-artifacts', SESSION, (page) => canvasTab(page, 'Session artifacts')),
-    s('canvas', 'work', SESSION, (page) => canvasTab(page, 'Work')),
+    s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
+    s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
+    s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // Work folds into Activity: a work row opens the Work tab; without
+    // recorded work, the Timeline tab shows the session's work over time.
+    s('canvas', 'work', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      const list = page.getByRole('region', { name: 'Activity list' });
+      const work = list.locator('[data-kind="work"]').first();
+      if (await work.count()) await work.click();
+      else await list.getByRole('button', { name: 'Open timeline and context' }).click();
+      await page.waitForTimeout(800);
+    }),
+    s('canvas', 'activity-detail', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await page
+        .getByRole('region', { name: 'Activity list' })
+        .locator('[data-kind="tool"], [data-kind="turn"]')
+        .first()
+        .click();
+      await page.waitForTimeout(800);
+    }),
+    s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
     s('canvas', 'agent-customize', SESSION, async (page) => {
       await press(page, 'button', 'Customize the agent');
       await page.waitForTimeout(800);
@@ -346,7 +395,7 @@ function catalogue({ settings, infrastructure }) {
       },
       { scenario: { sessions: 300, workspaces: 20 } },
     ),
-    s('scale', 'large-file-tree', SESSION, (page) => canvasTab(page, 'File explorer'), {
+    s('scale', 'large-file-tree', SESSION, (page) => stripList(page, 'Files'), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
     }),
     s('scale', 'large-csv', SESSION, (page) => openFile(page, 'perf/large-table.csv'), {
