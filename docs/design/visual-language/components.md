@@ -64,7 +64,8 @@ Status values:
   ring is never clipped by its container. A disabled primary button drops to
   the muted fill so it never reads as the active action. Select triggers share
   the 28 px height so a button and a select in one row align; text inputs stay
-  32 px.
+  32 px. A secondary action inside a row or an alert uses `size="compact"`, the
+  spec's `.btn.sm` (24 px, 9 px padding, 11.5 px text).
 - **Menus.** Dropdown, context and command menus share one row height,
   highlight and key column. `MenuRow` supplies the fixed trailing columns.
   Its `detail` prop adds a muted second line under the label (an agent's host
