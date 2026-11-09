@@ -167,7 +167,7 @@ export const ListGroupLabel = memo(function ListGroupLabel({
     <div
       data-slot="list-group-label"
       className={cn(
-        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11.5px] font-semibold whitespace-nowrap text-muted-foreground',
+        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground',
         className,
       )}
     >

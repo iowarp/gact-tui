@@ -81,6 +81,7 @@ const EDGE_TONE = {
 export function InfrastructureTopology({
   data,
   agentLabel,
+  agentRoute = 'Direct',
   client,
   onReconnect,
   reconnecting = false,
@@ -88,6 +89,8 @@ export function InfrastructureTopology({
 }: {
   data: InfrastructureInventory;
   agentLabel: string;
+  /** How this client reaches the agent, labelled on their edge. */
+  agentRoute?: 'Direct' | 'SSH';
   /** Where this client runs ("Desktop app", "Browser"). */
   client: string;
   onReconnect?: (host: SshHost) => Promise<unknown>;
@@ -96,8 +99,8 @@ export function InfrastructureTopology({
 }) {
   const canReconnect = Boolean(onReconnect);
   const map = useMemo(
-    () => topologyLayout(data, agentLabel, client, canReconnect),
-    [data, agentLabel, client, canReconnect],
+    () => topologyLayout(data, agentLabel, agentRoute, client, canReconnect),
+    [data, agentLabel, agentRoute, client, canReconnect],
   );
   const height = PAD * 2 + (map.rows - 1) * ROW + NODE_HEIGHT;
   const nodes = new Map(map.nodes.map((node) => [node.id, node]));
@@ -259,6 +262,7 @@ function centerY(row: number): number {
 function topologyLayout(
   data: InfrastructureInventory,
   agentLabel: string,
+  agentRoute: 'Direct' | 'SSH',
   client: string,
   canReconnect: boolean,
 ): { nodes: MapNode[]; edges: MapEdge[]; rows: number } {
@@ -394,7 +398,7 @@ function topologyLayout(
       },
     },
   );
-  edges.unshift({ from: 'client', to: 'agent' });
+  edges.unshift({ from: 'client', to: 'agent', label: agentRoute });
   return { nodes, edges, rows: row };
 }
 

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
  * chevron and a uniform trigger style.
  */
 export function TechnicalDetails({
+  beside,
   children,
   className,
   contentClassName,
@@ -27,10 +28,11 @@ export function TechnicalDetails({
   contentClassName?: string;
   summaryClassName?: string;
   title: string;
+  /** Actions on the trigger's line, before it (a row's fix beside its details). */
+  beside?: ReactNode;
 }) {
-  return (
-    <Collapsible className={cn('group', className)}>
-      <CollapsibleTrigger
+  const trigger = (
+    <CollapsibleTrigger
         className={cn(
           'flex w-fit cursor-pointer items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
           summaryClassName,
@@ -40,8 +42,19 @@ export function TechnicalDetails({
           aria-hidden="true"
           className="size-3 shrink-0 transition-transform group-data-[state=open]:rotate-90"
         />
-        {title}
-      </CollapsibleTrigger>
+      {title}
+    </CollapsibleTrigger>
+  );
+  return (
+    <Collapsible className={cn('group', className)}>
+      {beside ? (
+        <div className="flex min-w-0 items-center gap-1">
+          {beside}
+          {trigger}
+        </div>
+      ) : (
+        trigger
+      )}
       <CollapsibleContent className={contentClassName}>{children}</CollapsibleContent>
     </Collapsible>
   );

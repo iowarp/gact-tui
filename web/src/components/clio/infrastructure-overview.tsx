@@ -20,6 +20,7 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
+import { agentIdentity } from './connection-names';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { InfrastructureTopology } from './infrastructure-topology';
@@ -76,7 +77,7 @@ export function InfrastructureOverview({
   });
   const research = webResearchRow(data, webSearch, webSearchConnected);
   const inference = inferenceRow(servers.data, Boolean(servers.error));
-  const agent = agentDetail(settings.label, settings.endpoint);
+  const agent = agentDetail(settings.label, settings.endpoint, settings.location);
   return (
     <div className="@container/overview flex min-w-0 flex-1 flex-col pt-1">
       <InfraTabActions>
@@ -170,7 +171,12 @@ export function InfrastructureOverview({
       </nav>
       <InfrastructureTopology
         agentLabel={agent}
-        className="mt-1 hidden flex-1 border-t border-border @[520px]/overview:block"
+        agentRoute={
+          settings.infrastructure?.targetId && settings.infrastructure.targetId !== 'local'
+            ? 'SSH'
+            : 'Direct'
+        }
+        className="mt-2 hidden min-h-[320px] flex-1 rounded-md border border-border @[520px]/overview:block"
         client={inTauri() ? 'Desktop app' : 'Browser'}
         data={data}
         reconnecting={reconnecting}
@@ -309,8 +315,10 @@ function urlHost(url: string): string | undefined {
   }
 }
 
-/** The agent row names the connection, or its address when the name is just "Agent". */
-function agentDetail(label: string | undefined, endpoint: string): string {
-  const name = label?.trim();
-  return name && name.toLowerCase() !== vocab.agent.toLowerCase() ? name : endpoint;
+/** The agent row names the computer it runs on: its given name, or its host, never a URL. */
+function agentDetail(label: string | undefined, endpoint: string, location?: string): string {
+  const identity = agentIdentity(endpoint, label, location);
+  return identity.kind === 'local' && identity.name === `${vocab.agent} local`
+    ? 'This computer'
+    : identity.name;
 }
