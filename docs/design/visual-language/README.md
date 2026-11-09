@@ -50,8 +50,9 @@ component in `web/src`, with the component gallery used for visual review.
 The spec is drawn in Notebook: warm paper and ink with verdigris accents, IBM
 Plex Sans for the interface, Literata for headings and voice, IBM Plex Mono for
 code. **Light** and **Dark** are Notebook's two variants and Dark is the default.
-**Classic light** and **Classic dark**, the earlier cool and neutral themes,
-stay selectable in Settings › Appearance. Colors and typefaces live only in
+**Cool** (the earlier blue-tinted light theme) and **Neutral** (the earlier
+neutral dark theme) stay selectable, under one-word names so the Theme
+control stays on one line, in Settings › Appearance. Colors and typefaces live only in
 `web/src/theme/themes.css`.
 
 ## Type scale

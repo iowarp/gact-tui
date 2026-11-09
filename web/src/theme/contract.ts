@@ -156,8 +156,8 @@ export interface ThemeDefinition {
 export const THEMES: readonly ThemeDefinition[] = [
   { id: 'light', label: 'Light', scheme: 'light' },
   { id: 'dark', label: 'Dark', scheme: 'dark' },
-  { id: 'classic-light', label: 'Classic light', scheme: 'light' },
-  { id: 'classic-dark', label: 'Classic dark', scheme: 'dark' },
+  { id: 'classic-light', label: 'Cool', scheme: 'light' },
+  { id: 'classic-dark', label: 'Neutral', scheme: 'dark' },
   { id: 'debug', label: 'Debug', scheme: 'system', development: true },
 ];
 
