@@ -62,7 +62,7 @@ export function ProviderComponentStatus({
 
   return (
     <div
-      className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-t px-2 py-1.5 text-xs text-muted-foreground"
+      className="flex h-9 min-w-0 shrink-0 flex-nowrap items-center gap-1 overflow-hidden border-t px-2 text-xs whitespace-nowrap text-muted-foreground"
       data-slot="provider-component-status"
     >
       {version || label ? (
@@ -106,9 +106,19 @@ export function ProviderComponentStatus({
         </Button>
       ) : null}
       {noCompatibleRelease ? (
-        <span role="status">No compatible client update is available yet.</span>
+        <span
+          className="min-w-0 truncate"
+          role="status"
+          title="No compatible client update is available yet."
+        >
+          No compatible client update is available yet.
+        </span>
       ) : state.checkError || components?.error?.message ? (
-        <span className="text-destructive" role="alert">
+        <span
+          className="min-w-0 truncate text-destructive"
+          role="alert"
+          title={state.checkError || components?.error?.message}
+        >
           {state.checkError || components?.error?.message}
         </span>
       ) : null}

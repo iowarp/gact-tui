@@ -119,7 +119,7 @@ afterEach(() => {
 });
 
 async function openAdd(kind: 'MCP server URL' | 'Local MCP command') {
-  await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Add MCP options' }));
   await userEvent.click(screen.getByRole('menuitem', { name: kind }));
   return screen.getByRole('dialog');
 }
@@ -170,6 +170,13 @@ describe('tool provider settings', () => {
         expect.objectContaining({ name: 'Research Tools', transport: 'http', always_load: false }),
       ),
     );
+  });
+  it('opens the URL form from the face of the Add split button', async () => {
+    renderSettings(<ToolsSettings embedded />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Add MCP' }));
+    expect(
+      within(screen.getByRole('dialog')).getByLabelText('MCP server URL', { exact: true }),
+    ).toBeVisible();
   });
   it('installs a local package with explicit argv and opt-in conversation access', async () => {
     renderSettings(<ToolsSettings embedded />);

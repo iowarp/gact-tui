@@ -20,12 +20,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
 import { usePluginCatalog, useExtensionsSupported } from '@/hooks/use-session-agent';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { SplitButton } from './primitives/split-button';
 import type { SavedMcpService } from '@clio/core/v3';
 
 export type ExtensionAdd = {
@@ -48,7 +44,15 @@ const ADD_LABELS = {
   plugin: 'Compose a plugin',
 };
 
-/** The same add menu in the extension library and infrastructure services. */
+/** The kind the face of the Add button adds; the arrow lists every kind. */
+function primaryKind(mcp: boolean, category?: ExtensionAdd['category']): ExtensionAdd['kind'] {
+  if (mcp) return 'remote';
+  if (category === 'skills') return 'skill';
+  if (category === 'plugins') return 'plugin';
+  return 'import';
+}
+
+/** The same Add split button in the extension library and infrastructure services. */
 export function ExtensionAddMenu({
   onChoose,
   mcpOnly = false,
@@ -59,45 +63,47 @@ export function ExtensionAddMenu({
   category?: ExtensionAdd['category'];
 }) {
   const supported = useExtensionsSupported();
+  const mcp = mcpOnly || category === 'mcp';
+  const label = mcp
+    ? 'Add MCP'
+    : category === 'skills'
+      ? 'Add skill'
+      : category === 'plugins'
+        ? 'Add plugin'
+        : 'Add';
+  const kinds = CHOICES.filter((kind) => {
+    if (mcp) return kind === 'remote' || kind === 'local';
+    if (category === 'skills') return kind === 'skill' || kind === 'import' || kind === 'upload';
+    if (category === 'plugins') return kind === 'plugin' || kind === 'import' || kind === 'upload';
+    return true;
+  });
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          size={mcpOnly ? 'sm' : 'default'}
-          disabled={supported !== true}
-          title={
-            supported === false
-              ? 'Update the connected agent service to use the extension library'
-              : undefined
-          }
-        >
-          <AddIcon />
-          {mcpOnly || category === 'mcp'
-            ? 'Add MCP'
-            : category === 'skills'
-              ? 'Add skill'
-              : category === 'plugins'
-                ? 'Add plugin'
-                : 'Add'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {CHOICES.filter((kind) => {
-          if (mcpOnly || category === 'mcp') return kind === 'remote' || kind === 'local';
-          if (category === 'skills')
-            return kind === 'skill' || kind === 'import' || kind === 'upload';
-          if (category === 'plugins')
-            return kind === 'plugin' || kind === 'import' || kind === 'upload';
-          return true;
-        }).map((kind) => (
+    <span
+      className="inline-flex shrink-0"
+      title={
+        supported === false
+          ? 'Update the connected agent service to use the extension library'
+          : undefined
+      }
+    >
+      <SplitButton
+        disabled={supported !== true}
+        icon={<AddIcon aria-hidden="true" />}
+        label={label}
+        menuLabel={`${label} options`}
+        onClick={() => onChoose({ kind: primaryKind(mcp, category), category })}
+        showLabel
+        variant="outline"
+      >
+        {kinds.map((kind) => (
           <DropdownMenuItem key={kind} onSelect={() => onChoose({ kind, category })}>
             {kind === 'upload' && category
               ? `Upload ${category === 'skills' ? 'skill' : 'plugin'} ZIP`
               : ADD_LABELS[kind]}
           </DropdownMenuItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </SplitButton>
+    </span>
   );
 }
 const TITLES = {
