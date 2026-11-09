@@ -462,7 +462,12 @@ function FramedZoom({
   useFileViewerFacts(disabled ? undefined : [`${Math.round(percent)}%`]);
   return (
     <ViewerToolbarContent>
-      <div aria-label="Diagram zoom" className="flex shrink-0 items-center gap-0.5" role="group">
+      <div
+        aria-label="Diagram zoom"
+        className="flex shrink-0 items-center gap-0.5"
+        data-slot="viewer-zoom-controls"
+        role="group"
+      >
         <ToolbarAction disabled={disabled} label="Zoom out" onClick={onOut}>
           <ZoomOutIcon aria-hidden="true" />
         </ToolbarAction>

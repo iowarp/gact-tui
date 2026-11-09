@@ -56,7 +56,8 @@ function currentSection(rows: readonly LatexOutlineRow[], place?: LatexPlace) {
 /**
  * The LaTeX tab's list: its outline (sections and subsections, indented) and
  * its build problems. Picking an entry shows it in the source and the PDF.
- * `revealProblems` changes to bring the problems into view.
+ * `revealProblems` changes to bring the problems into view; `filtered` says a
+ * search narrowed them.
  */
 export function LatexListSections({
   rows,
@@ -64,6 +65,7 @@ export function LatexListSections({
   entry,
   place,
   revealProblems,
+  filtered = false,
   onSection,
   onProblem,
 }: {
@@ -72,6 +74,8 @@ export function LatexListSections({
   entry: string;
   place?: LatexPlace;
   revealProblems: number;
+  /** A search narrows the rows: an empty part reads as no match, not as none at all. */
+  filtered?: boolean;
   onSection: (node: LatexOutlineNode) => void;
   onProblem: (problem: LatexProblem) => void;
 }) {
@@ -105,7 +109,9 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">No sections yet.</p>
+          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+            {filtered ? 'No matching sections.' : 'No sections yet.'}
+          </p>
         )}
       </nav>
       <section aria-label="Problems" className="scroll-mt-1" ref={problemsRef}>
@@ -143,7 +149,9 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">No problems.</p>
+          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+            {filtered ? 'No matching problems.' : 'No problems.'}
+          </p>
         )}
       </section>
     </div>

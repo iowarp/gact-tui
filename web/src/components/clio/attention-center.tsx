@@ -1,5 +1,6 @@
 import type { Session } from '@clio/core/v3';
 import {
+  BellIcon,
   BellRingIcon,
   LayoutTemplateIcon,
   MessageCircleQuestionIcon,
@@ -7,25 +8,25 @@ import {
   TextCursorInputIcon,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
+import { IconButton } from '@/components/clio/primitives/icon-button';
+import { ListRow } from '@/components/clio/primitives/list-row';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
-import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
-import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
-import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
-import { IconButton } from './primitives/icon-button';
-import { HeldKeyBadge } from './primitives/key-chip';
-import { ListRow } from './primitives/list-row';
+import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
+import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
@@ -36,6 +37,190 @@ interface AttentionProps {
 
 const notifiedAttentionIds = new Set<string>();
 const lastAttentionNoticeAt = new Map<string, number>();
+
+function moveFocus(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  const links = [...event.currentTarget.querySelectorAll<HTMLElement>('a[href], button')];
+  if (links.length === 0) return;
+  event.preventDefault();
+  const index = links.indexOf(document.activeElement as HTMLElement);
+  const next =
+    event.key === 'ArrowDown'
+      ? links[(index + 1) % links.length]
+      : links[(index - 1 + links.length) % links.length];
+  next?.focus();
+}
+
+/**
+ * The bell: always in the left bar's header, counting what needs a response.
+ * It opens one surface with a fixed group order. "Needs you" mirrors pending
+ * requests and the agent group holds a ready update. Things that happened
+ * while you were away need a background-finish event the runtime does not
+ * send yet.
+ */
+export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const versions = useSystemVersionStatus();
+  const entries = useMemo(
+    () =>
+      sessions
+        .filter((session) => !session.archived && attentions[session.id]?.total)
+        .map((session) => ({ session, attention: attentions[session.id]! })),
+    [attentions, sessions],
+  );
+  const responseCount = entries.reduce((total, entry) => total + entry.attention.total, 0);
+  const updateReady = versions.state === 'available';
+  useShortcut('notifications', () => setOpen((current) => !current));
+  const label =
+    responseCount === 0
+      ? updateReady
+        ? 'Notifications: update ready'
+        : 'Notifications'
+      : `${
+          entries.length === 1
+            ? `${entries[0]!.session.title} needs your response`
+            : `${entries.length} sessions need your response`
+        }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <IconButton
+          className={cn(
+            'shrink-0',
+            responseCount > 0 && 'text-action hover:text-action',
+            responseCount === 0 && updateReady && 'text-info',
+          )}
+          count={responseCount || undefined}
+          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
+          label={label}
+          shortcut="notifications"
+          tooltipSide="bottom"
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        alignOffset={-6}
+        className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        collisionPadding={8}
+        onOpenAutoFocus={(event) => {
+          // Start on the first notification, not the settings button.
+          const first = listRef.current?.querySelector<HTMLElement>('a[href], button');
+          if (!first) return;
+          event.preventDefault();
+          first.focus();
+        }}
+        side="bottom"
+      >
+        <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
+          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <IconButton
+            className="ml-auto"
+            icon={<AdjustIcon />}
+            label="Notification settings"
+            onClick={() => {
+              setOpen(false);
+              navigate('/settings/notifications');
+            }}
+            size="sm"
+          />
+        </div>
+        <div
+          className="clio-scrollbar max-h-[min(420px,70vh)] overflow-y-auto p-1"
+          onKeyDown={moveFocus}
+          ref={listRef}
+        >
+          <section aria-labelledby="attention-needs-you">
+            <h3
+              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-semibold text-muted-foreground"
+              id="attention-needs-you"
+            >
+              <span>Needs you</span>
+              <span className="text-warning tabular-nums">{responseCount}</span>
+            </h3>
+            {entries.length ? (
+              entries.map(({ session, attention }) => {
+                const summary = attentionSummary(attention);
+                const KindIcon = summary.kind.icon;
+                return (
+                  <Link
+                    aria-label={`${session.title}: ${summary.words}`}
+                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight [&:is(:focus-visible,:has([data-selected]))_.text-link]:text-accent-foreground [&:is(:focus-visible,:has([data-selected]))_.text-muted-foreground]:text-foreground"
+                    key={session.id}
+                    onClick={() => setOpen(false)}
+                    to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
+                  >
+                    <ListRow
+                      description={summary.words}
+                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                      layout="stacked"
+                      meta={
+                        <span className="flex flex-col items-end leading-[1.3]">
+                          <ClioRelativeTime
+                            className="text-[11px] text-muted-foreground"
+                            compact
+                            label="Updated"
+                            timestamp={session.last_interaction_at ?? session.updated_at}
+                          />
+                          <span className="text-[12px] font-medium text-link">
+                            {summary.kind.action}
+                          </span>
+                        </span>
+                      }
+                      selected={session.id === activeSessionId}
+                      title={
+                        <span title={`${session.title} ${summary.kind.verb}`}>
+                          <span className="font-semibold">{session.title}</span>{' '}
+                          <span className="text-muted-foreground">{summary.kind.verb}</span>
+                        </span>
+                      }
+                    />
+                  </Link>
+                );
+              })
+            ) : (
+              <p className="px-1.5 pb-1 text-[12px] text-muted-foreground">
+                Nothing is waiting for you.
+              </p>
+            )}
+          </section>
+          {updateReady ? (
+            <>
+              <GroupLabel>{vocab.agent}</GroupLabel>
+              <ListRow
+                description={versions.message}
+                icon={<ProductUpdateIcon state={versions.state} />}
+                meta={
+                  versions.desktopShell ? (
+                    <button
+                      className="text-[12px] text-primary hover:underline disabled:opacity-50"
+                      disabled={versions.updating}
+                      onClick={() => versions.updateAll()}
+                      type="button"
+                    >
+                      Update
+                    </button>
+                  ) : undefined
+                }
+                title="Update ready"
+              />
+            </>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="px-1.5 pb-0.5 pt-1.5 text-[11px] font-medium text-muted-foreground first:pt-0.5">
+      {children}
+    </p>
+  );
+}
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -90,150 +275,6 @@ function attentionSummary(attention: SessionAttention): { words: string; kind: A
     words: parts.join(', '),
     kind: kind ?? { icon: InfoIcon, verb: 'needs you', action: 'Open' },
   };
-}
-
-function moveFocus(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  const links = [...event.currentTarget.querySelectorAll<HTMLElement>('a[href]')];
-  if (links.length === 0) return;
-  event.preventDefault();
-  const index = links.indexOf(document.activeElement as HTMLElement);
-  const next =
-    event.key === 'ArrowDown'
-      ? links[(index + 1) % links.length]
-      : links[(index - 1 + links.length) % links.length];
-  next?.focus();
-}
-
-export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
-  const shortcut = useShortcutPresentation('notifications');
-  const entries = useMemo(
-    () =>
-      sessions
-        .filter((session) => !session.archived && attentions[session.id]?.total)
-        .map((session) => ({ session, attention: attentions[session.id]! })),
-    [attentions, sessions],
-  );
-  const responseCount = entries.reduce((total, entry) => total + entry.attention.total, 0);
-  useShortcut('notifications', () => {
-    if (responseCount > 0) setOpen((current) => !current);
-  });
-  if (responseCount === 0) return null;
-
-  const label =
-    entries.length === 1
-      ? `${entries[0]!.session.title} needs your response`
-      : `${entries.length} sessions need your response`;
-
-  return (
-    <SidebarMenuItem className="shrink-0">
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <SidebarMenuButton
-            aria-keyshortcuts={shortcut?.aria}
-            aria-label={`${label}; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`}
-            className="relative size-8 overflow-visible text-muted-foreground hover:text-foreground"
-            tooltip={shortcut ? `${label} (${shortcut.text})` : label}
-            type="button"
-          >
-            <BellRingIcon aria-hidden="true" />
-            <HeldKeyBadge id="notifications" />
-            <Badge
-              className="absolute -right-1 -top-1 h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-[9.5px] font-bold text-background"
-              variant="default"
-            >
-              {responseCount > 9 ? '9+' : responseCount}
-            </Badge>
-          </SidebarMenuButton>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          alignOffset={-6}
-          className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
-          collisionPadding={8}
-          onOpenAutoFocus={(event) => {
-            // Start on the first notification, not the settings button.
-            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
-            if (!first) return;
-            event.preventDefault();
-            first.focus();
-          }}
-          side="bottom"
-        >
-          <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
-            <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
-            <IconButton
-              className="ml-auto"
-              icon={<AdjustIcon />}
-              label="Notification settings"
-              onClick={() => {
-                setOpen(false);
-                navigate('/settings/notifications');
-              }}
-              size="sm"
-            />
-          </div>
-          <section aria-labelledby="attention-needs-you" className="p-1">
-            <h3
-              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-semibold text-muted-foreground"
-              id="attention-needs-you"
-            >
-              <span>Needs you</span>
-              <span className="text-warning tabular-nums">{responseCount}</span>
-            </h3>
-            <div
-              className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
-              onKeyDown={moveFocus}
-              ref={listRef}
-            >
-              {entries.map(({ session, attention }) => {
-                const summary = attentionSummary(attention);
-                const KindIcon = summary.kind.icon;
-                return (
-                  <Link
-                    aria-label={`${session.title}: ${summary.words}`}
-                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight [&:is(:focus-visible,:has([data-selected]))_.text-link]:text-accent-foreground [&:is(:focus-visible,:has([data-selected]))_.text-muted-foreground]:text-foreground"
-                    key={session.id}
-                    onClick={() => setOpen(false)}
-                    to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
-                  >
-                    <ListRow
-                      description={summary.words}
-                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
-                      layout="stacked"
-                      meta={
-                        <span className="flex flex-col items-end leading-[1.3]">
-                          <ClioRelativeTime
-                            className="text-[11px] text-muted-foreground"
-                            compact
-                            label="Updated"
-                            timestamp={session.last_interaction_at ?? session.updated_at}
-                          />
-                          <span className="text-[12px] font-medium text-link">
-                            {summary.kind.action}
-                          </span>
-                        </span>
-                      }
-                      selected={session.id === activeSessionId}
-                      title={
-                        <span title={`${session.title} ${summary.kind.verb}`}>
-                          <span className="font-semibold">{session.title}</span>{' '}
-                          <span className="text-muted-foreground">{summary.kind.verb}</span>
-                        </span>
-                      }
-                    />
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        </PopoverContent>
-      </Popover>
-    </SidebarMenuItem>
-  );
 }
 
 export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }: AttentionProps) {
