@@ -252,7 +252,11 @@ export function CopyAction({ value, label }: { value: string; label: string }) {
           });
         }}
       >
-        {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+        {copied ? (
+          <CheckIcon aria-hidden="true" className="size-[13px]" />
+        ) : (
+          <CopyIcon aria-hidden="true" className="size-[13px]" />
+        )}
       </Button>
     </NamedTooltip>
   );

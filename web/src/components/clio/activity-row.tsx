@@ -277,7 +277,7 @@ export function ActivityDisclosure({
       disabled={disabled}
       onClick={onClick}
       data-slot="activity-disclosure"
-      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground disabled:opacity-0"
+      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground disabled:opacity-0 aria-expanded:bg-transparent aria-expanded:text-faint aria-expanded:hover:text-foreground dark:hover:bg-transparent"
     >
       <ChevronRightIcon
         aria-hidden="true"
@@ -307,7 +307,7 @@ export const ActivityInfoButton = forwardRef<
         className="size-[26px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-3.5"
         {...rest}
       >
-        <InfoIcon aria-hidden="true" />
+        <InfoIcon aria-hidden="true" className="size-3.5" />
       </Button>
     </NamedTooltip>
   );
