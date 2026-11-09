@@ -292,6 +292,12 @@ function catalogue({ settings, infrastructure }) {
           await page.keyboard.type('stat');
           await page.waitForTimeout(500);
         }),
+        keyShot('command-palette-no-match', async (page) => {
+          await page.keyboard.press(`${mod}+KeyK`);
+          await overlay(page);
+          await page.keyboard.type('zqxv');
+          await page.waitForTimeout(500);
+        }),
         keyShot('command-palette-actions', async (page) => {
           await page.keyboard.press(`${mod}+KeyK`);
           await overlay(page);
@@ -387,6 +393,16 @@ function catalogue({ settings, infrastructure }) {
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
+    }),
+    // The Settings window's own filter with a query typed.
+    s('settings', 'search-typed', '/settings/general', async (page) => {
+      const field = page
+        .getByRole('searchbox')
+        .or(page.getByPlaceholder(/^Search/u))
+        .first();
+      await field.click();
+      await page.keyboard.type('model');
+      await page.waitForTimeout(700);
     }),
     s('runs', 'executions', '/runs', null, { ready: 'h1' }),
     s('runs', 'flows', '/runs', async (page) => {

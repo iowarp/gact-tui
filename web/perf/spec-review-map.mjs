@@ -121,6 +121,8 @@ export const surfaces = [
       { app: 'settings--general', spec: [...st(1, 6, 16)] },
       { app: 'keyboard--settings-window', spec: [...st(1, 2)] },
       { app: 'settings--search-everywhere', spec: [...st(3), ...ps(1)] },
+      { app: 'settings--search-typed', spec: [...st(6, 3)] },
+      { app: 'keyboard--(mac-)?command-palette-no-match', spec: [...ps(10, 1)] },
       { app: 'keyboard--(mac-)?command-palette', spec: [...ps(1, 3, 13)] },
       { app: 'keyboard--(mac-)?command-palette-typed', spec: [...ps(10, 7)] },
       { app: 'keyboard--(mac-)?command-palette-actions', spec: [...ps(8, 9)] },
