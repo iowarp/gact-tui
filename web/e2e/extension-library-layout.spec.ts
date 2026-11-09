@@ -93,6 +93,27 @@ for (const width of [390, 1280]) {
         },
       }),
     );
+    // The preview resolves the private agent; reuse a built-in resolution under its name.
+    await page.route('**/v1/agents/resolve?*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('ref') !== 'user/dememory-clio') return route.fallback();
+      url.searchParams.set('ref', 'clio/default');
+      const data = await (await route.fetch({ url: url.toString() })).json();
+      await route.fulfill({
+        json: {
+          ...data,
+          agent: {
+            ...data.agent,
+            ref: 'user/dememory-clio',
+            id: definition.id,
+            name: definition.name,
+            description: definition.description,
+            parent: definition.extends,
+            kind: 'user',
+          },
+        },
+      });
+    });
     await page.route('**/v1/plugins/local', (route) =>
       route.fulfill({
         json: {

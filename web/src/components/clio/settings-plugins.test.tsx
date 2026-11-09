@@ -288,7 +288,9 @@ describe('Extensions: marketplaces', () => {
     expect(screen.getByRole('menuitem', { name: 'Add remote marketplace…' })).toBeVisible();
     await user.click(screen.getByRole('menuitem', { name: 'Back up with GitHub…' }));
     expect(await screen.findByRole('dialog', { name: 'Back up to GitHub' })).toBeVisible();
-    await user.keyboard('{Escape}');
+    const backup = screen.getByRole('dialog', { name: 'Back up to GitHub' });
+    await user.click(within(backup).getAllByRole('button', { name: 'Close' })[0]!);
+    await waitFor(() => expect(backup).not.toBeInTheDocument());
     await user.click(within(list).getByRole('button', { name: 'Explore private-local' }));
     const pane = await screen.findByRole('complementary', { name: 'Private local marketplace' });
     expect(await within(pane).findByText('Dememory Clio')).toBeVisible();
