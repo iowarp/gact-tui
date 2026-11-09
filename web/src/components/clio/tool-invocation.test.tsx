@@ -9,6 +9,9 @@ import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
 afterEach(cleanup);
 beforeEach(() => {
   localStorage.clear();
@@ -17,6 +20,49 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation content and subject rendering', () => {
+  it('opens a delegate onto the calls its child session made', async () => {
+    const search = {
+      id: 'child-search',
+      session_id: 'sess_ndp',
+      name: 'ndp_search',
+      title: 'ndp_search',
+      state: 'succeeded' as const,
+      started_at: '2026-11-01T00:00:01Z',
+    };
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: {
+            task_ndp: {
+              id: 'task_ndp',
+              session_id: 's',
+              child_session_id: 'sess_ndp',
+              title: 'NDP explorer',
+              state: 'running',
+            },
+          },
+          tools: { [search.id]: search },
+        }}
+      >
+        <ClioToolInvocation
+          compact
+          tool={{
+            id: 'delegate',
+            session_id: 's',
+            name: 'spawn_agent_task',
+            title: 'Delegate',
+            state: 'running',
+            input: { name: 'NDP explorer', task: 'find SMAP L3 granules' },
+            output: { task_id: 'task_ndp', child_session_id: 'sess_ndp' },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Expand/ }));
+    const calls = screen.getByRole('group', { name: 'Calls by NDP explorer' });
+    expect(within(calls).getByText('ndp_search')).toBeVisible();
+  });
   it('names an inspected task once across the row and expanded result, with one working opener', async () => {
     const open = vi.fn();
     render(

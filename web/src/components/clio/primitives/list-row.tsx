@@ -50,6 +50,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   variant?: 'list' | 'activity';
   /** The 12px column before the icon (an expand chevron) in `activity` rows. */
   leading?: ReactNode;
+  /**
+   * In a narrow `activity` row (below 280px) the name becomes the icon's hover
+   * name so the target keeps the room. A row with no target sets this false and
+   * keeps its name, cut with …, since the icon alone would say nothing.
+   */
+  titleCollapses?: boolean;
   selected?: boolean;
   /**
    * `highlight` marks the selected row with the menu-highlight tone. `accent`
@@ -83,6 +89,7 @@ export const ListRow = memo(
       layout = 'inline',
       variant = 'list',
       leading,
+      titleCollapses = true,
       selected = false,
       selectedTone = 'highlight',
       className,
@@ -121,7 +128,15 @@ export const ListRow = memo(
               {icon}
             </span>
           ) : null}
-          <span className="shrink-0 text-foreground @max-[280px]/activity:sr-only">{title}</span>
+          <span
+            data-slot="list-row-title"
+            className={cn(
+              'text-foreground',
+              titleCollapses ? 'shrink-0 @max-[280px]/activity:sr-only' : 'min-w-0 shrink truncate',
+            )}
+          >
+            {title}
+          </span>
           <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>

@@ -158,11 +158,11 @@ function subagent(finished = false): SubagentRun {
   };
 }
 
-function searchTool(parent: string): ToolInvocation {
+/** The delegate's own calls live in its child session, as the service records them. */
+function searchTool(): ToolInvocation {
   return {
     id: 'ndp-search',
-    session_id: SESSION,
-    parent_call_id: parent,
+    session_id: 'sess_ndp',
     name: 'ndp_search',
     state: 'succeeded',
     input: { query: 'SMAP_L3_SM_P', since: '2020-01-01' },
@@ -179,11 +179,10 @@ function searchTool(parent: string): ToolInvocation {
   };
 }
 
-function scriptTool(parent: string, summary: string): ToolInvocation {
+function scriptTool(summary: string): ToolInvocation {
   return {
     id: 'soil-qc',
-    session_id: SESSION,
-    parent_call_id: parent,
+    session_id: 'sess_ndp',
     name: 'run_code',
     state: 'running',
     input: { path: 'scripts/soil_qc.py', language: 'python' },
@@ -338,8 +337,8 @@ const conversationTurn = (): ClioConversationProps => ({
     editTool(),
     regridTool(),
     delegateTool(),
-    searchTool('delegate'),
-    scriptTool('delegate', 'waiting for you'),
+    searchTool(),
+    scriptTool('waiting for you'),
   ),
   subagents: { task_ndp: subagent() },
   tasks: {},
@@ -377,8 +376,8 @@ const STATES: State[] = [
         editTool(),
         regridTool(),
         delegateTool(),
-        searchTool('delegate'),
-        scriptTool('delegate', '2 of 5 calls'),
+        searchTool(),
+        scriptTool('2 of 5 calls'),
         readTool('soil-qc'),
         blockedTool('soil-qc'),
       ),

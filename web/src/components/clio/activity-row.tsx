@@ -197,6 +197,9 @@ export const ActivityRow = memo(
           leading={disclosure}
           icon={icon}
           title={name}
+          titleCollapses={
+            Boolean(link) || (argument !== undefined && argument !== null && argument !== '')
+          }
           description={
             <>
               {link ? (
