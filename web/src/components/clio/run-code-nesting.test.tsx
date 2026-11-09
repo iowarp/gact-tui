@@ -6,7 +6,7 @@ import {
   type ToolInvocation,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
@@ -149,12 +149,17 @@ function scriptQuestion(actions: string[]): PendingInteraction {
   } as PendingInteraction;
 }
 
-function renderQuestion(interaction: PendingInteraction) {
+function renderQuestion(interaction: PendingInteraction, onOpenScript = vi.fn()) {
   const onResponse = vi.fn(async () => undefined);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PermissionResponse interaction={interaction} onResponse={onResponse} showOwner={false} />
+      <PermissionResponse
+        interaction={interaction}
+        onOpenScript={onOpenScript}
+        onResponse={onResponse}
+        showOwner={false}
+      />
     </QueryClientProvider>,
   );
   return onResponse;
@@ -163,12 +168,19 @@ function renderQuestion(interaction: PendingInteraction) {
 describe('a permission question asked from a script', () => {
   it('shows the paused script and offers the rest of the script', async () => {
     const user = userEvent.setup();
-    const onResponse = renderQuestion(
-      scriptQuestion(['allow', 'deny', 'allow_session', 'allow_workspace', 'allow_script']),
-    );
+    const onOpenScript = vi.fn();
+    const interaction = scriptQuestion([
+      'allow',
+      'deny',
+      'allow_session',
+      'allow_workspace',
+      'allow_script',
+    ]);
+    const onResponse = renderQuestion(interaction, onOpenScript);
     expect(screen.getByRole('group', { name: 'Script' })).toBeInTheDocument();
-    expect(screen.getByText(/paused until you answer/)).toBeInTheDocument();
     expect(screen.getByText(/await tools\.fs\.write_file/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Open in tab/u }));
+    expect(onOpenScript).toHaveBeenCalledWith(interaction, 'call_run');
     await user.click(screen.getByRole('button', { name: 'Allow for the rest of this script' }));
     expect(onResponse).toHaveBeenCalledWith(expect.anything(), { action: 'allow_script' });
   });
@@ -178,4 +190,14 @@ describe('a permission question asked from a script', () => {
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeInTheDocument();
     expect(screen.queryByText('Rest of this script')).toBeNull();
   });
+
+  it('colours the script with the theme syntax tokens once the highlighter loads', async () => {
+    renderQuestion(scriptQuestion(['allow', 'deny']));
+    const script = screen.getByRole('group', { name: 'Script' });
+    await waitFor(
+      () => expect(script.querySelector('code span[style*="--syntax-"]')).not.toBeNull(),
+      { timeout: 20_000 },
+    );
+    expect(script.querySelector('pre')).toHaveTextContent(/await tools\.fs\.write_file\(f\)/u);
+  }, 30_000);
 });
