@@ -108,7 +108,8 @@ it('offers Sign in until an account is signed in, then keeps workspace connectio
   }
   await user.click(screen.getByRole('button', { name: 'More actions for Google Drive' }));
   expect(await screen.findByRole('menuitem', { name: 'Connect to a workspace…' })).toBeVisible();
-});it('discards the workspace dialog when the connected service changes', async () => {
+});
+it('discards the workspace dialog when the connected service changes', async () => {
   const { user, view, content } = mount();
   await user.click(await screen.findByRole('button', { name: 'New vault' }));
   expect(screen.getByRole('dialog')).toBeInTheDocument();

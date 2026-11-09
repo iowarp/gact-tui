@@ -1,15 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type TagTone =
-  | 'neutral'
-  | 'chip'
-  | 'on'
-  | 'off'
-  | 'info'
-  | 'success'
-  | 'warning'
-  | 'danger';
+export type TagTone = 'neutral' | 'chip' | 'on' | 'off' | 'info' | 'success' | 'warning' | 'danger';
 
 const TONE: Record<TagTone, string> = {
   neutral: 'border-border text-muted-foreground',

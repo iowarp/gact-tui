@@ -491,10 +491,7 @@ function GroupRow({
       : [`${section.count} ${section.count === 1 ? 'tool' : 'tools'}`]);
   const changed = section.tools.some((tool) => tool.permission || tool.configured_callers);
   return (
-    <div
-      className={cn(COLUMNS, 'group/group mt-1.5 min-h-10 py-1')}
-      data-tool-group={section.id}
-    >
+    <div className={cn(COLUMNS, 'group/group mt-1.5 min-h-10 py-1')} data-tool-group={section.id}>
       {hasTools ? (
         <button
           aria-expanded={open}
@@ -515,10 +512,7 @@ function GroupRow({
         </span>
       )}
       <span className="grid min-w-0 gap-0.5">
-        <h3
-          className="truncate text-[13px] font-semibold text-foreground"
-          title={section.hint}
-        >
+        <h3 className="truncate text-[13px] font-semibold text-foreground" title={section.hint}>
           {section.title}
         </h3>
         {section.notice || meta.length ? (

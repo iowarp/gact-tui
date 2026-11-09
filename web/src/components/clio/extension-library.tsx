@@ -54,7 +54,6 @@ type Detail =
   | { kind: 'mcp'; name: string }
   | { kind: 'discover'; key: string };
 
-
 /** The private local marketplace before anything is saved to it. */
 const LOCAL_PLACEHOLDER: PluginMarketplace = {
   name: LOCAL_MARKETPLACE,

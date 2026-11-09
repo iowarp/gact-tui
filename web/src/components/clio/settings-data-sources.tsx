@@ -162,7 +162,6 @@ export function DataSourceSettings() {
         }
         status={state ? <StatusIndicator label={state.label} tone={state.tone} /> : null}
         title={account.name}
-
       />
     );
   };
