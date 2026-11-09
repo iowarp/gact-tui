@@ -2,8 +2,8 @@
  * A saved service that is starting, or that has not answered yet (started together with
  * this page), is waited for and opened by itself; it is not shown as a failure.
  */
-import { render as renderView, screen, waitFor } from '@testing-library/react';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -66,9 +66,6 @@ vi.mock('@/providers/connection-provider', () => ({
 import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes } from '@/lib/connection-outcomes';
 import { sessionReads } from '@/test/session-reads';
-
-const render = (ui: Parameters<typeof renderView>[0]) =>
-  renderView(ui, { wrapper: TooltipProvider });
 
 beforeEach(() => {
   useCommandMenuVisibility.getState().setOpen(false);

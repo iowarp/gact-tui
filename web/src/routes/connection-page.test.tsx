@@ -1,12 +1,5 @@
-import {
-  act,
-  cleanup,
-  render as renderView,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { brand } from '@brand';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -72,9 +65,6 @@ import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-ou
 import { InfrastructureTargetGoneError } from '@/lib/connection';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { sessionReads } from '@/test/session-reads';
-
-const render = (ui: Parameters<typeof renderView>[0]) =>
-  renderView(ui, { wrapper: TooltipProvider });
 
 beforeEach(() => {
   useCommandMenuVisibility.getState().setOpen(false);

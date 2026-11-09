@@ -1,5 +1,5 @@
-import { cleanup, render as renderView, screen } from '@testing-library/react';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportError } from '@clio/core/v3';
@@ -30,9 +30,6 @@ vi.mock('@/lib/connection', async (importOriginal) => {
 import { ConnectionPage } from './connection-page';
 import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
-
-const render = (ui: Parameters<typeof renderView>[0]) =>
-  renderView(ui, { wrapper: TooltipProvider });
 
 beforeEach(() => {
   vi.clearAllMocks();

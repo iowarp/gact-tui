@@ -3,8 +3,8 @@
  * connects to its own origin by itself; when nothing answers there the person gets the
  * manual form, starting from that origin. Under a Vite dev server nothing changes (#739 B7).
  */
-import { cleanup, render as renderView, screen } from '@testing-library/react';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { cleanup, screen } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -46,9 +46,6 @@ vi.mock('@/providers/connection-provider', async () => {
 import { ConnectionPage } from './connection-page';
 import { DEFAULT_ENDPOINT } from '@/lib/connection';
 import { sessionReads } from '@/test/session-reads';
-
-const render = (ui: Parameters<typeof renderView>[0]) =>
-  renderView(ui, { wrapper: TooltipProvider });
 
 const pageOrigin = window.location.origin;
 
