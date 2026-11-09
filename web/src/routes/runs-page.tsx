@@ -489,7 +489,7 @@ export function RunsPage() {
             action={
               canIndexMore
                 ? {
-                    label: flowsIndexing ? 'Indexing?' : 'Index more sessions',
+                    label: flowsIndexing ? 'Indexing…' : 'Index more sessions',
                     onClick: indexMore,
                   }
                 : undefined
@@ -546,7 +546,7 @@ export function RunsPage() {
                 size="xs"
                 variant="ghost"
               >
-                {runs.isFetchingNextPage ? 'Loading?' : 'Load more tasks'}
+                {runs.isFetchingNextPage ? 'Loading…' : 'Load more tasks'}
               </Button>
             ) : null}
             {canIndexMore ? (
@@ -556,7 +556,7 @@ export function RunsPage() {
                 size="xs"
                 variant="ghost"
               >
-                {flowsIndexing ? 'Indexing?' : 'Index more sessions'}
+                {flowsIndexing ? 'Indexing…' : 'Index more sessions'}
               </Button>
             ) : null}
           </span>
