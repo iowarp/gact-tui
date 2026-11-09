@@ -1,6 +1,15 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreIcon } from '@/lib/icon-vocabulary';
 import { withoutSearchArrival } from '@/lib/settings-window-route';
+import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ToolPermissionsSettings } from './settings-tool-permissions';
@@ -42,7 +51,11 @@ export function ToolsSettingsTabs({
   const refocus = focusesTab(location.state);
   // Switching tabs remounts the page; keep focus on the switch that was used.
   useEffect(() => {
-    if (refocus) switcher.current?.querySelector<HTMLElement>('[data-state="on"]')?.focus();
+    if (!refocus) return;
+    const active = [
+      ...(switcher.current?.querySelectorAll<HTMLElement>('[data-state="on"]') ?? []),
+    ];
+    (active.find((element) => element.getClientRects().length > 0) ?? active[0])?.focus();
   }, [refocus]);
   const choose = (next: ToolsTab) => {
     if (next === tab) return;
@@ -60,16 +73,11 @@ export function ToolsSettingsTabs({
     );
   };
   return (
-    <div className="grid min-w-0 gap-2" data-settings-anchor={section}>
+    <div className="@container/toolspage grid min-w-0 gap-2" data-settings-anchor={section}>
       <SettingsSectionHeading
         actions={
-          <div ref={switcher}>
-            <SegmentedControl
-              label="Tools pages"
-              onValueChange={choose}
-              options={TABS}
-              value={tab}
-            />
+          <div className="flex min-w-0" ref={switcher}>
+            <PageTabs onValueChange={choose} value={tab} />
           </div>
         }
         info="Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
@@ -85,5 +93,68 @@ export function ToolsSettingsTabs({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The page switch folds with the page's width, as the spec's tab row does:
+ * all three pages, then the current page and ⋯ for the others. ← → still
+ * move through all three.
+ */
+function PageTabs({
+  value,
+  onValueChange,
+}: {
+  value: ToolsTab;
+  onValueChange: (value: ToolsTab) => void;
+}) {
+  const current = TABS.find((row) => row.value === value) ?? TABS[0];
+  const step = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    event.preventDefault();
+    const index = TABS.indexOf(current);
+    const next = TABS[(index + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
+    if (next) onValueChange(next.value);
+  };
+  return (
+    <>
+      <div className="hidden min-w-0 @[35rem]/toolspage:flex" data-fold="full">
+        <SegmentedControl
+          label="Tools pages"
+          onValueChange={onValueChange}
+          options={TABS}
+          value={value}
+        />
+      </div>
+      <div
+        className="flex min-w-0 items-center gap-px @[35rem]/toolspage:hidden"
+        data-fold="current"
+        onKeyDown={step}
+      >
+        <SegmentedControl
+          label="Tools pages"
+          onValueChange={onValueChange}
+          options={[current]}
+          value={value}
+        />
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <IconButton icon={<MoreIcon />} label="Other Tools pages" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            <DropdownMenuRadioGroup
+              onValueChange={(next) => onValueChange(next as ToolsTab)}
+              value={value}
+            >
+              {TABS.map((row) => (
+                <DropdownMenuRadioItem key={row.value} value={row.value}>
+                  {row.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
   );
 }

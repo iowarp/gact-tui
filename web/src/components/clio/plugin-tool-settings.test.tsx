@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { PluginToolSettings } from './plugin-tool-settings';
 import { ToolsSettingsTabs } from './settings-tools-tabs';
 
@@ -111,20 +112,22 @@ function TabsPage() {
 function renderTabs(path: string, children?: ReactNode) {
   return render(
     <QueryClientProvider client={client()}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route
-            element={
-              <>
-                <TabsPage />
-                <Where />
-              </>
-            }
-            path="/settings/:section"
-          />
-        </Routes>
-        {children}
-      </MemoryRouter>
+      <TooltipProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route
+              element={
+                <>
+                  <TabsPage />
+                  <Where />
+                </>
+              }
+              path="/settings/:section"
+            />
+          </Routes>
+          {children}
+        </MemoryRouter>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -356,15 +359,28 @@ it('makes each tab its own route and keeps focus on the switch', async () => {
   const user = userEvent.setup();
   renderTabs('/settings/tools');
   expect(screen.getByText('MCP servers page')).toBeVisible();
-  const servers = screen.getByRole('radio', { name: 'MCP servers' });
+  // jsdom has no container queries; act on the full fold of the page switch.
+  const full = within(document.querySelector<HTMLElement>('[data-fold="full"]')!);
+  const servers = full.getByRole('radio', { name: 'MCP servers' });
   expect(servers).toHaveAttribute('data-state', 'on');
-  await user.click(screen.getByRole('radio', { name: 'Remote tools' }));
+  await user.click(full.getByRole('radio', { name: 'Remote tools' }));
   expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/settings/relays');
   expect(screen.getByText('Remote tools page')).toBeVisible();
-  expect(screen.getByRole('radio', { name: 'Remote tools' })).toHaveFocus();
-  await user.click(screen.getByRole('radio', { name: 'Tools' }));
+  const remote = within(document.querySelector<HTMLElement>('[data-fold="full"]')!);
+  expect(remote.getByRole('radio', { name: 'Remote tools' })).toHaveFocus();
+  await user.click(remote.getByRole('radio', { name: 'Tools' }));
   expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent(
     '/settings/tool-permissions',
   );
   expect(await screen.findByRole('group', { name: 'Plugin tools' })).toBeVisible();
+});
+
+it('reaches the other pages from the folded switch', async () => {
+  const user = userEvent.setup();
+  renderTabs('/settings/tools');
+  const folded = within(document.querySelector<HTMLElement>('[data-fold="current"]')!);
+  expect(folded.getAllByRole('radio')).toHaveLength(1);
+  await user.click(folded.getByRole('button', { name: 'Other Tools pages' }));
+  await user.click(await screen.findByRole('menuitemradio', { name: 'Remote tools' }));
+  expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/settings/relays');
 });

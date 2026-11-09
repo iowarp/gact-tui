@@ -68,14 +68,24 @@ const CALLERS = ['direct', 'code', 'both'] as const;
 
 /*
  * One column template for every row, folding as the table narrows: below
- * 32rem each tool is a summary row; then Tool, Permission and I/O; from 44rem
+ * 32rem each row stacks, the name on its own line and both pickers under it
+ * (see `STACK`); then Tool, Permission and I/O; from 44rem
  * the approval mode's outcome; from 56rem the script's outcome too. The
  * columns keep the spec's widths (128, 176 and 120px); the sub line carries the
  * outcomes a narrower table folds away.
  */
 const COLUMNS =
-  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_8.5rem_5.5rem_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
+  'grid items-center gap-x-2.5 gap-y-1 grid-cols-[20px_minmax(0,1fr)_minmax(0,1fr)_24px] @min-[32rem]/tools:gap-y-0 @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
 const MODE_CELL = 'hidden min-w-0 @min-[44rem]/tools:flex';
+/** Stacked rows (below 32rem): the icon and slot span both lines, the pickers share the second. */
+const STACK = {
+  lead: '@max-[32rem]/tools:row-span-2',
+  name: '@max-[32rem]/tools:col-span-2',
+  permission: '@max-[32rem]/tools:col-start-2 @max-[32rem]/tools:row-start-2',
+  io: '@max-[32rem]/tools:col-start-3 @max-[32rem]/tools:row-start-2',
+  slot: '@max-[32rem]/tools:col-start-4 @max-[32rem]/tools:row-span-2 @max-[32rem]/tools:row-start-1',
+  notice: '@max-[32rem]/tools:col-[2/-1] @max-[32rem]/tools:row-start-2',
+};
 const SCRIPT_CELL = 'hidden min-w-0 @min-[56rem]/tools:flex';
 
 export interface ToolTableSection {
@@ -119,7 +129,7 @@ function IoHelp() {
   ];
   return (
     <span className="grid gap-1.5 py-0.5">
-      <b className="font-medium">Who calls the tool</b>
+      <b className="font-medium">Programmatic tool calling: who calls the tool</b>
       {rows.map(([mark, label, detail]) => (
         <span className="grid grid-cols-[16px_3.25rem_max-content] items-center gap-2" key={label}>
           {mark}
@@ -256,13 +266,13 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
     >
       <span
         aria-label={kind.label}
-        className="grid place-items-center text-muted-foreground"
+        className={cn('grid place-items-center text-muted-foreground', STACK.lead)}
         role="img"
         title={kind.label}
       >
         <kind.icon className="size-4" />
       </span>
-      <span className="grid min-w-0 gap-0.5">
+      <span className={cn('grid min-w-0 gap-0.5', STACK.name)}>
         <span
           className="truncate font-mono text-[12.5px] font-medium text-foreground"
           title={tool.description ? `${tool.name}: ${tool.description}` : tool.name}
@@ -307,6 +317,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
       <span className={SCRIPT_CELL}>{outcome ? <Outcome value={outcome.script} /> : null}</span>
       <ChoicePicker
         chosen={!permission.isDefault}
+        className={STACK.permission}
         disabled={busy}
         icon={PERMISSION_ICON[permission.value]}
         iconClassName={
@@ -328,6 +339,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
       />
       <ChoicePicker
         chosen={!callers.isDefault}
+        className={STACK.io}
         disabled={busy}
         icon={callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon}
         isDefault={callers.isDefault && Boolean(callers.value)}
@@ -365,7 +377,7 @@ function RowSlot({
   const rules = savedRules(tool);
   const outcome = tool.outcomes[mode];
   return (
-    <span className="relative grid size-6 place-items-center">
+    <span className={cn('relative grid size-6 place-items-center', STACK.slot)}>
       {status?.kind === 'saved' ? (
         <span
           aria-label="Saved"
@@ -513,7 +525,7 @@ function GroupRow({
           <ChevronRightIcon className="size-3.5" />
         </span>
       )}
-      <span className="grid min-w-0 gap-0.5">
+      <span className={cn('grid min-w-0 gap-0.5', STACK.name)}>
         <h3 className="truncate text-[13px] font-semibold text-foreground" title={section.hint}>
           {section.title}
         </h3>
@@ -534,7 +546,7 @@ function GroupRow({
         ) : null}
       </span>
       {section.notice ? (
-        <span className="col-[3/-1] flex min-w-0" title={section.notice.title}>
+        <span className={cn('col-[3/-1] flex min-w-0', STACK.notice)} title={section.notice.title}>
           <StatusIndicator
             className={cn('text-[12px]', section.notice.tone === 'idle' && 'text-faint')}
             label={section.notice.status}
@@ -548,6 +560,7 @@ function GroupRow({
           <ChoicePicker<ToolPermission | 'default'>
             bulk
             chosen={permission !== 'mixed' && permission !== 'default'}
+            className={STACK.permission}
             disabled={busy}
             icon={
               permission === 'mixed' || permission === 'default'
@@ -567,6 +580,7 @@ function GroupRow({
           <ChoicePicker<ToolCallers | 'default'>
             bulk
             chosen={callers !== 'mixed' && callers !== 'default'}
+            className={STACK.io}
             disabled={busy}
             icon={callers === 'mixed' || callers === 'default' ? AdjustIcon : CALLERS_ICON[callers]}
             label={callersLabel}
@@ -582,7 +596,10 @@ function GroupRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <IconButton
-                className="invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible"
+                className={cn(
+                  'invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible',
+                  STACK.slot,
+                )}
                 icon={<MoreIcon />}
                 label={`More for ${section.bulkLabel.toLowerCase()}`}
               />
