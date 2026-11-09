@@ -54,6 +54,10 @@ export function ConversationRail({
         toJSON: () => undefined,
       };
     },
+    // Lets the positioner follow the button when the canvas opens and the bar reflows.
+    get contextElement() {
+      return buttonRef.current ?? undefined;
+    },
   });
   // The rail is anchored, not triggered, so Radix has no trigger to refocus on close.
   const returnFocus = useRef(false);
