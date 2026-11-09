@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -43,6 +44,19 @@ vi.mock('@/hooks/use-switch-connection', () => ({
   useSwitchConnection: () => mocks.switchConnection,
 }));
 vi.mock('@/tauri/menu-actions', () => ({ useMenuAction: vi.fn() }));
+vi.mock('@/hooks/use-connection-indicator-state', () => ({
+  useConnectionIndicatorState: () => 'live',
+}));
+vi.mock('@/hooks/use-system-version-status', () => ({
+  useSystemVersionStatus: () => ({
+    recheck: vi.fn(),
+    state: 'current',
+    statusLabel: 'Version status: up to date',
+    updateAll: vi.fn(),
+    updating: false,
+    versions: [],
+  }),
+}));
 vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
@@ -77,7 +91,7 @@ it('offers the managed local service from Aurora even though only Aurora is reme
   );
   const { rerender } = render(view());
   for (const destination of [mocks.connections[1]!, mocks.connections[0]!]) {
-    await user.click(screen.getByRole('button', { name: /this computer/u }));
+    await user.click(screen.getByRole('button', { name: new RegExp(brand.wordmark, 'u') }));
     const item = screen
       .getAllByRole('menuitem')
       .find((node) => node.textContent?.includes(new URL(destination.endpoint).host));

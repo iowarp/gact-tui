@@ -94,7 +94,7 @@ describe('NavigationInfrastructure', () => {
     ]);
 
     await waitFor(() => expect(screen.getByLabelText('Infrastructure: Ready')).toBeInTheDocument());
-    fireEvent.click(screen.getByLabelText('Show infrastructure status'));
+    fireEvent.click(screen.getByRole('button', { name: /^Infrastructure: /u }));
 
     await waitFor(() => expect(screen.getByText('Project files')).toBeInTheDocument());
     expect(screen.queryByText('Workspace files')).not.toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('NavigationInfrastructure', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(`Infrastructure: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Show infrastructure status'));
+    fireEvent.click(screen.getByRole('button', { name: /^Infrastructure: /u }));
 
     await waitFor(() =>
       expect(screen.getByLabelText(`${vocab.agent}: ${HISTORY_MODE_LABEL}`)).toBeInTheDocument(),

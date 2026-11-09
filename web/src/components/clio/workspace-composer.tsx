@@ -1,7 +1,7 @@
 import type { RunState, Session, WorkspaceReference } from '@clio/core/v3';
 import { m } from 'motion/react';
 import type { ReactNode } from 'react';
-import type { ComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerDraftValue, type ComposerDraft } from '@/hooks/use-composer-draft';
 import type { useSessionCommands } from '@/hooks/use-session-commands';
 import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
@@ -106,6 +106,7 @@ export function WorkspaceComposer({
     reorderQueuedMessages,
     updateQueuedMessage,
   } = mutations;
+  const value = useComposerDraftValue(draft);
   const startingConversation = async (action: () => Promise<unknown>) => {
     const startedFromWelcome = conversation.welcome;
     if (startedFromWelcome) conversation.setStarted(true);
@@ -124,9 +125,14 @@ export function WorkspaceComposer({
           ? 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
           : 'w-full'
       }
-      key={variant}
+      // A session's welcome composer registers fresh so it can hand off to its docked one.
+      // The layoutId is constant: motion keeps one shared-layout stack per id for the life
+      // of the page, so per-session ids leaked a stack (and a dead composer) per conversation.
+      // WorkspaceTranscript resets those stacks when the session changes, so nothing
+      // animates across sessions.
+      key={docked ? 'docked' : `welcome:${sessionId}`}
       layout
-      layoutId={`session-composer:${sessionId}`}
+      layoutId="session-composer"
     >
       {isManagedChildSession(session) ? (
         <ClioChildSessionFooter
@@ -149,6 +155,7 @@ export function WorkspaceComposer({
             data.capabilities.data?.capabilities,
           )}
           commands={commands.commands}
+          commandsState={commands.commandsState}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={
             mutations.send.isPending || cancel.isPending || commands.isPending || hold.active
@@ -217,7 +224,7 @@ export function WorkspaceComposer({
           }
           state={state}
           references={draft.references}
-          value={draft.value}
+          value={value}
           variant={variant}
           workspaceId={workspaceId}
         />

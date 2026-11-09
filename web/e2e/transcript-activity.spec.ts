@@ -164,6 +164,8 @@ test('renders always-visible causal rows and a truthful completion footer at des
     await expect(used).toContainText('$0');
     await expect(used).toContainText('2 tool calls, 1 failed');
     await page.mouse.move(0, 0);
+    // The usage card closes once the pointer leaves; it can overlay the rows.
+    await expect(used).toBeHidden();
     expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     // Opening a row grows its body below it without moving the row itself.
     await read.scrollIntoViewIfNeeded();

@@ -60,8 +60,10 @@ status, actions and slot columns have fixed widths that every row in an `ItemLis
 a word), never a bare dot. Settings lists keep the default widths (status 158, actions 104,
 slot 84 px) so the status word sits at the same x on every page; don't pass per-section
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
-aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px, and hover
-actions float over the row instead of reserving their column. Below 24rem (a phone) a
+aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px. Hover
+actions keep their own column after the status, as in the spec, so they never cover the
+name or meta. Below 36rem that column would squeeze the name under about 150 px, so the
+actions float over the end of the name instead, left of the status. Below 24rem (a phone) a
 two-line row stacks like a setting row: the status, or the `confirm` cell, drops under
 the name. Sections don't set their
 own max width. `confirm` is an inline confirmation ("Remove this rule?",
@@ -81,9 +83,14 @@ for typed values only. It binds Ctrl S / ⌘S.
 `{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard?, key?: 'Enter' }, cancelLabel?: string | null, secondary?, help?, footerStart?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
-The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
+The description sits under the title text (aligned with it when there is an icon) at 12.5 px and
+wraps; it is never cut. The footer follows conversation-states `.xd .ftr`, which settings.html
+`.xdf` now matches: padding 10/12/10/18 above a rule, buttons on the right at the spec's `.xb`
+28 px (the confirm's face fills the full height; Cancel is a quiet bordered button).
+The key chips sit inside the buttons as 18 px `.xk` caps: `Cancel Esc` on the safe button
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
+The overlay is the theme's `--scrim`; Notebook dark uses the spec's `rgba(10,9,8,.62)`.
 Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
 100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
 confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass

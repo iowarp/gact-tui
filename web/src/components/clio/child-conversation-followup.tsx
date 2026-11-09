@@ -3,7 +3,7 @@ import { SendIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
-import { useComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { FollowupSend } from '@/lib/followup-send';
@@ -41,6 +41,7 @@ function FollowupForm({
 }) {
   const repository = useRepository();
   const draft = useComposerDraft(sessionId, { persist: true, endpoint: connection });
+  const value = useComposerDraftValue(draft);
   const [send] = useState(() => new FollowupSend(scope));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +56,7 @@ function FollowupForm({
 
   async function submit(): Promise<void> {
     const controller = lifetime.current;
-    if (!controller || controller.signal.aborted || busy.current || !draft.value.trim()) return;
+    if (!controller || controller.signal.aborted || busy.current || !value.trim()) return;
     busy.current = true;
     setPending(true);
     setError('');
@@ -73,7 +74,7 @@ function FollowupForm({
       }
       const result = await repository.submitMessage(
         sessionId,
-        send.prepare(draft.value, session),
+        send.prepare(value, session),
         controller.signal,
       );
       if (controller.signal.aborted) return;
@@ -107,7 +108,7 @@ function FollowupForm({
         aria-label="Message this agent"
         className="max-h-40 min-h-16 resize-none overflow-y-auto text-sm"
         disabled={pending}
-        value={draft.value}
+        value={value}
         placeholder="Ask about a finding or give a follow-up…"
         onChange={(event) => {
           draft.onValueChange(event.target.value);
@@ -134,7 +135,7 @@ function FollowupForm({
             draft.
           </InfoTip>
         </div>
-        <Button disabled={pending || !draft.value.trim()} size="sm" type="submit">
+        <Button disabled={pending || !value.trim()} size="sm" type="submit">
           {pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
           {pending ? 'Sending…' : error ? 'Retry' : 'Send'}
         </Button>

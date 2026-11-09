@@ -27,6 +27,12 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
   });
   return {
     commands: commands.data ?? [],
+    /** Whether `commands` is the agent's list yet, so an empty one can say why. */
+    commandsState: commands.isError
+      ? ('failed' as const)
+      : commands.isPending
+        ? ('loading' as const)
+        : ('ready' as const),
     isPending: execute.isPending,
     run: async (value: { commandId: string; input: string }): Promise<void> => {
       await execute.mutateAsync(value);

@@ -77,8 +77,6 @@ sizes. Avoid arbitrary `text-[Npx]` values.
 
 ## Open questions
 
-- What "PTC" means in the tools settings. It is currently treated as the I/O
-  column (Direct, Code, Both).
 - Whether browser Back should close Settings.
 - Per-tool host, permission and tokens in the tool record are new; `develop`
   doesn't have them.
