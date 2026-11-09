@@ -64,8 +64,8 @@ export interface IconButtonProps
   shortcut?: string;
   /** One key of a range shortcut (the strip's icons by position). */
   shortcutPosition?: number;
-  /** 28px (default) or 22px for dense rows. */
-  size?: 'default' | 'sm';
+  /** 28px (default), 26px for the composer's toolbar row, or 22px for dense rows. */
+  size?: 'default' | 'toolbar' | 'sm';
   /** A small count on the corner (comments, unread). */
   count?: number;
   tooltipSide?: NamedTooltipProps['side'];
@@ -108,7 +108,9 @@ export const IconButton = memo(function IconButton({
         'relative text-muted-foreground hover:bg-hover hover:text-foreground aria-pressed:bg-hover aria-pressed:text-foreground',
         size === 'sm'
           ? 'rounded-[5px] [&_svg:not([class*=size-])]:size-3.5'
-          : '[&_svg:not([class*=size-])]:size-[17px]',
+          : size === 'toolbar'
+            ? 'size-[26px] rounded-[6px] [&_svg:not([class*=size-])]:size-[15px]'
+            : '[&_svg:not([class*=size-])]:size-[17px]',
         disabledReason &&
           'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground',
         className,

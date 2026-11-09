@@ -1,6 +1,5 @@
 import { CopyIcon, DownloadIcon, GitBranchIcon, LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ExternalLink } from '@/components/ui/external-link';
 import { AddIcon, DeleteIcon, InfoIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { IconButton } from './primitives/icon-button';
 
 /** The same source-management menu for local and installed marketplace rows. */
 export function MarketplaceActions({
@@ -36,7 +36,8 @@ export function MarketplaceActions({
   onBackup?: () => void;
   onExport?: () => void;
   onAddRemote?: () => void;
-  onDetails: () => void;
+  /** Omitted where the details are already open (the marketplace's own pane). */
+  onDetails?: () => void;
   onUpdate?: () => void;
   onCheck?: () => void;
   onUninstall?: () => void;
@@ -45,9 +46,7 @@ export function MarketplaceActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button aria-label={`Actions for ${name}`} size="icon-sm" variant="ghost">
-          <MoreIcon aria-hidden="true" />
-        </Button>
+        <IconButton icon={<MoreIcon />} label={`Actions for ${name}`} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
         {onBackup ? (
@@ -84,9 +83,11 @@ export function MarketplaceActions({
             <CopyIcon aria-hidden="true" /> Copy source
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onSelect={onDetails}>
-          <InfoIcon aria-hidden="true" /> Marketplace details
-        </DropdownMenuItem>
+        {onDetails ? (
+          <DropdownMenuItem onSelect={onDetails}>
+            <InfoIcon aria-hidden="true" /> Marketplace details
+          </DropdownMenuItem>
+        ) : null}
         {onUpdate || onCheck ? <DropdownMenuSeparator /> : null}
         {onUpdate ? (
           <DropdownMenuItem disabled={busy} onSelect={onUpdate}>

@@ -57,7 +57,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   await expect(
     page.getByRole('button', { name: /Return to parent conversation/ }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('combobox', { name: /^Ask .+ to investigate/ })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: /^Ask / })).toHaveCount(0);
   await page.getByRole('button', { name: `Actions for ${worker.title}`, exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Branch into a new session' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
@@ -102,7 +102,7 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   const branch = await (await forkResponse).json();
   await expect(page).toHaveURL(new RegExp(`/sessions/${branch.id}$`));
   await expect(page.getByText('Loading conversation', { exact: true })).toHaveCount(0);
-  const composer = page.getByRole('combobox', { name: /^Ask .+ to investigate/ });
+  const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeVisible();
   await expect(page.getByRole('button', { name: /Return to parent conversation/ })).toBeVisible();
   await composer.fill('Independent branch follow-up');

@@ -250,7 +250,7 @@ describe('ClioModelPicker', () => {
 
     const status = screen.getByTitle('Codex status: Ready');
     expect(status).toHaveClass('text-success');
-    expect(status.querySelector('svg')).toBeInTheDocument();
+    expect(status.querySelector('span.rounded-full')).toBeInTheDocument();
     await user.hover(status);
     expect(await screen.findByText('Provider status')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
@@ -431,7 +431,7 @@ describe('ClioModelPicker', () => {
     expect(document.querySelectorAll('[data-slot="scroll-area-viewport"]')).toHaveLength(2);
   });
 
-  it('nests the action row inside the active column, never a full-width row under both', async () => {
+  it('nests the provider bar under the providers column, never a full-width row under both', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -450,18 +450,18 @@ describe('ClioModelPicker', () => {
     const strip = document.querySelector('[data-slot="provider-panel-footer"]');
     expect(strip).not.toBeNull();
 
-    // Depth 0 is the (now-trail) provider list; depth 1 is the active
-    // provider's own model column. The strip is the LOWER SECTION of depth
-    // 1's own bounded box -- never a third, full-width row below both
-    // columns, which would leave an empty cell under depth 0.
+    // Depth 0 is the provider list; depth 1 is the active provider's own
+    // model column. The provider bar is the LOWER SECTION of the providers'
+    // own bounded box, under the provider it manages -- never a third,
+    // full-width row below both columns.
     const providerColumnBounds = document.querySelector(
       '[data-slot="cascader-column-bounds"][data-depth="0"]',
     );
     const activeColumnBounds = document.querySelector(
       '[data-slot="cascader-column-bounds"][data-depth="1"]',
     );
-    expect(activeColumnBounds?.contains(strip)).toBe(true);
-    expect(providerColumnBounds?.contains(strip)).toBe(false);
+    expect(providerColumnBounds?.contains(strip)).toBe(true);
+    expect(activeColumnBounds?.contains(strip)).toBe(false);
   });
 
   it('windows a provider whose model list runs past the virtualization threshold', async () => {

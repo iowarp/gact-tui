@@ -33,9 +33,10 @@ test('a reconnect closes its menu and animates the row until the request finishe
     await route.fulfill({ json: server });
   });
   await page.goto('/settings/tools');
-  const actions = page.getByRole('button', { name: 'Actions for Science tools' });
-  await actions.click();
+  await page.locator('[data-mcp-service="mcp_ext_science"]').hover();
+  await page.getByRole('button', { name: 'Actions for Science tools' }).click();
   await page.getByRole('menuitem', { name: 'Reconnect' }).click();
+  const actions = page.getByRole('button', { name: 'Reconnect Science tools' });
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(actions).toHaveAttribute('aria-busy', 'true');
   await expect(actions).toBeDisabled();

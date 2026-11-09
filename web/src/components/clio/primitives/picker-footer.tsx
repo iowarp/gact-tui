@@ -1,0 +1,77 @@
+import { memo, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import { ShortcutKeys } from './key-chip';
+
+export interface PickerHint {
+  /** The word before the key: "Open", "Close", "Change type". */
+  label: string;
+  /** A catalog id; the key follows the catalog and the platform. */
+  shortcut: string;
+  /** Makes the hint a button that does the same as its key. */
+  onSelect?: () => void;
+  disabled?: boolean;
+  /** Dropped first when the picker is narrow. */
+  optional?: boolean;
+}
+
+interface PickerFooterProps {
+  hints: readonly PickerHint[];
+  /** Left of the hints: a provider's state, a reload action. */
+  start?: ReactNode;
+  /** Right edge: a hidden-items count. */
+  end?: ReactNode;
+  className?: string;
+}
+
+/**
+ * The one-line footer every picker ends with: a word, then its key. It
+ * never wraps; optional hints drop out below a 28rem picker.
+ */
+export const PickerFooter = memo(function PickerFooter({
+  hints,
+  start,
+  end,
+  className,
+}: PickerFooterProps) {
+  return (
+    <div
+      className={cn(
+        '@container flex h-8 min-w-0 shrink-0 items-center gap-3 overflow-hidden border-t px-3 text-[11.5px] whitespace-nowrap text-muted-foreground',
+        className,
+      )}
+      data-slot="picker-footer"
+    >
+      {start}
+      <span className="ml-auto flex min-w-0 items-center gap-3">
+        {hints.map((hint) => {
+          const content = (
+            <>
+              <span>{hint.label}</span> <ShortcutKeys id={hint.shortcut} variant="inline" />
+            </>
+          );
+          const visibility = hint.optional ? 'hidden @[28rem]:inline-flex' : 'inline-flex';
+          return hint.onSelect ? (
+            <button
+              className={cn(
+                visibility,
+                'shrink-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+              )}
+              disabled={hint.disabled}
+              key={hint.label}
+              onClick={hint.onSelect}
+              onMouseDown={(event) => event.preventDefault()}
+              type="button"
+            >
+              {content}
+            </button>
+          ) : (
+            <span className={cn(visibility, 'shrink-0 items-center gap-1')} key={hint.label}>
+              {content}
+            </span>
+          );
+        })}
+      </span>
+      {end}
+    </div>
+  );
+});
