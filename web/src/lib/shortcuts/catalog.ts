@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 /**
  * Every keyboard shortcut, written once. The tooltip, the menu's right
  * column, the held-key badge and the shortcut sheet all read from here, so a
@@ -37,8 +38,8 @@ export interface ShortcutDefinition {
   mac?: readonly string[];
   /** Only where this host owns the key (the desktop app owns Ctrl N). */
   host?: 'desktop' | 'browser';
-  /** Show the chords side by side instead of with "or" (`↑ ↓`). */
-  joiner?: 'or' | 'pair';
+  /** Show the chords side by side instead of with "or" (`↑ ↓`), or as one cap (`↑↓`). */
+  joiner?: 'or' | 'pair' | 'cap';
 }
 
 const def = (
@@ -75,7 +76,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('next-region', 'Next region', 'anywhere', ['F6']),
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
   // On a Mac the menu bar is the app menu, and ⇧⌘/ searches it; the app takes no key.
-  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: [] }),
+  // Named after the menu's own trigger, the brand wordmark ("CLIO menu").
+  def('app-menu', `${brand.wordmark} menu`, 'anywhere', ['Alt+Space'], { mac: [] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
   def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
   // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.
@@ -118,7 +120,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
 
-  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'pair' }),
+  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'cap' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),

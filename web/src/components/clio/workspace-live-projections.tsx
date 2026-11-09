@@ -140,10 +140,12 @@ export function WorkspaceLiveObservabilityDock({
 }: LiveObservabilityDockProps) {
   const onCancelTask = useTaskCancellation(sessionId);
   const onControlTask = useSubagentControl(sessionId);
+  const usage = useLiveStore((state) => state.entities.usage[sessionId]);
   return (
     <ClioObservabilityDock
       {...props}
       sessionId={sessionId}
+      usage={usage}
       onCancelTask={onCancelTask}
       onControlTask={onControlTask}
       messages={useSessionMessages(sessionId)}

@@ -339,8 +339,9 @@ function updateShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?, platform?, initScript?: [fn, arg] run
-// before the app}. `platform: 'mac'` makes the page report a Mac, for its ? keys.
+// connected?, route?, keepPointer?, platform?, decision?, initScript?: [fn, arg]
+// run before the app}. `platform: 'mac'` makes the page report a Mac, for its ?
+// keys. `decision` turns on one fixture decision card for the shot only.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -400,6 +401,28 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Technical details');
       await page.waitForTimeout(400);
     }),
+    // Data-dependent card parts: the script ask (Rest of this script) paged
+    // 1/2, the Runs on / Asked by / Folders facts, the plan, a dismissible question.
+    ...['script', 'facts', 'plan', 'question'].map((card) =>
+      s('session', `decision-${card}`, SESSION, null, {
+        decision: card,
+        ready: '[data-slot="ask-card"]',
+      }),
+    ),
+    s(
+      'session',
+      'decision-script-details',
+      SESSION,
+      async (page) => {
+        // Transcript rows have their own Technical details; open the card's.
+        await page
+          .locator('[data-slot="ask-card"]')
+          .getByRole('button', { name: 'Technical details' })
+          .click();
+        await page.waitForTimeout(400);
+      },
+      { decision: 'script', ready: '[data-slot="ask-card"]' },
+    ),
     s(
       'session',
       'transcript-outline',
@@ -492,7 +515,6 @@ function catalogue({ settings, infrastructure }) {
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
-    menu('composer-permission-duration', 'combobox', 'Permission duration'),
     menu('composer-attach-files', 'button', 'Attach files'),
     menu('composer-add-reference', 'button', 'Add a reference'),
     s('session', 'composer-draft', SESSION, async (page) => {
@@ -523,6 +545,45 @@ function catalogue({ settings, infrastructure }) {
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', 'New workspace', { exact: true });
       await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
+      await press(page, 'button', 'New workspace', { exact: true });
+      await overlay(page);
+      await press(page, 'radio', 'Session', { exact: true });
+      await press(page, 'button', 'Advanced session behavior');
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'dialog-rename-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Rename', { exact: true });
+      await overlay(page);
+    }),
+    s('session', 'dialog-delete-session', SESSION, async (page) => {
+      await press(page, 'button', /^Actions for /u);
+      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
     }),
     s(
       'session',
@@ -870,7 +931,7 @@ async function newContext(
     deviceScaleFactor: scale,
     isMobile: mobile,
     hasTouch: mobile,
-    colorScheme: theme === 'light' ? 'light' : 'dark',
+    colorScheme: theme.endsWith('light') ? 'light' : 'dark',
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     locale: 'en-US',
@@ -1288,6 +1349,15 @@ function renderReport(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
+async function showDecisionCard(stack, card) {
+  const response = await fetch(`${stack.fixtureEndpoint}/__test/decision-cards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card }),
+  });
+  if (!response.ok) throw new Error(`decision card ${card} failed: ${response.status}`);
+}
+
 async function main() {
   const stack = await startStack({ portOffset, fixedClock: FIXTURE_TIME });
   const browser = await chromium.launch();
@@ -1335,6 +1405,7 @@ async function main() {
         }
         scenarioKey = key;
       }
+      if (shot.decision) await showDecisionCard(stack, shot.decision);
       for (const theme of themes) {
         for (const width of widths) {
           if (shot.maxWidth && width > shot.maxWidth) continue;
@@ -1344,6 +1415,7 @@ async function main() {
             log(`  skipped ${shot.surface}--${shot.state} ${theme} ${width}: ${result.reason}`);
         }
       }
+      if (shot.decision) await applyScenario(stack, shot.scenario ?? {});
       log(`${shot.surface}--${shot.state}`);
     }
     const manifest = {

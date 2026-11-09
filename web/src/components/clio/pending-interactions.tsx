@@ -164,9 +164,7 @@ export function ClioPendingInteractions({
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
           // The card stops at 45% of the conversation; a visual answer gets more.
-          hasInteractiveSurface || selected?.payload?.access
-            ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[45dvh]',
+          hasInteractiveSurface ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[45dvh]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -181,7 +179,13 @@ export function ClioPendingInteractions({
         }}
       >
         <AskPagerContext.Provider value={pager}>
-          <div className="flex min-w-0 flex-col gap-2">
+          <div
+            className={cn(
+              'flex min-w-0 flex-col gap-2',
+              // A card past the cap scrolls its body; its options stay in view.
+              !hasInteractiveSurface && '[--ask-card-max:45dvh]',
+            )}
+          >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
             {pending.map((interaction) => (
               <div

@@ -41,8 +41,17 @@ export function SystemVersionStatus() {
             <span>{displayedDesktopVersion ? `v${displayedDesktopVersion}` : 'Version'}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-80 p-3" side="top">
-          <p className="mb-4 text-sm font-semibold">Updates</p>
+        <PopoverContent
+          align="start"
+          className="w-80 p-3"
+          onOpenAutoFocus={(event) => {
+            // Focus the panel so the icon-only check does not open its hover name.
+            event.preventDefault();
+            (event.target as HTMLElement | null)?.focus();
+          }}
+          side="top"
+        >
+          <p className="text-sm font-semibold">Updates</p>
           <ProductUpdateSummary
             state={state}
             updating={updating}

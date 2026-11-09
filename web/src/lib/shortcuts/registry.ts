@@ -105,7 +105,7 @@ export function shortcutLabels(definition: ShortcutDefinition, platform: KeyPlat
 
 /** The shortcut as one line of text, for tooltips and menu columns. */
 export function shortcutText(definition: ShortcutDefinition, platform: KeyPlatform): string {
-  const joiner = definition.joiner === 'pair' ? ' ' : ' or ';
+  const joiner = definition.joiner === 'cap' ? '' : definition.joiner === 'pair' ? ' ' : ' or ';
   return shortcutChords(definition, platform)
     .map((chord) => chordText(chord, platform))
     .join(joiner);
