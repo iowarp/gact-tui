@@ -1,5 +1,5 @@
 import { brand } from '@brand';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -64,7 +64,7 @@ it('shows saved service addresses and prevents selecting an unavailable service'
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText('Contained · this computer'));
+  await user.click(screen.getByTitle('Contained, this computer'));
 
   expect(screen.getAllByText('127.0.0.1:8788').length).toBeGreaterThan(0);
   expect(screen.getByText('127.0.0.1:9999')).toBeVisible();
@@ -140,11 +140,12 @@ it('names the agent and where it runs under the mark, and in the menu', async ()
     </MemoryRouter>,
   );
 
-  await user.click(screen.getByText(`${brand.agentName} local · this computer`));
+  await user.click(screen.getByTitle(`${brand.agentName} local, this computer`));
 
-  expect(screen.getByText('Talking to')).toBeVisible();
-  expect(screen.getByText(`${brand.agentName} local`)).toBeVisible();
-  expect(screen.getByText('this computer')).toBeVisible();
+  const menu = screen.getByRole('menu');
+  expect(within(menu).getByText('Talking to')).toBeVisible();
+  expect(within(menu).getByText(`${brand.agentName} local`)).toBeVisible();
+  expect(within(menu).getByText('this computer')).toBeVisible();
   expect(screen.getByText('Switch to')).toBeVisible();
   expect(screen.getByRole('menuitem', { name: /Homelab/u })).toHaveTextContent('127.0.0.1:17800');
   expect(screen.getByText('v0.9.5')).toBeVisible();
@@ -178,7 +179,7 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByText('Ares Research · this computer')).toBeVisible();
+  expect(screen.getByTitle('Ares Research, this computer')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(
