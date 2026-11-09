@@ -1,4 +1,11 @@
-import { AtSignIcon, ChevronDownIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  AtSignIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  FolderIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useEffect,
@@ -29,6 +36,7 @@ import {
   addReferenceToComposer,
   useComposerReferenceAvailable,
 } from '@/lib/composer-reference-requests';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
@@ -183,7 +191,7 @@ export function WorkbenchTabRow({
       <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
           <div
-            className="@container no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
+            className="@container no-scrollbar min-w-0 flex-1 self-stretch overflow-x-auto overflow-y-hidden data-[scrolled-start=true]:[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
             data-fit={fit}
             data-slot="canvas-tab-row"
             onContextMenu={(event: MouseEvent<HTMLDivElement>) => {
@@ -208,7 +216,10 @@ export function WorkbenchTabRow({
               strategy="horizontal"
               value={tabs as WorkbenchTab[]}
             >
-              <TabsList className="h-8 w-max justify-start gap-0.5 rounded-none bg-transparent p-0">
+              <TabsList
+                className="h-full w-max items-stretch justify-start gap-0.5 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-full"
+                variant="line"
+              >
                 {tabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = workbenchTabLabel(tab);
@@ -245,7 +256,7 @@ export function WorkbenchTabRow({
                           <SortableItemHandle asChild>
                             <TabsTrigger
                               aria-keyshortcuts={closeTabKeys}
-                              className={`${className} h-full justify-start border-0 bg-transparent py-0 font-normal text-inherit shadow-none data-active:bg-transparent data-active:shadow-none dark:data-active:bg-transparent`}
+                              className={`${className} h-full justify-start rounded-none border-0 bg-transparent py-0 font-normal text-inherit shadow-none after:hidden`}
                               onAuxClick={(event) => {
                                 if (event.button !== 1) return;
                                 event.preventDefault();
@@ -297,7 +308,7 @@ export function WorkbenchTabRow({
                 disabled={menuPath === undefined}
                 onSelect={() => onShowInFiles(menuTab)}
               >
-                <MenuRow accelerator="F" label="Show in Files" />
+                <MenuRow accelerator="F" icon={<FolderIcon />} label="Show in Files" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="Y"
@@ -306,11 +317,11 @@ export function WorkbenchTabRow({
                   if (menuPath) void navigator.clipboard?.writeText(menuPath);
                 }}
               >
-                <MenuRow accelerator="Y" label="Copy path" />
+                <MenuRow accelerator="Y" icon={<CopyIcon />} label="Copy path" />
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem data-accelerator="C" onSelect={() => onClose(menuTab.id)}>
-                <MenuRow accelerator="C" label="Close" />
+                <MenuRow accelerator="C" icon={<CloseIcon />} label="Close" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="O"

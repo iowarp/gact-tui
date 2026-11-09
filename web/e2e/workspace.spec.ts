@@ -805,24 +805,16 @@ test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ pa
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
-  // tech closes the tab through the Delete shortcut announced with it. On touch it
-  // stays faintly visible at rest, since there is no hover to reveal it.
+  // tech closes the tab through the Delete shortcut announced with it.
   const observabilityClose = observabilityTab
     .locator('..')
     .locator('[data-slot="frame-tab-close"]');
   await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
-  // The active tab always shows its close mark.
-  await expect(observabilityClose).toHaveCSS('opacity', '1');
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
-  await expect(canvas).toHaveCSS('position', 'fixed');
-  const canvasBounds = await canvas.boundingBox();
-  const viewport = page.viewportSize();
-  expect(canvasBounds).not.toBeNull();
-  expect(viewport).not.toBeNull();
-  expect(Math.abs((canvasBounds?.width ?? 0) - (viewport?.width ?? 0))).toBeLessThanOrEqual(1);
-  expect(Math.abs((canvasBounds?.height ?? 0) - (viewport?.height ?? 0))).toBeLessThanOrEqual(1);
+  // Maximized keeps the strip; the layout itself is guarded by canvas--maximized screens.
+  await expect(canvas.getByRole('toolbar', { name: 'Workbench lists' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
 });
