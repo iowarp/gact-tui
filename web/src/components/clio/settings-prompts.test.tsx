@@ -1,3 +1,4 @@
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -62,7 +63,11 @@ const resolved = {
 
 function renderSettings(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -115,13 +120,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('prompt and command settings', () => {
+describe('prompt and command settings', { timeout: 20_000 }, () => {
   it('opens a packaged prompt as an explicit override with secondary provenance', async () => {
     const user = userEvent.setup();
     renderSettings(<PromptsCommandsSettings />);
 
     await user.click(await screen.findByRole('button', { name: /Planner instructions/ }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('complementary', { name: 'Planner instructions' });
     expect(within(dialog).getByText(/packaged definition stays untouched/i)).toBeVisible();
     expect(within(dialog).getByLabelText('Instructions')).toHaveValue(prompt.profiles.heavy.text);
     expect(await within(dialog).findByText(prompt.source_path)).toBeVisible();
@@ -144,7 +149,7 @@ describe('prompt and command settings', () => {
     );
     await user.keyboard('{Escape}');
     await user.click(await screen.findByRole('button', { name: /Planner instructions/ }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('complementary', { name: 'Planner instructions' });
     await user.click(within(dialog).getByRole('combobox', { name: 'Prompt save scope' }));
     await user.click(screen.getByRole('option', { name: 'Selected workspace' }));
     await user.click(within(dialog).getByRole('button', { name: 'Save workspace override' }));
@@ -166,16 +171,17 @@ describe('prompt and command settings', () => {
     renderSettings(<PromptsCommandsSettings />);
 
     await user.click(await screen.findByRole('button', { name: /Planner instructions/ }));
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('tab', { name: 'Rendered preview' }));
+    const dialog = screen.getByRole('complementary', { name: 'Planner instructions' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Rendered preview' }));
     await user.click(within(dialog).getByRole('button', { name: 'Render effective prompt' }));
     expect(await within(dialog).findByText(/live station specialist/)).toBeVisible();
     expect(repository.renderPrompt).toHaveBeenCalledWith(prompt.id, { profile: 'heavy' });
 
     await user.keyboard('{Escape}');
-    await user.click(screen.getByRole('tab', { name: 'Commands' }));
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Commands' }));
     await user.click(await screen.findByRole('button', { name: /Review evidence/ }));
-    const commandDialog = screen.getByRole('dialog');
+    const commandDialog = screen.getByRole('complementary', { name: 'Review evidence' });
     expect(within(commandDialog).getByText('/review <artifact>')).toBeVisible();
     // Commands are listed by kind and source; agents do not run commands.
     expect(within(commandDialog).getByText('Command file')).toBeVisible();

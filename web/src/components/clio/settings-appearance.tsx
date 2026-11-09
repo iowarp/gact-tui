@@ -1,5 +1,3 @@
-import { type ComponentType, type SVGProps } from 'react';
-import { BugIcon, MonitorCogIcon, MoonIcon, NotebookPenIcon, SunIcon } from 'lucide-react';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -12,25 +10,17 @@ import {
 } from '@/providers/appearance-provider';
 import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
 
-const THEME_ICONS: Record<ThemeId, ComponentType<SVGProps<SVGSVGElement>>> = {
-  light: SunIcon,
-  dark: MoonIcon,
-  notebook: NotebookPenIcon,
-  debug: BugIcon,
-};
-
 const THEME_DESCRIPTIONS: Partial<Record<ThemeId, string>> = {
   notebook: 'Paper, ink and verdigris. Follows your system light or dark setting.',
   debug: 'Development only: every color is red, so anything else skips the theme.',
 };
 
 const themeOptions = [
-  { value: 'system', label: 'System', icon: MonitorCogIcon },
+  { value: 'system', label: 'System' },
   ...THEMES.filter((theme) => !theme.development || import.meta.env.DEV).map((theme) => ({
     value: theme.id,
     label: theme.label,
     description: THEME_DESCRIPTIONS[theme.id],
-    icon: THEME_ICONS[theme.id],
   })),
 ];
 
@@ -45,7 +35,7 @@ export function AppearanceSettings() {
     setMotion,
   } = useAppearancePreferences();
   return (
-    <div className="grid gap-6">
+    <div>
       <SectionHeading
         title="Appearance"
         description={`Choose how ${vocab.agent} looks and presents your conversations.`}
@@ -53,7 +43,7 @@ export function AppearanceSettings() {
       <div>
         <SettingsRow
           title="Theme"
-          description="Choose a theme, or follow your system setting."
+          info="Choose a theme, or follow your system setting."
           note={
             theme === 'system' || THEMES.find(({ id }) => id === theme)?.scheme === 'system'
               ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}`
@@ -70,7 +60,7 @@ export function AppearanceSettings() {
         </SettingsRow>
         <SettingsRow
           title="Interface size"
-          description="Enlarge text and controls for comfortable reading on this device."
+          info="Enlarge text and controls for comfortable reading on this device."
         >
           <SettingsChoice
             id="interface-size"
@@ -86,7 +76,7 @@ export function AppearanceSettings() {
         </SettingsRow>
         <SettingsRow
           title="Conversation width"
-          description="Use a focused reading column or give tables and diagrams more room."
+          info="Use a focused reading column or give tables and diagrams more room."
         >
           <SettingsChoice
             id="conversation-width"
@@ -101,7 +91,7 @@ export function AppearanceSettings() {
         </SettingsRow>
         <SettingsRow
           title="Motion"
-          description="Follow this device's preference or reduce interface animation."
+          info="Follow this device's preference or reduce interface animation."
         >
           <SettingsChoice
             id="motion"

@@ -1,3 +1,4 @@
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -58,11 +59,13 @@ it('lists reminders with their trigger and variables, and switches one off', asy
   const onChanged = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <RemindersList
-        prompts={[reminder, plain as unknown as PromptDefinition, carrier]}
-        onEdit={vi.fn()}
-        onChanged={onChanged}
-      />
+      <TooltipProvider>
+        <RemindersList
+          prompts={[reminder, plain as unknown as PromptDefinition, carrier]}
+          onEdit={vi.fn()}
+          onChanged={onChanged}
+        />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   expect(screen.getByText('Suggest Explore while searching')).toBeTruthy();

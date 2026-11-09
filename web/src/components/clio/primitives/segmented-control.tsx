@@ -10,6 +10,8 @@ export interface SegmentedOption<Value extends string> {
   /** Catalog id of the key that picks this option. */
   shortcut?: string;
   disabled?: boolean;
+  /** A small count after the label (Under review 4). Part of the name. */
+  badge?: ReactNode;
 }
 
 export interface SegmentedControlProps<Value extends string> {
@@ -61,6 +63,7 @@ function SegmentedControlImpl<Value extends string>({
           >
             {option.icon}
             {iconOnly ? null : <span className="truncate">{option.label}</span>}
+            {iconOnly ? null : option.badge}
           </ToggleGroupItem>
         );
         return iconOnly ? (

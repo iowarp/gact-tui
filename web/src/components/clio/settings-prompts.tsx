@@ -1,45 +1,9 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { CommandDefinition, PromptDefinition } from '@clio/core/v3';
+import type { PromptDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  CheckCircle2Icon,
-  EyeIcon,
-  FileTextIcon,
-  LoaderCircleIcon,
-  ScrollTextIcon,
-} from 'lucide-react';
-import { AddIcon } from '@/lib/icon-vocabulary';
-import { RefreshButton } from './refresh-button';
+import { FileTextIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/clio/settings-frame';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -47,117 +11,128 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioInteractiveRow } from './interactive-row';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { reminderMeta } from '@/lib/reminder-meta';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
+import { DialogFrame } from './primitives/dialog-frame';
+import { SettingsLoadError } from './settings-health-load-error';
+import { plainReason } from './settings-health-reason';
+import { IconButton } from './primitives/icon-button';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { SegmentedControl } from './primitives/segmented-control';
+import { StateView } from './primitives/state-view';
+import { StatusIndicator } from './primitives/status-indicator';
+import { CommandDetail, CommandList } from './settings-prompts-commands';
+import {
+  PromptDefinitionForm,
+  PromptEditorActions,
+  PromptPreview,
+} from './settings-prompts-editor';
+import { commandKey, promptScopeLabel, usePromptEditor } from './settings-prompts-model';
 import { RemindersList } from './settings-reminders';
+import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { ClioStatus } from './status';
-import { CommandStatus } from './composer-command-menu';
-import { commandGroups, commandSource } from '@/lib/command-table';
+import { Button } from '@/components/ui/button';
 
-const COMMAND_KIND_LABELS: Record<string, string> = {
-  builtin: 'Built-in',
-  command: 'Command file',
-  mcp_prompt: 'MCP prompt',
-  skill: 'Skill',
-};
+type View = 'prompts' | 'reminders' | 'commands';
+const VIEWS = [
+  { value: 'prompts', label: 'Prompts' },
+  { value: 'reminders', label: 'Reminders' },
+  { value: 'commands', label: 'Commands' },
+] as const;
 
-interface PromptDraft {
-  id: string;
-  title: string;
-  description: string;
-  profile: string;
-  scope: 'global' | 'workspace';
-  text: string;
-  provider: string;
-  model: string;
-}
+type EditorView = 'definition' | 'preview';
+const EDITOR_VIEWS = [
+  { value: 'definition', label: 'Definition' },
+  { value: 'preview', label: 'Rendered preview' },
+] as const;
 
-const emptyDraft: PromptDraft = {
-  id: '',
-  title: '',
-  description: '',
-  profile: 'default',
-  scope: 'global',
-  text: '',
-  provider: '',
-  model: '',
-};
-
-function draftForPrompt(prompt: PromptDefinition): PromptDraft {
-  const profileName = prompt.default_profile || Object.keys(prompt.profiles)[0] || 'default';
-  const profile = prompt.profiles[profileName];
-  return {
-    id: prompt.id,
-    title: prompt.title,
-    description: prompt.description ?? '',
-    profile: profileName,
-    scope: prompt.scope === 'workspace' ? 'workspace' : 'global',
-    text: profile?.text ?? '',
-    provider: profile?.provider ?? '',
-    model: profile?.model ?? '',
-  };
-}
-
-function PromptStatus({ prompt }: { prompt: PromptDefinition }) {
+/** One prompt family opened beside the list: its definition, a live render and its save actions. */
+function PromptDetail({
+  prompt,
+  workspaceId,
+  onClose,
+}: {
+  prompt: PromptDefinition;
+  workspaceId: string;
+  onClose: () => void;
+}) {
+  const editor = usePromptEditor({ prompt, workspaceId, onSaved: () => undefined });
+  const [view, setView] = useState<EditorView>('definition');
   return (
-    <ClioStatus
-      label={prompt.enabled ? 'Ready' : 'Needs attention'}
-      value={prompt.enabled ? 'healthy' : 'degraded'}
-    />
+    <DetailPane
+      icon={<FileTextIcon />}
+      onClose={onClose}
+      tabs={
+        <SegmentedControl
+          label="Prompt view"
+          onValueChange={setView}
+          options={EDITOR_VIEWS}
+          value={view}
+        />
+      }
+      title={prompt.title || prompt.id}
+    >
+      <p className="pb-3 text-xs text-muted-foreground">
+        {prompt.scope === 'builtin'
+          ? 'The packaged definition stays untouched; saving creates an explicit override.'
+          : 'Changes are validated by the connected service before they are saved.'}
+      </p>
+      {view === 'definition' ? (
+        <PromptDefinitionForm editor={editor} />
+      ) : (
+        <PromptPreview editor={editor} />
+      )}
+      <PromptEditorActions editor={editor} />
+    </DetailPane>
   );
 }
 
-function CommandDetail({ command }: { command?: CommandDefinition }) {
+function PromptCreateDialog({
+  workspaceId,
+  onClose,
+}: {
+  workspaceId: string;
+  onClose: () => void;
+}) {
+  const editor = usePromptEditor({ workspaceId, onSaved: onClose });
   return (
-    <DialogContent className="sm:max-w-xl">
-      <DialogHeader>
-        <DialogTitle>{command?.title}</DialogTitle>
-        <DialogDescription>
-          {command?.description || 'The service did not provide a description.'}
-        </DialogDescription>
-      </DialogHeader>
-      {command ? (
-        <div className="grid gap-4 text-sm">
-          <div className="flex flex-wrap gap-2">
-            <ClioStatus
-              label={command.enabled ? 'Available' : 'Unavailable'}
-              value={command.enabled ? 'healthy' : 'unavailable'}
-            />
-            <Badge variant="outline">{COMMAND_KIND_LABELS[command.kind] ?? command.kind}</Badge>
-            {commandSource(command) ? (
-              <Badge variant="outline">{commandSource(command)}</Badge>
-            ) : null}
-            <CommandStatus command={command} />
-          </div>
-          {command.disabled_detail || command.disabled_reason ? (
-            <Alert variant="destructive">
-              <AlertTitle>Unavailable</AlertTitle>
-              <AlertDescription>
-                {command.disabled_detail || command.disabled_reason}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          {command.argument_hint ? (
-            <div>
-              <p className="font-medium">Usage</p>
-              <p className="mt-1 rounded-lg border bg-muted/30 p-3 font-mono text-xs">
-                {command.id} {command.argument_hint}
-              </p>
-            </div>
-          ) : null}
-          {command.aliases.length ? (
-            <p className="text-muted-foreground">Also available as {command.aliases.join(', ')}</p>
-          ) : null}
-          <p className="font-mono text-xs text-muted-foreground">{command.id}</p>
-        </div>
-      ) : null}
-    </DialogContent>
+    <DialogFrame
+      confirm={{
+        label: 'Create prompt',
+        onConfirm: () => editor.save.mutate(),
+        disabled: !editor.canSave,
+      }}
+      description="Changes are validated by the connected service before they are saved."
+      icon={<FileTextIcon className="size-4" />}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      open
+      secondary={
+        <Button
+          className="mr-auto"
+          disabled={!editor.canValidate}
+          onClick={() => editor.validate.mutate()}
+          variant="ghost"
+        >
+          Validate
+        </Button>
+      }
+      title="New prompt"
+    >
+      <div className="clio-scrollbar -mx-[18px] max-h-[60vh] overflow-y-auto px-[18px] pb-1">
+        <PromptDefinitionForm editor={editor} />
+      </div>
+    </DialogFrame>
   );
+}
+
+function promptMeta(prompt: PromptDefinition) {
+  const count = Object.keys(prompt.profiles).length;
+  return `${count} ${count === 1 ? 'profile' : 'profiles'}, default ${prompt.default_profile || 'unavailable'}`;
 }
 
 export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
@@ -165,12 +140,10 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId ?? '');
-  const [editing, setEditing] = useState<PromptDefinition>();
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [draft, setDraft] = useState<PromptDraft>(emptyDraft);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [renderedText, setRenderedText] = useState('');
-  const [selectedCommand, setSelectedCommand] = useState<CommandDefinition>();
+  const [view, setView] = useState<View>('prompts');
+  const [openPromptId, setOpenPromptId] = useState<string>();
+  const [openCommandKey, setOpenCommandKey] = useState<string>();
+  const [creating, setCreating] = useState(false);
   const context = workspaceId ? { workspaceId } : {};
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'prompt-settings'),
@@ -184,12 +157,6 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
     queryKey: queryKeys.key('commands', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.commands(signal, context),
   });
-  const resolved = useQuery({
-    queryKey: queryKeys.key('prompt', settings.endpoint, editing?.id, draft.profile, workspaceId),
-    queryFn: ({ signal }) =>
-      repository.prompt(editing?.id ?? '', { ...context, profile: draft.profile }, signal),
-    enabled: editorOpen && Boolean(editing?.id),
-  });
   const reload = useMutation({
     mutationFn: () => repository.reloadPrompts(context),
     onSuccess: async (result) => {
@@ -200,91 +167,183 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         description: `${result.prompt_count} prompt ${result.prompt_count === 1 ? 'family' : 'families'} available.`,
       });
     },
-    onError: (error) => toast.error('Could not reload prompts', { description: error.message }),
+    onError: (error) =>
+      toast.error('Could not reload prompts', { description: plainReason(error) }),
   });
-  const preview = useMutation({
-    mutationFn: () => repository.renderPrompt(draft.id, { ...context, profile: draft.profile }),
-    onSuccess: (result) => setRenderedText(result.text),
-    onError: (error) => toast.error('Could not render prompt', { description: error.message }),
-  });
-  const validate = useMutation({
-    mutationFn: () =>
-      repository.validatePrompt(draft.id, {
-        ...context,
-        profile: draft.profile,
-        text: draft.text,
-      }),
-    onSuccess: (result) => {
-      setValidationErrors(result.validation_errors);
-      if (result.enabled) toast.success('Prompt is valid');
-    },
-    onError: (error) => toast.error('Could not validate prompt', { description: error.message }),
-  });
-  const save = useMutation({
-    mutationFn: async () => {
-      const result = await repository.validatePrompt(draft.id, {
-        ...context,
-        profile: draft.profile,
-        text: draft.text,
-      });
-      setValidationErrors(result.validation_errors);
-      if (!result.enabled) throw new Error('Fix the validation errors before saving.');
-      return repository.savePrompt(draft.id, {
-        scope: draft.scope,
-        workspaceId: draft.scope === 'workspace' ? workspaceId : undefined,
-        profile: draft.profile,
-        text: draft.text,
-        title: draft.title,
-        description: draft.description,
-        provider: draft.provider || undefined,
-        model: draft.model || undefined,
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.key('prompts', settings.endpoint),
-      });
-      setEditorOpen(false);
-      toast.success(editing ? 'Prompt override saved' : 'Prompt created');
-    },
-    onError: (error) => toast.error('Prompt was not saved', { description: error.message }),
-  });
+  const openPrompt = prompts.data?.find((prompt) => prompt.id === openPromptId);
+  const openCommand = commands.data?.find((command) => commandKey(command) === openCommandKey);
+  const families = prompts.data?.filter((prompt) => !reminderMeta(prompt)) ?? [];
+  const closeDetails = () => {
+    setOpenPromptId(undefined);
+    setOpenCommandKey(undefined);
+  };
+  const togglePrompt = (id: string) =>
+    setOpenPromptId((current) => (current === id ? undefined : id));
 
-  const openEditor = (prompt?: PromptDefinition) => {
-    setEditing(prompt);
-    setDraft(prompt ? draftForPrompt(prompt) : emptyDraft);
-    setValidationErrors([]);
-    setRenderedText('');
-    setEditorOpen(true);
-  };
-  const chooseProfile = (profileName: string) => {
-    const profile = editing?.profiles[profileName];
-    setDraft((current) => ({
-      ...current,
-      profile: profileName,
-      text: profile?.text ?? current.text,
-      provider: profile?.provider ?? '',
-      model: profile?.model ?? '',
-    }));
-    setValidationErrors([]);
-    setRenderedText('');
-  };
-  const set = (field: keyof PromptDraft, value: string) =>
-    setDraft((current) => ({ ...current, [field]: value }));
-  const workspaceRequired = draft.scope === 'workspace' && !workspaceId;
+  const promptsState = prompts.error ? (
+    <SettingsLoadError
+      error={prompts.error}
+      onRetry={() => void prompts.refetch()}
+      retrying={prompts.isFetching}
+      title="Prompts unavailable."
+    />
+  ) : prompts.isPending ? (
+    <StateView kind="loading" size="row" title="Loading prompts…" />
+  ) : null;
+
+  const list =
+    view === 'prompts' ? (
+      <>
+        <SettingsGroupLabel
+          addLabel="New prompt"
+          info="Built-ins are read-only. Customizing one saves a visible scoped override."
+          onAdd={() => setCreating(true)}
+        >
+          Prompt families
+        </SettingsGroupLabel>
+        {promptsState}
+        {prompts.error ? null : families.length ? (
+          <ItemList label="Prompt families">
+            {families.map((prompt) => (
+              <ItemRow
+                aria-expanded={openPromptId === prompt.id}
+                className="cursor-pointer"
+                icon={<FileTextIcon />}
+                key={prompt.id}
+                meta={
+                  <>
+                    <span className="mr-2.5">{promptScopeLabel(prompt.scope)}</span>
+                    <span>{promptMeta(prompt)}</span>
+                  </>
+                }
+                onClick={() => togglePrompt(prompt.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  togglePrompt(prompt.id);
+                }}
+                role="button"
+                selected={openPromptId === prompt.id}
+                status={
+                  <StatusIndicator
+                    label={prompt.enabled ? 'Ready' : 'Needs attention'}
+                    tone={prompt.enabled ? 'success' : 'warning'}
+                  />
+                }
+                statusWidth={136}
+                tabIndex={0}
+                title={prompt.title || prompt.id}
+              />
+            ))}
+          </ItemList>
+        ) : prompts.data ? (
+          <StateView
+            kind="empty"
+            size="row"
+            title="No prompt families were reported for this view."
+          />
+        ) : null}
+      </>
+    ) : view === 'reminders' ? (
+      <>
+        <SettingsGroupLabel info="Notes the agent receives during its work. Switch one off, or open it to edit its text; a change saves a visible override.">
+          Reminders
+        </SettingsGroupLabel>
+        {promptsState}
+        {prompts.data ? (
+          <RemindersList
+            onChanged={() => void prompts.refetch()}
+            onEdit={(prompt) => togglePrompt(prompt.id)}
+            openId={openPromptId}
+            prompts={prompts.data}
+          />
+        ) : null}
+      </>
+    ) : (
+      <>
+        {commands.error ? (
+          <>
+            <SettingsGroupLabel>Commands</SettingsGroupLabel>
+            <SettingsLoadError
+              error={commands.error}
+              onRetry={() => void commands.refetch()}
+              retrying={commands.isFetching}
+              title="Commands unavailable."
+            />
+          </>
+        ) : commands.isPending ? (
+          <StateView kind="loading" size="row" title="Loading commands…" />
+        ) : commands.data?.length ? (
+          <CommandList
+            commands={commands.data}
+            onOpen={(key) => setOpenCommandKey((current) => (current === key ? undefined : key))}
+            openKey={openCommandKey}
+          />
+        ) : (
+          <>
+            <SettingsGroupLabel>Commands</SettingsGroupLabel>
+            <StateView kind="empty" size="row" title="No commands were reported for this view." />
+          </>
+        )}
+      </>
+    );
+
+  const detail =
+    view === 'commands' ? (
+      openCommand ? (
+        <CommandDetail
+          command={openCommand}
+          key={openCommandKey}
+          onClose={() => setOpenCommandKey(undefined)}
+        />
+      ) : undefined
+    ) : openPrompt ? (
+      <PromptDetail
+        key={`${openPrompt.id}:${workspaceId}`}
+        onClose={() => setOpenPromptId(undefined)}
+        prompt={openPrompt}
+        workspaceId={workspaceId}
+      />
+    ) : undefined;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-1">
       <SettingsSectionHeading
-        description="Inspect the instructions and commands supplied by the service. Validate and preview prompt overrides against the live agent context before saving them."
-        title="Prompts and commands"
+        actions={
+          <>
+            <SegmentedControl
+              label="Show"
+              onValueChange={(next) => {
+                closeDetails();
+                setView(next);
+              }}
+              options={VIEWS}
+              value={view}
+            />
+            <IconButton
+              disabled={reload.isPending}
+              icon={<RefreshIcon />}
+              label="Reload sources"
+              onClick={() => reload.mutate()}
+            />
+          </>
+        }
+        info="Inspect the instructions and commands supplied by the service. Validate and preview prompt overrides against the live agent context before saving them. Commands come from the service, installed plugins, and skills."
+        title="Prompts & commands"
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <SettingsRow title="Workspace">
         <Select
-          onValueChange={(value) => setWorkspaceId(value === 'all' ? '' : value)}
+          onValueChange={(value) => {
+            closeDetails();
+            setWorkspaceId(value === 'all' ? '' : value);
+          }}
           value={workspaceId || 'all'}
         >
-          <SelectTrigger aria-label="Prompt workspace" className="min-w-56">
+          <SelectTrigger
+            aria-label="Prompt workspace"
+            className="h-[1.875rem] w-full min-w-0 text-[0.78125rem]"
+            size="sm"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -296,348 +355,11 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             ))}
           </SelectContent>
         </Select>
-        <div className="flex gap-2">
-          <RefreshButton
-            label="Reload sources"
-            refreshing={reload.isPending}
-            onRefresh={() => reload.mutateAsync()}
-            variant="outline"
-          />
-          <Button onClick={() => openEditor()}>
-            <AddIcon /> New prompt
-          </Button>
-        </div>
-      </div>
-      <Tabs defaultValue="prompts">
-        <TabsList>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="reminders">Reminders</TabsTrigger>
-          <TabsTrigger value="commands">Commands</TabsTrigger>
-        </TabsList>
-        <TabsContent className="mt-4" value="reminders">
-          <Frame spacing="sm">
-            <FrameHeader>
-              <FrameTitle>Reminders</FrameTitle>
-              <FrameDescription>
-                Notes the agent receives during its work. Switch one off, or open it to edit its
-                text; a change saves a visible override.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="p-2">
-              <RemindersList
-                prompts={prompts.data ?? []}
-                onEdit={(prompt) => openEditor(prompt)}
-                onChanged={() => void prompts.refetch()}
-              />
-            </FramePanel>
-          </Frame>
-        </TabsContent>
-        <TabsContent className="mt-4" value="prompts">
-          <Frame spacing="sm">
-            <FrameHeader>
-              <FrameTitle>Prompt families</FrameTitle>
-              <FrameDescription>
-                Built-ins are read-only. Customizing one saves a visible scoped override.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="grid gap-1 p-2">
-              {prompts.data
-                ?.filter((prompt) => !reminderMeta(prompt))
-                .map((prompt) => (
-                  <ClioInteractiveRow
-                    key={prompt.id}
-                    onClick={() => openEditor(prompt)}
-                    role="button"
-                  >
-                    <div className="flex items-start gap-3">
-                      <FileTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{prompt.title || prompt.id}</p>
-                          <PromptStatus prompt={prompt} />
-                          <Badge variant="outline">{prompt.scope}</Badge>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {Object.keys(prompt.profiles).length}{' '}
-                          {Object.keys(prompt.profiles).length === 1 ? 'profile' : 'profiles'},
-                          default {prompt.default_profile || 'Unavailable'}
-                        </p>
-                      </div>
-                    </div>
-                  </ClioInteractiveRow>
-                ))}
-              {!prompts.isPending && !prompts.data?.length ? (
-                <p className="p-5 text-sm text-muted-foreground">
-                  No prompt families were reported for this view.
-                </p>
-              ) : null}
-              {prompts.error ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Prompts unavailable</AlertTitle>
-                  <AlertDescription>{prompts.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </FramePanel>
-          </Frame>
-        </TabsContent>
-        <TabsContent className="mt-4" value="commands">
-          <Frame spacing="sm">
-            <FrameHeader>
-              <FrameTitle>Commands</FrameTitle>
-              <FrameDescription>
-                Commands are supplied by the service, installed plugins, and skills.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="grid gap-1 p-2">
-              {commandGroups(commands.data ?? []).flatMap((group) => [
-                <p
-                  className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground"
-                  key={`heading:${group.heading}`}
-                >
-                  {group.heading}
-                </p>,
-                ...group.rows.map((command) => (
-                  <ClioInteractiveRow
-                    disabled={!command.enabled}
-                    key={`${command.kind}:${command.qualified_id}:${command.source}`}
-                    onClick={() => setSelectedCommand(command)}
-                    role="button"
-                  >
-                    <div className="flex items-start gap-3">
-                      <ScrollTextIcon aria-hidden="true" className="mt-0.5 size-4 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{command.title}</p>
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {command.id}
-                          </span>
-                          {commandSource(command) ? (
-                            <Badge variant="outline">{commandSource(command)}</Badge>
-                          ) : null}
-                          <CommandStatus command={command} />
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                          {command.disabled_detail ||
-                            command.description ||
-                            'No description provided.'}
-                        </p>
-                      </div>
-                    </div>
-                  </ClioInteractiveRow>
-                )),
-              ])}
-              {!commands.isPending && !commands.data?.length ? (
-                <p className="p-5 text-sm text-muted-foreground">
-                  No commands were reported for this view.
-                </p>
-              ) : null}
-            </FramePanel>
-          </Frame>
-        </TabsContent>
-      </Tabs>
-
-      <Dialog onOpenChange={setEditorOpen} open={editorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? `Customize ${editing.title || editing.id}` : 'Create prompt'}
-            </DialogTitle>
-            <DialogDescription>
-              {editing?.scope === 'builtin'
-                ? 'The packaged definition stays untouched; saving creates an explicit override.'
-                : 'Changes are validated by the connected service before they are saved.'}
-            </DialogDescription>
-          </DialogHeader>
-          <Tabs defaultValue="edit">
-            <TabsList>
-              <TabsTrigger value="edit">Definition</TabsTrigger>
-              <TabsTrigger value="preview">Rendered preview</TabsTrigger>
-            </TabsList>
-            <TabsContent className="mt-4 grid gap-5" value="edit">
-              <FieldGroup>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="prompt-id">Prompt ID</FieldLabel>
-                    <Input
-                      disabled={Boolean(editing)}
-                      id="prompt-id"
-                      onChange={(event) => set('id', event.target.value)}
-                      value={draft.id}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="prompt-profile">Profile</FieldLabel>
-                    {editing && Object.keys(editing.profiles).length ? (
-                      <Select onValueChange={chooseProfile} value={draft.profile}>
-                        <SelectTrigger aria-label="Prompt profile" id="prompt-profile">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.keys(editing.profiles).map((profile) => (
-                            <SelectItem key={profile} value={profile}>
-                              {profile}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        id="prompt-profile"
-                        onChange={(event) => set('profile', event.target.value)}
-                        value={draft.profile}
-                      />
-                    )}
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="prompt-title">Title</FieldLabel>
-                  <Input
-                    id="prompt-title"
-                    onChange={(event) => set('title', event.target.value)}
-                    value={draft.title}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="prompt-description">Description</FieldLabel>
-                  <Input
-                    id="prompt-description"
-                    onChange={(event) => set('description', event.target.value)}
-                    value={draft.description}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="prompt-text">Instructions</FieldLabel>
-                  <Textarea
-                    className="min-h-64 font-mono text-xs leading-5"
-                    id="prompt-text"
-                    onChange={(event) => set('text', event.target.value)}
-                    value={draft.text}
-                  />
-                  <FieldDescription>
-                    Template placeholders are checked by the service allowlist.
-                  </FieldDescription>
-                  {validationErrors.length ? (
-                    <FieldError>{validationErrors.join(', ')}</FieldError>
-                  ) : null}
-                </Field>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field>
-                    <FieldLabel>Save for</FieldLabel>
-                    <Select
-                      onValueChange={(value: 'global' | 'workspace') =>
-                        setDraft((current) => ({ ...current, scope: value }))
-                      }
-                      value={draft.scope}
-                    >
-                      <SelectTrigger aria-label="Prompt save scope">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="global">Entire service</SelectItem>
-                        <SelectItem value="workspace">Selected workspace</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {workspaceRequired ? (
-                      <FieldError>Select a workspace above first.</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="prompt-provider">Provider preference</FieldLabel>
-                    <Input
-                      id="prompt-provider"
-                      onChange={(event) => set('provider', event.target.value)}
-                      placeholder="Inherit"
-                      value={draft.provider}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="prompt-model">Model preference</FieldLabel>
-                    <Input
-                      id="prompt-model"
-                      onChange={(event) => set('model', event.target.value)}
-                      placeholder="Inherit"
-                      value={draft.model}
-                    />
-                  </Field>
-                </div>
-                {resolved.data ? (
-                  <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-                    <p>Effective source: {resolved.data.scope}</p>
-                    {resolved.data.source_path ? (
-                      <p className="mt-1 break-all font-mono">{resolved.data.source_path}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </FieldGroup>
-            </TabsContent>
-            <TabsContent className="mt-4 grid gap-4" value="preview">
-              <Alert>
-                <EyeIcon aria-hidden="true" />
-                <AlertTitle>Live render context</AlertTitle>
-                <AlertDescription>
-                  The preview uses the connected service’s current agents, tools, commands, memory,
-                  permissions, provider, and active pack.
-                </AlertDescription>
-              </Alert>
-              {editing ? (
-                <Button
-                  disabled={preview.isPending}
-                  onClick={() => preview.mutate()}
-                  variant="outline"
-                >
-                  {preview.isPending ? <LoaderCircleIcon className="animate-spin" /> : <EyeIcon />}
-                  Render effective prompt
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Save this new prompt before rendering it against live context.
-                </p>
-              )}
-              {renderedText ? (
-                <CodeBlock className="max-h-96" code={renderedText} language="markdown">
-                  <CodeBlockHeader>
-                    <CodeBlockTitle>
-                      <FileTextIcon aria-hidden="true" className="size-3.5" />
-                      <CodeBlockFilename>Effective prompt</CodeBlockFilename>
-                    </CodeBlockTitle>
-                    <CodeBlockActions>
-                      <CodeBlockCopyButton aria-label="Copy effective prompt" />
-                    </CodeBlockActions>
-                  </CodeBlockHeader>
-                </CodeBlock>
-              ) : null}
-            </TabsContent>
-          </Tabs>
-          <DialogFooter className="items-center sm:justify-between">
-            <Button
-              disabled={validate.isPending || !draft.id || !draft.text}
-              onClick={() => validate.mutate()}
-              variant="outline"
-            >
-              {validate.isPending ? (
-                <LoaderCircleIcon className="animate-spin" />
-              ) : (
-                <CheckCircle2Icon />
-              )}
-              Validate
-            </Button>
-            <Button
-              disabled={save.isPending || !draft.id || !draft.text || workspaceRequired}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-              Save {draft.scope === 'workspace' ? 'workspace override' : 'service override'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        onOpenChange={(open) => !open && setSelectedCommand(undefined)}
-        open={Boolean(selectedCommand)}
-      >
-        <CommandDetail command={selectedCommand} />
-      </Dialog>
+      </SettingsRow>
+      <ListDetailLayout detail={detail} list={list} />
+      {creating ? (
+        <PromptCreateDialog onClose={() => setCreating(false)} workspaceId={workspaceId} />
+      ) : null}
     </div>
   );
 }

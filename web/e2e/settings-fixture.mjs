@@ -20,6 +20,8 @@ export function createSettingsFixture({
   let policies = [];
   let schedules = [];
   let nextScheduleId = 1;
+  let useAccountMemory = true;
+  let folderWorkspace;
 
   const factLine = (fact) =>
     `- ${fact.text} {id=${fact.id}, source=${fact.source}, session=${fact.session}, at=${fact.at}}`;
@@ -655,8 +657,37 @@ export function createSettingsFixture({
     policies = seedPolicies();
     schedules = seedSchedules();
     nextScheduleId = 1;
+    useAccountMemory = true;
+    folderWorkspace = {
+      id: workspaceId,
+      name: 'flat-NDP',
+      display_name: 'flat-NDP',
+      path: 'D:\\science\\campaigns\\flat-NDP',
+      connection_id: 'fixture',
+      grants: [
+        'D:\\data\\earthscope-raw',
+        'D:\\science\\shared\\ndp-scripts',
+        'D:\\data\\sentinel-raw',
+      ],
+    };
   }
   seed();
+
+  const folderName = (path) =>
+    path
+      .split(/[\\/]+/u)
+      .filter(Boolean)
+      .at(-1) ?? path;
+  const workspaceRecord = () => {
+    const { grants, ...rest } = folderWorkspace;
+    return {
+      ...rest,
+      source_folders: [
+        { path: rest.path, name: folderName(rest.path), primary: true },
+        ...grants.map((path) => ({ path, name: folderName(path), primary: false })),
+      ],
+    };
+  };
 
   function decide(id, status, facts) {
     const index = proposals.findIndex((item) => item.id === id);
@@ -767,6 +798,49 @@ export function createSettingsFixture({
           background: { last_tick: '2026-08-22T19:55:00Z', in_flight: 0, started: 2 },
         });
         return true;
+      }
+      if (method === 'GET' && path === '/v1/workspaces') {
+        sendJson(response, { workspaces: [workspaceRecord()] });
+        return true;
+      }
+      if (method === 'PATCH' && path === `/v1/workspaces/${workspaceId}`) {
+        const body = await readJson(request);
+        if (typeof body.name === 'string' && body.name.trim()) {
+          folderWorkspace.name = body.name.trim();
+          folderWorkspace.display_name = body.name.trim();
+        }
+        if (typeof body.root_path === 'string' && body.root_path.trim()) {
+          folderWorkspace.path = body.root_path.trim();
+        }
+        sendJson(response, workspaceRecord());
+        return true;
+      }
+      if (path === `/v1/workspaces/${workspaceId}/grants`) {
+        if (method === 'POST') {
+          const body = await readJson(request);
+          if (typeof body.pattern === 'string' && !folderWorkspace.grants.includes(body.pattern)) {
+            folderWorkspace.grants.push(body.pattern);
+          }
+          sendJson(response, { kind: 'fs_root', pattern: body.pattern });
+          return true;
+        }
+        if (method === 'DELETE') {
+          const pattern = url.searchParams.get('pattern');
+          folderWorkspace.grants = folderWorkspace.grants.filter((item) => item !== pattern);
+          sendEmpty(response);
+          return true;
+        }
+      }
+      if (path === `/v1/workspaces/${workspaceId}/memory`) {
+        if (method === 'PUT') {
+          const body = await readJson(request);
+          if (typeof body.use_account_memory === 'boolean')
+            useAccountMemory = body.use_account_memory;
+        }
+        if (method === 'GET' || method === 'PUT') {
+          sendJson(response, { use_account_memory: useAccountMemory });
+          return true;
+        }
       }
       if (method === 'GET' && path === '/v1/memory/stats') {
         sendJson(response, memoryStats(url.searchParams.get('session_id') ?? ''));

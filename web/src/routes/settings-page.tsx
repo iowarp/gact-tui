@@ -7,7 +7,7 @@ import { PermissionsSettings } from '@/components/clio/settings-permissions';
 import { ToolsSettings } from '@/components/clio/settings-tools';
 import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
-import { RuntimeSettingsPanel } from '@/components/clio/settings-runtime';
+import { ExecutionHistorySettings } from '@/components/clio/settings-runtime-section';
 import { FleetSettingsPanel } from '@/components/clio/settings-fleet';
 import { UsageSettings } from '@/components/clio/settings-usage';
 import { ModelsSettings } from '@/components/clio/settings-models';
@@ -17,7 +17,6 @@ import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
-import { ContextHistorySettings } from '@/components/clio/settings-context-history';
 import { ConnectionsSettings } from '@/components/clio/settings-connection';
 import { AppearanceSettings } from '@/components/clio/settings-appearance';
 import { NotificationSettings } from '@/components/clio/settings-notifications';
@@ -37,15 +36,7 @@ export function SettingsSection({
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'runtime' || section === 'browser')
-    return (
-      <div className="grid gap-10">
-        <RuntimeSettingsPanel exclude={['Memory', 'Browser']} />
-        <ContextHistorySettings initialSessionId={sessionId} />
-        <div data-settings-anchor="browser">
-          <RuntimeSettingsPanel only="Browser" title="Browser" headingLevel={2} />
-        </div>
-      </div>
-    );
+    return <ExecutionHistorySettings initialSessionId={sessionId} />;
   if (section === 'models' || section === 'fleet')
     return (
       <div className="flex flex-col">
@@ -78,7 +69,7 @@ export function SettingsSection({
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
-  if (section === 'memory') return <MemorySettings />;
+  if (section === 'memory') return <MemorySettings workspaceId={workspaceId} />;
   if (section === 'folders') return <FoldersSettings initialWorkspaceId={workspaceId} />;
   if (section === 'profile') return <ProfileSettings />;
   if (section === 'system') return <SystemSettings />;

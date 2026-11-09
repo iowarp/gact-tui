@@ -1,5 +1,6 @@
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
@@ -46,9 +47,11 @@ afterEach(cleanup);
 function content(client: QueryClient) {
   return (
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <DataSourceSettings />
-      </MemoryRouter>
+      <TooltipProvider>
+        <MemoryRouter>
+          <DataSourceSettings />
+        </MemoryRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
@@ -61,7 +64,7 @@ it('manages accounts without querying or modifying workspace sources until Conne
   await user.click(await screen.findByRole('button', { name: 'Sign in to Globus' }));
   expect(screen.getByRole('heading', { name: 'Sign in to Globus' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Log in' })).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'All accounts' }));
+  await user.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('combobox', { name: 'Workspace' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Connect Globus' })).toBeVisible();
   expect(screen.queryByText('Local folder')).not.toBeInTheDocument();
@@ -77,7 +80,7 @@ it('manages accounts without querying or modifying workspace sources until Conne
   expect(screen.getByText(/across all workspaces/)).toBeVisible();
   fixtures.repository.signOutStorageAccount.mockResolvedValue({ authenticated: false });
   fixtures.repository.storageProviders.mockResolvedValue({ providers: [account] });
-  await user.click(screen.getByRole('button', { name: 'Sign out' }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Sign out/ }));
   await waitFor(() =>
     expect(fixtures.repository.signOutStorageAccount).toHaveBeenCalledWith('globus'),
   );
