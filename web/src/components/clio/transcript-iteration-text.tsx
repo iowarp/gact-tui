@@ -34,7 +34,7 @@ export function TranscriptIterationText({
     <>
       {/* Thought rows are a run of activity rows: they butt against the next run. */}
       {reasoning ? (
-        <div className="min-w-0" data-row-run="" data-slot="transcript-text-entry">
+        <div className="min-w-0" data-row-run="" data-slot="transcript-thought-run">
           <IterationReasoningText iteration={iteration} />
         </div>
       ) : null}
