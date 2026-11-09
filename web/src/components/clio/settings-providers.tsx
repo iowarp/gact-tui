@@ -135,6 +135,7 @@ export function ProvidersSettings() {
     <div className="max-w-[760px] pb-4">
       <SettingsGroupLabel
         addLabel="Add server"
+        className="mt-2"
         info="Model servers on this computer or your own machines."
         onAdd={() => setAdding(true)}
       >

@@ -213,7 +213,7 @@ export function UsageSettings() {
   );
   const totals = total ? spendDetails(total) : undefined;
   return (
-    <section aria-label="Usage" className="@container flex flex-col gap-4">
+    <section aria-label="Usage" className="@container flex flex-col gap-2">
       {/* The title-row controls end on the list's right edge, also beside the
           details pane (ListDetailLayout's list column is the other 58%). */}
       <div className={cn('max-w-[760px]', opened && 'w-[58%] @max-[40rem]:w-full')}>
