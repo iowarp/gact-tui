@@ -7,30 +7,32 @@ preserved for reconciliation.
 
 ## Reuse provenance
 
-| Surface | Reused foundation | CLIO-owned adaptation |
-| --- | --- | --- |
-| Composer | AI Elements `PromptInput`, ReUI/shadcn `ButtonGroup` | Delivery intent, behavior capture, route binding |
-| Attachments | AI Elements `Attachments` | Workspace custody, upload progress, resource identity |
-| Queued messages | AI Elements `Queue` | Persistence, revisions, promotion, conflict recovery |
-| Model picker | AI Elements `ModelSelector`, ReUI Cascader two-column composition | Live catalog normalization and provider configuration link |
-| Transcript minimap | TanStack Virtual, shadcn `HoverCard` | Semantic landmark types and virtualized transcript jumps |
+| Surface            | Reused foundation                                                 | CLIO-owned adaptation                                      |
+| ------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| Composer           | AI Elements `PromptInput`, CLIO `IconButton`/`MenuRow` primitives | Delivery intent, behavior capture, route binding           |
+| Attachments        | AI Elements `Attachments`                                         | Workspace custody, upload progress, resource identity      |
+| Queued messages    | CLIO one-line queue rows, dnd-kit reorder                         | Persistence, revisions, promotion, conflict recovery       |
+| Model picker       | AI Elements `ModelSelector`, ReUI Cascader two-column composition | Live catalog normalization and provider configuration link |
+| Transcript minimap | TanStack Virtual, shadcn `HoverCard`                              | Semantic landmark types and virtualized transcript jumps   |
 
 No CLIO component recreates the interaction machinery supplied by those foundations. Domain
 adapters translate GACT state into their public props and events.
 
 ## Composer states
 
-| State | Composer behavior | Queue/resources | Motion and focus |
-| --- | --- | --- | --- |
-| Idle | Enter and Ctrl/Cmd+Enter start a turn | Attachments upload on submit | Welcome composer docks without losing draft or focus |
-| Running | Enter creates a queued message; Ctrl/Cmd+Enter steers | Queue is visible immediately above the composer | Pending steer is the human message with a dashed border; consumption removes only the dash |
-| Waiting | Submit answers the active interaction before normal turn actions | Existing queued messages remain editable | Focus returns to the unanswered control |
-| Offline | Submit creates a durable queued message | Uploads that have not completed remain local and retryable | No false sent or delivered state |
-| Uploading | Composer remains stable and reports byte progress | Files can be removed before acceptance | No indefinite spatial animation; progress is determinate when total bytes are known |
+| State     | Composer behavior                                                | Queue/resources                                            | Motion and focus                                                                           |
+| --------- | ---------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Idle      | Enter and Ctrl/Cmd+Enter start a turn                            | Attachments upload on submit                               | Welcome composer docks without losing draft or focus                                       |
+| Running   | Enter creates a queued message; Ctrl/Cmd+Enter steers            | Queue is visible immediately above the composer            | Pending steer is the human message with a dashed border; consumption removes only the dash |
+| Waiting   | Submit answers the active interaction before normal turn actions | Existing queued messages remain editable                   | Focus returns to the unanswered control                                                    |
+| Offline   | Submit creates a durable queued message                          | Uploads that have not completed remain local and retryable | No false sent or delivered state                                                           |
+| Uploading | Composer remains stable and reports byte progress                | Files can be removed before acceptance                     | No indefinite spatial animation; progress is determinate when total bytes are known        |
 
-The docked composer targets 720–896 px, a 44 px minimum interactive row, and a single compact
-control group. Queued rows are one line above it, with edit/delete/promote actions on the left and
-the drag handle on the right. Attachment tiles use a compact preview with name, media type, size,
+The docked composer targets 720–896 px: the editor on top, then one toolbar row that never wraps
+(attach, reference, confirmation policy and reasoning icons on the left; model text, mode word and a
+28 px Send/Queue/Stop on the right; container queries shrink the model and mode first). Queued rows
+are one line above it, with the drag handle on the left and send-now/edit/delete actions on the
+right. Attachment tiles use a compact preview with name, media type, size,
 progress, and removal.
 
 The queued-message viewport carries its own height bound rather than inheriting one from the

@@ -40,7 +40,7 @@ function renderComposer(props: Partial<ClioComposerProps> = {}, threshold = 4000
   return {
     ...view,
     submit,
-    editor: screen.getByRole('combobox', { name: /Ask .* to investigate/ }),
+    editor: screen.getByRole('combobox', { name: /^Ask / }),
   };
 }
 
@@ -76,7 +76,7 @@ it('turns a threshold-sized paste into an immediately prepared, clickable file w
     expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text),
   );
   await user.click(screen.getByRole('button', { name: 'Close' }));
-  await user.click(screen.getByRole('button', { name: 'Submit' }));
+  await user.click(screen.getByRole('button', { name: 'Send' }));
   await waitFor(() => expect(submit).toHaveBeenCalledOnce());
   expect(submit.mock.calls[0]![0]).toMatchObject({
     text: 'Review this:',
@@ -120,10 +120,10 @@ it('keeps the exact file through failed sending, then permits retry', async () =
   const { editor } = renderComposer({ onSubmit: send }, 10);
   const text = 'complete source\r\nwith whitespace  ';
   paste(editor, text);
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Submit' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Send' }));
   await waitFor(() => expect(send).toHaveBeenCalledOnce());
   expect(await screen.findByRole('button', { name: /^Open Pasted text/ })).toBeVisible();
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Submit' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Send' }));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
   expect(send.mock.calls[1]![0].files[0]!.file).toBe(send.mock.calls[0]![0].files[0]!.file);
   expect(await send.mock.calls[1]![0].files[0]!.file!.text()).toBe(text);
@@ -136,7 +136,7 @@ it('discards an unsent pasted source when its pill is removed', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: /^Remove Pasted text/ }));
   await waitFor(() => expect(discard).toHaveBeenCalledOnce());
   expect(screen.queryByRole('button', { name: /^Open Pasted text/ })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
 });
 
 it('does not accept a paste while disabled', () => {

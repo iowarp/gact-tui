@@ -28,7 +28,7 @@ afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 beforeEach(() => {
@@ -492,7 +492,7 @@ describe('ClioComposer service commands', () => {
     ).toBeVisible();
     expect(input).toHaveTextContent('Describe the image.');
 
-    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send$/ }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
     expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
@@ -531,7 +531,7 @@ describe('ClioComposer service commands', () => {
     fireEvent.input(editor);
 
     expect(editor).toBeEmptyDOMElement();
-    expect(editor).toHaveAttribute('data-placeholder', expect.stringContaining('investigate'));
+    expect(editor).toHaveAttribute('data-placeholder', 'Reply, or steer the run');
     expect(document.querySelector('input[name="message"]')).toHaveValue('');
   });
 
@@ -673,12 +673,12 @@ describe('ClioComposer service commands', () => {
 
     expect(input).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Queue message' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeDisabled();
     expect(screen.queryByText('Working')).not.toBeInTheDocument();
 
     await user.type(input, 'Prioritize the provenance gap.');
     await user.keyboard('{Control>}');
-    await user.click(screen.getByRole('button', { name: 'Steer current work' }));
+    await user.click(screen.getByRole('button', { name: 'Steer' }));
     await user.keyboard('{/Control}');
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -768,7 +768,7 @@ describe('ClioComposer service commands', () => {
 
     view.rerender(renderState('completed'));
     await user.type(composerEditor(), 'Start this after completion.');
-    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send$/ }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenLastCalledWith(

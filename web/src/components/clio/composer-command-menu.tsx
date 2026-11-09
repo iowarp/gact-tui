@@ -1,16 +1,24 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { AlertTriangleIcon, BanIcon, CopyIcon, EyeOffIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { AlertTriangleIcon, BanIcon, CopyIcon, EyeOffIcon, SearchIcon } from 'lucide-react';
 import {
-  PromptInputCommand,
-  PromptInputCommandEmpty,
-  PromptInputCommandGroup,
-  PromptInputCommandItem,
-  PromptInputCommandList,
-} from '@/components/ai-elements/prompt-input';
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { Badge } from '@/components/ui/badge';
 import { commandGroups, commandMatches, commandSource } from '@/lib/command-table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { MenuKeyHints } from './primitives/menu-key-hints';
+import { ShortcutKeys } from './primitives/key-chip';
+import { publishActiveOption } from './composer-reference-controller-active-option';
+import { ComposerSuggestionPopup } from './composer-suggestion-popup';
 
 function StatusNote({ icon, label, detail }: { icon: ReactNode; label: string; detail: string }) {
   return (
@@ -74,67 +82,208 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
   return null;
 }
 
+const keepFocus = (event: MouseEvent) => event.preventDefault();
+
+const KEY_HINTS = [
+  { id: 'menu-move', label: 'Move' },
+  { id: 'menu-pick', label: 'Use' },
+  { id: 'menu-close', label: 'Close' },
+] as const;
+
+const commandKey = (command: CommandDefinition) =>
+  `${command.kind}:${command.qualified_id}:${command.source}`;
+
+/** The faint words after a command's id: its title, or what it does. */
+function commandDetail(command: CommandDefinition): string {
+  if (!command.enabled) return command.disabled_detail || command.disabled_reason || 'Unavailable';
+  if (command.title && command.title !== command.id) return command.title;
+  return command.description || command.argument_hint || '';
+}
+
+/** Everything about the command, for the row's tooltip. */
+function commandSummary(command: CommandDefinition): string {
+  return [command.title, command.argument_hint, command.description]
+    .filter((part, index, parts) => part && part !== command.id && parts.indexOf(part) === index)
+    .join('\n');
+}
+
+const CommandOption = memo(function CommandOption({
+  active,
+  command,
+  id,
+  onPick,
+}: {
+  active: boolean;
+  command: CommandDefinition;
+  id: string;
+  onPick: (command: CommandDefinition) => void;
+}) {
+  const source = commandSource(command);
+  const detail = commandDetail(command);
+  return (
+    // The editor keeps focus and the keys; a press only picks.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
+    <div
+      aria-disabled={!command.enabled || undefined}
+      aria-label={`${command.title} ${command.id}`}
+      aria-selected={active}
+      className={cn(
+        'flex h-[30px] min-w-0 cursor-default items-center gap-[9px] rounded-[7px] px-2 whitespace-nowrap',
+        command.enabled ? 'hover:bg-hover' : 'opacity-60',
+        active && 'bg-menu-highlight hover:bg-menu-highlight',
+      )}
+      id={id}
+      onClick={command.enabled ? () => onPick(command) : undefined}
+      onMouseDown={keepFocus}
+      role="option"
+      title={commandSummary(command) || undefined}
+    >
+      <span className="shrink-0 font-mono text-foreground">{command.id}</span>
+      <CommandStatus command={command} />
+      {detail ? (
+        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
+      ) : null}
+      {source || active ? (
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
+          {source ? <span>{source}</span> : null}
+          {active ? <ShortcutKeys id="menu-pick" variant="inline" /> : null}
+        </span>
+      ) : null}
+    </div>
+  );
+});
+
+/**
+ * The `/` menu above the composer: one line per command, grouped by where it
+ * comes from. The editor keeps focus; the arrows move a highlight, Enter uses
+ * the highlighted command (with none highlighted it still sends the message)
+ * and Escape closes the menu until the command is edited.
+ */
 export function ClioComposerCommandMenu({
   commands,
   query,
   onPick,
+  onOpenChange,
   popoverId,
 }: {
   commands: readonly CommandDefinition[];
   query: string;
   onPick: (command: CommandDefinition) => void;
+  onOpenChange?: (open: boolean) => void;
   popoverId: string;
 }) {
-  const matching = commands.filter((command) => commandMatches(command, query));
+  const groups = useMemo(
+    () => commandGroups(commands.filter((command) => commandMatches(command, query))),
+    [commands, query],
+  );
+  const choices = useMemo(
+    () => groups.flatMap((group) => group.rows).filter((command) => command.enabled),
+    [groups],
+  );
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  // Both reset when the typed command changes.
+  const [highlight, setHighlight] = useState({ key: '', query });
+  const [dismissedQuery, setDismissedQuery] = useState<string | undefined>();
+  const activeKey = highlight.query === query ? highlight.key : '';
+  const open = dismissedQuery !== query;
+  const optionId = (command: CommandDefinition) =>
+    `${popoverId}-option-${encodeURIComponent(commandKey(command))}`;
+  const active = choices.find((command) => commandKey(command) === activeKey);
+  const activeOptionId = open && active ? optionId(active) : undefined;
+
+  useEffect(() => {
+    publishActiveOption(popoverId, activeOptionId);
+    if (activeOptionId)
+      document.getElementById(activeOptionId)?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeOptionId, popoverId]);
+  useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
+  useEffect(() => onOpenChange?.(open), [onOpenChange, open]);
+
+  const latest = useRef({ active, choices, onPick, open, query });
+  useLayoutEffect(() => {
+    latest.current = { active, choices, onPick, open, query };
+  });
+
+  // The editor's own key handler sends the message on Enter, so the menu's keys
+  // are taken before it sees them, and only while the menu shows.
+  useEffect(() => {
+    const editor = document.querySelector<HTMLElement>(`[aria-controls="${popoverId}"]`);
+    if (!editor) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const current = latest.current;
+      if (!current.open || event.isComposing) return;
+      const take = () => {
+        event.preventDefault();
+        event.stopPropagation();
+      };
+      if (event.key === 'Escape') {
+        take();
+        setDismissedQuery(current.query);
+      } else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && current.choices.length) {
+        take();
+        const at = current.active ? current.choices.indexOf(current.active) : -1;
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const next =
+          at < 0 && step < 0
+            ? current.choices.length - 1
+            : (at + step + current.choices.length) % current.choices.length;
+        const command = current.choices[next];
+        if (command) setHighlight({ key: commandKey(command), query: current.query });
+      } else if (event.key === 'Enter' && !event.shiftKey && current.active) {
+        take();
+        current.onPick(current.active);
+      }
+    };
+    editor.addEventListener('keydown', onKeyDown);
+    return () => editor.removeEventListener('keydown', onKeyDown);
+  }, [popoverId]);
+
+  const dismiss = useCallback(() => setDismissedQuery(query), [query]);
+
+  if (!open) return null;
   return (
-    <div
-      className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
-      id={popoverId}
-    >
-      <PromptInputCommand className="rounded-xl border bg-popover text-popover-foreground shadow-xl">
-        <PromptInputCommandList className="max-h-64">
-          <PromptInputCommandEmpty>No command matches.</PromptInputCommandEmpty>
-          {commandGroups(matching).map((group) => (
-            <PromptInputCommandGroup heading={group.heading} key={group.heading}>
-              {group.rows.map((command) => {
-                const source = commandSource(command);
-                return (
-                  <PromptInputCommandItem
-                    aria-label={`${command.title} ${command.id}`}
-                    disabled={!command.enabled}
-                    key={`${command.kind}:${command.qualified_id}:${command.source}`}
-                    onSelect={() => onPick(command)}
-                    value={`${command.id} ${command.qualified_id} ${command.title} ${command.aliases.join(' ')}`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-baseline gap-x-2 font-medium">
-                        <span className="min-w-0 break-all font-mono">{command.id}</span>
-                        {command.title && command.title !== command.id ? (
-                          <span className="hidden min-w-0 truncate font-normal text-muted-foreground sm:inline">
-                            {command.title}
-                          </span>
-                        ) : null}
-                      </span>
-                      {/* Its state, where it comes from and what it does, on one line. */}
-                      <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                        <CommandStatus command={command} />
-                        {source ? <span className="shrink-0">{source}</span> : null}
-                        <span className="min-w-0 truncate">
-                          {command.enabled
-                            ? [command.argument_hint, command.description]
-                                .filter(Boolean)
-                                .join(' — ') || 'Run this command'
-                            : command.disabled_detail || command.disabled_reason || 'Unavailable'}
-                        </span>
-                      </span>
-                    </span>
-                  </PromptInputCommandItem>
-                );
-              })}
-            </PromptInputCommandGroup>
-          ))}
-        </PromptInputCommandList>
-      </PromptInputCommand>
-    </div>
+    <ComposerSuggestionPopup onDismiss={dismiss} popupId={popoverId}>
+      <div className="flex h-10 min-w-0 shrink-0 items-center gap-1.5 pr-2 pl-3">
+        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
+        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
+          <span className="font-mono text-foreground">{query}</span>
+          {query === '/' ? <span className="text-faint"> type to search</span> : null}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">
+          {total === 1 ? '1 match' : `${total} matches`}
+        </span>
+      </div>
+      <div
+        aria-label="Suggestions"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
+        role="listbox"
+      >
+        {total === 0 ? (
+          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-faint">
+            <span className="truncate">No command matches.</span>
+          </div>
+        ) : null}
+        {groups.map((group) => (
+          <div aria-label={group.heading} key={group.heading} role="group">
+            <div className="flex min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+              <span className="min-w-0 truncate">{group.heading}</span>
+              <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
+                {group.rows.length}
+              </span>
+            </div>
+            {group.rows.map((command) => (
+              <CommandOption
+                active={command === active}
+                command={command}
+                id={optionId(command)}
+                key={commandKey(command)}
+                onPick={onPick}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
+    </ComposerSuggestionPopup>
   );
 }

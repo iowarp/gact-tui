@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
-  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+  return screen.getByRole('combobox', { name: /^Ask / });
 }
 
 beforeEach(() => {
@@ -293,8 +293,7 @@ describe('composer reference selection', () => {
     const user = userEvent.setup();
     renderComposer();
 
-    await user.click(screen.getByRole('button', { name: 'Add context' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
+    await user.click(screen.getByRole('button', { name: 'Add a reference' }));
 
     expect(await screen.findByText('Conversations')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Expand Conversations' }));
@@ -319,7 +318,10 @@ describe('composer reference selection', () => {
     await user.type(composerEditor(), '@');
 
     await screen.findByText('file-0.txt');
-    expect(screen.getAllByRole('option')).toHaveLength(100);
+    // The first rows mount with the menu; the rest follow once the browser is idle.
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(100), {
+      timeout: 10_000,
+    });
     expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();
   });
 
@@ -358,9 +360,9 @@ describe('composer reference selection', () => {
 
     await user.type(composerEditor(), '@observations');
     await user.click(await screen.findByRole('option', { name: /observations.csv/ }));
-    expect(screen.getByRole('button', { name: 'Queue message' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeEnabled();
     await user.keyboard('{Control>}');
-    const steer = screen.getByRole('button', { name: 'Steer current work' });
+    const steer = screen.getByRole('button', { name: 'Steer' });
     expect(steer).toBeEnabled();
     await user.click(steer);
     await user.keyboard('{/Control}');
