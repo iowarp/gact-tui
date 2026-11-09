@@ -561,20 +561,15 @@ export async function exploreJourney(r) {
       { control },
     );
   }
-  // Wide bars show the states as a segmented control; narrow ones a select.
-  const stateSelect = r.control('combobox', 'Filter by state');
-  if (await r.visible(stateSelect, 500)) {
-    await r.overlay('runs state filter', 'combobox', 'Filter by state');
-  } else {
-    const attention = page.getByRole('radio', { name: /^Needs attention/u }).first();
-    await r.measure(
-      'runs state filter',
-      'tab',
-      () => attention.click(),
-      { css: '[role="radio"][aria-checked="true"]', text: 'Needs attention' },
-      { control: attention },
-    );
-  }
+  // States are icon chips (radios) named by their aria-label.
+  const attention = page.getByRole('radio', { name: /^Needs attention/u }).first();
+  await r.measure(
+    'runs state filter',
+    'tab',
+    () => attention.click(),
+    { css: '[role="radio"][aria-checked="true"]', text: 'Needs attention' },
+    { control: attention },
+  );
   await page.goBack();
   await waitIdle(page);
   const infra = r.control('link', /^Infrastructure/u);

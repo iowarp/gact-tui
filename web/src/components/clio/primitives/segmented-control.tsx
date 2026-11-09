@@ -10,6 +10,8 @@ export interface SegmentedOption<Value extends string> {
   /** Catalog id of the key that picks this option. */
   shortcut?: string;
   disabled?: boolean;
+  /** A count beside the icon of an icon-only option ("3" running); the name stays the hover name. */
+  count?: number;
 }
 
 export interface SegmentedControlProps<Value extends string> {
@@ -52,15 +54,26 @@ function SegmentedControlImpl<Value extends string>({
           <ToggleGroupItem
             key={option.value}
             value={option.value}
-            aria-label={iconOnly ? option.label : undefined}
+            aria-label={
+              iconOnly
+                ? option.count === undefined
+                  ? option.label
+                  : `${option.label}, ${option.count}`
+                : undefined
+            }
             disabled={option.disabled}
             className={cn(
               'h-[22px] min-w-0 rounded-[5px]! border-0 px-2 text-[12px] font-medium whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground [&_svg:not([class*=size-])]:size-3.5',
-              iconOnly && 'w-[26px] px-0',
+              iconOnly && (option.count === undefined ? 'w-[26px] px-0' : 'gap-1 px-1.5'),
             )}
           >
             {option.icon}
             {iconOnly ? null : <span className="truncate">{option.label}</span>}
+            {iconOnly && option.count !== undefined ? (
+              <span aria-hidden="true" className="tabular-nums">
+                {option.count}
+              </span>
+            ) : null}
           </ToggleGroupItem>
         );
         return iconOnly ? (

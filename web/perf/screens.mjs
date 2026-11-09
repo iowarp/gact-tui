@@ -299,29 +299,33 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
     }),
-    s('runs', 'executions', '/runs', null, { ready: 'h1' }),
+    s('runs', 'executions', '/runs', null, { ready: '[data-run-state]' }),
     s('runs', 'flows', '/runs', async (page) => {
       await press(page, 'radio', /^Flows/u);
       await page.waitForTimeout(500);
     }),
-    s('runs', 'state-filter', '/runs', async (page) => {
-      // Wide bars show the states as a segmented control; narrow ones a select.
-      const select = page.getByRole('combobox', { name: 'Filter by state' });
-      if (await select.isVisible()) {
-        await select.click();
-        await overlay(page);
-      } else {
-        await press(page, 'radio', /^Needs attention/u);
+    s(
+      'runs',
+      'state-filter',
+      '/runs',
+      async (page) => {
+        await press(page, 'radio', /^Waiting for you/u);
         await page.waitForTimeout(400);
-      }
-    }),
-    s('runs', 'details', '/runs', async (page) => {
-      await page
-        .getByRole('button', { name: /^Details for/u })
-        .first()
-        .click();
-      await overlay(page);
-    }),
+      },
+      { ready: '[data-run-state]' },
+    ),
+    // The selected run opens as a tab beside the list (a sheet below 1024px).
+    s(
+      'runs',
+      'details',
+      '/runs',
+      async (page) => {
+        await page.locator('[data-run-state] button[type="button"]').first().click();
+        await page.locator('aside[aria-label^="Run: "]').filter({ visible: true }).first().waitFor();
+        await page.waitForTimeout(500);
+      },
+      { ready: '[data-run-state]' },
+    ),
     ...infrastructure.map(({ href, name }) =>
       s('infrastructure', slug(name), href, null, { ready: 'h1', settleMs: 1200 }),
     ),
