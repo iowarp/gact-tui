@@ -30,7 +30,8 @@ it.each(['succeeded', 'failed', 'cancelled'] as const)(
       screen.getByRole('button', { name: 'Technical details for Inspect execution environment' }),
     );
     expect(screen.getByText('Execution time')).toBeVisible();
-    expect(screen.getByText('12.5 s')).toBeVisible();
+    // The dialog reads the duration the way the row's elapsed column does.
+    expect(screen.getByRole('dialog')).toHaveTextContent('13s');
   },
 );
 

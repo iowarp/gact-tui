@@ -703,3 +703,32 @@ it('marks a call the sandbox blocked on its compact row (#1905)', () => {
   render(<ClioToolInvocation compact tool={tool} />);
   expect(screen.getByLabelText('Sandbox: Desktop')).toHaveTextContent('Blocked');
 });
+
+it('shows a returned question call as in progress while its question waits (N5a)', () => {
+  const tool = {
+    id: 'ask1',
+    session_id: 's',
+    name: 'ask_user',
+    state: 'succeeded' as const,
+    presentation: { action: 'Ask', summary: '', blocks: [] },
+  };
+  const waiting = {
+    id: 'question:ask1',
+    kind: 'question' as const,
+    status: 'pending' as const,
+    owner_session_id: 's',
+    attended_session_id: 's',
+    title: 'Question from agent',
+    prompt: 'Which grid?',
+    created_at: '2026-10-08T00:00:00Z',
+    source: { protocol: 'native' as const, tool_name: 'ask_user', invocation_id: 'ask1' },
+    payload: { response_mode: 'blocking', question_id: 'q', question_kind: 'freeform' },
+    actions: ['answer', 'cancel'],
+  };
+  render(<ClioToolInvocation compact tool={tool} waitingFor={waiting as never} />);
+  expect(screen.getByRole('img', { name: 'Waiting for you' })).toHaveAttribute(
+    'data-tone',
+    'running',
+  );
+  expect(screen.queryByRole('img', { name: 'Succeeded' })).not.toBeInTheDocument();
+});
