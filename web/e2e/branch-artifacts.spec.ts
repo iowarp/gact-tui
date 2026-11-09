@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { showEvidenceRail, showWorkbenchList } from './workspace-setup';
+import { closeNotifications, showEvidenceRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -75,6 +75,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${worker.id}`);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation.getByText('Baseline complete.', { exact: true })).toBeVisible();
+  await closeNotifications(page);
   await conversation.getByText('Baseline complete.', { exact: true }).hover();
   await expect(
     page.getByRole('button', { name: 'Fork into a new conversation', exact: true }),
