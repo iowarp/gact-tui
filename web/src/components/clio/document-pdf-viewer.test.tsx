@@ -88,7 +88,7 @@ describe('ClioDocumentPdfViewer', () => {
     },
   );
 
-  it('makes the zoom reset fit an explicit width view to a complete page', async () => {
+  it('zooms an explicit width view out to a complete page, where zooming out stops', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
     render(
@@ -101,10 +101,12 @@ describe('ClioDocumentPdfViewer', () => {
     );
     const page = await screen.findByText('PDF page 1');
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value).toBeGreaterThan(600);
-    // The percentage control resets zoom by fitting the whole page (#681 merged Fit into it).
-    await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }));
+    // Two zoom icons only: zooming out from the fitted width reaches page fit.
+    expect(screen.queryByRole('button', { name: /reset|fit/iu })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
     expect(Number(page.dataset.testPdfWidth) * pageAspectRatio.value + 26).toBeLessThanOrEqual(600);
-    expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+    expect(Number(page.dataset.testPdfScale)).toBe(1);
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
   });
 
   it('captures modifier-wheel zoom inside the PDF and leaves ordinary scrolling alone', async () => {
@@ -117,22 +119,28 @@ describe('ClioDocumentPdfViewer', () => {
     );
     await screen.findByText('PDF page 1');
     const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]')!;
+    const scale = () => Number(screen.getByText('PDF page 1').dataset.testPdfScale);
     const appWheel = vi.fn();
     window.addEventListener('wheel', appWheel);
     try {
-      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
-        false,
-      );
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('85%');
-      expect(appWheel).not.toHaveBeenCalled();
       expect(fireEvent.wheel(scroller, { metaKey: true, deltaY: -120, cancelable: true })).toBe(
         false,
       );
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+      expect(scale()).toBeCloseTo(1.15);
+      expect(appWheel).not.toHaveBeenCalled();
+      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
+        false,
+      );
+      expect(scale()).toBeCloseTo(1);
+      // Page fit is where zooming out stops.
+      expect(fireEvent.wheel(scroller, { ctrlKey: true, deltaY: 120, cancelable: true })).toBe(
+        false,
+      );
+      expect(scale()).toBeCloseTo(1);
       expect(appWheel).not.toHaveBeenCalled();
       expect(fireEvent.wheel(scroller, { deltaY: 120, cancelable: true })).toBe(true);
       expect(appWheel).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%');
+      expect(scale()).toBeCloseTo(1);
     } finally {
       window.removeEventListener('wheel', appWheel);
     }
@@ -156,11 +164,13 @@ describe('ClioDocumentPdfViewer', () => {
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
     expect(screen.getByText('PDF page 3')).toBeVisible();
-    expect(screen.getByText('3 pages')).toBeVisible();
 
     expect(screen.queryByRole('button', { name: 'Use paged PDF view' })).not.toBeInTheDocument();
     expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Zoom in' }));
-    expect(screen.getByText('3 pages').closest('footer')).not.toBeNull();
+    // Outside a frame the page counter leads the zoom icons; there is no footer.
+    expect(toolbar).toContainElement(screen.getByText('Page 1 of 3'));
+    expect(screen.getByText('1 / 3')).toBeVisible();
+    expect(document.querySelector('footer')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(screen.getByText('115%')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();

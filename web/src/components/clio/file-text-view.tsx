@@ -1,5 +1,5 @@
 import { lazy, Suspense, useContext, useMemo, useRef, useState, type Ref } from 'react';
-import { BookOpenIcon, FileCode2Icon, Table2Icon, WrapTextIcon } from 'lucide-react';
+import { BookOpenIcon, FileCode2Icon, GitBranchIcon, Table2Icon, WrapTextIcon } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,11 @@ import { FileDataGrid } from './file-data-grid';
 import { readDenseGridText } from './primitives/dense-grid-data';
 import { tabularJsonDataset } from './json-resource-data';
 import { ResourceLoading } from './resource-states';
+
+// Mermaid loads with the first diagram file opened.
+const ClioMermaidDiagram = lazy(() =>
+  import('./mermaid-diagram').then((module) => ({ default: module.ClioMermaidDiagram })),
+);
 
 // The CSV table loads with the first CSV file opened, not with the app (#644).
 const ClioCsvView = lazy(() =>
@@ -57,9 +62,11 @@ export function FileTextView({
     () => (format === 'json' ? tabularJsonDataset(content, name) : undefined),
     [content, format, name],
   );
+  const diagram = !explicitFormat && /\.(?:mmd|mermaid)$/i.test(name);
   const lines = useMemo(() => content.split('\n').length, [content]);
   useFileViewerFacts(format === 'csv' || dataset ? undefined : [`${lines.toLocaleString()} lines`]);
   const modes: FileMode[] = [
+    ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: GitBranchIcon }] : []),
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
       : []),
@@ -76,7 +83,7 @@ export function FileTextView({
       : modes[0].value;
   const reading = useRef<HTMLDivElement>(null);
   const readText = () =>
-    selected === 'source'
+    selected === 'source' || selected === 'diagram'
       ? content
       : selected === 'data'
         ? (readDenseGridText(reading.current) ?? renderedFileText(reading.current, true))
@@ -132,6 +139,13 @@ export function FileTextView({
         {format === 'markdown' ? (
           <TabsContent value="read" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
             <FileReadView name={name} content={content} format={format} readingRef={reading} />
+          </TabsContent>
+        ) : null}
+        {diagram ? (
+          <TabsContent value="diagram" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
+            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+              <ClioMermaidDiagram framed source={content} title={name} />
+            </Suspense>
           </TabsContent>
         ) : null}
         {format === 'csv' || dataset ? (

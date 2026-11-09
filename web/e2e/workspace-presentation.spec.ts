@@ -6,17 +6,24 @@ import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-async function expectImageAtTop(image: Locator): Promise<void> {
+// A fitted image sits centred in its viewport on both axes.
+async function expectImageCentred(image: Locator): Promise<void> {
   await expect
     .poll(() =>
       image.evaluate((element) => {
-        const viewport = element.closest('[data-slot="image-viewport"]')!;
-        return Math.round(
-          element.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
-        );
+        const viewport = element.closest('[data-slot="image-viewport"]')!.getBoundingClientRect();
+        const bounds = element.getBoundingClientRect();
+        // Math.round(-0.4) is -0, which toBe(0) rejects; the sign of a centred offset is noise.
+        return [
+          Math.abs(Math.round(bounds.left + bounds.width / 2 - viewport.left - viewport.width / 2)),
+          Math.abs(Math.round(bounds.top + bounds.height / 2 - viewport.top - viewport.height / 2)),
+        ];
       }),
     )
-    .toBe(16);
+    .toEqual([0, 0]);
+}
+async function imageWidth(image: Locator): Promise<number> {
+  return image.evaluate((element) => element.getBoundingClientRect().width);
 }
 test.beforeEach(async ({ page }) => {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -95,7 +102,7 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(canvas.getByRole('img', { name: 'vertical-displacement.png' })).toBeVisible();
-  await expectImageAtTop(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
+  await expectImageCentred(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
   const metrics = await toolbar.evaluate((element) => ({
     height: element.getBoundingClientRect().height,
     width: element.clientWidth,
@@ -108,12 +115,10 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await expect(page.getByRole('menuitemcheckbox', { name: 'Versions', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
-  const zoom = canvas.getByRole('button', { name: 'Reset image zoom', exact: true });
-  const before = await zoom.innerText();
-  await toolbar.getByRole('button', { name: 'Zoom in', exact: true }).click();
-  await expect(zoom).not.toHaveText(before);
   const image = canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true });
-  await expectImageAtTop(image);
+  const before = await imageWidth(image);
+  await toolbar.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect.poll(() => imageWidth(image)).toBeGreaterThan(before);
   const imageBefore = await image.boundingBox();
   expect(imageBefore).not.toBeNull();
   await page.mouse.move(imageBefore!.x + 20, imageBefore!.y + 20);
@@ -168,7 +173,7 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
-  for (const name of ['Zoom in', 'Zoom out', 'Reset image zoom', 'Open options', 'File actions']) {
+  for (const name of ['Zoom in', 'Zoom out', 'Open options', 'File actions']) {
     await expect(canvas.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await canvas.getByRole('button', { name: 'Zoom in', exact: true }).focus();
@@ -182,7 +187,7 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
         .evaluate((node) => document.fullscreenElement === node),
     )
     .toBe(true);
-  await expectImageAtTop(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
+  await expectImageCentred(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
   await canvas.getByRole('button', { name: 'File actions', exact: true }).click();
   await expect(
     page.getByRole('menuitem', { name: 'Exit file fullscreen', exact: true }),
@@ -201,9 +206,7 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
 });
 
-test('SVG previews stay at the top and horizontally centered through pane resizing and zoom', async ({
-  page,
-}, testInfo) => {
+test('SVG previews stay centred through pane resizing and zoom', async ({ page }, testInfo) => {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="#e1eee5"/><circle cx="120" cy="120" r="64" fill="#137a75"/></svg>';
   await page.route('**/v1/workspaces/ws_flat_ndp/files?*', (route) =>
@@ -228,33 +231,18 @@ test('SVG previews stay at the top and horizontally centered through pane resizi
     ['wide', 1600],
   ] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await expectImageAtTop(image);
-    await expect
-      .poll(() =>
-        image.evaluate((element) => {
-          const viewport = element.closest('[data-slot="image-viewport"]')!;
-          const bounds = element.getBoundingClientRect();
-          // Math.round(-0.4) is -0, which toBe(0) rejects; the sign of a centred offset is noise.
-          return Math.abs(
-            Math.round(
-              bounds.left +
-                bounds.width / 2 -
-                viewport.getBoundingClientRect().left -
-                viewport.clientWidth / 2,
-            ),
-          );
-        }),
-      )
-      .toBe(0);
-    await page.screenshot({ path: testInfo.outputPath(`image-top-${label}-light.png`) });
+    await expectImageCentred(image);
+    await page.screenshot({ path: testInfo.outputPath(`image-centred-${label}-light.png`) });
   }
+  const fitted = await imageWidth(image);
   await canvas.getByRole('button', { name: 'Zoom in', exact: true }).click();
-  await expectImageAtTop(image);
-  await canvas.getByRole('button', { name: 'Reset image zoom', exact: true }).click();
-  await expectImageAtTop(image);
+  await expect.poll(() => imageWidth(image)).toBeGreaterThan(fitted);
+  await canvas.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  await expect.poll(() => imageWidth(image)).toBe(fitted);
+  await expectImageCentred(image);
   await page.evaluate(() => document.documentElement.classList.add('dark'));
-  await expectImageAtTop(image);
-  await page.screenshot({ path: testInfo.outputPath('image-top-wide-dark.png') });
+  await expectImageCentred(image);
+  await page.screenshot({ path: testInfo.outputPath('image-centred-wide-dark.png') });
 });
 
 test('an unsupported workspace file uses one shared original download', async ({
@@ -278,7 +266,9 @@ test('an unsupported workspace file uses one shared original download', async ({
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
   await expect(preview.getByLabel('Location', { exact: true })).toContainText('run.h5');
   await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
-  await expect(preview.locator('[data-slot="empty-title"]')).toHaveText('No inline preview');
+  const state = preview.locator('[data-slot="state-view"][data-kind="no-preview"]');
+  await expect(state).toContainText('.h5');
+  await expect(state.getByRole('button', { name: 'Download', exact: true })).toHaveCount(1);
   await expect(preview.locator('[data-slot="frame-bar"]')).toHaveCount(1);
   const downloaded = await downloadFromFrame(page, preview);
   expect(downloaded.suggestedFilename()).toBe('run.h5');

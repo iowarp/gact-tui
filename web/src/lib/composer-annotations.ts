@@ -68,6 +68,10 @@ export function markFromSelection(target: SelectionTarget): {
       },
     };
   }
+  if (target.kind === 'file-text') {
+    // A file passage, quoted with its path and lines; the wire has no file kind yet.
+    return { kind: 'a2ui-surface', title: target.path, anchor: target.anchor };
+  }
   const { messageId, sessionId } =
     target.kind === 'transcript-content'
       ? { messageId: target.reference.message_id, sessionId: target.reference.session_id }

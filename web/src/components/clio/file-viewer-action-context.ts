@@ -1,11 +1,20 @@
-import { createContext, useContext, useEffect, useId, type ComponentType } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 
 export interface FileViewerAction {
   label: string;
   description?: string;
   /** Alternate formats join Export to… beside the original-file download. */
-  kind?: 'download' | 'view';
+  kind?: 'download' | 'view' | 'open';
   selected?: boolean;
+  /** An `open` row's submenu (a document's apps for its working copy), instead of `onSelect`. */
+  submenu?: ReactNode;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   onSelect: () => void | Promise<void>;
   disabled?: boolean;

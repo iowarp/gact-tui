@@ -1,5 +1,5 @@
 import type { Session } from '@clio/core/v3';
-import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, MessageSquareIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
@@ -56,9 +56,6 @@ export function ClioSessionContextBar({
           onClick={() => onReturnToParent(parentSession)}
         />
       ) : null}
-      {parentSession || nativeTitle ? null : (
-        <MessageSquareIcon aria-hidden="true" className="ml-1 size-[15px] shrink-0 text-faint" />
-      )}
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-[13px]">
         {workspaceLabel && !nativeTitle ? (
           <>
