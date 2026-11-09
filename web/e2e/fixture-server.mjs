@@ -36,6 +36,7 @@ import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
 import {
   DECISION_CARDS,
+  decisionCardArtifacts,
   decisionCardInteractions,
   decisionChildSession,
 } from './fixture-decision-cards.mjs';
@@ -3349,6 +3350,9 @@ const server = createServer(async (request, response) => {
                 created_at: observedAt,
               },
             ]
+          : []),
+        ...(decisionCardsDemo
+          ? decisionCardArtifacts(decisionCardsDemo, { sessionId, observedAt })
           : []),
       ],
       surfaces: [
