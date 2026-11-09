@@ -431,7 +431,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     className={cn(
                       'flex items-center gap-3',
                       !pendingSteer &&
-                        'sm:invisible sm:group-focus-within/prompt:visible sm:group-hover/prompt:visible',
+                        'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
                     )}
                   >
                     <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>

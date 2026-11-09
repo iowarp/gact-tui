@@ -123,9 +123,14 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   const original = await page.request.get(`${fixtureEndpoint}/v1/sessions/sess_flat_ndp/messages`);
   const before = (await original.json()).messages.length;
   const forkResponse = page.waitForResponse((response) => response.url().endsWith('/fork'));
-  await page
+  // Reply actions are named on hover; reveal the first reply's actions.
+  const reply = page
+    .locator('[data-slot="message-completion-footer"]')
+    .filter({ has: page.locator('[aria-label="Fork into a new conversation"]') })
+    .first();
+  await reply.hover();
+  await reply
     .getByRole('button', { name: 'Fork into a new conversation', exact: true })
-    .first()
     .press('Enter');
   const branch = await (await forkResponse).json();
   await expect(page).toHaveURL(new RegExp(`/sessions/${branch.id}$`));

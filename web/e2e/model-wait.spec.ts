@@ -46,14 +46,16 @@ for (const width of [1280, 390]) {
     await page.goto('/tests/review/model-wait.html');
     const waiting = page.locator('[data-slot="turn-response-wait"]');
     await expect(waiting).toBeVisible();
-    await expect(waiting).toContainText('Waiting for response');
+    // A silent wait reads as live thinking with its elapsed time.
+    await expect(waiting).toContainText('Thinking…');
     await expect(waiting).toContainText(/\d+s/);
     await page.screenshot({ path: test.info().outputPath(`model-wait-${width}.png`) });
     await page.getByRole('button', { name: 'reasoning', exact: true }).click();
     await expect(waiting).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Activity: Thinking', exact: true }),
-    ).toBeVisible();
+    const reasoning = page.locator('[data-slot="transcript-reasoning"]');
+    await expect(reasoning).toBeVisible();
+    await expect(reasoning).toHaveAttribute('aria-busy', 'true');
+    await expect(reasoning.locator('[data-slot="reasoning-summary"]')).toHaveText('Thinking…');
     const thinking = page.getByRole('button', {
       name: 'Thinking: Comparing the notes',
       exact: true,

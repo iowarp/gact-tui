@@ -31,7 +31,11 @@ function numberedDiff(text: string): DiffLine[] {
     else if (raw.startsWith('-'))
       lines.push({ kind: 'removed', number: oldLine++, text: raw.slice(1) });
     else if (raw || lines.length) {
-      lines.push({ kind: 'context', number: newLine++, text: raw.slice(1) });
+      lines.push({
+        kind: 'context',
+        number: newLine++,
+        text: raw.startsWith(' ') ? raw.slice(1) : raw,
+      });
       oldLine++;
     }
   }

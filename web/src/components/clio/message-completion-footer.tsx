@@ -73,7 +73,9 @@ export function MessageCompletionFooter({
         className={cn(
           'ml-auto flex shrink-0 items-center gap-1',
           // Hover names the actions; a pressed one (a mark) stays in view. Touch shows all.
-          'sm:invisible sm:group-hover/reply:visible sm:group-focus-within/reply:visible sm:has-[[aria-expanded=true]]:visible sm:[&_[aria-pressed=true]]:visible',
+          // Opacity, not visibility: hidden actions stay focusable, so keyboard users
+          // reach them and a closing dialog can return focus to its trigger.
+          'sm:pointer-events-none sm:opacity-0 sm:group-hover/reply:pointer-events-auto sm:group-hover/reply:opacity-100 sm:group-focus-within/reply:pointer-events-auto sm:group-focus-within/reply:opacity-100 sm:has-[[aria-expanded=true]]:pointer-events-auto sm:has-[[aria-expanded=true]]:opacity-100 sm:has-[[aria-pressed=true]]:pointer-events-auto sm:has-[[aria-pressed=true]]:opacity-100',
         )}
         data-slot="message-actions"
       >
