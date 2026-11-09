@@ -52,6 +52,8 @@ export const COLOR_TOKENS = [
   // Outcomes. Refuted is a science state, not an error, so it is not `destructive`.
   'destructive',
   'destructive-foreground',
+  // Destructive text. Dark lightens it to keep 4.5:1 on menus; icons and fills keep `destructive`.
+  'destructive-text',
   'info',
   'info-foreground',
   'success',

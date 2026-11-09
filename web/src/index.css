@@ -182,6 +182,7 @@
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-link: var(--link);
   --color-status-supported: var(--status-supported);
   --color-status-supported-foreground: var(--status-supported-foreground);

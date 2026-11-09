@@ -41,20 +41,22 @@ describe('theme contract', () => {
     expect(declared(':root')).toEqual(declared(":root[data-theme='light']"));
   });
 
-  // Destructive menu rows are 12.5px text: they need 4.5:1 at rest and when focused.
-  // A focused row tints its background with destructive at 10% (light) or 20% (dark),
-  // and dark switches its text to destructive-foreground (see ui/dropdown-menu.tsx).
+  // Destructive menu rows are 12.5px destructive-text: they need 4.5:1 at rest and when
+  // focused, where the row is tinted with destructive at 10% (light) or 20% (dark).
   it.each([
-    { theme: 'light', focusTint: 0.1, focusText: 'destructive' },
-    { theme: 'dark', focusTint: 0.2, focusText: 'destructive-foreground' },
-  ])('keeps $theme destructive menu text at 4.5:1', ({ theme, focusTint, focusText }) => {
-    const value = (token: string) => hex(tokenValue(`:root[data-theme='${theme}']`, token));
-    const destructive = value('destructive');
-    for (const surface of ['popover', 'menu-highlight']) {
-      expect(contrast(destructive, value(surface))).toBeGreaterThanOrEqual(4.5);
+    { theme: 'light', focusTint: 0.1 },
+    { theme: 'dark', focusTint: 0.2 },
+  ])('keeps $theme destructive menu text at 4.5:1', ({ theme, focusTint }) => {
+    const raw = (token: string) => tokenValue(`:root[data-theme='${theme}']`, token);
+    const value = (token: string): number[] => {
+      const reference = /^var\(--([a-z-]+)\)$/u.exec(raw(token));
+      return reference ? value(reference[1]!) : hex(raw(token));
+    };
+    const text = value('destructive-text');
+    const focused = mix(value('destructive'), value('popover'), focusTint);
+    for (const surface of [value('popover'), value('menu-highlight'), focused]) {
+      expect(contrast(text, surface)).toBeGreaterThanOrEqual(4.5);
     }
-    const focused = mix(destructive, value('popover'), focusTint);
-    expect(contrast(value(focusText), focused)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
