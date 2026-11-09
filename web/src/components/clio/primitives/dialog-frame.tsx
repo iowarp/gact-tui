@@ -53,7 +53,10 @@ export interface DialogFrameConfirm {
   /** `destructive` is only for deleting; it is the one red button. */
   tone?: 'default' | 'destructive';
   disabled?: boolean;
-  /** Ctrl+Enter (⌘↩) confirms; on by default. */
+  /**
+   * Ctrl+Enter (⌘↩) confirms; on by default. A lone confirm (no Cancel)
+   * takes plain Enter instead, like Share's Done.
+   */
   keyboard?: boolean;
 }
 
@@ -106,11 +109,20 @@ export const DialogFrame = memo(function DialogFrame({
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
-      if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+      if (event.key !== 'Enter') return;
+      if (confirmOnly) {
+        if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+        // Buttons, links and pickers already act on Enter.
+        if (
+          event.target instanceof Element &&
+          event.target.closest('button, a[href], textarea, select, [role="combobox"]')
+        )
+          return;
+      } else if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       confirm.onConfirm();
     },
-    [confirm],
+    [confirm, confirmOnly],
   );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,7 +200,10 @@ export const DialogFrame = memo(function DialogFrame({
             >
               {confirm.label}
               {confirmKeys ? (
-                <FooterKey className="border-current/45" keys={['Ctrl+Enter']} />
+                <FooterKey
+                  className="border-current/45"
+                  keys={[confirmOnly ? 'Enter' : 'Ctrl+Enter']}
+                />
               ) : null}
             </Button>
           ) : null}

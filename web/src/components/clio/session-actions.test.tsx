@@ -86,5 +86,13 @@ describe('ClioSessionActions', () => {
     expect(screen.getByDisplayValue('http://127.0.0.1/v1/shared/shr_test')).toHaveAttribute(
       'readonly',
     );
+    // The link carries its expiry, so it is no longer a choice.
+    expect(screen.queryByRole('combobox', { name: 'Link expires' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent('Link expiresIn 7 days');
+
+    // Done is the lone button, so plain Enter finishes from the link field.
+    await user.click(screen.getByDisplayValue('http://127.0.0.1/v1/shared/shr_test'));
+    await user.keyboard('{Enter}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

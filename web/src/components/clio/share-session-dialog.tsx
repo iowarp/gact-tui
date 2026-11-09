@@ -13,6 +13,13 @@ import { copyText } from '@/lib/clipboard';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 
+const EXPIRY_OPTIONS = [
+  { value: '3600', label: 'In 1 hour' },
+  { value: '86400', label: 'In 1 day' },
+  { value: '604800', label: 'In 7 days' },
+  { value: '2592000', label: 'In 30 days' },
+] as const;
+
 export interface ClioShareSessionDialogProps {
   open: boolean;
   title: string;
@@ -77,7 +84,7 @@ export function ClioShareSessionDialog({
       cancelLabel={shareUrl ? null : 'Cancel'}
       confirm={
         shareUrl
-          ? { label: 'Done', onConfirm: () => handleOpenChange(false), keyboard: false }
+          ? { label: 'Done', onConfirm: () => handleOpenChange(false) }
           : {
               label: pending ? 'Creating link…' : 'Create share link',
               disabled: pending,
@@ -87,27 +94,36 @@ export function ClioShareSessionDialog({
     >
       <div className="grid gap-3">
         <div className="grid gap-1.5">
-          <Label
-            htmlFor="session-share-expiry"
-            className="text-xs font-normal text-muted-foreground"
-          >
-            Link expires
-          </Label>
-          <Select
-            disabled={Boolean(shareUrl) || pending}
-            onValueChange={setTtlSeconds}
-            value={ttlSeconds}
-          >
-            <SelectTrigger className="h-[30px] w-full text-[12.5px]" id="session-share-expiry">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3600">In 1 hour</SelectItem>
-              <SelectItem value="86400">In 1 day</SelectItem>
-              <SelectItem value="604800">In 7 days</SelectItem>
-              <SelectItem value="2592000">In 30 days</SelectItem>
-            </SelectContent>
-          </Select>
+          {shareUrl ? (
+            <>
+              <span className="text-xs text-muted-foreground">Link expires</span>
+              {/* The link is minted with its expiry, so it reads as a fact now. */}
+              <span className="flex h-[30px] items-center text-[12.5px] text-foreground">
+                {EXPIRY_OPTIONS.find((option) => option.value === ttlSeconds)?.label}
+              </span>
+            </>
+          ) : (
+            <>
+              <Label
+                htmlFor="session-share-expiry"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Link expires
+              </Label>
+              <Select disabled={pending} onValueChange={setTtlSeconds} value={ttlSeconds}>
+                <SelectTrigger className="h-[30px] w-full text-[12.5px]" id="session-share-expiry">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPIRY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
         {shareUrl ? (
           <div className="grid gap-1.5">
