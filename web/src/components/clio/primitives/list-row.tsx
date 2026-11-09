@@ -15,6 +15,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * hide at narrow container widths; columns drop, they never shift.
    */
   columns?: ReactNode;
+  /**
+   * The title keeps its width before the columns (inline rows): when both do
+   * not fit, the columns drop whole rather than cut the title (a build
+   * problem's message before its line).
+   */
+  titleFirst?: boolean;
   /** Fixed 58px column: a Tag. */
   badge?: ReactNode;
   /** Fixed 44px mono column: elapsed time, size or count (MetaValue). */
@@ -74,6 +80,7 @@ export const ListRow = memo(
       title,
       description,
       columns,
+      titleFirst = false,
       badge,
       meta,
       actions,
@@ -215,6 +222,12 @@ export const ListRow = memo(
               </span>
             ) : null}
           </span>
+        ) : titleFirst ? (
+          // One line tall: columns that do not fit beside the title wrap to a clipped second line.
+          <span className="flex h-[1lh] min-w-0 flex-1 flex-wrap items-baseline gap-x-2 overflow-hidden">
+            <span className="min-w-0 shrink truncate">{title}</span>
+            {columns ? <span className="ml-auto flex shrink-0">{columns}</span> : null}
+          </span>
         ) : (
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate">{title}</span>
@@ -226,7 +239,7 @@ export const ListRow = memo(
             ) : null}
           </span>
         )}
-        {columns}
+        {titleFirst && layout !== 'stacked' ? null : columns}
         {badge !== undefined ? (
           <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
         ) : null}

@@ -6,7 +6,7 @@ import { ListGroupLabel, ListRow } from './primitives/list-row';
 
 /**
  * Where a problem is: its line in the entry file, or its file and line elsewhere.
- * The line always shows; a long file name truncates before it.
+ * The message comes first: when both do not fit, the place drops whole.
  */
 function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string }) {
   const file = problem.file && problem.file !== entry ? problem.file : '';
@@ -14,11 +14,11 @@ function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string
   if (!file && !line) return null;
   return (
     <span
-      className="flex max-w-[55%] min-w-0 shrink-0 items-baseline text-[12px] text-muted-foreground"
+      className="flex items-baseline text-[12px] text-muted-foreground"
       data-slot="latex-problem-place"
     >
       {file ? (
-        <span className="min-w-0 truncate">
+        <span>
           {file}
           {line ? ',\u00a0' : ''}
         </span>
@@ -143,6 +143,7 @@ export function LatexListSections({
                     role="button"
                     tabIndex={0}
                     title={problem.title}
+                    titleFirst
                   />
                 </div>
               );
