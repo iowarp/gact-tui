@@ -205,7 +205,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
             </SelectContent>
           </Select>
         }
-        className="w-full"
+        className="w-full @3xl:w-[60%]"
         info="Context usage, retention and compaction for one conversation, as the service reports them."
       >
         Session retention

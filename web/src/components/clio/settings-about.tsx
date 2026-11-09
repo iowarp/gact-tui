@@ -46,7 +46,7 @@ export function AboutSettings() {
       ) : null}
       <SettingsGroupLabel>Connected service</SettingsGroupLabel>
       {capabilities.error ? (
-        <div className="w-full border-b border-border/70 py-1">
+        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
           <StateView
             action={{ label: 'Retry', onClick: () => void capabilities.refetch() }}
             kind="error"
