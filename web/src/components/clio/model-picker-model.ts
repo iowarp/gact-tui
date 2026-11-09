@@ -1,5 +1,5 @@
 import type { LanguageModelPreset, ProviderClientFact } from '@clio/core/v3';
-import { isLocalServerPreset, isLoopbackAddress } from '@/lib/local-servers';
+import { isLocalServerPreset, isLoopbackAddress, serverStatusWords } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
   providerSetupNeed,
@@ -89,8 +89,10 @@ export function providerHealthPresentation(
  * Providers uses (a loopback one is already "Not running", see `localServerNotRunning`).
  */
 export function providerGroupStatus(group: ProviderGroup): { color: string; label: string } {
-  if (group.health === 'unavailable' && group.endpoint && !isLoopbackAddress(group.endpoint))
-    return { color: 'text-destructive', label: 'Can’t reach' };
+  if (group.health === 'unavailable' && group.endpoint && !isLoopbackAddress(group.endpoint)) {
+    const words = serverStatusWords({ kind: 'stopped' }, group.endpoint, group.name);
+    return { color: 'text-destructive', label: words.label };
+  }
   return providerHealthPresentation(group.health, group.setupNeed);
 }
 
