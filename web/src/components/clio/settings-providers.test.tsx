@@ -255,7 +255,7 @@ describe('ProvidersSettings', () => {
     expect(within(lmStudio).getByText('127.0.0.1:1234')).toBeVisible();
     const vllm = await row('vllm');
     expect(within(vllm).getByText('Not running')).toBeVisible();
-    expect(tone(vllm)).toBe('stopped');
+    expect(tone(vllm)).toBe('inactive');
     const workstation = await row('server-workstation');
     expect(within(workstation).getByText('Can’t reach')).toBeVisible();
     expect(within(workstation).getByText('No answer at this address')).toBeVisible();

@@ -102,6 +102,24 @@ async function stripList(page, name) {
   await page.waitForTimeout(800);
 }
 
+/** Show the Files list and open folders top-down, nested ones included. */
+async function expandedFiles(page, folders) {
+  await stripList(page, 'Files');
+  const list = page.getByRole('region', { name: 'Files list' });
+  for (let i = 0; i < folders; i += 1) {
+    const folder = list.getByRole('button', { name: /^Expand folder / }).first();
+    if (!(await folder.isVisible().catch(() => false))) break;
+    await folder.click();
+    await page.waitForTimeout(200);
+  }
+  await list
+    .locator('[data-slot="scroll-area-viewport"]')
+    .first()
+    .evaluate((viewport) => viewport.scrollTo(0, 0))
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+
 async function openFile(page, path, { settled = true } = {}) {
   await stripList(page, 'Files');
   const list = page.getByRole('region', { name: 'Files list' });
@@ -133,7 +151,8 @@ async function typeInComposer(page, text) {
 }
 
 // Providers and Usage with the spec's servers and accounts (`settingsModels`
-// seeds the fixture), plus the states behind a hover or a click.
+// seeds the fixture: a scenario name, or `{scenario, failures}`), plus the
+// states behind a hover or a click and the failure states.
 function seededSettingsShots() {
   const seeded = (state, url, setup, extra = {}) => ({
     surface: 'settings',
@@ -182,6 +201,16 @@ function seededSettingsShots() {
     seeded('usage-remaining', '/settings/usage', async (page) => {
       await press(page, 'radio', 'Remaining');
       await page.waitForTimeout(300);
+    }),
+    // Failure states: the fixture answers the named endpoints with an error.
+    seeded('models-error', '/settings/models', null, {
+      settingsModels: { scenario: 'spec', failures: ['providers-lm', 'fleet'] },
+    }),
+    seeded('providers-error', '/settings/providers', null, {
+      settingsModels: { scenario: 'spec', failures: ['servers'] },
+    }),
+    seeded('usage-error', '/settings/usage', null, {
+      settingsModels: { scenario: 'spec', failures: ['usage'] },
     }),
     seeded('usage-details', '/settings/usage', async (page) => {
       const account = row(page, 'usage-account-row', 'ChatGPT Pro');
@@ -340,6 +369,7 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
+    s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
@@ -458,6 +488,9 @@ function catalogue({ settings, infrastructure }) {
       { scenario: { sessions: 300, workspaces: 20 } },
     ),
     s('scale', 'large-file-tree', SESSION, (page) => stripList(page, 'Files'), {
+      scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
+    }),
+    s('scale', 'large-file-tree-expanded', SESSION, (page) => expandedFiles(page, 6), {
       scenario: { files: 2000, largeFileBytes: 2 * 1024 * 1024 },
     }),
     s('scale', 'large-csv', SESSION, (page) => openFile(page, 'perf/large-table.csv'), {
@@ -1018,7 +1051,11 @@ async function main() {
           const seeded = await fetch(`${stack.fixtureEndpoint}/__test/settings-models`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenario: shot.settingsModels }),
+            body: JSON.stringify(
+              typeof shot.settingsModels === 'string'
+                ? { scenario: shot.settingsModels }
+                : shot.settingsModels,
+            ),
           });
           if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
         }

@@ -38,9 +38,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * hover actions and a slot. `size="line"` is the shared 30px one-line row
  * (name, then muted meta that shrinks first). Every row of a list shares the
  * column widths, so status words and buttons line up. Below 42rem of list width
- * the status column narrows to at most 9.875rem (the spec's 158 px), enough for "Update waits for trust" (still one width for every row),
- * the slot keeps its width, and hover actions float over the row's right side
- * instead of reserving a column, so the name keeps the room.
+ * the status column narrows to at most 9.875rem (the spec's 158 px), enough for
+ * "Update waits for trust" (still one width for every row), the slot keeps its
+ * width, and hover actions float over the end of the name, left of the status,
+ * instead of reserving a column, so the name keeps the room and the status word
+ * stays visible.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -150,7 +152,7 @@ export const ItemRow = memo(
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+1.125rem)] @max-2xl:bg-hover @max-2xl:w-[min(var(--item-status),9.875rem)] @max-2xl:min-w-max',
+                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-2xl:bg-hover @max-2xl:pl-1',
               )}
               data-slot="item-row-actions"
             >

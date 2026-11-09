@@ -133,6 +133,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-all-types', 'Back to all types, in an empty search', 'menu', ['Backspace']),
   def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
   def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
+  def('menu-drop-filter', 'Drop the last filter, in an empty search', 'menu', ['Backspace']),
 
   def('graph-move', 'Move between nodes', 'graph', ['Left', 'Right', 'Up', 'Down'], {
     joiner: 'pair',
