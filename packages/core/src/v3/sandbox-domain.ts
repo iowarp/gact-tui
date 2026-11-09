@@ -17,6 +17,10 @@ import type { ServiceIntegrationHealth } from './service-health-domain.js';
 export interface SandboxStatus extends ServiceIntegrationHealth {
   /** Typed reason token (e.g. `codex_enforcement_unverified`, `sandbox_fence_pending_restart`) — absent once READY. */
   reason?: string;
+  /** False until a server boot has resolved its backend: wait and ask again, warn about nothing yet. */
+  resolved?: boolean;
+  /** The fence the agent uses (`codex`, `landlock` or `none`); absent until resolved. */
+  mechanism?: string;
   /** Whether a `setupSandbox()` run is currently in flight on the connected service. */
   setup_in_progress: boolean;
   /** Where the connected service found its Codex binary, or `undefined` when it found none. */

@@ -48,6 +48,19 @@ let a2uiRasterDemo = false;
 let meshDemoFormat = 'obj';
 let meshDemoRevision = 1;
 let attachmentsEnabled = false;
+// `/__test/sandbox-inactive`: the service resolved its OS write fence off.
+let sandboxInactive = false;
+const inactiveSandboxRow = {
+  name: 'sandbox',
+  status: 'degraded',
+  summary: 'No OS write fence: agent tools run with the advisory permission layer only.',
+  next_action: 'Reinstall CLIO Desktop to restore the bundled Codex sandbox.',
+  required: true,
+  reason: 'codex_not_installed',
+  active: false,
+  acknowledgement_required: true,
+  warning: 'Agent commands will run without OS isolation.',
+};
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -1899,6 +1912,7 @@ const server = createServer(async (request, response) => {
     meshDemoFormat = 'obj';
     meshDemoRevision = 1;
     attachmentsEnabled = false;
+    sandboxInactive = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
     mcpAppModelContextUpdates = 0;
@@ -1925,6 +1939,11 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/sandbox-inactive') {
+    sandboxInactive = true;
+    sendJson(response, { status: 'ready' }, 202);
+    return;
+  }
   if (request.method === 'POST' && url.pathname === '/__test/attachments-demo') {
     attachmentsEnabled = true;
     sendJson(response, { status: 'ready' }, 202);
@@ -2421,11 +2440,15 @@ const server = createServer(async (request, response) => {
       healthy: true,
       uptime_s: 1,
       overall_status: 'healthy',
-      // Only ready rows: a warning here would show in navigation on every page.
-      integrations: ['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
-        name,
-        status: 'ready',
-      })),
+      // Only ready rows unless a spec asks for the unprotected sandbox: a warning
+      // here would show in navigation on every page.
+      integrations: [
+        ...['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
+          name,
+          status: 'ready',
+        })),
+        ...(sandboxInactive ? [inactiveSandboxRow] : []),
+      ],
       tool_hooks_installed: true,
     });
     return;
@@ -2433,8 +2456,22 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/v1/system/sandbox') {
     // The app observes setup globally, including outside Infrastructure. This
     // test-owned server runs no protected processes and has no setup in flight.
+    if (sandboxInactive) {
+      sendJson(response, {
+        ...inactiveSandboxRow,
+        resolved: true,
+        mechanism: 'none',
+        setup_in_progress: false,
+      });
+      return;
+    }
     sendJson(response, {
       name: 'sandbox',
+      resolved: true,
+      active: false,
+      mechanism: null,
+      acknowledgement_required: false,
+      warning: null,
       status: 'not_required',
       detail: 'Protected execution is not required by this test-owned fixture.',
       required: false,
@@ -2573,21 +2610,24 @@ const server = createServer(async (request, response) => {
     const search = url.searchParams.get('q')?.toLowerCase();
     const waiting = url.searchParams.get('waiting_on_person') === 'true';
     const waitingIds = new Set();
-    for (const row of all.filter((row) => ['waiting_user', 'waiting_permission'].includes(row.state))) {
+    for (const row of all.filter((row) =>
+      ['waiting_user', 'waiting_permission'].includes(row.state),
+    )) {
       let id = row.id;
       while (id && !waitingIds.has(id)) {
         waitingIds.add(id);
         id = byId.get(id)?.parent_session_id;
       }
     }
-    const rows = all.filter((row) =>
-      (!named || named.includes(row.id)) &&
-      (!family || rootOf(row.id) === rootOf(family)) &&
-      (!waiting || waitingIds.has(row.id)) &&
-      (!workspace || row.workspace_id === workspace) &&
-      (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
-      (!search || row.title.toLowerCase().includes(search)) &&
-      Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
+    const rows = all.filter(
+      (row) =>
+        (!named || named.includes(row.id)) &&
+        (!family || rootOf(row.id) === rootOf(family)) &&
+        (!waiting || waitingIds.has(row.id)) &&
+        (!workspace || row.workspace_id === workspace) &&
+        (!kinds || kinds.includes(row.session_kind ?? 'conversation')) &&
+        (!search || row.title.toLowerCase().includes(search)) &&
+        Boolean(row.archived) === (url.searchParams.get('archived') === 'true'),
     );
     const limit = Number(url.searchParams.get('limit') || rows.length || 1);
     const offset = Number(url.searchParams.get('cursor') || 0);
@@ -2599,8 +2639,11 @@ const server = createServer(async (request, response) => {
     return;
   }
   const scienceLog = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/science-log$/u);
-  if (request.method === 'GET' && scienceLog &&
-      [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])) {
+  if (
+    request.method === 'GET' &&
+    scienceLog &&
+    [session, ...branchArtifacts.sessions()].some((row) => row.id === scienceLog[1])
+  ) {
     // These conversation fixtures have no study; the production read still runs.
     sendJson(response, { session_id: scienceLog[1], in_study: false });
     return;
