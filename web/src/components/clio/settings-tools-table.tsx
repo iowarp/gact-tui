@@ -330,7 +330,10 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
         ) : (
           // One line whatever the width: the values (summary rows only), the
           // outcomes the columns fold away, then the reason, truncating last.
-          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-faint">
+          // Below 44rem the line wraps inside a one-line clip, so an outcome
+          // without room for a few letters of its label leaves whole rather
+          // than as a bare dot.
+          <span className="flex h-4 min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
             <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
             <ValueSummary
               chosen={!permission.isDefault}
@@ -359,7 +362,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
             ) : null}
             {outcome ? (
               <OutcomeMark
-                className="min-w-0 @min-[44rem]/tools:shrink-0 @min-[56rem]/tools:hidden"
+                className="max-w-max min-w-0 grow basis-[calc(1.25rem+5ch)] @min-[44rem]/tools:shrink-0 @min-[44rem]/tools:grow-0 @min-[44rem]/tools:basis-auto @min-[56rem]/tools:hidden"
                 text={SCRIPT_OUTCOME_TEXT[outcome.script]}
                 value={outcome.script}
               />
