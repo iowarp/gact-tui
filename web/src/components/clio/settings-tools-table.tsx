@@ -1,19 +1,13 @@
 import type { ToolCallers, ToolOutcome, ToolPermission, ToolSetting } from '@clio/core/v3';
 import {
   ArrowLeftRightIcon,
-  BotIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  CircleCheckIcon,
-  CodeIcon,
   EyeIcon,
-  LockIcon,
-  OctagonXIcon,
-  type LucideIcon,
 } from 'lucide-react';
-import { useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { useState, type ComponentType, type SVGProps } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AdjustIcon, DeleteIcon, EditIcon, HelpIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import {
@@ -54,40 +48,20 @@ import {
   type PickerAction,
   type PickerOption,
 } from './settings-tools-picker';
+import {
+  CALLERS,
+  CALLERS_ICON,
+  COLUMNS,
+  MODE_CELL,
+  NARROW_ONLY,
+  PERMISSION_ICON,
+  PERMISSIONS,
+  SCRIPT_CELL,
+  WIDE,
+} from './settings-tools-columns';
+import { HeaderRow } from './settings-tools-header';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
-
-const PERMISSION_ICON: Record<ToolPermission, LucideIcon> = {
-  allow: CircleCheckIcon,
-  ask: HelpIcon,
-  deny: OctagonXIcon,
-};
-
-const CALLERS_ICON: Record<ToolCallers, LucideIcon> = {
-  direct: BotIcon,
-  code: CodeIcon,
-  both: ArrowLeftRightIcon,
-};
-
-const PERMISSIONS = ['allow', 'ask', 'deny'] as const;
-const CALLERS = ['direct', 'code', 'both'] as const;
-
-/*
- * One column template for every row, folding as the table narrows: below
- * 32rem each row is one summary row (the name over its values and outcomes,
- * and › opening one picker for both choices); then Tool, Permission and I/O;
- * from 44rem the approval mode's outcome; from 56rem the script's outcome too.
- * The columns keep the spec's widths (128, 176 and 120px); the sub line
- * carries the outcomes a narrower table folds away.
- */
-const COLUMNS =
-  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
-const MODE_CELL = 'hidden min-w-0 @min-[44rem]/tools:flex';
-/** Cells a summary row (below 32rem) folds into its sub line and picker. */
-const WIDE = 'hidden @min-[32rem]/tools:flex';
-/** Parts of the sub line only a summary row shows. */
-const NARROW_ONLY = '@min-[32rem]/tools:hidden';
-const SCRIPT_CELL = 'hidden min-w-0 @min-[56rem]/tools:flex';
 
 export interface ToolTableSection {
   id: string;
@@ -103,90 +77,6 @@ export interface ToolTableSection {
   tools: ToolSetting[];
   /** Instead of tools: why there are none yet ("Not loaded yet"). */
   notice?: { text: string; status: string; tone: StatusTone; title?: string };
-}
-
-const COLUMN_HELP = {
-  tool: 'The tool, its flag, and what a call does in the mode chosen above.',
-  mode: 'What a direct call does in the approval mode chosen above.',
-  script: 'What a call from a run_code script does.',
-  permission: 'Always allow, Needs approval or Blocked. D marks the default.',
-};
-
-function IoHelp() {
-  const rows: [ReactNode, string, string][] = [
-    ...CALLERS.map(
-      (value) =>
-        [
-          <ValueMark icon={CALLERS_ICON[value]} isDefault={false} key={value} />,
-          CALLERS_TEXT[value].label,
-          CALLERS_TEXT[value].detail,
-        ] as [ReactNode, string, string],
-    ),
-    [
-      <ValueMark icon={ArrowLeftRightIcon} isDefault key="d" />,
-      'D',
-      "The plugin's default. Choose a value to override it.",
-    ],
-  ];
-  return (
-    <span className="grid gap-1.5 py-0.5">
-      <b className="font-medium">Programmatic tool calling: who calls the tool</b>
-      {rows.map(([mark, label, detail]) => (
-        <span className="grid grid-cols-[16px_3.25rem_max-content] items-center gap-2" key={label}>
-          {mark}
-          <span>{label}</span>
-          <span className="opacity-80">{detail}</span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function ColumnTitle({ title, help }: { title: string; help: ReactNode }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className="min-w-0 cursor-help truncate underline decoration-faint decoration-dotted underline-offset-4 outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          tabIndex={0}
-        >
-          {title}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-none">{help}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function HeaderRow({ mode }: { mode: string }) {
-  return (
-    <div
-      className={cn(
-        COLUMNS,
-        'sticky top-0 z-10 hidden min-h-[34px] border-b border-border bg-popover text-[11.5px] text-muted-foreground @min-[32rem]/tools:grid',
-      )}
-      data-slot="tools-table-header"
-    >
-      <span
-        aria-label="Stays at the top while the list scrolls"
-        className="grid place-items-center text-faint"
-        role="img"
-        title="Stays at the top while the list scrolls"
-      >
-        <LockIcon className="size-3" />
-      </span>
-      <ColumnTitle help={COLUMN_HELP.tool} title="Tool" />
-      <span className={MODE_CELL}>
-        <ColumnTitle help={COLUMN_HELP.mode} title={`In ${modeLabel(mode)}`} />
-      </span>
-      <span className={SCRIPT_CELL}>
-        <ColumnTitle help={COLUMN_HELP.script} title="From a script" />
-      </span>
-      <ColumnTitle help={COLUMN_HELP.permission} title="Permission" />
-      <ColumnTitle help={<IoHelp />} title="I/O" />
-      <span />
-    </div>
-  );
 }
 
 function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
