@@ -53,7 +53,7 @@ alternatives, which has a right-aligned arrow.
 A choice that applies at once, so it never reaches the save bar.
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
-`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
+`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, foldActions?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
@@ -65,7 +65,10 @@ actions keep their own column after the status, as in the spec, so they never co
 name or meta. Below 36rem that column would squeeze the name under about 150 px, so the
 actions float over the end of the name instead, left of the status. Below 24rem (a phone) a
 two-line row stacks like a setting row: the status, or the `confirm` cell, drops under
-the name. Sections don't set their
+the name. Hover actions never show on a touch screen, so a row whose last action is a ⋯
+menu holding every action passes `foldActions`: on a phone the other actions fold into
+that ⋯, which stays visible in its own column next to the name, as the spec's narrow rows
+do; on a touch screen with room for the actions column they stay visible there. Sections don't set their
 own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 

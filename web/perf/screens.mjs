@@ -334,7 +334,13 @@ function seededSettingsShots() {
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();
-      await server.getByRole('button', { name: 'Remove', exact: true }).click();
+      const remove = server.getByRole('button', { name: 'Remove', exact: true });
+      // On a phone the row's actions fold into its ⋯ menu.
+      if (await remove.isVisible()) await remove.click();
+      else {
+        await press(page, 'button', 'More for Workstation');
+        await page.getByRole('menuitem', { name: /^Remove/u }).click();
+      }
       await page.waitForTimeout(300);
     }),
     seeded('providers-details', '/settings/providers', async (page) => {
