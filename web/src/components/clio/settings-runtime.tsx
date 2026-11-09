@@ -74,7 +74,10 @@ export function RuntimeSettingsPanel({
   exclude = [],
   title = 'Execution & history',
   description,
+  headingLevel = 1,
 }: {
+  /** 2 when the panel is folded into another settings page. */
+  headingLevel?: 1 | 2;
   /** Show only this settings group (the memory page shows ``Memory``). */
   only?: string;
   /** Hide these settings groups. */
@@ -126,6 +129,7 @@ export function RuntimeSettingsPanel({
   const patch = draft ? patchFor(draft) : undefined;
   const heading = (
     <SettingsSectionHeading
+      level={headingLevel}
       title={title}
       description={
         description ??
@@ -211,16 +215,13 @@ export function RuntimeSettingsPanel({
                     htmlFor={id}
                     inlineControl={setting.kind === 'boolean'}
                     info={info}
-                    description={
-                      <div className="grid gap-0.5">
-                        <p>{setting.description}</p>
-                        {setting.reason ? (
-                          <p className="text-xs text-muted-foreground">{setting.reason}</p>
-                        ) : null}
-                        {resetting ? (
-                          <p className="text-xs text-muted-foreground">Will inherit after saving</p>
-                        ) : null}
-                      </div>
+                    description={setting.description}
+                    note={
+                      resetting
+                        ? 'Will inherit after saving'
+                        : setting.reason
+                          ? setting.reason
+                          : undefined
                     }
                   >
                     <div className="flex w-full min-w-0 items-center justify-end gap-2">

@@ -323,7 +323,7 @@
   --syntax-token-parameter: #e36209;
   --syntax-token-punctuation: #24292e;
   --syntax-token-link: #032f62;
-  --scrim: oklch(0 0 0 / 10%);
+  --scrim: rgb(10 9 8 / 40%);
   --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-200);
   --highlight-foreground: var(--color-blue-950);
@@ -428,7 +428,7 @@
   --syntax-token-parameter: #ffab70;
   --syntax-token-punctuation: #e1e4e8;
   --syntax-token-link: #dbedff;
-  --scrim: oklch(0 0 0 / 10%);
+  --scrim: rgb(10 9 8 / 62%);
   --shadow-color: oklch(0 0 0 / 50%);
   --highlight: var(--color-blue-800);
   --highlight-foreground: var(--color-blue-50);

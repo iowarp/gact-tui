@@ -17,6 +17,8 @@ import {
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
   action: { route: string } | { theme: ThemePreference };
+  /** A catalog shortcut that does the same from anywhere. */
+  shortcut?: string;
 }
 
 /** Match all typed terms across names, categories and aliases without a remote request. */
@@ -64,6 +66,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       group: 'Navigation',
       keywords: 'preferences configuration',
       action: { route: '/settings/general' },
+      shortcut: 'settings',
     },
     ...settingsDestinations(desktop).map(
       (item): GlobalSearchCommand => ({

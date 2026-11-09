@@ -66,6 +66,19 @@ export function switchTheme(root: HTMLElement, theme: ResolvedTheme): void {
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => pause.remove()));
 }
 
+/**
+ * Follow OS scheme changes in the frame they happen. The media-query change
+ * event fires before that frame's style and paint, while a React effect runs
+ * after it, so switching here keeps every surface from showing one stale frame.
+ */
+export function followSystemScheme(preference: () => ThemePreference): () => void {
+  const query = window.matchMedia(DARK_SCHEME_QUERY);
+  const follow = (event: MediaQueryListEvent) =>
+    switchTheme(document.documentElement, resolveTheme(preference(), event.matches));
+  query.addEventListener('change', follow);
+  return () => query.removeEventListener('change', follow);
+}
+
 /** Run before first paint by the boot script that `vite-plugin-theme.ts` injects. */
 export function applyStoredTheme(): void {
   let preference = DEFAULT_THEME_PREFERENCE;

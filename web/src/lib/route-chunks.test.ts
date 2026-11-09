@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const loads = vi.hoisted(() => ({ runs: 0, settings: 0, infrastructure: 0, connection: 0 }));
 vi.mock('@/routes/runs-page', () => (loads.runs++, { RunsPage: () => null }));
-vi.mock('@/routes/settings-page', () => (loads.settings++, { SettingsPage: () => null }));
+vi.mock('@/routes/settings-page', () => (loads.settings++, { SettingsSection: () => null }));
 vi.mock(
   '@/routes/infrastructure-page',
   () => (loads.infrastructure++, { InfrastructurePage: () => null }),

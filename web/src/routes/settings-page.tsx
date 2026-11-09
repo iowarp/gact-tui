@@ -1,9 +1,6 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsRow, SettingsChoice } from '@/components/clio/settings-row';
-import { connectionScope } from '@/lib/connection-scope';
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import { SettingsNavigation } from '@/components/clio/settings-navigation';
-import { settingsDestinations } from '@/lib/application-destinations';
+import { ToolsSettingsTabs } from '@/components/clio/settings-tools-tabs';
 import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -20,8 +17,8 @@ import {
   Volume2Icon,
 } from 'lucide-react';
 import { DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useRef, type ComponentType, type SVGProps } from 'react';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { type ComponentType, type SVGProps } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { ExtensionLibrary as PluginSettings } from '@/components/clio/extension-library';
@@ -80,11 +77,6 @@ import {
   useTheme,
 } from '@/providers/appearance-provider';
 import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
-import {
-  returnRouteFromState,
-  sessionIdFromRoute,
-  workspaceIdFromRoute,
-} from '@/lib/workspace-route-memory';
 
 function ConnectionsSettings() {
   const repository = useRepository();
@@ -351,10 +343,11 @@ function AppearanceSettings() {
       <div>
         <SettingsRow
           title="Theme"
-          description={
+          description="Choose a theme, or follow your system setting."
+          note={
             theme === 'system' || THEMES.find(({ id }) => id === theme)?.scheme === 'system'
-              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}.`
-              : 'Choose a theme, or follow your system setting.'
+              ? `Following your system, now ${resolvedTheme.dark ? 'dark' : 'light'}`
+              : undefined
           }
         >
           <SettingsChoice
@@ -445,6 +438,7 @@ function NotificationSettings() {
       <SectionHeading
         title="Notifications"
         description={`Choose how ${vocab.agent} alerts you when a session needs your approval or answer.`}
+        info="The sidebar attention marker stays visible with sound and notifications turned off."
       />
       <div>
         <SettingsRow
@@ -483,6 +477,7 @@ function NotificationSettings() {
         <SettingsRow
           title="Desktop notifications"
           htmlFor="desktop-attention-notifications"
+          inlineControl
           description="Notify when a session needs a response while the app is in the background. Your browser may ask for permission."
         >
           <Switch
@@ -492,14 +487,11 @@ function NotificationSettings() {
           />
         </SettingsRow>
       </div>
-      <p className="text-sm text-muted-foreground">
-        The sidebar attention marker stays visible with sound and notifications turned off.
-      </p>
     </div>
   );
 }
 
-function SettingsSection({
+export function SettingsSection({
   section,
   sessionId,
   workspaceId,
@@ -511,26 +503,47 @@ function SettingsSection({
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'data-sources') return <DataSourceSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
-  if (section === 'runtime')
+  if (section === 'runtime' || section === 'browser')
     return (
       <div className="grid gap-10">
         <RuntimeSettingsPanel exclude={['Memory', 'Browser']} />
         <ContextHistorySettings initialSessionId={sessionId} />
+        <div data-settings-anchor="browser">
+          <RuntimeSettingsPanel only="Browser" title="Browser" headingLevel={2} />
+        </div>
       </div>
     );
-  if (section === 'browser') return <RuntimeSettingsPanel only="Browser" title="Browser" />;
-  if (section === 'fleet') return <FleetSettingsPanel />;
+  if (section === 'models' || section === 'fleet')
+    return (
+      <div className="flex flex-col">
+        <ModelsSettings />
+        <div data-settings-anchor="fleet">
+          <FleetSettingsPanel />
+        </div>
+      </div>
+    );
   if (section === 'providers') return <ProvidersSettings />;
-  if (section === 'models') return <ModelsSettings />;
   if (section === 'usage') return <UsageSettings />;
   if (section === 'agents') return <AgentSettings />;
   if (section === 'plugins')
     return <PluginSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
-  if (section === 'tools')
-    return <ToolsSettings initialWorkspaceId={workspaceId} initialSessionId={sessionId} />;
+  if (section === 'tools' || section === 'relays')
+    return (
+      <ToolsSettingsTabs
+        key={section}
+        section={section}
+        tools={
+          <ToolsSettings
+            heading={false}
+            initialSessionId={sessionId}
+            initialWorkspaceId={workspaceId}
+          />
+        }
+        remote={<RelaySettings />}
+      />
+    );
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
-  if (section === 'relays') return <RelaySettings />;
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
   if (section === 'memory') return <MemorySettings />;
   if (section === 'system') return <SystemSettings />;
@@ -539,56 +552,4 @@ function SettingsSection({
   if (section === 'about') return <AboutSettings />;
   if (section === 'appearance') return <AppearanceSettings />;
   return <GeneralSettings />;
-}
-
-export function SettingsPage() {
-  const { section = 'general' } = useParams();
-  const location = useLocation();
-  const { settings } = useConnectionSettings();
-  const destinations = settingsDestinations(inTauri());
-  const repository = useRepository();
-  const memory = useQuery({
-    queryKey: ['memory', 'summary'],
-    queryFn: ({ signal }) => repository.memorySummary(signal),
-    refetchInterval: 60_000,
-    retry: false,
-  });
-  const inbox = memory.data?.inbox ?? 0;
-  const content = useRef<HTMLElement>(null);
-  useEffect(() => {
-    content.current?.scrollTo({ left: 0, top: 0 });
-  }, [section]);
-  const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
-  const workspaceId = workspaceIdFromRoute(workspaceRoute);
-  const sessionId = sessionIdFromRoute(workspaceRoute);
-  if (section === 'desktop') {
-    return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
-  }
-  return (
-    <main className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:flex-row">
-      <SettingsNavigation
-        sections={destinations}
-        section={section}
-        endpoint={settings.endpoint}
-        workspaceRoute={workspaceRoute}
-        badges={{
-          memory: { count: inbox, label: `${inbox} memory changes waiting for review` },
-        }}
-      />
-      <section
-        ref={content}
-        aria-label="Settings content"
-        className="clio-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8"
-      >
-        <div className="mx-auto max-w-4xl pb-12">
-          <SettingsSection
-            key={connectionScope(settings)}
-            section={section}
-            sessionId={sessionId}
-            workspaceId={workspaceId}
-          />
-        </div>
-      </section>
-    </main>
-  );
 }

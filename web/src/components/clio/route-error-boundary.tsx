@@ -1,5 +1,7 @@
 import { matchPath, useLocation } from 'react-router-dom';
 import App from '@/App';
+import { settingsBackgroundRoute } from '@/lib/settings-window-route';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { ComposerDraftSessionBoundary } from '@/components/ai-elements/composer-draft-session-boundary';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { AppErrorBoundary } from './app-error-boundary';
@@ -9,7 +11,12 @@ import { SelectionActionsProvider } from './selection-actions';
 /** Resets a failed route when the user deliberately navigates elsewhere. */
 export function RouteErrorBoundary() {
   const location = useLocation();
-  const resetKey = `${location.pathname}${location.search}`;
+  const { settings } = useConnectionSettings();
+  // Settings opens as a window over the workspace: the workspace keeps its
+  // route boundary and its own search owner underneath.
+  const background = settingsBackgroundRoute(location, settings.endpoint);
+  const resetKey = background ?? `${location.pathname}${location.search}`;
+  const pathname = background ?? location.pathname;
   return (
     // Outer boundary is UNKEYED: it must stay mounted across navigation, or the
     // PromptInputProvider it wraps would remount on every route change and the composer
@@ -23,7 +30,7 @@ export function RouteErrorBoundary() {
             {/* Global search must survive the route reset, including a shortcut
                 pressed while a lazy destination is still loading. WorkspacePage
                 retains its own search owner with canvas resource callbacks. */}
-            {!matchPath('/workspaces/:workspaceId/sessions/:sessionId', location.pathname) ? (
+            {!matchPath('/workspaces/:workspaceId/sessions/:sessionId', pathname) ? (
               <ClioCommandMenu />
             ) : null}
             {/* Inner boundary is keyed by route: it resets a failed route view without
