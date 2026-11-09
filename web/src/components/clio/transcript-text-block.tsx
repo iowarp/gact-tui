@@ -1,12 +1,11 @@
 import type { MessageBlock, WorkspaceReference } from '@clio/core/v3';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
 import { useMemo } from 'react';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { SentReferenceMessage } from './sent-reference-message';
 import { ClioStreamingText } from './streaming-text';
 import { bindTranscriptText } from '@/lib/transcript-content-selection';
 import type { InlineReferenceBlock } from '@/lib/sent-inline-references';
+import { contentRevision } from '@/lib/content-revision';
 
 /** Bind selectable text to the exact source revision, without duplicating it in the DOM. */
 export function TranscriptTextBlock({
@@ -23,7 +22,7 @@ export function TranscriptTextBlock({
   onOpenReference?: (reference: WorkspaceReference) => void;
 }) {
   const revision = useMemo(
-    () => (block.streaming ? undefined : bytesToHex(sha256(new TextEncoder().encode(block.text)))),
+    () => (block.streaming ? undefined : contentRevision(block.text)),
     [block.text, block.streaming],
   );
   return (
