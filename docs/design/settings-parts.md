@@ -33,8 +33,8 @@ number inputs placed in the control get the spec field (`.xf`) automatically: 30
 12.5 px, 6 px radius; number inputs are right-aligned mono. Don't restyle them per section.
 
 **`SettingsGroupLabel`** (same file)
-`{ children, onAdd?, addLabel?, actions?, className? }`. A small group caption
-above a block of rows. `onAdd` renders a + icon button at the right. Use
+`{ children, info?, onAdd?, addLabel?, actions?, className? }`. A small group caption
+above a block of rows. `info` is an ? right after the label. `onAdd` renders a + icon button at the right. Use
 `SplitButton` (`primitives/split-button.tsx`) for the page-level Add with
 alternatives, which has a right-aligned arrow.
 
@@ -43,12 +43,13 @@ alternatives, which has a right-aligned arrow.
 A choice that applies at once, so it never reaches the save bar.
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
-`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
+`ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
 plus div attributes. Use it for providers, servers, plugins, agents, schedules and rules. The
 status, actions and slot columns have fixed widths that every row in an `ItemList`
 `{ children, label?, className? }` shares. Status is a `StatusIndicator` (its mark plus
 a word), never a bare dot. `ItemList` caps the list at 760 px (the spec pane width), so
-sections don't set their own max width.
+sections don't set their own max width. `confirm` is an inline confirmation ("Remove this rule?",
+Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
 and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,

@@ -140,10 +140,71 @@ async function typeInComposer(page, text) {
   await page.keyboard.type(text);
 }
 
+// Providers and Usage with the spec's servers and accounts (`settingsModels`
+// seeds the fixture), plus the states behind a hover or a click.
+function seededSettingsShots() {
+  const seeded = (state, url, setup, extra = {}) => ({
+    surface: 'settings',
+    state,
+    url,
+    setup,
+    settingsModels: 'spec',
+    ready: 'main',
+    settleMs: 1500,
+    ...extra,
+  });
+  const row = (page, slot, name) =>
+    page
+      .locator(`[data-slot="${slot}"]`)
+      .filter({ hasText: name })
+      .filter({ visible: true })
+      .first();
+  return [
+    seeded('providers-seeded', '/settings/providers'),
+    seeded(
+      'providers-row-actions',
+      '/settings/providers',
+      async (page) => {
+        await row(page, 'model-server-row', 'LM Studio').hover();
+        await page.waitForTimeout(300);
+      },
+      { keepPointer: true },
+    ),
+    seeded('providers-remove-confirm', '/settings/providers', async (page) => {
+      const server = row(page, 'model-server-row', 'Workstation');
+      await server.hover();
+      await server.getByRole('button', { name: 'Remove', exact: true }).click();
+      await page.waitForTimeout(300);
+    }),
+    seeded('providers-details', '/settings/providers', async (page) => {
+      await row(page, 'model-server-row', 'Ollama').hover();
+      await press(page, 'button', 'More for Ollama');
+      await page.getByRole('menuitem', { name: /^Details/u }).click();
+      await page.waitForTimeout(600);
+    }),
+    seeded('providers-add-server', '/settings/providers', async (page) => {
+      await press(page, 'button', /^Add server/u);
+      await overlay(page);
+    }),
+    seeded('usage-seeded', '/settings/usage'),
+    seeded('usage-remaining', '/settings/usage', async (page) => {
+      await press(page, 'radio', 'Remaining');
+      await page.waitForTimeout(300);
+    }),
+    seeded('usage-details', '/settings/usage', async (page) => {
+      const account = row(page, 'usage-account-row', 'ChatGPT Pro');
+      await account.hover();
+      await account.getByRole('button', { name: 'Details' }).click();
+      await page.waitForTimeout(600);
+    }),
+  ];
+}
+
 // --- Shot catalogue ------------------------------------------------------------
 //
-// Each shot: {surface, state, url, setup?, ready?, scenario?, connected?, route?,
-// platform?}. `platform: 'mac'` makes the page report a Mac, for its ⌘ keys.
+// Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
+// connected?, route?, keepPointer?, platform?}. `platform: 'mac'` makes the page
+// report a Mac, for its ? keys.
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -317,6 +378,7 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Default model', { exact: true });
       await overlay(page);
     }),
+    ...seededSettingsShots(),
     s('settings', 'search-everywhere', '/settings/general', async (page) => {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
@@ -782,7 +844,7 @@ async function capture(browser, stack, shot, { theme, width }) {
         .then(() => undefined)
         .catch(() => true);
     }
-    await page.mouse.move(0, VIEWPORTS[width] ?? 900);
+    if (!shot.keepPointer) await page.mouse.move(0, VIEWPORTS[width] ?? 900);
     const file = join(outDir, theme, String(width), `${shot.surface}--${shot.state}.png`);
     mkdirSync(dirname(file), { recursive: true });
     await page.screenshot({ path: file, fullPage: true, animations: 'disabled', caret: 'hide' });
@@ -913,15 +975,27 @@ async function main() {
     );
     log(`${shots.length} states × ${widths.length} widths × ${themes.length} themes`);
     const results = [];
-    let scenarioKey = '{}';
+    let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
+    const fixtureKey = (shot) =>
+      JSON.stringify([shot.scenario ?? {}, shot.settingsModels ?? 'default']);
     const ordered = [...shots].sort(
-      (a, b) => Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)),
+      (a, b) =>
+        Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)),
     );
     for (const shot of ordered) {
-      const key = JSON.stringify(shot.scenario ?? {});
+      const key = fixtureKey(shot);
       if (key !== scenarioKey) {
         await applyScenario(stack, shot.scenario ?? {});
+        if (shot.settingsModels) {
+          const seeded = await fetch(`${stack.fixtureEndpoint}/__test/settings-models`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scenario: shot.settingsModels }),
+          });
+          if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
+        }
         scenarioKey = key;
       }
       for (const theme of themes) {

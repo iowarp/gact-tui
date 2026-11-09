@@ -3,7 +3,12 @@ import { createPortal } from 'react-dom';
 import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { useCommandKeyHeld, useKeyPlatform, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import type { ShortcutDefinition } from '@/lib/shortcuts/catalog';
-import { heldShortcutText, shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
+import {
+  heldShortcutText,
+  shortcutChords,
+  shortcutLabels,
+  shortcutText,
+} from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
 /** One key cap: `Ctrl`, `⌘`, `L`. */
@@ -56,7 +61,8 @@ export const ShortcutKeys = memo(function ShortcutKeys({
   const platform = useKeyPlatform();
   const presentation = useShortcutPresentation(id);
   const definition = presentation?.definition ?? (keys ? adHoc(keys, mac) : undefined);
-  if (!definition) return null;
+  // A key this platform leaves to the OS (`mac: []`) shows nothing.
+  if (!definition || !shortcutChords(definition, platform).length) return null;
   if (variant === 'caps') {
     const chords = shortcutLabels(definition, platform);
     return (
@@ -219,7 +225,11 @@ export function HeldKeyBadge({
   const badgeRef = useRef<HTMLSpanElement>(null);
   const [slot] = useState(() => Symbol('held-key-badge'));
   const definition = presentation?.definition ?? (held && keys ? adHoc(keys) : undefined);
-  const text = definition ? heldShortcutText(definition, platform, pair?.definition) : undefined;
+  // A key this platform leaves to the OS (`mac: []`) has no badge.
+  const text =
+    definition && shortcutChords(definition, platform).length
+      ? heldShortcutText(definition, platform, pair?.definition)
+      : undefined;
   useLayoutEffect(() => {
     const control = anchorRef.current?.parentElement;
     const badge = badgeRef.current;

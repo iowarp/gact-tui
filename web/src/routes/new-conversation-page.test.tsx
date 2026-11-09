@@ -1,4 +1,5 @@
 import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ReactNode } from 'react';
 import type { ClioComposerProps } from '@/components/clio/composer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -217,7 +218,9 @@ describe('new conversation reference navigation', () => {
     try {
       render(
         <QueryClientProvider client={new QueryClient()}>
-          <NewConversationPage />
+          <TooltipProvider>
+            <NewConversationPage />
+          </TooltipProvider>
         </QueryClientProvider>,
       );
       await userEvent.click(await screen.findByRole('button', { name: 'Open downloads' }));
