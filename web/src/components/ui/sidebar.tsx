@@ -284,11 +284,16 @@ function Sidebar({
         data-side={side}
         data-slot="sidebar"
         tabIndex={-1}
-        onPointerEnter={(event) => {
-          setLeaveDeferred(false);
+        onPointerEnter={() => setLeaveDeferred(false)}
+        // Intent starts on real movement: a layout shift under a still pointer
+        // reports an enter, and must not slide the preview over the page.
+        onPointerMove={(event) => {
           if (state !== 'collapsed' || event.pointerType === 'touch') return;
-          cancelHover();
-          hoverTimer.current = window.setTimeout(() => setHovered(true), SIDEBAR_HOVER_INTENT_MS);
+          if (hovered || hoverTimer.current !== undefined) return;
+          hoverTimer.current = window.setTimeout(() => {
+            hoverTimer.current = undefined;
+            setHovered(true);
+          }, SIDEBAR_HOVER_INTENT_MS);
         }}
         onPointerLeave={(event) => {
           cancelHover();

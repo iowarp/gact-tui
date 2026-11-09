@@ -21,6 +21,7 @@ afterEach(() => {
 function hoverSidebar(sidebar: Element) {
   vi.useFakeTimers();
   fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+  fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
   act(() => vi.advanceTimersByTime(200));
 }
 
@@ -99,12 +100,28 @@ describe('collapsed navigation preview', () => {
     const sidebar = container.querySelector('[data-slot="sidebar"]')!;
     vi.useFakeTimers();
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
     expect(sidebar).not.toHaveAttribute('data-preview');
     act(() => vi.advanceTimersByTime(200));
     expect(sidebar).toHaveAttribute('data-preview', 'true');
     expect(screen.getByRole('button')).toHaveTextContent('unpinned expanded');
     fireEvent.pointerLeave(sidebar);
     expect(screen.getByRole('button')).toHaveTextContent('unpinned collapsed');
+  });
+
+  it('stays folded when the layout shifts under a still pointer', () => {
+    const { container } = render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar contained collapsible="icon">
+          <SidebarState />
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const sidebar = container.querySelector('[data-slot="sidebar"]')!;
+    vi.useFakeTimers();
+    fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    act(() => vi.advanceTimersByTime(500));
+    expect(sidebar).not.toHaveAttribute('data-preview');
   });
 
   it('lets a direct click act on the strip before the hover preview reflows it', () => {
@@ -120,6 +137,7 @@ describe('collapsed navigation preview', () => {
     const toggle = screen.getByRole('button', { name: 'Toggle navigation' });
     vi.useFakeTimers();
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
     fireEvent.pointerDown(toggle, { pointerType: 'mouse' });
     fireEvent.click(toggle);
     act(() => vi.advanceTimersByTime(200));
@@ -157,6 +175,7 @@ describe('collapsed navigation preview', () => {
     const control = screen.getByRole('button');
     act(() => control.focus());
     fireEvent.pointerEnter(sidebar, { pointerType: 'mouse' });
+    fireEvent.pointerMove(sidebar, { pointerType: 'mouse' });
     fireEvent.pointerDown(control, { pointerType: 'mouse' });
     fireEvent.click(control);
     fireEvent.pointerLeave(sidebar);
