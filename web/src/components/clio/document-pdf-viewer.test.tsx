@@ -3,10 +3,26 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { selectionCommenter } from '@/lib/selection-actions-file';
 
 const documentPageCount = vi.hoisted(() => ({ value: 3 }));
 const pageRenderReady = vi.hoisted(() => ({ value: true }));
 const pageAspectRatio = vi.hoisted(() => ({ value: 11 / 8.5 }));
+const commentSession = vi.hoisted(() => ({
+  current: undefined as
+    | {
+        open: boolean;
+        active: boolean;
+        mode: string;
+        start: ReturnType<typeof vi.fn>;
+        addMark: ReturnType<typeof vi.fn>;
+      }
+    | undefined,
+}));
+
+vi.mock('./comments/comment-session', () => ({
+  useCommentSession: () => commentSession.current,
+}));
 
 vi.mock('react-pdf', async () => {
   const React = await import('react');
@@ -64,22 +80,46 @@ afterEach(() => {
   documentPageCount.value = 3;
   pageRenderReady.value = true;
   pageAspectRatio.value = 11 / 8.5;
+  commentSession.current = undefined;
+  window.getSelection()?.removeAllRanges();
 });
 
+function rect(left: number, top: number, width: number, height: number) {
+  return { left, top, width, height, right: left + width, bottom: top + height } as DOMRect;
+}
+
 describe('ClioDocumentPdfViewer', () => {
+  it("the selection menu's Comment marks the selected text as quads on its page", async () => {
+    const session = { open: true, active: false, mode: 'text', start: vi.fn(), addMark: vi.fn() };
+    commentSession.current = session;
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
+    const text = await screen.findByText('PDF page 1');
+    const page = text.closest<HTMLElement>('[data-page]')!;
+    vi.spyOn(page, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 200, 400));
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    range.getClientRects = () => [rect(20, 40, 100, 20)] as unknown as DOMRectList;
+    window.getSelection()!.addRange(range);
+
+    expect(selectionCommenter({ container: text })?.(window.getSelection())).toBe(true);
+    expect(session.addMark).toHaveBeenCalledWith(
+      {
+        profile: 'pdf-quad',
+        exact: 'PDF page 1',
+        page_index: 0,
+        quads: [[0.1, 0.1, 0.6, 0.1, 0.6, 0.15, 0.1, 0.15]],
+      },
+      { box: { left: 20, top: 40, width: 100, height: 20 } },
+    );
+  });
+
   it.each([9 / 16, 11 / 8.5, 2])(
     'fits a page of actual aspect ratio %s by default',
     async (ratio) => {
       pageAspectRatio.value = ratio;
       vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1_200);
       vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
-      render(
-        <ClioDocumentPdfViewer
-          bytes={new Uint8Array([37, 80, 68, 70])}
-          name="paper.pdf"
-          onSelection={vi.fn()}
-        />,
-      );
+      render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
       const page = await screen.findByText('PDF page 1');
       const width = Number(page.dataset.testPdfWidth);
       expect(width).toBeGreaterThan(0);
@@ -96,7 +136,6 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         fit="width"
         name="paper.pdf"
-        onSelection={vi.fn()}
       />,
     );
     const page = await screen.findByText('PDF page 1');
@@ -110,13 +149,7 @@ describe('ClioDocumentPdfViewer', () => {
   });
 
   it('captures modifier-wheel zoom inside the PDF and leaves ordinary scrolling alone', async () => {
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
     await screen.findByText('PDF page 1');
     const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]')!;
     const scale = () => Number(screen.getByText('PDF page 1').dataset.testPdfScale);
@@ -153,11 +186,7 @@ describe('ClioDocumentPdfViewer', () => {
     document.body.append(toolbar);
     render(
       <ViewerToolbarHost.Provider value={toolbar}>
-        <ClioDocumentPdfViewer
-          bytes={new Uint8Array([37, 80, 68, 70])}
-          name="paper.pdf"
-          onSelection={vi.fn()}
-        />
+        <ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />
       </ViewerToolbarHost.Provider>,
     );
 
@@ -201,7 +230,6 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         initialPage={200}
         name="thesis.pdf"
-        onSelection={vi.fn()}
       />,
     );
 
@@ -239,7 +267,6 @@ describe('ClioDocumentPdfViewer', () => {
         bytes={new Uint8Array([37, 80, 68, 70])}
         initialPage={200}
         name="thesis.pdf"
-        onSelection={vi.fn()}
       />,
     );
     await screen.findByText('PDF page 200');
@@ -276,13 +303,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       },
     );
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="thesis.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="thesis.pdf" />);
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     // Only the visible window plus its overscan is mounted; a 400-page document
@@ -328,13 +349,7 @@ describe('ClioDocumentPdfViewer', () => {
         };
       });
 
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="thesis.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="thesis.pdf" />);
 
     expect(await screen.findByText('PDF page 1')).toBeVisible();
     const trailing = document.querySelector<HTMLElement>('[data-pdf-spacer="trailing"]');
@@ -343,13 +358,7 @@ describe('ClioDocumentPdfViewer', () => {
   });
 
   it('groups the tightened zoom controls', async () => {
-    render(
-      <ClioDocumentPdfViewer
-        bytes={new Uint8Array([37, 80, 68, 70])}
-        name="paper.pdf"
-        onSelection={vi.fn()}
-      />,
-    );
+    render(<ClioDocumentPdfViewer bytes={new Uint8Array([37, 80, 68, 70])} name="paper.pdf" />);
 
     const zoom = await screen.findByRole('group', { name: 'PDF zoom' });
     expect(zoom).toContainElement(screen.getByRole('button', { name: 'Zoom out' }));
