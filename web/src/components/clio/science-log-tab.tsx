@@ -1,9 +1,8 @@
 import type { ScienceEntry, ScienceStudy, ScienceView, SubagentRun } from '@clio/core/v3';
-import { FocusIcon, GitForkIcon, ListIcon, SearchIcon } from 'lucide-react';
+import { FocusIcon, GitForkIcon, ListIcon } from 'lucide-react';
 import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useOpenTaskHandle } from '@/hooks/use-flow-run';
 import { useRepository } from '@/hooks/use-repository';
@@ -37,6 +36,7 @@ import { observationGroups } from './study-graph-model';
 import { StudyTree } from './study-tree';
 import { StudyViews } from './study-views';
 import type { SubagentOpenTarget } from './subagent-card';
+import { useWorkbenchListSearch } from './workbench-list-search';
 import { WorkbenchTabList, WorkbenchTabListToggle } from './workbench-tab-list';
 import { WorkbenchTabListSlot, useWorkbenchTabListPicked } from './workbench-tab-list-context';
 
@@ -179,8 +179,7 @@ export function ScienceLogView({
     setModeState(next);
   };
   const [scope, setScope] = useState<StudyGraphScope>('all');
-  const [searching, setSearching] = useState(false);
-  const [query, setQuery] = useState('');
+  const search = useWorkbenchListSearch('Search the study');
   const picked = useWorkbenchTabListPicked();
   const slot = useContext(WorkbenchTabListSlot);
 
@@ -310,48 +309,13 @@ export function ScienceLogView({
       name={name}
       onOpenView={views || study.views.some((view) => view.artifact_id) ? openView : undefined}
       onSelectTopic={pickTopic}
-      query={searching ? query : ''}
+      query={search.query}
       selected={selectedKey}
       topics={topics}
       views={study.views}
     />
   );
-  const list = searching ? (
-    <>
-      <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
-        <Input
-          aria-label="Search the study"
-          autoFocus
-          className="h-7 text-xs"
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return;
-            event.stopPropagation();
-            setSearching(false);
-            setQuery('');
-          }}
-          placeholder="Search the study"
-          value={query}
-        />
-      </div>
-      {studyRows}
-    </>
-  ) : (
-    studyRows
-  );
-  const searchToggle = (
-    <IconButton
-      aria-pressed={searching}
-      icon={<SearchIcon />}
-      label={searching ? 'Close search' : 'Search the study'}
-      onClick={() => {
-        setSearching(!searching);
-        setQuery('');
-      }}
-      size="sm"
-      tooltipSide="bottom"
-    />
-  );
+  const list = search.withField(studyRows);
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
     <Tabs
@@ -450,7 +414,7 @@ export function ScienceLogView({
         </TabsContent>
       </div>
       {slot ? (
-        <WorkbenchTabList actions={searchToggle} title="Study">
+        <WorkbenchTabList actions={search.toggle} title="Study">
           {list}
         </WorkbenchTabList>
       ) : null}

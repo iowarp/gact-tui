@@ -10,7 +10,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  storedSidebarOpen,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useMenuAction } from '@/tauri/menu-actions';
@@ -18,9 +24,29 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { TopBarEndHost } from './top-bar-end-context';
+import { NamedTooltip } from './primitives/icon-button';
 import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
+
+/** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
+function TopBarSidebarTrigger() {
+  const { isMobile, state } = useSidebar();
+  const leftPocketKey = useShortcutPresentation('left-pocket');
+  if (!isMobile && state === 'expanded') return null;
+  return (
+    <span className="inline-flex">
+      <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+        <SidebarTrigger
+          aria-keyshortcuts={leftPocketKey?.aria}
+          className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
+        />
+      </NamedTooltip>
+      <HeldKeyBadge id="left-pocket" />
+    </span>
+  );
+}
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -31,6 +57,7 @@ export interface ClioAppShellProps {
   workbenchRevealKey?: string;
   /** Open requests that reveal the canvas; read here so the page need not re-render. */
   workbenchReveal?: WorkbenchRequestSource;
+  /** Recovery, work needing inspection and usage, shown in the top bar's trailing group. */
   statusStrip: ReactNode;
 }
 
@@ -38,27 +65,33 @@ function DesktopNavigationLayout({
   navigation,
   children,
   collapseForWorkbench,
+  onFoldChange,
 }: {
   navigation: ReactNode;
   children: ReactNode;
   collapseForWorkbench: boolean;
+  /** Runs once the bar has folded or unfolded, when the content's width has changed. */
+  onFoldChange?: () => void;
 }) {
   const { open, setOpen, toggleSidebar } = useSidebar();
   useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
+  // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
+  const narrow = useMediaQuery('(max-width: 1023px)');
+  const collapse = collapseForWorkbench || narrow;
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
-    previousCollapseForWorkbenchRef.current = collapseForWorkbench;
+    previousCollapseForWorkbenchRef.current = collapse;
 
-    if (collapseForWorkbench && !wasCollapsedForWorkbench) {
+    if (collapse && !wasCollapsedForWorkbench) {
       if (open) {
         setOpen(false);
       }
       return;
     }
-  }, [collapseForWorkbench, open, setOpen]);
+  }, [collapse, open, setOpen]);
 
   useEffect(() => {
     if (open) panelRef.current?.expand();
@@ -71,6 +104,7 @@ function DesktopNavigationLayout({
     previous?: PanelSize,
   ) => {
     if (!previous) return;
+    if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
     if (size.inPixels <= 64 && open) setOpen(false);
     if (size.inPixels >= 216 && !open) setOpen(true);
   };
@@ -81,7 +115,7 @@ function DesktopNavigationLayout({
         <ResizablePanel
           collapsedSize="56px"
           collapsible
-          defaultSize="248px"
+          defaultSize="292px"
           groupResizeBehavior="preserve-pixel-size"
           id="workspace-navigation"
           maxSize="440px"
@@ -110,7 +144,7 @@ const MAX_WORKBENCH_SHARE = 0.7;
 const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
-const OPEN_NAVIGATION_WIDTH = 248;
+const OPEN_NAVIGATION_WIDTH = 292;
 /** Under this the workbench slides over the conversation instead of sitting beside it. */
 const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
 
@@ -250,7 +284,7 @@ export function ClioAppShell({
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
   useMenuAction('toggle-workbench', toggleWorkbench, hasWorkbench);
-  const leftPocketKey = useShortcutPresentation('left-pocket');
+  const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
 
   // A strip chord with the pocket closed opens it at that strip item. The
   // desktop panel keeps the workbench mounted (it handles the chord itself);
@@ -279,16 +313,14 @@ export function ClioAppShell({
       aria-label="Conversation workspace"
       data-slot="conversation-surface"
     >
-      <DesktopWorkspaceToolbar
-        navigation={
-          <span className="inline-flex">
-            <SidebarTrigger aria-keyshortcuts={leftPocketKey?.aria} />
-            <HeldKeyBadge id="left-pocket" />
-          </span>
-        }
-      >
+      <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
         {/* The update page brings its own header; the conversation's is stale while it runs. */}
-        <div className="min-w-0 flex-1">{updating ? null : contextBar}</div>
+        <div className="min-w-0 flex-1">
+          {updating ? null : (
+            <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+          )}
+        </div>
+        {updating ? null : statusStrip}
         {updating ? null : toolbarActions}
         {hasWorkbench && !updating && (
           <ToolbarAction
@@ -300,11 +332,9 @@ export function ClioAppShell({
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>
         )}
+        <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
-      {statusStrip && !updating && (
-        <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
-      )}
     </section>
   );
 
@@ -357,10 +387,14 @@ export function ClioAppShell({
   );
 
   return (
-    <SidebarProvider>
+    // The route can remount the shell (a draft, a new workspace); keep the bar as left.
+    <SidebarProvider defaultOpen={storedSidebarOpen()}>
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}
+          // The workbench opens while the bar is still open; once the bar folds,
+          // the content has room for the workbench's full share.
+          onFoldChange={applyWorkbenchShare}
           navigation={navigation}
         >
           {workspace}

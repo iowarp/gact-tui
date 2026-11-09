@@ -1,8 +1,17 @@
-import { CheckIcon, SearchIcon } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import { CheckIcon, ChevronRightIcon, SearchIcon } from 'lucide-react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type SVGProps,
+} from 'react';
 import {
   Command,
   CommandEmpty,
+  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
@@ -103,8 +112,6 @@ export function ChoicePicker<Value extends string>({
           className={cn(
             'h-7 gap-[7px] pr-[7px] pl-2',
             bulk && 'border-dashed bg-transparent',
-            // Below 32rem the table is summary rows: pickers drop their field frame.
-            '@max-[32rem]/tools:border-transparent @max-[32rem]/tools:bg-transparent @max-[32rem]/tools:px-0 @max-[32rem]/tools:[&>svg:last-child]:hidden',
             className,
           )}
           disabled={disabled}
@@ -137,34 +144,157 @@ export function ChoicePicker<Value extends string>({
           <CommandList className="max-h-80 p-1">
             <CommandEmpty>No choice matches.</CommandEmpty>
             {options.map((option) => (
-              <CommandItem
-                className="min-h-11 items-start py-1.5"
-                data-checked={option.value === selected}
+              <OptionItem
                 key={option.value}
-                keywords={[option.description]}
                 onSelect={() => {
                   setOpen(false);
                   if (option.value !== selected) onChoose(option.value);
                 }}
+                option={option}
+                selected={option.value === selected}
                 value={option.label}
-              >
-                <option.icon aria-hidden="true" className="mt-0.5 text-muted-foreground" />
-                <span className="grid min-w-0 flex-1 gap-0.5">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-semibold">{option.label}</span>
-                    {option.isDefault ? (
-                      <span className="shrink-0 text-xs text-faint">Default</span>
-                    ) : null}
-                  </span>
-                  <span
-                    className="truncate text-xs text-muted-foreground"
-                    title={option.description}
-                  >
-                    {option.description}
-                  </span>
-                </span>
-              </CommandItem>
+              />
             ))}
+          </CommandList>
+          <MenuKeyHints hints={MENU_HINTS} />
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function OptionItem<Value extends string>({
+  option,
+  selected,
+  value,
+  onSelect,
+}: {
+  option: PickerOption<Value>;
+  selected: boolean;
+  value: string;
+  onSelect: () => void;
+}) {
+  return (
+    <CommandItem
+      className="min-h-11 items-start py-1.5"
+      data-checked={selected}
+      keywords={[option.label, option.description]}
+      onSelect={onSelect}
+      value={value}
+    >
+      <option.icon aria-hidden="true" className="mt-0.5 text-muted-foreground" />
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-semibold">{option.label}</span>
+          {option.isDefault ? <span className="shrink-0 text-xs text-faint">Default</span> : null}
+        </span>
+        <span className="truncate text-xs text-muted-foreground" title={option.description}>
+          {option.description}
+        </span>
+      </span>
+    </CommandItem>
+  );
+}
+
+export interface PickerGroup {
+  heading: string;
+  options: readonly PickerOption<string>[];
+  selected?: string;
+  onChoose: (value: string) => void;
+}
+
+export interface PickerAction {
+  label: string;
+  onSelect: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * A narrow table's summary row: its › opens one picker with every choice the
+ * row's columns hold, grouped, plus the row's own actions. The button
+ * stretches over its row (the row must be `relative`).
+ */
+export function SummaryPicker({
+  name,
+  search,
+  groups,
+  actions = [],
+  detail,
+  disabled = false,
+  className,
+}: {
+  /** The button's accessible name ("Permission and I/O: get_states"). */
+  name: string;
+  search: string;
+  groups: readonly PickerGroup[];
+  actions?: readonly PickerAction[];
+  /** What the row's columns folded away: the name, description and facts. */
+  detail?: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          aria-label={name}
+          className={cn(
+            'grid size-6 place-items-center rounded-md text-muted-foreground outline-none after:absolute after:inset-0 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60',
+            className,
+          )}
+          disabled={disabled}
+          title={name}
+          type="button"
+        >
+          <ChevronRightIcon aria-hidden="true" className="size-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[19.5rem] gap-0 overflow-hidden p-0">
+        {detail ? (
+          <div className="grid gap-1 border-b border-border px-3 py-2 text-xs text-muted-foreground">
+            {detail}
+          </div>
+        ) : null}
+        <Command className="rounded-none! p-0" loop>
+          <CommandInput placeholder={search} />
+          <CommandList className="max-h-80 p-1">
+            <CommandEmpty>No choice matches.</CommandEmpty>
+            {groups.map((group) => (
+              <CommandGroup heading={group.heading} key={group.heading}>
+                {group.options.map((option) => (
+                  <OptionItem
+                    key={option.value}
+                    onSelect={() => {
+                      setOpen(false);
+                      if (option.value !== group.selected) group.onChoose(option.value);
+                    }}
+                    option={option}
+                    selected={option.value === group.selected}
+                    value={`${group.heading}: ${option.label}`}
+                  />
+                ))}
+              </CommandGroup>
+            ))}
+            {actions.length ? (
+              <CommandGroup heading="More">
+                {actions.map((action) => (
+                  <CommandItem
+                    disabled={action.disabled}
+                    key={action.label}
+                    onSelect={() => {
+                      setOpen(false);
+                      action.onSelect();
+                    }}
+                    value={action.label}
+                  >
+                    <span className="truncate" title={action.label}>
+                      {action.label}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
           </CommandList>
           <MenuKeyHints hints={MENU_HINTS} />
         </Command>
