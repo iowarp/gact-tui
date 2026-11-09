@@ -196,6 +196,13 @@ export function WorkspacePage() {
         capabilityError: data.interactionCapabilityError ?? undefined,
         error: data.interactionsError ?? undefined,
         onRefetchSurfaces: data.refetchInteractionSurfaces,
+        onOpenScript: (interaction, callId) =>
+          revealWorkbench({
+            kind: 'tool-call',
+            callId,
+            sessionId: interaction.owner_session_id,
+            label: 'Script',
+          }),
         ownerLabels: interactionOwnerLabels,
         surfaces: data.interactionSurfaces,
         viewedSessionId: sessionId,

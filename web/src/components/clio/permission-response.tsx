@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
+import { FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import {
   AskBody,
@@ -73,6 +73,7 @@ function askedBy(
 export function PermissionResponse({
   disabled,
   interaction,
+  onOpenScript,
   onResponse,
   ownerLabel,
   responseError,
@@ -80,6 +81,7 @@ export function PermissionResponse({
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
+  onOpenScript?: ClioPendingInteractionsProps['onOpenScript'];
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
   responseError?: Error;
@@ -130,9 +132,13 @@ export function PermissionResponse({
         <AskCode
           className="flex min-h-20 shrink-[100] flex-col"
           code={script.code}
+          copyLabel="Copy script"
+          icon={FileCode2Icon}
           label="Script"
-          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}, paused until you answer`}
+          meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
           name="Script"
+          onOpen={onOpenScript ? () => onOpenScript(interaction, script.call_id) : undefined}
+          wrapToggle
         />
       ) : null}
       <AskError error={responseError} />

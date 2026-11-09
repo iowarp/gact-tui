@@ -43,6 +43,8 @@ export interface ClioPendingInteractionsProps {
   ) => Promise<void>;
   onRefetchSurfaces?: () => void;
   onOpenSurfaceQuestion?: (interaction: PendingInteraction) => void;
+  /** Opens the script a permission was asked from as a tab (its tool call's detail). */
+  onOpenScript?: (interaction: PendingInteraction, callId: string) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -58,6 +60,7 @@ export function ClioPendingInteractions({
   onResponse,
   onRefetchSurfaces,
   onOpenSurfaceQuestion,
+  onOpenScript,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
@@ -174,6 +177,12 @@ export function ClioPendingInteractions({
           'aria-label': `${pending.length} pending responses`,
           className: 'pending-interactions-viewport overscroll-contain',
           onKeyDown: handleScrollableRegionKeys,
+          // The sticky card header draws its hairline only while content is under it.
+          onScroll: (event) =>
+            event.currentTarget.toggleAttribute(
+              'data-ask-scrolled',
+              event.currentTarget.scrollTop > 0,
+            ),
           role: 'region',
           tabIndex: -1,
         }}
@@ -210,6 +219,7 @@ export function ClioPendingInteractions({
                         disabled={interactionDisabled}
                         interaction={interaction}
                         key={interaction.id}
+                        onOpenScript={onOpenScript}
                         onResponse={handleResponse}
                         ownerLabel={ownerLabel}
                         responseError={responseError}

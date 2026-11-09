@@ -149,12 +149,17 @@ function scriptQuestion(actions: string[]): PendingInteraction {
   } as PendingInteraction;
 }
 
-function renderQuestion(interaction: PendingInteraction) {
+function renderQuestion(interaction: PendingInteraction, onOpenScript = vi.fn()) {
   const onResponse = vi.fn(async () => undefined);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PermissionResponse interaction={interaction} onResponse={onResponse} showOwner={false} />
+      <PermissionResponse
+        interaction={interaction}
+        onOpenScript={onOpenScript}
+        onResponse={onResponse}
+        showOwner={false}
+      />
     </QueryClientProvider>,
   );
   return onResponse;
@@ -163,12 +168,19 @@ function renderQuestion(interaction: PendingInteraction) {
 describe('a permission question asked from a script', () => {
   it('shows the paused script and offers the rest of the script', async () => {
     const user = userEvent.setup();
-    const onResponse = renderQuestion(
-      scriptQuestion(['allow', 'deny', 'allow_session', 'allow_workspace', 'allow_script']),
-    );
+    const onOpenScript = vi.fn();
+    const interaction = scriptQuestion([
+      'allow',
+      'deny',
+      'allow_session',
+      'allow_workspace',
+      'allow_script',
+    ]);
+    const onResponse = renderQuestion(interaction, onOpenScript);
     expect(screen.getByRole('group', { name: 'Script' })).toBeInTheDocument();
-    expect(screen.getByText(/paused until you answer/)).toBeInTheDocument();
     expect(screen.getByText(/await tools\.fs\.write_file/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Open in tab/u }));
+    expect(onOpenScript).toHaveBeenCalledWith(interaction, 'call_run');
     await user.click(screen.getByRole('button', { name: 'Allow for the rest of this script' }));
     expect(onResponse).toHaveBeenCalledWith(expect.anything(), { action: 'allow_script' });
   });
