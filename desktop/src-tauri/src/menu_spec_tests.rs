@@ -24,14 +24,7 @@ fn expected_actions() -> Vec<String> {
 }
 
 fn all_action_ids() -> Vec<&'static str> {
-    MENU_SPEC
-        .iter()
-        .flat_map(|s| s.items.iter())
-        .filter_map(|i| match i {
-            Item::Action { id, .. } => Some(*id),
-            _ => None,
-        })
-        .collect()
+    MENU_SPEC.iter().flat_map(|s| action_ids(s.items)).collect()
 }
 
 /// Action ids handled entirely natively in Rust and never dispatched to the
@@ -153,7 +146,7 @@ fn spec_has_the_full_menu_bar_with_expected_item_counts() {
         ("File", 3),   // new conversation, sep, close window
         ("Edit", 7),   // undo, redo, sep, cut, copy, paste, select-all
         ("View", 12), // search, sep, left bar, workbench, sep, reload, sep, zoom x3, sep, full screen
-        ("Agent", 7), // connection settings, manage, sep, by address, over SSH, sep, infrastructure
+        ("Agent", 7), // connection settings, switch to, manage, sep, add an agent submenu, sep, infrastructure
         ("Window", 4), // minimize, zoom, sep, bring all to front
         ("Help", 2),  // documentation, keyboard shortcuts
     ];
@@ -168,17 +161,13 @@ fn spec_has_the_full_menu_bar_with_expected_item_counts() {
 #[test]
 fn product_submenus_bridge_their_actions_in_order() {
     let ids = |title: &str| -> Vec<&'static str> {
-        MENU_SPEC
-            .iter()
-            .find(|s| s.title == title)
-            .unwrap_or_else(|| panic!("missing {title} submenu"))
-            .items
-            .iter()
-            .filter_map(|i| match i {
-                Item::Action { id, .. } => Some(*id),
-                _ => None,
-            })
-            .collect()
+        action_ids(
+            MENU_SPEC
+                .iter()
+                .find(|s| s.title == title)
+                .unwrap_or_else(|| panic!("missing {title} submenu"))
+                .items,
+        )
     };
     assert_eq!(ids("File"), vec!["new-session"]);
     assert_eq!(
@@ -197,11 +186,27 @@ fn product_submenus_bridge_their_actions_in_order() {
         ids("Agent"),
         vec![
             "connection-settings",
+            "switch-agent",
             "manage-agents",
             "connect-by-address",
             "manage-agent-services",
+            "install-agent",
             "open-infrastructure"
         ]
+    );
+    // The CLIO menu's "Add an agent…" choices stay grouped in one submenu.
+    let agent = MENU_SPEC.iter().find(|s| s.title == "Agent").unwrap();
+    let add = agent
+        .items
+        .iter()
+        .find_map(|i| match i {
+            Item::Submenu { title, items } if *title == "Add an Agent" => Some(*items),
+            _ => None,
+        })
+        .expect("Agent must group the add choices in an Add an Agent submenu");
+    assert_eq!(
+        action_ids(add),
+        vec!["connect-by-address", "manage-agent-services", "install-agent"]
     );
     assert_eq!(
         ids(HELP_MENU_TITLE),
