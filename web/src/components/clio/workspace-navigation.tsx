@@ -15,6 +15,7 @@ import {
   NewConversationIcon,
 } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMatch } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import {
@@ -112,6 +113,15 @@ export function WorkspaceNavigation({
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
   const [workspaceExpansion, setWorkspaceExpansion] = useState<Record<string, boolean>>({});
+  const draftWorkspaceId = useMatch('/workspaces/:workspaceId/new')?.params.workspaceId;
+  // Opening a draft shows it inside its workspace, even one the person had folded.
+  const [unfoldedDraft, setUnfoldedDraft] = useState<string>();
+  if (draftWorkspaceId !== unfoldedDraft) {
+    setUnfoldedDraft(draftWorkspaceId);
+    if (draftWorkspaceId && workspaceExpansion[draftWorkspaceId] === false) {
+      setWorkspaceExpansion({ ...workspaceExpansion, [draftWorkspaceId]: true });
+    }
+  }
   const [sessionObservationStartedAt] = useState(() => new Date().toISOString());
   const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>({});
   const activeSession = sessions.find((session) => session.id === activeSessionId);
@@ -165,6 +175,7 @@ export function WorkspaceNavigation({
         activeSessionId={activeSessionId}
         activeWorkspaceId={activeWorkspaceId}
         agents={agents}
+        draftOpen={workspace.id === draftWorkspaceId}
         expanded={expanded}
         key={workspace.id}
         label={labels.get(workspace.id) ?? { name: workspace.display_name, qualifiers: [] }}
@@ -243,6 +254,8 @@ interface WorkspaceTreeItemProps {
   /** Installed agents, to name the agent each conversation runs. */
   agents: readonly AgentEntry[];
   label: WorkspaceDisplayLabel;
+  /** A new conversation draft is open in this workspace. */
+  draftOpen: boolean;
   expanded: boolean;
   sessionLimitExpanded: boolean;
   activeWorkspaceId: string;
@@ -271,6 +284,7 @@ function WorkspaceTreeItem({
   sessions,
   agents,
   label,
+  draftOpen,
   expanded,
   sessionLimitExpanded,
   activeWorkspaceId,
@@ -360,6 +374,7 @@ function WorkspaceTreeItem({
       />
       <CollapsibleContent>
         <div className="grid min-w-0 gap-px group-data-[collapsible=icon]:hidden">
+          {draftOpen ? <DraftConversationRow /> : null}
           {nestAgentForks(visibleSessions).map(({ session, depth }) => (
             <SessionNavigationRow
               actions={actions}
@@ -439,6 +454,20 @@ function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: (
       {loading ? <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" /> : null}
       {loading ? 'Loading more sessions…' : 'Load more sessions'}
     </Button>
+  );
+}
+
+/** The open, unsent draft: selected, first in its workspace, until its first message. */
+function DraftConversationRow() {
+  return (
+    <ListRow
+      aria-current="page"
+      className="pl-[30px]"
+      data-draft-row=""
+      meta={<span className="text-[11px] italic text-primary">now</span>}
+      selected
+      title={<span className="italic text-foreground">New conversation</span>}
+    />
   );
 }
 
