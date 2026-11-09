@@ -22,7 +22,7 @@ function numberedDiff(text: string): DiffLine[] {
     if (raw.startsWith('--- ') || raw.startsWith('+++ ') || raw.startsWith('\\')) continue;
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(raw);
     if (hunk) {
-      if (lines.length) lines.push({ kind: 'hunk', text: 'â‹¯' });
+      if (lines.length) lines.push({ kind: 'hunk', text: '⋯' });
       oldLine = Number(hunk[1]);
       newLine = Number(hunk[2]);
       continue;
@@ -59,7 +59,7 @@ export function TranscriptDiffBody({
         <span className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
           {segments.map((segment, index) => (
             <span key={`${segment}-${index}`} className="flex min-w-0 items-center gap-1">
-              {index ? <span aria-hidden="true">â€º</span> : null}
+              {index ? <span aria-hidden="true">›</span> : null}
               <span
                 className={cn(
                   'truncate',
@@ -73,7 +73,7 @@ export function TranscriptDiffBody({
         </span>
         <span className="shrink-0 text-muted-foreground">
           <span className="sr-only">{`${added} lines added, ${removed} removed`}</span>
-          <span aria-hidden="true">{`+${added} âˆ’${removed}`}</span>
+          <span aria-hidden="true">{`+${added} −${removed}`}</span>
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
           <CopyAction value={text} label="Copy diff" />

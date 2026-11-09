@@ -437,7 +437,7 @@ const STATES: State[] = [
     id: 'message',
     title: 'A message',
     height: 440,
-    hover: 'prompt',
+    hover: 'answer',
     props: () => ({
       messages: [
         userMessage('prompt', 'Regrid the 2020–2023 soil moisture to 0.25°.', at(10, 0)),
