@@ -145,7 +145,7 @@ export const surfaces = [
     title: 'Settings: MCP, tools, extensions, agents',
     pairs: [
       {
-        app: 'settings--(plugins|extensions|tools|mcp.*|remote-tools|data-sources|prompts.*|skills)',
+        app: 'settings--(plugins|extensions|tools.*|mcp.*|remote-tools|data-sources|prompts.*|skills)',
         spec: [...st(9, 7, 8)],
       },
       { app: 'settings--(agents|agent-connections|fleet)', spec: [...st(11)] },
@@ -157,7 +157,7 @@ export const surfaces = [
     title: 'Settings: other sections',
     pairs: [
       {
-        app: 'settings--(general|appearance|notifications|connections|relays|new-session-defaults|execution-and-history|runtime|browser|scheduled-work|permissions|system|about|profile)',
+        app: 'settings--(general|appearance|notifications|connections?|relays|(new-)?session-defaults|execution-and-history|runtime|browser|scheduled-work|permissions|system|about|profile|health)',
         spec: [...st(4, 12, 17)],
       },
       { app: 'settings--memory.*', spec: [...st(14, 15)] },
