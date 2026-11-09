@@ -210,11 +210,14 @@ export function useOpenTake(
   {
     otherApps = true,
     tab,
+    rows: renderer = [],
   }: {
     /** The document workspace lists the apps for its working copy itself. */
     otherApps?: boolean;
     /** Opens the file in a workbench tab: the face, when the frame shows something else. */
     tab?: () => void;
+    /** The renderer's own places (a document's working-copy apps), after the system app. */
+    rows?: readonly FileViewerAction[];
   } = {},
 ): OpenTake {
   const repository = useRepository();
@@ -318,6 +321,16 @@ export function useOpenTake(
           },
         ]
       : []),
+    ...renderer.map(
+      (action): TakeRow => ({
+        id: `open:${action.label}`,
+        label: action.label,
+        icon: <action.icon aria-hidden="true" />,
+        reason: action.disabled ? (action.description ?? 'Not available') : undefined,
+        submenu: action.submenu,
+        onSelect: action.submenu ? undefined : () => run(async () => action.onSelect()),
+      }),
+    ),
     {
       id: 'files',
       label: 'Show in Files',
@@ -363,5 +376,5 @@ export function useOpenTake(
           run: browserTab,
           icon: <ExternalLinkIcon aria-hidden="true" />,
         };
-  return { rows, face, busy };
+  return { rows, face, busy: busy || renderer.some((action) => action.pending) };
 }

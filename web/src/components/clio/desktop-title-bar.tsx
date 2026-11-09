@@ -59,8 +59,6 @@ import {
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
 
-const RELOAD_KEYS = ['Ctrl+R'] as const;
-
 // macOS keeps its native traffic lights (top-left); the bar's left section
 // is padded clear of them so the hamburger/brand block never sits under
 // natively-drawn chrome. Matches the traffic-light cluster's rough width
@@ -169,16 +167,18 @@ export function DesktopTitleBar() {
     };
   }, []);
 
-  // The window menu answers to Alt+Space (⇧⌘/ on a Mac, where ⌥Space types a
-  // character). New session and fullscreen are bound here too: trimming the
-  // native macOS menu (see menu_spec.rs) dropped its Cmd+N, so this is the only
-  // binding for new session and fullscreen on every platform. Settings (Ctrl+,)
-  // is bound in App for web and desktop alike. Keys and labels come from the
-  // shared catalog. Registered ahead of the early return for the hooks-order
-  // reason above.
+  // The window menu answers to Alt+Space in Desktop; a browser keeps that key
+  // for the CLIO menu search, and a Mac keeps ??/ for searching its menu bar,
+  // so there it has no key. New session, fullscreen and reload are bound here
+  // too: trimming the native macOS menu (see menu_spec.rs) dropped its Cmd+N,
+  // and WKWebView has no reload key, so these are the only bindings on every
+  // platform. Settings (Ctrl+,) is bound in App for web and desktop alike. Keys
+  // and labels come from the shared catalog. Registered ahead of the early
+  // return for the hooks-order reason above.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: inTauri() });
   useShortcut('new-conversation', () => dispatchMenuAction('new-session'));
   useShortcut('fullscreen', () => void runWindowAction('toggleFullscreen'));
+  useShortcut('reload', () => window.location.reload());
 
   if (!inTauri()) return null;
 
@@ -221,7 +221,7 @@ export function DesktopTitleBar() {
               <RefreshIcon aria-hidden="true" />
               Reload workspace
               <DropdownMenuShortcut>
-                <ShortcutKeys keys={RELOAD_KEYS} />
+                <ShortcutKeys id="reload" />
               </DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void runWindowAction('toggleFullscreen')}>
@@ -365,9 +365,9 @@ export function DesktopTitleBar() {
           <AlertDialogHeader>
             <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep {vocab.product} available in the system tray (Windows hidden icons), or quit and
-              stop its local services. Ongoing work can continue only while {vocab.product} is
-              running.
+              Keep {vocab.product} available in{' '}
+              {macOS ? 'the menu bar' : 'the system tray (Windows hidden icons)'}, or quit and stop
+              its local services. Ongoing work can continue only while {vocab.product} is running.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

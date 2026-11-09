@@ -115,7 +115,11 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
 
   // NeXus defaults: the file opens at /entry/results as a line plot of I
   // against q, with units from the file.
-  await expect(viewer.getByRole('tab', { name: 'NX Line' })).toBeVisible({ timeout: 15_000 });
+  // The frame's Format shows h5web's visualizations as modes; a NeXus line is a plot.
+  const modes = page.getByRole('group', { name: 'Show as' });
+  await expect(modes.getByRole('button', { name: 'Plot', pressed: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(viewer.getByText('I (counts)').first()).toBeVisible();
   await expect(viewer.getByText('q (1/nm)')).toBeVisible();
   await expect(viewer.locator('canvas').first()).toBeVisible();
@@ -123,11 +127,13 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
 
   // The default plot opens without expanding the tree to it.
   const entry = viewer.locator('[role="treeitem"][data-path="/entry"]');
-  if (!(await entry.isVisible()))
-    await viewer.getByRole('button', { name: 'Toggle sidebar' }).click();
+  const explorer = page.getByRole('button', { name: 'Explorer' });
+  if (!(await entry.isVisible())) await explorer.click();
+  await expect(explorer).toHaveAttribute('aria-pressed', 'true');
   await entry.click();
   await viewer.locator('[role="treeitem"][data-path="/entry/image"]').click();
-  await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible();
+  await expect(modes.getByRole('button', { name: 'Image', pressed: true })).toBeVisible();
+  await expect(page.getByText('48 × 48')).toBeVisible();
   await expect.poll(() => calls).toContain('data?dtype=safe&format=bin&path=%2Fentry%2Fimage');
 
   // Restoring the canvas rebuilds its Files tab, which closes the file.
@@ -142,7 +148,9 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
       await canvas.getByText('results', { exact: true }).first().click();
     await file.click();
   }
-  await expect(viewer.getByRole('tab', { name: 'Heatmap' })).toBeVisible({ timeout: 15_000 });
+  await expect(modes.getByRole('button', { name: 'Image', pressed: true })).toBeVisible({
+    timeout: 15_000,
+  });
 
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);
@@ -192,6 +200,8 @@ test('on the app origin, the desktop CSP blocks the HDF5 viewer', async ({ page 
 
   const viewer = await openWaterH5(page);
   await expect.poll(() => evalRefusals.length, { timeout: 15_000 }).toBeGreaterThan(0);
-  await expect(viewer.getByRole('tab', { name: 'NX Line' })).toHaveCount(0);
+  // h5web's visualization tabs are hidden behind the frame's modes, so count them in the DOM.
+  await expect(viewer.locator('[aria-label="Visualization"] [role="tab"]')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Show as' })).toHaveCount(0);
   expect(otherErrors).toEqual([]);
 });

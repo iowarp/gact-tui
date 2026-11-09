@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
-import { BugIcon, MonitorCogIcon, MoonIcon, NotebookPenIcon, SunIcon } from 'lucide-react';
+import { BugIcon, MonitorCogIcon, MoonIcon, MoonStarIcon, SunDimIcon, SunIcon } from 'lucide-react';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -15,12 +15,16 @@ import { THEMES, type ThemeId, type ThemePreference } from '@/theme/contract';
 const THEME_ICONS: Record<ThemeId, ComponentType<SVGProps<SVGSVGElement>>> = {
   light: SunIcon,
   dark: MoonIcon,
-  notebook: NotebookPenIcon,
+  'classic-light': SunDimIcon,
+  'classic-dark': MoonStarIcon,
   debug: BugIcon,
 };
 
 const THEME_DESCRIPTIONS: Partial<Record<ThemeId, string>> = {
-  notebook: 'Paper, ink and verdigris. Follows your system light or dark setting.',
+  light: 'Paper, ink and verdigris.',
+  dark: 'Warm ink with verdigris accents.',
+  'classic-light': 'The earlier cool, blue-tinted light theme.',
+  'classic-dark': 'The earlier neutral dark theme.',
   debug: 'Development only: every color is red, so anything else skips the theme.',
 };
 

@@ -1,4 +1,6 @@
 import { RetryIcon } from '@/lib/icon-vocabulary';
+import { useKeyPlatform } from '@/lib/shortcuts/hooks';
+import { gestureModifiers } from '@/lib/shortcuts/keys';
 import { MapLegend } from './map-legend';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -116,6 +118,7 @@ export function ClioScientificMap({
   camera,
   setCamera,
 }: ClioMapProps) {
+  const keys = gestureModifiers(useKeyPlatform());
   const [localId, setLocalId] = useState(
     points.some((point) => point.id === selected) ? selected : undefined,
   );
@@ -468,8 +471,9 @@ export function ClioScientificMap({
           </Button>
         </TooltipTrigger>
         <TooltipContent align="end" side="bottom">
-          Click a point to select it. Ctrl-click selects its track. Shift-click toggles a point;
-          Ctrl+Shift-click merges or removes a track. Drag selects points; Ctrl-drag selects tracks.
+          Click a point to select it. {keys.primary}-click selects its track. Shift-click toggles a
+          point; {keys.primaryShift}-click merges or removes a track. Drag selects points;{' '}
+          {keys.primary}-drag selects tracks.
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

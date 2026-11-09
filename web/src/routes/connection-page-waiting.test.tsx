@@ -2,7 +2,8 @@
  * A saved service that is starting, or that has not answered yet (started together with
  * this page), is waited for and opened by itself; it is not shown as a failure.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';

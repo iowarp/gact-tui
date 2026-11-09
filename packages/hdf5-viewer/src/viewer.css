@@ -10,3 +10,13 @@ body,
   font: 0.875rem system-ui, sans-serif;
   padding: 1rem;
 }
+
+/*
+ * The host's frame shows the file, the object's modes and the tree toggle.
+ * h5web's breadcrumb bar and visualization tabs repeat them, so they are
+ * hidden; modes.ts still reads and clicks them.
+ */
+.viewer-root div:has(> [role='tablist'][aria-label='Viewer mode']),
+.viewer-root [role='tablist'][aria-label='Visualization'] {
+  display: none;
+}
