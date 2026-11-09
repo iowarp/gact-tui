@@ -1,5 +1,5 @@
 import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3';
-import { AlertTriangleIcon, BookmarkIcon, Globe2Icon, MapIcon } from 'lucide-react';
+import { AlertTriangleIcon, BookmarkIcon, GlobeIcon, MapIcon } from 'lucide-react';
 import { m } from 'motion/react';
 import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
@@ -414,7 +414,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                           {executionMode === 'plan' ? (
                             <MapIcon aria-hidden="true" className="size-3" />
                           ) : (
-                            <Globe2Icon aria-hidden="true" className="size-3" />
+                            <GlobeIcon aria-hidden="true" className="size-3" />
                           )}
                           {executionMode === 'plan' ? 'Plan' : 'Deep research'}
                         </span>
