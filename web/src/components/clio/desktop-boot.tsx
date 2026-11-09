@@ -1,11 +1,11 @@
 import { brand } from '@brand';
-import { Spinner } from '@/components/ui/spinner';
 import { vocab } from '@/lib/brand-vocabulary';
 import { STARTUP_STEP_OF, type DesktopBootStage } from '@/lib/desktop-boot-stage';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { BrandIcon } from './brand-icon';
 import { LocalStartupSteps } from './local-startup-steps';
 import { useStartupLog } from './use-startup-log';
+import { RingSpinner } from './primitives/ring-spinner';
 import { StateView } from './primitives/state-view';
 
 const STAGE_DETAIL: Record<DesktopBootStage, string> = {
@@ -33,10 +33,7 @@ export function DesktopBoot({
           <span className="flex min-w-0 flex-col gap-px">
             <span className="font-heading text-[14px] font-semibold">{brand.wordmark}</span>
             <span className="flex min-w-0 items-center gap-[5px] text-[11.5px] text-warning-foreground">
-              <Spinner
-                aria-hidden="true"
-                className="size-[9px] shrink-0 motion-reduce:animate-none"
-              />
+              <RingSpinner className="size-[9px]" />
               <span className="truncate">{`${vocab.agent} local, starting`}</span>
             </span>
           </span>
