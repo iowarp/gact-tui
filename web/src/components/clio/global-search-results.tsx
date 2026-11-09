@@ -138,7 +138,7 @@ export function GlobalSearchGroups({
             {'theme' in item.action && theme === item.action.theme ? (
               <CommandShortcut>Current</CommandShortcut>
             ) : item.shortcut ? (
-              <ShortcutKeys id={item.shortcut} />
+              <ShortcutKeys id={item.shortcut} variant="caps" capSize="sm" className="ml-auto" />
             ) : item.trail ? (
               <CommandShortcut>{item.trail}</CommandShortcut>
             ) : null}

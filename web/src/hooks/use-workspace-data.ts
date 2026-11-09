@@ -186,7 +186,8 @@ export function useWorkspaceData({
   });
   const surrounding = useSessionResourceLoading(
     `${settings.endpoint}:${sessionId}`,
-    Boolean(transcript.data) && !transcript.isPlaceholderData,
+    // A new-conversation draft has no transcript to wait for.
+    !sessionId || (Boolean(transcript.data) && !transcript.isPlaceholderData),
   );
   const { refetch: refetchTranscript } = transcript;
   const previousSessionState = useRef<{ sessionId: string; active: boolean } | null>(null);
