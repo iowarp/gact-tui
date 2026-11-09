@@ -8,7 +8,8 @@ import { replyDuration, replyModelIcon, replyTokens } from './message-reply-fact
 /**
  * The 24px line under a finished answer: the model, its tokens and time on the
  * left (hover for what the reply used), then on hover the message's actions and
- * clock time at the right. Success carries no word; only Stopped or Failed do.
+ * clock time at the right. Success carries no word; only Stopped or Failed do, unless
+ * an inline reply line above already names the outcome.
  * End-of-message facts come from the message, never the session's cumulative usage.
  */
 export function MessageCompletionFooter({
@@ -18,6 +19,7 @@ export function MessageCompletionFooter({
   failedToolCount = 0,
   children,
   active = false,
+  outcomeShown = false,
 }: {
   message: Message;
   agentName?: string;
@@ -25,6 +27,7 @@ export function MessageCompletionFooter({
   failedToolCount?: number;
   children: ReactNode;
   active?: boolean;
+  outcomeShown?: boolean;
 }) {
   if (!completionFooterShown(message, active)) return null;
   const reason = message.stop_reason?.toLowerCase() ?? '';
@@ -32,43 +35,45 @@ export function MessageCompletionFooter({
   const interrupted = reason === 'cancelled' || reason === 'interrupted' || failed;
   const tokens = replyTokens(message);
   const duration = replyDuration(message);
+  const word = interrupted && !outcomeShown;
+  const facts = Boolean(message.model || tokens || duration);
   const timestamp = message.completed_at ?? message.created_at;
   return (
     <div
       className="mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
       data-slot="message-completion-footer"
     >
-      <MessageReplyCard
-        agentName={agentName}
-        counts={{ toolCount, failedToolCount }}
-        message={message}
-      >
-        <button
-          className="flex h-full min-w-0 items-center gap-3 overflow-hidden rounded-[5px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          data-slot="message-reply-meta"
-          type="button"
+      {word || facts || !outcomeShown ? (
+        <MessageReplyCard
+          agentName={agentName}
+          counts={{ toolCount, failedToolCount }}
+          message={message}
         >
-          {interrupted ? (
-            <span className="shrink-0 font-medium text-destructive">
-              {failed ? 'Failed' : 'Stopped'}
-            </span>
-          ) : null}
-          {message.model ? (
-            <span
-              className="inline-flex min-w-0 items-center gap-[5px] text-accent-foreground"
-              data-slot="message-reply-model"
-            >
-              {replyModelIcon(message.model.provider_id)}
-              <span className="truncate">{message.model.model_id}</span>
-            </span>
-          ) : null}
-          {tokens ? <span className="truncate">{tokens}</span> : null}
-          {duration ? <span className="shrink-0">{duration}</span> : null}
-          {!interrupted && !message.model && !tokens && !duration ? (
-            <span className="truncate">Reply details</span>
-          ) : null}
-        </button>
-      </MessageReplyCard>
+          <button
+            className="flex h-full min-w-0 items-center gap-3 overflow-hidden rounded-[5px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            data-slot="message-reply-meta"
+            type="button"
+          >
+            {word ? (
+              <span className="shrink-0 font-medium text-destructive">
+                {failed ? 'Failed' : 'Stopped'}
+              </span>
+            ) : null}
+            {message.model ? (
+              <span
+                className="inline-flex min-w-0 items-center gap-[5px] text-accent-foreground"
+                data-slot="message-reply-model"
+              >
+                {replyModelIcon(message.model.provider_id)}
+                <span className="truncate">{message.model.model_id}</span>
+              </span>
+            ) : null}
+            {tokens ? <span className="truncate">{tokens}</span> : null}
+            {duration ? <span className="shrink-0">{duration}</span> : null}
+            {!word && !facts ? <span className="truncate">Reply details</span> : null}
+          </button>
+        </MessageReplyCard>
+      ) : null}
       <div
         className={cn(
           'ml-auto flex shrink-0 items-center gap-1',

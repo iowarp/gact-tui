@@ -1,12 +1,11 @@
 import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3';
-import { AlertTriangleIcon, BookmarkIcon, GlobeIcon, MapIcon } from 'lucide-react';
+import { BookmarkIcon, CircleSlashIcon, GlobeIcon, MapIcon } from 'lucide-react';
 import { m } from 'motion/react';
 import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { Message, MessageContent } from '@/components/ai-elements/message';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MessageBlockSequence } from './conversation-message-blocks';
+import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
@@ -76,6 +75,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
+  const onRetryMessage = entities.onRetryMessage;
+  const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;
+  // An inline reply line (didn’t load, didn’t finish, cancelled) already names the outcome.
+  const replyLineShown =
+    message.role === 'assistant' &&
+    ((message.blocks.length === 0 && !message.canvas) ||
+      (Boolean(emptyResponseErrorMessage) && !emptyResponseWasClientCancelled) ||
+      message.blocks.some((block) => block.type === 'error'));
 
   const turn = useConversationTurn(
     message,
@@ -238,24 +245,29 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 message.role === 'assistant' &&
                 !message.canvas &&
                 !injectionMessages?.length ? (
-                  <Alert
-                    className={cn(emptyResponseWasClientCancelled && 'w-fit')}
-                    variant="destructive"
-                  >
-                    <AlertTriangleIcon aria-hidden="true" />
-                    <AlertTitle
-                      className={cn(emptyResponseWasClientCancelled && 'whitespace-nowrap')}
-                    >
-                      {emptyResponseWasClientCancelled
-                        ? 'Response cancelled'
-                        : emptyResponseErrorCode === 'server_restart_interrupted'
-                          ? 'Response interrupted'
-                          : 'Response unavailable'}
-                    </AlertTitle>
-                    {!emptyResponseWasClientCancelled ? (
-                      <AlertDescription>
-                        {emptyResponseErrorMessage ??
-                          'No response content was recorded for this turn. You can retry the response.'}
+                  <>
+                    <ReplyErrorLine
+                      icon={emptyResponseWasClientCancelled ? CircleSlashIcon : undefined}
+                      kind={emptyResponseWasClientCancelled ? 'marker' : 'error'}
+                      reason={
+                        emptyResponseWasClientCancelled
+                          ? undefined
+                          : (emptyResponseErrorMessage ??
+                            'No response content was recorded for this turn.')
+                      }
+                      onRetry={retryReply}
+                      retrying={entities.retryingMessageId === message.id}
+                      title={
+                        emptyResponseWasClientCancelled
+                          ? 'Reply cancelled'
+                          : emptyResponseErrorCode === 'server_restart_interrupted'
+                            ? 'This reply was interrupted'
+                            : 'This reply didn’t load'
+                      }
+                    />
+                    {signInProvider || modelExhausted ? (
+                      // Aligned under the line's text, past its icon.
+                      <div className="-mt-1 pl-[30px]">
                         {signInProvider ? (
                           <TurnProviderSignIn
                             providerId={signInProvider.id}
@@ -269,9 +281,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             sessionId={message.session_id}
                           />
                         ) : null}
-                      </AlertDescription>
+                      </div>
                     ) : null}
-                  </Alert>
+                  </>
                 ) : message.role === 'assistant' &&
                   (turnPresentation ||
                     turn.iterations.length > 0 ||
@@ -378,11 +390,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 emptyResponseErrorMessage &&
                 !emptyResponseWasClientCancelled &&
                 !message.blocks.some((block) => block.type === 'error') ? (
-                  <Alert variant="destructive" className="mt-3">
-                    <AlertTriangleIcon aria-hidden="true" />
-                    <AlertTitle>Work interrupted</AlertTitle>
-                    <AlertDescription>{emptyResponseErrorMessage}</AlertDescription>
-                  </Alert>
+                  <ReplyErrorLine
+                    reason={emptyResponseErrorMessage}
+                    onRetry={retryReply}
+                    retrying={entities.retryingMessageId === message.id}
+                    title="This reply didn’t finish"
+                  />
                 ) : null}
               </MessageContent>
               {message.role === 'user' ? (
@@ -458,6 +471,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 active={active || awaitingChild || responseContinued}
                 agentName={entities.agentName}
                 message={message}
+                outcomeShown={replyLineShown}
                 {...messageToolCallCounts(message, entities.tools)}
               >
                 {actions}

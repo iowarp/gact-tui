@@ -36,10 +36,13 @@ export function ToolCompactRow({
   onOpenFlow,
   onExpandedChange,
   info,
+  waiting,
 }: {
   tool: ToolInvocation;
   operation: ToolOperation;
   attention?: ReactNode;
+  /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
+  waiting?: ReactNode;
   /** The 58px badge column: Sandbox or Blocked. */
   badge?: ReactNode;
   duration?: number;
@@ -57,20 +60,26 @@ export function ToolCompactRow({
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   const action = operation.action || getToolActionLabel(tool);
-  const statusLabel = interrupted
-    ? failure || clioStatusLabel(status)
-    : failure
-      ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
-      : clioStatusLabel(status);
-  const tone: StatusTone = interrupted
-    ? 'stopped'
-    : active
-      ? 'running'
-      : success
-        ? 'success'
-        : status === 'unknown' || status === 'degraded'
-          ? 'warning'
-          : 'error';
+  // A question still waiting on the person is work in progress, even when its
+  // call has already returned, so the row never shows a done mark beside it.
+  const statusLabel = waiting
+    ? 'Waiting for you'
+    : interrupted
+      ? failure || clioStatusLabel(status)
+      : failure
+        ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+        : clioStatusLabel(status);
+  const tone: StatusTone = waiting
+    ? 'running'
+    : interrupted
+      ? 'stopped'
+      : active
+        ? 'running'
+        : success
+          ? 'success'
+          : status === 'unknown' || status === 'degraded'
+            ? 'warning'
+            : 'error';
   const codeArgument = operation.subjects.some(
     (subject) =>
       subject.id === 'operation-command' ||
@@ -137,9 +146,10 @@ export function ToolCompactRow({
     </span>
   ) : null;
   const outcome =
-    metadata || failureWord ? (
+    waiting || metadata || failureWord ? (
       <span className="flex items-center gap-2">
         {metadata}
+        {waiting}
         {failureWord ? (
           <span
             data-slot="tool-outcome"
