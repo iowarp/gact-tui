@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
 import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
-import { anyServerPreparing, reconnectableNamespace } from '@/lib/mcp-preparation';
+import {
+  anyServerPreparing,
+  mcpServerPreparation,
+  reconnectableNamespace,
+} from '@/lib/mcp-preparation';
 import { mcpServiceEntries, type McpServiceEntry } from '@/lib/mcp-service-entries';
 import {
   serviceEntryTitle,
@@ -402,7 +406,7 @@ function McpServerDetailPane({
         }))
       : (server?.tools ?? []).map((name) => ({ name }));
   const failure = detail.error ?? toolInventory.error ?? resourceInventory.error;
-  const connectionError = server?.error && !server.preparation ? server.error : undefined;
+  const connectionError = server?.error && !mcpServerPreparation(server) ? server.error : undefined;
   const technical = [connectionError, failure?.message].filter(Boolean) as string[];
 
   return (
