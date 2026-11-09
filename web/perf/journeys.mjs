@@ -752,7 +752,12 @@ export async function settingsJourney(r) {
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {
     category: 'picker',
   });
-  if (await page.locator('[data-frame="window"]').isVisible()) {
+  await closeSettingsWindow(page);
+}
+
+/** Escape closes the innermost layer first (search, then the Settings window). */
+async function closeSettingsWindow(page) {
+  for (let i = 0; i < 3 && (await page.locator('[data-frame="window"]').isVisible()); i++) {
     await page.keyboard.press('Escape');
     await waitIdle(page);
   }
@@ -798,6 +803,8 @@ export async function exploreJourney(r) {
   }
   await page.goBack();
   await waitIdle(page);
+  // Back can land on a /settings route from the previous journey, which reopens the window.
+  await closeSettingsWindow(page);
   const infra = r.control('link', /^Infrastructure/u);
   await r.measure(
     'open infrastructure',

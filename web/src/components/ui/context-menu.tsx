@@ -9,13 +9,14 @@ import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 const ContextMenuModal = React.createContext(true)
 
+/** `modal` shields the page; Radix stays non-modal (see DropdownMenu). */
 function ContextMenu({
   modal = true,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
   return (
     <ContextMenuModal.Provider value={modal}>
-      <ContextMenuPrimitive.Root data-slot="context-menu" modal={modal} {...props} />
+      <ContextMenuPrimitive.Root data-slot="context-menu" modal={false} {...props} />
     </ContextMenuModal.Provider>
   )
 }
