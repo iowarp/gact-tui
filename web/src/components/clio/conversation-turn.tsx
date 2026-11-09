@@ -22,7 +22,7 @@ import { subagentsForTool } from './subagent-tool-link';
 import { ClioToolInvocation } from './tool-invocation';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
-import { questionInteractionsForTool } from './agent-answer-domain';
+import { questionInteractionsForTool, splitWaitingQuestion } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
@@ -101,13 +101,15 @@ export function ConversationTurn({
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
   // Split at the owning tool (including mid-iteration) without changing wire order.
-  // Pending questions stay answerable in the log. Settled question records
-  // return to Activity, preserving their original tool position and answer.
+  // A pending question is said on its own tool's row ("waiting for you"), so it
+  // stays in place; settled question records keep their tool position and answer.
   const planReviews =
     interactions?.filter(
       (item) =>
         item.source.tool_name === 'plan_exit' ||
-        (isToolAnchoredQuestion(item) && item.status === 'pending'),
+        (isToolAnchoredQuestion(item) &&
+          item.status === 'pending' &&
+          !splitWaitingQuestion([item]).waiting),
     ) ?? [];
   const boundaries = new Map(
     iterations.flatMap((iteration) =>
@@ -470,35 +472,40 @@ function IterationDetail({
         */}
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
-            <Fragment key={`tool:${entry.id}`}>
-              <div
-                className={compact ? undefined : 'space-y-1'}
-                data-turn-activity={`tool:${entry.id}`}
-              >
-                <ClioToolInvocation
-                  compact={compact}
-                  flowResult={flowCards}
-                  attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
-                  attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
-                  sessionId={messageSessionId}
-                  tool={entry.tool}
-                />
-                {(TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
-                  ? []
-                  : subagentsForTool(entry.tool, subagents)
-                )
-                  .filter((subagent) => !explicitSubagentIds.has(subagent.id))
-                  .map((subagent) => (
-                    <ClioSubagentLifecycleLine
-                      key={subagent.id}
-                      onOpen={onOpenSubagent}
-                      subagent={subagent}
-                      stage="delegate.started"
+            (() => {
+              const { waiting, rest } = showQuestionInteractions
+                ? splitWaitingQuestion(questionInteractionsForTool(interactions, entry.id))
+                : { waiting: undefined, rest: [] };
+              return (
+                <Fragment key={`tool:${entry.id}`}>
+                  <div
+                    className={compact ? undefined : 'space-y-1'}
+                    data-turn-activity={`tool:${entry.id}`}
+                  >
+                    <ClioToolInvocation
+                      compact={compact}
+                      flowResult={flowCards}
+                      attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
+                      attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
+                      sessionId={messageSessionId}
+                      tool={entry.tool}
+                      waitingFor={waiting}
                     />
-                  ))}
-              </div>
-              {showQuestionInteractions
-                ? questionInteractionsForTool(interactions, entry.id).map((interaction) => (
+                    {(TOOL_OPERATIONS[entry.tool.name]?.family === 'assignment'
+                      ? []
+                      : subagentsForTool(entry.tool, subagents)
+                    )
+                      .filter((subagent) => !explicitSubagentIds.has(subagent.id))
+                      .map((subagent) => (
+                        <ClioSubagentLifecycleLine
+                          key={subagent.id}
+                          onOpen={onOpenSubagent}
+                          subagent={subagent}
+                          stage="delegate.started"
+                        />
+                      ))}
+                  </div>
+                  {rest.map((interaction) => (
                     <ConversationInteractionActivity
                       artifacts={artifacts}
                       interaction={interaction}
@@ -506,9 +513,10 @@ function IterationDetail({
                       onOpenArtifact={onOpenArtifact}
                       onResponse={onInteractionResponse}
                     />
-                  ))
-                : null}
-            </Fragment>
+                  ))}
+                </Fragment>
+              );
+            })()
           ) : entry.kind === 'injection' ? (
             <div
               data-call-id={entry.block.call_id}

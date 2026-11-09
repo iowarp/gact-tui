@@ -34,7 +34,7 @@ describe('explicit agent question modes', () => {
     const revealed = vi.fn();
     window.addEventListener(ATTENTION_REVEAL_EVENT, revealed);
     render(<AgentAnswerActivity interaction={question('async')} />);
-    expect(screen.getByText('Waiting for your response')).toBeVisible();
+    expect(screen.getByText('waiting for you')).toBeVisible();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Answer below: What does X mean?' }));
     expect(revealed).toHaveBeenCalledTimes(1);

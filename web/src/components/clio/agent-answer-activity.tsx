@@ -15,6 +15,8 @@ import {
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ActivityRow } from './activity-row';
+import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { revealPendingInteraction } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
@@ -43,6 +45,26 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
       <ArrowDownToLineIcon aria-hidden="true" className="size-3.5" />
       Answer below
     </Button>
+  );
+}
+
+/**
+ * The spec's waiting outcome: "waiting for you" on the asking row, which jumps
+ * to the answer card below. The word is the row's state, so it never wraps.
+ */
+export function WaitingForYou({ interaction }: { interaction: PendingInteraction }) {
+  const label = interaction.prompt ?? interaction.title;
+  return (
+    <button
+      aria-label={`Answer below: ${label}`}
+      className="rounded-[4px] text-warning outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+      data-slot="activity-waiting"
+      onClick={() => revealPendingInteraction(interaction.id)}
+      title="Answer below"
+      type="button"
+    >
+      waiting for you
+    </button>
   );
 }
 
@@ -253,24 +275,38 @@ function HumanQuestionActivity({
     );
   }
 
+  const activity = {
+    'data-human-question-state': interaction.status,
+    'data-interaction-id': interaction.id,
+    'data-invocation-id': interaction.source.invocation_id,
+    'data-task-id': interaction.task_id,
+    'data-turn-activity': `interaction:${interaction.id}`,
+  };
+  if (interaction.status === 'pending') {
+    // The spec's waiting row: one 28px line whose outcome jumps to the card below.
+    const prompt = interaction.prompt ?? interaction.title;
+    return (
+      <ActivityRow
+        {...activity}
+        argument={prompt}
+        argumentStyle="text"
+        argumentTitle={prompt}
+        icon={<MessageCircleQuestionIcon aria-hidden="true" />}
+        name={isMcp ? requestLabel : 'Question'}
+        outcome={<WaitingForYou interaction={interaction} />}
+        outcomeTone="warning"
+        status={
+          <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+        }
+      />
+    );
+  }
+
   return (
-    <div
-      className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
-      data-human-question-state={interaction.status}
-      data-interaction-id={interaction.id}
-      data-invocation-id={interaction.source.invocation_id}
-      data-task-id={interaction.task_id}
-      data-turn-activity={`interaction:${interaction.id}`}
-    >
-      {interaction.status === 'pending' ? (
-        <ActivityStep icon={RouteIcon} title="Waiting for your response">
-          <AnswerBelowLink interaction={interaction} />
-        </ActivityStep>
-      ) : (
-        <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
-          {interaction.prompt}
-        </ActivityStep>
-      )}
+    <div className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs" {...activity}>
+      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
+        {interaction.prompt}
+      </ActivityStep>
       {answered ? (
         <>
           <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You responded'}>
