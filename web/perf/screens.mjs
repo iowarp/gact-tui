@@ -330,6 +330,28 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'tab', 'Workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
+    s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+    }),
+    s('keyboard', 'shortcut-sheet-mac', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await press(page, 'radio', 'Mac', { exact: true });
+      await page.getByRole('textbox', { name: 'Find a shortcut' }).focus();
+    }),
+    s('keyboard', 'shortcut-sheet-find', SESSION, async (page) => {
+      await page.keyboard.press('Control+/');
+      await overlay(page);
+      await page.keyboard.type('conversation');
+      await page.waitForTimeout(300);
+    }),
+    s('keyboard', 'command-palette-settings', SESSION, async (page) => {
+      await page.keyboard.press('Control+k');
+      await overlay(page);
+      await page.keyboard.type('settings');
+      await page.waitForTimeout(500);
+    }),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
