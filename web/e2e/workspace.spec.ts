@@ -472,8 +472,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
     .locator('[data-interaction-kind="question"]')
     .filter({ hasText: 'Which fallback should the review use?' });
   await expect(fallback).toContainText('The specialist could not answer this, so it needs you.');
-  await fallback.getByText('Technical details').click();
-  await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
+  // A decision card opens its technical details in a dialog so its facts stay in view.
+  await fallback.getByRole('button', { name: 'Technical details' }).click();
+  const fallbackDetails = page.getByRole('dialog', { name: /Technical details/ });
+  await expect(fallbackDetails.getByText('agent_answer_timeout')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(fallbackDetails).toHaveCount(0);
 
   await settleConversationAtLatest(page);
   const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
@@ -1214,7 +1218,9 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Short as well as narrow. The queue has its own 136 px bound and the
   // pending-response stack has a responsive viewport bound, so both must keep
   // wheel and keyboard scrolling local when they compete for composer space.
-  await page.setViewportSize({ height: 600, width: 848 });
+  // A card gives up body height before its options, so the stack itself only
+  // overflows once the header, options and details line exceed 45dvh.
+  await page.setViewportSize({ height: 400, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
@@ -1227,10 +1233,6 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   await expect(queue).toHaveCount(1);
   const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
-  // One compact page replaces the stack. Expand its real technical details to
-  // exercise overflow; the normal short permission correctly needs no scrolling.
-  await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
-
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();
     expect(

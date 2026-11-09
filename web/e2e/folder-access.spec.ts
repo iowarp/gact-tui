@@ -48,7 +48,10 @@ for (const width of [1280, 390]) {
         exact: true,
       }),
     ).toBeInViewport();
-    await expect(page.getByText('Research PC')).toBeInViewport();
+    // Runs on has a wide and a narrow layout; the container query shows one of them.
+    await expect(
+      page.getByText('Research PC', { exact: true }).filter({ visible: true }),
+    ).toBeInViewport();
     await expect(page.getByText('C:\\Users\\Alice\\Downloads', { exact: true })).toBeVisible();
     await expect(page.getByText(/including after restart/)).toBeVisible();
     const allow = page.getByRole('button', { name: 'Allow for this workspace' });
