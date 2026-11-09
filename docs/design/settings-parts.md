@@ -128,6 +128,14 @@ Takes the same props as `SettingsNavigation`. It is one named icon per scope
 muted track without a border, 24 px items at 12 px, and the selected item raised. Use it
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
 
+**`StepList`** `components/clio/primitives/step-list.tsx`
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+The steps of a long operation in 28 px rows: a check, a spinner, an open circle or an alert, the
+state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
+default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+Used by the update page and the local startup (`LocalStartupSteps`).
+
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and
 `docs/design/visual-language/components.md`.
 

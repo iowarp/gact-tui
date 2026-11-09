@@ -13,7 +13,7 @@ export interface StepListStep {
   meta?: string;
   /** 0 to 1: a bar under the step (a download). */
   progress?: number;
-  /** The latest output line, under the step. */
+  /** The latest output line, under the step, or after the list with `logPlacement="end"`. */
   log?: string;
 }
 
@@ -32,13 +32,17 @@ const STATE_WORDS: Record<StepState, string> = {
 export const StepList = memo(function StepList({
   steps,
   label,
+  logPlacement = 'step',
   className,
 }: {
   steps: readonly StepListStep[];
   label: string;
+  /** `end` puts the current output line after the whole list (the local startup). */
+  logPlacement?: 'step' | 'end';
   className?: string;
 }) {
-  return (
+  const endLog = logPlacement === 'end' ? steps.findLast((step) => step.log)?.log : undefined;
+  const list = (
     <ol aria-label={label} data-slot="step-list" className={cn('flex w-full flex-col', className)}>
       {steps.map((step) => (
         <li
@@ -85,16 +89,24 @@ export const StepList = memo(function StepList({
               />
             </div>
           ) : null}
-          {step.log ? (
-            <p
-              title={step.log}
-              className="mt-1.5 ml-6 truncate font-mono text-[11.5px] text-muted-foreground"
-            >
-              {step.log}
-            </p>
-          ) : null}
+          {step.log && logPlacement === 'step' ? <StepLog line={step.log} /> : null}
         </li>
       ))}
     </ol>
   );
+  if (!endLog) return list;
+  return (
+    <div className="flex w-full min-w-0 flex-col">
+      {list}
+      <StepLog line={endLog} />
+    </div>
+  );
 });
+
+function StepLog({ line }: { line: string }) {
+  return (
+    <p title={line} className="mt-1.5 ml-6 truncate font-mono text-[11.5px] text-muted-foreground">
+      {line}
+    </p>
+  );
+}
