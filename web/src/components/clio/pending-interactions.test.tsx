@@ -224,7 +224,7 @@ describe('ClioPendingInteractions', () => {
     ).toBeNull();
   });
 
-  it('submits multiple choices and preserves comments for selected options', async () => {
+  it('submits multiple choices together once they are checked', async () => {
     const user = userEvent.setup();
     const interaction = pending('question', {
       prompt: 'Choose outputs',
@@ -240,21 +240,22 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: 'Table' }));
-    expect(screen.queryByLabelText('Comment on Table')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Add comment on Table' }));
-    await user.type(screen.getByLabelText('Comment on Table'), 'Keep sortable columns');
     await user.click(screen.getByRole('checkbox', { name: 'Plot' }));
-    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Plot' }));
+    expect(screen.getByRole('checkbox', { name: 'Plot' })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Plot' }));
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['table', 'plot'],
-      metadata: { option_comments: { table: 'Keep sortable columns' } },
     });
   });
 
-  it('keeps the accepted collapsible approval surface and emits the exact normalized action', async () => {
+  it('keeps the approval card always shown and emits the exact normalized action', async () => {
     const user = userEvent.setup();
     const interaction = pending('permission', {
       id: 'permission:perm_1',
@@ -268,24 +269,19 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
-    const region = screen.getByRole('region', { name: 'Agent needs your attention' });
-    const trigger = screen.getByRole('button', { name: 'Agent needs your attention' });
-    expect(region).toBeVisible();
-    const title = screen.getByText('Run the analysis command');
+    expect(screen.getByRole('region', { name: 'Agent needs your attention' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Agent needs your attention' }),
+    ).not.toBeInTheDocument();
+    const title = screen.getByRole('heading', { name: 'Run the analysis command' });
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
-    expect(title).toHaveClass('line-clamp-3');
-    expect(title).not.toHaveClass('truncate');
     expect(title).toHaveAttribute('title', 'Run the analysis command');
     expect(screen.getByText('Evidence specialist')).toBeVisible();
     expect(screen.queryByText('Approval')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
-    await user.click(trigger);
-    expect(screen.getByText('Run the analysis command')).not.toBeVisible();
-    await user.click(trigger);
-    expect(screen.getByText('Run the analysis command')).toBeVisible();
-    await user.click(screen.getByRole('combobox', { name: 'Permission duration' }));
-    await user.click(screen.getByRole('option', { name: 'This session' }));
-    await user.click(screen.getByRole('button', { name: 'Allow for session' }));
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    for (const name of ['Allow once', 'Allow for this session', 'Allow for this workspace', 'Deny'])
+      expect(screen.getByRole('button', { name })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Allow for this session' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow_session' });
   });
 
@@ -370,7 +366,7 @@ describe('ClioPendingInteractions', () => {
     expect(screen.queryByText('Session not listed yet')).not.toBeInTheDocument();
   });
 
-  it('preserves per-option comments in the exact normalized question response', async () => {
+  it('answers a single choice at once with its exact normalized response', async () => {
     const user = userEvent.setup();
     const interaction = pending('question', {
       id: 'question:q1',
@@ -379,7 +375,7 @@ describe('ClioPendingInteractions', () => {
         question_id: 'q1',
         question_kind: 'choice',
         options: [
-          { label: 'Station table', value: 'table' },
+          { label: 'Station table', value: 'table', description: 'Sortable rows' },
           { label: 'Displacement plot', value: 'plot' },
         ],
       },
@@ -387,35 +383,25 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
-    const title = screen
-      .getByText('Which evidence view should remain primary?')
-      .closest('[data-slot="pending-interaction-title"]');
+    const title = screen.getByRole('heading', {
+      name: 'Which evidence view should remain primary?',
+    });
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
-    expect(title).toHaveClass('max-h-28');
-    expect(title).not.toHaveClass('truncate');
-    expect(title).not.toHaveAttribute('title');
+    expect(title).toHaveClass('truncate');
+    expect(title).toHaveAttribute('title', 'Which evidence view should remain primary?');
+    const first = screen.getByRole('button', { name: /^Station table/ });
+    expect(first).toHaveTextContent('Sortable rows');
+    expect(first).toHaveAttribute('data-highlighted', 'true');
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Station table' }));
-    await user.click(screen.getByRole('button', { name: 'Add comment on Station table' }));
-    await user.type(
-      screen.getByRole('textbox', { name: 'Comment on Station table' }),
-      'Keep the sortable columns visible.',
-    );
-    await user.click(screen.getByRole('radio', { name: 'Displacement plot' }));
-    await user.click(screen.getByRole('radio', { name: 'Station table' }));
-    expect(screen.getByRole('textbox', { name: 'Comment on Station table' })).toHaveValue(
-      'Keep the sortable columns visible.',
-    );
-    await user.click(screen.getByRole('button', { name: 'Send response' }));
-
+    await user.click(first);
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
-      answer: 'Keep the sortable columns visible.',
       selected_options: ['table'],
     });
   });
 
-  it('lets the plus control choose an option and submit its clarification', async () => {
+  it('answers a choice by its number key while focus is in the card', async () => {
     const user = userEvent.setup();
     const interaction = pending('question', {
       prompt: 'Choose a comparison.',
@@ -426,62 +412,20 @@ describe('ClioPendingInteractions', () => {
           { label: 'Treatment groups', value: 'treatment' },
           { label: 'Changes over time', value: 'time' },
         ],
-        allow_freeform: true,
       },
     });
     const onResponse = renderPending([interaction]);
 
-    expect(screen.getByRole('button', { name: 'Add comment on Treatment groups' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Add comment on Changes over time' }));
-    expect(screen.getByRole('radio', { name: 'Changes over time' })).toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Something else' })).not.toBeChecked();
-    await user.type(
-      screen.getByRole('textbox', { name: 'Comment on Changes over time' }),
-      'Use the last week only.',
-    );
-    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    screen
+      .getByRole('button', { name: 'Treatment groups' })
+      .closest<HTMLElement>('[data-slot="ask-card"]')!
+      .focus();
+    await user.keyboard('2');
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['time'],
-      answer: 'Use the last week only.',
     });
   });
-
-  it('opens comments by keyboard and preserves a hidden draft until submission', async () => {
-    const user = userEvent.setup();
-    const interaction = pending('question', {
-      prompt: 'Choose an output.',
-      actions: ['answer'],
-      payload: {
-        question_kind: 'choice',
-        options: [{ label: 'Table', value: 'table' }],
-      },
-    });
-    const onResponse = renderPending([interaction]);
-
-    await user.click(screen.getByRole('radio', { name: 'Table' }));
-    await user.tab();
-    expect(screen.getByRole('button', { name: 'Add comment on Table' })).toHaveFocus();
-    await user.keyboard('{Enter}');
-    await user.tab();
-    expect(screen.getByRole('textbox', { name: 'Comment on Table' })).toHaveFocus();
-    await user.keyboard('Include missing measurements.');
-    await user.click(screen.getByRole('button', { name: 'Hide comment on Table' }));
-    expect(screen.queryByRole('textbox', { name: 'Comment on Table' })).not.toBeInTheDocument();
-    expect(onResponse).not.toHaveBeenCalled();
-
-    await user.keyboard('{Enter}');
-    expect(screen.getByRole('textbox', { name: 'Comment on Table' })).toHaveValue(
-      'Include missing measurements.',
-    );
-    await user.click(screen.getByRole('button', { name: 'Send response' }));
-    expect(onResponse).toHaveBeenCalledWith(interaction, {
-      action: 'answer',
-      selected_options: ['table'],
-      answer: 'Include missing measurements.',
-    });
-  });
-
   it('reports an unavailable owner honestly instead of inventing a specialist', () => {
     const interaction = pending('question', {
       id: 'question:unlisted-owner',
@@ -513,7 +457,7 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
-    await user.click(screen.getByRole('radio', { name: 'Something else' }));
+    expect(screen.getByRole('button', { name: 'Published studies' })).toBeEnabled();
     await user.type(screen.getByRole('textbox', { name: 'Your response' }), 'Include field notes.');
     await user.click(screen.getByRole('button', { name: 'Send response' }));
 
@@ -541,7 +485,7 @@ describe('ClioPendingInteractions', () => {
     ]);
 
     expect(screen.queryByText('Expired question')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Cancel question' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss question' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'cancel' });
   });
 
@@ -662,9 +606,10 @@ describe('ClioPendingInteractions', () => {
     const responses = screen.getByRole('region', { name: 'Agent needs your attention' });
     const viewport = screen.getByRole('region', { name: '2 pending responses' });
     expect(responses).toHaveClass('min-h-0', 'shrink');
-    // One quiet surface frames the selected request without a nested approval box.
-    expect(responses).toHaveClass('bg-composer', 'dark:bg-composer', 'overflow-hidden');
-    expect(viewport).toHaveAttribute('tabindex', '0');
+    // The card docks above the composer at the composer's width, with no outer frame.
+    expect(responses).toHaveClass('mx-auto', 'max-w-4xl');
+    expect(responses).not.toHaveClass('border', 'bg-composer');
+    expect(viewport).toHaveAttribute('tabindex', '-1');
     expect(viewport).toHaveClass('pending-interactions-viewport', 'overscroll-contain');
 
     // The panel caps its height rather than always claiming it (a single
