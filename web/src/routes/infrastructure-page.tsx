@@ -33,6 +33,18 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent-hosts';
+
+/**
+ * Narrow (under 600px), a section with more than one tab action (the host and the
+ * section's main verb, a search and its filter) gives them their own row under the
+ * tabs, so they stay reachable instead of running off the edge. A lone action
+ * (refresh) stays beside the tabs.
+ */
+const TAB_ROW =
+  'sticky top-0 z-10 grid h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 border-b border-border bg-background/95 px-2 whitespace-nowrap backdrop-blur sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
+const TAB_ACTIONS =
+  'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
+
 export function InfrastructurePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -194,11 +206,11 @@ export function InfrastructurePage() {
   const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
   return (
     <main
-      className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background"
+      className="clio-scrollbar @container/infra-page h-full min-h-0 overflow-y-auto bg-background"
       ref={mainRef}
       tabIndex={-1}
     >
-      <div className="sticky top-0 z-10 flex h-11 min-w-0 items-center gap-2 border-b border-border bg-background/95 px-2 whitespace-nowrap backdrop-blur sm:px-3">
+      <div className={TAB_ROW}>
         <NamedTooltip label={`Back to ${vocab.workspace}`}>
           <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
             <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
@@ -208,11 +220,7 @@ export function InfrastructurePage() {
         </NamedTooltip>
         <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
         <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
-        <span
-          className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5"
-          data-slot="infrastructure-tab-actions"
-          ref={setTabActions}
-        />
+        <span className={TAB_ACTIONS} data-slot="infrastructure-tab-actions" ref={setTabActions} />
       </div>
       <InfraTabActionsProvider value={tabActions}>
         <div className="mx-auto max-w-5xl px-2 sm:px-3">
