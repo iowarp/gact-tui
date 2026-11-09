@@ -13,6 +13,7 @@ import {
   ChevronRightIcon,
   CopyIcon,
   PanelRightIcon,
+  WrapTextIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -141,8 +142,15 @@ export function AskCard({
       )}
       {...props}
     >
-      {/* With Technical details open the dock scrolls the card; the title and pager stay. */}
-      <header className="sticky top-0 z-[1] -mt-[9px] flex min-h-[35px] min-w-0 shrink-0 items-center gap-[9px] bg-card pt-[9px]">
+      {/* With Technical details open the dock scrolls the card; the title and pager stay. The
+          header repeats the card's top edge (border, radius, kind edge) so it stays with them, and
+          shows a hairline once content scrolls under it. */}
+      <header
+        className={cn(
+          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -mb-px -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-l-[3px] border-border border-b-transparent bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:border-b-border',
+          EDGE[kind],
+        )}
+      >
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
@@ -487,7 +495,7 @@ function AskCopyButton({ code, label }: { code: string; label: string }) {
   return (
     <TooltipProvider>
       <IconButton
-        className="ml-auto text-muted-foreground"
+        className="text-muted-foreground"
         icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
         label={copied ? 'Copied' : label}
         onClick={() => {
@@ -515,6 +523,8 @@ export function AskCode({
   onOpen,
   openLabel = 'Open in tab',
   copyLabel,
+  icon: NameIcon,
+  wrapToggle,
   language,
   previewLines = PREVIEW_LINES,
   className,
@@ -530,12 +540,17 @@ export function AskCode({
   openLabel?: string;
   /** Adds a copy button to the header, named by this label. */
   copyLabel?: string;
+  /** A file-type glyph before the name. */
+  icon?: LucideIcon;
+  /** Adds a header toggle for wrapping long lines (on by default). */
+  wrapToggle?: boolean;
   language?: 'json';
   previewLines?: number;
   className?: string;
 }) {
   const lines = code.replace(/\n$/u, '').split('\n');
   const [expanded, setExpanded] = useState(false);
+  const [wrap, setWrap] = useState(true);
   const clipped = !expanded && lines.length > previewLines;
   const shown = clipped ? lines.slice(0, previewLines) : lines;
   const hidden = lines.length - shown.length;
@@ -551,8 +566,22 @@ export function AskCode({
     >
       {name ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+          {NameIcon ? <NameIcon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
           <span className="truncate text-[12px] font-medium text-foreground/90">{name}</span>
           {meta ? <span className="truncate">{meta}</span> : null}
+          <span className="flex-1" />
+          {wrapToggle ? (
+            <TooltipProvider>
+              <IconButton
+                className="text-muted-foreground"
+                icon={<WrapTextIcon aria-hidden="true" />}
+                label={wrap ? 'Stop wrapping long lines' : 'Wrap long lines'}
+                onClick={() => setWrap((value) => !value)}
+                size="sm"
+                variant="ghost"
+              />
+            </TooltipProvider>
+          ) : null}
           {copyLabel ? <AskCopyButton code={code} label={copyLabel} /> : null}
         </div>
       ) : null}
@@ -560,8 +589,9 @@ export function AskCode({
         className={cn(
           'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
-            ? 'max-h-[140px] overflow-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
-            : 'max-h-[min(24rem,40dvh)] overflow-auto',
+            ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
+            : 'max-h-[min(24rem,40dvh)] overflow-y-auto',
+          wrap ? 'overflow-x-hidden' : 'overflow-x-auto',
         )}
         tabIndex={clipped ? undefined : 0}
       >
@@ -570,7 +600,7 @@ export function AskCode({
             <span aria-hidden="true" className="pr-3 text-right text-faint select-none">
               {index + 1}
             </span>
-            <code className="break-all whitespace-pre-wrap">
+            <code className={wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}>
               {line ? (language === 'json' ? jsonLine(line) : line) : ' '}
             </code>
           </span>
