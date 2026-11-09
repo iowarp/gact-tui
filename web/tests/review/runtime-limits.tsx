@@ -7,6 +7,7 @@ import { AppearanceProvider } from '../../src/providers/appearance-provider';
 import { RepositoryOverride } from '../../src/providers/repository-override-context';
 import { RuntimeSettingsPanel } from '../../src/components/clio/settings-runtime';
 import { createRepository } from '../../src/lib/connection';
+import { TooltipProvider } from '../../src/components/ui/tooltip';
 
 const repository = createRepository({ endpoint: location.origin });
 
@@ -27,7 +28,9 @@ createRoot(document.getElementById('root')!).render(
       <RepositoryOverride.Provider value={repository}>
         <ForcedTheme theme="light">
           <AppearanceProvider>
-            <Review />
+            <TooltipProvider>
+              <Review />
+            </TooltipProvider>
           </AppearanceProvider>
         </ForcedTheme>
       </RepositoryOverride.Provider>
