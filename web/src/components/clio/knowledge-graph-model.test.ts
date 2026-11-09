@@ -44,7 +44,17 @@ describe('knowledgeNeighborhood', () => {
       '',
     );
     expect(graph.focus).toBe('hub.md');
-    expect(graph.cards.filter((card) => card.side === 'out')).toHaveLength(KNOWLEDGE_SIDE_LIMIT);
-    expect(graph.more).toEqual([expect.objectContaining({ side: 'out', count: 3 })]);
+    expect(graph.cards.filter((card) => card.side === 'out')).toHaveLength(
+      KNOWLEDGE_SIDE_LIMIT - 1,
+    );
+    expect(graph.more).toEqual([expect.objectContaining({ side: 'out', count: 4 })]);
+    const short = knowledgeNeighborhood(
+      { notes: ['hub.md', ...many].map(note), links: many.map((path) => link('hub.md', path)) },
+      'hub.md',
+      3,
+    );
+    expect(short.cards.filter((card) => card.side === 'out')).toHaveLength(2);
+    expect(short.more).toEqual([expect.objectContaining({ side: 'out', count: 6 })]);
+    expect(short.more[0]!.x).toBe(short.cards.find((card) => card.side === 'out')!.x);
   });
 });

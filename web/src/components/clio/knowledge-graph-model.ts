@@ -3,10 +3,13 @@ import { knowledgeDegrees } from './knowledge-vault-stats';
 
 /** A note card, in graph units: it zooms with the canvas. */
 export const KNOWLEDGE_NODE = { width: 120, height: 40 } as const;
-/** At most this many notes per side; the rest are counted. */
+/** At most this many rows per side, the counted rest included. */
 export const KNOWLEDGE_SIDE_LIMIT = 5;
-const COLUMN = KNOWLEDGE_NODE.width + 56;
-const ROW = KNOWLEDGE_NODE.height + 20;
+export const KNOWLEDGE_COLUMN = KNOWLEDGE_NODE.width + 56;
+/** Row pitch: a card plus the spec's 60px gap. */
+export const KNOWLEDGE_ROW = KNOWLEDGE_NODE.height + 60;
+const COLUMN = KNOWLEDGE_COLUMN;
+const ROW = KNOWLEDGE_ROW;
 
 export type KnowledgeGraphSide = 'in' | 'focus' | 'out';
 
@@ -47,6 +50,7 @@ export interface KnowledgeNeighborhood {
 export function knowledgeNeighborhood(
   snapshot: Pick<KnowledgeSnapshot, 'notes' | 'links'>,
   selected: string,
+  rows = KNOWLEDGE_SIDE_LIMIT,
 ): KnowledgeNeighborhood {
   const notes = new Map(snapshot.notes.map((note) => [note.path, note]));
   const { degrees } = knowledgeDegrees(snapshot);
@@ -70,11 +74,12 @@ export function knowledgeNeighborhood(
   const edges: KnowledgeGraphEdge[] = [];
   const column = (paths: ReadonlySet<string>, side: 'in' | 'out') => {
     const sorted = [...paths].sort(weight);
-    const shown = sorted.slice(0, KNOWLEDGE_SIDE_LIMIT);
+    const fits = Math.max(1, rows);
+    const shown = sorted.slice(0, sorted.length > fits ? Math.max(1, fits - 1) : fits);
     const hidden = sorted.length - shown.length;
-    const rows = shown.length + (hidden ? 1 : 0);
+    const count = shown.length + (hidden ? 1 : 0);
     const x = side === 'in' ? 0 : COLUMN * 2;
-    const y = (index: number) => (index - (rows - 1) / 2) * ROW - KNOWLEDGE_NODE.height / 2;
+    const y = (index: number) => (index - (count - 1) / 2) * ROW - KNOWLEDGE_NODE.height / 2;
     shown.forEach((path, index) => {
       cards.push({ id: path, title: title(path), links: linksOf(path), side, x, y: y(index) });
       edges.push(

@@ -14,13 +14,14 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FileTextIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { cn } from '@/lib/utils';
 import {
+  KNOWLEDGE_COLUMN,
   KNOWLEDGE_NODE,
+  KNOWLEDGE_ROW,
   knowledgeNeighborhood,
   type KnowledgeGraphCard,
-  type KnowledgeNeighborhood,
 } from './knowledge-graph-model';
 import { knowledgeLinkCount } from './knowledge-vault-stats';
 import { StateView } from './primitives/state-view';
@@ -31,6 +32,7 @@ interface NoteNodeData extends Record<string, unknown> {
 }
 interface MoreNodeData extends Record<string, unknown> {
   count: number;
+  side: 'in' | 'out';
 }
 type NoteNode = Node<NoteNodeData, 'note'>;
 type MoreNode = Node<MoreNodeData, 'more'>;
@@ -38,9 +40,10 @@ type GraphNode = NoteNode | MoreNode;
 
 const nodeTypes = { note: NoteCard, more: MoreCard };
 const { width, height } = KNOWLEDGE_NODE;
-const FIT = { padding: 0.06, maxZoom: 1 };
-/** Below this a card's name is unreadable: center the focused note instead of fitting all. */
-const READABLE_ZOOM = 0.75;
+/** Space kept clear above and below the columns. */
+const MARGIN = 24;
+/** A tall pane still shows a bounded column; the rest are counted. */
+const MAX_ROWS = 10;
 const EDGE = {
   markerEnd: {
     type: MarkerType.ArrowClosed,
@@ -66,7 +69,17 @@ export function KnowledgeGraph({
   onSelect: (path: string) => void;
 }) {
   const container = useRef<HTMLElement>(null);
-  const graph = useMemo(() => knowledgeNeighborhood(snapshot, selected), [snapshot, selected]);
+  const size = usePaneSize(container);
+  const rows = size
+    ? Math.min(
+        MAX_ROWS,
+        Math.floor((size.h - 2 * MARGIN + (KNOWLEDGE_ROW - height)) / KNOWLEDGE_ROW),
+      )
+    : 0;
+  const graph = useMemo(
+    () => knowledgeNeighborhood(snapshot, selected, rows),
+    [snapshot, selected, rows],
+  );
   const nodes = useMemo<GraphNode[]>(
     () => [
       ...graph.cards.map(
@@ -84,15 +97,23 @@ export function KnowledgeGraph({
           type: 'more',
           position: { x: more.x, y: more.y },
           style: { width, height },
-          data: { count: more.count },
+          data: { count: more.count, side: more.side },
         }),
       ),
     ],
     [graph, onSelect],
   );
   const edges = useMemo<Edge[]>(
-    () => graph.edges.map((edge) => ({ ...edge, ...EDGE })),
-    [graph.edges],
+    () => [
+      ...graph.edges.map((edge) => ({ ...edge, ...EDGE })),
+      ...graph.more.map((more) => ({
+        id: `more:${more.side}`,
+        source: more.side === 'in' ? `more:${more.side}` : (graph.focus ?? ''),
+        target: more.side === 'in' ? (graph.focus ?? '') : `more:${more.side}`,
+        style: { ...EDGE.style, strokeDasharray: '3 3' },
+      })),
+    ],
+    [graph],
   );
   const focused = graph.cards.find((card) => card.side === 'focus');
   return (
@@ -101,9 +122,10 @@ export function KnowledgeGraph({
       className="h-full min-h-0 min-w-0 overflow-hidden bg-background"
       ref={container}
     >
-      {focused ? (
+      {!size ? null : focused ? (
         <ReactFlow<GraphNode, Edge>
           key={graph.focus}
+          defaultViewport={centered(size)}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -114,7 +136,7 @@ export function KnowledgeGraph({
           zoomOnDoubleClick={false}
           proOptions={{ hideAttribution: true }}
         >
-          <FitOnResize container={container} graph={graph} />
+          <CenterOnResize size={size} />
           <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
           <Controls
             aria-label="Note graph controls"
@@ -130,55 +152,39 @@ export function KnowledgeGraph({
   );
 }
 
-/**
- * Fit the neighborhood on focus and on pane resize, never below a readable size:
- * a pane too narrow for both sides starts at the focused note, the rest a pan away.
- */
-function FitOnResize({
-  container,
-  graph,
-}: {
-  container: RefObject<HTMLElement | null>;
-  graph: KnowledgeNeighborhood;
-}) {
-  const { fitView, setViewport } = useReactFlow();
+/** The focused note centred at 100%: cards keep their size and the rest is a pan away. */
+function centered({ w, h }: { w: number; h: number }) {
+  return { x: w / 2 - (KNOWLEDGE_COLUMN + width / 2), y: h / 2, zoom: 1 };
+}
+
+function usePaneSize(container: RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState<{ w: number; h: number }>();
   useEffect(() => {
     const element = container.current;
-    const placed = [...graph.cards, ...graph.more];
-    const focus = graph.cards.find((card) => card.side === 'focus');
-    if (!element || !focus) return;
-    const left = Math.min(...placed.map((node) => node.x));
-    const right = Math.max(...placed.map((node) => node.x)) + width;
-    const top = Math.min(...placed.map((node) => node.y));
-    const bottom = Math.max(...placed.map((node) => node.y)) + height;
+    if (!element) return;
     let frame = 0;
-    const fit = () => {
-      const w = element.clientWidth;
-      const h = element.clientHeight;
-      if (!w || !h) return;
-      const pad = 1 + FIT.padding * 2;
-      const whole = Math.min(w / ((right - left) * pad), h / ((bottom - top) * pad), FIT.maxZoom);
-      if (whole >= READABLE_ZOOM) {
-        void fitView(FIT);
-        return;
-      }
-      const zoom = READABLE_ZOOM;
-      void setViewport({
-        x: w / 2 - (focus.x + width / 2) * zoom,
-        y: h / 2 - ((top + bottom) / 2) * zoom,
-        zoom,
-      });
-    };
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(fit);
+      frame = requestAnimationFrame(() => {
+        const w = element.clientWidth;
+        const h = element.clientHeight;
+        if (w && h) setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+      });
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [container, fitView, graph, setViewport]);
+  }, [container]);
+  return size;
+}
+
+function CenterOnResize({ size }: { size: { w: number; h: number } }) {
+  const { setViewport } = useReactFlow();
+  useEffect(() => {
+    void setViewport(centered(size));
+  }, [setViewport, size]);
   return null;
 }
 
@@ -217,11 +223,16 @@ function NoteCard({ data }: NodeProps<NoteNode>) {
 
 function MoreCard({ data }: NodeProps<MoreNode>) {
   return (
-    <div
-      className="flex items-center px-2.5 text-[11px] text-muted-foreground tabular-nums"
-      style={{ width, height }}
-    >
-      {data.count.toLocaleString()} more {data.count === 1 ? 'note' : 'notes'}
+    <div className="relative" style={{ width, height }}>
+      {data.side === 'out' ? (
+        <Handle className={HANDLE} position={Position.Left} type="target" />
+      ) : null}
+      <div className="flex h-full items-center rounded-md border border-dashed px-2.5 text-[11px] text-muted-foreground tabular-nums">
+        {data.count.toLocaleString()} more {data.count === 1 ? 'note' : 'notes'}
+      </div>
+      {data.side === 'in' ? (
+        <Handle className={HANDLE} position={Position.Right} type="source" />
+      ) : null}
     </div>
   );
 }
