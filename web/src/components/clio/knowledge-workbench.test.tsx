@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,17 +35,19 @@ describe('knowledge canvas tabs', () => {
     );
     const handle = createRef<ClioWorkbenchHandle>();
     render(
-      <ClioWorkbench
-        ref={handle}
-        artifacts={[]}
-        diffs={[]}
-        files={[]}
-        onOpenSubagent={vi.fn()}
-        onUndoDiff={vi.fn()}
-        sessionId=""
-        sessionView={<p>Session</p>}
-        workspaceId="workspace_1"
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <ClioWorkbench
+          ref={handle}
+          artifacts={[]}
+          diffs={[]}
+          files={[]}
+          onOpenSubagent={vi.fn()}
+          onUndoDiff={vi.fn()}
+          sessionId=""
+          sessionView={<p>Session</p>}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
     );
     expect(screen.getByRole('tab', { name: 'Field study' })).toBeVisible();
     await act(async () =>

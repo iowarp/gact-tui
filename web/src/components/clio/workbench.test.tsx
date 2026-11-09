@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import type { SessionDiff } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import userEvent from '@testing-library/user-event';
 import { createRef, type PropsWithChildren, type ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +35,9 @@ const { repository, useAppearancePreferences } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
-repository.readWorkspaceFileRange.mockImplementation(rangeReadsFromText(repository.readWorkspaceFile));
+repository.readWorkspaceFileRange.mockImplementation(
+  rangeReadsFromText(repository.readWorkspaceFile),
+);
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
@@ -97,6 +100,17 @@ function strip() {
   return within(screen.getByRole('toolbar', { name: 'Workbench lists' }));
 }
 
+const REPORT = {
+  id: 'report_1',
+  session_id: 'session_parent',
+  workspace_id: 'workspace_1',
+  name: 'report.md',
+  media_type: 'text/markdown',
+  size: 8,
+  uri: 'artifact://workspace_1/report.md@v1',
+  session_relation: 'produced' as const,
+};
+
 function BrokenCanvasItem(): never {
   throw new Error('broken source preview');
 }
@@ -122,8 +136,15 @@ describe('ClioWorkbench canvas', () => {
     expect(strip().getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
     expect(screen.getByText('No tabs open')).toBeVisible();
+    // Work folds into Activity: asking for it shows the Activity list, not a session tab.
     await act(async () => handle.current?.open({ kind: 'resources', section: 'work' }));
-    expect(screen.getByRole('tab', { name: 'Work' })).toHaveAttribute('aria-selected', 'true');
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const list = screen.getByRole('region', { name: 'Activity list' });
+    expect(within(list).getByText('Activity starts with the first message')).toBeVisible();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -141,7 +162,7 @@ describe('ClioWorkbench canvas', () => {
       />,
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not open Activity');
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not open Timeline');
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
     await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
     expect(screen.getByText('No tabs open')).toBeVisible();
@@ -165,7 +186,7 @@ describe('ClioWorkbench canvas', () => {
       </WorkspaceCanvasVisibilityProvider>,
     );
 
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByText('Session intelligence')).not.toBeInTheDocument();
 
     rerender(
@@ -191,7 +212,7 @@ describe('ClioWorkbench canvas', () => {
     renderWorkbench();
 
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
     expect(screen.getByRole('tablist').parentElement).toHaveClass('no-scrollbar');
     expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
@@ -204,7 +225,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('region', { name: 'Artifacts list' })).toBeVisible();
     expect(screen.getByText('No artifacts in this conversation')).toBeVisible();
     // The tab stays where it was: a list is not a tab.
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
 
     // Pressing the lit item again hides the list.
     await user.click(artifacts);
@@ -259,11 +280,11 @@ describe('ClioWorkbench canvas', () => {
         workspaceId="workspace_1"
       />,
     );
-    const openWork = () => act(() => handle.current?.open({ kind: 'resources', section: 'work' }));
+    const openWork = () => act(() => handle.current?.open({ kind: 'artifact', artifact: REPORT }));
 
     openWork();
-    const activityTab = screen.getByRole('tab', { name: 'Activity' });
-    const workTab = screen.getByRole('tab', { name: 'Work' });
+    const activityTab = screen.getByRole('tab', { name: 'Timeline' });
+    const workTab = screen.getByRole('tab', { name: 'report.md' });
     const closeControls = container.querySelectorAll('[data-slot="frame-tab-close"]');
 
     // A tablist may own nothing but tabs, and a tab's own children are presentational, so an
@@ -278,10 +299,10 @@ describe('ClioWorkbench canvas', () => {
       expect(control).not.toHaveClass('pointer-events-none');
     }
     expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
-    expect(activityTab).toHaveAccessibleName('Activity');
+    expect(activityTab).toHaveAccessibleName('Timeline');
     expect(activityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
-    expect(closeControls[0]).toHaveAttribute('title', 'Close Activity');
-    expect(closeControls[1]).toHaveAttribute('title', 'Close Work');
+    expect(closeControls[0]).toHaveAttribute('title', 'Close Timeline');
+    expect(closeControls[1]).toHaveAttribute('title', 'Close report.md');
 
     act(() => workTab.focus());
     await user.keyboard('{ArrowLeft}');
@@ -291,23 +312,23 @@ describe('ClioWorkbench canvas', () => {
 
     // Browser-style middle click closes the tab, while another auxiliary button does nothing.
     fireEvent(workTab, new MouseEvent('auxclick', { bubbles: true, button: 2, cancelable: true }));
-    expect(screen.getByRole('tab', { name: 'Work' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'report.md' })).toBeInTheDocument();
     fireEvent(workTab, new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true }));
-    expect(screen.queryByRole('tab', { name: 'Work' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'report.md' })).not.toBeInTheDocument();
     expect(activityTab).toHaveAttribute('aria-selected', 'true');
 
     openWork();
-    const reopenedWorkTab = screen.getByRole('tab', { name: 'Work' });
+    const reopenedWorkTab = screen.getByRole('tab', { name: 'report.md' });
 
     // The keyboard route the tab advertises closes it...
     act(() => reopenedWorkTab.focus());
     await user.keyboard('{Delete}');
-    expect(screen.queryByRole('tab', { name: 'Work' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'report.md' })).not.toBeInTheDocument();
 
     // ...and the pointer affordance closes the one it sits on.
-    await user.click(screen.getByRole('tab', { name: 'Activity' }));
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
     await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
-    expect(screen.queryByRole('tab', { name: 'Activity' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
   });
 
   it('pins, moves and closes tabs from the tab context menu', async () => {
@@ -326,19 +347,39 @@ describe('ClioWorkbench canvas', () => {
         workspaceId="workspace_1"
       />,
     );
-    act(() => handle.current?.open({ kind: 'resources', section: 'work' }));
+    act(() => handle.current?.open({ kind: 'artifact', artifact: REPORT }));
     const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.textContent);
 
-    fireEvent.contextMenu(screen.getByRole('tab', { name: 'Work' }));
+    fireEvent.contextMenu(screen.getByRole('tab', { name: 'report.md' }));
     await user.click(await screen.findByRole('menuitem', { name: /Pin/ }));
     // Pinned tabs go first and keep their name for assistive tech.
-    expect(screen.getAllByRole('tab')[0]).toHaveAccessibleName(/^Work, pinned/);
-    expect(tabNames()).toEqual(['Work, pinned', 'Activity']);
+    expect(screen.getAllByRole('tab')[0]).toHaveAccessibleName(/^report\.md, pinned/);
+    expect(tabNames()).toEqual(['report.md, pinned', 'Timeline']);
 
-    fireEvent.contextMenu(screen.getByRole('tab', { name: /^Work/ }));
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
+    // Without an open composer the reference has nowhere to go.
+    expect(await screen.findByRole('menuitem', { name: /Add to message/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.keyboard('{Escape}');
+    const added: unknown[] = [];
+    let unregister = () => {};
+    act(() => {
+      unregister = registerComposerReferenceTarget({
+        workspaceId: 'workspace_1',
+        add: (reference) => added.push(reference),
+      });
+    });
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /Add to message/ }));
+    expect(added).toEqual([expect.objectContaining({ kind: 'artifact', label: 'report.md' })]);
+    act(() => unregister());
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: /^report\.md/ }));
     await user.click(await screen.findByRole('menuitem', { name: /Close others/ }));
-    expect(screen.queryByRole('tab', { name: 'Activity' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^Work/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^report\.md/ })).toBeInTheDocument();
   });
 
   it('opens an artifact from the Artifacts list and keeps the list beside it', async () => {
@@ -400,17 +441,18 @@ describe('ClioWorkbench canvas', () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    const activityTab = screen.getByRole('tab', { name: 'Activity' });
+    const activityTab = screen.getByRole('tab', { name: 'Timeline' });
     act(() => activityTab.focus());
     await user.keyboard('{Delete}');
-    expect(screen.queryByRole('tab', { name: 'Activity' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
     expect(screen.getByText('No tabs open')).toBeVisible();
 
     await user.click(strip().getByRole('button', { name: 'Activity' }));
     const list = screen.getByRole('region', { name: 'Activity list' });
-    await user.click(within(list).getByRole('button', { name: /Everything that ran/ }));
+    expect(within(list).getByText('Nothing has run yet')).toBeVisible();
+    await user.click(within(list).getByRole('button', { name: 'Open timeline and context' }));
 
-    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
@@ -445,7 +487,7 @@ describe('ClioWorkbench canvas', () => {
       'true',
     );
     expect(screen.getByText('File changed by the agent')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Undo this change' })).toBeVisible();
   });
 
   it('keeps the Files list beside a directly opened rendered file', async () => {

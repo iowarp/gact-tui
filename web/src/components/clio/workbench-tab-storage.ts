@@ -2,7 +2,7 @@ import type { WorkbenchTab } from './workbench-shared';
 import type { WorkbenchListView } from './workbench-strip';
 import { workbenchTabIcons } from './workbench-tab-icons';
 
-export const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Activity' };
+export const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Timeline' };
 export const workTab: WorkbenchTab = { id: 'work', kind: 'work', label: 'Work' };
 export const agentTab: WorkbenchTab = { id: 'agent', kind: 'agent', label: 'Agent' };
 
@@ -77,7 +77,8 @@ export function restoredWorkbenchState(workspaceId: string, hasSession = true): 
             tab.kind === 'knowledge'
               ? // Knowledge tabs saved by older builds carry a " (middle dot) Knowledge" suffix.
                 { ...tab, label: tab.label.replace(/ \u00b7 Knowledge$/u, '') }
-              : tab.kind === 'session' && String(tab.label) === 'Observability'
+              : // Older builds named it Observability, then Activity.
+                tab.kind === 'session' && ['Observability', 'Activity'].includes(String(tab.label))
                 ? sessionTab
                 : tab,
           )

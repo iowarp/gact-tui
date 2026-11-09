@@ -1,20 +1,13 @@
-import type {
+﻿import type {
   Artifact as ArtifactEntity,
   BrowserPage,
   SubagentRun,
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
-import {
-  ActivityIcon,
-  BotIcon,
-  GlobeIcon,
-  ListChecksIcon,
-  PanelRightCloseIcon,
-  PaperclipIcon,
-  TerminalSquareIcon,
-} from 'lucide-react';
+import { GlobeIcon, PanelRightCloseIcon, PaperclipIcon, TerminalSquareIcon } from 'lucide-react';
 import { memo, type KeyboardEvent, type ReactNode } from 'react';
+import { artifactEvidenceLabel } from '@/lib/artifact-presentation';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { formatCompactBytes, formatResourceSize } from '@/lib/format';
 import { AddIcon } from '@/lib/icon-vocabulary';
@@ -24,9 +17,9 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
-import { Tag, MetaValue, type TagTone } from './primitives/tag';
-import { clioStatusLabel } from './status';
+import { Tag, MetaValue } from './primitives/tag';
 import { browserPageLabel, useBrowserPages } from './use-browser-pages';
+import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
 import type { WorkbenchListView } from './workbench-strip';
 import type { WorkbenchTab } from './workbench-shared';
@@ -76,8 +69,8 @@ export interface WorkbenchListColumnProps {
   // Activity
   subagents: readonly SubagentRun[];
   finishedWorkHidden: boolean;
-  onOpenActivity: () => void;
-  onOpenWork: () => void;
+  /** Activity rows open their details, a change or Work as a tab. */
+  onOpenTab: (tab: WorkbenchTab) => void;
   onOpenSubagent: (subagent: SubagentRun) => void;
   // Terminal and Browser
   onOpenTerminal?: () => void;
@@ -100,27 +93,62 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
       data-overlay={overlay || undefined}
       className={cn(
         'flex min-h-0 shrink-0 flex-col border-l border-border bg-background',
+        // Too narrow for both: the list is a sheet over the whole tab body
+        // (never half of it, which would clip the tab), and a pick closes it.
         overlay
-          ? 'absolute top-10 bottom-0 right-10 z-20 w-[min(300px,calc(100%-3rem))] border-t shadow-xl'
+          ? 'absolute top-10 right-10 bottom-0 left-0 z-20 border-t border-l-0'
           : 'h-full w-[clamp(200px,34%,280px)]',
       )}
     >
-      <div className="flex h-[34px] shrink-0 items-center gap-1 border-b border-border pr-1 pl-2.5">
-        <h2 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{title}</h2>
-        <IconButton
-          icon={<PanelRightCloseIcon />}
-          label={`Hide ${title}`}
-          onClick={onHide}
-          size="sm"
-          tooltipSide="bottom"
+      {view === 'activity' ? (
+        <WorkbenchActivityList
+          activeTabId={props.activeTabId}
+          finishedWorkHidden={props.finishedWorkHidden}
+          onOpenArtifact={props.onOpenArtifact}
+          onOpenFile={props.onOpenFile}
+          onOpenSubagent={props.onOpenSubagent}
+          onOpenTab={props.onOpenTab}
+          renderHeader={(actions) => <ListHeader actions={actions} onHide={onHide} title={title} />}
+          sessionId={props.sessionId}
+          subagents={props.subagents}
+          tabs={props.tabs}
+          workspaceId={props.workspaceId}
         />
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <ListBody {...props} />
-      </div>
+      ) : (
+        <>
+          <ListHeader onHide={onHide} title={title} />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ListBody {...props} />
+          </div>
+        </>
+      )}
     </section>
   );
 });
+
+function ListHeader({
+  title,
+  actions,
+  onHide,
+}: {
+  title: string;
+  actions?: ReactNode;
+  onHide: () => void;
+}) {
+  return (
+    <div className="flex h-[34px] shrink-0 items-center gap-1 border-b border-border pr-1 pl-2.5">
+      <h2 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{title}</h2>
+      {actions}
+      <IconButton
+        icon={<PanelRightCloseIcon />}
+        label={`Hide ${title}`}
+        onClick={onHide}
+        size="sm"
+        tooltipSide="bottom"
+      />
+    </div>
+  );
+}
 
 function ListBody(props: WorkbenchListColumnProps) {
   switch (props.view) {
@@ -131,7 +159,7 @@ function ListBody(props: WorkbenchListColumnProps) {
     case 'artifacts':
       return <ArtifactsList {...props} />;
     case 'activity':
-      return <ActivityList {...props} />;
+      return null;
     case 'terminal':
       return <TerminalList {...props} />;
     case 'browser':
@@ -311,6 +339,13 @@ function ArtifactsList({
       />
     );
   const active = tabs.find((tab) => tab.id === activeTabId);
+  // Every retained version is a row; a version column appears once a name repeats.
+  const names = new Map<string, number>();
+  for (const artifact of artifacts) {
+    const name = artifactDisplayName(artifact);
+    names.set(name, (names.get(name) ?? 0) + 1);
+  }
+  const versioned = [...names.values()].some((count) => count > 1);
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto p-1.5">
       <ArtifactFilters artifacts={artifacts}>
@@ -336,13 +371,16 @@ function ArtifactsList({
                         : undefined
                     }
                     className="cursor-pointer"
-                    badge={
-                      artifact.session_relation ? (
-                        <Tag tone="neutral">
-                          {artifact.session_relation === 'produced' ? 'Output' : 'Input'}
-                        </Tag>
+                    columns={
+                      versioned ? (
+                        <span className="w-7 shrink-0 text-right font-mono text-[11px] text-faint tabular-nums">
+                          {(names.get(name) ?? 0) > 1 && artifact.version !== undefined
+                            ? `v${artifact.version}`
+                            : null}
+                        </span>
                       ) : undefined
                     }
+                    badge={<ArtifactRoleTag artifact={artifact} />}
                     icon={<ArtifactTypeIcon artifact={artifact} className="size-4" />}
                     meta={
                       artifact.size !== undefined ? (
@@ -369,159 +407,6 @@ function ArtifactsList({
           The service returned a partial artifact registry.
         </p>
       ) : null}
-    </div>
-  );
-}
-
-const RUN_TONE: Partial<Record<string, TagTone>> = {
-  queued: 'info',
-  running: 'info',
-  recovering: 'info',
-  stopping: 'neutral',
-  waiting_permission: 'warning',
-  waiting_user: 'warning',
-  pause_requested: 'neutral',
-  paused: 'neutral',
-  yielded: 'neutral',
-  completed: 'success',
-  failed: 'danger',
-  interrupted: 'danger',
-  recovery_required: 'danger',
-  task_state_uncertain: 'warning',
-  cancelled: 'neutral',
-  cancellation_requested: 'neutral',
-  stopped: 'neutral',
-};
-const NOW_STATES = new Set([
-  'queued',
-  'running',
-  'recovering',
-  'stopping',
-  'waiting_permission',
-  'waiting_user',
-  'pause_requested',
-  'cancellation_requested',
-]);
-
-function ActivityList({
-  sessionId,
-  subagents,
-  finishedWorkHidden,
-  onOpenActivity,
-  onOpenWork,
-  onOpenSubagent,
-  activeTabId,
-}: WorkbenchListColumnProps) {
-  const openable = subagents.filter((subagent) => subagent.child_session_id);
-  const now = openable.filter((subagent) => NOW_STATES.has(subagent.state));
-  const earlier = openable.filter((subagent) => !NOW_STATES.has(subagent.state));
-  const agentRow = (subagent: SubagentRun) => {
-    const id = `subagent:${subagent.child_session_id ?? subagent.id}`;
-    return (
-      <div key={subagent.id} role="listitem" title={subagent.title}>
-        <ListRow
-          aria-current={activeTabId === id || undefined}
-          badge={
-            <Tag tone={RUN_TONE[subagent.state] ?? 'neutral'}>
-              {clioStatusLabel(subagent.state)}
-            </Tag>
-          }
-          className="cursor-pointer"
-          icon={<BotIcon />}
-          onClick={() => onOpenSubagent(subagent)}
-          onKeyDown={activateOnKey(() => onOpenSubagent(subagent))}
-          role="button"
-          selected={activeTabId === id}
-          tabIndex={0}
-          title={subagent.title}
-        />
-      </div>
-    );
-  };
-  return (
-    <Rows label="Activity">
-      {sessionId ? (
-        <>
-          <ActivityLink
-            description="Tool calls, timing, usage"
-            icon={<ActivityIcon />}
-            onOpen={onOpenActivity}
-            selected={activeTabId === 'session'}
-            title="Everything that ran"
-          />
-          <ActivityLink
-            description="Tasks and runs"
-            icon={<ListChecksIcon />}
-            onOpen={onOpenWork}
-            selected={activeTabId === 'work'}
-            title="Work"
-          />
-        </>
-      ) : (
-        <StateView
-          className="p-4"
-          kind="empty"
-          size="panel"
-          title="Activity starts with the first message"
-        />
-      )}
-      <GroupLabel>Now</GroupLabel>
-      {now.length ? (
-        now.map(agentRow)
-      ) : (
-        <p className="flex h-7 items-center px-2 text-[12px] text-muted-foreground" role="listitem">
-          No child agents running
-        </p>
-      )}
-      {earlier.length || finishedWorkHidden ? <GroupLabel>Earlier</GroupLabel> : null}
-      {earlier.map(agentRow)}
-      {finishedWorkHidden && !earlier.length ? (
-        <p className="flex h-7 items-center px-2 text-[12px] text-muted-foreground" role="listitem">
-          Finished child agents are not loaded
-        </p>
-      ) : null}
-    </Rows>
-  );
-}
-
-function GroupLabel({ children }: { children: ReactNode }) {
-  return (
-    <p
-      className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
-      role="listitem"
-    >
-      {children}
-    </p>
-  );
-}
-
-function ActivityLink({
-  title,
-  description,
-  icon,
-  selected,
-  onOpen,
-}: {
-  title: string;
-  description: string;
-  icon: ReactNode;
-  selected: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <div role="listitem" title={`${title}: ${description}`}>
-      <ListRow
-        aria-current={selected || undefined}
-        className="cursor-pointer"
-        description={description}
-        icon={icon}
-        onClick={onOpen}
-        onKeyDown={activateOnKey(onOpen)}
-        role="button"
-        selected={selected}
-        tabIndex={0}
-        title={title}
-      />
     </div>
   );
 }
@@ -622,5 +507,20 @@ function BrowserList({
         );
       })}
     </Rows>
+  );
+}
+
+/** Short words for the fixed badge column; the full evidence label is on hover. */
+const ARTIFACT_ROLE_TAGS: Record<string, string> = {
+  Verification: 'Review',
+  Intermediate: 'Interim',
+};
+
+function ArtifactRoleTag({ artifact }: { artifact: ArtifactEntity }) {
+  const label = artifactEvidenceLabel(artifact);
+  return (
+    <span title={label}>
+      <Tag tone="neutral">{ARTIFACT_ROLE_TAGS[label] ?? label}</Tag>
+    </span>
   );
 }

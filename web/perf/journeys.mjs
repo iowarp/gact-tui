@@ -407,17 +407,19 @@ export async function workbenchJourney(r) {
       { control: button, close: undefined },
     );
   }
-  const work = page
+  const activity = page
     .getByRole('region', { name: 'Activity list' })
-    .getByRole('button', { name: /^Work/u })
+    .locator('[data-kind="tool"], [data-kind="turn"]')
     .first();
-  if (await r.visible(work, 1000)) {
+  if (await r.visible(activity, 1000)) {
+    // The tab takes the row's name; its accessible name adds the status after a comma.
+    const name = (await activity.getAttribute('aria-label'))?.split(', ')[0];
     await r.measure(
-      'open canvas tab: Work',
+      'open canvas tab: Activity detail',
       'tab',
-      () => work.click(),
-      { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Work' },
-      { control: work, close: undefined },
+      () => activity.click(),
+      { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: name },
+      { control: activity, close: undefined },
     );
   }
   const agent = strip.getByRole('button', { name: 'Agent', exact: true }).first();

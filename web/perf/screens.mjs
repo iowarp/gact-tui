@@ -257,17 +257,49 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    s('canvas', 'file-source', SESSION, (page) => openFile(page, 'scripts/regrid_stations.py')),
+    s('canvas', 'file-diff', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await page
+        .getByRole('region', { name: 'Activity list' })
+        .getByRole('button', { name: /regrid_stations\.py/u })
+        .first()
+        .click();
+      await page.waitForTimeout(800);
+    }),
+    // A list chosen with a tab open: a sheet over the tab at the default
+    // width, beside the tab once the pocket is wide (maximized).
+    s('canvas', 'narrow-sheet', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await stripList(page, 'Files');
+    }),
+    s('canvas', 'list-beside', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await press(page, 'button', 'Maximize canvas');
+      await page.waitForTimeout(600);
+      await stripList(page, 'Files');
+    }),
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
+    // Work folds into Activity: a work row opens the Work tab; without
+    // recorded work, the Timeline tab shows the session's work over time.
     s('canvas', 'work', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      const list = page.getByRole('region', { name: 'Activity list' });
+      const work = list.locator('[data-kind="work"]').first();
+      if (await work.count()) await work.click();
+      else await list.getByRole('button', { name: 'Open timeline and context' }).click();
+      await page.waitForTimeout(800);
+    }),
+    s('canvas', 'activity-detail', SESSION, async (page) => {
       await stripList(page, 'Activity');
       await page
         .getByRole('region', { name: 'Activity list' })
-        .getByRole('button', { name: /^Work/u })
+        .locator('[data-kind="tool"], [data-kind="turn"]')
         .first()
         .click();
       await page.waitForTimeout(800);

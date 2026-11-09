@@ -184,7 +184,7 @@ function renderWorkbench(inStudy: boolean | undefined) {
 describe('Science log tab', () => {
   it('is absent when the session is in no study and present beside the others when it is', async () => {
     const { unmount } = renderWorkbench(false);
-    expect(screen.getByRole('tab', { name: 'Observability' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Science log' })).not.toBeInTheDocument();
     unmount();
     window.localStorage.clear();
@@ -192,7 +192,7 @@ describe('Science log tab', () => {
     renderWorkbench(true);
     expect(await screen.findByRole('tab', { name: 'Science log' })).toBeVisible();
     // Offered beside the others, without taking focus from the open tab.
-    expect(screen.getByRole('tab', { name: 'Observability' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute(
       'aria-selected',
       'true',
     );

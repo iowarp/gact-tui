@@ -133,8 +133,8 @@ export function WorkspacePage() {
 
   const workbench = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const { openArtifact, openFlow, openSubagent, revealWorkbench } = workbench;
-  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, () =>
-    revealWorkbench({ kind: 'session' }),
+  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, (view) =>
+    revealWorkbench({ kind: 'session', view }),
   );
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   const inStudy = useScienceLog(sessionId).data?.in_study;

@@ -3,6 +3,7 @@ import {
   BotIcon,
   BoxesIcon,
   BoxIcon,
+  ChartNoAxesGanttIcon,
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
@@ -20,7 +21,8 @@ import { isChangedPath, type WorkbenchTab } from './workbench-shared';
 export const workbenchTabIcons = {
   knowledge: BoxesIcon,
   work: ListChecksIcon,
-  session: ActivityIcon,
+  session: ChartNoAxesGanttIcon,
+  activity: ActivityIcon,
   files: FolderIcon,
   artifacts: BoxIcon,
   agent: BotIcon,

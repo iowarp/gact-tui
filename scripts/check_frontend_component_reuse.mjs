@@ -148,6 +148,10 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
     './data-grid-table',
   ],
+  // File tables (CSV, TSV, JSON records) use the dense spec grid: a line-number
+  // gutter and one virtualized scroll instead of the paginated card table.
+  'web/src/components/clio/csv-view.tsx': ['./file-data-grid'],
+  'web/src/components/clio/file-data-grid.tsx': ['./primitives/dense-grid'],
   // RC1 S4 deliberately replaces the runs DataGrid with grouped rows on the
   // shared ListRow primitive (fixed status/source/workspace/state/time columns,
   // details in a popover) so runs align with the conversation rail and bell.

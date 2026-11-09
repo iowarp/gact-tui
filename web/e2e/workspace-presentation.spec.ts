@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { selectFileView } from './file-viewer-setup';
+import { downloadFromFrame, selectFileView } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
@@ -93,7 +93,7 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+  const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(canvas.getByRole('img', { name: 'vertical-displacement.png' })).toBeVisible();
   await expectImageAtTop(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
   const metrics = await toolbar.evaluate((element) => ({
@@ -124,9 +124,9 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   expect(imageAfter!.x).toBeCloseTo(imageBefore!.x, 1);
   expect(imageAfter!.y).toBeCloseTo(imageBefore!.y, 1);
   await expect(image).toHaveAttribute('draggable', 'false');
-  const download = page.waitForEvent('download');
-  await toolbar.getByRole('button', { name: 'Download PNG', exact: true }).click();
-  expect((await download).suggestedFilename()).toBe('vertical-displacement.png');
+  expect((await downloadFromFrame(page, toolbar)).suggestedFilename()).toBe(
+    'vertical-displacement.png',
+  );
   await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
   await expect(
     page.getByRole('menuitem', { name: 'Copy to another workspace', exact: true }),
@@ -136,7 +136,7 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
   await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
   expect(
-    (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
+    (await new AxeBuilder({ page }).include('[data-slot="frame-bar"]').analyze()).violations,
   ).toEqual([]);
   await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Lineage');
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
@@ -145,13 +145,13 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   ).toBeVisible();
   await expect(canvas.getByText('Research execution', { exact: true })).toHaveCount(0);
   expect(
-    (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
+    (await new AxeBuilder({ page }).include('[data-slot="frame-bar"]').analyze()).violations,
   ).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('artifact-lineage-only.png'), fullPage: true });
-  await toolbar.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Preview');
   await expect(image).toBeVisible();
   expect(
-    (await new AxeBuilder({ page }).include('[data-slot="viewer-toolbar"]').analyze()).violations,
+    (await new AxeBuilder({ page }).include('[data-slot="frame-bar"]').analyze()).violations,
   ).toEqual([]);
 });
 
@@ -168,7 +168,7 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
-  for (const name of ['Zoom in', 'Zoom out', 'Reset image zoom', 'Download PNG', 'File actions']) {
+  for (const name of ['Zoom in', 'Zoom out', 'Reset image zoom', 'Open options', 'File actions']) {
     await expect(canvas.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await canvas.getByRole('button', { name: 'Zoom in', exact: true }).focus();
@@ -276,14 +276,11 @@ test('an unsupported workspace file uses one shared original download', async ({
   await showWorkbenchList(page, 'Files');
   await page.getByRole('treeitem', { name: 'run.h5', exact: true }).click();
   const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
-  await expect(preview.getByRole('tab', { name: 'Preview', exact: true })).toContainText('run.h5');
+  await expect(preview.getByLabel('Location', { exact: true })).toContainText('run.h5');
   await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
   await expect(preview.locator('[data-slot="empty-title"]')).toHaveText('No inline preview');
-  await expect(preview.getByRole('button', { name: /Download/ })).toHaveCount(1);
-  await expect(preview.locator('[data-slot="viewer-toolbar"]')).toHaveCount(1);
-  const download = page.waitForEvent('download');
-  await preview.getByRole('button', { name: 'Download file', exact: true }).click();
-  const downloaded = await download;
+  await expect(preview.locator('[data-slot="frame-bar"]')).toHaveCount(1);
+  const downloaded = await downloadFromFrame(page, preview);
   expect(downloaded.suggestedFilename()).toBe('run.h5');
   expect(await readFile((await downloaded.path())!)).toEqual(bytes);
   await page.screenshot({ path: testInfo.outputPath('unsupported-file-shared-toolbar.png') });

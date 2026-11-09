@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { showEvidenceRail } from './workspace-setup';
+import { showEvidenceRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -167,11 +167,8 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
 }, testInfo) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
-  await showEvidenceRail(page, 'Session');
-  await page.getByRole('button', { name: 'Open full details' }).click();
-  const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
-  await canvas.getByRole('button', { name: /^Artifacts/ }).click();
+  await showWorkbenchList(page, 'Artifacts');
+  const canvas = page.getByRole('region', { name: 'Artifacts list', exact: true });
   const category = canvas.getByRole('combobox', { name: 'Artifact category' });
   await expect(category).toBeVisible();
   await category.click();
@@ -188,10 +185,7 @@ test('filters the evidence artifact list by scripts and 3D models in both themes
   await page.evaluate(() => localStorage.setItem('theme', 'dark'));
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await showEvidenceRail(page, 'Session');
-  await page.getByRole('button', { name: 'Open full details' }).click();
-  await canvas.getByRole('tab', { name: 'Evidence', exact: true }).click();
-  await canvas.getByRole('button', { name: /^Artifacts/ }).click();
+  await showWorkbenchList(page, 'Artifacts');
   await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('artifact-filters-dark.png') });
 });

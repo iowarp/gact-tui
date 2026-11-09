@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { useCommentSession } from './comment-session';
 import { CommentTextLayer } from './comment-text-layer';
+import { FrameCommentsSessionIcon } from './frame-comments';
+import { useInFrameComments } from './frame-comments-slot';
 import { SvgElementLayer } from './svg-element-layer';
 import { textQuoteFromSelection } from './text-anchor';
 
@@ -16,8 +18,10 @@ function screenBox(rect: DOMRect) {
 /** The toolbar control that opens and closes the surface's comment session. */
 export function CommentToggle({ className }: { className?: string }) {
   const session = useCommentSession();
+  const inFrame = useInFrameComments();
   const destination = session?.surface.destination;
   if (!session || (destination?.kind === 'artifact' && !destination.artifactId)) return null;
+  if (inFrame) return <FrameCommentsSessionIcon />;
   const count = session.marks.length;
   return (
     <Button

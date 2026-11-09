@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { selectFileView } from './file-viewer-setup';
+import { downloadFromFrame, openFrameOpenMenu, selectFileView } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 // Synthetic editable documents and real LibreOffice PDF renditions, produced by
@@ -271,9 +271,15 @@ for (const layout of [
           await expect(canvas.getByText(/remains canonical/u)).toHaveCount(0);
           finishConversion();
         }
-        const toolbar = canvas.locator('[data-slot="viewer-toolbar"]');
+        const toolbar = canvas.locator('[data-slot="frame-bar"]');
         await expect(toolbar).toHaveCount(1);
-        const previewTab = toolbar.getByRole('tab', { name: 'Preview', exact: true });
+        // A phone-width frame bar folds the modes to one menu; their state holds.
+        const previewTab = toolbar.getByRole('tab', {
+          name: 'Preview',
+          exact: true,
+          includeHidden: true,
+        });
+        const viewer = canvas.locator('[data-slot="file-viewer"]');
         await expect(previewTab).toHaveAttribute('data-state', 'active');
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
@@ -295,12 +301,7 @@ for (const layout of [
           page.getByRole('dialog', { name: 'Copy to another workspace', exact: true }),
         ).toBeVisible();
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-        const download = page.waitForEvent('download');
-        await toolbar
-          .getByRole('group', { name: 'File download', exact: true })
-          .getByRole('button', { name: /^Download /u })
-          .click();
-        const saved = await download;
+        const saved = await downloadFromFrame(page, toolbar);
         expect(saved.suggestedFilename()).toBe(name);
         const savedPath = await saved.path();
         expect(savedPath).not.toBeNull();
@@ -312,7 +313,7 @@ for (const layout of [
         await toolbar.screenshot({
           path: testInfo.outputPath(`${item.extension}-preview-tab.png`),
         });
-        await toolbar.getByRole('tab', { name: 'Lineage', exact: true }).click();
+        await selectFileView(page, viewer, 'Lineage');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         await toolbar.screenshot({
           path: testInfo.outputPath(`${item.extension}-lineage-tab.png`),
@@ -324,7 +325,7 @@ for (const layout of [
           });
           await page.evaluate(() => window.document.documentElement.classList.remove('dark'));
         }
-        await previewTab.click();
+        await selectFileView(page, viewer, 'Preview');
         await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
         const document = canvas.getByRole('region', { name: 'Document workspace' });
         await expect(
@@ -379,10 +380,11 @@ for (const layout of [
             }),
           )
           .toBeGreaterThanOrEqual(0.99);
-        await canvas.getByRole('button', { name: 'Export to…', exact: true }).click();
-        await expect(page.getByRole('menuitem', { name: 'PDF', exact: true })).toBeVisible();
+        await openFrameOpenMenu(page, toolbar);
+        const exportPdf = page.getByRole('menuitem', { name: /^Export to PDF/u });
+        await expect(exportPdf).toBeVisible();
         const pdfDownload = page.waitForEvent('download');
-        await page.getByRole('menuitem', { name: 'PDF', exact: true }).click();
+        await exportPdf.click();
         const downloadedPdf = await pdfDownload;
         expect(downloadedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
         const downloadedStream = await downloadedPdf.createReadStream();
@@ -405,8 +407,12 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-pdf-preview.png`),
           fullPage: true,
         });
-        const lineageTab = toolbar.getByRole('tab', { name: 'Lineage', exact: true });
-        await lineageTab.click();
+        const lineageTab = toolbar.getByRole('tab', {
+          name: 'Lineage',
+          exact: true,
+          includeHidden: true,
+        });
+        await selectFileView(page, viewer, 'Lineage');
         await expect(lineageTab).toHaveAttribute('data-state', 'active');
         await expect
           .poll(() => lineageTab.evaluate((element) => getComputedStyle(element).backgroundColor))
@@ -429,8 +435,8 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
-        await previewTab.click();
+        await selectFileView(page, viewer, 'Versions');
+        await selectFileView(page, viewer, 'Preview');
         holdRefresh = true;
         const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
         await fileActions.click();

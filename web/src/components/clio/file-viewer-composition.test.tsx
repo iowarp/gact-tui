@@ -36,7 +36,8 @@ it('reads provided bundle source through the common download boundary without a 
   };
   expect(await readFileViewerBytes({} as never, source)).toEqual(bytes);
   renderComposition(source, 'SKILL.md', '# Skill\r\n', 'text/markdown');
-  expect(await screen.findByRole('button', { name: 'Download Markdown' })).toBeVisible();
+  await userEvent.click(await screen.findByRole('button', { name: 'Open options' }));
+  expect(await screen.findByRole('menuitem', { name: /^Download/ })).toBeVisible();
 });
 
 interface FormatCase {
@@ -178,11 +179,11 @@ describe.each(sourceKinds)('shared file viewer composition for %s custody', (kin
       file.mediaType,
     );
 
-    expect(container.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
-    const toolbar = container.querySelector('[data-slot="viewer-toolbar"]');
+    expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
+    const toolbar = container.querySelector('[data-slot="frame-bar"]');
     expect(toolbar).not.toBeNull();
     expect(
-      within(toolbar as HTMLElement).getByRole('button', { name: `Copy ${file.name}` }),
+      within(toolbar as HTMLElement).getByRole('button', { name: 'Copy contents' }),
     ).toBeVisible();
     expect(screen.getAllByText(file.name, { exact: true })).toHaveLength(1);
 
@@ -204,8 +205,8 @@ describe.each(sourceKinds)('shared file viewer composition for %s custody', (kin
         file.content,
         file.mediaType,
       );
-      const toolbar = container.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
-      const copy = within(toolbar).getByRole('button', { name: `Copy ${file.name}` });
+      const toolbar = container.querySelector('[data-slot="frame-bar"]') as HTMLElement;
+      const copy = within(toolbar).getByRole('button', { name: 'Copy contents' });
 
       if (file.readableText !== undefined) {
         expect(await screen.findByText(file.readableText)).toBeVisible();
@@ -221,7 +222,7 @@ describe.each(sourceKinds)('shared file viewer composition for %s custody', (kin
       expect(source).toBeVisible();
       expect(source).not.toHaveTextContent(file.name);
       expect(source.querySelector('button')).toBeNull();
-      expect(within(toolbar).getByRole('button', { name: `Copy ${file.name}` })).toBeVisible();
+      expect(within(toolbar).getByRole('button', { name: 'Copy contents' })).toBeVisible();
 
       await user.click(copy);
       expect(copyText).toHaveBeenCalledWith(file.content);
@@ -243,11 +244,11 @@ describe('source mode and file identity edge cases', () => {
       } as Artifact,
     };
     const { container } = renderComposition(artifactSource, 'mcp-app.json', content, 'text/html');
-    const toolbar = container.querySelector('[data-slot="viewer-toolbar"]') as HTMLElement;
+    const toolbar = container.querySelector('[data-slot="frame-bar"]') as HTMLElement;
 
     expect(within(toolbar).queryByRole('tab', { name: 'HTML preview' })).toBeNull();
     expect(screen.queryByTitle('HTML preview of mcp-app.json')).not.toBeInTheDocument();
-    const copy = within(toolbar).getByRole('button', { name: 'Copy mcp-app.json' });
+    const copy = within(toolbar).getByRole('button', { name: 'Copy contents' });
     await userEvent.click(copy);
     expect(copyText).toHaveBeenCalledWith(content);
   });
@@ -266,6 +267,6 @@ describe('source mode and file identity edge cases', () => {
     expect(source.className).toContain('[&_pre]:whitespace-pre');
     expect(source.className).toContain('[&_pre]:[overflow-wrap:normal]');
     expect(source).toHaveTextContent(row);
-    expect(container.querySelectorAll('[data-slot="viewer-toolbar"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-slot="frame-bar"]')).toHaveLength(1);
   });
 });

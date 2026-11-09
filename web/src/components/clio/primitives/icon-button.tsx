@@ -71,6 +71,11 @@ export interface IconButtonProps
   tooltipSide?: NamedTooltipProps['side'];
   /** Skip the tooltip when the name is already visible next to the icon. */
   tooltip?: boolean;
+  /**
+   * Unavailable here, and why: the button reads as disabled but keeps its
+   * hover name, which adds the reason (a disabled button shows no tooltip).
+   */
+  disabledReason?: string;
 }
 
 /** An icon-only button with a required name, its key and an inside focus ring. */
@@ -83,8 +88,10 @@ export const IconButton = memo(function IconButton({
   count,
   tooltipSide,
   tooltip = true,
+  disabledReason,
   variant = 'ghost',
   className,
+  onClick,
   ...props
 }: IconButtonProps) {
   const presentation = useShortcutPresentation(shortcut, shortcutPosition);
@@ -92,6 +99,8 @@ export const IconButton = memo(function IconButton({
     <Button
       aria-label={label}
       aria-keyshortcuts={presentation?.aria}
+      aria-disabled={disabledReason ? true : undefined}
+      aria-description={disabledReason}
       data-slot="icon-button"
       variant={variant}
       size={size === 'sm' ? 'icon-xs' : 'icon'}
@@ -100,8 +109,11 @@ export const IconButton = memo(function IconButton({
         size === 'sm'
           ? 'rounded-[5px] [&_svg:not([class*=size-])]:size-3.5'
           : '[&_svg:not([class*=size-])]:size-[17px]',
+        disabledReason &&
+          'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground',
         className,
       )}
+      onClick={disabledReason ? (event) => event.preventDefault() : onClick}
       {...props}
     >
       {icon}
@@ -117,9 +129,10 @@ export const IconButton = memo(function IconButton({
     </Button>
   );
   if (!tooltip) return button;
+  const named = count ? `${label}, ${count}` : label;
   return (
     <NamedTooltip
-      label={count ? `${label}, ${count}` : label}
+      label={disabledReason ? `${named}: ${disabledReason}` : named}
       shortcut={shortcut}
       shortcutPosition={shortcutPosition}
       side={tooltipSide}

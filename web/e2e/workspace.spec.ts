@@ -128,14 +128,18 @@ test('opens the unresolved task from the status strip in the actual task view', 
   await expect(inspect).toHaveText(/running; 1 task needs inspection$/);
   await inspect.click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await expect(canvas.getByRole('tab', { name: 'Evidence', exact: true })).toHaveAttribute(
-    'data-state',
-    'active',
+  const activity = canvas.getByRole('region', { name: 'Activity list', exact: true });
+  await expect(activity).toBeVisible();
+  const task = activity.getByRole('button', { name: 'Prepare dataset, needs inspection' });
+  await expect(task).toContainText('needs inspection');
+  await task.click();
+  await expect(canvas.getByRole('tab', { name: 'Prepare dataset', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
   );
-  const tasks = canvas.getByRole('button', { name: 'Background tasks, 1 recorded' });
-  if ((await tasks.getAttribute('aria-expanded')) === 'false') await tasks.click();
-  await expect(canvas.getByRole('button', { name: 'Task details: Prepare dataset' })).toBeVisible();
-  await expect(canvas.getByText('Tool: Needs inspection', { exact: true })).toBeVisible();
+  await expect(canvas.getByRole('toolbar', { name: 'Activity actions' })).toContainText(
+    'needs inspection',
+  );
 });
 
 test('keeps Observability tabs inside the strip and scrolls only their content vertically', async ({
@@ -151,6 +155,9 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await showEvidenceRail(page, 'Session');
     await page.getByRole('button', { name: 'Open full details' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+    // A 320px workbench shows its list as a sheet over the tab; this test reads the tab.
+    const hideActivity = canvas.getByRole('button', { name: 'Hide Activity', exact: true });
+    if (await hideActivity.isVisible()) await hideActivity.click();
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();
     if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
@@ -170,7 +177,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
       if (mode === 'maximized') {
         await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
       }
-      for (const label of ['Evidence', 'Timeline', 'Gantt', 'Context']) {
+      // Evidence and the event timeline moved to the Activity list; the tab keeps these.
+      for (const label of ['Gantt', 'Context']) {
         const tab = strip.getByRole('tab', { name: label, exact: true });
         await tab.click();
         await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
@@ -708,7 +716,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
-  const observabilityTab = canvas.getByRole('tab', { name: 'Activity' });
+  const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
@@ -958,7 +966,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Activity' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Timeline' })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toHaveCount(0);

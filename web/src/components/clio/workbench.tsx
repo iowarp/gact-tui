@@ -22,6 +22,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -34,22 +35,19 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { IconButton } from './primitives/icon-button';
 import { focusQuietly } from './primitives/quiet-focus';
 import { StateView } from './primitives/state-view';
 import type { SubagentOpenTarget } from './subagent-card';
-import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
+import {
+  useWorkspaceCanvasControl,
+  useWorkspaceCanvasVisibility,
+} from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import type { CanvasResourceKind } from './canvas-launcher';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
-import {
-  changedPathSet,
-  fileName,
-  loadResourceViewers,
-  type WorkbenchTab,
-} from './workbench-shared';
+import { changedPathSet, fileName, loadResourceViewers } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
 import {
   htmlBrowserTarget,
@@ -58,15 +56,10 @@ import {
 } from '@/lib/html-in-browser';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
-import { scienceLogTab, useScienceLogTab } from './science-log-tab-state';
+import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
-import {
-  agentTab,
-  restoredWorkbenchState,
-  saveWorkbenchState,
-  sessionTab,
-  workTab,
-} from './workbench-tab-storage';
+import { agentTab, sessionTab } from './workbench-tab-storage';
+import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { WorkbenchTabRow } from './workbench-tab-row';
 import { WorkbenchStrip, type WorkbenchListView, type WorkbenchStripItem } from './workbench-strip';
 import { WorkbenchListColumn } from './workbench-list-column';
@@ -114,8 +107,9 @@ export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
 }
 
-/** Below this the list column lays over the tab instead of beside it. */
-const LIST_OVERLAY_BELOW = 520;
+// Beside the tabs only while the open tab keeps ~340px after the strip and
+// the list (34% of the panel); narrower, the list is a sheet over the tab.
+const LIST_OVERLAY_BELOW = 600;
 const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
 
 function parentDirectory(path: string): string {
@@ -159,14 +153,27 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     },
     ref,
   ) {
-    // Lazy useState initializer (not useRef().current, which reads a ref
-    // during render) computes the restored state exactly once.
-    const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
-    const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
-    const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
-    const [listView, setListView] = useState<WorkbenchListView | undefined>(initialState.listView);
+    const {
+      setTabs,
+      orderedTabs,
+      activeTabId,
+      activeTab,
+      setActiveTabId,
+      pinned,
+      setPinnedIds,
+      listView,
+      setListView,
+      openTab,
+      openSubagentTab,
+      replaceTab,
+      selectFilesPath,
+      selectWorkspaceFilePath,
+      closeTabs,
+      closeTab,
+      moveTab,
+      stepTab,
+    } = useWorkbenchTabState(workspaceId, sessionId, inStudy);
     const [listDirectory, setListDirectory] = useState<string>();
-    const [pinnedIds, setPinnedIds] = useState<string[]>(initialState.pinnedIds);
     // Unknown until the panel is first measured.
     const [narrow, setNarrow] = useState<boolean>();
     // Over a narrow panel the list lays over the tab: open only after a pick on the strip.
@@ -177,10 +184,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const maximizeButtonRef = useRef<HTMLButtonElement>(null);
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      saveWorkbenchState(workspaceId, { activeTabId, tabs, listView, pinnedIds });
-    }, [activeTabId, listView, pinnedIds, tabs, workspaceId]);
 
     useEffect(() => {
       const aside = asideRef.current;
@@ -202,17 +205,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       setOverlayNarrow(narrow);
     }
 
-    const study = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
-    const shown = study;
-    const pinned = useMemo(() => new Set(pinnedIds), [pinnedIds]);
-    const orderedTabs = useMemo(
-      () => [
-        ...shown.tabs.filter((tab) => pinned.has(tab.id)),
-        ...shown.tabs.filter((tab) => !pinned.has(tab.id)),
-      ],
-      [pinned, shown.tabs],
-    );
-    const activeTab = orderedTabs.find((tab) => tab.id === shown.activeTabId);
     // An empty narrow panel shows its list rather than nothing.
     const listShown = listView !== undefined && (!narrow || overlayOpen || !activeTab);
     const changedPaths = useMemo(() => changedPathSet(diffs), [diffs]);
@@ -227,97 +219,21 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       return () => onFilesViewActiveChange?.(false);
     }, [filesViewActive, onFilesViewActiveChange]);
 
-    useWorkbenchTabVisibility(tabStripRef, activeTabRef, shown.activeTabId, orderedTabs, maximized);
+    useWorkbenchTabVisibility(tabStripRef, activeTabRef, activeTabId, orderedTabs, maximized);
 
-    const showList = useCallback((view: WorkbenchListView) => {
-      setListView(view);
-      setOverlayOpen(true);
-    }, []);
+    const showList = useCallback(
+      (view: WorkbenchListView) => {
+        setListView(view);
+        setOverlayOpen(true);
+      },
+      [setListView],
+    );
     const afterListPick = useCallback(() => {
       if (narrow) setOverlayOpen(false);
     }, [narrow]);
 
-    const openTab = useCallback((tab: WorkbenchTab) => {
-      setTabs((current) =>
-        current.some((item) => item.id === tab.id)
-          ? current.map((item) => (item.id === tab.id ? tab : item))
-          : [...current, tab],
-      );
-      setActiveTabId(tab.id);
-    }, []);
-    const openSubagentTab = useCallback(
-      (subagent: SubagentRun) =>
-        openTab({
-          id: `subagent:${subagent.child_session_id ?? subagent.id}`,
-          kind: 'subagent',
-          label: subagent.title,
-          subagent,
-          workspaceId,
-        }),
-      [openTab, workspaceId],
-    );
-    const replaceTab = useCallback((tabId: string, replacement: WorkbenchTab) => {
-      setTabs((current) =>
-        current.some((item) => item.id === replacement.id && item.id !== tabId)
-          ? current.filter((item) => item.id !== tabId)
-          : current.map((item) => (item.id === tabId ? replacement : item)),
-      );
-      setActiveTabId(replacement.id);
-    }, []);
-    const selectFilesPath = useCallback((tabId: string, path: string) => {
-      setTabs((current) =>
-        current.map((candidate) =>
-          candidate.id === tabId && candidate.kind === 'files' ? { ...candidate, path } : candidate,
-        ),
-      );
-    }, []);
-    const selectWorkspaceFilePath = useCallback((tabId: string, path: string) => {
-      setTabs((current) =>
-        current.map((candidate) =>
-          candidate.id === tabId && candidate.kind === 'workspace-file'
-            ? { ...candidate, label: fileName(path), path, line: undefined, find: undefined }
-            : candidate,
-        ),
-      );
-    }, []);
-    const closeTabs = (ids: readonly string[]) => {
-      if (!ids.length) return;
-      const closing = new Set(ids);
-      const index = orderedTabs.findIndex((tab) => tab.id === shown.activeTabId);
-      const next = tabs.filter((tab) => !closing.has(tab.id));
-      setTabs(next);
-      setPinnedIds((current) => current.filter((id) => !closing.has(id)));
-      for (const tab of tabs) {
-        // The pty and its xterm instance live in the module-level registry,
-        // keyed by tab id — a closed tab is the one place that registry
-        // entry is ever explicitly torn down (a mere unmount, e.g. switching
-        // tabs, must not kill a running job).
-        if (closing.has(tab.id) && tab.kind === 'terminal') void closeEmbeddedTerminalTab(tab.id);
-      }
-      if (closing.has(shown.activeTabId)) {
-        const before = orderedTabs.slice(0, Math.max(0, index)).reverse();
-        const after = orderedTabs.slice(index + 1);
-        const fallback = [...before, ...after].find((tab) => !closing.has(tab.id));
-        setActiveTabId(fallback?.id ?? '');
-      }
-    };
-    const closeTab = (tabId: string) => closeTabs([tabId]);
-    const moveTab = (tabId: string, delta: -1 | 1) => {
-      const index = orderedTabs.findIndex((tab) => tab.id === tabId);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= orderedTabs.length) return;
-      const next = [...orderedTabs];
-      const [moved] = next.splice(index, 1);
-      next.splice(target, 0, moved);
-      setTabs(next);
-    };
-    const stepTab = (delta: -1 | 1) => {
-      if (orderedTabs.length < 2) return;
-      const index = orderedTabs.findIndex((tab) => tab.id === shown.activeTabId);
-      const next = orderedTabs[(index + delta + orderedTabs.length) % orderedTabs.length];
-      setActiveTabId(next.id);
-    };
     const canvasVisible = useWorkspaceCanvasVisibility();
+    const canvasControl = useWorkspaceCanvasControl();
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -333,10 +249,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             showList('artifacts');
             return;
           case 'session':
-            openTab(sessionTab);
-            return;
           case 'work':
-            openTab(workTab);
+            showList('activity');
             return;
           case 'agent':
             openTab(agentTab);
@@ -366,7 +280,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             openCanvasResource(request.section ?? 'files');
             return;
           case 'session':
-            openTab(sessionTab);
+            // The timeline and context views stay a tab; everything else is the Activity list.
+            if (request.view === 'work' || request.view === 'context') openTab(sessionTab);
+            else showList('activity');
             return;
           case 'science-log':
             openTab(scienceLogTab);
@@ -396,7 +312,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           }
         }
       },
-      [openCanvasResource, openSubagentTab, openTab, sessionId, showFolder, workspaceId],
+      [openCanvasResource, openSubagentTab, openTab, sessionId, showFolder, showList, workspaceId],
     );
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
@@ -426,14 +342,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       label: 'Agent',
       icon: <BotIcon />,
       position: 5,
-      pressed: shown.activeTabId === agentTab.id,
+      pressed: activeTabId === agentTab.id,
     });
     if (inStudy === true)
       stripItems.push({
         id: 'science-log',
         label: 'Science log',
         icon: <FlaskConicalIcon />,
-        pressed: shown.activeTabId === scienceLogTab.id,
+        pressed: activeTabId === scienceLogTab.id,
       });
     if (onOpenTerminal) listItem('terminal', 'Terminal', <TerminalSquareIcon />);
     listItem('browser', 'Browser pages', <GlobeIcon />);
@@ -458,8 +374,21 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     useShortcut('strip-position', (_event, position) => {
       const item = stripItems.find((candidate) => candidate.position === position);
-      if (item) selectStripItem(item.id);
+      if (!item) return;
+      if (canvasVisible) {
+        selectStripItem(item.id);
+        return;
+      }
+      // Closed: open the pocket at this item rather than toggling its list off.
+      canvasControl?.show();
+      if (!(listShown && listView === item.id)) selectStripItem(item.id);
     });
+    // A chord pressed while the pocket was unmounted (closed Sheet) lands here.
+    const takePendingStripPosition = (position: number) => {
+      canvasControl?.clearPendingStripPosition();
+      const item = stripItems.find((candidate) => candidate.position === position);
+      if (item) selectStripItem(item.id);
+    };
     useShortcut('terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
     useShortcut('new-terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
     useShortcut('previous-tab', () => stepTab(-1), { region: asideRef });
@@ -470,7 +399,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const list = listShown ? (
       <WorkbenchListColumn
-        activeTabId={shown.activeTabId}
+        activeTabId={activeTabId}
         artifacts={artifacts}
         artifactsError={artifactsError}
         artifactsPending={artifactsPending}
@@ -489,8 +418,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           setListView(undefined);
           setOverlayOpen(false);
         }}
-        onOpenActivity={() => {
-          openTab(sessionTab);
+        onOpenTab={(tab) => {
+          openTab(tab);
           afterListPick();
         }}
         onOpenArtifact={(artifact) => {
@@ -535,10 +464,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               }
             : undefined
         }
-        onOpenWork={() => {
-          openTab(workTab);
-          afterListPick();
-        }}
         onRefreshFiles={onRefreshFiles}
         onSelectTab={(tabId) => {
           setActiveTabId(tabId);
@@ -570,10 +495,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           <Tabs
             className="min-h-0 min-w-0 flex-1 gap-0"
             onValueChange={setActiveTabId}
-            value={shown.activeTabId}
+            value={activeTabId}
           >
             <WorkbenchTabRow
-              activeTabId={shown.activeTabId}
+              workspaceId={workspaceId}
+              activeTabId={activeTabId}
               activeTabRef={activeTabRef}
               changedPaths={changedPaths}
               onClose={closeTab}
@@ -626,7 +552,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               }
             />
             {orderedTabs.map((tab) => (
-              <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
+              // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
+              <TabsContent
+                className="isolate m-0 min-h-0 overflow-hidden"
+                key={tab.id}
+                value={tab.id}
+              >
                 {canvasVisible ? (
                   <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
                     <PresentationNavigation.Provider
@@ -718,6 +649,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           requestedOpen={requestedOpen}
           requests={requests}
         />
+        <PendingStripDispatcher
+          onTake={takePendingStripPosition}
+          position={canvasControl?.pendingStripPosition}
+        />
         {maximized
           ? createPortal(
               <DismissableLayer
@@ -741,6 +676,20 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     );
   },
 );
+
+function PendingStripDispatcher({
+  onTake,
+  position,
+}: {
+  onTake: (position: number) => void;
+  position?: number;
+}) {
+  const take = useEffectEvent(onTake);
+  useEffect(() => {
+    if (position !== undefined) take(position);
+  }, [position]);
+  return null;
+}
 
 function WorkbenchRequestDispatcher({
   onOpen,

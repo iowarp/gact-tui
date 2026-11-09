@@ -2,20 +2,55 @@ import {
   forwardRef,
   Fragment,
   memo,
+  useLayoutEffect,
+  useRef,
+  useState,
   type HTMLAttributes,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
 } from 'react';
 import { ChevronRightIcon } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 
 /**
+ * How far the frame bar has folded, one group per step: facts, folders, Open,
+ * Copy, then @ with the modes folding to one icon, then only the name,
+ * comments and the … menu. Children hide on the bar's `data-fold-*` flags
+ * (`group-data-[fold-open]/frame:hidden`).
+ */
+const FRAME_FOLDS = ['facts', 'folders', 'open', 'copy', 'talk', 'name'] as const;
+
+/** How narrow the name may truncate (its full path is the hover name) before a group folds. */
+const FRAME_NAME_MIN = 96;
+
+/**
+ * Whether a part of the bar is cut off: the bar scrolls, a marked text
+ * truncates, or the name has truncated below `FRAME_NAME_MIN`.
+ */
+function frameOverflows(bar: HTMLElement) {
+  if (bar.scrollWidth > bar.clientWidth + 1) return true;
+  for (const part of bar.querySelectorAll<HTMLElement>('[data-frame-fit]')) {
+    if (part.offsetParent === null || part.scrollWidth <= part.clientWidth + 1) continue;
+    if (part.dataset.frameFit === 'name' && part.clientWidth >= FRAME_NAME_MIN) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
  * The bar above whatever a frame shows: Where (crumbs) · What (facts) ·
- * Format (modes) · Talk and Take (actions, last). 34px, one line. It is a
- * size container: the facts drop first and the crumbs fold to their last
- * part when the frame is narrow.
+ * Format (modes) · Talk and Take (actions, last). 34px, one line. No fixed
+ * breakpoints: it measures, and folds the next group only while something
+ * would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
+ * (`data-slot="frame-format-host"`) is empty, with no modes, hides with its rule.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -34,29 +69,72 @@ export const FrameBar = memo(function FrameBar({
   label: string;
   className?: string;
 }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  // Width and content both start the fit again from nothing folded.
+  const [fitKey, setFitKey] = useState('');
+  const [measured, setMeasured] = useState({ key: '', fold: 0 });
+  if (measured.key !== fitKey) setMeasured({ key: fitKey, fold: 0 });
+  const fold = measured.key === fitKey ? measured.fold : 0;
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    let version = 0;
+    const update = () => setFitKey(`${bar.clientWidth}|${version}`);
+    update();
+    const resize = new ResizeObserver(update);
+    resize.observe(bar);
+    const content = new MutationObserver(() => {
+      version += 1;
+      update();
+    });
+    content.observe(bar, { childList: true, characterData: true, subtree: true });
+    return () => {
+      resize.disconnect();
+      content.disconnect();
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar || fold >= FRAME_FOLDS.length || !frameOverflows(bar)) return;
+    setMeasured((current) =>
+      current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
+    );
+  }, [fitKey, fold]);
+  const flags = Object.fromEntries(
+    FRAME_FOLDS.map((step, index) => [`data-fold-${step}`, fold > index || undefined]),
+  );
   return (
     <div
       role="toolbar"
       aria-label={label}
       data-slot="frame-bar"
+      data-fold={FRAME_FOLDS[fold - 1]}
+      {...flags}
+      ref={barRef}
       className={cn(
-        '@container flex h-[34px] min-w-0 shrink-0 items-center gap-2 border-b border-border px-2 whitespace-nowrap',
+        'group/frame flex h-[34px] min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border px-2 whitespace-nowrap',
         className,
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {where}
         {what ? (
-          <div className="hidden min-w-0 items-center gap-2 text-[11px] text-faint @2xl:flex">
+          <div
+            data-frame-fit=""
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-faint group-data-[fold-facts]/frame:hidden"
+          >
             {what}
           </div>
         ) : null}
       </div>
       {format ? (
-        <>
+        <div
+          data-slot="frame-format"
+          className="flex min-w-0 shrink-0 items-center gap-2 [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+        >
           <FrameDivider />
           {format}
-        </>
+        </div>
       ) : null}
       {actions ? (
         <>
@@ -79,8 +157,9 @@ export interface FrameCrumb {
 }
 
 /**
- * Where the shown thing lives. Earlier parts fold away when the bar is narrow
- * so the last part (the name) always shows; the full path is the hover name.
+ * Where the shown thing lives. When the bar folds, the folders become one …
+ * that lists them, then go entirely; the last part (the name) always shows
+ * and the full path is the hover name.
  */
 export const FrameCrumbs = memo(function FrameCrumbs({
   parts,
@@ -90,46 +169,72 @@ export const FrameCrumbs = memo(function FrameCrumbs({
   className?: string;
 }) {
   const full = parts.map((part) => part.label).join(' / ');
+  const folders = parts.slice(0, -1);
+  const name = parts.at(-1);
   return (
     <nav
       aria-label="Location"
       title={full}
       className={cn('flex min-w-0 items-center gap-1 text-[12.5px]', className)}
     >
-      {parts.map((part, index) => {
-        const last = index === parts.length - 1;
-        return (
-          <Fragment key={`${index}:${part.label}`}>
-            {index > 0 ? (
-              <ChevronRightIcon
-                aria-hidden="true"
-                className="hidden size-3 shrink-0 text-faint @lg:block"
-              />
-            ) : null}
-            {part.onSelect && !last ? (
-              <button
-                type="button"
-                onClick={part.onSelect}
-                className="hidden max-w-40 shrink truncate rounded-[4px] px-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring @lg:inline"
-              >
-                {part.label}
-              </button>
-            ) : (
-              <span
-                aria-current={last ? 'location' : undefined}
-                className={cn(
-                  'min-w-0 truncate',
-                  last
-                    ? 'shrink font-medium text-foreground'
-                    : 'hidden max-w-40 shrink text-muted-foreground @lg:inline',
-                )}
-              >
-                {part.label}
-              </span>
-            )}
-          </Fragment>
-        );
-      })}
+      {folders.length ? (
+        <span className="hidden items-center gap-1 group-data-[fold-folders]/frame:inline-flex group-data-[fold-name]/frame:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={`Folders: ${folders.map((part) => part.label).join(' / ')}`}
+              className="rounded-[4px] px-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              …
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {folders.map((part, index) => (
+                <DropdownMenuItem
+                  disabled={!part.onSelect}
+                  key={`${index}:${part.label}`}
+                  onSelect={() => part.onSelect?.()}
+                >
+                  {part.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-faint" />
+        </span>
+      ) : null}
+      {folders.map((part, index) => (
+        <Fragment key={`${index}:${part.label}`}>
+          {part.onSelect ? (
+            <button
+              type="button"
+              data-frame-fit=""
+              onClick={part.onSelect}
+              className="min-w-0 shrink truncate rounded-[4px] px-0.5 text-muted-foreground outline-none group-data-[fold-folders]/frame:hidden hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {part.label}
+            </button>
+          ) : (
+            <span
+              data-frame-fit=""
+              className="min-w-0 shrink truncate text-muted-foreground group-data-[fold-folders]/frame:hidden"
+            >
+              {part.label}
+            </span>
+          )}
+          <ChevronRightIcon
+            aria-hidden="true"
+            className="size-3 shrink-0 text-faint group-data-[fold-folders]/frame:hidden"
+          />
+        </Fragment>
+      ))}
+      {name ? (
+        <span
+          aria-current="location"
+          data-frame-fit="name"
+          className="min-w-0 shrink truncate font-medium text-foreground"
+        >
+          {name.label}
+        </span>
+      ) : null}
     </nav>
   );
 });

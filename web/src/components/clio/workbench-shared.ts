@@ -4,11 +4,23 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { ActivityKind } from './workbench-activity-model';
 
 export type WorkbenchTab =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
   | { id: 'work'; kind: 'work'; label: 'Work' }
-  | { id: 'session'; kind: 'session'; label: 'Activity' }
+  /** The session's Gantt chart and context window; Activity lists the rest. */
+  | { id: 'session'; kind: 'session'; label: 'Timeline' }
+  /** One Activity row's detail: a tool call, a task, a question, a source. */
+  | {
+      id: string;
+      kind: 'activity';
+      label: string;
+      itemId: string;
+      activityKind: ActivityKind;
+      sessionId: string;
+      workspaceId: string;
+    }
   | {
       id: string;
       kind: 'files';

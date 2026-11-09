@@ -9,6 +9,7 @@ import {
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
+import { menuAcceleratorKeyDown } from './menu-row';
 
 export interface SplitButtonProps {
   /** The primary action's name; with `icon` only, it is the hover name. */
@@ -96,7 +97,7 @@ export const SplitButton = memo(function SplitButton({
             <ChevronDownIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" onKeyDown={menuAcceleratorKeyDown}>
           {children}
         </DropdownMenuContent>
       </DropdownMenu>

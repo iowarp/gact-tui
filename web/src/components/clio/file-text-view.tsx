@@ -14,12 +14,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { FileSourceOptions, FileViewerInformationHost } from './file-viewer-context';
+import { useFileViewerFacts } from './file-viewer-facts';
 import { FileModeControls, type FileMode } from './file-mode-controls';
+import { FrameContentsCopyButton } from './file-viewer-take';
+import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { TextFileCopyAction } from './text-file-copy-action';
 import { FileSourceView } from './file-source-view';
 import { ContentMarkdown } from './content-markdown';
-import { ClioDataTable } from './data-table';
+import { FileDataGrid } from './file-data-grid';
+import { readDenseGridText } from './primitives/dense-grid-data';
 import { tabularJsonDataset } from './json-resource-data';
 import { ResourceLoading } from './resource-states';
 
@@ -52,6 +57,8 @@ export function FileTextView({
     () => (format === 'json' ? tabularJsonDataset(content, name) : undefined),
     [content, format, name],
   );
+  const lines = useMemo(() => content.split('\n').length, [content]);
+  useFileViewerFacts(format === 'csv' || dataset ? undefined : [`${lines.toLocaleString()} lines`]);
   const modes: FileMode[] = [
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
@@ -68,35 +75,15 @@ export function FileTextView({
       ? chosen
       : modes[0].value;
   const reading = useRef<HTMLDivElement>(null);
-  const controls = (
-    <>
-      {!view ? <FileModeControls modes={modes} value={selected} onChange={setChosen} /> : null}
-      <TextFileCopyAction
-        name={name}
-        readText={() =>
-          selected === 'source' ? content : renderedFileText(reading.current, selected === 'data')
-        }
-      />
-      {!shared && selected === 'source' ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <ToolbarAction label="File actions">
-              <MoreIcon aria-hidden="true" />
-            </ToolbarAction>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuCheckboxItem
-              checked={options.wrap}
-              onSelect={() => options.setWrap(!options.wrap)}
-            >
-              <WrapTextIcon aria-hidden="true" />
-              Wrap long lines
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
-    </>
-  );
+  const readText = () =>
+    selected === 'source'
+      ? content
+      : selected === 'data'
+        ? (readDenseGridText(reading.current) ?? renderedFileText(reading.current, true))
+        : renderedFileText(reading.current);
+  const modeControls = !view ? (
+    <FileModeControls modes={modes} value={selected} onChange={setChosen} />
+  ) : null;
   return (
     <FileSourceOptions.Provider value={options}>
       <Tabs
@@ -106,15 +93,41 @@ export function FileTextView({
         data-slot="file-text-view"
       >
         {shared ? (
-          <ViewerToolbarContent>{controls}</ViewerToolbarContent>
+          <ViewerToolbarContent>
+            {modeControls}
+            <TextFileCopyAction name={name} readText={readText} />
+          </ViewerToolbarContent>
         ) : (
-          <div
-            className="flex h-10 shrink-0 items-center gap-1 border-b px-2"
-            data-slot="viewer-toolbar"
-          >
-            <span className="min-w-0 flex-1 truncate text-sm">{name}</span>
-            {controls}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <FrameBar
+              label="File"
+              where={<FrameCrumbs parts={[{ label: name }]} />}
+              format={modeControls}
+              actions={
+                <>
+                  <FrameContentsCopyButton read={readText} />
+                  {selected === 'source' ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <ToolbarAction label="File actions">
+                          <MoreIcon aria-hidden="true" />
+                        </ToolbarAction>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuCheckboxItem
+                          checked={options.wrap}
+                          onSelect={() => options.setWrap(!options.wrap)}
+                        >
+                          <WrapTextIcon aria-hidden="true" />
+                          Wrap long lines
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </>
+              }
+            />
+          </TooltipProvider>
         )}
         {format === 'markdown' ? (
           <TabsContent value="read" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -122,29 +135,28 @@ export function FileTextView({
           </TabsContent>
         ) : null}
         {format === 'csv' || dataset ? (
-          <TabsContent value="data" className="m-0 min-h-0 min-w-0 flex-1 overflow-auto p-3">
-            <div ref={reading}>
+          <TabsContent value="data" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div className="h-full min-h-0 min-w-0" ref={reading}>
               {format === 'csv' ? (
                 <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
                   <ClioCsvView content={content} title={name} />
                 </Suspense>
               ) : dataset ? (
-                <>
-                  <ClioDataTable
-                    columns={dataset.columns}
-                    label={dataset.label}
-                    rows={dataset.rows}
-                    showLabel={false}
-                    showToolbar={false}
-                  />
-                  {dataset.rows.length < dataset.totalRows ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Showing {dataset.rows.length.toLocaleString()} of{' '}
-                      {dataset.totalRows.toLocaleString()} records. Source retains the complete
-                      file.
-                    </p>
-                  ) : null}
-                </>
+                <FileDataGrid
+                  columns={dataset.columns}
+                  fact={`${dataset.totalRows.toLocaleString()} records`}
+                  label={dataset.label}
+                  rows={dataset.rows}
+                  status={
+                    dataset.rows.length < dataset.totalRows ? (
+                      <span className="min-w-0 truncate">
+                        Showing {dataset.rows.length.toLocaleString()} of{' '}
+                        {dataset.totalRows.toLocaleString()} records. Source retains the complete
+                        file.
+                      </span>
+                    ) : undefined
+                  }
+                />
               ) : null}
             </div>
           </TabsContent>

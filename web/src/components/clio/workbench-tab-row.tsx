@@ -1,4 +1,5 @@
-import { ChevronDownIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import { AtSignIcon, ChevronDownIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useEffect,
   useLayoutEffect,
@@ -23,8 +24,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
+import type { WorkspaceReference } from '@clio/core/v3';
+import {
+  addReferenceToComposer,
+  useComposerReferenceAvailable,
+} from '@/lib/composer-reference-requests';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
+import { fileViewerReference } from './file-viewer-location';
+import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
@@ -41,11 +49,31 @@ import type { WorkbenchTab } from './workbench-shared';
 export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'artifact' && tab.artifact)
     return <ArtifactTypeIcon artifact={tab.artifact} className="size-3.5" />;
+  if (tab.kind === 'activity')
+    return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
   const Icon = workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
 
+/** The composer reference for a tab that names a file or artifact. */
+function workbenchTabReference(
+  tab: WorkbenchTab,
+  workspaceId: string | undefined,
+): WorkspaceReference | undefined {
+  if (!workspaceId) return undefined;
+  const path = workbenchTabPath(tab);
+  if (path !== undefined)
+    return fileViewerReference({ kind: 'workspace', path, mediaType: 'text/plain', workspaceId });
+  if (tab.kind === 'artifact' && tab.artifact)
+    return fileViewerReference({ kind: 'artifact', artifact: tab.artifact, workspaceId });
+  if (tab.kind === 'resource')
+    return fileViewerReference({ kind: 'resource', resource: tab.resource, workspaceId });
+  return undefined;
+}
+
 export interface WorkbenchTabRowProps {
+  /** Where "Add to message" sends a file or artifact tab. */
+  workspaceId?: string;
   /** Display order: pinned tabs first. */
   tabs: readonly WorkbenchTab[];
   activeTabId: string;
@@ -86,6 +114,7 @@ export function WorkbenchTabRow({
   onMove,
   onShowInFiles,
   trailing,
+  workspaceId,
 }: WorkbenchTabRowProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // The header, not the scroller: the "All N tabs" button narrows the
@@ -131,6 +160,13 @@ export function WorkbenchTabRow({
   const menuTab = tabs.find((tab) => tab.id === menuTabId);
   const menuIndex = menuTab ? tabs.indexOf(menuTab) : -1;
   const menuPath = menuTab ? workbenchTabPath(menuTab) : undefined;
+  const composerOpen = useComposerReferenceAvailable(workspaceId);
+  const menuReference = menuTab ? workbenchTabReference(menuTab, workspaceId) : undefined;
+  const addReason = !menuReference
+    ? 'Not a file or artifact'
+    : !composerOpen
+      ? 'Open a conversation to add it to a message'
+      : undefined;
 
   return (
     <div
@@ -237,6 +273,17 @@ export function WorkbenchTabRow({
                   icon={pinnedIds.has(menuTab.id) ? <PinOffIcon /> : <PinIcon />}
                   label={pinnedIds.has(menuTab.id) ? 'Unpin' : 'Pin'}
                 />
+              </ContextMenuItem>
+              <ContextMenuItem
+                data-accelerator="@"
+                disabled={addReason !== undefined}
+                onSelect={() => {
+                  if (menuReference && addReferenceToComposer(menuReference, workspaceId))
+                    toast.success(`Added ${menuReference.label} to the message.`);
+                }}
+                title={addReason}
+              >
+                <MenuRow accelerator="@" icon={<AtSignIcon />} label="Add to message" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="F"

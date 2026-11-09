@@ -1,12 +1,9 @@
-import { CopyPlusIcon, LoaderCircleIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
-import { useState } from 'react';
+import { CopyPlusIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -15,23 +12,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useRepository } from '@/hooks/use-repository';
 import { formatBytes } from '@/lib/format';
-import { DeleteIcon, InfoIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { DeleteIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { FileCopyDialog } from './file-copy-dialog';
-import type { FileViewerAction } from './file-viewer-action-context';
-import {
-  fileViewerIdentity,
-  readFileViewerBytes,
-  type FileViewerSource,
-} from './file-viewer-source';
-import { downloadBytes } from './surface-export';
-import { ToolbarAction } from './viewer-toolbar';
+import type { FileViewerAction, FileViewerContentsReader } from './file-viewer-action-context';
+import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
+import { FrameTalkTake } from './file-viewer-take';
+import { useCopyTake, useOpenTake, type AddToMessage } from './file-viewer-take-hooks';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
-import { NativeFileOpenMenu } from './native-file-open-menu';
-import { FileDownloadControl } from './file-download-control';
 
-/** Shared original-file actions for uploads, artifacts and workspace files. */
+/**
+ * The frame bar's Talk and Take for uploads, artifacts and workspace files:
+ * @ Add to message, Comments, Copy ▾, Open ▾ and the … menu. As the frame
+ * narrows, Open, Copy and @ fold into the … menu in that order.
+ */
 export function FileViewerActions({
   source,
   fullscreen,
@@ -39,6 +33,9 @@ export function FileViewerActions({
   onInformationHost,
   formatActions,
   hasDocumentActions = false,
+  contents,
+  addToMessage,
+  comments,
 }: {
   source: FileViewerSource;
   fullscreen: boolean;
@@ -46,32 +43,96 @@ export function FileViewerActions({
   onInformationHost: (host: HTMLDivElement | null) => void;
   formatActions: readonly FileViewerAction[];
   hasDocumentActions?: boolean;
+  /** What Copy ▾ Contents copies, when the renderer shows text. */
+  contents?: FileViewerContentsReader;
+  addToMessage?: AddToMessage;
+  /** The frame's Comments place. */
+  comments?: ReactNode;
 }) {
-  const repository = useRepository();
   const [copyOpen, setCopyOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [informationOpen, setInformationOpen] = useState(false);
   const identity = fileViewerIdentity(source);
   const downloadFormats = formatActions.filter((action) => action.kind === 'download');
   const otherActions = formatActions.filter((action) => action.kind !== 'download');
-  const pending = otherActions.some((action) => action.pending);
+  const copy = useCopyTake(source, contents);
+  const open = useOpenTake(source, downloadFormats, { otherApps: !hasDocumentActions });
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
   return (
     <>
-      {!hasDocumentActions ? <NativeFileOpenMenu source={source} /> : null}
-      <FileDownloadControl
-        name={identity.name}
-        mediaType={identity.mediaType}
-        disabled={!identity.available}
-        formats={downloadFormats}
-        onDownload={async () =>
-          downloadBytes(
-            await readFileViewerBytes(repository, source),
-            identity.mediaType,
-            identity.name,
-          )
+      <FrameTalkTake
+        addToMessage={addToMessage}
+        comments={comments}
+        copy={copy}
+        open={open}
+        menuLabel="File actions"
+        pending={otherActions.some((action) => action.pending)}
+        menu={
+          <>
+            {otherActions.map(
+              ({
+                label,
+                description,
+                icon: Icon,
+                onSelect,
+                disabled,
+                kind,
+                selected,
+                pending: actionPending,
+              }) =>
+                kind === 'view' ? (
+                  <DropdownMenuCheckboxItem
+                    key={label}
+                    checked={selected}
+                    onSelect={onSelect}
+                    disabled={disabled}
+                    title={description}
+                  >
+                    <Icon />
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ) : (
+                  <DropdownMenuItem
+                    key={label}
+                    onSelect={onSelect}
+                    disabled={disabled}
+                    aria-busy={actionPending}
+                    title={description}
+                  >
+                    <Icon
+                      className={
+                        actionPending ? 'animate-spin motion-reduce:animate-none' : undefined
+                      }
+                    />
+                    {label}
+                  </DropdownMenuItem>
+                ),
+            )}
+            {otherActions.length ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem onSelect={() => setInformationOpen(true)}>
+              <InfoIcon />
+              File information
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onFullscreen}>
+              {fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
+              {fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!identity.available} onSelect={() => setCopyOpen(true)}>
+              <CopyPlusIcon />
+              Copy to another workspace
+            </DropdownMenuItem>
+            {canRemove ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => setRemoveOpen(true)}>
+                  <DeleteIcon />
+                  Remove from this workspace
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </>
         }
       />
       <Dialog open={informationOpen} onOpenChange={setInformationOpen}>
@@ -93,83 +154,6 @@ export function FileViewerActions({
           <div className="space-y-1.5" ref={onInformationHost} />
         </DialogContent>
       </Dialog>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <ToolbarAction label="File actions" aria-busy={pending}>
-            {pending ? (
-              <LoaderCircleIcon
-                aria-hidden="true"
-                className="animate-spin motion-reduce:animate-none"
-              />
-            ) : (
-              <MoreIcon aria-hidden="true" />
-            )}
-          </ToolbarAction>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          {otherActions.map(
-            ({
-              label,
-              description,
-              icon: Icon,
-              onSelect,
-              disabled,
-              kind,
-              selected,
-              pending: actionPending,
-            }) =>
-              kind === 'view' ? (
-                <DropdownMenuCheckboxItem
-                  key={label}
-                  checked={selected}
-                  onSelect={onSelect}
-                  disabled={disabled}
-                  title={description}
-                >
-                  <Icon />
-                  {label}
-                </DropdownMenuCheckboxItem>
-              ) : (
-                <DropdownMenuItem
-                  key={label}
-                  onSelect={onSelect}
-                  disabled={disabled}
-                  aria-busy={actionPending}
-                  title={description}
-                >
-                  <Icon
-                    className={
-                      actionPending ? 'animate-spin motion-reduce:animate-none' : undefined
-                    }
-                  />
-                  {label}
-                </DropdownMenuItem>
-              ),
-          )}
-          {otherActions.length ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onSelect={() => setInformationOpen(true)}>
-            <InfoIcon />
-            File information
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onFullscreen}>
-            {fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
-            {fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!identity.available} onSelect={() => setCopyOpen(true)}>
-            <CopyPlusIcon />
-            Copy to another workspace
-          </DropdownMenuItem>
-          {canRemove ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => setRemoveOpen(true)}>
-                <DeleteIcon />
-                Remove from this workspace
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
       <FileCopyDialog source={source} open={copyOpen} onOpenChange={setCopyOpen} />
       {source.kind === 'resource' ? (
         <WorkspaceResourceRemoveDialog

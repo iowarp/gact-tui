@@ -208,7 +208,7 @@ test('session Work is a readable canvas peer with accessible task state', async 
   await showWorkbenchList(page, 'Activity');
   await page
     .getByRole('region', { name: 'Activity list', exact: true })
-    .getByRole('button', { name: /^Work/u })
+    .getByRole('button', { name: new RegExp(`^Goal: ${goal.title}`, 'u') })
     .click();
   const panel = page.getByRole('tabpanel', { name: 'Work', exact: true });
   await expect(panel).toBeVisible();
@@ -218,7 +218,8 @@ test('session Work is a readable canvas peer with accessible task state', async 
   await status.focus();
   await expect(page.getByRole('tooltip', { name: 'In progress' })).toBeVisible();
   await expect.poll(() => panel.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
-  await expect(panel.getByRole('heading', { name: 'Schedules' })).toBeAttached();
+  // Kinds of work with nothing recorded are left out rather than listed empty.
+  await expect(panel.getByRole('heading', { name: 'Schedules' })).toHaveCount(0);
 });
 
 test('file explorer reflows converted Markdown and keeps exact source accessible', async ({

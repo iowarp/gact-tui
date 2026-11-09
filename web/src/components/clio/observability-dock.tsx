@@ -110,12 +110,15 @@ export function ClioObservabilityView({
   familyProvenancePending,
   onLoadFamilyProvenance,
   requestedView,
+  views,
   interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [activeView, setActiveView] = useState<ObservabilityView>(
+  const [chosenView, setActiveView] = useState<ObservabilityView>(
     () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
+  const offered = (view: ObservabilityView) => !views || views.includes(view);
+  const activeView = views && !views.includes(chosenView) ? views[0] : chosenView;
   useEffect(() => {
     if (activeView === 'work') onLoadFamilyProvenance?.();
   }, [activeView, onLoadFamilyProvenance]);
@@ -300,6 +303,21 @@ export function ClioObservabilityView({
       window.localStorage.setItem(observabilityViewStorageKey(sessionId), next);
     }
   };
+  const provenanceBar = (
+    <>
+      <ProvenanceSourceBar
+        execution={executionProvenance}
+        onReview={offered('activity') ? () => selectView('activity') : undefined}
+        artifactProvider={artifactProvenanceProvider}
+        degradation={provenanceDegradation}
+        onProviderChange={onProvenanceProviderChange}
+        pending={provenancePending}
+        provider={provenanceProvider}
+        providers={provenanceProviders}
+      />
+      <WorkspaceFoldersBar folders={workspaceFolders} />
+    </>
+  );
   return (
     <div className="@container/obs h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
@@ -308,16 +326,20 @@ export function ClioObservabilityView({
           variant="line"
           className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
         >
-          <ObservabilityTab
-            icon={<Layers3Icon className="size-3.5" />}
-            label="Evidence"
-            value="evidence"
-          />
-          <ObservabilityTab
-            icon={<ActivityIcon className="size-3.5" />}
-            label="Timeline"
-            value="activity"
-          />
+          {offered('evidence') ? (
+            <ObservabilityTab
+              icon={<Layers3Icon className="size-3.5" />}
+              label="Evidence"
+              value="evidence"
+            />
+          ) : null}
+          {offered('activity') ? (
+            <ObservabilityTab
+              icon={<ActivityIcon className="size-3.5" />}
+              label="Timeline"
+              value="activity"
+            />
+          ) : null}
           <ObservabilityTab
             icon={<ChartNoAxesGanttIcon className="size-3.5" />}
             label="Gantt"
@@ -331,6 +353,7 @@ export function ClioObservabilityView({
         </TabsList>
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
+            {offered('evidence') ? null : provenanceBar}
             <SectionState
               error={processesError}
               label="Background work"
@@ -366,17 +389,7 @@ export function ClioObservabilityView({
               label="Attached context"
               pending={contextFilesPending}
             />
-            <ProvenanceSourceBar
-              execution={executionProvenance}
-              onReview={() => selectView('activity')}
-              artifactProvider={artifactProvenanceProvider}
-              degradation={provenanceDegradation}
-              onProviderChange={onProvenanceProviderChange}
-              pending={provenancePending}
-              provider={provenanceProvider}
-              providers={provenanceProviders}
-            />
-            <WorkspaceFoldersBar folders={workspaceFolders} />
+            {provenanceBar}
             <ClioEvidenceView
               onCancelTask={onCancelTask}
               onControlTask={onControlTask}
@@ -453,7 +466,7 @@ function ProvenanceSourceBar({
   providers,
 }: {
   execution?: ExecutionProvenanceResult;
-  onReview: () => void;
+  onReview?: () => void;
   artifactProvider?: ArtifactProvenanceProviderSummary;
   degradation?: ExecutionProvenanceDegradation;
   onProviderChange?: (provider: string) => void;
@@ -539,16 +552,18 @@ function ProvenanceSourceBar({
                   </div>
                 ) : null}
               </dl>
-              <Button
-                variant="link"
-                className="h-auto p-0"
-                onClick={() => {
-                  setOpen(false);
-                  onReview();
-                }}
-              >
-                View activity timeline
-              </Button>
+              {onReview ? (
+                <Button
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => {
+                    setOpen(false);
+                    onReview();
+                  }}
+                >
+                  View activity timeline
+                </Button>
+              ) : null}
               <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
                 <dl className="grid gap-1">
                   <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>

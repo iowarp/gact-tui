@@ -1,5 +1,5 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -184,6 +184,27 @@ export function ClioAppShell({
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
 
+  // A strip chord with the pocket closed opens it at that strip item. The
+  // desktop panel keeps the workbench mounted (it handles the chord itself);
+  // the closed Sheet does not, so the shell holds the position until it mounts.
+  const [pendingStripPosition, setPendingStripPosition] = useState<number>();
+  useShortcut(
+    'strip-position',
+    (_event, position) => {
+      setPendingStripPosition(position);
+      setWorkbenchOpen(true);
+    },
+    { enabled: hasWorkbench && !desktopWorkbench && !workbenchOpen },
+  );
+  const workbenchControl = useMemo(
+    () => ({
+      show: () => setWorkbenchOpen(true),
+      pendingStripPosition,
+      clearPendingStripPosition: () => setPendingStripPosition(undefined),
+    }),
+    [pendingStripPosition, setWorkbenchOpen],
+  );
+
   const sessionSurface = (
     <section
       className="flex h-full min-w-0 flex-col bg-background"
@@ -211,7 +232,7 @@ export function ClioAppShell({
   );
 
   const visibleWorkbench = (
-    <WorkspaceCanvasVisibilityProvider visible={workbenchOpen}>
+    <WorkspaceCanvasVisibilityProvider control={workbenchControl} visible={workbenchOpen}>
       {workbench}
     </WorkspaceCanvasVisibilityProvider>
   );
@@ -274,7 +295,8 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            className="w-[min(92vw,480px)] p-0 data-[side=right]:w-[min(92vw,480px)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Under the split breakpoint the workbench slides over the conversation at 86%.
+            className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
             showCloseButton={false}
             side="right"
           >

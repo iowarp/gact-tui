@@ -15,6 +15,7 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
+import { WorkbenchActivityDetail } from './workbench-activity-detail';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
@@ -127,6 +128,15 @@ export function WorkbenchTabContent({
       );
     case 'session':
       return sessionView;
+    case 'activity':
+      return (
+        <WorkbenchActivityDetail
+          key={tab.id}
+          onOpenSubagent={onOpenSubagent}
+          onOpenTab={onOpenTab}
+          tab={tab}
+        />
+      );
     case 'science-log':
       return (
         <ScienceLogTab
@@ -255,6 +265,7 @@ export function WorkbenchTabContent({
           }
           onUndo={(changeId) => onUndoDiff(tab.sessionId, tab.workspaceId, changeId)}
           pending={diffActionPending}
+          workspaceId={tab.workspaceId}
         />
       );
     case 'artifact':

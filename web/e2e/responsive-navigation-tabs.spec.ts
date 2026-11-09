@@ -175,7 +175,7 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     }),
   ).toBeVisible();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
-  // Fill the tab row: the artifact, a source, the agent and the work view.
+  // Fill the tab row: the artifact, a source, the agent and an activity.
   await showWorkbenchList(page, 'Artifacts');
   await page
     .getByRole('region', { name: 'Artifacts list', exact: true })
@@ -191,9 +191,12 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
     .getByRole('button', { name: 'Agent', exact: true })
     .click();
   await showWorkbenchList(page, 'Activity');
+  // An Activity row opens its detail (or its file) as one more tab.
   await page
     .getByRole('region', { name: 'Activity list', exact: true })
-    .getByRole('button', { name: /^Work/u })
+    .getByRole('list', { name: 'Activity', exact: true })
+    .getByRole('button')
+    .first()
     .click();
   for (const width of [1280, 1100]) {
     await page.setViewportSize({ width, height: 900 });
