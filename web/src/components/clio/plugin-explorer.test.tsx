@@ -76,7 +76,7 @@ it('browses a pack member and its source in the shared reader without changing t
   expect(
     await within(dialog).findByRole('heading', { name: 'PDF work' }, { timeout: 5000 }),
   ).toBeVisible();
-  expect(within(dialog).getByRole('button', { name: 'Copy SKILL.md' })).toBeVisible();
+  expect(within(dialog).getByRole('button', { name: 'Copy contents' })).toBeVisible();
   await user.keyboard('{Escape}');
   expect(screen.getByRole('button', { name: 'documents Pack' })).toHaveAttribute(
     'aria-expanded',

@@ -326,7 +326,25 @@ async function runLargeFiles(browser, stack) {
     .filter({ visible: true })
     .first();
   if (await r.visible(open, 1500)) await open.click();
-  if (await r.visible(menu)) {
+  const filesButton = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Files', exact: true })
+    .filter({ visible: true })
+    .first();
+  if (await r.visible(filesButton, 1500)) {
+    // Measure showing the list, not a list that is already up.
+    if ((await filesButton.getAttribute('aria-pressed')) === 'true') {
+      await filesButton.click();
+      await page.waitForTimeout(300);
+    }
+    await r.measure(
+      'file explorer with 5000 files',
+      'tab',
+      () => filesButton.click(),
+      { css: '[role="treeitem"]', text: 'perf' },
+      { control: filesButton, timeoutMs: 20_000 },
+    );
+  } else if (await r.visible(menu)) {
     await menu.click();
     const explorer = page
       .getByRole('menuitem', { name: /^File explorer/u })

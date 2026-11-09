@@ -5,21 +5,13 @@ import type {
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { PermissionResponse } from './permission-response';
-import {
-  Queue,
-  QueueSection,
-  QueueSectionContent,
-  QueueSectionLabel,
-  QueueSectionTrigger,
-} from '@/components/ai-elements/queue';
+import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { ATTENTION_REVEAL_EVENT } from './interaction-control';
+import { ATTENTION_REVEAL_EVENT, pendingInteractionDomId } from './interaction-control';
 import { SurfaceQuestionNotice } from './surface-question-notice';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
@@ -88,7 +80,6 @@ export function ClioPendingInteractions({
     id: '',
     index: 0,
   }));
-  const [open, setOpen] = useAttentionDraft('$panel:open', true);
   const foundIndex = pending.findIndex((row) => row.id === selection.id);
   const index =
     foundIndex < 0 ? Math.min(selection.index, Math.max(0, pending.length - 1)) : foundIndex;
@@ -102,22 +93,31 @@ export function ClioPendingInteractions({
     }
     if (viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [selectedId, index, selection.id, selection.index, setSelection]);
+  // A new card takes focus when nothing else holds it (the composer is not in use).
+  const seenIds = useRef<ReadonlySet<string>>(new Set(pending.map((row) => row.id)));
+  const pendingKey = pending.map((row) => row.id).join('\n');
+  useEffect(() => {
+    const ids = pendingKey ? pendingKey.split('\n') : [];
+    const arrived = ids.some((id) => !seenIds.current.has(id));
+    seenIds.current = new Set(ids);
+    if (!arrived || !selectedId || document.activeElement !== document.body) return;
+    const card = document
+      .getElementById(pendingInteractionDomId(selectedId))
+      ?.closest<HTMLElement>('[data-slot="ask-card"]');
+    card?.focus({ preventScroll: true });
+  }, [pendingKey, selectedId]);
   useEffect(() => {
     const reveal = (event: Event) => {
       const id: unknown = (event as CustomEvent).detail;
       const next = pending.findIndex((row) => row.id === id);
-      if (next >= 0) {
-        setSelection({ id: pending[next]!.id, index: next });
-        setOpen(true);
-      }
+      if (next >= 0) setSelection({ id: pending[next]!.id, index: next });
     };
     window.addEventListener(ATTENTION_REVEAL_EVENT, reveal);
     return () => window.removeEventListener(ATTENTION_REVEAL_EVENT, reveal);
-  }, [pending, setOpen, setSelection]);
+  }, [pending, setSelection]);
   const navigate = (next: number) => {
     if (!pending[next]) return;
     setSelection({ id: pending[next]!.id, index: next });
-    setOpen(true);
   };
   const hasInteractiveSurface = selected?.kind === 'a2ui' || Boolean(selected?.source.surface_id);
   const handleResponse = useCallback(
@@ -142,172 +142,67 @@ export function ClioPendingInteractions({
   // A failed read still owns this surface: the reader is told which responses
   // could not be listed instead of being shown an empty, silently-degraded stack.
   if (pending.length === 0 && !error && !capabilityError) return null;
+  const pager = {
+    index,
+    total: pending.length,
+    onPrevious: () => navigate(index - 1),
+    onNext: () => navigate(index + 1),
+  };
 
   return (
-    <Queue
+    <section
       aria-label="Agent needs your attention"
-      aria-live="polite"
-      // Match the queue and composer, including the rounded outer boundary.
-      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink overflow-hidden rounded-b-none border-b-0 border-composer-border bg-composer py-1 shadow-none backdrop-blur-none dark:bg-composer dark:shadow-none"
+      // A separate card docked 8px above the composer, at the composer's width.
+      className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
+      data-slot="pending-interactions"
       role="region"
     >
-      {/* Open by default: the agent is blocked until one of these controls is used,
-          so they must be mounted and reachable without a preceding expand. The
-          trigger still collapses the stack when the reader wants the room back. */}
-      <QueueSection className="flex min-h-0 flex-col" open={open} onOpenChange={setOpen}>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <QueueSectionTrigger
-            className="h-7 min-w-0 flex-1"
-            data-slot="pending-interactions-trigger"
-          >
-            <QueueSectionLabel label="Agent needs your attention" />
-          </QueueSectionTrigger>
-          {pending.length > 1 ? (
-            <nav aria-label="Pending requests" className="flex shrink-0 items-center gap-0.5">
-              <Button
-                aria-label="Previous request"
-                disabled={index === 0}
-                onClick={() => navigate(index - 1)}
-                size="icon-sm"
-                variant="ghost"
+      <p aria-atomic="true" aria-live="polite" className="sr-only">
+        {selected ? announcement(selected, index, pending.length) : ''}
+      </p>
+      <ScrollArea
+        className={cn(
+          'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
+          // The card stops at 45% of the conversation; a visual answer gets more.
+          hasInteractiveSurface || selected?.payload?.access
+            ? 'max-h-[calc(100dvh-12rem)]'
+            : 'max-h-[45dvh]',
+        )}
+        scrollHideDelay={500}
+        // No scrollbar chrome at rest; it shows only while the card scrolls.
+        type="scroll"
+        viewportProps={{
+          ref: viewportRef,
+          'aria-label': `${pending.length} pending responses`,
+          className: 'pending-interactions-viewport overscroll-contain',
+          onKeyDown: handleScrollableRegionKeys,
+          role: 'region',
+          tabIndex: -1,
+        }}
+      >
+        <AskPagerContext.Provider value={pager}>
+          <div className="flex min-w-0 flex-col gap-2">
+            <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
+            {pending.map((interaction) => (
+              <div
+                key={interaction.id}
+                hidden={interaction.id !== selected?.id}
+                data-attention-item={interaction.id}
               >
-                <ChevronLeftIcon aria-hidden="true" className="size-4" />
-              </Button>
-              <span
-                className="min-w-10 text-center text-xs tabular-nums text-muted-foreground"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {index + 1} / {pending.length}
-              </span>
-              <Button
-                aria-label="Next request"
-                disabled={index === pending.length - 1}
-                onClick={() => navigate(index + 1)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <ChevronRightIcon aria-hidden="true" className="size-4" />
-              </Button>
-            </nav>
-          ) : null}
-        </div>
-        <QueueSectionContent
-          hidden={!open}
-          forceMount
-          className="flex min-h-0 flex-col data-[state=closed]:hidden"
-        >
-          <ScrollArea
-            className={cn(
-              'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-              // Reserve room for the composer rather than allowing a tall
-              // visual to push its controls beyond the conversation viewport.
-              hasInteractiveSurface || selected?.payload?.access
-                ? 'max-h-[calc(100dvh-12rem)]'
-                : selected?.kind === 'question' && selected.source.protocol === 'native'
-                  ? 'max-h-[min(38rem,65dvh)]'
-                  : 'max-h-[min(22rem,40dvh)]',
-            )}
-            scrollHideDelay={500}
-            type="hover"
-            viewportProps={{
-              ref: viewportRef,
-              'aria-label': `${pending.length} pending responses`,
-              className: 'pending-interactions-viewport overscroll-contain pr-1',
-              onKeyDown: handleScrollableRegionKeys,
-              role: 'region',
-              tabIndex: 0,
-            }}
-          >
-            <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
-              <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
-              {pending.map((interaction) => (
-                <div
-                  key={interaction.id}
-                  hidden={interaction.id !== selected?.id}
-                  data-attention-item={interaction.id}
-                >
-                  {(() => {
-                    // Undefined (never 'Specialist') means the workspace has not listed
-                    // this owner session yet, or listed it without a usable title — the
-                    // typed unavailable presentation says so instead of inventing a role.
-                    const ownerLabel = ownerLabels[interaction.owner_session_id];
-                    const showOwner = interaction.owner_session_id !== viewedSessionId;
-                    // The card that is actually in flight is the only one that disables —
-                    // a caller-supplied `disabled` is for a genuinely surface-wide reason,
-                    // never a stand-in for "some other card's response is in flight."
-                    const interactionDisabled = disabled || respondingIds.has(interaction.id);
-                    const responseError = responseErrors.get(interaction.id);
-                    if (interaction.kind === 'permission') {
-                      return (
-                        <PermissionResponse
-                          disabled={interactionDisabled}
-                          interaction={interaction}
-                          key={interaction.id}
-                          onResponse={handleResponse}
-                          ownerLabel={ownerLabel}
-                          responseError={responseError}
-                          showOwner={showOwner}
-                        />
-                      );
-                    }
-                    if (interaction.kind === 'a2ui') {
-                      const surfaceId = interaction.source.surface_id;
-                      // Looked up by id alone, WITHOUT the owner-session filter: the
-                      // component below distinguishes "not found yet" from "found, but
-                      // it belongs to a different session" instead of collapsing both
-                      // into the same "loading" message.
-                      const rawSurface = surfaceId
-                        ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
-                          surfaces[surfaceId])
-                        : undefined;
-                      if (embedsQuestionSurface(interaction)) {
-                        return (
-                          <PendingA2UIResponse
-                            key={interaction.id}
-                            interaction={interaction}
-                            rawSurface={rawSurface}
-                            disabled={interactionDisabled}
-                            onResponse={handleResponse}
-                            onRefetchSurface={onRefetchSurfaces}
-                            ownerLabel={ownerLabel}
-                            showOwner={showOwner}
-                            responseError={responseError}
-                            actionLifecycle={
-                              rawSurface ? actionLifecycles[rawSurface.id] : undefined
-                            }
-                          />
-                        );
-                      }
-                      return (
-                        <SurfaceQuestionNotice
-                          disabled={interactionDisabled}
-                          interaction={interaction}
-                          key={interaction.id}
-                          onRefetch={onRefetchSurfaces}
-                          onOpen={onOpenSurfaceQuestion}
-                          onResponse={handleResponse}
-                          ownerLabel={ownerLabel}
-                          showOwner={showOwner}
-                          rawSurface={rawSurface}
-                        />
-                      );
-                    }
-                    if (interaction.source.tool_name === 'plan_exit') {
-                      return (
-                        <PlanExitResponse
-                          disabled={interactionDisabled}
-                          interaction={interaction}
-                          key={interaction.id}
-                          onResponse={handleResponse}
-                          ownerLabel={ownerLabel}
-                          responseError={responseError}
-                          showOwner={showOwner}
-                        />
-                      );
-                    }
+                {(() => {
+                  // Undefined (never 'Specialist') means the workspace has not listed
+                  // this owner session yet, or listed it without a usable title — the
+                  // typed unavailable presentation says so instead of inventing a role.
+                  const ownerLabel = ownerLabels[interaction.owner_session_id];
+                  const showOwner = interaction.owner_session_id !== viewedSessionId;
+                  // The card that is actually in flight is the only one that disables —
+                  // a caller-supplied `disabled` is for a genuinely surface-wide reason,
+                  // never a stand-in for "some other card's response is in flight."
+                  const interactionDisabled = disabled || respondingIds.has(interaction.id);
+                  const responseError = responseErrors.get(interaction.id);
+                  if (interaction.kind === 'permission') {
                     return (
-                      <QuestionResponse
+                      <PermissionResponse
                         disabled={interactionDisabled}
                         interaction={interaction}
                         key={interaction.id}
@@ -317,15 +212,98 @@ export function ClioPendingInteractions({
                         showOwner={showOwner}
                       />
                     );
-                  })()}
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </QueueSectionContent>
-      </QueueSection>
-    </Queue>
+                  }
+                  if (interaction.kind === 'a2ui') {
+                    const surfaceId = interaction.source.surface_id;
+                    // Looked up by id alone, WITHOUT the owner-session filter: the
+                    // component below distinguishes "not found yet" from "found, but
+                    // it belongs to a different session" instead of collapsing both
+                    // into the same "loading" message.
+                    const rawSurface = surfaceId
+                      ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
+                        surfaces[surfaceId])
+                      : undefined;
+                    if (embedsQuestionSurface(interaction)) {
+                      return (
+                        <PendingA2UIResponse
+                          key={interaction.id}
+                          interaction={interaction}
+                          rawSurface={rawSurface}
+                          disabled={interactionDisabled}
+                          onResponse={handleResponse}
+                          onRefetchSurface={onRefetchSurfaces}
+                          ownerLabel={ownerLabel}
+                          showOwner={showOwner}
+                          responseError={responseError}
+                          actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
+                        />
+                      );
+                    }
+                    return (
+                      <SurfaceQuestionNotice
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onRefetch={onRefetchSurfaces}
+                        onOpen={onOpenSurfaceQuestion}
+                        onResponse={handleResponse}
+                        ownerLabel={ownerLabel}
+                        showOwner={showOwner}
+                        rawSurface={rawSurface}
+                      />
+                    );
+                  }
+                  if (interaction.source.tool_name === 'plan_exit') {
+                    return (
+                      <PlanExitResponse
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onResponse={handleResponse}
+                        ownerLabel={ownerLabel}
+                        responseError={responseError}
+                        showOwner={showOwner}
+                      />
+                    );
+                  }
+                  return (
+                    <QuestionResponse
+                      disabled={interactionDisabled}
+                      interaction={interaction}
+                      key={interaction.id}
+                      onResponse={handleResponse}
+                      ownerLabel={ownerLabel}
+                      responseError={responseError}
+                      showOwner={showOwner}
+                    />
+                  );
+                })()}
+              </div>
+            ))}
+          </div>
+        </AskPagerContext.Provider>
+      </ScrollArea>
+    </section>
   );
+}
+
+const KIND_NAMES: Record<string, string> = {
+  permission: 'Permission',
+  question: 'Question',
+  a2ui: 'Question',
+  mcp_task_input: 'Input',
+};
+
+/** Read once, politely: kind, title, why, place in the queue. */
+function announcement(interaction: PendingInteraction, index: number, total: number): string {
+  const kind =
+    interaction.source.tool_name === 'plan_exit'
+      ? 'Plan'
+      : (KIND_NAMES[interaction.kind] ?? 'Request');
+  const why = interaction.payload?.access?.reason;
+  return [`${kind}: ${interaction.title}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
+    .filter(Boolean)
+    .join('. ');
 }
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {

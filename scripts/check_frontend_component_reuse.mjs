@@ -88,21 +88,21 @@ const requiredImports = {
   ],
   'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
-  // October 16 attention redesign: Queue owns the shared pager boundary. The
-  // extracted permission decision composes the existing Button/Select rather
-  // than another nested Alert. Reviewed in light/dark and narrow browser cases;
-  // see docs/design/attention-panel.md. Preserve the complete sourced chain.
-  'web/src/components/clio/pending-interactions.tsx': [
-    '@/components/ai-elements/queue',
-    './permission-response',
-  ],
-  'web/src/components/clio/permission-response.tsx': [
-    '@/components/ui/button',
-    '@/components/ui/select',
-  ],
-  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
+  // RC1 decision cards (conversation-states v24) deliberately replace the
+  // Queue pager and Button/Select scope picker: every docked decision is one
+  // AskCard with numbered scope buttons and an in-card pager. AskCard owns the
+  // sourced Button and TechnicalDetails composition. Reviewed side by side
+  // against the spec in light/dark at 1280 and 768.
+  'web/src/components/clio/pending-interactions.tsx': ['./ask-card-keys', './permission-response'],
+  'web/src/components/clio/permission-response.tsx': ['./ask-card'],
+  'web/src/components/clio/ask-card.tsx': ['@/components/ui/button', './technical-details'],
+  'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-list-column'],
+  'web/src/components/clio/workbench-list-column.tsx': ['./workbench-resource-browser'],
+  'web/src/components/clio/workbench-tab-content.tsx': ['./workbench-resource-browser'],
+  // The Files list is a windowed flat tree built from the file-tree row parts.
+  'web/src/components/clio/workbench-file-tree.tsx': ['@/components/ai-elements/file-tree'],
   'web/src/components/clio/workbench-resource-browser.tsx': [
-    '@/components/ai-elements/file-tree',
+    './workbench-file-tree',
     './artifact-card',
     './resource-viewers',
   ],
@@ -144,6 +144,10 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
     './data-grid-table',
   ],
+  // File tables (CSV, TSV, JSON records) use the dense spec grid: a line-number
+  // gutter and one virtualized scroll instead of the paginated card table.
+  'web/src/components/clio/csv-view.tsx': ['./file-data-grid'],
+  'web/src/components/clio/file-data-grid.tsx': ['./primitives/dense-grid'],
   // RC1 S4 deliberately replaces the runs DataGrid with grouped rows on the
   // shared ListRow primitive (fixed status/source/workspace/state/time columns,
   // details in a popover) so runs align with the conversation rail and bell.
