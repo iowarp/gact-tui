@@ -88,7 +88,7 @@ describe('ALCF provider family', () => {
       <ClioModelPicker onChange={vi.fn()} options={options} trigger={<Button>Models</Button>} />,
     );
     await user.click(screen.getByRole('button', { name: 'Models' }));
-    await user.click(screen.getByRole('button', { name: 'Hidden (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Hidden 1' }));
     await user.click(screen.getByRole('button', { name: 'Hide ALCF inference in this picker' }));
     expect(JSON.parse(window.localStorage.getItem(HIDDEN_PROVIDERS_STORAGE_KEY)!)).toEqual(
       [...Object.keys(ALCF_SERVERS), 'mistral'].sort(),
