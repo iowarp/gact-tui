@@ -44,7 +44,7 @@ export function FileModeControls({
         <TabsList
           aria-label={label}
           data-slot="viewer-modes"
-          className="inline-flex h-7 flex-none shrink-0 justify-start gap-px rounded-[7px] border border-input bg-transparent p-[2px] group-data-horizontal/tabs:h-7 group-data-[fold-talk]/frame:hidden"
+          className="inline-flex h-7 flex-none shrink-0 justify-start gap-px rounded-[7px] border border-input bg-transparent p-[2px] group-data-horizontal/tabs:h-7 group-data-[fold-modes]/frame:hidden"
         >
           {modes.map(({ value: mode, label: modeLabel, title, icon: Icon }) => (
             <NamedTooltip key={mode} label={title || modeLabel}>
@@ -67,7 +67,7 @@ export function FileModeControls({
           <ToolbarAction
             label={label}
             data-modes-folded=""
-            className="hidden w-9 gap-0.5 group-data-[fold-talk]/frame:inline-flex"
+            className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex"
           >
             <ActiveIcon aria-hidden="true" />
             <ChevronDownIcon aria-hidden="true" className="!size-2.5" />

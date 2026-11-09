@@ -1,11 +1,12 @@
 import type { SubagentRun, Task, ToolInvocation } from '@clio/core/v3';
 import { useState } from 'react';
-import { useReducedMotionConfig } from 'motion/react';
-import { Shimmer } from '@/components/ai-elements/shimmer';
+import { BrainIcon, ServerIcon } from 'lucide-react';
 import { useNow } from '@/hooks/use-now';
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
 import type { TurnPreparationProps } from './turn-preparation';
-import { ClioInfrastructurePreparation } from './infrastructure-preparation';
+import { ActivityRow } from './activity-row';
+import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
+import { StatusIndicator } from './primitives/status-indicator';
 
 interface TurnWaitFeedbackProps extends TurnPreparationProps {
   tools: Record<string, ToolInvocation>;
@@ -50,36 +51,41 @@ export function ClioTurnWaitFeedback({
   if (hasVisibleWork) return null;
   if (dependencies.some((item) => ['running', 'retrying'].includes(item.state)))
     return (
-      <div className="py-3 text-sm text-muted-foreground" role="status">
-        <ClioInfrastructurePreparation dependencies={dependencies} followUp />
+      <div role="status" data-slot="turn-response-wait">
+        <ActivityRow
+          icon={<ServerIcon aria-hidden="true" />}
+          name={infrastructurePreparationLabel(dependencies, true)}
+          status={
+            <StatusIndicator tone="running" label="Preparing" display="column" mark="glyph" />
+          }
+        />
       </div>
     );
   return <ResponseWait key={activeTurnId ?? current.at(-1)?.id} />;
 }
 
+/** The live row while the model has said nothing yet: "Thinking…", its time, a spinner. */
 function ResponseWait() {
   const [started] = useState(() => Date.now());
   const now = useNow(true);
-  const reducedMotion = useReducedMotionConfig();
   const seconds = Math.max(0, Math.floor((now - started) / 1000));
   // Keep quick handoffs quiet while making sustained waits continuously visible.
   if (seconds < 1) return null;
   return (
-    <div
-      className="flex min-h-7 items-center gap-2 py-3 text-sm text-muted-foreground"
-      data-slot="turn-response-wait"
-      role="status"
-    >
-      {reducedMotion ? (
-        <span className="font-medium">Waiting for response</span>
-      ) : (
-        <Shimmer as="span" className="font-medium" duration={1.5}>
-          Waiting for response
-        </Shimmer>
-      )}
-      <span aria-hidden="true" className="font-mono text-xs tabular-nums">
-        {seconds}s
-      </span>
+    <div role="status" data-slot="turn-response-wait">
+      <ActivityRow
+        icon={<BrainIcon aria-hidden="true" />}
+        name="Thinking…"
+        elapsed={`${seconds}s`}
+        status={
+          <StatusIndicator
+            tone="running"
+            label="Waiting for response"
+            display="column"
+            mark="glyph"
+          />
+        }
+      />
     </div>
   );
 }

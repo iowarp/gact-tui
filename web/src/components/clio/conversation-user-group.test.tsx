@@ -25,7 +25,7 @@ function message(id: string, role: Message['role'] = 'user'): Message {
   };
 }
 
-it('groups three pending steers under one sender while preserving each copy and cancel action', () => {
+it('groups three pending steers as one run of bubbles while preserving each copy and cancel action', () => {
   const onCancel = vi.fn().mockResolvedValue(undefined);
   const messages = ['first', 'second', 'third'].map((id) => message(id));
   const view = render(
@@ -47,7 +47,6 @@ it('groups three pending steers under one sender while preserving each copy and 
       </ConversationDisplayProvider>
     </TranscriptTestAppearance>,
   );
-  expect(screen.getAllByText('You', { exact: true })).toHaveLength(1);
   expect(view.container.querySelectorAll('[data-user-continuation="true"]')).toHaveLength(2);
   for (const row of messages)
     expect(view.container.querySelector(`#message-${row.id}`)).not.toBeNull();
@@ -93,7 +92,6 @@ it('groups consumed steers only when they share an adjacent delivery boundary', 
       </ConversationDisplayProvider>
     </TranscriptTestAppearance>,
   );
-  expect(screen.getAllByText('You', { exact: true })).toHaveLength(2);
   expect(view.container.querySelectorAll('[data-user-continuation="true"]')).toHaveLength(1);
   expect(
     view.container

@@ -235,7 +235,7 @@ export function NavBadge({ badge }: { badge?: { count: number; label: string } }
   return (
     <Badge
       aria-label={badge.label}
-      className="ml-auto h-4.5 min-w-4.5 shrink-0 border-transparent bg-destructive px-1 text-[10px] text-destructive-foreground tabular-nums"
+      className="ml-auto h-4.5 min-w-4.5 shrink-0 rounded-full border-transparent bg-destructive px-1.5 text-[0.65625rem] font-medium text-background tabular-nums"
     >
       {badge.count}
     </Badge>
