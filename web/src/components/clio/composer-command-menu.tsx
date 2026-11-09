@@ -85,8 +85,8 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
 const KEY_HINTS = [
-  { id: 'menu-move', label: 'Move' },
-  { id: 'menu-pick', label: 'Use' },
+  { id: 'menu-fill', label: 'Fill' },
+  { id: 'menu-pick', label: 'Run' },
   { id: 'menu-close', label: 'Close' },
 ] as const;
 
@@ -155,20 +155,25 @@ const CommandOption = memo(function CommandOption({
 
 /**
  * The `/` menu above the composer: one line per command, grouped by where it
- * comes from. The editor keeps focus; the arrows move a highlight, Enter uses
- * the highlighted command (with none highlighted it still sends the message)
- * and Escape closes the menu until the command is edited.
+ * comes from. The editor keeps focus; the arrows move a highlight, Tab fills
+ * the highlighted (or first) command so arguments can follow, Enter runs the
+ * highlighted command (with none highlighted it still sends the message) and
+ * Escape closes the menu until the command is edited.
  */
 export function ClioComposerCommandMenu({
   commands,
   query,
   onPick,
+  onRun,
   onOpenChange,
   popoverId,
 }: {
   commands: readonly CommandDefinition[];
   query: string;
+  /** Fills the command into the composer so arguments can follow (Tab, or a press). */
   onPick: (command: CommandDefinition) => void;
+  /** Runs the highlighted command as it stands (Enter). */
+  onRun: (command: CommandDefinition) => void;
   onOpenChange?: (open: boolean) => void;
   popoverId: string;
 }) {
@@ -199,9 +204,9 @@ export function ClioComposerCommandMenu({
   useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
   useEffect(() => onOpenChange?.(open), [onOpenChange, open]);
 
-  const latest = useRef({ active, choices, onPick, open, query });
+  const latest = useRef({ active, choices, onPick, onRun, open, query });
   useLayoutEffect(() => {
-    latest.current = { active, choices, onPick, open, query };
+    latest.current = { active, choices, onPick, onRun, open, query };
   });
 
   // The editor's own key handler sends the message on Enter, so the menu's keys
@@ -229,9 +234,12 @@ export function ClioComposerCommandMenu({
             : (at + step + current.choices.length) % current.choices.length;
         const command = current.choices[next];
         if (command) setHighlight({ key: commandKey(command), query: current.query });
+      } else if (event.key === 'Tab' && !event.shiftKey && current.choices.length) {
+        take();
+        current.onPick(current.active ?? current.choices[0]!);
       } else if (event.key === 'Enter' && !event.shiftKey && current.active) {
         take();
-        current.onPick(current.active);
+        current.onRun(current.active);
       }
     };
     editor.addEventListener('keydown', onKeyDown);

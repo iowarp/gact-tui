@@ -2,13 +2,13 @@ import type { MessageDelivery, QueuedMessage, WorkspaceResource } from '@clio/co
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Sortable } from '@/components/reui/sortable';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
 import { QueuedMessageRow } from './composer-queue-row';
-import { IconButton } from './primitives/icon-button';
 import { Tag } from './primitives/tag';
 
 /** Queue state and actions passed through the shared composer. */
@@ -42,6 +42,39 @@ function queuedMessagesLabel(count: number): string {
   return `${count} queued ${count === 1 ? 'message' : 'messages'}`;
 }
 
+function smoothScroll(): ScrollBehavior {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+}
+
+/** How many rows sit below the viewport's visible edge, so a scrolled queue names what it hides. */
+function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
+  const [below, setBelow] = useState(0);
+  useEffect(() => {
+    if (!viewport) return;
+    const measure = () => {
+      const edge = viewport.getBoundingClientRect().bottom;
+      const rows = viewport.querySelectorAll<HTMLElement>('[data-queue-live-item]');
+      let hidden = 0;
+      for (const row of rows) {
+        const rect = row.getBoundingClientRect();
+        if (rect.top + rect.height / 2 > edge) hidden += 1;
+      }
+      setBelow(hidden);
+    };
+    measure();
+    viewport.addEventListener('scroll', measure, { passive: true });
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    observer?.observe(viewport);
+    if (viewport.firstElementChild) observer?.observe(viewport.firstElementChild);
+    return () => {
+      viewport.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [viewport, rowCount]);
+  return below;
+}
+
 /**
  * The durable queue that waits above the composer: one strip the width of the
  * composer box, a one-line count (and Paused, in words), then one line per
@@ -70,6 +103,8 @@ export function ClioComposerQueue({
   const ordered = orderOverrideMatches ? orderOverride : messages;
   const [editing, setEditing] = useState<{ id: string; text: string }>();
   const [collapsedPreference, setCollapsedPreference] = useState(false);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const below = useRowsBelow(viewport, ordered.length);
 
   const resourceById = useMemo(
     () => new Map(resources.map((resource) => [resource.id, resource])),
@@ -147,15 +182,19 @@ export function ClioComposerQueue({
           ) : null}
         </span>
         {collapsible ? (
-          <IconButton
+          <Button
             aria-controls={collapsed ? undefined : viewportId}
             aria-expanded={!collapsed}
-            className="ml-auto"
-            icon={collapsed ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
+            aria-label={collapsed ? 'Show queued messages' : 'Hide queued messages'}
+            className="ml-auto h-[22px] gap-1 rounded-[5px] px-1.5 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
             onClick={() => setCollapsedPreference((value) => !value)}
-            size="sm"
-          />
+            size="xs"
+            type="button"
+            variant="ghost"
+          >
+            {collapsed ? 'Show' : 'Hide'}
+            {collapsed ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          </Button>
         ) : null}
       </div>
       {collapsed ? null : (
@@ -168,6 +207,7 @@ export function ClioComposerQueue({
             className:
               'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none',
             id: viewportId,
+            ref: setViewport,
             role: 'region',
             // The queue owns its own height: its scroll chain is otherwise
             // capped only by the composer stack, so a long queue would grow
@@ -214,6 +254,18 @@ export function ClioComposerQueue({
           </Sortable>
         </ScrollArea>
       )}
+      {!collapsed && below > 0 ? (
+        <button
+          className="mx-1 mt-0.5 flex h-[22px] items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+          onClick={() =>
+            viewport?.scrollBy({ top: viewport.clientHeight, behavior: smoothScroll() })
+          }
+          type="button"
+        >
+          {below} more
+          <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+        </button>
+      ) : null}
     </section>
   );
 }

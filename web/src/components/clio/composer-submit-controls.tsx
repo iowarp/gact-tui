@@ -5,16 +5,19 @@ import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useComposerDelivery } from '@/hooks/use-composer-delivery';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
+import { TOOLTIP_KEY } from './primitives/tooltip-key';
 import { ClioStatus } from './status';
 
 /** The 28px square the row ends with, filled so it reads as the primary action. */
 const SQUARE =
-  'rounded-[8px] bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
+  'size-7 rounded-[8px] bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
 
 /**
- * Send, or while work runs Queue (Enter) and Steer (Ctrl/⌘ Enter) beside Stop.
- * The visible action follows the same state and modifier rule as the keys.
+ * Send, or while work runs a flat Queue (Enter) or Steer (Ctrl/⌘ Enter) icon
+ * beside Stop, the row's one filled square. The visible action follows the same
+ * state and modifier rule as the keys.
  */
 export function ComposerSubmitControls({
   state,
@@ -51,12 +54,12 @@ export function ComposerSubmitControls({
         />
       ) : delivery === 'steer' ? (
         <IconButton
-          className={SQUARE}
           disabled={disabled || !sendable}
           icon={<CornerDownRightIcon />}
           label="Steer"
           onClick={onSubmit}
           shortcut="steer"
+          size="toolbar"
           tooltipSide="top"
           type="submit"
         />
@@ -65,7 +68,7 @@ export function ComposerSubmitControls({
       )}
       {running || state === 'queued' ? (
         <IconButton
-          className={SQUARE}
+          className={cn(SQUARE, 'ml-0.5')}
           disabled={!onStop}
           icon={<SquareIcon className="size-3 fill-current" />}
           label="Stop"
@@ -94,11 +97,11 @@ function QueueButton({
       <TooltipTrigger asChild>
         <IconButton
           aria-keyshortcuts={[send?.aria, steer?.aria].filter(Boolean).join(' ') || undefined}
-          className={SQUARE}
           disabled={disabled}
           icon={<ListPlusIcon />}
           label="Queue"
           onClick={onSubmit}
+          size="toolbar"
           tooltip={false}
           type="submit"
         />
@@ -109,13 +112,9 @@ function QueueButton({
         sideOffset={4}
       >
         <span>Queue</span>
-        <kbd className="justify-self-end rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
-          {send?.text}
-        </kbd>
+        <kbd className={TOOLTIP_KEY}>{send?.text}</kbd>
         <span>Steer instead</span>
-        <kbd className="justify-self-end rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
-          {steer?.text}
-        </kbd>
+        <kbd className={TOOLTIP_KEY}>{steer?.text}</kbd>
       </TooltipContent>
     </Tooltip>
   );

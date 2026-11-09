@@ -114,6 +114,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
 
   def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'pair' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
+  def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-close', 'Close', 'menu', ['Esc']),
   def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {

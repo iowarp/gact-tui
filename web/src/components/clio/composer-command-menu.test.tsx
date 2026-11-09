@@ -204,6 +204,7 @@ describe('the / menu surface', () => {
 
   function renderMenu(query: string) {
     const onPick = vi.fn();
+    const onRun = vi.fn();
     const view = render(
       <>
         <div
@@ -216,20 +217,24 @@ describe('the / menu surface', () => {
         <ClioComposerCommandMenu
           commands={commands}
           onPick={onPick}
+          onRun={onRun}
           popoverId="cmds"
           query={query}
         />
       </>,
     );
-    return { onPick, view, editor: screen.getByTestId('editor') };
+    return { onPick, onRun, view, editor: screen.getByTestId('editor') };
   }
 
-  it('moves over usable commands, uses the highlighted one on Enter and closes on Escape', () => {
-    const { editor, onPick } = renderMenu('/');
+  it('fills on Tab, runs the highlighted command on Enter and closes on Escape', () => {
+    const { editor, onPick, onRun } = renderMenu('/');
     const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' });
     editor.dispatchEvent(enter);
     expect(enter.defaultPrevented).toBe(false);
-    expect(onPick).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(editor, { key: 'Tab' });
+    expect(onPick).toHaveBeenCalledWith(commands[0]);
 
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
     fireEvent.keyDown(editor, { key: 'ArrowDown' });
@@ -238,7 +243,7 @@ describe('the / menu surface', () => {
     expect(selected).toHaveAccessibleName(/\/goal/u);
 
     fireEvent.keyDown(editor, { key: 'Enter' });
-    expect(onPick).toHaveBeenCalledWith(commands[0]);
+    expect(onRun).toHaveBeenCalledWith(commands[0]);
 
     fireEvent.keyDown(editor, { key: 'Escape' });
     expect(screen.queryByRole('listbox', { name: 'Suggestions' })).toBeNull();
