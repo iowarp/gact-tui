@@ -53,8 +53,12 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page.getByRole('menuitemradio', { name: 'flat-NDP' })).toBeChecked();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
-  await expect(page.getByText('No active work', { exact: true })).toBeVisible();
-  await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
+  // The top bar reports only live or unresolved work; idle "No active work" and
+  // token usage live in the conversation rail, not the bar.
+  const topBarStatus = page.locator('[data-slot="top-bar-status"]');
+  await expect(topBarStatus).toBeAttached();
+  await expect(topBarStatus).not.toContainText('Tokens');
+  await expect(topBarStatus).not.toContainText('No active work');
   await page.getByRole('button', { name: 'New conversation actions' }).click();
   await page.getByRole('menuitem', { name: 'Workspace files', exact: true }).click();
   const filesList = page.getByRole('region', { name: 'Files list', exact: true });

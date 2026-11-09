@@ -20,7 +20,7 @@ export function DesktopWorkspaceToolbar({
     </>
   ) : (
     <header
-      className="flex h-12 shrink-0 items-center gap-2 border-b bg-background/90 px-3"
+      className="flex h-10 shrink-0 items-center gap-2 border-b bg-background/90 px-3"
       data-slot="workspace-header"
     >
       {navigation}

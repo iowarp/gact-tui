@@ -316,15 +316,10 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
   await newSession.click();
-  const create = page.getByRole('dialog', { name: 'Create', exact: true });
-  await expect(create.getByRole('radio', { name: 'Session', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
-    'flat-NDP',
-  );
-  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // A new conversation is a draft in place in that workspace (full-picture/08).
+  await expect(page).toHaveURL(/\/workspaces\/ws_flat_ndp\/new$/u);
+  await expect(page.getByRole('dialog', { name: 'Create', exact: true })).toHaveCount(0);
+  await page.goBack();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
   await disclosure.click();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
