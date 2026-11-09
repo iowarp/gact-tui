@@ -1,6 +1,6 @@
 import { PROTOCOL_VERSION, TransportError } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
@@ -99,15 +99,36 @@ export function useConnectionAvailabilities(
     })),
   });
 
+  const fresh = useMemo(
+    () =>
+      connections.map((connection, index) => ({
+        endpoint: connection.endpoint,
+        availability: queries[index]?.data ?? availabilityFromError(queries[index]?.error),
+      })),
+    [connections, queries],
+  );
+  // A re-probe of a service that never answered clears the query's error, so
+  // keep showing the last settled answer instead of flashing back to Checking.
+  const [settled, setSettled] = useState<ConnectionAvailabilityMap>({});
+  const answers = fresh.filter(
+    ({ endpoint, availability }) =>
+      availability !== CHECKING_CONNECTION && !sameAvailability(settled[endpoint], availability),
+  );
+  if (answers.length > 0) {
+    setSettled({
+      ...settled,
+      ...Object.fromEntries(answers.map(({ endpoint, availability }) => [endpoint, availability])),
+    });
+  }
   return useMemo(
     () =>
       Object.fromEntries(
-        connections.map((connection, index) => [
-          connection.endpoint,
-          queries[index]?.data ?? availabilityFromError(queries[index]?.error),
+        fresh.map(({ endpoint, availability }) => [
+          endpoint,
+          availability === CHECKING_CONNECTION ? (settled[endpoint] ?? availability) : availability,
         ]),
       ),
-    [connections, queries],
+    [fresh, settled],
   );
 }
 
@@ -176,6 +197,18 @@ function rethrowCancelledProbe(
 ): void {
   if (requestSignal.aborted) throw error;
   if (probeSignal.aborted) throw new Error('The service did not respond in time.');
+}
+
+function sameAvailability(
+  left: ConnectionAvailability | undefined,
+  right: ConnectionAvailability,
+): boolean {
+  return (
+    left?.state === right.state &&
+    left.label === right.label &&
+    left.detail === right.detail &&
+    left.diagnostics === right.diagnostics
+  );
 }
 
 function availabilityFromError(error: unknown): ConnectionAvailability {

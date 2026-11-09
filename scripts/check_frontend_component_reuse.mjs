@@ -12,9 +12,7 @@ const requiredImports = {
   // here when conversation.tsx was split by behavior (2026-09-12); the
   // sourced component is still composed, just from this file now.
   'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
-  'web/src/components/clio/conversation-model-boundary.tsx': [
-    '@/components/ai-elements/checkpoint',
-  ],
+  'web/src/components/clio/conversation-model-boundary.tsx': ['./primitives/state-view'],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
@@ -28,17 +26,18 @@ const requiredImports = {
     './sent-reference-message',
     './streaming-text',
   ],
+  // RC1 transcript: a task is one activity row with its detail in the opened body.
   'web/src/components/clio/conversation-process-sequence.tsx': [
-    '@/components/ai-elements/task',
+    './transcript-task-row',
     './grounded-message-response',
     './transcript-reasoning-passage',
     './transcript-reasoning',
     './subagent-card',
     './tool-invocation',
   ],
-  // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
+  // Chain mode moved to ConversationTurn. RC1 transcript: a step's activity reads as
+  // flat activity rows (no fold header), so ChainOfThought is no longer composed here.
   'web/src/components/clio/conversation-turn.tsx': [
-    '@/components/ai-elements/chain-of-thought',
     './transcript-iteration-text',
     './subagent-card',
     './tool-invocation',
@@ -74,7 +73,9 @@ const requiredImports = {
     '@/components/ui/button',
     '@/components/ui/tooltip',
   ],
-  'web/src/components/clio/tool-invocation.tsx': ['@/components/ai-elements/tool'],
+  // RC1 transcript: the ? dialog moved to its own module on the shared dialog frame;
+  // it keeps composing the ai-elements argument and result readers.
+  'web/src/components/clio/tool-technical-details.tsx': ['@/components/ai-elements/tool'],
   'web/src/components/clio/artifact-card.tsx': [
     '@/components/ai-elements/artifact',
     '@/components/ai-elements/attachments',
@@ -87,7 +88,8 @@ const requiredImports = {
     './content-markdown',
   ],
   'web/src/components/clio/content-markdown.tsx': ['@/components/ai-elements/message'],
-  'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
+  // RC1 transcript: a delegation is one activity row, not a dispatch card.
+  'web/src/components/clio/subagent-card.tsx': ['./activity-row'],
   // RC1 decision cards (conversation-states v24) deliberately replace the
   // Queue pager and Button/Select scope picker: every docked decision is one
   // AskCard with numbered scope buttons and an in-card pager. AskCard owns the

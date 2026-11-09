@@ -120,7 +120,7 @@ export function ModelInventoryRow({
   const size = modelSize(model);
   const description =
     model.error && !active && !ready
-      ? model.error
+      ? errorReason(model.error)
       : [model.requested_revision, size ? formatBytes(size) : undefined].filter(Boolean).join(', ');
   const total = model.bytes_total && model.bytes_total > 0 ? model.bytes_total : undefined;
   const meta: ReactNode = active ? (
@@ -336,4 +336,9 @@ export function ModelInventoryRow({
       </AlertDialog>
     </>
   );
+}
+
+/** The reason a model failed, without the folder it names; Folder shows that. */
+function errorReason(error: string): string {
+  return error.replace(/\s+(?:in|at|to)\s+(?:[A-Za-z]:[\\/]|[\\/]|~[\\/]).*$/, '');
 }

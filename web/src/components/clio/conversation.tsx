@@ -5,12 +5,18 @@ import { TranscriptDisclosureContext } from './transcript-disclosure-context';
 import { highlightSearchPassage } from '@/lib/search-passage';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import type { McpAppIdentity } from '@clio/core/v3';
-import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
+import { GitBranchIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import {
+  EarlierMessagesRow,
+  TranscriptLoadError,
+  TranscriptLoading,
+  TRANSCRIPT_CONTROL_LANE_PX,
+  TranscriptControlLane,
+  TranscriptSyncing,
+} from './transcript-inline-states';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
@@ -24,7 +30,7 @@ import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
-import type { ClioConversationProps, EarlierMessagesControl } from './conversation-types';
+import type { ClioConversationProps } from './conversation-types';
 import {
   foldA2UIRevisionBlocks,
   conversationResponseContinuity,
@@ -69,28 +75,6 @@ void loadMarkdownText();
 /** Within this distance of the top, a paged transcript reads its next older page. */
 const EARLIER_LOAD_THRESHOLD_PX = 600;
 
-/** Shows that older messages exist, are loading, or failed; also loads them on click. */
-function EarlierMessagesRow({ earlier }: { earlier: EarlierMessagesControl }) {
-  return (
-    <div className="mx-auto flex w-full max-w-4xl justify-center px-5 py-2">
-      {earlier.loading ? (
-        <span
-          aria-live="polite"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-          role="status"
-        >
-          <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-          Loading earlier messages…
-        </span>
-      ) : (
-        <Button onClick={earlier.load} size="sm" type="button" variant="ghost">
-          {earlier.error ? 'Earlier messages did not load. Try again' : 'Load earlier messages'}
-        </Button>
-      )}
-    </div>
-  );
-}
-
 export function ClioConversation(props: ClioConversationProps) {
   const inRouter = useInRouterContext();
   return (
@@ -110,7 +94,9 @@ function RoutedConversationBody(props: ClioConversationProps) {
 function ConversationBody({
   messages: sourceMessages,
   loading,
+  awaitingFirstPage,
   error,
+  onReload,
   earlier,
   bottomInset = 0,
   compactions,
@@ -511,6 +497,23 @@ function ConversationBody({
     if (followingRef.current && messages.length > 0) scrollToBottom('instant');
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
+  const jumpVisible = !autoscroll.engaged && autoscroll.scrollable && messages.length > 0;
+
+  // An empty list is only "no messages" once the transcript actually arrived.
+  // A load error outranks everything, including a running turn's preparation.
+  const turnStarting =
+    preparation?.sessionState === 'queued' || preparation?.sessionState === 'running';
+  const emptyTranscript =
+    messages.length > 0
+      ? null
+      : error
+        ? 'error'
+        : awaitingFirstPage || (loading && !turnStarting)
+          ? 'loading'
+          : turnStarting
+            ? 'preparing'
+            : 'empty';
+
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
@@ -589,39 +592,22 @@ function ConversationBody({
         }}
         ref={scrollRef}
         role="log"
-        style={{ paddingBottom: bottomInset, scrollPaddingBottom: bottomInset }}
+        style={{
+          paddingBottom: bottomInset,
+          scrollPaddingBottom:
+            bottomInset + (jumpVisible ? TRANSCRIPT_CONTROL_LANE_PX : 0),
+        }}
         tabIndex={0}
       >
         {messages.length > 0 && loading ? (
           // Background refreshes must not change the transcript's reading position.
-          <div
-            aria-live="polite"
-            className="pointer-events-none absolute left-1/2 top-2 z-20 flex w-fit -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur"
-            role="status"
-          >
-            <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-            Syncing history…
-          </div>
+          <TranscriptSyncing />
         ) : null}
-        {messages.length === 0 &&
-        (preparation?.sessionState === 'queued' ||
-          preparation?.sessionState === 'running') ? null : messages.length === 0 && loading ? (
-          <ConversationEmptyState
-            aria-live="polite"
-            className="h-full"
-            description="Recovering messages, reasoning, tools, and artifacts from the agent."
-            icon={<LoaderCircleIcon aria-hidden="true" className="size-7 animate-spin" />}
-            title="Loading conversation"
-          />
-        ) : messages.length === 0 && error ? (
-          <div className="grid h-full place-items-center p-5">
-            <Alert className="max-w-xl" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Conversation unavailable</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          </div>
-        ) : messages.length === 0 ? (
+        {emptyTranscript === 'error' && error ? (
+          <TranscriptLoadError error={error} onRetry={onReload} />
+        ) : emptyTranscript === 'loading' ? (
+          <TranscriptLoading />
+        ) : emptyTranscript === 'preparing' ? null : emptyTranscript === 'empty' ? (
           <>
             {entities.forkOrigin?.message_count === 0 ? (
               <div className="mx-auto max-w-4xl px-5 lg:px-8">
@@ -641,7 +627,10 @@ function ConversationBody({
         ) : (
           <>
             {earlier && (earlier.hasEarlier || earlier.loading || earlier.error) ? (
-              <EarlierMessagesRow earlier={earlier} />
+              <EarlierMessagesRow
+                className={conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}
+                earlier={earlier}
+              />
             ) : null}
             <div
               ref={(node) => {
@@ -711,7 +700,7 @@ function ConversationBody({
             </div>
           </>
         )}
-        {preparation ? (
+        {preparation && emptyTranscript !== 'error' && emptyTranscript !== 'loading' ? (
           <div
             className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             ref={autoscroll.observeContent}
@@ -753,29 +742,7 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {!autoscroll.engaged && autoscroll.scrollable && messages.length > 0 ? (
-          // A zero-height sticky rail inside the scroller, so a wheel over the
-          // button still scrolls the transcript (and reaches its intent
-          // handlers) instead of dying on a sibling overlay. Sticky offsets
-          // are measured inside the scroller's padding, which already holds
-          // the composer inset.
-          <div
-            className="pointer-events-none sticky bottom-3 z-20 h-0"
-            data-slot="scroll-to-bottom-rail"
-          >
-            <Button
-              aria-label="Scroll to bottom"
-              className="pointer-events-auto absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full shadow-lg dark:bg-background dark:hover:bg-muted"
-              onClick={autoscroll.engage}
-              size="icon"
-              title="Scroll to bottom"
-              type="button"
-              variant="outline"
-            >
-              <ArrowDownIcon aria-hidden="true" className="size-4" />
-            </Button>
-          </div>
-        ) : null}
+        {jumpVisible ? <TranscriptControlLane onJump={autoscroll.engage} /> : null}
       </div>
     </div>
   );
