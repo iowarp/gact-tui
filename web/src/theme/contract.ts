@@ -63,6 +63,8 @@ export const COLOR_TOKENS = [
   'warning-foreground',
   // A value changed from its setup default (the Agent tab's teal rows)
   'changed',
+  // The faint ring a busy spinner's arc turns on
+  'spin-track',
   // Science states: a tint for the chip or node and a text color for its label and icon
   'status-supported',
   'status-supported-foreground',

@@ -37,6 +37,7 @@
   --muted-foreground: #675f53;
   --faint: #6f675b;
   --changed: #276a63;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
   --key: #f8f4ec;
@@ -143,6 +144,7 @@
   --muted-foreground: #9c9588;
   --faint: #6f695f;
   --changed: #74b8b0;
+  --spin-track: #2f5551;
   --hover: #25231f;
   --menu-highlight: #38342d;
   --key: #23211d;
@@ -250,6 +252,7 @@
   --muted-foreground: oklch(0.47 0.035 235);
   --faint: oklch(0.6 0.02 230);
   --changed: oklch(0.5 0.1 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.96 0.012 225);
   --menu-highlight: oklch(0.925 0.02 220);
   --key: oklch(0.97 0.008 225);
@@ -356,6 +359,7 @@
   --muted-foreground: oklch(0.7 0 0);
   --faint: oklch(0.5 0 0);
   --changed: oklch(0.78 0.11 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.165 0 0);
   --menu-highlight: oklch(0.255 0 0);
   --key: oklch(0.155 0 0);
@@ -466,6 +470,7 @@
   --muted-foreground: #a30000;
   --faint: #ff9999;
   --changed: #008080;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ffd0d0;
   --menu-highlight: #ffb3b3;
   --key: #ffd9d9;

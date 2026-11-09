@@ -1030,6 +1030,21 @@ function catalogue({ settings, infrastructure }) {
       },
       { ready: 'h1', settleMs: 1200 },
     ),
+    // A computer row with its hover actions showing (narrow, laid over the row's end).
+    // Touch layouts have no hover, so the row takes keyboard focus instead.
+    s(
+      'infrastructure',
+      'agent-hosts-hover',
+      '/infrastructure/agent',
+      async (page) => {
+        const host = page.locator('[data-slot="list-row"]', { hasText: 'utah-cluster' }).first();
+        await host.hover();
+        // The actions are hidden until then, so focus goes to the name's button.
+        await host.locator('button[aria-expanded]').first().focus();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, keepPointer: true },
+    ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
       scenario: { messages: 600, toolsPerMessage: 2 },
