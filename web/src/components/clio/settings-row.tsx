@@ -10,7 +10,8 @@ import { InfoTip } from './info-tip';
  * Setting row (B): label and ⓘ hint on the left, the control on the right, one
  * 44 px line. Explanation lives behind the ⓘ; `note` is a short visible state
  * line under the label ("Following your system, now dark"). Rows take 60% of a
- * wide page and stack their control under the label when narrow.
+ * wide page (`fullWidth` keeps the whole width, for a wide control such as a
+ * path field) and stack their control under the label when narrow.
  */
 export function SettingsRow({
   title,
@@ -21,6 +22,7 @@ export function SettingsRow({
   children,
   htmlFor,
   inlineControl = false,
+  fullWidth = false,
   dirty = false,
 }: {
   title: string;
@@ -36,6 +38,8 @@ export function SettingsRow({
   htmlFor?: string;
   /** Small controls such as switches stay beside their label at every width. */
   inlineControl?: boolean;
+  /** Use the page's whole width instead of 60% of a wide page. */
+  fullWidth?: boolean;
   /** A typed value waiting in the save bar. */
   dirty?: boolean;
 }) {
@@ -49,7 +53,10 @@ export function SettingsRow({
       (description ?? info)
     );
   return (
-    <div className="@container w-full @3xl:w-[60%]" data-slot="settings-row-frame">
+    <div
+      className={cn('@container w-full', !fullWidth && '@3xl:w-[60%]')}
+      data-slot="settings-row-frame"
+    >
       <div
         data-slot="settings-row"
         data-dirty={dirty || undefined}
