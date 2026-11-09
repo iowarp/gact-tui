@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
 import { reportPresentationOverride } from '@/lib/presentation-overrides';
 
@@ -75,6 +75,11 @@ it('keeps lost task visibility out of settled dock status and follows later comp
   expect(screen.queryByText('Needs inspection')).not.toBeInTheDocument();
 });
 
+// The Gantt view is a deferred chunk; warm it so tests measure behaviour, not import time.
+beforeAll(async () => {
+  await import('./observability-work');
+}, 60_000);
+
 describe('ClioObservabilityView', () => {
   it('honors a new requested tab even when the same session view is already mounted', async () => {
     const props = {
@@ -139,7 +144,7 @@ describe('ClioObservabilityView', () => {
 
     expect(screen.getByText('1 display fallback')).toBeInTheDocument();
     // "Working" renders both in the visible status badge and in the persistent sr-only live
-    // region (which always mirrors it so status transitions are announced) — assert the badge.
+    // region (which always mirrors it so status transitions are announced) â€” assert the badge.
     const workingBadge = screen
       .getAllByText('Working')
       .find((element) => element.closest('[data-slot="badge"]'));
@@ -388,13 +393,17 @@ describe('ClioObservabilityView', () => {
     // aria-label is the bare title ("geospatial #1"); the clickable bar's own
     // aria-label always appends a time range, so the trailing comma
     // disambiguates it from the toggle.
-    const childLane = screen.getByRole('button', { name: /geospatial #1,/iu });
+    const childLane = await screen.findByRole(
+      'button',
+      { name: /geospatial #1,/iu },
+      { timeout: 10_000 },
+    );
     await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
 
     fireEvent.click(childLane, { shiftKey: true });
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
-  });
+  }, 20_000);
 
   it('keeps child conversations directly accessible beside the observability control', async () => {
     const user = userEvent.setup();
@@ -592,7 +601,9 @@ describe('ClioObservabilityView', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: 'Gantt' }));
-    expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
+    expect(
+      await screen.findByRole('region', { name: 'Observed execution spans' }, { timeout: 10_000 }),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeVisible();
     expect(screen.getByText('Main agent', { exact: true })).toBeVisible();
@@ -628,7 +639,7 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByText('application/pdf')).toBeVisible();
     expect(screen.getByText(/SHA-256 0123456789ab/u)).toBeVisible();
     expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
-    expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Â·/u)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Open source paper.pdf' }));
     expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
@@ -639,7 +650,7 @@ describe('ClioObservabilityView', () => {
     expect(openDiff).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'chg_1', path: 'src/analysis.py', status: 'applied' }),
     );
-  });
+  }, 20_000);
 
   it('uses typed child provenance for source and artifact ownership instead of workflow scraping', async () => {
     const user = userEvent.setup();
