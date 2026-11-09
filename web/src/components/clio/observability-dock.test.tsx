@@ -147,12 +147,13 @@ describe('ClioObservabilityView', () => {
     warn.mockRestore();
   });
 
-  it('opens a dismissible evidence panel and hands full details to the workspace canvas', async () => {
+  it('pins the conversation rail open and hands full details to the workspace canvas', async () => {
     const user = userEvent.setup();
     const onOpenCanvas = vi.fn();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
+        <p>Transcript</p>
         <ClioObservabilityDock
           artifacts={[]}
           contextFiles={[]}
@@ -169,41 +170,28 @@ describe('ClioObservabilityView', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.queryByRole('button', { name: 'Work rail' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Evidence layout: None' }));
-    expect(screen.getByRole('dialog', { name: 'Activity and evidence' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    expect(screen.queryByRole('region', { name: 'Session rail' })).not.toBeInTheDocument();
-    const launcher = screen.getByRole('button', { name: 'Evidence layout: Bottom' });
-    expect(launcher).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.contextMenu(launcher);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.keyDown(launcher, { key: 'ArrowLeft' });
-    expect(launcher).toHaveAccessibleName('Evidence layout: Both');
-    expect(screen.getByRole('region', { name: 'Session rail' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Hide session rail' }));
-    expect(launcher).toHaveAccessibleName('Evidence layout: Bottom');
-    expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Hide work rail' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
-    fireEvent.keyDown(launcher, { key: 'ArrowRight' });
-    expect(launcher).toHaveAccessibleName('Evidence layout: Top');
-    await user.click(screen.getByRole('button', { name: 'Open full details' }));
-
+    const button = screen.getByRole('button', { name: 'Conversation rail' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await user.click(button);
+    const rail = screen.getByRole('region', { name: 'This conversation' });
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(within(rail).getByRole('region', { name: 'Context section' })).toBeVisible();
+    // Pinned: working in the transcript leaves it open.
+    await user.click(screen.getByText('Transcript'));
+    expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
+    await user.click(within(rail).getByRole('button', { name: 'Open full view' }));
     expect(onOpenCanvas).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // The full view replaces the rail.
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await user.click(button);
+    expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
+    await user.click(button);
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   });
 
-  it('restores the old top preference and keeps its customized sections when both are shown', async () => {
-    localStorage.setItem(
-      'clio.evidence-disclosures.v1',
-      JSON.stringify({
-        'evidence-layout:top': true,
-        'evidence-layout:bottom': false,
-      }),
-    );
+  it('opens at the first run with its key and closes with it again', async () => {
+    const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
@@ -213,7 +201,16 @@ describe('ClioObservabilityView', () => {
           contextFrames={[]}
           diffs={[]}
           messages={[]}
-          processes={[]}
+          processes={[
+            {
+              id: 'relay_export',
+              kind: 'mcp-task',
+              title: 'Export station data',
+              live_state: 'running',
+              status: 'running',
+              metadata: {},
+            },
+          ]}
           runs={[]}
           subagents={[]}
           tasks={[]}
@@ -229,13 +226,16 @@ describe('ClioObservabilityView', () => {
         />
       </QueryClientProvider>,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Evidence layout: Top' }));
-    expect(screen.getByRole('button', { name: 'Evidence layout: Both' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
+    await user.keyboard('{Control>}.{/Control}');
+    const rail = await screen.findByRole('region', { name: 'This conversation' });
+    expect(within(rail).getByRole('region', { name: 'Tool calls section' })).toBeVisible();
+    await vi.waitFor(() =>
+      expect(within(rail).getByRole('button', { name: 'Export station data' })).toHaveFocus(),
     );
-    expect(screen.getByRole('region', { name: 'Context section' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Tool calls section' })).toBeVisible();
+    await user.keyboard('{ArrowUp}');
+    expect(within(rail).getByRole('button', { name: 'Collapse Running' })).toHaveFocus();
+    await user.keyboard('{Control>}.{/Control}');
+    expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   });
 
   it('shows a session waiting on permission with its own typed status, not the running spinner', () => {
@@ -311,7 +311,7 @@ describe('ClioObservabilityView', () => {
     expect(liveRegion).not.toBeNull();
     expect(liveRegion).toHaveTextContent('No active work');
     expect(liveRegion).not.toHaveTextContent('Up to date');
-    const button = screen.getByRole('button', { name: 'Evidence layout: None' });
+    const button = screen.getByRole('button', { name: 'Conversation rail' });
     expect(button.contains(liveRegion)).toBe(false);
 
     rerender(
@@ -443,7 +443,7 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('2 background activities')).toBeVisible();
-    const evidenceControl = screen.getByRole('button', { name: 'Evidence layout: None' });
+    const evidenceControl = screen.getByRole('button', { name: 'Conversation rail' });
     expect(within(evidenceControl).getByText('Settled')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Browse child conversations' }));
     await user.click(

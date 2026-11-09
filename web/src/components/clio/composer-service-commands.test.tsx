@@ -322,7 +322,7 @@ describe('ClioComposer service commands', () => {
     expect(within(previewCarousel).getByRole('img', { name: 'third-map.png' })).toBeVisible();
   });
 
-  it('renders non-image uploads as file cards with useful metadata', async () => {
+  it('renders non-image uploads as compact chips with useful metadata', async () => {
     const user = userEvent.setup();
     renderComposer({ attachments: true });
     const picker = screen.getByLabelText('Upload files');
@@ -332,10 +332,11 @@ describe('ClioComposer service commands', () => {
     const openAttachment = screen.getByRole('button', { name: 'Open field-notes.md' });
     expect(within(openAttachment).getByText('field-notes.md')).toBeVisible();
     expect(within(openAttachment).getByText('7 B')).toBeVisible();
-    expect(within(openAttachment).getByText('Ready locally')).toBeVisible();
-    expect(openAttachment.closest('[data-slot="file-identity-row"]')).not.toBeNull();
+    expect(within(openAttachment).queryByText('Ready locally')).toBeNull();
+    expect(openAttachment.closest('[data-slot="composer-attachment-chip"]')).not.toBeNull();
     await user.hover(openAttachment);
     expect(await screen.findByText('text/markdown')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Upload status: Ready locally' })).toBeVisible();
   });
 
   it('uploads a selected file before submission so conversion can start immediately', async () => {

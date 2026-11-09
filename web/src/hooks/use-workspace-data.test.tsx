@@ -410,6 +410,17 @@ describe('useWorkspaceData artifact reads', () => {
 });
 
 describe('useWorkspaceData files query', () => {
+  it('loads workspace reads for a new-conversation draft that has no transcript', async () => {
+    renderHook(
+      () => useWorkspaceData({ contextTargetId: '', sessionId: '', workspaceId: 'ws_1' }),
+      { wrapper: Wrapper },
+    );
+
+    await waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.repository.resources).toHaveBeenCalled());
+    expect(mocks.repository.transcript).not.toHaveBeenCalled();
+  });
+
   it('sends include_hidden=true by default (the toggle is off)', async () => {
     renderWorkspaceData();
 

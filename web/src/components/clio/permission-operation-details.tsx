@@ -187,8 +187,8 @@ export function PermissionOperationDetails({
       <AskFacts facts={[...facts, ...extraFacts]} />
       {folders.length ? (
         <AskSection className="mt-1 text-[11.5px] text-muted-foreground">
-          {vocab.agent} can read and change files here, including after restart, until you remove
-          these workspace folders. Conversations sharing the primary folder share this access.
+          {vocab.agent} can change files here, including after restart, until you remove these
+          folders. Conversations on the primary folder share this access.
         </AskSection>
       ) : null}
       {command ? <AskCode code={command} label="Command to run" /> : null}

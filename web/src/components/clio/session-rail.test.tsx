@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { SESSION_RAIL_STORAGE_KEY } from '@/hooks/use-session-rail-layout';
@@ -6,88 +6,101 @@ import { SessionRail } from './session-rail';
 import type { SessionRailItem } from './session-rail-layout';
 
 const items: SessionRailItem[] = [
-  { id: 'context', content: <p>Real usage summary</p> },
+  { id: 'context', summary: '16.6K of 1M', content: <p>Real usage summary</p> },
+  { id: 'running', count: 1, content: <p>Current run</p> },
   { id: 'files', count: 2, content: <p>Attached files</p> },
-  { id: 'background', count: 1, content: <p>Current background work</p> },
+  { id: 'artifacts', count: 3, content: <p>Plots</p> },
 ];
+const regions = () => screen.getAllByRole('region').map((node) => node.getAttribute('aria-label'));
+
 beforeEach(() => {
   localStorage.clear();
   act(() => window.dispatchEvent(new StorageEvent('storage', { key: null })));
 });
 afterEach(cleanup);
 
+it('groups sections under Now and In this conversation with their tallies, hiding empty ones', () => {
+  render(<SessionRail items={items} />);
+  expect(regions()).toEqual([
+    'Context section',
+    'Running section',
+    'Files section',
+    'Artifacts section',
+  ]);
+  expect(screen.getAllByRole('heading').map((node) => node.textContent)).toEqual([
+    'Now',
+    'In this conversation',
+  ]);
+  expect(screen.getByRole('button', { name: 'Expand Context' })).toHaveTextContent('16.6K of 1M');
+  // Now opens by default; the inventory waits to be asked for.
+  expect(screen.getByText('Current run')).toBeVisible();
+  expect(screen.queryByText('Attached files')).not.toBeInTheDocument();
+});
+
 it('removes and restores a section without discarding its data, persisting across rail remounts', async () => {
   const user = userEvent.setup();
   const first = render(<SessionRail items={items} />);
   await user.click(screen.getByRole('button', { name: 'Customize rail' }));
-  await user.click(screen.getByRole('button', { name: 'Remove Context' }));
-  expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
-  first.unmount();
-  render(<SessionRail items={items} />);
-  expect(screen.queryByRole('region', { name: 'Context section' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
-  await user.click(screen.getByRole('button', { name: 'Add Context' }));
-  expect(screen.getByRole('region', { name: 'Context section' })).toHaveTextContent(
-    'Real usage summary',
-  );
-  expect(JSON.parse(localStorage.getItem(SESSION_RAIL_STORAGE_KEY)!).hidden).not.toContain(
-    'context',
-  );
-});
-
-it('reorders with accessible row controls, retains collapse state and restores defaults', async () => {
-  const user = userEvent.setup();
-  const first = render(<SessionRail items={items} />);
-  await user.click(screen.getByRole('button', { name: 'Collapse Context' }));
-  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
-  screen.getByRole('button', { name: 'Drag Context in layout' }).focus();
-  await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
-  // Move past the intervening unavailable sections until Background tasks is ahead.
-  for (let step = 0; step < 5; step++) await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
-  expect(JSON.parse(localStorage.getItem(SESSION_RAIL_STORAGE_KEY)!).order[6]).toBe('context');
-  first.unmount();
-  render(<SessionRail items={items} />);
-  expect(screen.getAllByRole('region').map((node) => node.getAttribute('aria-label'))).toEqual([
-    'Background tasks section',
-    'Context section',
-    'Files section',
-  ]);
-  expect(screen.getByRole('button', { name: 'Expand Context' })).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
-  await user.click(screen.getByRole('button', { name: 'Reset layout' }));
-  expect(screen.getAllByRole('region')[0]).toHaveAttribute('aria-label', 'Context section');
-});
-
-it('recovers from malformed storage and keeps additions to empty sections for later data', async () => {
-  localStorage.setItem(SESSION_RAIL_STORAGE_KEY, '{bad');
-  const user = userEvent.setup();
-  const view = render(<SessionRail items={[]} />);
-  expect(screen.getByText(/No sections to show/)).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
   await user.click(screen.getByRole('button', { name: 'Remove Files' }));
+  expect(screen.queryByRole('region', { name: 'Files section' })).not.toBeInTheDocument();
+  first.unmount();
+  render(<SessionRail items={items} />);
+  expect(screen.queryByRole('region', { name: 'Files section' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
   await user.click(screen.getByRole('button', { name: 'Add Files' }));
   await user.keyboard('{Escape}');
-  view.rerender(<SessionRail items={[items[1]!]} />);
-  expect(screen.getByRole('region', { name: 'Files section' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Expand Files' }));
+  expect(screen.getByRole('region', { name: 'Files section' })).toHaveTextContent('Attached files');
+  expect(JSON.parse(localStorage.getItem(SESSION_RAIL_STORAGE_KEY)!).hidden).not.toContain('files');
 });
 
-it('keeps reordering in Customize and preserves expanded content through keyboard moves', async () => {
+it('reorders within a group from the keyboard, retains collapse state and restores defaults', async () => {
   const user = userEvent.setup();
-  render(<SessionRail items={items} />);
-  expect(screen.queryByRole('button', { name: /^Drag / })).not.toBeInTheDocument();
+  const first = render(<SessionRail items={items} />);
+  await user.click(screen.getByRole('button', { name: 'Collapse Running' }));
   await user.click(screen.getByRole('button', { name: 'Customize rail' }));
-  screen.getByRole('button', { name: 'Drag Context in layout' }).focus();
-  for (let step = 0; step < 6; step++) await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
-  expect(screen.getAllByRole('region').map((node) => node.getAttribute('aria-label'))).toEqual([
-    'Background tasks section',
+  screen.getByRole('button', { name: 'Drag Artifacts in layout' }).focus();
+  // Past Connected sources, Sources and Changes, which have nothing yet, to above Files.
+  for (let step = 0; step < 4; step++) await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
+  expect(screen.getByRole('button', { name: 'Drag Artifacts in layout' })).toHaveFocus();
+  first.unmount();
+  render(<SessionRail items={items} />);
+  expect(regions()).toEqual([
     'Context section',
+    'Running section',
+    'Artifacts section',
     'Files section',
   ]);
-  expect(screen.getByRole('button', { name: 'Collapse Context' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Drag Context in layout' })).toHaveFocus();
-  expect(screen.getByText('Real usage summary')).toBeVisible();
-  for (let step = 0; step < 6; step++) await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
-  expect(screen.getAllByRole('region')[0]).toHaveAttribute('aria-label', 'Context section');
+  expect(screen.getByRole('button', { name: 'Expand Running' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
+  await user.click(screen.getByRole('button', { name: 'Reset layout' }));
+  expect(regions()[2]).toBe('Files section');
+});
+
+it('recovers from malformed storage and shows empty sections when asked to', async () => {
+  localStorage.setItem(SESSION_RAIL_STORAGE_KEY, '{bad');
+  const user = userEvent.setup();
+  render(<SessionRail items={[]} />);
+  expect(screen.getByText(/No sections to show/)).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Customize rail' }));
+  await user.click(screen.getByRole('switch', { name: 'Hide empty sections' }));
   await user.keyboard('{Escape}');
-  expect(screen.queryByRole('button', { name: /^Drag / })).not.toBeInTheDocument();
+  const tools = screen.getByRole('region', { name: 'Tool calls section' });
+  expect(within(tools).getByRole('button', { name: 'Expand Tool calls' })).toHaveTextContent('0');
+  await user.click(within(tools).getByRole('button', { name: 'Expand Tool calls' }));
+  expect(tools).toHaveTextContent('Nothing yet.');
+});
+
+it('walks the section rows with the arrow keys', async () => {
+  const user = userEvent.setup();
+  render(<SessionRail items={items} />);
+  screen.getByRole('button', { name: 'Expand Context' }).focus();
+  await user.keyboard('{ArrowDown}');
+  expect(screen.getByRole('button', { name: 'Collapse Running' })).toHaveFocus();
+  await user.keyboard('{ArrowDown}{ArrowDown}');
+  expect(screen.getByRole('button', { name: 'Expand Artifacts' })).toHaveFocus();
+  await user.keyboard('{ArrowDown}');
+  expect(screen.getByRole('button', { name: 'Expand Artifacts' })).toHaveFocus();
+  await user.keyboard('{ArrowUp}');
+  expect(screen.getByRole('button', { name: 'Expand Files' })).toHaveFocus();
 });

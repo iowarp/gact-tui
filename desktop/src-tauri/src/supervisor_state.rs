@@ -261,20 +261,70 @@ mod tests {
             .expect("spawn sleeper child")
     }
 
-    /// Whether a PID still refers to a live process.
-    fn pid_alive(pid: u32) -> bool {
+    /// Liveness probe pinned to the exact process a test spawned.
+    ///
+    /// Windows opens its own handle while the `Child` still holds one, so
+    /// the PID cannot have been reused, and keeps it for the probe's
+    /// lifetime. Liveness is then `GetExitCodeProcess` on that handle. The
+    /// previous probe spawned `tasklist /FI "PID eq N"` and searched its
+    /// stdout. It reported a live sleeper as dead on a loaded Windows
+    /// runner even though no reap path can reach a process that is not a
+    /// descendant of the displaced child.
+    struct ProcessProbe {
+        pid: u32,
         #[cfg(windows)]
-        {
-            use std::process::Command;
-            let out = Command::new("tasklist")
-                .args(["/FI", &format!("PID eq {pid}"), "/NH"])
-                .output()
-                .expect("run tasklist");
-            String::from_utf8_lossy(&out.stdout).contains(&pid.to_string())
+        handle: windows_sys::Win32::Foundation::HANDLE,
+    }
+
+    impl ProcessProbe {
+        fn of(child: &Child) -> Self {
+            let pid = child.id();
+            #[cfg(windows)]
+            {
+                use windows_sys::Win32::System::Threading::{
+                    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+                };
+                let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+                assert!(!handle.is_null(), "open a probe handle for pid {pid}");
+                Self { pid, handle }
+            }
+            #[cfg(unix)]
+            {
+                Self { pid }
+            }
         }
-        #[cfg(unix)]
-        {
-            unsafe { libc::kill(pid as i32, 0) == 0 }
+
+        /// `None` while the process runs; its exit code once it has exited.
+        /// Unix reports a reaped or missing process as `Some(-1)`.
+        fn exit_code(&self) -> Option<i64> {
+            #[cfg(windows)]
+            {
+                use windows_sys::Win32::{
+                    Foundation::STILL_ACTIVE, System::Threading::GetExitCodeProcess,
+                };
+                let mut code: u32 = 0;
+                let ok = unsafe { GetExitCodeProcess(self.handle, &mut code) };
+                assert!(ok != 0, "read the exit code of pid {}", self.pid);
+                (code != STILL_ACTIVE as u32).then_some(code as i64)
+            }
+            #[cfg(unix)]
+            {
+                let alive = unsafe { libc::kill(self.pid as i32, 0) == 0 };
+                (!alive).then_some(-1)
+            }
+        }
+
+        fn alive(&self) -> bool {
+            self.exit_code().is_none()
+        }
+    }
+
+    #[cfg(windows)]
+    impl Drop for ProcessProbe {
+        fn drop(&mut self) {
+            unsafe {
+                windows_sys::Win32::Foundation::CloseHandle(self.handle);
+            }
         }
     }
 
@@ -295,23 +345,23 @@ mod tests {
 
         let state = SupervisorState::new_starting();
         let first = spawn_sleeper();
-        let first_pid = first.id();
+        let first_probe = ProcessProbe::of(&first);
         state.set_handle_and_child(handle.clone(), first);
-        assert!(pid_alive(first_pid), "sanity: first child should be alive");
+        assert!(first_probe.alive(), "sanity: first child should be alive");
 
         let second = spawn_sleeper();
-        let second_pid = second.id();
+        let second_probe = ProcessProbe::of(&second);
         state.set_handle_and_child(handle, second);
 
         // The displaced child must die. Allow generous time: the unix reap
         // path grants a 3 s SIGTERM grace before the direct SIGKILL.
         let deadline = Instant::now() + Duration::from_secs(10);
-        while pid_alive(first_pid) && Instant::now() < deadline {
+        while first_probe.alive() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(100));
         }
-        let first_alive = pid_alive(first_pid);
+        let first_alive = first_probe.alive();
         // The replacement child must stay recorded and alive.
-        let second_alive = pid_alive(second_pid);
+        let second_exit = second_probe.exit_code();
 
         // Clean up the survivor through the normal shutdown path before
         // asserting, so a failure doesn't leak sleepers on the test box.
@@ -319,11 +369,13 @@ mod tests {
 
         assert!(
             !first_alive,
-            "old child (pid {first_pid}) still running after replacement — leaked process tree"
+            "old child (pid {}) still running after replacement — leaked process tree",
+            first_probe.pid
         );
         assert!(
-            second_alive,
-            "new child (pid {second_pid}) must not be reaped by its own registration"
+            second_exit.is_none(),
+            "new child (pid {}) must not be reaped by its own registration (exit code {second_exit:?})",
+            second_probe.pid
         );
     }
 
@@ -333,7 +385,7 @@ mod tests {
 
         let state = SupervisorState::new_starting();
         let child = spawn_sleeper();
-        let child_pid = child.id();
+        let probe = ProcessProbe::of(&child);
         state.set_handle_and_child(
             BackendHandle {
                 url: "http://127.0.0.1:52341".into(),
@@ -342,17 +394,18 @@ mod tests {
             },
             child,
         );
-        assert!(pid_alive(child_pid), "sanity: owned child should be alive");
+        assert!(probe.alive(), "sanity: owned child should be alive");
 
         state.shutdown();
 
         let deadline = Instant::now() + Duration::from_secs(10);
-        while pid_alive(child_pid) && Instant::now() < deadline {
+        while probe.alive() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(100));
         }
         assert!(
-            !pid_alive(child_pid),
-            "owned child (pid {child_pid}) survived supervisor shutdown"
+            !probe.alive(),
+            "owned child (pid {}) survived supervisor shutdown",
+            probe.pid
         );
     }
 
