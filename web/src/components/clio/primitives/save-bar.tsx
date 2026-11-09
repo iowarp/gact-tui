@@ -61,7 +61,7 @@ export const SaveBar = memo(function SaveBar({
         </span>
       ) : null}
       <span className="flex-1" />
-      <ShortcutKeys className="mr-1 shrink-0 text-[10px]" id="save-changes" />
+      <ShortcutKeys className="mr-1" id="save-changes" variant="caps" />
       <Button disabled={saving || !count} onClick={onDiscard} size="sm" variant="ghost">
         Discard
       </Button>
