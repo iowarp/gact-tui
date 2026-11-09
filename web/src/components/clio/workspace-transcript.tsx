@@ -132,7 +132,9 @@ export function WorkspaceTranscript({
                 attentionView={attention.view}
                 bottomInset={dockedComposerHeight}
                 error={transcriptError}
+                onReload={() => void transcript.refetch()}
                 hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
+                awaitingFirstPage={transcript.isPending}
                 loading={transcript.isFetching}
                 onActionCardAction={actionCard.mutateAsync}
                 {...navigation.conversationNavigation}

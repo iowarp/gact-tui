@@ -17,9 +17,13 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   await page.goto(workspaceUrl);
   await expect(page.getByRole('log', { name: 'Conversation' })).toBeVisible();
   // The conversation shell mounts before its snapshot finishes decoding.
-  // Start the measurement only once the active message is actually mounted.
+  // Start the measurement only once the active message is actually mounted;
+  // the "Loading messages…" status is busy before any row exists.
   await expect(
-    page.getByRole('log', { name: 'Conversation' }).locator('[aria-busy="true"]'),
+    page
+      .getByRole('log', { name: 'Conversation' })
+      .locator('[data-index] [aria-busy="true"]')
+      .first(),
   ).toBeAttached();
 
   const renderedRows = page.locator('[data-index]');

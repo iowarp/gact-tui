@@ -68,9 +68,9 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   const nextStep = integration.next_action || action?.description;
   const facts: KeyValueItem[] = [
     {
-      label: 'Required',
+      label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
-      value: integration.required === false ? 'Optional' : 'Required',
+      value: integration.required === false ? 'No' : 'Yes',
       mono: true,
     },
     ...(integration.endpoint
@@ -87,7 +87,11 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
         ]
       : []),
   ];
-  const technical = [integration.summary, integration.detail].filter(Boolean).join('\n');
+  // The raw health record stands in when the server gave no summary, so the
+  // row always offers its technical details beside the fix.
+  const technical =
+    [integration.summary, integration.detail].filter(Boolean).join('\n') ||
+    JSON.stringify(integration, null, 2);
   const actionLink = action ? (
     <Button asChild size="sm" variant="outline">
       <Link to={action.to}>

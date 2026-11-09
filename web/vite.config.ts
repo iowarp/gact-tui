@@ -71,6 +71,9 @@ export default defineConfig({
                   standardMathReview: fileURLToPath(
                     new URL('./tests/review/standard-math.html', import.meta.url),
                   ),
+                  transcriptSpecReview: fileURLToPath(
+                    new URL('./tests/review/transcript-spec.html', import.meta.url),
+                  ),
                 }
               : {}),
           },

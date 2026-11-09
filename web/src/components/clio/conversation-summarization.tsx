@@ -1,71 +1,70 @@
 import type { CompactionTrigger, MessageBlock, PendingCompaction } from '@clio/core/v3';
-import { AlertTriangleIcon, SyringeIcon } from 'lucide-react';
-import { useReducedMotionConfig } from 'motion/react';
-import { useState } from 'react';
-import { Shimmer } from '@/components/ai-elements/shimmer';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { vocab } from '@/lib/brand-vocabulary';
+import { ChevronRightIcon, PackageIcon, TriangleAlertIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { humanizeProtocolValue } from './presentation-labels';
 import { GoalNotice } from './goal-notice';
+import { StateView } from './primitives/state-view';
+import { useTranscriptDisclosure } from './transcript-disclosure-context';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 
-const SUMMARIZING_LABEL = 'Summarizing context';
-
 /** Says who started a compaction: the service on its threshold, or the user. */
-export function CompactionTriggerBadge({ trigger }: { trigger: CompactionTrigger }) {
-  return <Badge variant="secondary">{trigger === 'auto' ? 'Automatic' : 'Requested'}</Badge>;
+export function CompactionTriggerLabel({ trigger }: { trigger: CompactionTrigger }) {
+  return (
+    <span className="shrink-0 text-faint">{trigger === 'auto' ? 'Automatic' : 'Requested'}</span>
+  );
 }
 
-const toggleClassName =
-  'text-xs font-medium text-link underline-offset-2 hover:text-link/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
-
 /**
- * The record of a compaction: the summary that replaced the earlier context,
- * shown like every other injection (a syringe: CLIO gave the agent this) with a
- * three-line preview of exactly what the agent received.
+ * The record of a compaction, where it happened: one quiet line, "Compacted
+ * here, earlier context summarized". Pressing it discloses the summary exactly
+ * as the agent received it.
  */
 export function SummarizationInjection({
   block,
-  label,
 }: {
   block: SummarizationBlock;
-  label: string;
+  /** Retained for callers; the line names the compaction itself. */
+  label?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
   return (
     <section
       className="min-w-0 max-w-full"
       data-slot="harness-injection"
       data-source="summarization"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
-        <SyringeIcon aria-hidden="true" className="size-4 shrink-0" />
-        <span>
-          {vocab.product} gave the agent: {label}
-        </span>
-        {block.trigger ? <CompactionTriggerBadge trigger={block.trigger} /> : null}
-        <button
-          aria-expanded={expanded}
-          className={toggleClassName}
-          onClick={() => setExpanded((value) => !value)}
-          type="button"
-        >
-          {expanded ? 'Show less' : 'Show more'}
-        </button>
-      </div>
+      <StateView
+        kind="marker"
+        size="row"
+        icon={PackageIcon}
+        title={
+          <button
+            aria-expanded={expanded}
+            className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            onClick={() => setExpanded(!expanded)}
+            type="button"
+          >
+            <span className="min-w-0 truncate">Compacted here, earlier context summarized</span>
+            <ChevronRightIcon
+              aria-hidden="true"
+              className={cn(
+                'size-3 shrink-0 motion-safe:transition-transform',
+                expanded && 'rotate-90',
+              )}
+            />
+          </button>
+        }
+      >
+        {block.trigger ? <CompactionTriggerLabel trigger={block.trigger} /> : null}
+      </StateView>
       {expanded ? (
-        <div className="mt-2 min-w-0 max-w-full break-words">
+        <div className="mt-1 mb-2 ml-[11px] min-w-0 max-w-full border-l border-border pl-[19px] break-words text-sm">
           <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
         </div>
-      ) : (
-        <p className="mt-1 line-clamp-3 min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-5 text-muted-foreground">
-          {block.text}
-        </p>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -80,18 +79,18 @@ function CompactionFailure({
   message: string;
   trigger?: CompactionTrigger;
 }) {
+  const reason = message || 'The service did not report why.';
   return (
-    <Alert data-slot="compaction-failed" variant="destructive">
-      <AlertTriangleIcon aria-hidden="true" />
-      <AlertTitle className="flex flex-wrap items-center gap-2">
-        Context could not be summarized
-        {trigger ? <CompactionTriggerBadge trigger={trigger} /> : null}
-      </AlertTitle>
-      <AlertDescription>
-        {message || 'The service did not report why.'}
-        {code ? <span className="mt-1 block text-xs">{humanizeProtocolValue(code)}</span> : null}
-      </AlertDescription>
-    </Alert>
+    <div className="min-w-0 max-w-full" data-slot="compaction-failed" title={reason}>
+      <StateView
+        kind="error"
+        size="row"
+        title={`Context could not be summarized: ${reason}`}
+        detail={code ? humanizeProtocolValue(code) : undefined}
+      >
+        {trigger ? <CompactionTriggerLabel trigger={trigger} /> : null}
+      </StateView>
+    </div>
   );
 }
 
@@ -104,28 +103,26 @@ export function TranscriptNotice({ block }: { block: NoticeBlock }) {
   if (block.source === 'compaction_failed') {
     return <CompactionFailure code={block.code} message={block.text} trigger={block.trigger} />;
   }
+  const source = humanizeProtocolValue(block.source);
   return (
-    <Alert data-slot="transcript-notice">
-      <AlertTriangleIcon aria-hidden="true" />
-      <AlertTitle>{humanizeProtocolValue(block.source)}</AlertTitle>
-      <AlertDescription>
-        {block.text}
-        {block.code ? (
-          <span className="mt-1 block text-xs">{humanizeProtocolValue(block.code)}</span>
-        ) : null}
-      </AlertDescription>
-    </Alert>
+    <div className="min-w-0 max-w-full" data-slot="transcript-notice" title={block.text}>
+      <StateView
+        kind="marker"
+        size="row"
+        icon={TriangleAlertIcon}
+        title={block.text ? `${source}: ${block.text}` : source}
+        detail={block.code ? humanizeProtocolValue(block.code) : undefined}
+      />
+    </div>
   );
 }
 
 /**
- * A compaction in progress, in the place its summary will appear: a shimmering
- * "Summarizing context" (static under reduced motion) with who started it. A
- * failure not yet (or never) recorded in the transcript shows its typed error
- * here instead.
+ * A compaction in progress, in the place its summary will appear: a spinner
+ * and "Summarizing context" with who started it. A failure not yet (or never)
+ * recorded in the transcript shows its typed error here instead.
  */
 export function ClioCompactionProgress({ compaction }: { compaction: PendingCompaction }) {
-  const reducedMotion = useReducedMotionConfig();
   if (compaction.status === 'failed') {
     return (
       <CompactionFailure
@@ -136,21 +133,10 @@ export function ClioCompactionProgress({ compaction }: { compaction: PendingComp
     );
   }
   return (
-    <section
-      aria-live="polite"
-      className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground"
-      data-slot="compaction-progress"
-      role="status"
-    >
-      <SyringeIcon aria-hidden="true" className="size-4 shrink-0" />
-      {reducedMotion ? (
-        <span>{SUMMARIZING_LABEL}</span>
-      ) : (
-        <Shimmer as="span" className="font-medium" duration={1.5}>
-          {SUMMARIZING_LABEL}
-        </Shimmer>
-      )}
-      <CompactionTriggerBadge trigger={compaction.trigger} />
-    </section>
+    <div className="min-w-0 max-w-full" data-slot="compaction-progress">
+      <StateView kind="loading" size="row" title="Summarizing context">
+        <CompactionTriggerLabel trigger={compaction.trigger} />
+      </StateView>
+    </div>
   );
 }
