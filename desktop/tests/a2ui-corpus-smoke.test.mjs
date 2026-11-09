@@ -229,7 +229,9 @@ test(
         state: 'visible',
         timeout: 20_000,
       });
-      await page.getByText('Live', { exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page
+        .locator('[data-connection-state="live"]')
+        .waitFor({ state: 'visible', timeout: 20_000 });
 
       const corpusResponse = await fetch(`${fixtureEndpoint}/__test/a2ui-corpus`, {
         method: 'POST',

@@ -44,6 +44,27 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
+const switchConnection = vi.hoisted(() => vi.fn(async (_connection: unknown) => undefined));
+vi.mock('@/hooks/use-switch-connection', () => ({
+  useSwitchConnection: () => switchConnection,
+}));
+vi.mock('@/hooks/use-known-connections', () => ({
+  useKnownConnections: () => [
+    {
+      endpoint: 'http://127.0.0.1',
+      label: 'This computer',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+    {
+      endpoint: 'https://aurora.example:8787',
+      label: 'Aurora',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+  ],
+}));
+
 vi.mock('@/hooks/use-workspace-capabilities', () => ({
   useWorkspaceCapabilities: () => ({
     capabilities: { data: { service: capabilitiesService.current } },
@@ -250,12 +271,14 @@ describe('DesktopTitleBar', () => {
   it('groups the app menu like the macOS menu bar and runs the same workflows', async () => {
     const search = vi.fn();
     const connectByAddress = vi.fn();
+    const installAgent = vi.fn();
     const keyboardShortcuts = vi.fn();
     renderTitleBar(
       <MenuWorkflows
         actions={{
           search,
           'connect-by-address': connectByAddress,
+          'install-agent': installAgent,
           'keyboard-shortcuts': keyboardShortcuts,
         }}
       />,
@@ -284,10 +307,33 @@ describe('DesktopTitleBar', () => {
     ).toHaveAttribute('aria-disabled', 'true');
     fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
 
+    const agentRows = within(await openSubmenu('Agent'))
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim());
+    expect(agentRows).toEqual([
+      'Connection settings',
+      'Switch to',
+      'Manage agents',
+      'Add an agent…',
+      expect.stringMatching(/^Infrastructure/),
+    ]);
+    const openAddAgent = async () => {
+      fireEvent.click(
+        within(await openSubmenu('Agent')).getByRole('menuitem', { name: 'Add an agent…' }),
+      );
+      return screen.findByRole('menu', { name: 'Add an agent…' });
+    };
+    fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
     fireEvent.click(
-      within(await openSubmenu('Agent')).getByRole('menuitem', { name: /connect by address/i }),
+      within(await openAddAgent()).getByRole('menuitem', { name: /connect by address/i }),
     );
     expect(connectByAddress).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(await openAddAgent()).getByRole('menuitem', {
+        name: `Install ${brand.agentName} on a computer`,
+      }),
+    );
+    expect(installAgent).toHaveBeenCalledOnce();
 
     fireEvent.click(
       within(await openSubmenu('Help')).getByRole('menuitem', { name: /keyboard shortcuts/i }),
@@ -304,6 +350,29 @@ describe('DesktopTitleBar', () => {
     );
     expect(screen.getByRole('alertdialog')).toHaveTextContent(`Keep ${brand.productName} running?`);
     expect(runDesktopWindowAction).not.toHaveBeenCalledWith('hide');
+  });
+
+  it('switches to another saved agent from Agent › Switch to', async () => {
+    renderTitleBar();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+    fireEvent.click(
+      within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Agent' }),
+    );
+    fireEvent.click(
+      within(await screen.findByRole('menu', { name: 'Agent' })).getByRole('menuitem', {
+        name: 'Switch to',
+      }),
+    );
+    const switchMenu = await screen.findByRole('menu', { name: 'Switch to' });
+    const rows = within(switchMenu).getAllByRole('menuitem');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('Aurora');
+    fireEvent.click(rows[0] as HTMLElement);
+    await waitFor(() =>
+      expect(switchConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ endpoint: 'https://aurora.example:8787' }),
+      ),
+    );
   });
 
   it('opens the application menu on Alt+Space, same as the hamburger', () => {

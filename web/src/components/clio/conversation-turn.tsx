@@ -32,7 +32,7 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { HarnessInjection } from './conversation-harness-injection';
 import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
-import { sandboxBoundary } from './sandbox-boundary';
+import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
@@ -315,7 +315,7 @@ export function ConversationTurn({
             <TurnSandboxNotices
               boundaries={group.flatMap((item) =>
                 item.tools.flatMap((tool) => {
-                  const boundary = sandboxBoundary(tool.output);
+                  const boundary = toolSandboxBoundary(tool);
                   return boundary ? [boundary] : [];
                 }),
               )}
@@ -386,7 +386,9 @@ function ActivityLane({
       role="group"
       aria-label={`Activity: ${label}`}
       aria-busy={live || undefined}
-      className="min-w-0"
+      // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
+      // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
+      className="-mt-1 min-w-0 [&_[data-slot=activity-row]:not([data-slot=activity-nest]_*):not([data-slot=activity-body]_*)]:mt-1"
       data-row-run=""
       data-slot="transcript-activity-timeline"
     >
@@ -394,7 +396,7 @@ function ActivityLane({
         <Button
           variant="ghost"
           onClick={() => setAll(true)}
-          className="ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+          className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
           data-slot="activity-show-all"
         >
           {`Show all ${total}`}

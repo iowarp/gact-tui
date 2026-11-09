@@ -39,10 +39,10 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * (name, then muted meta that shrinks first). Every row of a list shares the
  * column widths, so status words and buttons line up. Below 42rem of list width
  * the status column narrows to at most 9.875rem (the spec's 158 px), enough for
- * "Update waits for trust" (still one width for every row), the slot keeps its
- * width, and hover actions float over the end of the name, left of the status,
- * instead of reserving a column, so the name keeps the room and the status word
- * stays visible.
+ * "Update waits for trust" (still one width for every row). Hover actions keep
+ * their own column after the status, as in the spec, so they never cover the
+ * name or meta. Below 36rem that column would squeeze the name under ~150 px, so
+ * the actions float over the end of the name instead, left of the status.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -87,9 +87,9 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
-          actionsVisible
-            ? '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]'
-            : '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+          '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
+          !actionsVisible &&
+            '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
           stacks &&
             (actionsVisible
               ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
@@ -174,7 +174,7 @@ export const ItemRow = memo(
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-2xl:bg-hover @max-2xl:pl-1',
+                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
                 !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
               )}
               data-slot="item-row-actions"

@@ -104,12 +104,12 @@ test('larger interface keeps the composer and the centred Create dialog reachabl
       await composer.evaluate((element) => element.scrollWidth - element.clientWidth),
     ).toBeLessThanOrEqual(1);
     await expect(composer.locator('button[type="submit"]')).toBeInViewport();
-    const create = page.getByRole('button', { name: 'Create or import', exact: true });
+    // New conversation is a draft in place; Create's Session form opens from New workspace.
+    const create = page.getByRole('button', { name: 'New workspace', exact: true });
     if (!(await create.isVisible())) {
       await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
     }
     await create.click();
-    await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
     await expect(dialog).toBeVisible();
     const settled = () =>
@@ -122,13 +122,17 @@ test('larger interface keeps the composer and the centred Create dialog reachabl
         ),
       );
     await settled();
-    const before = (await dialog.boundingBox())!;
+    const opened = (await dialog.boundingBox())!;
     const viewport = page.viewportSize()!;
     if (width >= 600) {
       // Opens centred like every DialogFrame, then grows downward from its top edge.
-      expect(Math.abs(before.x + before.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
-      expect(Math.abs(before.y + before.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
+      expect(Math.abs(opened.x + opened.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
+      expect(Math.abs(opened.y + opened.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
     }
+    await dialog.getByRole('radio', { name: 'Session', exact: true }).click();
+    await settled();
+    const before = (await dialog.boundingBox())!;
+    if (width >= 600) expect(Math.abs(before.y - opened.y)).toBeLessThanOrEqual(1);
     await dialog.getByRole('button', { name: 'Advanced session behavior', exact: true }).click();
     await settled();
     const after = (await dialog.boundingBox())!;

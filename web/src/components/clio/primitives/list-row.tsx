@@ -15,14 +15,20 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * hide at narrow container widths; columns drop, they never shift.
    */
   columns?: ReactNode;
+  /**
+   * The title keeps its width before the columns (inline rows): when both do
+   * not fit, the columns drop whole rather than cut the title (a build
+   * problem's message before its line).
+   */
+  titleFirst?: boolean;
   /** Fixed 58px column: a Tag. */
   badge?: ReactNode;
   /** Fixed 44px mono column: elapsed time, size or count (MetaValue). */
   meta?: ReactNode;
   /**
-   * Hover actions in a fixed column. They are hidden with `visibility`, not
-   * removed, so showing them never moves the row; keyboard focus inside the
-   * row shows them too.
+   * Hover actions in a fixed column. They are transparent at rest, not hidden
+   * or removed, so showing them never moves the row and screen readers still
+   * reach them; keyboard focus inside the row shows them too. Touch screens have no hover, so they always show there.
    */
   actions?: ReactNode;
   /** Width of the actions column in px; one value for every row of a list. */
@@ -32,6 +38,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * verb (Start, Stop, Install, Open). Use an IconButton with a hover name.
    */
   primaryAction?: ReactNode;
+  /**
+   * Show the actions in place of the meta column on hover or focus instead of
+   * beside it, so a narrow list (the left bar) keeps one right edge: the count
+   * or time at rest, the row's buttons on hover. An open menu keeps them shown.
+   */
+  actionsOverlay?: boolean;
   /** A trailing ⓘ (26px), always visible. */
   info?: ReactNode;
   /**
@@ -74,11 +86,13 @@ export const ListRow = memo(
       title,
       description,
       columns,
+      titleFirst = false,
       badge,
       meta,
       actions,
       actionsWidth = 44,
       primaryAction,
+      actionsOverlay = false,
       info,
       layout = 'inline',
       variant = 'list',
@@ -140,7 +154,7 @@ export const ListRow = memo(
             <span
               data-slot="list-row-actions"
               style={{ width: actionsWidth }}
-              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
+              className="invisible flex shrink-0 items-center justify-end group-hover/list-row:visible group-has-[:focus-visible]/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
             >
               {actions}
             </span>
@@ -177,7 +191,7 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:[&_.text-muted-foreground]:text-accent-foreground',
           selectedTone === 'accent'
             ? 'data-selected:bg-accent data-selected:hover:bg-accent'
             : 'data-selected:bg-menu-highlight',
@@ -192,6 +206,7 @@ export const ListRow = memo(
         {icon ? (
           <span
             aria-hidden="true"
+            data-slot="list-row-icon"
             className={cn(
               "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
               selectedTone === 'accent' && 'group-data-selected/list-row:text-accent-foreground',
@@ -201,7 +216,7 @@ export const ListRow = memo(
           </span>
         ) : null}
         {layout === 'stacked' ? (
-          <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+          <span data-slot="list-row-text" className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
               <span
@@ -215,8 +230,14 @@ export const ListRow = memo(
               </span>
             ) : null}
           </span>
+        ) : titleFirst ? (
+          // One line tall: columns that do not fit beside the title wrap to a clipped second line.
+          <span className="flex h-[1lh] min-w-0 flex-1 flex-wrap items-baseline gap-x-2 overflow-hidden">
+            <span className="min-w-0 shrink truncate">{title}</span>
+            {columns ? <span className="ml-auto flex shrink-0">{columns}</span> : null}
+          </span>
         ) : (
-          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span data-slot="list-row-text" className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate">{title}</span>
             {description ? (
               // Keeps a readable start (never a one-letter stub); the title truncates first.
@@ -226,16 +247,31 @@ export const ListRow = memo(
             ) : null}
           </span>
         )}
-        {columns}
+        {titleFirst && layout !== 'stacked' ? null : columns}
         {badge !== undefined ? (
           <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
         ) : null}
-        {meta !== undefined ? <span className="flex w-11 shrink-0 justify-end">{meta}</span> : null}
+        {meta !== undefined ? (
+          <span
+            data-slot="list-row-meta"
+            className={cn(
+              'flex w-11 shrink-0 justify-end',
+              actionsOverlay &&
+                actions !== undefined &&
+                'group-focus-within/list-row:invisible group-hover/list-row:invisible group-has-[[aria-haspopup][aria-expanded=true]]/list-row:invisible pointer-coarse:invisible',
+            )}
+          >
+            {meta}
+          </span>
+        ) : null}
         {actions !== undefined ? (
           <span
             data-slot="list-row-actions"
             style={{ width: actionsWidth }}
-            className="invisible flex shrink-0 items-center justify-end gap-0.5 group-focus-within/list-row:visible group-hover/list-row:visible"
+            className={cn(
+              'flex shrink-0 items-center justify-end gap-0.5 opacity-0 group-focus-within/list-row:opacity-100 group-hover/list-row:opacity-100 group-has-[[aria-haspopup][aria-expanded=true]]/list-row:opacity-100 pointer-coarse:opacity-100',
+              actionsOverlay && 'absolute inset-y-0 right-1.5 z-10',
+            )}
           >
             {actions}
           </span>

@@ -503,7 +503,11 @@ export function RunsPage() {
         )
       ) : (
         groups.map(({ group, rows: groupRows }) => (
-          <section aria-labelledby={`runs-group-${group}`} className="mb-1" key={group}>
+          <section
+            aria-labelledby={`runs-group-${group}`}
+            className="mb-1 max-w-[840px]"
+            key={group}
+          >
             <h2
               className="flex h-6 items-center gap-2 px-2 text-[11px] font-semibold text-muted-foreground"
               id={`runs-group-${group}`}
@@ -527,7 +531,7 @@ export function RunsPage() {
         ))
       )}
       {showFooter && !(filteredRows.length === 0 && category === 'flows' && !search) ? (
-        <div className="mt-1 flex h-8 min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
           {footerNote ? <span className="min-w-0 truncate">{footerNote}</span> : null}
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {filteredRows.length > visibleLimit ? (
