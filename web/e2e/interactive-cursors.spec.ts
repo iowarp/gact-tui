@@ -22,9 +22,10 @@ for (const theme of ['light', 'dark'] as const) {
     await newSession.hover();
     await expect(newSession).toHaveCSS('cursor', 'pointer');
     await expect(newSession.locator('svg')).toHaveCSS('cursor', 'pointer');
-    await newSession.click();
+    await page.getByRole('button', { name: 'New workspace', exact: true }).click();
 
     const create = page.getByRole('dialog', { name: 'Create', exact: true });
+    await create.getByRole('tab', { name: 'Session', exact: true }).click();
     await expect(create.getByRole('tab', { name: 'Workspace', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
@@ -51,7 +52,7 @@ for (const theme of ['light', 'dark'] as const) {
     await overflow.hover();
     await expect(overflow).toHaveCSS('cursor', 'pointer');
     await overflow.click();
-    const editWorkspace = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const editWorkspace = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await editWorkspace.hover();
     await expect(editWorkspace).toHaveCSS('cursor', 'pointer');
     await page.keyboard.press('Escape');
@@ -86,7 +87,7 @@ for (const theme of ['light', 'dark'] as const) {
     await sessionActions.hover();
     await expect(sessionActions).toHaveCSS('cursor', 'pointer');
     await sessionActions.click();
-    const exportSession = page.getByRole('menuitem', { name: 'Export session', exact: true });
+    const exportSession = page.getByRole('menuitem', { name: 'Export', exact: true });
     await expect(exportSession).toHaveCSS('cursor', 'pointer');
     await exportSession.hover();
     const workspaceFiles = page.getByRole('menuitemcheckbox', {

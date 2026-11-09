@@ -982,3 +982,13 @@ html[data-clio-motion='reduced'] *::after {
 #vg-tooltip-element.custom-theme table tr td.key {
   color: var(--muted-foreground);
 }
+
+/* Holding Ctrl (\2318) dims the page; the key badges sit above it. */
+:root[data-keys-held] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: rgb(0 0 0 / 0.38);
+}

@@ -6,20 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSessionContextBar } from './session-context-bar';
 const downloads = vi.hoisted(() => ({ open: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: downloads.open }));
-vi.mock('./session-agent-control', () => ({
-  SessionAgentControl: ({
-    fallbackLabel,
-    onOpenAgent,
-  }: {
-    fallbackLabel?: string;
-    onOpenAgent: () => void;
-  }) => (
-    <button onClick={onOpenAgent} type="button">
-      {fallbackLabel}
-    </button>
-  ),
-}));
-
 const session: Session = {
   id: 'sess_ndp',
   workspace_id: 'ws_demo',
@@ -46,7 +32,6 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={onFork}
-        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -54,49 +39,9 @@ describe('ClioSessionContextBar', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: `Actions for ${session.title}` }));
-    expect(screen.queryByRole('menuitem', { name: 'Branch into a new session' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Fork into a new conversation' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
     expect(onFork).not.toHaveBeenCalled();
-  });
-
-  it('opens the conversation agent from its displayed name', async () => {
-    const user = userEvent.setup();
-    const onOpenAgent = vi.fn();
-    render(
-      <ClioSessionContextBar
-        actionsPending={false}
-        agentLabel="EarthScope (Flat / Haiku)"
-        onCompact={vi.fn()}
-        onFork={vi.fn()}
-        onOpenAgent={onOpenAgent}
-        onReturnToParent={vi.fn()}
-        onShare={vi.fn()}
-        onUndo={vi.fn()}
-        session={session}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
-
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-  });
-
-  it('shows no agent control while the session is unavailable', () => {
-    render(
-      <ClioSessionContextBar
-        actionsPending={false}
-        agentLabel="CLIO"
-        onCompact={vi.fn()}
-        onFork={vi.fn()}
-        onOpenAgent={vi.fn()}
-        onReturnToParent={vi.fn()}
-        onShare={vi.fn()}
-        onUndo={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole('heading', { name: 'Session unavailable' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'CLIO' })).toBeNull();
   });
 
   it('opens native Downloads from the desktop toolbar', async () => {
@@ -108,7 +53,6 @@ describe('ClioSessionContextBar', () => {
           actionsPending={false}
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}
@@ -129,7 +73,6 @@ describe('ClioSessionContextBar', () => {
         actionsPending={false}
         onCompact={vi.fn()}
         onFork={vi.fn()}
-        onOpenAgent={vi.fn()}
         onReturnToParent={vi.fn()}
         onShare={vi.fn()}
         onUndo={vi.fn()}
@@ -140,16 +83,14 @@ describe('ClioSessionContextBar', () => {
     expect(screen.queryByRole('button', { name: 'Open downloads' })).toBeNull();
   });
 
-  it('keeps agent controls in Tauri while the native window owns the passive title', () => {
+  it('keeps conversation actions in Tauri while the native window owns the passive title', () => {
     mockDesktopHost();
     try {
       render(
         <ClioSessionContextBar
           actionsPending={false}
-          agentLabel="EarthScope (Flat / Haiku)"
           onCompact={vi.fn()}
           onFork={vi.fn()}
-          onOpenAgent={vi.fn()}
           onReturnToParent={vi.fn()}
           onShare={vi.fn()}
           onUndo={vi.fn()}
@@ -158,7 +99,6 @@ describe('ClioSessionContextBar', () => {
       );
 
       expect(screen.queryByRole('heading', { name: session.title })).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' })).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: `Actions for ${session.title}` }),
       ).toBeInTheDocument();

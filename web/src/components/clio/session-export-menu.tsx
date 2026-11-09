@@ -32,8 +32,8 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
         setSideOffset(right < width && left < width ? right - width : 0);
       }}
     >
-      <DropdownMenuSubTrigger ref={trigger}>
-        <DownloadIcon aria-hidden="true" /> Export session
+      <DropdownMenuSubTrigger menuKey="E" ref={trigger}>
+        <DownloadIcon aria-hidden="true" /> Export
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent
         className="w-72 max-w-[calc(100vw-1rem)]"

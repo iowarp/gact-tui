@@ -257,8 +257,9 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('session', 'dialog-new-session', SESSION, async (page) => {
-      await press(page, 'button', /^New conversation in /u);
-      await overlay(page);
+      // New conversation is a draft in place (full-picture/08), not a dialog.
+      await press(page, 'button', 'New conversation', { exact: true });
+      await page.waitForTimeout(300);
     }),
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
       await press(page, 'button', 'New workspace', { exact: true });

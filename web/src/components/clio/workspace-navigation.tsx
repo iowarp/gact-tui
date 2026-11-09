@@ -13,19 +13,19 @@ import {
   EditIcon,
   MoreIcon,
   NewConversationIcon,
+  SettingsIcon,
 } from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from '@/components/ui/sidebar';
+import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import { copyText } from '@/lib/clipboard';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import {
@@ -41,7 +41,7 @@ import {
   type WorkspaceDisplayLabel,
 } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
-import { ListRow } from '@/components/clio/primitives/list-row';
+import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { cn } from '@/lib/utils';
 import { WorkspaceMark } from './workspace-mark';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
@@ -70,6 +70,25 @@ interface WorkspaceNavigationProps {
   onNewWorkspace: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   attentions: Readonly<Record<string, SessionAttention>>;
+  /** The workspace whose unsent draft is open, shown as a selected row. */
+  draftWorkspaceId?: string;
+}
+
+/** The unsent draft at /workspaces/<id>/new, selected, until its first message. */
+function DraftConversationRow({ topLevel }: { topLevel: boolean }) {
+  return (
+    <ListRow
+      aria-current="page"
+      className={cn(
+        'data-selected:bg-accent data-selected:text-accent-foreground data-selected:shadow-[inset_2px_0_0_var(--primary)]',
+        topLevel ? 'pl-2.5' : 'pl-[34px]',
+      )}
+      data-draft-row=""
+      meta={<span className="text-[11px] text-accent-foreground/80">now</span>}
+      selected
+      title={<span className="truncate italic">New conversation</span>}
+    />
+  );
 }
 
 function WorkspaceLabelFields({
@@ -81,7 +100,7 @@ function WorkspaceLabelFields({
 }) {
   return (
     <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
-      <span className="truncate font-medium">{label.name}</span>
+      <span className="truncate">{label.name}</span>
       {label.qualifiers.map((qualifier) => (
         <span className="shrink-0 text-xs font-normal text-muted-foreground" key={qualifier}>
           {qualifier}
@@ -107,6 +126,7 @@ export function WorkspaceNavigation({
   onNewWorkspace,
   onAction,
   attentions,
+  draftWorkspaceId,
 }: WorkspaceNavigationProps) {
   const labels = useMemo(() => workspaceLabels(workspaces), [workspaces]);
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
@@ -132,9 +152,9 @@ export function WorkspaceNavigation({
     // Preserve the server/user-defined order. A workspace moves only after the
     // user explicitly changes its pinned state, never because they opened a
     // session or new activity arrived.
-    const ordered = [...workspaces].sort(
-      (left, right) => Number(Boolean(right.pinned)) - Number(Boolean(left.pinned)),
-    );
+    const ordered = workspaces
+      .filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID)
+      .sort((left, right) => Number(Boolean(right.pinned)) - Number(Boolean(left.pinned)));
     if (showAllWorkspaces) return ordered;
     const visible = ordered.slice(0, VISIBLE_WORKSPACE_LIMIT);
     const activeWorkspace = ordered.find((workspace) => workspace.id === activeWorkspaceId);
@@ -152,34 +172,69 @@ export function WorkspaceNavigation({
     }));
   };
 
-  const renderWorkspace = (workspace: Workspace) => {
-    const workspaceSessions = sessions.filter(
+  // Pinned conversations leave their workspace for the Pinned group.
+  const pinnedSessions = useMemo(
+    () =>
+      sessions
+        .filter((session) => session.pinned && !session.archived && isPrimarySession(session))
+        .sort((left, right) =>
+          sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
+        ),
+    [sessions],
+  );
+  const pinnedSessionIds = useMemo(
+    () => new Set(pinnedSessions.map((session) => session.id)),
+    [pinnedSessions],
+  );
+  const workspaceSessionsFor = (workspaceId: string) =>
+    sessions.filter(
       (session) =>
-        session.workspace_id === workspace.id && !session.archived && isPrimarySession(session),
+        session.workspace_id === workspaceId && !session.archived && isPrimarySession(session),
     );
-    const expanded = workspaceExpansion[workspace.id] ?? workspace.id === activeWorkspaceId;
+  const renderSession = (session: Session, topLevel: boolean, depth = 0) => (
+    <SessionNavigationRow
+      actions={actions}
+      activeSessionId={activeSessionId}
+      attention={attentions[session.id]}
+      agentLabel={sessionAgentLabel(session, agents)}
+      key={session.id}
+      nestedDepth={depth}
+      onAction={onAction}
+      onDelete={onDelete}
+      onDownloadSession={onDownloadSession}
+      onRename={onRename}
+      onVisit={visitSession}
+      seenRevision={effectiveSeenSessionRevisions[session.id]}
+      session={session}
+      topLevel={topLevel}
+      workspaceId={session.workspace_id}
+    />
+  );
+
+  const renderWorkspace = (workspace: Workspace) => {
+    const workspaceSessions = workspaceSessionsFor(workspace.id);
+    const expanded =
+      workspace.id === draftWorkspaceId ||
+      (workspaceExpansion[workspace.id] ?? workspace.id === activeWorkspaceId);
     return (
       <WorkspaceTreeItem
         actions={actions}
-        attentions={attentions}
-        activeSessionId={activeSessionId}
         activeWorkspaceId={activeWorkspaceId}
-        agents={agents}
+        draft={workspace.id === draftWorkspaceId}
         expanded={expanded}
         key={workspace.id}
         label={labels.get(workspace.id) ?? { name: workspace.display_name, qualifiers: [] }}
         onAction={onAction}
         onCreateSession={onCreateSession}
         onDelete={onDelete}
-        onDownloadSession={onDownloadSession}
         onEditWorkspace={onEditWorkspace}
         onExpandedChange={(open) =>
           setWorkspaceExpansion((current) => ({ ...current, [workspace.id]: open }))
         }
         onRename={onRename}
         onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-        onVisitSession={visitSession}
-        seenSessionRevisions={effectiveSeenSessionRevisions}
+        excludedSessionIds={pinnedSessionIds}
+        renderSession={renderSession}
         sessionLimitExpanded={expandedSessionsFor === workspace.id}
         sessions={workspaceSessions}
         setSessionLimitExpanded={(open) => setExpandedSessionsFor(open ? workspace.id : undefined)}
@@ -189,65 +244,240 @@ export function WorkspaceNavigation({
   };
   const pinnedWorkspaces = visibleWorkspaces.filter((workspace) => workspace.pinned);
   const otherWorkspaces = visibleWorkspaces.filter((workspace) => !workspace.pinned);
+  const defaultWorkspace = workspaces.find((workspace) => workspace.id === DEFAULT_WORKSPACE_ID);
+  const listedWorkspaceCount = workspaces.length - (defaultWorkspace ? 1 : 0);
 
   return (
     <>
-      {pinnedWorkspaces.length ? (
-        <SidebarGroup className="py-1">
-          <SidebarGroupLabel className="gap-1.5">
-            <PinIcon aria-hidden="true" className="size-3" />
+      {pinnedWorkspaces.length || pinnedSessions.length ? (
+        <SidebarGroup className="py-0">
+          <ListGroupLabel className="mt-2.5 h-[26px] group-data-[collapsible=icon]:hidden">
             Pinned
-          </SidebarGroupLabel>
+          </ListGroupLabel>
           <SidebarGroupContent className="grid min-w-0 gap-px">
             {pinnedWorkspaces.map(renderWorkspace)}
+            <div className="grid min-w-0 gap-px group-data-[collapsible=icon]:hidden">
+              {pinnedSessions.map((session) => renderSession(session, true))}
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       ) : null}
-      <SidebarGroup className="py-1">
-        <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
-        <IconButton
-          className="absolute right-2 top-1.5 group-data-[collapsible=icon]:hidden"
-          icon={<AddIcon />}
-          label="New workspace"
-          onClick={onNewWorkspace}
-          size="sm"
-        />
+      <SidebarGroup className="py-0">
+        <ListGroupLabel
+          action={
+            <IconButton
+              icon={<AddIcon />}
+              label="New workspace"
+              onClick={onNewWorkspace}
+              size="sm"
+            />
+          }
+          className="mt-2.5 h-[26px] items-center pb-0 pr-1 group-data-[collapsible=icon]:hidden"
+        >
+          Workspaces
+        </ListGroupLabel>
         <SidebarGroupContent className="grid min-w-0 gap-px">
           {otherWorkspaces.map(renderWorkspace)}
-          {workspaces.length > VISIBLE_WORKSPACE_LIMIT ? (
-            <ListRow
-              className="cursor-pointer pl-[30px] text-muted-foreground group-data-[collapsible=icon]:hidden"
-              title={
-                <button
-                  aria-expanded={showAllWorkspaces}
-                  className="outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
-                  onClick={() => setShowAllWorkspaces((visible) => !visible)}
-                  type="button"
-                >
-                  {showAllWorkspaces
-                    ? 'Show recent workspaces'
-                    : `Show all ${workspaces.length} workspaces`}
-                </button>
+          {listedWorkspaceCount > VISIBLE_WORKSPACE_LIMIT ? (
+            <ShowMoreRow
+              expanded={showAllWorkspaces}
+              label={
+                showAllWorkspaces
+                  ? 'Show recent workspaces'
+                  : `Show all ${listedWorkspaceCount} workspaces`
               }
+              onToggle={() => setShowAllWorkspaces((visible) => !visible)}
             />
           ) : null}
         </SidebarGroupContent>
       </SidebarGroup>
+      {defaultWorkspace ? (
+        <LooseConversations
+          actions={actions}
+          activeWorkspaceId={activeWorkspaceId}
+          draft={draftWorkspaceId === DEFAULT_WORKSPACE_ID}
+          excludedSessionIds={pinnedSessionIds}
+          expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}
+          label={
+            labels.get(defaultWorkspace.id) ?? {
+              name: defaultWorkspace.display_name,
+              qualifiers: [],
+            }
+          }
+          onAction={onAction}
+          onCreateSession={onCreateSession}
+          onDelete={onDelete}
+          onEditWorkspace={onEditWorkspace}
+          onExpandedChange={(open) =>
+            setExpandedSessionsFor(open ? DEFAULT_WORKSPACE_ID : undefined)
+          }
+          onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+          onRename={onRename}
+          renderSession={renderSession}
+          sessions={workspaceSessionsFor(defaultWorkspace.id)}
+          workspace={defaultWorkspace}
+        />
+      ) : null}
     </>
+  );
+}
+
+/** Conversations started outside a project folder live in the default workspace. */
+const DEFAULT_WORKSPACE_ID = 'ws_default';
+
+/** The fold row under a list: "Show 12 more", quiet and aligned with the titles. */
+function ShowMoreRow({
+  expanded,
+  label,
+  onToggle,
+  indent = false,
+}: {
+  expanded: boolean;
+  label: string;
+  onToggle: () => void;
+  indent?: boolean;
+}) {
+  return (
+    <ListRow
+      className={cn(
+        'h-[26px] cursor-pointer text-[11.5px] text-faint hover:text-muted-foreground group-data-[collapsible=icon]:hidden',
+        indent ? 'pl-[34px]' : 'pl-2.5',
+      )}
+      title={
+        <button
+          aria-expanded={expanded}
+          className="outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
+          onClick={onToggle}
+          type="button"
+        >
+          {label}
+        </button>
+      }
+    />
+  );
+}
+
+/** Which rows a conversation list shows, given its rail page and fold state. */
+function useConversationList(
+  workspaceId: string,
+  sessions: readonly Session[],
+  open: boolean,
+  expanded: boolean,
+  excludedSessionIds: ReadonlySet<string>,
+) {
+  // The rail reads its conversations a page at a time; live rows win over a page's copy.
+  const rail = useRailSessions(workspaceId, sessions, open);
+  const railSessions = rail.sessions.filter(
+    (session) => !session.archived && isPrimarySession(session),
+  );
+  const listed = railSessions.filter((session) => !excludedSessionIds.has(session.id));
+  const total = Math.max((rail.total ?? 0) - (railSessions.length - listed.length), listed.length);
+  const visible = visibleWorkspaceSessions(
+    listed,
+    workspaceId,
+    '',
+    expanded ? listed.length : undefined,
+  ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
+  return { rail, total, visible };
+}
+
+interface LooseConversationsProps {
+  workspace: Workspace;
+  label: WorkspaceDisplayLabel;
+  sessions: readonly Session[];
+  excludedSessionIds: ReadonlySet<string>;
+  expanded: boolean;
+  activeWorkspaceId: string;
+  actions: ResourceActions;
+  onExpandedChange: (open: boolean) => void;
+  onCreateSession: (workspaceId: string) => void;
+  onRename: (target: ResourceTarget) => void;
+  onDelete: (target: ResourceTarget) => void;
+  onEditWorkspace: (workspaceId: string) => void;
+  onOpenWorkspaceFiles?: () => void;
+  onAction: (action: () => Promise<void>, success: string) => void;
+  renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
+  draft: boolean;
+}
+
+/** The flat "Conversations" list: conversations that belong to no project workspace. */
+function LooseConversations({
+  workspace,
+  label,
+  sessions,
+  excludedSessionIds,
+  expanded,
+  activeWorkspaceId,
+  actions,
+  onExpandedChange,
+  onCreateSession,
+  onRename,
+  onDelete,
+  onEditWorkspace,
+  onOpenWorkspaceFiles,
+  onAction,
+  renderSession,
+  draft,
+}: LooseConversationsProps) {
+  const { rail, total, visible } = useConversationList(
+    workspace.id,
+    sessions,
+    true,
+    expanded,
+    excludedSessionIds,
+  );
+  if (total === 0 && !draft) return null;
+  return (
+    <SidebarGroup className="py-0 group-data-[collapsible=icon]:hidden">
+      <ListGroupLabel
+        action={
+          <WorkspaceActionsMenu
+            activeWorkspaceId={activeWorkspaceId}
+            actions={actions}
+            label={label}
+            onAction={onAction}
+            onCreateSession={onCreateSession}
+            onDelete={onDelete}
+            onEditWorkspace={onEditWorkspace}
+            onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+            onRename={onRename}
+            workspace={workspace}
+          />
+        }
+        className="mt-2.5 h-[26px] items-center pb-0 pr-1"
+      >
+        Conversations
+      </ListGroupLabel>
+      <SidebarGroupContent className="grid min-w-0 gap-px">
+        {draft ? <DraftConversationRow topLevel /> : null}
+        {nestAgentForks(visible).map(({ session, depth }) => renderSession(session, true, depth))}
+        {expanded && (rail.hasMore || rail.loadingMore) ? (
+          <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
+        ) : null}
+        {total > 8 ? (
+          <ShowMoreRow
+            expanded={expanded}
+            label={
+              expanded
+                ? 'Show recent conversations'
+                : `Show ${total - visible.length > 0 ? `${total - visible.length} more` : `all ${total}`}`
+            }
+            onToggle={() => onExpandedChange(!expanded)}
+          />
+        ) : null}
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }
 
 interface WorkspaceTreeItemProps {
   workspace: Workspace;
   sessions: readonly Session[];
-  /** Installed agents, to name the agent each conversation runs. */
-  agents: readonly AgentEntry[];
+  excludedSessionIds: ReadonlySet<string>;
   label: WorkspaceDisplayLabel;
   expanded: boolean;
   sessionLimitExpanded: boolean;
   activeWorkspaceId: string;
-  activeSessionId: string;
-  seenSessionRevisions: Readonly<Record<string, string>>;
   actions: ResourceActions;
   onExpandedChange: (open: boolean) => void;
   setSessionLimitExpanded: (open: boolean) => void;
@@ -255,27 +485,20 @@ interface WorkspaceTreeItemProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onDownloadSession: (
-    sessionId: string,
-    title: string,
-    mode: import('@clio/core/v3').SessionExportMode,
-  ) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
-  onVisitSession: (session: Session) => void;
-  attentions: Readonly<Record<string, SessionAttention>>;
+  renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
+  draft: boolean;
 }
 
 function WorkspaceTreeItem({
   workspace,
   sessions,
-  agents,
+  excludedSessionIds,
   label,
   expanded,
   sessionLimitExpanded,
   activeWorkspaceId,
-  activeSessionId,
-  seenSessionRevisions,
   actions,
   onExpandedChange,
   setSessionLimitExpanded,
@@ -283,24 +506,22 @@ function WorkspaceTreeItem({
   onRename,
   onDelete,
   onEditWorkspace,
-  onDownloadSession,
   onOpenWorkspaceFiles,
   onAction,
-  onVisitSession,
-  attentions,
+  renderSession,
+  draft,
 }: WorkspaceTreeItemProps) {
-  // The rail reads its conversations a page at a time; live rows win over a page's copy.
-  const rail = useRailSessions(workspace.id, sessions, expanded);
-  const railSessions = rail.sessions.filter(
-    (session) => !session.archived && isPrimarySession(session),
-  );
-  const sessionTotal = Math.max(rail.total ?? 0, railSessions.length);
-  const visibleSessions = visibleWorkspaceSessions(
-    railSessions,
+  const {
+    rail,
+    total: sessionTotal,
+    visible: visibleSessions,
+  } = useConversationList(
     workspace.id,
-    '',
-    sessionLimitExpanded ? railSessions.length : undefined,
-  ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
+    sessions,
+    expanded,
+    sessionLimitExpanded,
+    excludedSessionIds,
+  );
 
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
@@ -312,6 +533,7 @@ function WorkspaceTreeItem({
               actions={actions}
               label={label}
               onAction={onAction}
+              onCreateSession={onCreateSession}
               onDelete={onDelete}
               onEditWorkspace={onEditWorkspace}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
@@ -329,22 +551,20 @@ function WorkspaceTreeItem({
         actionsOverlay
         actionsWidth={48}
         className={cn(
-          'select-none font-medium group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0',
+          'select-none font-semibold group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0',
           'group-data-[collapsible=icon]:[&>:not([data-slot=list-row-text])]:hidden group-data-[collapsible=icon]:[&>[data-slot=list-row-text]]:flex-none',
         )}
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         meta={
           sessionTotal > 0 ? (
-            <span className="font-mono text-[11px] font-normal tabular-nums text-muted-foreground">
-              {sessionTotal}
-            </span>
+            <span className="text-[11px] font-normal tabular-nums text-faint">{sessionTotal}</span>
           ) : null
         }
         status={
           <ChevronRightIcon
             aria-hidden="true"
             className={cn(
-              'size-3.5 text-muted-foreground transition-transform motion-reduce:transition-none',
+              'size-3.5 text-faint transition-transform motion-reduce:transition-none',
               expanded && 'rotate-90',
             )}
           />
@@ -360,26 +580,12 @@ function WorkspaceTreeItem({
       />
       <CollapsibleContent>
         <div className="grid min-w-0 gap-px group-data-[collapsible=icon]:hidden">
-          {nestAgentForks(visibleSessions).map(({ session, depth }) => (
-            <SessionNavigationRow
-              actions={actions}
-              activeSessionId={activeSessionId}
-              attention={attentions[session.id]}
-              agentLabel={sessionAgentLabel(session, agents)}
-              key={session.id}
-              nestedDepth={depth}
-              onAction={onAction}
-              onDelete={onDelete}
-              onDownloadSession={onDownloadSession}
-              onRename={onRename}
-              onVisit={onVisitSession}
-              seenRevision={seenSessionRevisions[session.id]}
-              session={session}
-              workspaceId={workspace.id}
-            />
-          ))}
-          {visibleSessions.length === 0 ? (
-            <p className="h-7 truncate pl-[30px] text-[12px] leading-7 text-muted-foreground">
+          {draft ? <DraftConversationRow topLevel={false} /> : null}
+          {nestAgentForks(visibleSessions).map(({ session, depth }) =>
+            renderSession(session, false, depth),
+          )}
+          {visibleSessions.length === 0 && !draft ? (
+            <p className="h-7 truncate pl-[34px] text-[12px] leading-7 text-faint">
               No conversations yet
             </p>
           ) : null}
@@ -387,20 +593,15 @@ function WorkspaceTreeItem({
             <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
           ) : null}
           {sessionTotal > 8 ? (
-            <ListRow
-              className="cursor-pointer pl-[30px] text-[12px] text-muted-foreground"
-              title={
-                <button
-                  aria-expanded={sessionLimitExpanded}
-                  className="outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
-                  onClick={() => setSessionLimitExpanded(!sessionLimitExpanded)}
-                  type="button"
-                >
-                  {sessionLimitExpanded
-                    ? 'Show recent sessions'
-                    : `Show ${sessionTotal - visibleSessions.length > 0 ? `${sessionTotal - visibleSessions.length} more` : `all ${sessionTotal}`}`}
-                </button>
+            <ShowMoreRow
+              expanded={sessionLimitExpanded}
+              indent
+              label={
+                sessionLimitExpanded
+                  ? 'Show recent conversations'
+                  : `Show ${sessionTotal - visibleSessions.length > 0 ? `${sessionTotal - visibleSessions.length} more` : `all ${sessionTotal}`}`
               }
+              onToggle={() => setSessionLimitExpanded(!sessionLimitExpanded)}
             />
           ) : null}
         </div>
@@ -428,7 +629,7 @@ function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: (
   return (
     <Button
       aria-busy={loading || undefined}
-      className="h-7 w-full justify-start gap-1.5 pl-[30px] text-[12px] text-muted-foreground"
+      className="h-7 w-full justify-start gap-1.5 pl-[34px] text-[11.5px] text-faint"
       disabled={loading}
       onClick={onLoadMore}
       ref={sentinel}
@@ -447,6 +648,7 @@ interface WorkspaceActionsMenuProps {
   label: WorkspaceDisplayLabel;
   activeWorkspaceId: string;
   actions: ResourceActions;
+  onCreateSession: (workspaceId: string) => void;
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
@@ -459,6 +661,7 @@ function WorkspaceActionsMenu({
   label,
   activeWorkspaceId,
   actions,
+  onCreateSession,
   onRename,
   onDelete,
   onEditWorkspace,
@@ -471,26 +674,13 @@ function WorkspaceActionsMenu({
       <DropdownMenuTrigger asChild>
         <IconButton icon={<MoreIcon />} label={`Workspace actions for ${labelText}`} size="sm" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="min-w-0">
-          <WorkspaceLabelFields label={label} />
-          <span
-            className="mt-0.5 block truncate font-mono text-[0.625rem] font-normal text-muted-foreground"
-            title={workspace.path}
-          >
-            {workspace.path}
-          </span>
-        </DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-[250px]">
+        <DropdownMenuItem menuKey="N" onSelect={() => onCreateSession(workspace.id)}>
+          <NewConversationIcon aria-hidden="true" /> New conversation here
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="whitespace-nowrap"
-          disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
-          onSelect={() => onOpenWorkspaceFiles?.()}
-        >
-          <FolderOpenIcon aria-hidden="true" /> Browse files
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="whitespace-nowrap"
+          menuKey="P"
           onSelect={() =>
             onAction(
               () => actions.setWorkspacePinned(workspace.id, !workspace.pinned),
@@ -499,34 +689,35 @@ function WorkspaceActionsMenu({
           }
         >
           {workspace.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
-          {workspace.pinned ? 'Unpin workspace' : 'Pin workspace'}
+          {workspace.pinned ? 'Unpin' : 'Pin'}
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="whitespace-nowrap"
+          menuKey="R"
           onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
         >
-          <EditIcon aria-hidden="true" /> Rename workspace
+          <EditIcon aria-hidden="true" /> Rename
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="whitespace-nowrap"
-          onSelect={() => void copyText(workspace.path)}
-        >
-          <ClipboardIcon aria-hidden="true" /> Copy folder path
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="whitespace-nowrap"
-          onSelect={() => onEditWorkspace(workspace.id)}
-        >
-          <EditIcon aria-hidden="true" /> Edit workspace
+        <DropdownMenuItem menuKey="S" onSelect={() => onEditWorkspace(workspace.id)}>
+          <SettingsIcon aria-hidden="true" /> Workspace settings…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="whitespace-nowrap"
-          disabled={workspace.id === 'ws_default'}
+          disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
+          menuKey="O"
+          onSelect={() => onOpenWorkspaceFiles?.()}
+        >
+          <FolderOpenIcon aria-hidden="true" /> Open folder
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void copyText(workspace.path)}>
+          <ClipboardIcon aria-hidden="true" /> Copy folder path
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={workspace.id === DEFAULT_WORKSPACE_ID}
           onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
           variant="destructive"
         >
-          <DeleteIcon aria-hidden="true" /> Remove workspace
+          <DeleteIcon aria-hidden="true" /> Remove workspace…
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

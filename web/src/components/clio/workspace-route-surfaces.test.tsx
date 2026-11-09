@@ -95,33 +95,6 @@ describe('WorkspaceStatusStrip', () => {
     expect(screen.queryByText(/cursor|checkpoint/u)).not.toBeInTheDocument();
   });
 
-  it('reports 0 tokens (never "Unavailable") before any turn has run', () => {
-    renderStrip({ activeWorkCount: 0, sessionId: 'sess_1', stream: 'live' });
-
-    expect(screen.getByText('Tokens: 0')).toBeVisible();
-    expect(screen.queryByText(/unavailable/iu)).not.toBeInTheDocument();
-  });
-
-  it('shows a real token count and cost once the session has usage', () => {
-    renderStrip({
-      activeWorkCount: 0,
-      cost: 0.0032,
-      sessionId: 'sess_1',
-      stream: 'live',
-      tokens: 150,
-    });
-
-    expect(screen.getByText('Tokens: 150')).toBeVisible();
-    expect(screen.getByText('Cost: $0.0032')).toBeVisible();
-  });
-
-  it('shows a muted dash, never "Unavailable", when the provider reports no cost', () => {
-    renderStrip({ activeWorkCount: 0, sessionId: 'sess_1', stream: 'live', tokens: 300 });
-
-    expect(screen.getByText('—')).toBeVisible();
-    expect(screen.queryByText(/unavailable/iu)).not.toBeInTheDocument();
-  });
-
   it('describes recovery in user terms while retaining the checkpoint as metadata', () => {
     renderStrip({ activeWorkCount: 2, cursor: 'checkpoint-1849', stream: 'reconnecting' });
 

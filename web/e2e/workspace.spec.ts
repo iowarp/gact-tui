@@ -270,10 +270,12 @@ test('reveals workspace creation and overflow actions without changing disclosur
     ),
     contentType: 'application/json',
   });
-  await expect(menu.getByRole('menuitem', { name: 'Edit workspace', exact: true })).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }),
+  ).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
+  await menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }).hover();
   await expect(actions).toHaveCSS('opacity', '1');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });

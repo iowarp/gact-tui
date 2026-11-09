@@ -22,7 +22,6 @@ import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
-import { OpenQuestionsTracker } from './open-questions-tracker';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
@@ -518,7 +517,6 @@ function ConversationBody({
 
   return (
     <div className="relative h-full min-h-0">
-      <OpenQuestionsTracker interactions={entities.interactions ?? []} bottomInset={bottomInset} />
       {messages.length > 0 ? (
         <>
           <ClioTranscriptMinimap

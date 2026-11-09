@@ -1,13 +1,21 @@
 ﻿import type { Session, SessionExportMode } from '@clio/core/v3';
-import { BellRingIcon, GitForkIcon, LoaderCircleIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  BellRingIcon,
+  CornerDownLeftIcon,
+  GitForkIcon,
+  LoaderCircleIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -40,6 +48,8 @@ interface SessionNavigationRowProps {
   attention?: SessionAttention;
   /** How many agent forks deep this row sits under its origin's row. */
   nestedDepth?: number;
+  /** A row of its own (Pinned, Conversations) rather than one under a workspace. */
+  topLevel?: boolean;
 }
 
 export function SessionNavigationRow({
@@ -56,6 +66,7 @@ export function SessionNavigationRow({
   onVisit,
   attention,
   nestedDepth = 0,
+  topLevel = false,
 }: SessionNavigationRowProps) {
   const forkLabel = forkAuthorLabel(conversationForkOrigin(session));
   const row = (
@@ -72,6 +83,7 @@ export function SessionNavigationRow({
       onVisit={onVisit}
       seenRevision={seenRevision}
       session={session}
+      topLevel={topLevel}
       workspaceId={workspaceId}
     />
   );
@@ -109,6 +121,7 @@ function SessionRow({
   onVisit,
   attention,
   forkLabel,
+  topLevel,
 }: Omit<SessionNavigationRowProps, 'nestedDepth'> & { forkLabel?: string }) {
   const running = isSessionRunning(session.state);
   const needsAttention = Boolean(attention?.total);
@@ -118,6 +131,8 @@ function SessionRow({
     session.id !== activeSessionId &&
     seenRevision !== sessionInteractionAt(session);
   const active = session.id === activeSessionId;
+  const navigate = useNavigate();
+  const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <HoverCard closeDelay={100} openDelay={260}>
       <HoverCardTrigger asChild>
@@ -132,7 +147,16 @@ function SessionRow({
                   tooltip={false}
                 />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuContent align="start" className="w-[250px]">
+                <DropdownMenuItem
+                  menuKey="↵"
+                  onSelect={() => {
+                    onVisit(session);
+                    navigate(href);
+                  }}
+                >
+                  <CornerDownLeftIcon aria-hidden="true" /> Open
+                </DropdownMenuItem>
                 <SessionOrganizeMenuItems
                   actions={actions}
                   onAction={onAction}
@@ -160,7 +184,10 @@ function SessionRow({
           }
           actionsOverlay
           actionsWidth={24}
-          className="pl-[30px]"
+          className={cn(
+            'data-selected:bg-accent data-selected:text-accent-foreground data-selected:shadow-[inset_2px_0_0_var(--primary)]',
+            topLevel ? 'pl-2.5' : 'pl-[34px]',
+          )}
           data-session-row={session.id}
           meta={
             needsAttention && attention ? (
@@ -187,7 +214,7 @@ function SessionRow({
               <span className="text-[11px] font-medium text-primary">New</span>
             ) : (
               <ClioRelativeTime
-                className="text-[11px] text-muted-foreground"
+                className="text-[11px] text-faint group-data-selected/list-row:text-accent-foreground/80"
                 compact
                 timestamp={sessionInteractionAt(session)}
               />
@@ -198,15 +225,17 @@ function SessionRow({
             <Link
               className={cn(
                 'rounded-[6px] outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring',
-                active || unseen || needsAttention
-                  ? 'text-foreground'
-                  : 'text-muted-foreground group-hover/list-row:text-foreground',
+                active
+                  ? 'text-accent-foreground'
+                  : unseen || needsAttention
+                    ? 'text-foreground'
+                    : 'text-foreground/85 group-hover/list-row:text-foreground',
                 unseen && 'font-medium',
               )}
               data-active={active}
               onClick={() => onVisit(session)}
               onMouseDown={(event) => event.preventDefault()}
-              to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
+              to={href}
             >
               {session.pinned ? (
                 <PinIcon aria-hidden="true" className="mr-1 inline size-3 align-[-1px]" />

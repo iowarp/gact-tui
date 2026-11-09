@@ -23,7 +23,7 @@ describe('session export modes', () => {
       </DropdownMenu>,
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     expect(screen.getByRole('menuitem', { name: 'Download HTML' })).toBeVisible();
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Include workspace files' }));
     expect(

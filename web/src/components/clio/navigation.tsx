@@ -1,20 +1,11 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ArchiveIcon } from 'lucide-react';
-import { IconButton } from '@/components/clio/primitives/icon-button';
+import { ArchiveIcon, SlidersHorizontalIcon, UserRoundIcon } from 'lucide-react';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
 import { useKnownConnections } from '@/hooks/use-known-connections';
@@ -24,11 +15,11 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
-import { NavigationInfrastructure } from './navigation-infrastructure';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
+import { newConversationRoute } from '@/lib/workspace-route-memory';
 import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
@@ -71,16 +62,17 @@ export function ClioNavigation({
   );
   const switchConnection = useSwitchConnection();
   const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
-  const [createWorkspaceId, setCreateWorkspaceId] = useState(activeWorkspaceId);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  const navigate = useNavigate();
+  const draftMatch = useMatch('/workspaces/:workspaceId/new');
+  // A new conversation is a draft in place; it becomes a row once it is sent.
   const openNewSession = (workspaceId = activeWorkspaceId) => {
-    setCreateWorkspaceId(workspaceId);
-    setCreateKind('session');
+    void navigate(newConversationRoute(workspaceId || 'ws_default'));
   };
   const downloadSession = async (
     sessionId: string,
@@ -150,7 +142,6 @@ export function ClioNavigation({
             onConnect={switchService}
             onImportSession={importSession}
             onNewSession={() => openNewSession()}
-            onOpenFiles={onOpenWorkspaceFiles}
             connections={knownConnections}
           />
           <SidebarContent className="gap-0">
@@ -160,6 +151,7 @@ export function ClioNavigation({
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
               agents={agents}
+              draftWorkspaceId={draftMatch?.params.workspaceId}
               onAction={runNavigationAction}
               onCreateSession={openNewSession}
               onDelete={setDeleteTarget}
@@ -172,24 +164,29 @@ export function ClioNavigation({
               workspaces={workspaces}
             />
           </SidebarContent>
-          <SidebarFooter className="flex-row items-center gap-0.5 border-t border-sidebar-border px-2 py-1.5 group-data-[collapsible=icon]:flex-col">
-            <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
-                  <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
-                    <SettingsIcon aria-hidden="true" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
+          <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1 group-data-[collapsible=icon]:hidden">
+              <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                <UserRoundIcon aria-hidden="true" className="size-3.5" />
+              </span>
+              <span className="truncate text-[13px]">Local profile</span>
+            </div>
             <IconButton
               icon={<ArchiveIcon />}
               label="Archived conversations"
               onClick={() => setArchivedOpen(true)}
               tooltipSide="top"
             />
+            <NamedTooltip label="Settings" shortcut="settings" side="top">
+              <Link
+                aria-label="Settings"
+                className="grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                state={{ endpoint, from: location.pathname }}
+                to="/settings/general"
+              >
+                <SlidersHorizontalIcon aria-hidden="true" className="size-[15px]" />
+              </Link>
+            </NamedTooltip>
           </SidebarFooter>
         </nav>
         <SidebarRail />
@@ -216,7 +213,7 @@ export function ClioNavigation({
       />
       <ClioResourceDialogs
         actions={actions}
-        activeWorkspaceId={createWorkspaceId || activeWorkspaceId}
+        activeWorkspaceId={activeWorkspaceId}
         agents={agents}
         createKind={createKind}
         deleteTarget={deleteTarget}

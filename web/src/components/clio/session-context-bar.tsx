@@ -1,26 +1,24 @@
-import { sessionAgentRef, type Session } from '@clio/core/v3';
-import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, GitBranchIcon } from 'lucide-react';
+import type { Session } from '@clio/core/v3';
+import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, MessageSquareIcon } from 'lucide-react';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { cn } from '@/lib/utils';
 import { canForkSession } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
-import { SessionAgentControl } from './session-agent-control';
 import type { ClioSessionActionsProps } from './session-actions';
 import { WorkspaceMark } from './workspace-mark';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
   parentSession?: Session;
-  /** The agent's name while its resolution loads (from the session's pinned reference). */
-  agentLabel?: string;
   workspaceLabel?: string;
+  /** The breadcrumb's workspace name opens the workspace. */
+  onOpenWorkspace?: () => void;
   actionsPending: boolean;
   management?: ClioSessionActionsProps['management'];
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
-  onOpenAgent: () => void;
   /** Secondary escape hatch: opens the workspace in the OS's own terminal
    * app instead of the embedded tab. */
   onOpenSystemTerminal?: () => Promise<void>;
@@ -32,13 +30,12 @@ export interface ClioSessionContextBarProps {
 export function ClioSessionContextBar({
   session,
   parentSession,
-  agentLabel,
   workspaceLabel,
+  onOpenWorkspace,
   actionsPending,
   management,
   onCompact,
   onFork,
-  onOpenAgent,
   onOpenSystemTerminal,
   onShare,
   onReturnToParent,
@@ -50,7 +47,7 @@ export function ClioSessionContextBar({
   const nativeTitle = inTauri();
   const TitleElement = nativeTitle ? 'span' : 'h1';
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       {parentSession ? (
         <IconButton
           icon={<ArrowLeftIcon />}
@@ -58,19 +55,25 @@ export function ClioSessionContextBar({
           onClick={() => onReturnToParent(parentSession)}
         />
       ) : null}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-[13px]">
+      {parentSession || nativeTitle ? null : (
+        <MessageSquareIcon aria-hidden="true" className="ml-1 size-[15px] shrink-0 text-faint" />
+      )}
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-[13px]">
         {workspaceLabel && !nativeTitle ? (
           <>
-            <span
-              className="hidden min-w-0 max-w-40 shrink-[2] items-center gap-1.5 text-muted-foreground lg:flex"
-              title={workspaceLabel}
+            <button
+              className="hidden h-7 min-w-0 max-w-44 shrink-[2] items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent md:flex"
+              disabled={!onOpenWorkspace}
+              onClick={onOpenWorkspace}
+              title={`Open ${workspaceLabel}`}
+              type="button"
             >
               {session ? <WorkspaceMark id={session.workspace_id} /> : null}
               <span className="truncate">{workspaceLabel}</span>
-            </span>
+            </button>
             <ChevronRightIcon
               aria-hidden="true"
-              className="hidden size-3.5 shrink-0 text-faint lg:block"
+              className="hidden size-3.5 shrink-0 text-faint md:block"
             />
           </>
         ) : null}
@@ -88,7 +91,7 @@ export function ClioSessionContextBar({
               <button
                 aria-label={`Actions for ${session?.title ?? 'session'}`}
                 className={cn(
-                  'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-medium outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
+                  'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-semibold outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
                   nativeTitle && 'w-7 justify-center px-0',
                 )}
                 disabled={disabled}
@@ -105,24 +108,7 @@ export function ClioSessionContextBar({
           />
         </TitleElement>
       </nav>
-      {session ? (
-        <SessionAgentControl
-          agentRef={sessionAgentRef(session)}
-          fallbackLabel={agentLabel}
-          onOpenAgent={onOpenAgent}
-          sessionId={session.id}
-        />
-      ) : null}
       <ClioDownloadsButton />
-      {session?.branch ? (
-        <span
-          className="hidden shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground xl:flex"
-          title={`Branch ${session.branch}`}
-        >
-          <GitBranchIcon aria-hidden="true" className="size-3" />
-          {session.branch}
-        </span>
-      ) : null}
     </div>
   );
 }

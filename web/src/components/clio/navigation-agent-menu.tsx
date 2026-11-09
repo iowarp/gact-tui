@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import type { StreamState } from '@clio/core/v3';
-import { ChevronsUpDownIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -61,25 +61,22 @@ export function NavigationAgentMenu({
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton
           aria-label={`${brand.name}: ${line.text}`}
-          className="h-10 min-w-0 flex-1 gap-2 px-1.5"
+          className="h-11 min-w-0 flex-1 gap-2.5 px-1.5"
           data-connection-state={stream}
           size="lg"
           tooltip={`${brand.name}: ${line.text}`}
         >
-          <span className="grid size-6 shrink-0 place-items-center text-primary">
-            <BrandIcon className="size-5" />
-          </span>
+          <BrandIcon className="size-[26px]! shrink-0 text-primary" />
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
-              <ChevronsUpDownIcon
-                aria-hidden="true"
-                className="size-3 shrink-0 text-muted-foreground"
-              />
+              <span className="truncate font-heading text-[15px] font-semibold">
+                {brand.wordmark}
+              </span>
+              <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
             </span>
             <span
               className={cn(
-                'flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground',
+                'flex min-w-0 items-center gap-1 text-[11.5px] text-muted-foreground',
                 line.className,
               )}
             >

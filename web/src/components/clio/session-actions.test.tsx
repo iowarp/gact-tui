@@ -22,7 +22,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Branch into a new session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Fork into a new conversation' }));
 
     expect(actions.onFork).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'appends a checkpoint; earlier messages stay in the transcript',
@@ -47,7 +47,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Remove last message' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove last message…' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent('permanently remove');
     await user.click(screen.getByRole('button', { name: 'Remove message' }));
@@ -60,7 +60,7 @@ describe('ClioSessionActions', () => {
     actions.onCompact.mockRejectedValueOnce(new Error('Service unavailable'));
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
     await user.click(screen.getByRole('button', { name: 'Compact conversation' }));
 
     expect(actions.onCompact).toHaveBeenCalledOnce();

@@ -123,7 +123,7 @@ export function ClioSessionActions({
             </Button>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={trigger ? 'start' : 'end'} className="min-w-64">
+        <DropdownMenuContent align={trigger ? 'start' : 'end'} className="w-[290px]">
           {management ? (
             <>
               <SessionOrganizeMenuItems
@@ -136,11 +136,11 @@ export function ClioSessionActions({
             </>
           ) : null}
           {onFork ? (
-            <DropdownMenuItem className="whitespace-nowrap" onSelect={() => void run(onFork)}>
-              <GitForkIcon aria-hidden="true" /> Branch into a new session
+            <DropdownMenuItem menuKey="F" onSelect={() => void run(onFork)}>
+              <GitForkIcon aria-hidden="true" /> Fork into a new conversation
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem className="whitespace-nowrap" onSelect={() => setSharing(true)}>
+          <DropdownMenuItem menuKey="L" onSelect={() => setSharing(true)}>
             <Share2Icon aria-hidden="true" /> Share read-only link
           </DropdownMenuItem>
           {management ? (
@@ -162,25 +162,19 @@ export function ClioSessionActions({
           ) : null}
           <DropdownMenuSeparator />
           {onOpenSystemTerminal ? (
-            <DropdownMenuItem
-              className="whitespace-nowrap"
-              onSelect={() => void run(onOpenSystemTerminal)}
-            >
+            <DropdownMenuItem menuKey="T" onSelect={() => void run(onOpenSystemTerminal)}>
               <ExternalLinkIcon aria-hidden="true" /> Open in system terminal
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem
-            className="whitespace-nowrap"
-            onSelect={() => setConfirmation('compact')}
-          >
-            <PackageOpenIcon aria-hidden="true" /> Compact conversation
+          <DropdownMenuItem menuKey="C" onSelect={() => setConfirmation('compact')}>
+            <PackageOpenIcon aria-hidden="true" /> Compact conversation…
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="whitespace-nowrap"
+            menuKey="V"
             onSelect={() => setConfirmation('undo')}
             variant="destructive"
           >
-            <Undo2Icon aria-hidden="true" /> Remove last message
+            <Undo2Icon aria-hidden="true" /> Remove last message…
           </DropdownMenuItem>
           {management ? (
             <>

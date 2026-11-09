@@ -1,7 +1,8 @@
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useCommandKeyHeld, useKeyPlatform, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import type { ShortcutDefinition } from '@/lib/shortcuts/catalog';
-import { shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
+import { detectHost, shortcutLabels, shortcutText } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
 /** One key cap: `Ctrl`, `⌘`, `L`. */
@@ -103,23 +104,57 @@ export const ShortcutKeys = memo(function ShortcutKeys({
 });
 
 /**
- * The badge a control shows while Ctrl (⌘) is held: the whole key, ⌘
- * included. Place it inside a `relative` control; it does not take space.
+ * The badge a control shows while Ctrl (\u2318) is held: the rest of the key,
+ * since the held key is already down. Place it inside the control; it takes no
+ * space and is drawn above the dimmed page at the control's bottom edge.
  */
 export function HeldKeyBadge({ id, className }: { id: string; className?: string }) {
   const held = useCommandKeyHeld();
+  const platform = useKeyPlatform();
   const presentation = useShortcutPresentation(held ? id : undefined);
-  if (!presentation) return null;
+  const anchor = useRef<HTMLSpanElement>(null);
+  const badge = useRef<HTMLSpanElement>(null);
+  const definition = presentation?.definition;
+  const text =
+    definition && (!definition.host || definition.host === detectHost())
+      ? heldKeyText(presentation.labels[0] ?? [], platform)
+      : undefined;
+  useLayoutEffect(() => {
+    const control = anchor.current?.parentElement;
+    const node = badge.current;
+    if (!control || !node) return;
+    const rect = control.getBoundingClientRect();
+    if (!rect.width) {
+      node.hidden = true;
+      return;
+    }
+    node.style.left = `${Math.max(4, Math.min(window.innerWidth - 4, rect.left + rect.width / 2))}px`;
+    node.style.top = `${Math.min(window.innerHeight - 10, rect.bottom)}px`;
+  }, [text]);
   return (
-    <span
-      aria-hidden="true"
-      data-slot="held-key-badge"
-      className={cn(
-        'pointer-events-none absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 translate-y-1/2 rounded-[4px] bg-foreground px-1 py-px font-mono text-[10.5px] leading-[14px] font-semibold whitespace-nowrap text-background shadow-sm',
-        className,
-      )}
-    >
-      {presentation.text}
+    <span aria-hidden="true" className="hidden" ref={anchor}>
+      {text
+        ? createPortal(
+            <span
+              data-slot="held-key-badge"
+              ref={badge}
+              className={cn(
+                'pointer-events-none fixed z-[91] -translate-x-1/2 -translate-y-1/2 rounded-[4px] bg-foreground px-[5px] py-[3px] font-mono text-[10.5px] leading-none font-semibold whitespace-nowrap text-background shadow-sm',
+                className,
+              )}
+            >
+              {text}
+            </span>,
+            document.body,
+          )
+        : null}
     </span>
   );
+}
+
+/** A chord's caps without the held command key: `Shift O`, `\u21e7O`, `B`. */
+function heldKeyText(caps: readonly string[], platform: 'mac' | 'windows'): string {
+  const command = platform === 'mac' ? '\u2318' : 'Ctrl';
+  const rest = caps.includes(command) ? caps.filter((cap) => cap !== command) : caps;
+  return rest.join(platform === 'mac' ? '' : ' ');
 }

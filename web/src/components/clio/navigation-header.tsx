@@ -1,8 +1,7 @@
-import { ActivityIcon, FolderOpenIcon, SearchIcon, UploadIcon } from 'lucide-react';
+import { SearchIcon, UploadIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import {
   SidebarHeader,
   SidebarMenu,
@@ -25,15 +24,14 @@ interface NavigationHeaderProps {
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
   onNewSession: () => void;
   onImportSession: () => void;
-  /** Opens the active workspace's files; the row is left out without one. */
-  onOpenFiles?: () => void;
   attentionControl?: ReactNode;
 }
 
 /**
- * The top of the left bar: the agent you're talking to, the bell and the
- * collapse button on one line, then New conversation (with import beside
- * it), Search, Files and Runs. Collapsed to icons, the same rows stack.
+ * The top of the left bar: the CLIO menu, the bell and the collapse button on
+ * one line, then New conversation (with import beside it) and Search. Files
+ * and Runs left the bar: the crumb and the workspace menu open files, and
+ * Search or Ctrl . open runs. Collapsed to icons, the same rows stack.
  */
 export function NavigationHeader({
   endpoint,
@@ -45,12 +43,11 @@ export function NavigationHeader({
   onConnect,
   onNewSession,
   onImportSession,
-  onOpenFiles,
   attentionControl,
 }: NavigationHeaderProps) {
   return (
-    <SidebarHeader className="gap-2 px-2 pb-1 pt-2">
-      <SidebarMenu className="flex-row items-center gap-0.5 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
+    <SidebarHeader className="gap-2 px-2 pb-1 pt-2.5">
+      <SidebarMenu className="flex-row items-center gap-1 in-data-[mobile=true]:pr-10 group-data-[collapsible=icon]:flex-col">
         <SidebarMenuItem className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none">
           <NavigationAgentMenu
             activeLabel={activeLabel}
@@ -63,22 +60,25 @@ export function NavigationHeader({
           />
         </SidebarMenuItem>
         {attentionControl}
-        <li className="shrink-0 in-data-[mobile=true]:hidden">
+        <li className="relative shrink-0 in-data-[mobile=true]:hidden">
           <NamedTooltip label="Hide the left bar" shortcut="left-pocket">
-            <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground" />
+            <SidebarTrigger className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[15px]" />
           </NamedTooltip>
+          <HeldKeyBadge id="left-pocket" />
         </li>
       </SidebarMenu>
       <SidebarMenu className="gap-px">
         <SidebarMenuItem className="group/new-row">
           <SidebarMenuButton
-            className="pr-9 font-medium group-data-[collapsible=icon]:pr-2"
+            className="h-[30px] gap-2.5 pr-9 text-[13px] group-data-[collapsible=icon]:pr-2"
             onClick={onNewSession}
             tooltip="New conversation"
             type="button"
           >
             <NewConversationIcon aria-hidden="true" className="text-primary" />
             <span className="truncate">New conversation</span>
+            <HeldKeyBadge id="new-conversation" />
+            <HeldKeyBadge id="new-conversation-browser" />
           </SidebarMenuButton>
           <IconButton
             className="absolute right-1 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
@@ -89,9 +89,10 @@ export function NavigationHeader({
             size="sm"
           />
         </SidebarMenuItem>
-        <SidebarMenuItem className="group/search-row">
+        <SidebarMenuItem>
           <SidebarMenuButton
             aria-label="Search work"
+            className="h-[30px] gap-2.5 text-[13px]"
             onClick={() => window.dispatchEvent(new Event('clio:open-command-menu'))}
             tooltip="Search work, files, and actions"
             type="button"
@@ -99,25 +100,10 @@ export function NavigationHeader({
             <SearchIcon aria-hidden="true" />
             <span className="truncate">Search</span>
             <ShortcutKeys
-              className="ml-auto text-[10px] opacity-0 transition-opacity group-data-[collapsible=icon]:hidden group-hover/search-row:opacity-100 group-focus-within/search-row:opacity-100"
+              className="ml-auto text-[11px] text-faint group-data-[collapsible=icon]:hidden"
               id="search"
             />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        {onOpenFiles ? (
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onOpenFiles} tooltip="Files" type="button">
-              <FolderOpenIcon aria-hidden="true" />
-              <span className="truncate">Files</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ) : null}
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild tooltip="Runs">
-            <Link state={{ endpoint, from: currentPath }} to="/runs">
-              <ActivityIcon aria-hidden="true" />
-              <span className="truncate">Runs</span>
-            </Link>
+            <HeldKeyBadge id="search" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

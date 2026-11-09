@@ -125,7 +125,7 @@ it.each([
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     await screen.findByRole('menuitem', { name: 'Download HTML' });
     if (mode !== 'transcript')
       fireEvent.click(

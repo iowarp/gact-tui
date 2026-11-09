@@ -174,7 +174,7 @@ export function WorkspaceLiveObservabilityView({
 
 type LiveStatusStripProps = Omit<
   ComponentProps<typeof WorkspaceStatusStrip>,
-  'cost' | 'cursor' | 'tokens' | 'stream' | 'activeWorkCount' | 'unresolvedWorkCount'
+  'cursor' | 'stream' | 'activeWorkCount' | 'unresolvedWorkCount'
 > & {
   sessionId: string;
   work: Pick<
@@ -184,20 +184,16 @@ type LiveStatusStripProps = Omit<
 };
 
 export function WorkspaceLiveStatusStrip({ sessionId, work, ...props }: LiveStatusStripProps) {
-  const usage = useLiveStore((state) => state.entities.usage[sessionId]);
   const cursor = useLiveStore((state) => state.entities.cursor);
   const stream = useLiveStore((state) => state.entities.stream);
-  const tokens = usage === undefined ? undefined : usage.input_tokens + usage.output_tokens;
   return (
     <WorkspaceStatusStrip
       {...props}
       activeWorkCount={countActiveWork(work.runs, work.tasks, work.tools, work.processes)}
       unresolvedWorkCount={countWorkNeedingInspection(work.processes)}
       sessionId={sessionId}
-      cost={usage?.cost_usd}
       cursor={cursor}
       stream={stream}
-      tokens={tokens}
     />
   );
 }

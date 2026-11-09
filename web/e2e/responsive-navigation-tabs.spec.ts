@@ -52,7 +52,7 @@ for (const width of [1100, 1600]) {
       exact: true,
     });
     await actions.click();
-    const edit = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const edit = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await expect(edit).toBeVisible();
     await edit.hover();
     await expect(sidebar).toHaveAttribute('data-preview', 'true');

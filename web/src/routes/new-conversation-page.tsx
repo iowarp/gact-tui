@@ -223,7 +223,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           <ClioDownloadsButton />
         </div>
       }
-      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} tokens={0} />}
+      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
       workbenchRevealKey={activeRequest?.key}
       workbench={
         <ClioWorkbench

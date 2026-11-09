@@ -88,7 +88,7 @@ it('keeps workspace disclosure separate from the common action and overflow menu
 
   await user.click(screen.getByRole('button', { name: 'Workspace actions for Reports' }));
   expect(screen.queryByRole('menuitem', { name: 'New session' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('menuitem', { name: 'Edit workspace' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Workspace settings…' }));
   expect(onEditWorkspace).toHaveBeenCalledTimes(1);
   expect(onEditWorkspace).toHaveBeenCalledWith(workspace.id);
   expect(disclosure).toHaveAttribute('aria-expanded', 'false');

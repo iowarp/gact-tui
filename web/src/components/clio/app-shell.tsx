@@ -55,18 +55,21 @@ function DesktopNavigationLayout({
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
+  // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
+  const narrow = useMediaQuery('(max-width: 1023px)');
+  const collapse = collapseForWorkbench || narrow;
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
-    previousCollapseForWorkbenchRef.current = collapseForWorkbench;
+    previousCollapseForWorkbenchRef.current = collapse;
 
-    if (collapseForWorkbench && !wasCollapsedForWorkbench) {
+    if (collapse && !wasCollapsedForWorkbench) {
       if (open) {
         setOpen(false);
       }
       return;
     }
-  }, [collapseForWorkbench, open, setOpen]);
+  }, [collapse, open, setOpen]);
 
   useEffect(() => {
     if (open) panelRef.current?.expand();
@@ -89,7 +92,7 @@ function DesktopNavigationLayout({
         <ResizablePanel
           collapsedSize="56px"
           collapsible
-          defaultSize="248px"
+          defaultSize="292px"
           groupResizeBehavior="preserve-pixel-size"
           id="workspace-navigation"
           maxSize="440px"

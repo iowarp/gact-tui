@@ -11,7 +11,6 @@ import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus } from './status';
-import { SessionUsageReadout } from './session-usage-readout';
 import { SessionWorkStatus } from './session-work';
 
 /**
@@ -192,9 +191,7 @@ export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?:
 export function WorkspaceStatusStrip({
   activeWorkCount,
   unresolvedWorkCount = 0,
-  cost,
   cursor,
-  tokens,
   sessionState,
   stream,
   sessionId,
@@ -206,14 +203,7 @@ export function WorkspaceStatusStrip({
   onInspectTasks?: () => void;
   activeWorkCount: number;
   unresolvedWorkCount?: number;
-  /** Undefined when no turn ever reported a real cost -- shown as a muted
-   * dash with a tooltip, never the word "Unavailable" (it isn't broken,
-   * the provider just doesn't report a price). */
-  cost?: number;
   cursor?: string;
-  /** Cumulative input+output token count for the session; always a real
-   * number once the session has run a turn (0 before that). */
-  tokens?: number;
   sessionState?: RunState;
   stream: StreamState;
 }) {
@@ -265,7 +255,6 @@ export function WorkspaceStatusStrip({
       ) : sessionId && onOpenWork ? (
         <SessionWorkStatus sessionId={sessionId} onOpen={onOpenWork} />
       ) : null}
-      {sessionId ? <SessionUsageReadout cost={cost} sessionId={sessionId} tokens={tokens} /> : null}
     </div>
   );
 }

@@ -12,7 +12,7 @@ export interface SessionManagementMenuProps {
   onAction: (action: () => Promise<void>, success: string) => void;
 }
 
-/** Shared session identity actions for the header and navigation menus. */
+/** Pin and Rename, shared by the breadcrumb and left-bar conversation menus. */
 export function SessionOrganizeMenuItems({
   session,
   actions,
@@ -22,22 +22,22 @@ export function SessionOrganizeMenuItems({
   return (
     <>
       <DropdownMenuItem
-        className="whitespace-nowrap"
-        onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
-      >
-        <EditIcon aria-hidden="true" /> Rename session
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        className="whitespace-nowrap"
+        menuKey="P"
         onSelect={() =>
           onAction(
             () => actions.setSessionPinned(session.id, !session.pinned),
-            session.pinned ? 'Session unpinned' : 'Session pinned',
+            session.pinned ? 'Conversation unpinned' : 'Conversation pinned',
           )
         }
       >
         {session.pinned ? <PinOffIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
-        {session.pinned ? 'Unpin session' : 'Pin session'}
+        {session.pinned ? 'Unpin' : 'Pin'}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        menuKey="R"
+        onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
+      >
+        <EditIcon aria-hidden="true" /> Rename
       </DropdownMenuItem>
     </>
   );
@@ -53,17 +53,17 @@ export function SessionLifecycleMenuItems({
   return (
     <>
       <DropdownMenuItem
-        className="whitespace-nowrap"
-        onSelect={() => onAction(() => actions.archiveSession(session.id), 'Session archived')}
+        menuKey="A"
+        onSelect={() => onAction(() => actions.archiveSession(session.id), 'Conversation archived')}
       >
-        <ArchiveIcon aria-hidden="true" /> Archive session
+        <ArchiveIcon aria-hidden="true" /> Archive
       </DropdownMenuItem>
       <DropdownMenuItem
-        className="whitespace-nowrap"
+        menuKey="D"
         onSelect={() => onDelete({ kind: 'session', id: session.id, label: session.title })}
         variant="destructive"
       >
-        <DeleteIcon aria-hidden="true" /> Delete session
+        <DeleteIcon aria-hidden="true" /> Delete…
       </DropdownMenuItem>
     </>
   );
