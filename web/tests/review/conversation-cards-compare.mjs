@@ -150,10 +150,15 @@ async function captureState(composer, state, width, theme) {
   try {
     await tab.goto(page(values.base, { state, theme }));
     await settle(tab);
-    const { spec, closest } = await tab.evaluate(() => ({
+    const { spec, closest, open } = await tab.evaluate(() => ({
       spec: document.documentElement.dataset.reviewSpec,
       closest: document.documentElement.dataset.reviewClosest === 'true',
+      open: document.documentElement.dataset.reviewOpen,
     }));
+    if (open) {
+      await tab.getByRole('button', { name: open }).first().click();
+      await tab.waitForTimeout(300);
+    }
     const target = tab.locator('[data-review-capture]').first();
     const implementation = await target.screenshot({ animations: 'disabled' });
     const specLabel = [

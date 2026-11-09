@@ -213,12 +213,12 @@ export function ModelServerRow({
       />
     ) : (
       <span className="flex min-w-0 items-baseline gap-3">
-        <span className="shrink-0 font-mono" title={address}>
+        <span className="min-w-0 truncate font-mono" title={address}>
           {shortServerAddress(address)}
         </span>
         {detail ? (
           <span
-            className={cn('min-w-0 truncate', error && 'text-destructive')}
+            className={cn('min-w-0 shrink-[100] truncate', error && 'text-destructive')}
             role={error ? 'alert' : undefined}
             title={detail}
           >

@@ -28,11 +28,19 @@ export interface ProductVersionDetail {
   testId?: string;
 }
 
+/** A plain fact under the versions, such as the agent's address. */
+export interface ProductFactDetail {
+  label: string;
+  value: string;
+  testId?: string;
+}
+
 /** Shared update status, supported actions, and a read-only version list. */
 export function ProductUpdateSummary({
   state,
   message,
   versions,
+  facts = [],
   updating = false,
   disabled = false,
   onCheck,
@@ -42,6 +50,7 @@ export function ProductUpdateSummary({
   state: ProductUpdateState;
   message?: string;
   versions: ProductVersionDetail[];
+  facts?: ProductFactDetail[];
   updating?: boolean;
   disabled?: boolean;
   onCheck: () => unknown | Promise<unknown>;
@@ -62,8 +71,8 @@ export function ProductUpdateSummary({
   );
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 basis-40 space-y-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
           <p
             className="flex items-center gap-2 text-sm font-medium"
             role="status"
@@ -75,7 +84,12 @@ export function ProductUpdateSummary({
           {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
         </div>
         {(state === 'available' || updating) && onUpdate ? (
-          <Button size="sm" disabled={disabled || updating} onClick={() => void onUpdate()}>
+          <Button
+            className="shrink-0"
+            size="sm"
+            disabled={disabled || updating}
+            onClick={() => void onUpdate()}
+          >
             {updating ? (
               <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
             ) : (
@@ -85,17 +99,19 @@ export function ProductUpdateSummary({
           </Button>
         ) : (
           <RefreshButton
+            className="-my-1 shrink-0"
+            iconOnly
             label="Check for updates"
-            size="sm"
-            variant="outline"
+            size="icon"
+            variant="ghost"
             refreshing={state === 'checking'}
             disabled={disabled}
             onRefresh={onCheck}
           />
         )}
       </div>
-      {versions.length ? (
-        <dl className="grid gap-2 text-sm">
+      {versions.length || facts.length ? (
+        <dl className="grid gap-2 text-xs">
           {versions.map(({ label, version, targetVersion, releaseUrl, testId }) => (
             <div
               key={label}
@@ -103,7 +119,7 @@ export function ProductUpdateSummary({
               data-testid={testId}
             >
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="min-w-0 break-words text-right font-mono text-xs">
+              <dd className="min-w-0 break-words text-right font-mono text-[11.5px]">
                 {version ? (
                   releaseUrl ? (
                     <ExternalLink href={releaseUrl} className="hover:underline">
@@ -116,6 +132,18 @@ export function ProductUpdateSummary({
                   'Not checked'
                 )}
                 {targetVersion ? ` → v${targetVersion}` : ''}
+              </dd>
+            </div>
+          ))}
+          {facts.map(({ label, value, testId }) => (
+            <div
+              key={label}
+              className="flex items-baseline justify-between gap-x-4"
+              data-testid={testId}
+            >
+              <dt className="shrink-0 text-muted-foreground">{label}</dt>
+              <dd className="min-w-0 truncate text-right font-mono text-[11.5px]" title={value}>
+                {value}
               </dd>
             </div>
           ))}

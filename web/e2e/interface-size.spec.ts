@@ -85,7 +85,7 @@ test('interface size persists and keeps Settings readable from ultrawide to phon
   );
 });
 
-test('larger interface keeps the composer and anchored Create dialog reachable', async ({
+test('larger interface keeps the composer and the centred Create dialog reachable', async ({
   page,
 }, testInfo) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -112,11 +112,33 @@ test('larger interface keeps the composer and anchored Create dialog reachable',
     await page.getByRole('menuitem', { name: 'New session', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create', exact: true });
     await expect(dialog).toBeVisible();
+    const settled = () =>
+      dialog.evaluate((element) =>
+        Promise.all(
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => undefined)),
+        ),
+      );
+    await settled();
     const before = (await dialog.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    if (width >= 600) {
+      // Opens centred like every DialogFrame, then grows downward from its top edge.
+      expect(Math.abs(before.x + before.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
+      expect(Math.abs(before.y + before.height / 2 - viewport.height / 2)).toBeLessThanOrEqual(1);
+    }
     await dialog.getByRole('button', { name: 'Advanced session behavior', exact: true }).click();
+    await settled();
     const after = (await dialog.boundingBox())!;
-    expect(after.x).toBeCloseTo(before.x, 0);
-    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+    if (width >= 600) {
+      expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+      expect(after.height).toBeGreaterThan(before.height);
+    }
+    expect(after.y).toBeGreaterThanOrEqual(0);
+    expect(after.y + after.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(after.x).toBeGreaterThanOrEqual(0);
     expect(after.x + after.width).toBeLessThanOrEqual(width);
     expect(

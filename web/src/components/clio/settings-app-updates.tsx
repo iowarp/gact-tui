@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { useState, useSyncExternalStore } from 'react';
 import { DownloadIcon, LoaderCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -156,7 +158,10 @@ export function AppUpdateSettings() {
         )}
       </SettingsRow>
       {available?.body || available?.date ? (
-        <div className="@container w-full @3xl:w-[60%]" data-slot="settings-release-notes">
+        <div
+          className={cn('@container w-full', SETTINGS_COLUMN)}
+          data-slot="settings-release-notes"
+        >
           <div className="grid gap-1 border-b border-border/70 py-2.5">
             <div className="flex min-w-0 items-center gap-2 text-[0.8125rem] whitespace-nowrap">
               <h3 className="truncate font-normal">Release notes</h3>

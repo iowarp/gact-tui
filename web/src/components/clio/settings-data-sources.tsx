@@ -168,7 +168,7 @@ export function DataSourceSettings() {
 
   const list = (
     <div className="min-w-0">
-      <SettingsGroupLabel className="mt-0">Accounts</SettingsGroupLabel>
+      <SettingsGroupLabel className="mt-2">Accounts</SettingsGroupLabel>
       <ItemList label="Data source accounts">
         {providers.isPending ? (
           <StateView kind="loading" size="row" title="Loading accounts…" />
@@ -201,7 +201,7 @@ export function DataSourceSettings() {
   );
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <div className="min-w-0">
       <SettingsSectionHeading info={INFO} title="Data sources" />
       <ListDetailLayout
         detail={

@@ -58,7 +58,7 @@ describe('ClioSessionContextBar', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: `Actions for ${session.title}` }));
-    expect(screen.queryByRole('menuitem', { name: 'Branch into a new session' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Fork into a new conversation' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
     expect(onFork).not.toHaveBeenCalled();
   });

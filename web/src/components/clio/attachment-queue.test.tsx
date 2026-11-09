@@ -70,11 +70,14 @@ it('shows real byte progress, distinguishes registration and retries a failed up
     '25',
   );
   expect(screen.getByText('Uploading 25%')).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Attachment status: Processing' })).toBeInTheDocument();
   act(() => attempts[0]!.progress?.({ filename: 'data.csv', loaded: 100, total: 100 }));
   expect(screen.getByText('Registering file')).toBeVisible();
   expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
   act(() => attempts[0]!.reject(new Error('Transfer interrupted')));
-  await user.click(await screen.findByRole('button', { name: 'Retry upload for data.csv' }));
+  const retry = await screen.findByRole('button', { name: 'Retry upload for data.csv' });
+  expect(screen.getByRole('img', { name: 'Attachment status: Unavailable' })).toBeInTheDocument();
+  await user.click(retry);
   await waitFor(() => expect(prepare).toHaveBeenCalledTimes(2));
   expect(attempts[1]!.files[0]!.filename).toBe('data.csv');
   expect(screen.queryByText('Transfer interrupted')).not.toBeInTheDocument();

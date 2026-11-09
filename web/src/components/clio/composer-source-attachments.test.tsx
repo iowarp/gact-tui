@@ -106,8 +106,16 @@ function renderComposer() {
   return { client, onSubmit, user: userEvent.setup() };
 }
 
+/** The + becomes a menu once the service shows it offers connected data. */
+const attachMenu = () =>
+  vi.waitFor(() => {
+    const button = screen.getByRole('button', { name: 'Attach files' });
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    return button;
+  });
+
 async function openSource(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Attach files' }));
+  await user.click(await attachMenu());
   await user.click(screen.getByRole('menuitem', { name: 'From connected data…' }));
   await user.click(await screen.findByRole('button', { name: 'Your sources' }));
   await user.click(screen.getByRole('button', { name: /^Research inputs/ }));

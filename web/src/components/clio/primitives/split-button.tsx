@@ -132,7 +132,11 @@ export const SplitButton = memo(function SplitButton({
               disabled={menuDisabled}
               className={cn(
                 segment,
-                'h-[22px] gap-1 rounded-[5px] bg-current/15 pr-1 pl-[7px] text-[11.5px] font-medium hover:bg-current/25 aria-expanded:bg-current/25 [&_svg:not([class*=size-])]:size-[11px]',
+                // On a filled face a foreground tint deepens the contrast in light and dark.
+                variant === 'default'
+                  ? 'bg-foreground/15 hover:bg-foreground/25 aria-expanded:bg-foreground/25'
+                  : 'bg-current/15 hover:bg-current/25 aria-expanded:bg-current/25',
+                'h-[22px] gap-1 rounded-[5px] pr-1 pl-[7px] text-[11.5px] font-medium [&_svg:not([class*=size-])]:size-[11px]',
               )}
             >
               <span className="min-w-0 truncate">{menuValue}</span>

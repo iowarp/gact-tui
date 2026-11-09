@@ -20,7 +20,7 @@ export interface KeyValueItem {
  * and value starts at the same x. Each value stays on one line and ends in
  * an ellipsis; the action slot keeps its width whether or not a row has one.
  *
- * `facts` is the ask card's form: a fixed 96px label column, 24px rows and
+ * `facts` is the ask card's form: a fixed 110px label column, 24px rows and
  * left-aligned values. In a narrow container the labels give way to their icons.
  *
  * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
@@ -89,8 +89,8 @@ export const KeyValueGrid = memo(function KeyValueGrid({
           : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
         facts
           ? hasAction
-            ? 'grid-cols-[96px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
-            : 'grid-cols-[96px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+            ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
+            : 'grid-cols-[110px_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
           : hasAction
             ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
             : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',

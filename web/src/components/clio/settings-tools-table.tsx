@@ -68,13 +68,15 @@ const CALLERS = ['direct', 'code', 'both'] as const;
 
 /*
  * One column template for every row, folding as the table narrows: below
- * 32rem each tool is a summary row; then Tool, Permission and I/O; from 40rem
- * the approval mode's outcome; from 50rem the script's outcome too.
+ * 32rem each tool is a summary row; then Tool, Permission and I/O; from 44rem
+ * the approval mode's outcome; from 56rem the script's outcome too. The
+ * columns keep the spec's widths (128, 176 and 120px); the sub line carries the
+ * outcomes a narrower table folds away.
  */
 const COLUMNS =
-  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_8.5rem_5.5rem_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_10rem_6.5rem_24px] @min-[40rem]/tools:grid-cols-[20px_minmax(0,1fr)_7rem_10rem_6.5rem_24px] @min-[50rem]/tools:grid-cols-[20px_minmax(0,1fr)_7rem_7rem_10rem_6.5rem_24px]';
-const MODE_CELL = 'hidden min-w-0 @min-[40rem]/tools:flex';
-const SCRIPT_CELL = 'hidden min-w-0 @min-[50rem]/tools:flex';
+  'grid items-center gap-x-2.5 grid-cols-[20px_minmax(0,1fr)_8.5rem_5.5rem_24px] @min-[32rem]/tools:grid-cols-[20px_minmax(0,1fr)_11rem_7.5rem_24px] @min-[44rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_11rem_7.5rem_24px] @min-[56rem]/tools:grid-cols-[20px_minmax(0,1fr)_8rem_8rem_11rem_7.5rem_24px]';
+const MODE_CELL = 'hidden min-w-0 @min-[44rem]/tools:flex';
+const SCRIPT_CELL = 'hidden min-w-0 @min-[56rem]/tools:flex';
 
 export interface ToolTableSection {
   id: string;
@@ -273,20 +275,20 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
           </span>
         ) : (
           <>
-            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[50rem]/tools:flex">
+            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[56rem]/tools:flex">
               <span className="shrink-0">{flagText(tool)}</span>
               <span className="truncate" title={sourceText(tool)}>
                 {sourceText(tool)}
               </span>
             </span>
-            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[40rem]/tools:flex @min-[50rem]/tools:hidden">
+            <span className="hidden min-w-0 gap-3 text-xs whitespace-nowrap text-faint @min-[44rem]/tools:flex @min-[56rem]/tools:hidden">
               <span className="shrink-0">{flagText(tool)}</span>
               {outcome ? (
                 <OutcomeMark text={SCRIPT_OUTCOME_TEXT[outcome.script]} value={outcome.script} />
               ) : null}
             </span>
             {outcome ? (
-              <span className="hidden min-w-0 gap-3 overflow-hidden @min-[32rem]/tools:flex @min-[40rem]/tools:hidden">
+              <span className="hidden min-w-0 gap-3 overflow-hidden @min-[32rem]/tools:flex @min-[44rem]/tools:hidden">
                 <OutcomeMark
                   text={
                     outcome.direct === 'unavailable'

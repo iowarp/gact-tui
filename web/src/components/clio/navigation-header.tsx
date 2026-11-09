@@ -1,12 +1,13 @@
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { BrandIcon } from './brand-icon';
 import { brand } from '@brand';
 import { ArchiveIcon, ChevronDownIcon, FolderGit2Icon, SearchIcon, UploadIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useCommandKeyHeld, useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
 import { AgentConnectionIdentity } from './agent-connection-identity';
 import { ClioMenuContent } from './clio-menu';
 import {
@@ -59,6 +60,7 @@ export function NavigationHeader({
   attentionControl,
 }: NavigationHeaderProps) {
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
+  const commandKeyHeld = useCommandKeyHeld();
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
   useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
@@ -77,7 +79,8 @@ export function NavigationHeader({
                 <span className="grid size-6 shrink-0 place-items-center text-primary">
                   <BrandIcon className="size-5" />
                 </span>
-                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                {/* Folded, the name stays for assistive technology: the icon alone has none. */}
+                <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:sr-only">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
                     <TooltipProvider delayDuration={150}>
@@ -144,8 +147,13 @@ export function NavigationHeader({
             <span className="truncate group-data-[collapsible=icon]:hidden">Search</span>
             <ShortcutKeys
               id="search"
-              className="ml-auto text-[10px] group-data-[collapsible=icon]:hidden"
+              className={cn(
+                'ml-auto text-[10px] group-data-[collapsible=icon]:hidden',
+                // The held badge takes its place.
+                commandKeyHeld && 'invisible',
+              )}
             />
+            <HeldKeyBadge id="search" side="inside-end" />
           </SidebarMenuButton>
         </SidebarMenuItem>
         {attentionControl}
@@ -173,7 +181,7 @@ export function NavigationHeader({
                 <UploadIcon aria-hidden="true" /> Import session…
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenArchived}>
-                <ArchiveIcon aria-hidden="true" /> Archived sessions
+                <ArchiveIcon aria-hidden="true" /> Archived conversations
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

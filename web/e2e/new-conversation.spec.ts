@@ -45,9 +45,14 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(composer).toBeEnabled();
   await expect.poll(() => warmups.length).toBe(1);
   expect(warmups[0]).toBe('/v1/workspaces/ws_flat_ndp/warmup');
-  await expect(page.getByRole('combobox', { name: 'Conversation workspace' })).toHaveValue(
-    'ws_flat_ndp',
-  );
+  await expect(
+    page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('New conversation'),
+  ).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Starter prompts' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Conversation workspace: flat-NDP' }).click();
+  await expect(page.getByRole('menuitemradio', { name: 'flat-NDP' })).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(page.getByText('No active work', { exact: true })).toBeVisible();
   await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'New conversation actions' }).click();
@@ -77,6 +82,8 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(composer).toHaveText('This is a temporary draft');
   expect(warmups).toHaveLength(1);
 
+  // The left bar folded for the workbench at 1280 and stays folded; reopen it.
+  await page.locator('[data-slot="sidebar-trigger"]').click();
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   // URL changes precede session hydration. Settings must leave a validated
