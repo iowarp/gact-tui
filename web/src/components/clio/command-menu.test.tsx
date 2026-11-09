@@ -53,6 +53,11 @@ vi.mock('@/hooks/use-switch-connection', () => ({
 }));
 vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
+  useAppearancePreferences: () => ({
+    conversationWidth: 'focused',
+    interfaceSize: 100,
+    motion: 'system',
+  }),
 }));
 
 import { ClioCommandMenu } from './command-menu';
@@ -259,7 +264,7 @@ describe('ClioCommandMenu workspace search', () => {
     renderMenu(vi.fn(), '/settings/general', false);
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('stations');
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
         '/workspaces/ws_current/sessions/sess_current',
@@ -279,7 +284,7 @@ describe('ClioCommandMenu workspace search', () => {
       renderMenu(vi.fn(), route, false);
       await user.keyboard('{Control>}k{/Control}');
       await user.keyboard('stations');
-      await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+      await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
       expect(repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_current',
         expect.any(AbortSignal),
@@ -386,7 +391,7 @@ describe('ClioCommandMenu workspace search', () => {
     expect(
       screen.queryByText('.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv'),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     expect(onOpenResource).toHaveBeenCalledWith({
       kind: 'workspace-file',
       path: 'results/stations.csv',
