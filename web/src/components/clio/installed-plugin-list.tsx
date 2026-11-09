@@ -41,8 +41,12 @@ export function InstalledPluginList({
   const roots = catalogRoots(plugins);
   if (pending) return <StateView kind="loading" size="row" title="Loading plugins…" />;
   if (error)
-    return <StateView kind="error" size="row" title={`Plugins could not be listed: ${error}`} />;
-  if (!roots.length) return <StateView kind="empty" size="row" title="No plugins" />;
+    return (
+      <div title={error}>
+        <StateView kind="error" size="row" title="Plugins couldn’t be loaded." />
+      </div>
+    );
+  if (!roots.length) return <StateView kind="empty" size="row" title="No plugins yet." />;
   return (
     <ItemList label={label}>
       {roots.map((plugin) => {

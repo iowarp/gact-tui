@@ -44,7 +44,7 @@ test('General hides native update controls in the browser and redirects the old 
   await page.getByRole('button', { name: 'Search everywhere', exact: true }).click();
   await page.getByPlaceholder('Search work, files, artifacts, or actions…').fill('beta');
   await expect(
-    page.getByRole('dialog').getByRole('option', { name: 'General', exact: true }),
+    page.getByRole('dialog').getByRole('option', { name: /^General( Settings › |$)/u }),
   ).toHaveCount(0);
   await page.keyboard.press('Escape');
   const hiddenFiles = page.getByRole('switch', { name: 'Hide dot files and folders' });

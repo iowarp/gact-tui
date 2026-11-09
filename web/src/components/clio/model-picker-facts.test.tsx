@@ -85,9 +85,9 @@ const field = () => screen.getByRole('combobox', { name: 'Search providers and m
 const panel = () => document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
 const barCount = () => document.querySelector('[data-slot="model-count"]')?.textContent ?? '';
 const tokens = () =>
-  [...document.querySelectorAll('[data-slot="filter-tokens"] [data-token]')].map((chip) =>
-    chip.getAttribute('data-token'),
-  );
+  (document.querySelector('[data-slot="model-picker-search"]')?.getAttribute('data-tokens') ?? '')
+    .split(' ')
+    .filter(Boolean);
 const slider = (name: string) => within(panel()).getAllByRole('slider', { name });
 const modelNames = () =>
   [
@@ -216,8 +216,8 @@ describe('ClioModelPicker model facts', () => {
     const deepseek = screen
       .getByText('deepseek-v4')
       .closest<HTMLElement>('[data-slot="cascader-item"]')!;
-    expect(within(deepseek).getByText('A37B / 671B')).toBeVisible();
-    await user.click(within(deepseek).getByText('Recent'));
+    expect(within(deepseek).getByRole('img', { name: 'A37B / 671B' })).toBeVisible();
+    await user.click(within(deepseek).getByRole('img', { name: 'Recent' }));
     expect(tokens()).toContain('released:<6mo');
     expect(modelNames()).not.toContain('llama-3.2-90b-vision');
   });

@@ -49,7 +49,11 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       onClick={() => onSelect(item.id)}
       shortcut={item.position ? 'strip-position' : undefined}
       shortcutPosition={item.position}
+      // On the icon: left of the rail is the tab row (Maximize) and the file toolbar.
+      shortcutSide="start"
       tooltipSide="left"
+      // The lit cell carries the spec's 2px primary bar on the window edge, no fill.
+      className="h-9 w-11 rounded-none hover:bg-transparent aria-pressed:bg-transparent aria-pressed:after:absolute aria-pressed:after:inset-y-2 aria-pressed:after:right-0 aria-pressed:after:w-0.5 aria-pressed:after:rounded-full aria-pressed:after:bg-primary"
     />
   );
   return (
@@ -58,11 +62,11 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       aria-label="Workbench lists"
       aria-orientation="vertical"
       data-slot="workbench-strip"
-      className="flex w-10 shrink-0 flex-col items-center gap-1 border-l border-border bg-background/80 py-1.5"
+      className="flex w-11 shrink-0 flex-col items-center gap-0.5 border-l border-border bg-sidebar pt-1.5 pb-2"
     >
       {lists.map(button)}
       {tools.length ? (
-        <span aria-hidden="true" className="my-0.5 h-px w-5 shrink-0 bg-border" />
+        <span aria-hidden="true" className="my-[5px] h-px w-5 shrink-0 bg-border" />
       ) : null}
       {tools.map(button)}
       {trailing ? <div className="mt-auto flex flex-col items-center gap-1">{trailing}</div> : null}

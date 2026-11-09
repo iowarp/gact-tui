@@ -69,7 +69,11 @@ export function SettingsNavRail({
               <DropdownMenuTrigger asChild>
                 <IconButton
                   aria-current={active ? 'true' : undefined}
-                  className={cn(active && 'bg-menu-highlight text-foreground')}
+                  // The fill alone is ~1.1:1 against the rail in light; the ink bar carries the selection.
+                  className={cn(
+                    active &&
+                      'bg-menu-highlight text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground',
+                  )}
                   count={waiting || undefined}
                   icon={<SettingsScopeIcon className="size-4" group={group} />}
                   label={label}

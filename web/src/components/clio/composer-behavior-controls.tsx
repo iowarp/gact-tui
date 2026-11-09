@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { approvalOptionViews } from './approval-option-availability';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
@@ -214,12 +215,7 @@ export function ClioComposerBehaviorControls({
         >
           <DropdownMenuTrigger asChild>
             <IconButton
-              className={cn(
-                'aria-expanded:bg-hover',
-                behavior.reasoning_effort &&
-                  !unknownEffort &&
-                  'text-accent-foreground hover:text-accent-foreground',
-              )}
+              className="aria-expanded:bg-hover"
               disabled={disabled}
               icon={
                 <ReasoningBars
@@ -299,6 +295,7 @@ export function ClioComposerBehaviorControls({
             >
               <ModeIcon aria-hidden="true" />
               <span className="@max-[420px]/composer:hidden">{modeLabel}</span>
+              <HeldKeyBadge id="mode" side="top-edge" />
             </Button>
           </DropdownMenuTrigger>
         </NamedTooltip>

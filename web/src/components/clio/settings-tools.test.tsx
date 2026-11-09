@@ -219,7 +219,7 @@ describe('tool provider settings', () => {
     repository.tools.mockReturnValue(new Promise(() => undefined));
     renderSettings(<ToolsSettings />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading available tools');
+    expect(screen.getByText('Loading MCP servers…')).toBeVisible();
   });
 
   it('keeps exact tool identifiers and provider documentation behind hover', async () => {
@@ -267,7 +267,7 @@ describe('tool provider settings', () => {
       screen.getByText('Reads a file that this workspace has granted the agent access to.'),
     ).toBeVisible();
     await user.click(screen.getByRole('radio', { name: 'Resources' }));
-    expect(screen.getByText('This provider reported no resources.')).toBeVisible();
+    expect(screen.getByText('This server reported no resources.')).toBeVisible();
     // A server's prompts are commands; the tab says where to find them.
     await user.click(screen.getByRole('radio', { name: 'Prompts' }));
     expect(screen.getByText(/This service’s prompts are commands/)).toBeVisible();
