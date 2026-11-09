@@ -394,13 +394,10 @@ function catalogue({ settings, infrastructure }) {
       await press(page, 'button', 'Search everywhere');
       await overlay(page);
     }),
-    // The Settings window's own filter with a query typed.
+    // Settings search opens Ctrl K; settings come back as rows for a query.
     s('settings', 'search-typed', '/settings/general', async (page) => {
-      const field = page
-        .getByRole('searchbox')
-        .or(page.getByPlaceholder(/^Search/u))
-        .first();
-      await field.click();
+      await press(page, 'button', 'Search everywhere');
+      await overlay(page);
       await page.keyboard.type('model');
       await page.waitForTimeout(700);
     }),
