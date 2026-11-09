@@ -190,7 +190,10 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       : catalog.error && !catalog.data
         ? 'error'
         : 'ready';
-  const providerName = activePreset ? providerDisplayName(activePreset) : undefined;
+  // The catalog's name, as the picker and the helper selects show it; the
+  // preset's label only when the model is not in the catalog.
+  const providerName =
+    option?.providerName ?? (activePreset ? providerDisplayName(activePreset) : undefined);
   const marker = (row: SavedRow) =>
     saving === row && save.isPending ? (
       <SaveMark saving />

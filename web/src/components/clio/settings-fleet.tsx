@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Undo2Icon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
@@ -251,7 +252,18 @@ function ExploreNudgeSetting({
   onChange: (value: { enabled: boolean; after: number }) => void;
 }) {
   const [draft, setDraft] = useState<number>();
+  const [typed, setTyped] = useState<string>();
   const after = draft ?? value.after;
+  const commit = (next: number | undefined) => {
+    if (next !== undefined && next !== value.after) onChange({ ...value, after: next });
+    setDraft(undefined);
+  };
+  const commitTyped = () => {
+    if (typed === undefined) return;
+    const next = Number(typed);
+    setTyped(undefined);
+    if (Number.isInteger(next)) commit(Math.min(20, Math.max(2, next)));
+  };
   return (
     <>
       <SettingsRow
@@ -269,25 +281,35 @@ function ExploreNudgeSetting({
         />
       </SettingsRow>
       <SettingsRow
-        description="How many searches and reads in a row before the suggestion."
+        description="How many searches and reads in a row before the suggestion, from 2 to 20."
+        htmlFor="fleet-explore-after"
         title="Reads before the suggestion"
       >
         <Slider
           aria-label="Reads before the Explore suggestion"
-          className="min-w-20 flex-1"
+          className="w-[34%] min-w-[5.625rem] shrink-0"
           disabled={pending || !value.enabled}
           max={20}
           min={2}
           onValueChange={(next) => setDraft(next[0])}
-          onValueCommit={(next) => {
-            if (next[0] !== undefined && next[0] !== value.after)
-              onChange({ ...value, after: next[0] });
-            setDraft(undefined);
-          }}
+          onValueCommit={(next) => commit(next[0])}
           step={1}
           value={[after]}
         />
-        <span className="w-6 shrink-0 text-right text-xs tabular-nums">{after}</span>
+        <Input
+          aria-label="Reads before the Explore suggestion, as a number"
+          className="w-[4.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums md:text-xs"
+          disabled={pending || !value.enabled}
+          id="fleet-explore-after"
+          inputMode="numeric"
+          onBlur={commitTyped}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitTyped();
+            if (event.key === 'Escape') setTyped(undefined);
+          }}
+          value={typed ?? String(after)}
+        />
       </SettingsRow>
     </>
   );

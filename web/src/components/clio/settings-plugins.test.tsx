@@ -313,7 +313,7 @@ describe('Extensions: marketplaces', () => {
     const user = userEvent.setup();
     repository.plugins.mockRejectedValueOnce(new Error('503 Service Unavailable'));
     renderLibrary();
-    expect(await screen.findByText('Extensions could not be loaded')).toBeVisible();
+    expect(await screen.findByText('Extensions couldn’t be loaded.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await extensions()).toBeVisible();
   }, 20_000);
@@ -322,7 +322,7 @@ describe('Extensions: marketplaces', () => {
     repository.pluginMarketplaces.mockResolvedValue([]);
     repository.plugins.mockResolvedValue({ plugins: [], default_marketplace_error: null });
     renderLibrary();
-    expect(await screen.findByText('No extensions yet')).toBeVisible();
+    expect(await screen.findByText('No extensions yet.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add a marketplace' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Discover' })).toBeVisible();
   }, 20_000);
