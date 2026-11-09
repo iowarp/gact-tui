@@ -99,7 +99,7 @@ export const MenuRow = memo(function MenuRow({
       )}
       {status ? (
         <span className="mr-[34px] flex min-w-[62px] shrink-0">
-          <StatusIndicator label={status.label} tone={status.tone} />
+          <StatusIndicator className="text-[11px]" label={status.label} tone={status.tone} />
         </span>
       ) : null}
       {tag ? <Tag tone={tag.tone}>{tag.text}</Tag> : null}

@@ -21,6 +21,7 @@ import {
 } from '@/lib/composer-reference-domain';
 import { collectPlainText, editorCaretOffset, focusEditorAtOffset } from './composer-editor-model';
 import { useActiveOption } from './composer-reference-controller-active-option';
+import { StableInput } from './primitives/stable-input';
 
 interface ComposerInlineReferenceEditorProps {
   /**
@@ -299,7 +300,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
 
   return (
     <>
-      <input name="message" type="hidden" value={value} />
+      <StableInput name="message" type="hidden" value={value} />
       <div
         aria-activedescendant={expanded ? (activeOptionId ?? publishedOptionId) : undefined}
         aria-autocomplete="list"

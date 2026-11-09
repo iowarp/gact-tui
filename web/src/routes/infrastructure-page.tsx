@@ -41,7 +41,7 @@ import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent
  * (refresh) stays beside the tabs.
  */
 const TAB_ROW =
-  'sticky top-0 z-10 grid h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 border-b border-border bg-background/95 px-2 whitespace-nowrap backdrop-blur sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
+  'mx-auto grid h-11 max-w-5xl min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
 const TAB_ACTIONS =
   'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
 
@@ -210,17 +210,23 @@ export function InfrastructurePage() {
       ref={mainRef}
       tabIndex={-1}
     >
-      <div className={TAB_ROW}>
-        <NamedTooltip label={`Back to ${vocab.workspace}`}>
-          <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
-            <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
-              <ChevronLeftIcon aria-hidden="true" />
-            </Link>
-          </Button>
-        </NamedTooltip>
-        <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
-        <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
-        <span className={TAB_ACTIONS} data-slot="infrastructure-tab-actions" ref={setTabActions} />
+      <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
+        <div className={TAB_ROW}>
+          <NamedTooltip label={`Back to ${vocab.workspace}`}>
+            <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
+              <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
+                <ChevronLeftIcon aria-hidden="true" />
+              </Link>
+            </Button>
+          </NamedTooltip>
+          <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
+          <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
+          <span
+            className={TAB_ACTIONS}
+            data-slot="infrastructure-tab-actions"
+            ref={setTabActions}
+          />
+        </div>
       </div>
       <InfraTabActionsProvider value={tabActions}>
         <div className="mx-auto max-w-5xl px-2 sm:px-3">

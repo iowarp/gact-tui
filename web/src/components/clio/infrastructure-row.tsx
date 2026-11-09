@@ -12,6 +12,10 @@ import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { cn } from '@/lib/utils';
 
+/** Infrastructure facts: a 46% label column, right-aligned values, 25px rows. */
+export const INFRA_FACTS_GRID =
+  'max-w-[440px] auto-rows-[25px] grid-cols-[46%_minmax(0,1fr)] gap-y-0';
+
 interface InfraColumns {
   /** Status column: mark and words ("Running", "2 connected"). */
   status: number;
