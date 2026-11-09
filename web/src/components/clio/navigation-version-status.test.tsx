@@ -303,7 +303,7 @@ describe('SystemVersionStatus', () => {
     // The desktop row itself has a real, current check -- untouched by the
     // agent row's missing release feed.
     expect(
-      within(screen.getByTestId('version-row-desktop')).getByText('Web interface'),
+      within(screen.getByTestId('version-row-desktop')).getByText('Interface version'),
     ).toBeVisible();
   });
 
@@ -381,7 +381,7 @@ describe('SystemVersionStatus in a plain browser', () => {
 
     const productRow = within(await screen.findByTestId('version-row-desktop'));
     expect(productRow.getByText('v0.11.2.25')).toBeVisible();
-    expect(productRow.getByText('Web interface')).toBeVisible();
+    expect(productRow.getByText('Interface version')).toBeVisible();
     expect(productRow.queryByText('Not checked')).not.toBeInTheDocument();
     expect(productRow.queryByText('Checking…')).not.toBeInTheDocument();
     expect(productRow.queryByRole('button')).not.toBeInTheDocument();
@@ -405,8 +405,10 @@ describe('SystemVersionStatus in a plain browser', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
     expect(screen.queryByRole('button', { name: `Update ${vocab.agent}` })).toBeNull();
     expect(screen.queryByRole('dialog', { name: `Update ${vocab.agent}` })).toBeNull();
-    expect(screen.getByText('Connected runtime')).toBeVisible();
-    expect(screen.getByText('Connected to http://127.0.0.1:8123')).toBeVisible();
+    expect(screen.getByText('Runtime version')).toBeVisible();
+    expect(
+      within(screen.getByTestId('version-row-address')).getByText('127.0.0.1:8123'),
+    ).toBeVisible();
     expect(screen.getByText(/Install runtime updates on that computer/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'View release' })).toHaveAttribute(
       'href',

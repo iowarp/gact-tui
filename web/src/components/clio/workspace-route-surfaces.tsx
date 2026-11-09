@@ -81,7 +81,7 @@ export function WorkspaceTranscriptAlerts({
 }) {
   const [removing, setRemoving] = useState(false);
   // An update in flight (including the post-restart `reconnecting` window)
-  // already has its own full-screen `UpdateRestartOverlay` explaining
+  // already has its own update page explaining
   // exactly what is happening -- surfacing the stream's own "it broke"
   // language on top of that would contradict it and confuse an outage that
   // is entirely expected. `transcriptError` (a REST fetch failure) is left

@@ -54,7 +54,9 @@ a word), never a bare dot. Settings lists keep the default widths (status 158, a
 slot 84 px) so the status word sits at the same x on every page; don't pass per-section
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
 aligned. Below 42rem of list width the status column narrows to at most 9.875rem, the spec's 158 px, and hover
-actions float over the row instead of reserving their column. Sections don't set their
+actions float over the row instead of reserving their column. Below 24rem (a phone) a
+two-line row stacks like a setting row: the status, or the `confirm` cell, drops under
+the name. Sections don't set their
 own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 
@@ -69,13 +71,25 @@ rows. `default` (46 px, meta under the name) is for lists whose meta needs room,
 for typed values only. It binds Ctrl S / ⌘S.
 
 **`DialogFrame`** (F) `components/clio/primitives/dialog-frame.tsx`
-`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, help?, className? }`.
+`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard?, key?: 'Enter' }, cancelLabel?: string | null, secondary?, help?, footerStart?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
-The footer carries the key hints on the left (Esc and the cancel label, Ctrl ↵ and the
-confirm label) and plain Cancel and confirm buttons on the right. The body is marked
+The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
+and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
+the left. The chips are hidden from screen readers, so a button's name stays its label.
+Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
+100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
+confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
+`cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
+confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
+
+**`KeyValueGrid`** `components/clio/primitives/key-value-grid.tsx`
+`{ items: { label, icon?, value, mono?, title?, action? }[], variant?: 'compact' | 'facts' | 'rows', actionColumn?, className? }`.
+`facts` is the form for dialog and ask-card facts: a fixed 110 px label column (the spec's
+`grid-template-columns:110px minmax(0,1fr)`), 24 px rows and left-aligned values. Below a
+420 px container the labels give way to their icons. `rows` is the settings-sheet form, with a 118 px label.
 
 **`WindowShell`** (same file)
 `{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
@@ -113,6 +127,14 @@ Takes the same props as `SettingsNavigation`. It is one named icon per scope
 `SegmentedControl` (`primitives/segmented-control.tsx`) follows the spec `.xsg`: a 28 px
 muted track without a border, 24 px items at 12 px, and the selected item raised. Use it
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
+
+**`StepList`** `components/clio/primitives/step-list.tsx`
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+The steps of a long operation in 28 px rows: a check, a spinner, an open circle or an alert, the
+state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
+default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+Used by the update page and the local startup (`LocalStartupSteps`).
 
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and
 `docs/design/visual-language/components.md`.

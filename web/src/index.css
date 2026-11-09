@@ -692,6 +692,17 @@ html[data-clio-motion='reduced'] .clio-search-arrival {
   }
 }
 
+/* Reduced motion: toasts fade in place instead of sliding. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] [data-sonner-toast] {
+    transition: opacity 200ms ease !important;
+  }
+}
+
+html[data-clio-motion='reduced'] [data-sonner-toaster] [data-sonner-toast] {
+  transition: opacity 200ms ease !important;
+}
+
 html[data-clio-motion='reduced'] *,
 html[data-clio-motion='reduced'] *::before,
 html[data-clio-motion='reduced'] *::after {
