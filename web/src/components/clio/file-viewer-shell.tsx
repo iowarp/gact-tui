@@ -42,6 +42,7 @@ import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source'
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
 import { FileTypeIcon } from './file-type-icon';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { useFrameModes } from './primitives/frame-modes';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 export interface FileViewerTab {
@@ -202,6 +203,15 @@ export function FileViewerShell({
       showRenderer();
     } else selectValue(next);
   };
+  // Narrowest, the bar's … menu lists the whole segment (workbench-lineage step 6).
+  const [segment, setSegment] = useState<HTMLDivElement | null>(null);
+  const segmentRef = useMemo(() => ({ current: segment }), [segment]);
+  useFrameModes(
+    segmentRef,
+    segmentCount > 1
+      ? { modes: foldedModes, value: foldedValue, onChange: chooseFolded, label }
+      : null,
+  );
   const sourceMode = renderer?.modes.find(isSourceMode);
   const hostRef = useRef<HTMLDivElement>(null);
   useShortcut(
@@ -331,6 +341,7 @@ export function FileViewerShell({
                                 format={
                                   <>
                                     <div
+                                      ref={setSegment}
                                       data-slot="viewer-modes"
                                       hidden={segmentCount < 2}
                                       className={cn(

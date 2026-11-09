@@ -86,6 +86,35 @@ describe('file viewer frame bar', () => {
     expect(within(frame).queryByText('412 rows')).not.toBeInTheDocument();
   });
 
+  it('lists the frame segment in the File actions menu once the bar folds that far', async () => {
+    const scroll = vi
+      .spyOn(HTMLElement.prototype, 'scrollWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' ? 400 : 0;
+      });
+    const client = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.dataset.slot === 'frame-bar' ? 200 : 0;
+      });
+    try {
+      const user = userEvent.setup();
+      const frame = renderFrame();
+      expect(frame).toHaveAttribute('data-fold-modes-menu');
+      await user.click(within(frame).getByRole('button', { name: 'File actions' }));
+      const group = screen.getByRole('group', { name: 'File views' });
+      expect(within(group).getByRole('menuitemradio', { name: 'Data' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      await user.click(within(group).getByRole('menuitemradio', { name: 'Source' }));
+      expect(await within(frame).findByText('2.0 KB')).toBeInTheDocument();
+    } finally {
+      scroll.mockRestore();
+      client.mockRestore();
+    }
+  });
+
   it('lists the Copy variants with their keys and says why one is unavailable', async () => {
     const user = userEvent.setup();
     const frame = renderFrame();

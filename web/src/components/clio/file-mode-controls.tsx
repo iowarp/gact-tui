@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { useContext, useEffect, useId, useMemo, type ComponentType } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, type ComponentType } from 'react';
 import { createPortal } from 'react-dom';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -14,6 +14,7 @@ import {
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
+import { useFrameModes } from './primitives/frame-modes';
 import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
@@ -101,7 +102,7 @@ export function FoldedFileModes({
         <ToolbarAction
           label={label}
           data-modes-folded=""
-          className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex"
+          className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex [[data-fold-modes-menu]:has([data-frame-modes-menu])_&]:hidden"
         >
           <ActiveIcon aria-hidden="true" />
           <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
@@ -121,8 +122,10 @@ export function FoldedFileModes({
 /**
  * The frame bar's Format: a file's representations as one segmented group of
  * named icons. When the frame bar folds @ away it folds too, to the active
- * icon with a chevron that lists them all. Inside a file viewer the renderer's
- * modes join the frame's segment, beside the frame's own Lineage.
+ * icon with a chevron that lists them all; narrowest, they move into the
+ * frame's … menu as a checked list (workbench-lineage step 6), when it has one
+ * (`data-frame-modes-menu`). Inside a file viewer the renderer's modes join the
+ * frame's segment, beside the frame's own Lineage, and fold with it.
  */
 export function FileModeControls({
   modes,
@@ -140,9 +143,26 @@ export function FileModeControls({
     return (
       <LiftedModes slot={slot} modes={modes} value={value} onChange={onChange} label={label} />
     );
+  return <FrameFileModes modes={modes} value={value} onChange={onChange} label={label} />;
+}
+
+/** A file's own modes in a frame bar without a file viewer's segment. */
+function FrameFileModes({
+  modes,
+  value,
+  onChange,
+  label,
+}: {
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  useFrameModes(anchor, modes.length < 2 ? null : { modes, value, onChange, label });
   if (modes.length < 2) return null;
   return (
-    <>
+    <span ref={anchor} className="contents">
       <TooltipProvider delayDuration={200}>
         <TabsList
           aria-label={label}
@@ -158,7 +178,7 @@ export function FileModeControls({
         </TabsList>
       </TooltipProvider>
       <FoldedFileModes modes={modes} value={value} onChange={onChange} label={label} />
-    </>
+    </span>
   );
 }
 
