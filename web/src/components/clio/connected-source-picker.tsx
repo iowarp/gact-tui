@@ -8,7 +8,7 @@ import type { ConnectedSourceState, SourceProvider, WorkspaceReference } from '@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloseIcon } from '@/lib/icon-vocabulary';
+import { CloseIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -449,7 +449,11 @@ export function ConnectedSourceContents({
         </InfoTip>
       </div>
       {(sources.error || providers.error || folderReference.error) && (
-        <p role="alert" className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px] text-muted-foreground"
+        >
+          <InfoIcon aria-hidden="true" className="size-3.5 shrink-0" />
           {connectedSourceErrorMessage(sources.error || providers.error || folderReference.error)}
         </p>
       )}
@@ -484,7 +488,7 @@ export function ConnectedSourceContents({
           </div>
         </section>
       )}
-      {!manageOnly && (
+      {!manageOnly && Boolean(providers.data?.providers.length) && (
         <section className="space-y-2" aria-label="Connect a data source">
           <h3 className="text-sm font-medium">
             {settingsView ? 'Accounts and providers' : 'From a connected source'}
@@ -679,35 +683,25 @@ export function ConnectedSourceContents({
             </CollapsibleContent>
           </section>
         </Collapsible>
-      ) : !sources.isPending && !sources.error ? (
-        <div
-          className={
-            settingsView
-              ? 'rounded-lg border px-4 py-3 text-center'
-              : 'rounded-lg border border-dashed px-4 py-6 text-center'
-          }
-        >
-          {!settingsView && <FolderEmpty />}
-          <p className="mt-2 text-sm font-medium">
-            {settingsView
-              ? 'No saved sources in this workspace'
-              : manageOnly
-                ? 'No connected sources'
-                : 'Bring your data into this workspace'}
+      ) : !sources.isPending && !sources.error && !providers.error ? (
+        settingsView ? (
+          <div className="rounded-lg border px-4 py-3 text-center">
+            <p className="mt-2 text-sm font-medium">No saved sources in this workspace</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Workspace files stay available. Connect a source for additional data.
+            </p>
+          </div>
+        ) : (
+          <p className="text-[12.5px] text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {manageOnly ? 'No connected sources.' : 'Nothing connected yet.'}
+            </span>{' '}
+            {manageOnly
+              ? 'Use Attach in the message box to add a folder or source.'
+              : 'Connect a folder to browse and attach its files.'}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {settingsView
-              ? 'Workspace files stay available. Connect a source for additional data.'
-              : manageOnly
-                ? 'Use Attach in the message box to add a folder or source.'
-                : 'Connect a folder to browse and attach its files.'}
-          </p>
-        </div>
+        )
       ) : null}
     </div>
   );
-}
-
-function FolderEmpty() {
-  return <DatabaseIcon aria-hidden="true" className="mx-auto size-6 text-muted-foreground" />;
 }
