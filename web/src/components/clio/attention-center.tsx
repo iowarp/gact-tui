@@ -1,5 +1,12 @@
 import type { Session } from '@clio/core/v3';
-import { BellRingIcon } from 'lucide-react';
+import {
+  BellRingIcon,
+  LayoutTemplateIcon,
+  MessageCircleQuestionIcon,
+  ShieldQuestionIcon,
+  TextCursorInputIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -8,6 +15,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
+import { ConfigureIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
@@ -15,10 +23,10 @@ import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
+import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { MenuKeyHints } from './primitives/menu-key-hints';
-import { StatusIndicator } from './primitives/status-indicator';
-import { MetaValue, Tag } from './primitives/tag';
+import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
   activeSessionId: string;
@@ -39,21 +47,55 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** What a session is waiting on, as words for the row and its one-word tag. */
-function attentionSummary(attention: SessionAttention): { words: string; tag: string } {
+interface AttentionKind {
+  icon: LucideIcon;
+  /** Follows the conversation's name: "Survey wants approval". */
+  verb: string;
+  /** The row's one action word. */
+  action: string;
+}
+
+/**
+ * What a session is waiting on: every pending count as words, and the kind of
+ * the first one, which names the row's verb, icon and action.
+ */
+function attentionSummary(attention: SessionAttention): { words: string; kind: AttentionKind } {
   const parts: string[] = [];
-  let tag = '';
-  const add = (count: number, one: string, many: string, word: string) => {
+  let kind: AttentionKind | undefined;
+  const add = (count: number, one: string, many: string, next: AttentionKind) => {
     if (!count) return;
     parts.push(plural(count, one, many));
-    tag ||= word;
+    kind ??= next;
   };
-  add(attention.permissionIds.length, 'approval', 'approvals', 'approve');
-  add(attention.questionIds.length, 'question', 'questions', 'reply');
-  add(attention.mcpTaskInputIds.length, 'task input', 'task inputs', 'input');
-  add(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`, `${PROTOCOL.a2ui} surfaces`, 'respond');
-  add(attention.unknownIds.length, 'unrecognized request', 'unrecognized requests', 'update');
-  return { words: parts.join(', '), tag: tag || 'respond' };
+  add(attention.permissionIds.length, 'approval', 'approvals', {
+    icon: ShieldQuestionIcon,
+    verb: 'wants approval',
+    action: 'Review',
+  });
+  add(attention.questionIds.length, 'question', 'questions', {
+    icon: MessageCircleQuestionIcon,
+    verb: 'asked a question',
+    action: 'Answer',
+  });
+  add(attention.mcpTaskInputIds.length, 'task input', 'task inputs', {
+    icon: TextCursorInputIcon,
+    verb: 'needs a value',
+    action: 'Open',
+  });
+  add(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`, `${PROTOCOL.a2ui} surfaces`, {
+    icon: LayoutTemplateIcon,
+    verb: 'shows a form',
+    action: 'Open',
+  });
+  add(attention.unknownIds.length, 'unrecognized request', 'unrecognized requests', {
+    icon: InfoIcon,
+    verb: 'sent a request',
+    action: 'Open',
+  });
+  return {
+    words: parts.join(', '),
+    kind: kind ?? { icon: InfoIcon, verb: 'needs you', action: 'Open' },
+  };
 }
 
 function moveFocus(event: KeyboardEvent<HTMLElement>) {
@@ -70,7 +112,9 @@ function moveFocus(event: KeyboardEvent<HTMLElement>) {
 }
 
 export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
   const shortcut = useShortcutPresentation('notifications');
   const entries = useMemo(
     () =>
@@ -112,14 +156,28 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="w-[400px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          className="w-[440px] max-w-[calc(100vw-16px)] gap-0 p-0"
+          onOpenAutoFocus={(event) => {
+            // Start on the first notification, not the settings gear.
+            const first = listRef.current?.querySelector<HTMLElement>('a[href]');
+            if (!first) return;
+            event.preventDefault();
+            first.focus();
+          }}
           side="bottom"
         >
-          <div className="flex h-9 items-center gap-2 border-b border-border/70 px-3">
+          <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
             <PopoverTitle className="text-[13px] font-semibold">Notifications</PopoverTitle>
-            <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
-              {plural(responseCount, 'response', 'responses')}
-            </span>
+            <IconButton
+              className="ml-auto"
+              icon={<ConfigureIcon />}
+              label="Notification settings"
+              onClick={() => {
+                setOpen(false);
+                navigate('/settings/notifications');
+              }}
+              size="sm"
+            />
           </div>
           <section aria-labelledby="attention-needs-you" className="p-1">
             <h3
@@ -132,9 +190,11 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
             <div
               className="clio-scrollbar flex max-h-72 flex-col overflow-y-auto"
               onKeyDown={moveFocus}
+              ref={listRef}
             >
               {entries.map(({ session, attention }) => {
                 const summary = attentionSummary(attention);
+                const KindIcon = summary.kind.icon;
                 return (
                   <Link
                     aria-label={`${session.title}: ${summary.words}`}
@@ -144,17 +204,29 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                     to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
                   >
                     <ListRow
-                      badge={
-                        <Tag title={summary.words} tone="warning">
-                          {summary.tag}
-                        </Tag>
+                      description={summary.words}
+                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                      layout="stacked"
+                      meta={
+                        <span className="flex flex-col items-end leading-[1.3]">
+                          <ClioRelativeTime
+                            className="text-[11px] text-faint"
+                            compact
+                            label="Updated"
+                            timestamp={session.last_interaction_at ?? session.updated_at}
+                          />
+                          <span className="text-[11.5px] font-medium text-action">
+                            {summary.kind.action}
+                          </span>
+                        </span>
                       }
-                      meta={<MetaValue>{attention.total}</MetaValue>}
                       selected={session.id === activeSessionId}
-                      status={
-                        <StatusIndicator display="column" label="Waiting for you" tone="waiting" />
+                      title={
+                        <span title={`${session.title} ${summary.kind.verb}`}>
+                          <span className="font-medium">{session.title}</span>{' '}
+                          <span className="text-muted-foreground">{summary.kind.verb}</span>
+                        </span>
                       }
-                      title={<span title={session.title}>{session.title}</span>}
                     />
                   </Link>
                 );

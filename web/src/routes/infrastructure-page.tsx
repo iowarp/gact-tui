@@ -6,47 +6,22 @@ import {
 import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import { anyServerPreparing } from '@/lib/mcp-preparation';
-import type {
-  EffectiveAgentTool,
-  McpServerDefinition,
-  ServiceIntegrationHealth,
-  ToolCatalogItem,
-  ProvenanceConnectionInput,
-} from '@clio/core/v3';
+import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowRightIcon,
-  BookOpenCheckIcon,
-  CableIcon,
-  ChevronLeftIcon,
-  NetworkIcon,
-  ServerIcon,
-} from 'lucide-react';
+import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
-import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
-import { ManagedServices } from '@/components/clio/managed-services';
-import { ProvenanceConnections } from '@/components/clio/provenance-connections';
+import { InfrastructureServicesSection } from '@/components/clio/infrastructure-services-section';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
-import { FrameDivider } from '@/components/clio/primitives/frame-bar';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { NavTabs } from '@/components/clio/primitives/nav-tabs';
 import { StateView } from '@/components/clio/primitives/state-view';
-import { Tag } from '@/components/clio/primitives/tag';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { InfrastructureTools } from '@/components/clio/infrastructure-tools';
+import { InfraTabActionsProvider } from '@/components/clio/infrastructure-tab-actions';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -56,15 +31,7 @@ import {
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
-import {
-  foundationSummary,
-  foundationTitle,
-  integrationStatus,
-  integrationStatusLabel,
-} from './infrastructure-foundation';
-import { SandboxFoundationRow } from './infrastructure-sandbox-row';
-import { connectionScope } from '@/lib/connection-scope';
-import { InfrastructureFoundationGroups } from './infrastructure-foundation-groups';
+import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent-hosts';
 export function InfrastructurePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,15 +48,6 @@ export function InfrastructurePage() {
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const [toolScope, setToolScope] = useState<'session' | 'agent'>('session');
   const sessionToolScope = Boolean(sessionId) && toolScope === 'session';
-  const [connectServiceOpen, setConnectServiceOpen] = useState(false);
-  const [returnToConnectionChooser, setReturnToConnectionChooser] = useState(false);
-  const provenanceScope = connectionScope(settings);
-  const [connectProvenance, setConnectProvenance] = useState<{
-    scope: string;
-    input: ProvenanceConnectionInput;
-  }>();
-  const openProvenance = (input: ProvenanceConnectionInput) =>
-    setConnectProvenance({ scope: provenanceScope, input });
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
     enabled: currentSection === 'agent',
@@ -153,15 +111,6 @@ export function InfrastructurePage() {
     : (tools.data ?? []);
   const toolsPending =
     tools.isPending || servers.isPending || (sessionToolScope && effectiveToolset.isPending);
-  // Every integration in /v1/health belongs to the connected agent's own computer,
-  // so its row is where the attention it raises is shown.
-  const foundationAttention = (health.data?.integrations ?? [])
-    .filter(
-      (integration) =>
-        integration.required !== false && integrationStatus(integration.status) !== 'healthy',
-    )
-    .map((integration) => foundationTitle(integration.name));
-  const foundationIssues = foundationAttention.length;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady =
     webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
@@ -241,10 +190,7 @@ export function InfrastructurePage() {
   };
   useShortcut('previous-tab', () => moveSection(-1), { region: mainRef });
   useShortcut('next-tab', () => moveSection(1), { region: mainRef });
-  const sectionDescription =
-    currentSection === 'agent'
-      ? clioServiceDescription(health.data, foundationAttention)
-      : sectionDefinition.description;
+  const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
   return (
     <main
       className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background"
@@ -259,240 +205,73 @@ export function InfrastructurePage() {
             </Link>
           </Button>
         </NamedTooltip>
-        <span className="hidden shrink-0 text-[13px] font-semibold sm:inline">Infrastructure</span>
-        <FrameDivider className="hidden sm:block" />
+        <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
         <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
-        <span className="ml-auto hidden shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground lg:flex">
-          <ShortcutKeys id="previous-tab" />
-          <ShortcutKeys id="next-tab" />
-          <span>Switch section</span>
-        </span>
+        <span
+          className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5"
+          data-slot="infrastructure-tab-actions"
+          ref={setTabActions}
+        />
       </div>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <section className="min-w-0 pt-5 pb-16">
-          <header className="flex min-w-0 items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <h1 className="truncate text-[17px] font-semibold tracking-tight">
-                  {sectionDefinition.label}
-                </h1>
-                {currentSection === 'tools' && !toolsPending ? (
-                  <Tag tone="neutral" width="auto">
-                    {displayedTools.length} tools
-                  </Tag>
-                ) : null}
-              </div>
-              <p
-                className="mt-0.5 truncate text-[12.5px] text-muted-foreground"
-                title={sectionDescription}
-              >
-                {sectionDescription}
-              </p>
-            </div>
-            {currentSection === 'agent' ? (
-              <ClioStatus
-                label={
-                  health.isPending
-                    ? 'Checking'
-                    : health.data?.healthy && !foundationIssues
-                      ? 'Running'
-                      : 'Needs attention'
-                }
-                value={
-                  health.isPending
-                    ? 'connecting'
-                    : health.data?.healthy && !foundationIssues
-                      ? 'healthy'
-                      : 'degraded'
-                }
+      <InfraTabActionsProvider value={tabActions}>
+        <div className="mx-auto max-w-5xl px-2 sm:px-3">
+          <section aria-label={sectionDefinition.label} className="min-w-0 pt-1.5 pb-12">
+            {error ? (
+              <StateView
+                className="mt-6 rounded-md border"
+                kind="error"
+                size="row"
+                icon={NetworkIcon}
+                title="This section could not load completely"
+                detail={error.message}
+                action={{ label: 'Retry', onClick: retrySection }}
               />
             ) : null}
-          </header>
 
-          {error ? (
-            <StateView
-              className="mt-6 rounded-md border"
-              kind="error"
-              size="row"
-              icon={NetworkIcon}
-              title="This section could not load completely"
-              detail={error.message}
-              action={{ label: 'Retry', onClick: retrySection }}
-            />
-          ) : null}
-
-          {currentSection === 'overview' ||
-          currentSection === 'models' ||
-          currentSection === 'activity' ? (
-            <InfrastructureInventory
-              section={currentSection}
-              overview={{
-                webSearch: webSearchConfiguration.data,
-                webSearchConnected: webSearchReady,
-                onManageWebSearch: () => setWebSearchOpen(true),
-              }}
-            />
-          ) : null}
-
-          {currentSection === 'tools' ? (
-            <InfrastructureTools
-              sessionId={sessionId}
-              sessionScoped={sessionToolScope}
-              pending={toolsPending}
-              tools={displayedTools}
-              servers={servers.data ?? []}
-              onScope={setToolScope}
-            />
-          ) : null}
-
-          {currentSection === 'services' ? (
-            <>
-              <ManagedServices
-                connectedAgentLabel={settings.label}
-                connectedAgentLocation={settings.location}
-                onConnectExistingService={() => {
-                  setReturnToConnectionChooser(true);
-                  setConnectServiceOpen(true);
+            {currentSection === 'overview' ||
+            currentSection === 'models' ||
+            currentSection === 'activity' ? (
+              <InfrastructureInventory
+                section={currentSection}
+                overview={{
+                  webSearch: webSearchConfiguration.data,
+                  webSearchConnected: webSearchReady,
+                  onManageWebSearch: () => setWebSearchOpen(true),
                 }}
-                onConnectProvenance={(input) => {
-                  setReturnToConnectionChooser(false);
-                  openProvenance(input);
-                }}
-                onManageWebSearch={() => {
-                  setReturnToConnectionChooser(false);
-                  setWebSearchOpen(true);
-                }}
-                onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
-                onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
-                webSearchConnected={webSearchReady}
-                webSearchConnection={webSearchConfiguration.data}
-                webSearchConnecting={connectDetectedWebSearch.isPending}
-                webSearchDisconnecting={disconnectWebSearch.isPending}
               />
-              <ProvenanceConnections
-                onBack={
-                  returnToConnectionChooser
-                    ? () => {
-                        setConnectProvenance(undefined);
-                        setConnectServiceOpen(true);
-                      }
-                    : undefined
-                }
-                connect={
-                  connectProvenance?.scope === provenanceScope ? connectProvenance.input : undefined
-                }
-                onClose={() =>
-                  setConnectProvenance((current) =>
-                    current?.scope === provenanceScope ? undefined : current,
-                  )
-                }
+            ) : null}
+
+            {currentSection === 'tools' ? (
+              <InfrastructureTools
+                sessionId={sessionId}
+                sessionScoped={sessionToolScope}
+                pending={toolsPending}
+                tools={displayedTools}
+                servers={servers.data ?? []}
+                onScope={setToolScope}
               />
-              <Dialog open={connectServiceOpen} onOpenChange={setConnectServiceOpen}>
-                <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
-                  <DialogHeader>
-                    <DialogTitle>Connect an existing service</DialogTitle>
-                    <DialogDescription>
-                      Attach a service to {settings.label || vocab.agent}. Its deployment remains
-                      under your control.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <section aria-label="Add services" className="divide-y border-y">
-                    {(['flowcept', 'cmf'] as const).map((service) => (
-                      <SetupCard
-                        key={service}
-                        title={service === 'flowcept' ? 'Flowcept' : 'HPE CMF'}
-                        description={
-                          service === 'flowcept'
-                            ? 'Record execution provenance.'
-                            : 'Track artifact lineage.'
-                        }
-                        icon={ServerIcon}
-                        status="unavailable"
-                        statusLabel="Not checked"
-                        action="Connect"
-                        onAction={() => {
-                          setConnectServiceOpen(false);
-                          openProvenance({
-                            service_id: service,
-                            label: service === 'flowcept' ? 'Flowcept' : 'HPE CMF',
-                            url: '',
-                          });
-                        }}
-                      />
-                    ))}
-                    <SetupCard
-                      action={webSearchConfigured ? 'Edit connection' : 'Connect'}
-                      description="Search and read sources through CLIO Web Search."
-                      icon={BookOpenCheckIcon}
-                      onAction={() => {
-                        setConnectServiceOpen(false);
-                        setWebSearchOpen(true);
-                      }}
-                      status={
-                        webSearchReady
-                          ? 'healthy'
-                          : webSearchConfigured
-                            ? 'degraded'
-                            : 'unavailable'
-                      }
-                      statusLabel={
-                        webSearchReady
-                          ? 'Connected'
-                          : webSearchConfigured
-                            ? 'Needs attention'
-                            : 'Not connected'
-                      }
-                      title="CLIO Web Search"
-                    />
-                  </section>
-                  <Button asChild variant="outline">
-                    <Link to="/settings/providers">Connect an inference provider</Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-fit"
-                    onClick={() => setConnectServiceOpen(false)}
-                  >
-                    <ChevronLeftIcon />
-                    Back to services
-                  </Button>
-                </DialogContent>
-              </Dialog>
-            </>
-          ) : null}
+            ) : null}
 
-          {currentSection === 'agent' ? (
-            <>
-              <InfrastructureInventory section="hosts" localAttention={foundationAttention}>
-                <InfrastructureFoundationGroups
-                  integrations={health.data?.integrations ?? []}
-                  renderRow={(integration) => (
-                    <FoundationRow integration={integration} key={integration.name} />
-                  )}
-                />
-                {!health.isPending && !health.data?.integrations.length ? (
-                  <p className="p-5 text-sm text-muted-foreground">
-                    No supporting-component details were reported.
-                  </p>
-                ) : null}
-              </InfrastructureInventory>
-            </>
-          ) : null}
+            {currentSection === 'services' ? (
+              <InfrastructureServicesSection
+                webSearch={{
+                  connection: webSearchConfiguration.data,
+                  connected: webSearchReady,
+                  configured: webSearchConfigured,
+                  connecting: connectDetectedWebSearch.isPending,
+                  disconnecting: disconnectWebSearch.isPending,
+                  onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
+                  onDisconnect: () => disconnectWebSearch.mutate(),
+                }}
+              />
+            ) : null}
 
-          <WebSearchSetup
-            onOpenChange={setWebSearchOpen}
-            open={webSearchOpen}
-            onBack={
-              returnToConnectionChooser
-                ? () => {
-                    setWebSearchOpen(false);
-                    setConnectServiceOpen(true);
-                  }
-                : undefined
-            }
-          />
-        </section>
-      </div>
+            {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
+
+            <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
+          </section>
+        </div>
+      </InfraTabActionsProvider>
     </main>
   );
 }
@@ -551,152 +330,6 @@ function effectiveToolCatalog(
     });
   }
   return [...projected.values()];
-}
-
-function SetupCard({
-  action,
-  description,
-  detail,
-  icon: Icon,
-  onAction,
-  status,
-  statusLabel,
-  title,
-  to,
-}: {
-  action: string;
-  description: string;
-  /**
-   * The service's own account of why it is not ready. A status word is a
-   * severity; this is the part that tells the reader what to do about it.
-   */
-  detail?: string;
-  icon: typeof CableIcon;
-  onAction: () => void;
-  status: ClioStatusValue;
-  statusLabel: string;
-  title: string;
-  to?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 py-4">
-      <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-        {detail ? <p className="mt-1 text-xs text-warning-foreground">{detail}</p> : null}
-      </div>
-      <ClioStatus label={statusLabel} value={status} />
-      {to ? (
-        <Button asChild size="sm" variant="outline">
-          <Link to={to} aria-label={`${action} ${title}`}>
-            {action}
-            <ArrowRightIcon />
-          </Link>
-        </Button>
-      ) : (
-        <Button onClick={onAction} size="sm" variant="outline" aria-label={`${action} ${title}`}>
-          {action}
-          <ArrowRightIcon />
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function FoundationRow({ integration }: { integration: ServiceIntegrationHealth }) {
-  // Protected execution alone offers a fix (Set up / Restart) instead of
-  // only explaining the problem, backed by the dedicated sandbox endpoint —
-  // every other row stays the plain /v1/health projection below.
-  if (integration.name === 'sandbox') return <SandboxFoundationRow integration={integration} />;
-  const status = integrationStatus(integration.status);
-  const summary = foundationSummary(integration);
-  const action = foundationAction(integration);
-  return (
-    <details className="group px-1 py-3">
-      <summary className="grid cursor-pointer list-none grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:flex sm:gap-3">
-        <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 text-sm font-medium sm:flex-1">
-          {foundationTitle(integration.name)}
-        </span>
-        <div className="col-start-2 shrink-0 justify-self-start sm:ml-auto">
-          <ClioStatus label={integrationStatusLabel(status)} value={status} />
-        </div>
-      </summary>
-      <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
-        <p>{summary}</p>
-        {action ? (
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-foreground">
-            <p>{action.description}</p>
-            <Button asChild size="sm" variant="outline">
-              <Link to={action.to}>
-                {action.label} <ArrowRightIcon aria-hidden="true" />
-              </Link>
-            </Button>
-          </div>
-        ) : null}
-        {integration.summary || integration.detail || integration.config_source ? (
-          <TechnicalDetails className="mt-2" title="Technical details">
-            <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
-              {integration.summary || integration.detail ? (
-                <p>{integration.summary || integration.detail}</p>
-              ) : null}
-              {integration.config_source ? <p>{integration.config_source}</p> : null}
-            </div>
-          </TechnicalDetails>
-        ) : null}
-      </div>
-    </details>
-  );
-}
-
-function clioServiceDescription(
-  health: { healthy: boolean } | undefined,
-  attention: string[],
-): string {
-  if (!health) return `Checking ${vocab.agent}.`;
-  if (!health.healthy) return `${vocab.agent} needs attention.`;
-  if (attention.length === 1) return `Running. ${attention[0]} on Local needs attention.`;
-  if (attention.length > 1)
-    return `Running. ${attention.length} supporting services on Local need attention.`;
-  return `${vocab.agent} is running. Open a computer’s details for health and repair actions.`;
-}
-
-function foundationAction(
-  integration: ServiceIntegrationHealth,
-): { description: string; label: string; to: string } | undefined {
-  if (integrationStatus(integration.status) === 'healthy') return undefined;
-  // The server is the sole authority on whether an integration's absence
-  // blocks usage — no client-side name-based override. `sandbox` never
-  // reaches here: it renders through SandboxFoundationRow instead.
-  if (integration.required === false) return undefined;
-  if (integration.name === 'arc') {
-    return {
-      description: 'Use the full conversation-memory service to restore complete agent behavior.',
-      label: 'Memory settings',
-      to: '/settings/memory',
-    };
-  }
-  if (integration.name === 'lm_provider') {
-    return {
-      description:
-        'Sign-in is stored locally. Check the provider connection and its available models.',
-      label: 'Provider setup',
-      to: '/settings/providers',
-    };
-  }
-  if (integration.name === 'child_parentage') {
-    return {
-      description: 'Restart or clean up detached background work on the connected agent.',
-      label: 'System settings',
-      to: '/settings/system',
-    };
-  }
-  return {
-    description: 'Review the technical details before using work that depends on this service.',
-    label: 'System settings',
-    to: '/settings/system',
-  };
 }
 
 function isWebSearchServer(server: McpServerDefinition): boolean {

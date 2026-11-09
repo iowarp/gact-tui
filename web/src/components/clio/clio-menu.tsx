@@ -1,5 +1,13 @@
 import { brand } from '@brand';
-import { DownloadIcon, Link2Icon, ServerIcon, TerminalSquareIcon } from 'lucide-react';
+import {
+  DownloadIcon,
+  LaptopIcon,
+  LayersIcon,
+  Link2Icon,
+  PlugIcon,
+  ServerIcon,
+  TerminalSquareIcon,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenuContent,
@@ -13,7 +21,8 @@ import {
 import { KeyValueGrid } from '@/components/clio/primitives/key-value-grid';
 import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
-import { Tag, type TagTone } from '@/components/clio/primitives/tag';
+import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
+import type { TagTone } from '@/components/clio/primitives/tag';
 import { useRuntimeVersion } from '@/hooks/use-runtime-version';
 import {
   connectionAvailability,
@@ -60,6 +69,21 @@ function availabilityTag(
   }
 }
 
+const ACTIVE_TONE: Record<ConnectionAvailability['state'], StatusTone> = {
+  healthy: 'success',
+  degraded: 'warning',
+  unavailable: 'idle',
+  checking: 'running',
+};
+
+function isLoopback(endpoint: string): boolean {
+  try {
+    return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(endpoint).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function webBuildVersion(): string | undefined {
   const stamped: unknown = import.meta.env.VITE_CLIO_WORKSPACE_VERSION;
   return displayReleaseVersion(typeof stamped === 'string' ? stamped : undefined);
@@ -90,6 +114,9 @@ export function ClioMenuContent({
       <div className="p-[5px]">
         <DropdownMenuLabel>Talking to</DropdownMenuLabel>
         <div className="flex h-8 min-w-0 items-center gap-2 px-2 text-sm">
+          <span aria-hidden="true" className="text-muted-foreground [&_svg]:size-3.5">
+            {isLoopback(endpoint) ? <LaptopIcon /> : <ServerIcon />}
+          </span>
           <span className="min-w-0 flex-1 truncate">
             <AgentConnectionIdentity
               endpoint={endpoint}
@@ -97,18 +124,32 @@ export function ClioMenuContent({
               location={activeLocation}
             />
           </span>
-          <Tag title={`${active.label}: ${active.detail}`} tone={activeTag.tone}>
-            {activeTag.text}
-          </Tag>
+          <span
+            className="shrink-0 text-[11.5px] text-muted-foreground"
+            title={`${active.label}: ${active.detail}`}
+          >
+            <StatusIndicator label={activeTag.text} tone={ACTIVE_TONE[active.state]} />
+          </span>
         </div>
+        <p
+          className="-mt-1 truncate px-2 pb-1 pl-[30px] font-mono text-[11px] text-muted-foreground"
+          title={endpoint}
+        >
+          {endpoint}
+        </p>
         <KeyValueGrid
-          className="px-2 pb-1.5"
+          className="pr-2 pb-1.5 pl-[30px]"
           items={[
-            { label: 'Address', value: endpoint, mono: true },
-            { label: 'Transport', value: desktop ? 'Bridge' : 'Direct' },
-            { label: 'Interface version', value: webBuildVersion() ?? 'Unknown', mono: true },
+            { label: 'Transport', icon: <PlugIcon />, value: desktop ? 'Bridge' : 'Direct' },
             {
-              label: 'Runtime version',
+              label: 'Interface',
+              icon: <LayersIcon />,
+              value: webBuildVersion() ?? 'Unknown',
+              mono: true,
+            },
+            {
+              label: 'Runtime',
+              icon: <ServerIcon />,
               value: runtime.version ?? (runtime.pending ? 'Checking' : 'Unknown'),
               mono: true,
             },

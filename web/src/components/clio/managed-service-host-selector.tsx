@@ -1,7 +1,17 @@
 import type { InfrastructureTarget } from '@clio/core/v3';
-import { CheckIcon, LaptopIcon, ServerIcon } from 'lucide-react';
+import { ChevronDownIcon, LaptopIcon, ServerIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { NamedTooltip } from './primitives/icon-button';
+import { MenuRow } from './primitives/menu-row';
 import {
   Dialog,
   DialogContent,
@@ -10,11 +20,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { SshHost } from '@/lib/ssh-hosts';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SshHostPicker } from './ssh-host-picker';
 
-/** Saved computers switch in one click; only connection editing opens a dialog. */
+/**
+ * The computer an Infrastructure tab acts on, as one compact control for the
+ * tab bar. Saved computers switch in one click; connecting or editing a
+ * computer opens the shared connection dialog.
+ */
 export function ManagedServiceHostSelector({
   targets,
   targetId,
@@ -38,40 +52,55 @@ export function ManagedServiceHostSelector({
   const computers = targets.length
     ? targets.filter((host) => host.kind !== 'direct')
     : [{ id: 'local', label: `This ${vocab.agent}'s computer`, kind: 'local' }];
+  const name = (host: { kind: string; label: string }) =>
+    host.kind === 'local' ? 'Local' : host.label;
+  const selected = computers.find((host) => host.id === targetId);
+  const selectedName = selected ? name(selected) : targetId;
+  const SelectedIcon = selected?.kind === 'local' ? LaptopIcon : ServerIcon;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className="flex flex-wrap items-center gap-2" aria-label="Choose a computer">
-        <span className="mr-1 text-xs font-medium text-muted-foreground">Computer</span>
-        {computers.map((host) => {
-          const Icon = host.kind === 'local' ? LaptopIcon : ServerIcon;
-          return (
+      <DropdownMenu modal={false}>
+        <NamedTooltip label="Choose a computer">
+          <DropdownMenuTrigger asChild>
             <Button
-              key={host.id}
+              aria-label={`Computer: ${selectedName}`}
+              className="h-7 w-[132px] justify-start gap-1.5 px-2 text-[12px] font-normal"
               size="sm"
-              variant={host.id === targetId ? 'secondary' : 'ghost'}
-              aria-label={`Select ${host.kind === 'local' ? 'Local' : host.label} computer`}
-              aria-pressed={host.id === targetId}
-              onClick={() => onSelect(host.id)}
+              variant="outline"
             >
-              <Icon aria-hidden="true" />
-              {host.kind === 'local' ? 'Local' : host.label}
-              {host.id === targetId ? <CheckIcon aria-hidden="true" className="size-3.5" /> : null}
+              <SelectedIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-left">{selectedName}</span>
+              <ChevronDownIcon aria-hidden="true" className="size-3 text-muted-foreground" />
             </Button>
-          );
-        })}
-        {canAdd && onSshHost ? (
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-              <AddIcon /> Add computer
-            </Button>
-            {sshHost ? (
-              <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-                Edit connection
-              </Button>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+          </DropdownMenuTrigger>
+        </NamedTooltip>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel className="text-[11.5px] text-muted-foreground">
+            Choose a computer
+          </DropdownMenuLabel>
+          {computers.map((host) => {
+            const Icon = host.kind === 'local' ? LaptopIcon : ServerIcon;
+            return (
+              <DropdownMenuItem key={host.id} onSelect={() => onSelect(host.id)}>
+                <MenuRow checked={host.id === targetId} icon={<Icon />} label={name(host)} />
+              </DropdownMenuItem>
+            );
+          })}
+          {canAdd && onSshHost ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setOpen(true)}>
+                <MenuRow icon={<AddIcon />} label="Add computer" />
+              </DropdownMenuItem>
+              {sshHost ? (
+                <DropdownMenuItem onSelect={() => setOpen(true)}>
+                  <MenuRow icon={<EditIcon />} label="Edit connection" />
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {canAdd && onSshHost ? (
         <ComputerConnectionContent
           sshHost={sshHost}

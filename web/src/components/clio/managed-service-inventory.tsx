@@ -1,10 +1,8 @@
 import type { GpuFact, ManagedServiceDefinition, ModelAcquisition } from '@clio/core/v3';
-import { useRef, useState, type ReactNode, type ComponentProps } from 'react';
-import { Link } from 'react-router-dom';
-import { PlugIcon, ServerIcon, ArrowLeftIcon } from 'lucide-react';
-import { ManagedServiceCard, type ServiceActionFeedback } from './service-management-panel';
+import { useRef, useState, type ReactNode } from 'react';
+import { ServerIcon, ArrowLeftIcon } from 'lucide-react';
+import { type ServiceActionFeedback } from './service-management-panel';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import { vocab } from '@/lib/brand-vocabulary';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,23 +11,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  ManagedServiceLogo,
-  ManagedServiceState,
-  VerificationState,
-} from './managed-service-identity';
-import { InfoTip } from './info-tip';
+import { ManagedServiceLogo } from './managed-service-identity';
 import { ServiceMethodAvailability } from './service-installation-method';
-import { managedServiceStatus } from '@/lib/managed-service-status';
 import { AddInstanceForm } from './managed-service-instance';
-import { deploymentDevices, engineId, instanceName } from './managed-service-gpus';
+import { engineId, instanceName } from './managed-service-gpus';
+import { InfraList } from './infrastructure-row';
+import { StateView } from './primitives/state-view';
+import {
+  ManagedServiceInventoryRow,
+  type ServiceConnection,
+  type ServicePanelTab,
+  type ServiceRowAction,
+} from './managed-service-inventory-row';
+import { SERVICE_COLUMNS, SERVICE_GROUPS } from './managed-service-groups';
 
-const groups = [
-  { id: 'model_runtime', label: 'Inference' },
-  { id: 'monitoring', label: 'Monitoring and provenance' },
-  { id: 'scientific_service', label: 'Web research' },
-  { id: 'remote_access', label: 'Remote execution' },
-] as const;
+const groups = SERVICE_GROUPS;
 const groupFor = (service: ManagedServiceDefinition) => service.category;
 
 /** Installed inventory first; deployment is a separate choose/configure flow. */
@@ -42,7 +38,8 @@ export function ManagedServiceInventory({
   deploying,
   onDeploying,
   renderService,
-  onConnectExisting,
+  onEditWebSearch,
+  onOpenTab,
   operations,
   loading,
   unavailable = false,
@@ -63,14 +60,15 @@ export function ManagedServiceInventory({
   deploying: boolean;
   onDeploying: (value: boolean) => void;
   renderService: (service: ManagedServiceDefinition, setup: boolean) => ReactNode;
-  onConnectExisting?: () => void;
+  /** Opens the agent's Web Search connection settings. */
+  onEditWebSearch?: () => void;
+  /** Opens a service's management panel on one tab. */
+  onOpenTab?: (serviceId: string, tab: ServicePanelTab) => void;
   operations: Record<string, string>;
   loading: boolean;
   unavailable?: boolean;
-  connectionFor?: (
-    service: ManagedServiceDefinition,
-  ) => ComponentProps<typeof ManagedServiceCard>['connectionAction'];
-  onRun?: (service: ManagedServiceDefinition, action: 'start' | 'stop') => void;
+  connectionFor?: (service: ManagedServiceDefinition) => ServiceConnection;
+  onRun?: (service: ManagedServiceDefinition, action: ServiceRowAction) => void;
   busyService?: string;
   feedback?: Record<string, ServiceActionFeedback>;
   model?: ModelAcquisition;
@@ -110,192 +108,51 @@ export function ManagedServiceInventory({
       />
     ) : null;
   return (
-    <section aria-label={`Services on ${hostLabel}`} className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">Services on {hostLabel}</h2>
-          <InfoTip label="About service management">
-            Manage resources already installed on the selected computer. Install service creates an
-            owned runtime. Connect existing attaches a service that you manage elsewhere.
-          </InfoTip>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={onConnectExisting} disabled={!onConnectExisting}>
-            <PlugIcon />
-            Connect existing service…
-          </Button>
-          <Button
-            disabled={loading || unavailable || !services.length}
-            onClick={() => {
-              onSelected('');
-              onDeploying(true);
-            }}
-          >
-            <AddIcon />
-            Install service
-          </Button>
-        </div>
-      </header>
+    <section aria-label={`Services on ${hostLabel}`} className="flex min-w-0 flex-col gap-3">
       {!inventory.length && !loading && !unavailable ? (
-        <div className="flex items-center gap-4 border-y py-6">
-          <ServerIcon className="size-7 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <p className="font-medium">No managed services on {hostLabel}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Install a service or connect one you already run.
-            </p>
-          </div>
-        </div>
+        <StateView
+          detail="Install a service or connect one you already run."
+          icon={ServerIcon}
+          kind="empty"
+          size="panel"
+          title={`No managed services on ${hostLabel}`}
+        />
       ) : null}
-      {groups.map((group) => {
+      {SERVICE_GROUPS.map((group) => {
         const rows = inventory.filter((service) => groupFor(service) === group.id);
         if (!rows.length) return null;
         return (
-          <section key={group.id}>
-            <h3 className="text-xs font-medium text-muted-foreground">
-              {group.label} ({rows.length})
-            </h3>
-            <div className="divide-y border-b">
-              {rows.map((service) => {
-                const connection = connectionFor?.(service);
-                const status = managedServiceStatus(service);
-                const devices = deploymentDevices(service, { gpus });
-                const manage = () => {
-                  onDeploying(false);
-                  onSelected(service.id);
-                };
-                return (
-                  <div
-                    key={service.id}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-2 py-4"
-                  >
-                    {/* On a phone the name and description take the row's full width;
-                        status and actions wrap beneath them, aligned with the text. */}
-                    <div className="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
-                      <ManagedServiceLogo service={service} />
-                      <div className="min-w-0 flex-1">
-                        <button
-                          className="font-medium hover:underline underline-offset-4"
-                          onClick={manage}
-                        >
-                          {service.label}
-                        </button>
-                        <p
-                          className="truncate text-xs text-muted-foreground"
-                          title={service.description}
-                        >
-                          {service.description}
-                        </p>
-                        {status.reason ? (
-                          <p className="text-xs text-warning-foreground">{status.reason}</p>
-                        ) : null}
-                        {feedback[service.id]?.error ? (
-                          <p role="alert" className="text-xs text-destructive">
-                            {feedback[service.id].text}
-                          </p>
-                        ) : null}
-                        <VerificationState service={service} />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 max-sm:pl-[3.25rem]">
-                      <ManagedServiceState service={service} />
-                      {devices ? (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          title="The GPUs this deployment may use"
-                        >
-                          {devices}
-                        </span>
-                      ) : null}
-                      {connection?.connected !== undefined ? (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          title={`Connection makes this service available to ${vocab.agent}. Its runtime can be stopped separately.`}
-                        >
-                          {connection.connected
-                            ? `Connected to ${vocab.agent}`
-                            : `Not connected to ${vocab.agent}`}
-                        </span>
-                      ) : null}
-                      {service.id === 'searxng' ? (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          title={`The local ${vocab.agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent.`}
-                        >
-                          {targetId === 'local'
-                            ? 'Built-in search engine'
-                            : `Not connected to ${vocab.agent}`}
-                        </span>
-                      ) : null}
-                      {connection?.to ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link to={connection.to}>{connection.label}</Link>
-                        </Button>
-                      ) : connection?.onSelect ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={connection.pending || Boolean(connection.blockedReason)}
-                          title={connection.blockedReason}
-                          onClick={connection.onSelect}
-                        >
-                          {connection.label}
-                        </Button>
-                      ) : null}
-                      {status.action === 'install' && !operations[service.id] ? (
-                        <Button size="sm" aria-label={`Install ${service.label}`} onClick={manage}>
-                          Install
-                        </Button>
-                      ) : onRun &&
-                        (status.kind === 'running'
-                          ? service.supports_stop
-                          : status.action === 'start') ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyService === service.id || Boolean(operations[service.id])}
-                          onClick={() =>
-                            onRun(service, status.kind === 'running' ? 'stop' : 'start')
-                          }
-                        >
-                          {busyService === service.id
-                            ? 'Working…'
-                            : status.kind === 'running'
-                              ? 'Stop'
-                              : 'Start'}
-                        </Button>
-                      ) : null}
-                      {operations[service.id] ? (
-                        <span role="status" className="text-xs text-muted-foreground">
-                          Operation in progress
-                        </span>
-                      ) : null}
-                      {canAddInstance(service) ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label={`Add ${service.label} instance`}
-                          onClick={() => setNaming({ id: service.id, where: 'inventory' })}
-                        >
-                          <AddIcon />
-                          Add instance
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Manage ${service.label}`}
-                        onClick={manage}
-                      >
-                        Manage
-                      </Button>
-                    </div>
-                    {addInstance(service, 'inventory')}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          <InfraList heading={group.label} key={group.id} {...SERVICE_COLUMNS}>
+            {rows.map((service) => {
+              const manage = () => {
+                onDeploying(false);
+                onSelected(service.id);
+              };
+              return (
+                <ManagedServiceInventoryRow
+                  addInstanceForm={addInstance(service, 'inventory')}
+                  busy={busyService === service.id}
+                  canAddInstance={canAddInstance(service)}
+                  connection={connectionFor?.(service)}
+                  feedback={feedback[service.id]}
+                  gpus={gpus}
+                  hostLabel={hostLabel}
+                  key={service.id}
+                  onAddInstance={() => setNaming({ id: service.id, where: 'inventory' })}
+                  onEditWebSearch={service.id === 'web_search' ? onEditWebSearch : undefined}
+                  onManage={manage}
+                  onOpenTab={(tab) => {
+                    onOpenTab?.(service.id, tab);
+                    manage();
+                  }}
+                  onRun={onRun ? (requested) => onRun(service, requested) : undefined}
+                  operation={operations[service.id]}
+                  service={service}
+                  targetId={targetId}
+                />
+              );
+            })}
+          </InfraList>
         );
       })}
       <Dialog
@@ -344,7 +201,31 @@ export function ManagedServiceInventory({
                 {hostLabel}.
               </p>
             ) : null}
-            {deploying && !current ? (
+            {deploying && !current && !services.length ? (
+              loading ? (
+                <StateView
+                  detail="Installable services appear once the computer answers."
+                  kind="loading"
+                  size="panel"
+                  title={`Inspecting ${hostLabel}`}
+                />
+              ) : (
+                <StateView
+                  detail={
+                    unavailable
+                      ? 'Try again from the Services tab, then install.'
+                      : 'Inspect the computer again from the Services tab, then install.'
+                  }
+                  kind="unavailable"
+                  size="panel"
+                  title={
+                    unavailable
+                      ? `Could not inspect ${hostLabel}`
+                      : `No installable services found on ${hostLabel}`
+                  }
+                />
+              )
+            ) : deploying && !current ? (
               <div className="space-y-5">
                 {groups
                   .filter(
