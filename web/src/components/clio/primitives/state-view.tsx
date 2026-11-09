@@ -183,7 +183,9 @@ export const StateView = memo(function StateView({
             title={detail}
             className={cn(
               'min-w-0 max-w-full truncate',
-              row ? 'shrink-0 font-mono text-[11px] text-faint tabular-nums' : 'text-[12px]',
+              row
+                ? 'shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums'
+                : 'text-[12px]',
             )}
           >
             {detail}

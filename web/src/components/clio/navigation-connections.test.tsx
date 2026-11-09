@@ -34,6 +34,7 @@ vi.mock('@/hooks/use-known-connections', () => ({ useKnownConnections: () => moc
 vi.mock('@/hooks/use-runtime-version', () => ({
   useRuntimeVersion: () => ({ version: undefined, pending: false }),
 }));
+vi.mock('@/hooks/use-update-status', () => ({ useUpdateStatus: () => undefined }));
 vi.mock('@/hooks/use-connection-availability', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/use-connection-availability')>()),
   useConnectionAvailabilities: () => ({}),
@@ -76,10 +77,10 @@ it('offers the managed local service from Aurora even though only Aurora is reme
   );
   const { rerender } = render(view());
   for (const destination of [mocks.connections[1]!, mocks.connections[0]!]) {
-    await user.click(screen.getByRole('button', { name: /Local/u }));
+    await user.click(screen.getByRole('button', { name: /this computer/u }));
     const item = screen
       .getAllByRole('menuitem')
-      .find((node) => node.textContent?.includes(destination.endpoint));
+      .find((node) => node.textContent?.includes(new URL(destination.endpoint).host));
     expect(item).toBeDefined();
     await user.click(item!);
     await waitFor(() => expect(mocks.switchConnection).toHaveBeenLastCalledWith(destination));

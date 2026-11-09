@@ -4,7 +4,8 @@ import { PanelRightOpenIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useEvidenceSections } from '@/hooks/use-evidence-disclosures';
+import { useEvidenceDisclosure, useEvidenceSections } from '@/hooks/use-evidence-disclosures';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConnectedSourcePicker } from './connected-source-picker';
@@ -61,6 +62,26 @@ export function SessionEvidencePopover({
     if (!open) setMode(measureNow() ? 'docked' : 'temporary');
     setLayout(cycleEvidenceLayout(layout, direction));
   };
+  const [, setRunsOpen] = useEvidenceDisclosure('session-rail:runs', false);
+  // Ctrl+. (⇧⌘.) toggles the work rail and lands on this conversation's runs.
+  useShortcut('conversation-runs', () => {
+    if (open && (layout === 'bottom' || layout === 'both')) {
+      setLayout(layout === 'both' ? 'top' : 'none');
+      return;
+    }
+    if (!open) setMode(measureNow() ? 'docked' : 'temporary');
+    setLayout(layout === 'top' ? 'both' : 'bottom');
+    setRunsOpen(true);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const panel = document.getElementById(panelId);
+        const target =
+          panel?.querySelector<HTMLElement>('[aria-label="Agent runs section"]') ??
+          panel?.querySelector<HTMLElement>('[aria-label="Work rail"] button');
+        target?.focus();
+      }),
+    );
+  });
   const openWork = evidence.onOpenWork
     ? () => {
         suspendForWorkbench();

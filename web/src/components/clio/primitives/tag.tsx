@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 
 export type TagTone =
   | 'neutral'
+  | 'chip'
   | 'on'
   | 'off'
   | 'caution'
@@ -13,6 +14,8 @@ export type TagTone =
 
 const TONE: Record<TagTone, string> = {
   neutral: 'border-border text-muted-foreground',
+  /** The spec `.chip`: a filled, rounded label such as Default. */
+  chip: 'rounded-[9px] border-transparent bg-muted text-muted-foreground',
   on: 'border-primary/50 text-accent-foreground',
   off: 'border-destructive/45 text-destructive',
   /** An outlined warning word on a quiet row (Blocked). */

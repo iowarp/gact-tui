@@ -32,9 +32,8 @@ function useAgentCapabilities() {
 /** New connection-only and sign-in semantics must be acknowledged by the agent host. */
 export function useExtensionsSupported(): boolean | undefined {
   const capabilities = useAgentCapabilities();
-  return capabilities.data
-    ? capabilities.data.capabilities.x_clio_extension_library === true
-    : undefined;
+  if (!capabilities.data) return capabilities.isError ? false : undefined;
+  return capabilities.data.capabilities.x_clio_extension_library === true;
 }
 
 /**
