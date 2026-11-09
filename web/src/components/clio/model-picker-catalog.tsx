@@ -77,6 +77,7 @@ interface ModelPickerCatalogProps {
 // would leave a matching empty cell under the ones that don't have one. Each
 // of the two levels (provider, model) gets an equal half of the panel.
 const PICKER_COLUMN_WIDTH = 'calc(50% - .5px)';
+const EMPTY_PATH: string[] = [];
 
 /** Mount only when the open dialog is ready to prepare its catalog. */
 export const ModelPickerCatalog = memo(function ModelPickerCatalog({
@@ -131,7 +132,13 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   );
   const [tokens, setTokens] = useState<ModelFilterToken[]>(() => [...DEFAULT_FILTER_TOKENS]);
   const [notice, setNotice] = useState<string>();
-  const activeGroup = sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
+  // Narrow (one column): the providers are group headers over their models,
+  // so the provider in view is the header last pressed, else the chosen one.
+  const [focusProviderId, setFocusProviderId] = useState<string>();
+  const grouped = !showColumns;
+  const activeGroup = grouped
+    ? sortedProviders.find((item) => item.id === (focusProviderId ?? provider))
+    : sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
   const prepared = useProgressiveModelCatalog(visibleProviders, activeGroup?.id);
   const tree = useModelPickerTree(visibleProviders, tokens, prepared);
   const loadingModels =
@@ -170,10 +177,18 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     query,
   });
   const { toggleCollapsed, matchesText, searching } = search;
-  const providerNodes = useMemo(
-    () => (searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded)),
-    [tree.nodes, alcfExpanded, searching],
-  );
+  const providerNodes = useMemo(() => {
+    if (grouped) {
+      // One flat list: each provider's header, then its models unless folded.
+      return tree.nodes.flatMap((node) => {
+        const { children, ...header } = node;
+        const groupId = node.data?.kind === 'provider' ? node.data.group.id : undefined;
+        const open = !groupId || !search.collapsed.has(groupId);
+        return [{ ...header, hasChildren: true }, ...(open ? (children ?? []) : [])];
+      });
+    }
+    return searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded);
+  }, [grouped, tree.nodes, alcfExpanded, searching, search.collapsed]);
   const { facetTabs, maxInputPrice } = useModelPickerFacets(
     tree.entries,
     tokens,
@@ -238,7 +253,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     <Cascader
       closeOnSelect={false}
       estimateRowSize={30}
-      indicator
+      // The model row draws the spec's leading ✓ itself.
+      indicator={false}
       inline
       inputValue={query}
       items={providerNodes}
@@ -253,6 +269,16 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       onInputValueChange={handleQueryChange}
       onPathChange={(nextPath, details) => {
         const header = nextPath.length === 1 ? nextPath[0] : undefined;
+        if (grouped) {
+          if (details.reason === 'drill' && header?.startsWith(PROVIDER_NODE_PREFIX)) {
+            const groupId = header.slice(PROVIDER_NODE_PREFIX.length);
+            toggleCollapsed(groupId);
+            setFocusProviderId(groupId);
+            setNotice(undefined);
+            if (search.searching) keepQueryOnce.current = true;
+          }
+          return;
+        }
         if (header === ALCF_FAMILY_VALUE) {
           setAlcfExpanded(!alcfExpanded);
           if (alcfExpanded && isAlcfServer(activeGroup?.id)) setPath([]);
@@ -282,7 +308,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         onChange(choice);
         onClose();
       }}
-      path={path}
+      path={grouped ? EMPTY_PATH : path}
       renderItem={(node) =>
         node.data?.kind === 'provider-family' ? (
           <ProviderFamilyRow
@@ -309,10 +335,11 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               : undefined
           }
           search={
-            search.searching && node.data?.kind === 'provider'
+            (grouped || search.searching) && node.data?.kind === 'provider'
               ? {
                   count: search.counts.get(node.data.group.id) ?? { matches: 0, total: 0 },
                   collapsed: search.collapsed.has(node.data.group.id),
+                  plain: grouped && !search.searching,
                 }
               : undefined
           }
@@ -331,7 +358,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       filter={search.filter}
       // Nothing chosen yet: keep the path the picker opened on.
       revealSelected={Boolean(selectedChoice)}
-      searchScope={freeSearchText(query) ? 'deep' : 'level'}
+      searchScope={!grouped && freeSearchText(query) ? 'deep' : 'level'}
       // Every hit is listed (the lists are windowed): the counts beside the
       // search and each provider must agree with the rows.
       searchLimit={Number.POSITIVE_INFINITY}
@@ -342,9 +369,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       <CascaderPanel
         className={cn(
           'h-full min-h-0',
-          // Search results: a provider row is a group header that draws
-          // its own "matches / total" and fold chevron.
-          search.searching && '[&_[data-slot=cascader-item-trailing]]:hidden',
+          // Search results and the narrow groups: a provider row is a group
+          // header that draws its own count and fold chevron.
+          (grouped || search.searching) && '[&_[data-slot=cascader-item-trailing]]:hidden',
         )}
       >
         <CascaderNav className="gap-0 border-border p-0">
@@ -362,6 +389,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               shown={search.matches}
               tokens={tokens}
               total={search.total}
+              compact={grouped}
             />
           </div>
         </CascaderNav>
@@ -403,7 +431,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             <CascaderList className="w-full flex-1" maxHeight="100%">
               <CascaderVirtualItems />
             </CascaderList>
-            {path.length ? (
+            {activeGroup ? (
               <>
                 {loadingModels ? loadingPanel : panel.column.empty}
                 {panel.column.footer}

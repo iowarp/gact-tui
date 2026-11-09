@@ -2,6 +2,7 @@ import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NamedTooltip } from './primitives/icon-button';
+import { ShortcutKeys } from './primitives/key-chip';
 import { isQuickFilterToken, quickFilters, toggleQuickFilter } from '@/lib/model-quick-filters';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
@@ -48,6 +49,11 @@ interface ModelPickerSearchProps {
   inputId?: string;
   /** Repository searches run remotely on submission rather than filtering a loaded catalog. */
   onSearch?: () => void;
+  /**
+   * A narrow picker (one column): row 2 folds into a labelled "Filters Alt+↓"
+   * button and shows above the filter panel while it is open.
+   */
+  compact?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -81,12 +87,17 @@ export function ModelPickerSearch({
   label = 'Search providers and models',
   inputId,
   onSearch,
+  compact = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
   const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined);
   const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
+  const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
+  const rowTwo =
+    (strip.length || extraTokens.length || suggestions.length) &&
+    (!compact || facetsOpen || suggestions.length);
 
   function addToken(token: ModelFilterToken) {
     onTokensChange(addModelFilterToken(tokens, token));
@@ -195,13 +206,37 @@ export function ModelPickerSearch({
         </div>
         <span
           aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
-          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-faint tabular-nums"
+          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
           {shown} / {total}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
-        {facetTabs.some((tab) => tab.chipCount > 0) ? (
+        {hasFilters && compact ? (
+          <button
+            aria-expanded={facetsOpen}
+            aria-label={chosen.length ? `Filters, ${chosen.length} on` : 'Filters'}
+            className={cn(
+              'relative ms-1 inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-[12px] whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+              facetsOpen &&
+                'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
+            )}
+            data-slot="model-filters-button"
+            onClick={() => onFacetsOpenChange(!facetsOpen)}
+            type="button"
+          >
+            <AdjustIcon aria-hidden="true" className="size-[15px]" />
+            Filters
+            {chosen.length ? (
+              <span aria-hidden="true" className="font-mono text-[11px] tabular-nums">
+                {chosen.length}
+              </span>
+            ) : null}
+            <span aria-hidden="true" className="inline-flex">
+              <ShortcutKeys id="menu-filters" variant="inline" />
+            </span>
+          </button>
+        ) : hasFilters ? (
           <>
             <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
             <TooltipProvider disableHoverableContent>
@@ -243,7 +278,7 @@ export function ModelPickerSearch({
           </>
         ) : null}
       </div>
-      {strip.length || extraTokens.length || suggestions.length ? (
+      {rowTwo ? (
         <ModelPickerQuickStrip
           extraTokens={extraTokens}
           filters={strip}

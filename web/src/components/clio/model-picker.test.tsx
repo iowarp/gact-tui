@@ -275,7 +275,7 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByRole('button', { name: /Hide Codex/ })).not.toBeInTheDocument();
   });
 
-  it('reflows to drill navigation instead of compressing columns on a narrow viewport', async () => {
+  it('reflows to one column of provider groups instead of compressing columns on a narrow viewport', async () => {
     setWideViewport(false);
     const user = userEvent.setup();
     renderPicker(
@@ -290,11 +290,18 @@ describe('ClioModelPicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.queryByRole('group', { name: 'Providers and models' })).not.toBeInTheDocument();
-    expect(screen.getByText('Luna')).toBeVisible();
-
-    await user.click(screen.getByRole('button', { name: /Back/i }));
-    expect(screen.getByRole('option', { name: /Codex/ })).toBeVisible();
+    // Every provider is a group header in the one list, above its own models.
+    const codex = screen.getByRole('option', { name: /^Codex/ });
+    expect(codex).toBeVisible();
     expect(screen.getByRole('option', { name: /Local vLLM/ })).toBeVisible();
+    expect(screen.getByText('Luna')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Back/i })).not.toBeInTheDocument();
+
+    // Pressing a header folds its models away, and again brings them back.
+    await user.click(codex);
+    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /^Codex/ }));
+    expect(screen.getByText('Luna')).toBeVisible();
   });
 
   it('reports unavailable provider failures once instead of listing fake models', async () => {

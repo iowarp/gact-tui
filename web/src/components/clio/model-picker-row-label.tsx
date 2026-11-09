@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
@@ -23,7 +23,12 @@ interface PickerRowLabelProps {
    * header -- "matches / total" and a fold chevron, which pressing the row
    * turns (the picker folds the group rather than drilling in).
    */
-  search?: { count: ProviderSearchCount; collapsed: boolean };
+  search?: {
+    count: ProviderSearchCount;
+    collapsed: boolean;
+    /** A narrow picker's group header with no search typed: "OpenRouter 3". */
+    plain?: boolean;
+  };
   /** Clicking a row's tag adds its filter token. */
   onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
@@ -85,12 +90,7 @@ export function PickerRowLabel({
         </span>
         {!providerRunning(node.data.group) && !stage ? (
           <span
-            className={cn(
-              'shrink-0 text-[11px]',
-              node.data.group.health === 'unavailable' || node.data.group.health === 'degraded'
-                ? 'text-destructive'
-                : 'text-muted-foreground',
-            )}
+            className="shrink-0 text-[11px] text-muted-foreground"
             data-slot="provider-row-status"
             title={node.data.group.detail}
           >
@@ -108,7 +108,17 @@ export function PickerRowLabel({
         <ProviderHeartbeat group={node.data.group} stage={stage} />
         {search ? (
           <>
-            <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
+            {search.plain ? (
+              <span
+                aria-label={`${search.count.matches} models`}
+                className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums"
+                data-slot="provider-filter-count"
+              >
+                {search.count.matches}
+              </span>
+            ) : (
+              <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
+            )}
             <ChevronDownIcon
               aria-hidden="true"
               className={cn(
@@ -133,8 +143,12 @@ export function PickerRowLabel({
   const description = router ? facts?.facts.description : undefined;
   return (
     <span className="flex w-full min-w-0 flex-1 items-center gap-2">
+      {/* The spec's ✓ leads the row; every model keeps the slot so names align. */}
+      <span aria-hidden="true" className="grid w-3.5 shrink-0 place-items-center">
+        {state.selected ? <CheckIcon className="size-3.5 text-accent-foreground" /> : null}
+      </span>
       <span
-        className={cn('min-w-0 truncate text-start', state.selected && 'font-medium')}
+        className={cn('min-w-0 truncate text-start', state.selected && 'text-accent-foreground')}
         data-slot="model-row-name"
       >
         {node.label}

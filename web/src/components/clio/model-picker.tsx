@@ -66,7 +66,7 @@ function measureComposer(trigger: HTMLElement | null): ComposerFrame | null {
   };
 }
 
-const TWO_COLUMN_MIN_WIDTH = 560;
+const TWO_COLUMN_MIN_WIDTH = 600;
 
 /**
  * Radix rewrites its position variables while it measures the open picker, and
