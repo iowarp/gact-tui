@@ -126,6 +126,99 @@ async function openFile(page, path, { settled = true } = {}) {
   await page.waitForTimeout(800);
 }
 
+/** Wait until a visible element shows `text` (body content, not a toolbar). */
+async function showsText(page, text, timeout = 15000) {
+  await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout });
+}
+
+async function showsAny(page, texts, timeout = 15000) {
+  await Promise.any(texts.map((text) => showsText(page, text, timeout)));
+}
+
+/** Switch a viewer mode by accessible name, trying each name as a tab, radio then button. */
+async function pickMode(page, names) {
+  for (const name of names) {
+    for (const role of ['tab', 'radio', 'button']) {
+      const target = control(page, role, name, { exact: true });
+      if (await target.isVisible().catch(() => false)) {
+        if ((await target.getAttribute('aria-selected')) !== 'true') await target.click();
+        await page.waitForTimeout(1500);
+        return name;
+      }
+    }
+  }
+  throw new Error(`no mode control named ${names.join(' or ')}`);
+}
+
+/** Open the study's science log from the workbench strip. */
+async function openScienceLog(page) {
+  await stripList(page, 'Science log');
+  await showsText(page, 'Was 2022 below baseline?');
+  await page.waitForTimeout(800);
+}
+
+/** Open the Opal vault: Files list, Sources, the connected source, Open knowledge. */
+async function openVault(page) {
+  await stripList(page, 'Files');
+  await page
+    .getByRole('region', { name: 'Files list' })
+    .getByRole('button', { name: 'Sources' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog').filter({ visible: true }).first();
+  await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().click();
+  await dialog.getByRole('button', { name: 'Open knowledge' }).click();
+  // The vault opens as a tab under the Files list; close the list to show it.
+  const files = page
+    .getByRole('toolbar', { name: 'Workbench lists' })
+    .getByRole('button', { name: 'Files', exact: true })
+    .filter({ visible: true })
+    .first();
+  if ((await files.getAttribute('aria-pressed').catch(() => null)) === 'true') await files.click();
+  await page
+    .locator('[data-slot="knowledge-vault"], [aria-label="Knowledge source"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 15000 });
+  await Promise.any([
+    showsText(page, 'Opal sites'),
+    page
+      .locator('[aria-label="Note graph"]')
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 15000 }),
+  ]);
+}
+
+async function openVaultNote(page, title) {
+  await openVault(page);
+  // The vault's own file list sits beside the tab; its row picks the note and reads it.
+  const show = control(page, 'button', 'Show Vault', { exact: true });
+  if (await show.isVisible().catch(() => false)) await show.click();
+  const name = new RegExp(`^${title}, \\d+ links?$`, 'u');
+  const row = page
+    .getByRole('list', { name: 'Vault files' })
+    .getByRole('button', { name })
+    .filter({ visible: true })
+    .first();
+  const node = control(page, 'button', new RegExp(`^Open ${title}, \\d+ links?`, 'u'));
+  const listed = await row
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (listed) await row.click();
+  else await node.click();
+  const body = page.getByText('The Opal network is 412').filter({ visible: true }).first();
+  const read = await body
+    .waitFor({ timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!read) await pickMode(page, ['Note']);
+  await showsText(page, 'The Opal network is 412');
+  await page.waitForTimeout(800);
+}
+
 async function typeInComposer(page, text) {
   const composer = page.locator(COMPOSER).filter({ visible: true }).first();
   await composer.click();
@@ -195,7 +288,9 @@ function seededSettingsShots() {
 // --- Shot catalogue ------------------------------------------------------------
 //
 // Each shot: {surface, state, url, setup?, ready?, scenario?, settingsModels?,
-// connected?, route?, keepPointer?}.
+// fixtureDemo?, connected?, route?, keepPointer?}.
+// `fixtureDemo` names a fixture `POST /__test/<name>` switch applied after the
+// scenario reset (for example `science-views`).
 // `ready` is a css selector that must be visible before setup (default: a
 // transcript message on conversation URLs, otherwise <main>).
 
@@ -516,6 +611,49 @@ function catalogue({ settings, infrastructure }) {
     s('viewer', 'browser-pages', SESSION, (page) => stripList(page, 'Browser pages'), {
       scenario: { specFiles: true },
     }),
+    // Science views (design spec "Science views are viewers in the one tab"):
+    // the fixture's Opal study, vault, dashboard and paper.
+    ...[
+      ['science-log', openScienceLog],
+      [
+        'study-graph',
+        async (page) => {
+          await openScienceLog(page);
+          await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
+        },
+      ],
+      ['knowledge', (page) => openVaultNote(page, 'Opal sites')],
+      [
+        'knowledge-graph',
+        async (page) => {
+          await openVault(page);
+          await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
+        },
+      ],
+      [
+        'dashboard',
+        async (page) => {
+          await stripList(page, 'Artifacts');
+          await control(page, 'button', /^Open (Opal sites|opal-sites)/u).click();
+          await showsText(page, '2022 vs baseline');
+          await page.waitForTimeout(800);
+        },
+      ],
+      [
+        'latex',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, [
+            'Citation smap008 undefined',
+            'Overfull hbox',
+            'SMAP L3 soil moisture',
+          ]);
+          await page.waitForTimeout(800);
+        },
+      ],
+    ].map(([state, setup]) =>
+      s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
+    ),
   ];
 }
 
@@ -1005,11 +1143,16 @@ async function main() {
     let scenarioKey = JSON.stringify([{}, 'default']);
     // Group by scenario so the fixture is reset once per scale data set.
     const fixtureKey = (shot) =>
-      JSON.stringify([shot.scenario ?? {}, shot.settingsModels ?? 'default']);
+      JSON.stringify([
+        shot.scenario ?? {},
+        shot.settingsModels ?? 'default',
+        shot.fixtureDemo ?? '',
+      ]);
     const ordered = [...shots].sort(
       (a, b) =>
         Number(Boolean(a.scenario)) - Number(Boolean(b.scenario)) ||
-        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)),
+        Number(Boolean(a.settingsModels)) - Number(Boolean(b.settingsModels)) ||
+        Number(Boolean(a.fixtureDemo)) - Number(Boolean(b.fixtureDemo)),
     );
     for (const shot of ordered) {
       const key = fixtureKey(shot);
@@ -1022,6 +1165,14 @@ async function main() {
             body: JSON.stringify({ scenario: shot.settingsModels }),
           });
           if (!seeded.ok) throw new Error(`settings seed failed: ${seeded.status}`);
+        }
+        if (shot.fixtureDemo) {
+          const demo = await fetch(`${stack.fixtureEndpoint}/__test/${shot.fixtureDemo}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (!demo.ok) throw new Error(`${shot.fixtureDemo} seed failed: ${demo.status}`);
         }
         scenarioKey = key;
       }

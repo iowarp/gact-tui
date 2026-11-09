@@ -112,13 +112,15 @@ function renderPaper() {
 }
 
 describe('LaTeX workspace', () => {
-  it('counts errors and warnings on the log button, in words too, and lists every problem', async () => {
+  it('counts the problems in the frame bar, in words too, and lists every problem', async () => {
     renderPaper();
-    const summary = await screen.findByRole('button', { name: 'Build log: 1 error, 1 warning' });
-    fireEvent.click(summary);
+    const frame = await screen.findByRole('toolbar', { name: 'Paper' });
+    expect(await within(frame).findByText('failed just now')).toBeTruthy();
+    expect(within(frame).getByRole('button', { name: 'Rebuild' })).toBeTruthy();
+    fireEvent.click(within(frame).getByRole('button', { name: '2 problems, 1 error' }));
     const problems = await screen.findByRole('list', { name: 'Build problems' });
-    expect(within(problems).getByText('Undefined reference')).toBeTruthy();
-    expect(within(problems).getByText(/sections\/eval\.tex:2/u)).toBeTruthy();
+    expect(within(problems).getByText('Reference nowhere is undefined.')).toBeTruthy();
+    expect(within(problems).getByText('sections/eval.tex, line 2')).toBeTruthy();
     expect(within(problems).getByText('Font shape substituted')).toBeTruthy();
   });
 
@@ -126,11 +128,11 @@ describe('LaTeX workspace', () => {
     renderPaper();
     const source = await screen.findAllByRole('region', { name: 'Source of main.tex' });
     expect(source[0]?.textContent).toContain('\\input{sections/eval}');
-    fireEvent.click(await screen.findByRole('button', { name: /^Build log/u }));
+    fireEvent.click(await screen.findByRole('button', { name: /^2 problems/u }));
     fireEvent.click(
-      within(await screen.findByRole('list', { name: 'Build problems' })).getByText(
-        'Undefined reference',
-      ),
+      within(await screen.findByRole('list', { name: 'Build problems' })).getByRole('button', {
+        name: 'Error: Reference nowhere is undefined., sections/eval.tex, line 2',
+      }),
     );
     const eval_ = await screen.findAllByRole('region', { name: 'Source of sections/eval.tex' });
     const flagged = eval_[0]!.querySelector('[data-line="2"] [role="img"]');
@@ -174,9 +176,10 @@ describe('LaTeX workspace', () => {
         <LatexWorkspace artifactId="art_src" sessionId="sess_1" />
       </QueryClientProvider>,
     );
-    fireEvent.click(await screen.findByRole('button', { name: /^Build log: 2 errors/u }));
+    fireEvent.click(await screen.findByRole('button', { name: '3 problems, 2 errors' }));
     const problems = await screen.findByRole('list', { name: 'Build problems' });
-    expect(within(problems).getByText(/sections\/eval\.tex:3/u)).toBeTruthy();
+    expect(within(problems).queryByText('Page limit')).toBeNull();
+    expect(within(problems).getByText('sections/eval.tex, line 3')).toBeTruthy();
     fireEvent.click(within(problems).getByText('Double-blind: author names'));
     const eval_ = await screen.findAllByRole('region', { name: 'Source of sections/eval.tex' });
     expect(eval_[0]!.querySelector('[data-line="3"]')?.className).toContain('bg-primary/10');
@@ -228,8 +231,9 @@ describe('LaTeX workspace', () => {
 
   it('goes from an outline entry to its source and its place in the PDF', async () => {
     renderPaper();
-    const outline = (await screen.findAllByRole('navigation', { name: 'Paper outline' }))[0]!;
-    fireEvent.click(within(outline).getByRole('button', { name: /Scaling/u }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Outline' }));
+    const outline = await screen.findByRole('navigation', { name: 'Paper outline' });
+    fireEvent.click(within(outline).getByRole('button', { name: '1 Scaling' }));
     await waitFor(() =>
       expect(viewer.props.highlight).toEqual({ page: 1, rect: [0.1, 0.1, 0.5, 0.2] }),
     );
@@ -238,22 +242,27 @@ describe('LaTeX workspace', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('shows the source and the PDF, either one alone, and brings the hidden one back', async () => {
+  it('shows the PDF, the source or both side by side, and a PDF point brings the source back', async () => {
     renderPaper();
-    const panes = await screen.findByRole('radiogroup', { name: 'Panes' });
-    const grid = () => document.querySelector('[data-view]')!;
-    expect(grid().getAttribute('data-view')).toBe('both');
-    fireEvent.click(within(panes).getByRole('radio', { name: 'PDF' }));
-    expect(grid().getAttribute('data-view')).toBe('pdf');
-    expect(within(grid() as HTMLElement).queryByRole('region', { name: /^Source of/u })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show the source beside the PDF' }));
-    expect(grid().getAttribute('data-view')).toBe('both');
-    fireEvent.click(screen.getByRole('button', { name: 'Hide the PDF' }));
-    expect(grid().getAttribute('data-view')).toBe('source');
-    expect(grid().querySelector('[data-slot="pdf"]')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show the PDF beside the source' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Hide the source' }));
-    expect(grid().getAttribute('data-view')).toBe('pdf');
+    await screen.findByRole('region', { name: 'Source of main.tex' });
+    const modes = screen.getByRole('tablist', { name: 'Paper views' });
+    const view = () => document.querySelector('[data-view]')!.getAttribute('data-view');
+    const pick = (name: string) => {
+      const tab = within(modes).getByRole('tab', { name });
+      fireEvent.mouseDown(tab);
+      fireEvent.click(tab);
+    };
+    expect(view()).toBe('both');
+    expect(document.querySelectorAll('[data-slot="pdf"]')).toHaveLength(1);
+    pick('Render');
+    expect(view()).toBe('pdf');
+    expect(screen.queryByRole('region', { name: /^Source of/u })).toBeNull();
+    pick('Source');
+    expect(view()).toBe('source');
+    expect(document.querySelector('[data-slot="pdf"]')).toBeNull();
+    pick('Side by side');
+    expect(view()).toBe('both');
+    pick('Render');
     // A point on the PDF brings its source back beside it.
     repository.latexLocate.mockResolvedValue({
       status: 'complete',
@@ -264,7 +273,7 @@ describe('LaTeX workspace', () => {
       places: [],
     });
     viewer.props.onPagePoint?.(0, 0.5, 0.5);
-    await waitFor(() => expect(grid().getAttribute('data-view')).toBe('both'));
+    await waitFor(() => expect(view()).toBe('both'));
   });
 
   it('renders one copy of each pane when narrow, so its controls appear once', async () => {
@@ -272,7 +281,8 @@ describe('LaTeX workspace', () => {
     renderPaper();
     expect(await screen.findAllByRole('region', { name: 'Source of main.tex' })).toHaveLength(1);
     expect(document.querySelectorAll('[data-slot="pdf"]')).toHaveLength(0);
-    const tab = screen.getByRole('tab', { name: 'PDF' });
+    expect(screen.queryByRole('tab', { name: 'Side by side' })).toBeNull();
+    const tab = screen.getByRole('tab', { name: 'Render' });
     fireEvent.mouseDown(tab);
     fireEvent.click(tab);
     await waitFor(() => expect(document.querySelectorAll('[data-slot="pdf"]')).toHaveLength(1));
@@ -298,6 +308,6 @@ describe('LaTeX workspace', () => {
     expect(
       (await screen.findAllByText('No PDF: the build stopped before making one')).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole('button', { name: /^Build log: 1 error/u })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '2 problems, 1 error' })).toBeTruthy();
   });
 });

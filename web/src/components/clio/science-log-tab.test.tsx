@@ -1,13 +1,24 @@
 import { scienceLogSchema, type ScienceStudy } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  render as renderBare,
+  screen,
+  waitFor,
+  within,
+  type RenderOptions,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mergeScienceEntries } from '@/lib/streaming/science-log-updates';
 import { ScienceLogView } from './science-log-tab';
 import { ClioWorkbench } from './workbench';
 import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const render = (ui: ReactElement, options?: RenderOptions) =>
+  renderBare(ui, { wrapper: TooltipProvider, ...options });
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({}) }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -210,36 +221,50 @@ describe('Science log tab', () => {
     expect(screen.queryByRole('tab', { name: 'Views' })).not.toBeInTheDocument();
   });
 
-  it('gives views, the list and the graph the whole tab, one at a time', async () => {
-    const user = userEvent.setup();
+  it('frames the log with its count and two modes, the log and the study graph', () => {
     render(<ScienceLogView sessionId="sess_root" study={study} views={<p>Live boards</p>} />);
-    expect(screen.getByRole('tree', { name: 'Study tree' })).toBeVisible();
-    expect(screen.queryByText('Live boards')).toBeNull();
-    await user.click(screen.getByRole('radio', { name: 'Views' }));
-    expect(screen.getByText('Live boards')).toBeVisible();
-    expect(screen.queryByRole('tree', { name: 'Study tree' })).toBeNull();
-  });
-
-  it('keeps the chosen mode when the tab remounts (maximizing the canvas)', async () => {
-    const user = userEvent.setup();
-    const own = { ...study, study: 'e_remount_study' };
-    const first = render(
-      <ScienceLogView sessionId="sess_root" study={own} views={<p>Boards</p>} />,
+    const frame = screen.getByRole('toolbar', { name: 'Science log' });
+    expect(within(frame).getByText('8 entries')).toHaveAttribute('data-frame-position');
+    expect(within(frame).getByRole('tab', { name: 'Log' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     );
-    await user.click(screen.getByRole('radio', { name: 'Views' }));
-    first.unmount();
-    render(<ScienceLogView sessionId="sess_root" study={own} views={<p>Boards</p>} />);
-    expect(screen.getByText('Boards')).toBeVisible();
-    expect(screen.getByRole('radio', { name: 'Views' })).toBeChecked();
+    expect(within(frame).getByRole('tab', { name: 'Study graph' })).toBeVisible();
+    expect(within(frame).queryByRole('tab', { name: 'Views' })).toBeNull();
+    expect(screen.queryByText('Live boards')).toBeNull();
   });
 
-  it('offers no Views choice when the study has none', () => {
+  it('lists the study beside the log, each topic with its state in text and its count', () => {
     render(<ScienceLogView sessionId="sess_root" study={study} />);
-    expect(screen.queryByRole('radio', { name: 'Views' })).toBeNull();
-    expect(screen.getByRole('radio', { name: 'List' })).toBeVisible();
+    const tree = screen.getByRole('group', { name: 'Study tree' });
+    expect(
+      within(tree).getByRole('button', { name: 'Study: Decay study, 8 entries' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(tree).getByRole('button', {
+        name: /^Hypothesis: The rate is linear in load, supported, \d+ entries$/u,
+      }),
+    ).toBeVisible();
+    expect(
+      within(tree).getByRole('button', {
+        name: /^Hypothesis: The rate is quadratic in load, refuted/u,
+      }),
+    ).toBeVisible();
+    expect(
+      within(tree).getByRole('button', { name: 'Step: Linear trial, completed, 3 entries' }),
+    ).toBeVisible();
+    expect(
+      within(tree).getByRole('button', { name: 'Step: Quadratic trial, running' }),
+    ).toBeVisible();
+    // The fork says what it forks, its note and what it derives from on hover.
+    const fork = within(tree).getByRole('button', { name: 'Fork: Cubic trial, running, 1 entry' });
+    const hover = fork.closest('[role="listitem"]')!.getAttribute('title');
+    expect(hover).toContain('fork of Quadratic trial');
+    expect(hover).toContain('Note: pursue the cubic law instead');
+    expect(hover).toContain('Derived from Linear trial');
   });
 
-  it('draws the study tree with each node state in text, forks labelled', async () => {
+  it('narrows the log to a picked topic and opens its task and folder', async () => {
     const user = userEvent.setup();
     const onOpenFolder = vi.fn();
     const onOpenTask = vi.fn();
@@ -251,83 +276,77 @@ describe('Science log tab', () => {
         study={study}
       />,
     );
-    const tree = screen.getByRole('tree', { name: 'Study tree' });
-    expect(
-      within(tree).getByRole('treeitem', {
-        name: 'Hypothesis: The rate is linear in load, supported',
-      }),
-    ).toBeVisible();
-    expect(
-      within(tree).getByRole('treeitem', {
-        name: 'Hypothesis: The rate is quadratic in load, refuted',
-      }),
-    ).toBeVisible();
-    // Each node shows its own status: the question is still open although a
-    // hypothesis under it is refuted, and a step shows its task's state.
-    expect(
-      within(tree).getByRole('treeitem', {
-        name: 'Question: Which law governs the decay rate?, open',
-      }),
-    ).toBeVisible();
-    expect(
-      within(tree).getByRole('treeitem', { name: 'Step: Linear trial, completed' }),
-    ).toBeVisible();
-    const quadratic = within(tree).getByRole('treeitem', {
-      name: 'Step: Quadratic trial, running',
-    });
-    // The fork sits under the step it forks, labelled in text, its note in its tooltip.
-    const fork = within(quadratic).getByRole('treeitem', { name: 'Fork: Cubic trial, running' });
-    expect(fork).toHaveTextContent('fork of Quadratic trial');
-    expect(within(fork).getByRole('button', { name: /Fork\s*Cubic trial/u })).toHaveAttribute(
-      'title',
-      expect.stringContaining('Note: pursue the cubic law instead'),
-    );
-    expect(fork).toHaveTextContent('Derived from');
-    await user.click(within(tree).getByRole('button', { name: 'Open the folder of Linear trial' }));
-    expect(onOpenFolder).toHaveBeenCalledWith('/work/study/h1');
-    await user.click(within(tree).getByRole('button', { name: 'Open the task of Linear trial' }));
+    await user.click(screen.getByRole('button', { name: /^Step: Linear trial/u }));
+    const frame = screen.getByRole('toolbar', { name: 'Science log' });
+    expect(within(frame).getByText('3 entries')).toBeVisible();
+    expect(within(frame).getByText('Linear trial')).toBeVisible();
+    const log = screen.getByRole('list', { name: 'Science log entries' });
+    expect(within(log).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(log).getByText('Sweep the load over five levels')).toBeVisible();
+    await user.click(within(frame).getByRole('button', { name: 'Open task' }));
     expect(onOpenTask).toHaveBeenCalledWith('task_h1');
+    await user.click(within(frame).getByRole('button', { name: 'Open options' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Open folder/u }));
+    expect(onOpenFolder).toHaveBeenCalledWith('/work/study/h1');
+    // The crumb back to the whole log.
+    await user.click(within(frame).getByRole('button', { name: 'Science log' }));
+    expect(within(frame).getByText('8 entries')).toBeVisible();
   });
 
-  it('opens a branch log when its node is selected, without leaving the session', async () => {
+  it('opens an entry in place with its facts, its cited run and who cites it', async () => {
     const user = userEvent.setup();
-    render(<ScienceLogView sessionId="sess_root" study={study} />);
-    expect(screen.getByRole('region', { name: 'Log of Decay study' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Step\s*Linear trial/u }));
-    const log = screen.getByRole('region', { name: 'Log of Linear trial' });
-    expect(within(log).getByText('Sweep the load over five levels')).toBeVisible();
-    expect(within(log).getByRole('table')).toHaveTextContent('rate0.421/s');
+    const onViewCall = vi.fn();
+    render(<ScienceLogView onViewCall={onViewCall} sessionId="sess_h1" study={study} />);
+    const observation = screen.getByRole('listitem', { name: 'Observation: 1 measurement' });
+    const row = within(observation).getByRole('button', { name: /Observation: 1 measurement/u });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    await user.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    expect(observation).toHaveAttribute('data-focused', 'true');
+    expect(observation).toHaveTextContent('Metricrate');
+    expect(observation).toHaveTextContent('Value0.42 1/s');
+    expect(observation).toHaveTextContent('Cited by');
+    expect(within(observation).getByText('interprets')).toBeVisible();
+    await user.click(within(observation).getByRole('button', { name: /^run_trial run/u }));
+    expect(onViewCall).toHaveBeenCalledWith('sess_h1', call(40));
     // Sources stay collapsed until asked for.
-    const sources = within(log).getByText('Sources (1)').closest('details')!;
+    const sources = within(observation).getByText('Sources (1)').closest('details')!;
     expect(sources).not.toHaveAttribute('open');
     expect(sources).toHaveTextContent('run_trial');
     expect(sources).toHaveTextContent('abcdef012345');
+    await user.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('jumps from a citation to the cited entry in another branch', async () => {
     const user = userEvent.setup();
     render(<ScienceLogView sessionId="sess_root" study={study} />);
     const conclusion = screen.getByRole('listitem', { name: 'Conclusion: The linear law holds' });
+    await user.click(within(conclusion).getByRole('button', { name: /^Conclusion/u }));
     await user.click(
       within(conclusion).getByRole('button', { name: /Evidence: A straight fit holds/u }),
     );
-    const log = screen.getByRole('region', { name: 'Log of Linear trial' });
-    const cited = within(log).getByRole('listitem', { name: 'Evidence: A straight fit holds' });
+    const cited = screen.getByRole('listitem', { name: 'Evidence: A straight fit holds' });
     await waitFor(() => expect(cited).toHaveAttribute('data-focused', 'true'));
   });
 
-  it('shows who cites an entry and follows the backlink', async () => {
+  it('widens a narrowed log to follow a backlink outside it', async () => {
     const user = userEvent.setup();
     render(<ScienceLogView sessionId="sess_h1" study={study} />);
-    const observation = screen.getByRole('listitem', { name: 'Observation: 1 measurement' });
-    expect(observation).toHaveTextContent('Cited by');
-    expect(within(observation).getByText('interprets')).toBeVisible();
+    const frame = screen.getByRole('toolbar', { name: 'Science log' });
+    expect(within(frame).getByText('3 entries')).toBeVisible();
     const evidence = screen.getByRole('listitem', { name: 'Evidence: A straight fit holds' });
+    await user.click(within(evidence).getByRole('button', { name: /^Evidence/u }));
     // The conclusion in the root branch cites this evidence.
     await user.click(
       within(evidence).getByRole('button', { name: /Conclusion: The linear law holds/u }),
     );
-    expect(screen.getByRole('region', { name: 'Log of Decay study' })).toBeVisible();
+    expect(within(frame).getByText('8 entries')).toBeVisible();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('listitem', { name: 'Conclusion: The linear law holds' }),
+      ).toHaveAttribute('data-focused', 'true'),
+    );
   });
 
   it('merges a live entry into the read and defers one from an unknown branch', () => {

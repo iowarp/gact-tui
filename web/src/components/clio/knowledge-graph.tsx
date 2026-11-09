@@ -1,13 +1,19 @@
 import type { KnowledgeSnapshot } from '@clio/core/v3';
+import { ScanIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { knowledgeTopology, type KnowledgeGraphLayout } from '@/lib/knowledge-graph-layout';
 import { knowledgeLabels, type GraphCamera, type GraphSize } from '@/lib/knowledge-graph-labels';
 import { KnowledgeGraphGeometry } from './knowledge-graph-geometry';
+import { KNOWLEDGE_CARD } from './knowledge-vault-stats';
+import { IconButton } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
+
+/** Up to this many notes the graph draws cards; beyond it, dots (the layout's small graph). */
+const CARD_GRAPH_LIMIT = 40;
 
 function fittedCamera(graph: KnowledgeGraphLayout, size: GraphSize): GraphCamera {
   if (!graph.nodes.length) return { x: size.width / 2, y: size.height / 2, scale: 1 };
+  const cards = graph.nodes.length <= CARD_GRAPH_LIMIT;
   const xs = graph.nodes.map((node) => node.x),
     ys = graph.nodes.map((node) => node.y);
   const left = Math.min(...xs),
@@ -17,9 +23,9 @@ function fittedCamera(graph: KnowledgeGraphLayout, size: GraphSize): GraphCamera
   const scale = Math.max(
     0.04,
     Math.min(
-      1.6,
-      (size.width - 100) / (right - left + 120),
-      (size.height - 80) / (bottom - top + 100),
+      cards ? 1 : 1.6,
+      (size.width - 100) / (right - left + (cards ? KNOWLEDGE_CARD.width + 48 : 120)),
+      (size.height - 80) / (bottom - top + (cards ? KNOWLEDGE_CARD.height + 64 : 100)),
     ),
   );
   return {
@@ -29,15 +35,21 @@ function fittedCamera(graph: KnowledgeGraphLayout, size: GraphSize): GraphCamera
   };
 }
 
-/** A network overview with stable geometry, readable labels and local emphasis. */
+/**
+ * The vault's note graph, full-bleed on a dotted canvas: stable geometry,
+ * readable names and local emphasis. Selecting a note selects it in the vault.
+ */
 export function KnowledgeGraph({
   snapshot,
   selected,
   onSelect,
+  isolated = true,
 }: {
   snapshot: KnowledgeSnapshot;
   selected: string;
   onSelect: (path: string) => void;
+  /** Whether notes without links show, around the linked ones. */
+  isolated?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const arranged = useRef<KnowledgeGraphLayout | undefined>(undefined);
@@ -45,7 +57,6 @@ export function KnowledgeGraph({
   const measured = useRef<GraphSize>({ width: 0, height: 0 });
   const [size, setSize] = useState<GraphSize>({ width: 0, height: 0 });
   const [camera, setCamera] = useState<GraphCamera>({ x: 0, y: 0, scale: 1 });
-  const [isolated, setIsolated] = useState(true);
   const [hover, setHover] = useState('');
   const [layout, setLayout] = useState<{
     topology: KnowledgeGraphLayout;
@@ -78,7 +89,7 @@ export function KnowledgeGraph({
       }
     };
     worker.onerror = () =>
-      setLayout({ topology, error: 'Unable to arrange the graph. Try Refresh or use Files.' });
+      setLayout({ topology, error: 'Choose notes in the vault list, or Refresh.' });
     worker.postMessage(topology);
     return () => worker.terminate();
   }, [topology]);
@@ -150,117 +161,109 @@ export function KnowledgeGraph({
     element.addEventListener('wheel', wheel, { passive: false });
     return () => element.removeEventListener('wheel', wheel);
   }, [zoom]);
+  const cards = Boolean(graph && graph.nodes.length <= CARD_GRAPH_LIMIT);
   const labels = useMemo(
-    () => (graph ? knowledgeLabels(graph, camera, size, active) : []),
-    [graph, camera, size, active],
+    () => (graph && !cards ? knowledgeLabels(graph, camera, size, active) : []),
+    [graph, cards, camera, size, active],
   );
   const select = useCallback((path: string) => onSelect(path), [onSelect]);
   const setHovered = useCallback((path: string) => setHover(path), []);
   return (
-    <div className="flex h-full min-h-80 flex-col" role="region" aria-label="Note graph">
-      <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2 text-xs text-muted-foreground">
-        <span>Larger dots have more links. Hover to trace; select to read.</span>
-        <label className="ml-auto flex cursor-pointer items-center gap-1.5">
-          <Checkbox checked={isolated} onCheckedChange={(value) => setIsolated(value === true)} />
-          Isolated notes
-        </label>
-      </div>
-      <div ref={host} className="relative min-h-80 flex-1 overflow-hidden bg-background">
-        {!graph && !error && (
-          <p
-            role="status"
-            className="absolute inset-0 grid place-items-center text-sm text-muted-foreground"
-          >
-            Arranging note connections…
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="p-4 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        {graph && !graph.nodes.length && (
-          <p className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
-            {isolated
-              ? 'No notes match this view.'
-              : 'No linked notes in this view. Enable isolated notes or change your search.'}
-          </p>
-        )}
-        {graph && (
-          <svg
-            width="100%"
-            height="100%"
-            className="absolute inset-0 touch-none"
-            aria-label={`${graph.nodes.length} notes, ${graph.edges.length} connections`}
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              drag.current = { x: event.clientX, y: event.clientY, origin: camera };
-            }}
-            onPointerMove={(event) => {
-              if (!drag.current) return;
-              automaticFraming.current = false;
-              setCamera({
-                ...drag.current.origin,
-                x: drag.current.origin.x + event.clientX - drag.current.x,
-                y: drag.current.origin.y + event.clientY - drag.current.y,
-              });
-            }}
-            onPointerUp={() => {
-              drag.current = null;
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-            }}
-          >
-            <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.scale})`}>
-              <KnowledgeGraphGeometry
-                graph={graph}
-                active={active}
-                selected={selected}
-                scale={camera.scale}
-                onSelect={select}
-                onHover={setHovered}
-              />
-            </g>
-            <g
-              aria-hidden="true"
-              pointerEvents="none"
-              fill="var(--foreground)"
-              fontSize={13}
-              stroke="var(--background)"
-              strokeWidth={4}
-              paintOrder="stroke"
-              strokeLinejoin="round"
-            >
-              {labels.map((label) => (
-                <text
-                  key={label.id}
-                  x={label.x}
-                  y={label.y}
-                  fontWeight={label.id === active ? 600 : 400}
-                >
-                  {label.text}
-                </text>
-              ))}
-            </g>
-          </svg>
-        )}
-        <div
-          className="absolute bottom-3 left-3 flex gap-1 rounded-md border bg-background/95 p-1 shadow-sm"
-          role="group"
-          aria-label="Graph navigation"
+    <div
+      ref={host}
+      role="region"
+      aria-label="Note graph"
+      className="relative h-full min-h-0 overflow-hidden bg-background bg-[radial-gradient(var(--border)_1px,transparent_1px)] [background-size:14px_14px]"
+    >
+      {!graph && !error && <StateView kind="loading" size="viewer" title="Arranging the notes" />}
+      {error && (
+        <StateView
+          kind="error"
+          size="viewer"
+          title="The note graph could not be arranged"
+          detail={error}
+        />
+      )}
+      {graph && !graph.nodes.length && (
+        <StateView
+          kind="empty"
+          size="viewer"
+          className="absolute inset-0"
+          title={isolated ? 'No notes match this view' : 'No linked notes in this view'}
+          detail={
+            isolated ? undefined : 'Show unlinked notes from More actions, or change the search.'
+          }
+        />
+      )}
+      {graph && (
+        <svg
+          width="100%"
+          height="100%"
+          className="absolute inset-0 touch-none"
+          aria-label={`${graph.nodes.length} notes, ${graph.edges.length} connections`}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            drag.current = { x: event.clientX, y: event.clientY, origin: camera };
+          }}
+          onPointerMove={(event) => {
+            if (!drag.current) return;
+            automaticFraming.current = false;
+            setCamera({
+              ...drag.current.origin,
+              x: drag.current.origin.x + event.clientX - drag.current.x,
+              y: drag.current.origin.y + event.clientY - drag.current.y,
+            });
+          }}
+          onPointerUp={() => {
+            drag.current = null;
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+          }}
         >
-          <Button size="sm" variant="ghost" aria-label="Zoom in" onClick={() => zoom(1.3)}>
-            +
-          </Button>
-          <Button size="sm" variant="ghost" aria-label="Zoom out" onClick={() => zoom(1 / 1.3)}>
-            −
-          </Button>
-          <Button size="sm" variant="ghost" onClick={fit}>
-            Fit
-          </Button>
-        </div>
+          <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.scale})`}>
+            <KnowledgeGraphGeometry
+              graph={graph}
+              active={active}
+              selected={selected}
+              scale={camera.scale}
+              cards={cards}
+              onSelect={select}
+              onHover={setHovered}
+            />
+          </g>
+          <g
+            aria-hidden="true"
+            pointerEvents="none"
+            fill="var(--foreground)"
+            fontSize={13}
+            stroke="var(--background)"
+            strokeWidth={4}
+            paintOrder="stroke"
+            strokeLinejoin="round"
+          >
+            {labels.map((label) => (
+              <text
+                key={label.id}
+                x={label.x}
+                y={label.y}
+                fontWeight={label.id === active ? 600 : 400}
+              >
+                {label.text}
+              </text>
+            ))}
+          </g>
+        </svg>
+      )}
+      <div
+        className="absolute right-3 bottom-3 flex gap-1"
+        role="group"
+        aria-label="Graph navigation"
+      >
+        <IconButton label="Zoom in" icon={<ZoomInIcon />} onClick={() => zoom(1.3)} />
+        <IconButton label="Zoom out" icon={<ZoomOutIcon />} onClick={() => zoom(1 / 1.3)} />
+        <IconButton label="Fit" icon={<ScanIcon />} onClick={fit} />
       </div>
     </div>
   );

@@ -88,6 +88,46 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   const { view, overlay, onHide } = props;
   const title = WORKBENCH_LIST_TITLES[view];
   return (
+    <WorkbenchListSection overlay={overlay} title={title}>
+      {view === 'activity' ? (
+        <WorkbenchActivityList
+          activeTabId={props.activeTabId}
+          finishedWorkHidden={props.finishedWorkHidden}
+          onOpenArtifact={props.onOpenArtifact}
+          onOpenFile={props.onOpenFile}
+          onOpenSubagent={props.onOpenSubagent}
+          onOpenTab={props.onOpenTab}
+          renderHeader={(actions) => (
+            <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
+          )}
+          sessionId={props.sessionId}
+          subagents={props.subagents}
+          tabs={props.tabs}
+          workspaceId={props.workspaceId}
+        />
+      ) : (
+        <>
+          <WorkbenchListHeader onHide={onHide} title={title} />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ListBody {...props} />
+          </div>
+        </>
+      )}
+    </WorkbenchListSection>
+  );
+});
+
+/** The column beside the tabs: a strip's list, or the open tab's own (a study tree). */
+export function WorkbenchListSection({
+  title,
+  overlay,
+  children,
+}: {
+  title: string;
+  overlay: boolean;
+  children: ReactNode;
+}) {
+  return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list"
@@ -101,33 +141,12 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
           : 'h-full w-[clamp(200px,34%,280px)]',
       )}
     >
-      {view === 'activity' ? (
-        <WorkbenchActivityList
-          activeTabId={props.activeTabId}
-          finishedWorkHidden={props.finishedWorkHidden}
-          onOpenArtifact={props.onOpenArtifact}
-          onOpenFile={props.onOpenFile}
-          onOpenSubagent={props.onOpenSubagent}
-          onOpenTab={props.onOpenTab}
-          renderHeader={(actions) => <ListHeader actions={actions} onHide={onHide} title={title} />}
-          sessionId={props.sessionId}
-          subagents={props.subagents}
-          tabs={props.tabs}
-          workspaceId={props.workspaceId}
-        />
-      ) : (
-        <>
-          <ListHeader onHide={onHide} title={title} />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ListBody {...props} />
-          </div>
-        </>
-      )}
+      {children}
     </section>
   );
-});
+}
 
-function ListHeader({
+export function WorkbenchListHeader({
   title,
   actions,
   onHide,

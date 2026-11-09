@@ -1,7 +1,10 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { KnowledgeGraph } from './knowledge-graph';
 import { KnowledgeGraphGeometry } from './knowledge-graph-geometry';
+import { KNOWLEDGE_CARD } from './knowledge-vault-stats';
 import type { KnowledgeGraphLayout } from '@/lib/knowledge-graph-layout';
 
 class LayoutWorker {
@@ -84,6 +87,9 @@ const snapshot = {
     },
   ],
 };
+function withTooltips(children: ReactNode) {
+  return <TooltipProvider>{children}</TooltipProvider>;
+}
 function camera() {
   const transform = screen
     .getByLabelText('2 notes, 1 connections')
@@ -131,7 +137,7 @@ it('selects the nearest dot when a dense graph overlaps SVG hit areas, preservin
       />
     </svg>,
   );
-  const paintedLast = screen.getByRole('button', { name: 'Open b, 0 linked notes' });
+  const paintedLast = screen.getByRole('button', { name: 'Open b, 0 links' });
   Object.defineProperty(paintedLast, 'getScreenCTM', { value: () => ({ inverse: () => ({}) }) });
   fireEvent.click(paintedLast, { clientX: 40, clientY: 80, detail: 1 });
   expect(onSelect).toHaveBeenLastCalledWith('a');
@@ -141,26 +147,26 @@ it('selects the nearest dot when a dense graph overlaps SVG hit areas, preservin
   expect(onSelect).toHaveBeenLastCalledWith('b');
 });
 
-it('keeps initial framing visible when a reader narrows the canvas, preserving manual zoom and geometry', () => {
+it('keeps the note cards framed when the canvas narrows, preserving manual zoom and geometry', () => {
   const onSelect = vi.fn();
   const { rerender } = render(
-    <KnowledgeGraph snapshot={snapshot} selected="" onSelect={onSelect} />,
+    withTooltips(<KnowledgeGraph snapshot={snapshot} selected="" onSelect={onSelect} />),
   );
   act(() => {
     resize(1000, 600);
     LayoutWorker.instances[0].complete();
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Open a, 1 linked notes' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open a, 1 link' }));
   expect(onSelect).toHaveBeenCalledWith('a');
-  rerender(<KnowledgeGraph snapshot={snapshot} selected="a" onSelect={onSelect} />);
+  rerender(withTooltips(<KnowledgeGraph snapshot={snapshot} selected="a" onSelect={onSelect} />));
   act(() => resize(360, 600));
   const fitted = camera();
   for (const x of [-200, 200]) expect(x * fitted.scale + fitted.x).toBeGreaterThanOrEqual(8);
   for (const x of [-200, 200]) expect(x * fitted.scale + fitted.x).toBeLessThanOrEqual(352);
   expect(LayoutWorker.instances).toHaveLength(1);
-  expect(screen.getByRole('button', { name: 'Open a, 1 linked notes' })).toHaveAttribute(
-    'cx',
-    '-200',
+  expect(screen.getByRole('button', { name: 'Open a, 1 link' })).toHaveAttribute(
+    'x',
+    String(-200 - KNOWLEDGE_CARD.width / 2),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
   const zoomed = camera();
@@ -172,10 +178,12 @@ it('keeps initial framing visible when a reader narrows the canvas, preserving m
 });
 
 it('reports a layout failure and terminates its worker on unmount', () => {
-  const { unmount } = render(<KnowledgeGraph snapshot={snapshot} selected="" onSelect={vi.fn()} />);
+  const { unmount } = render(
+    withTooltips(<KnowledgeGraph snapshot={snapshot} selected="" onSelect={vi.fn()} />),
+  );
   const worker = LayoutWorker.instances[0];
   act(() => worker.onerror?.());
-  expect(screen.getByRole('alert')).toHaveTextContent('use Files');
+  expect(screen.getByRole('alert')).toHaveTextContent('could not be arranged');
   unmount();
   expect(worker.terminate).toHaveBeenCalledOnce();
 });

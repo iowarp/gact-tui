@@ -419,12 +419,84 @@ export function studyTree(study: ScienceStudy): StudyNode {
   };
 }
 
-/** The DOM id an entry's card carries, so a citation can bring it into view. */
+/** The study's name: the root branch's title, else its question. */
+export function studyName(study: ScienceStudy): string {
+  const root = study.root_session_id || study.branches[0]?.session_id || study.session_id;
+  const branch = study.branches.find((candidate) => candidate.session_id === root);
+  const question = study.entries.find((entry) => entry.id === study.study);
+  return (branch?.title ?? '').trim() || (question && entrySummary(question)) || 'Study';
+}
+
+/** One row of the study list: a tree node flattened with its depth and the entries it narrows the log to. */
+export interface StudyTopic {
+  node: StudyNode;
+  depth: number;
+  /** The entries the log shows when this topic is picked, in the order they were written. */
+  entries: string[];
+}
+
+/**
+ * The entries a node narrows the log to: a branch's own entries; a hypothesis
+ * or reframe with every entry that links to, cites or derives from it,
+ * transitively; the question, the whole study.
+ */
+function topicEntries(
+  node: StudyNode,
+  entries: readonly ScienceEntry[],
+  cited: ReadonlyMap<string, EntryEdge[]>,
+): string[] {
+  const ordered = entries.toSorted((left, right) =>
+    left.created_at.localeCompare(right.created_at),
+  );
+  if (node.kind === 'question') return ordered.map((entry) => entry.id);
+  if (node.kind === 'branch') return branchEntries(entries, node.branch).map((entry) => entry.id);
+  if (!node.entry) return [];
+  const reached = new Set([node.entry]);
+  const queue = [node.entry];
+  while (queue.length) {
+    const id = queue.shift()!;
+    for (const edge of cited.get(id) ?? [])
+      if (!reached.has(edge.from)) {
+        reached.add(edge.from);
+        queue.push(edge.from);
+      }
+  }
+  return ordered.filter((entry) => reached.has(entry.id)).map((entry) => entry.id);
+}
+
+/** The study list's rows: the question, then every hypothesis, reframe and branch under it. */
+export function studyTopics(study: ScienceStudy, tree: StudyNode = studyTree(study)): StudyTopic[] {
+  const cited = backlinks(study.entries);
+  const rows: StudyTopic[] = [];
+  const walk = (node: StudyNode, depth: number) => {
+    rows.push({ node, depth, entries: topicEntries(node, study.entries, cited) });
+    for (const child of node.children) walk(child, depth + 1);
+  };
+  walk(tree, 0);
+  return rows;
+}
+
+/** An entry as plain text, for copying: its type, state, key field and facts. */
+export function entryText(entry: ScienceEntry): string {
+  const lines = [
+    `${ENTRY_TYPE_LABELS[entry.type]} (${entryState(entry).label}): ${entrySummary(entry)}`,
+  ];
+  for (const row of measurements(entry))
+    lines.push(
+      [`${row.metric}: ${row.value} ${row.unit}`.trim(), row.conditions && `(${row.conditions})`]
+        .filter(Boolean)
+        .join(' '),
+    );
+  if (entry.status_reason) lines.push(`Status reason: ${entry.status_reason}`);
+  return lines.join('\n');
+}
+
 /** The element id of a study view's panel, for opening it in place. */
 export function studyViewDomId(entry: string): string {
   return `study-view-${entry}`;
 }
 
+/** The DOM id an entry's row carries, so a citation can bring it into view. */
 export function scienceEntryDomId(entryId: string): string {
   return `science-entry-${entryId}`;
 }

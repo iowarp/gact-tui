@@ -13,6 +13,10 @@ import { ResourceUnavailable } from './resource-states';
 import { useSavedA2uiCatalogs } from '@/lib/a2ui/saved-catalogs';
 import { FileViewerActionRegistry, useFileViewerActions } from './file-viewer-action-context';
 import { visualCapturePixelRatio } from './a2ui-visual-viewer';
+import { useFileViewerFacts } from './file-viewer-facts';
+import { cn } from '@/lib/utils';
+import { DashboardCaptureAction } from './dashboard-capture-action';
+import { dashboardTabCount } from './dashboard-tabs';
 
 /** Open a compiled dashboard through the ordinary side-panel artifact viewer. */
 export function DashboardResourceView({
@@ -57,7 +61,8 @@ export function DashboardView({
   const catalogRegistry = useSavedA2uiCatalogs(report.session_id);
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const sharedFileActions = useContext(FileViewerActionRegistry);
+  // Inside the file frame its tab carries the title and the frame bar the tools.
+  const framed = useContext(FileViewerActionRegistry) !== undefined;
   const components = report.definition.components;
   const modalTriggers = new Set(
     Array.isArray(components)
@@ -69,11 +74,14 @@ export function DashboardView({
           .map((component) => component.trigger as string)
       : [],
   );
-  const reference = {
-    uri: artifactId ? `artifact://${artifactId}` : '',
-    definition_path: report.definition_path,
-    title: report.title,
-  };
+  const reference = useMemo(
+    () => ({
+      uri: artifactId ? `artifact://${artifactId}` : '',
+      definition_path: report.definition_path,
+      title: report.title,
+    }),
+    [artifactId, report.definition_path, report.title],
+  );
   const exportHtml = useCallback(async () => {
     if (!artifactId) throw new Error('This dashboard has no saved artifact identity.');
     const snapshot = await repository.captureDashboard(report.session_id, [report.surface]);
@@ -132,37 +140,61 @@ export function DashboardView({
     [offline, exportFormats],
   );
   useFileViewerActions(fileActions);
+  const tabCount = useMemo(() => dashboardTabCount(report), [report]);
+  useFileViewerFacts(tabCount ? [`${tabCount} ${tabCount === 1 ? 'tab' : 'tabs'}`] : undefined);
+  const wholeDashboard = useCallback(
+    () => ({
+      title: report.title,
+      summary: 'Whole dashboard',
+      markdown: `**${report.title}**\nWhole dashboard.`,
+      query: { report_id: report.id },
+    }),
+    [report.id, report.title],
+  );
+  const captureReference = useCallback(
+    () => ({
+      summary: 'Whole dashboard',
+      query: { view: { report_id: report.id }, dashboard: reference },
+    }),
+    [reference, report.id],
+  );
   return (
     <ArtifactReferenceContext.Provider value={reference}>
       <A2uiRegionCaptureProvider surface={surface}>
         <article
           ref={setRoot}
           data-slot="a2ui-dashboard"
-          className="group relative min-w-0 space-y-5 bg-background p-4 text-foreground"
+          className={cn(
+            'group relative min-w-0 bg-background px-4 py-3 text-foreground',
+            !framed && 'space-y-3',
+          )}
         >
-          <header className="flex flex-wrap items-start gap-3 border-b pb-4">
-            <div className="min-w-0 flex-1 basis-64">
-              <p className="text-xs text-muted-foreground">Dashboard</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{report.title}</h1>
-            </div>
-            {!offline && (
-              <SurfaceToolbar
-                floating={false}
-                capabilities={{
-                  captureWholeSurface: true,
-                  captureComponentId: 'root',
-                  imageAttention: true,
-                  buildReference: () => ({
-                    title: report.title,
-                    summary: 'Whole dashboard',
-                    markdown: `**${report.title}**\nWhole dashboard.`,
-                    query: { report_id: report.id },
-                  }),
-                  exportFormats: sharedFileActions ? undefined : exportFormats,
-                }}
+          {framed ? (
+            offline ? null : (
+              <DashboardCaptureAction
+                target={root}
+                title={report.title}
+                reference={captureReference}
               />
-            )}
-          </header>
+            )
+          ) : (
+            // Without the file frame the page still needs its name and tools.
+            <header className="flex min-w-0 items-center gap-2">
+              <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{report.title}</h1>
+              {!offline && (
+                <SurfaceToolbar
+                  floating={false}
+                  capabilities={{
+                    captureWholeSurface: true,
+                    captureComponentId: 'root',
+                    imageAttention: true,
+                    buildReference: wholeDashboard,
+                    exportFormats,
+                  }}
+                />
+              )}
+            </header>
+          )}
           <ClioA2UISurface
             surface={surface}
             catalogRegistry={catalogRegistry}

@@ -1,261 +1,67 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronLeftIcon, ChevronRightIcon, ListTreeIcon, ScrollTextIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import type { LatexOutlineNode, LatexReport } from '@clio/core/v3';
-import { queryKeys } from '@/lib/query-keys';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { useRepository } from '@/hooks/use-repository';
+import { queryKeys } from '@/lib/query-keys';
+import { useSharedNow } from '@/lib/shared-clock';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { CommentCapture } from './comments/comment-capture';
 import { pdfRegionAnchor } from './comments/region-anchors';
 import type { PdfHighlight } from './document-pdf-viewer';
+import { FileViewerInformationHost } from './file-viewer-context';
+import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { LatexFacts, LatexFormat, LatexFrame } from './latex-frame-controls';
+import { LatexListSections } from './latex-list';
+import {
+  builtAgo,
+  latexModes,
+  latexOutlineRows,
+  latexProblems,
+  type LatexPlace,
+  type LatexProblem,
+  type LatexView,
+} from './latex-model';
 import { LatexSourcePane } from './latex-source-pane';
-import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
 import { ClioPdfPreview } from './pdf-preview';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
-import { ClioStatus } from './status';
-
-/** Which panes the wide layout shows: the source and the PDF side by side, or one of them. */
-type PaneView = 'both' | 'source' | 'pdf';
-
-const VIEW_LABELS: Record<PaneView, string> = {
-  both: 'Source and PDF',
-  source: 'Source',
-  pdf: 'PDF',
-};
-
-/**
- * The strip between the source and the PDF. Its arrows push it aside: left hides the source,
- * right hides the PDF; at an edge, its one arrow brings the hidden pane back.
- */
-function PaneDivider({ view, onView }: { view: PaneView; onView: (view: PaneView) => void }) {
-  const arrow = (to: PaneView, label: string, left: boolean) => (
-    <Button
-      aria-label={label}
-      className="h-10 w-3.5 rounded-sm border bg-muted px-0 text-foreground hover:bg-accent"
-      onClick={() => onView(to)}
-      size="sm"
-      title={label}
-      variant="ghost"
-    >
-      {left ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
-    </Button>
-  );
-  return (
-    <div
-      className="flex min-h-0 w-4 flex-col items-center justify-center gap-2 border-x bg-muted/40"
-      data-slot="latex-pane-divider"
-    >
-      {view !== 'pdf' ? null : arrow('both', 'Show the source beside the PDF', false)}
-      {view === 'both' ? arrow('pdf', 'Hide the source', true) : null}
-      {view === 'both' ? arrow('source', 'Hide the PDF', false) : null}
-      {view !== 'source' ? null : arrow('both', 'Show the PDF beside the source', true)}
-    </div>
-  );
-}
-
-interface Place {
-  file: string;
-  line?: number;
-}
+import { StateView } from './primitives/state-view';
+import { ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { WorkbenchTabList } from './workbench-tab-list';
+import { WorkbenchTabListSlot } from './workbench-tab-list-context';
 
 function entryFile(report: LatexReport): string {
   const prefix = report.folder ? `${report.folder}/` : '';
   return report.entry.startsWith(prefix) ? report.entry.slice(prefix.length) : report.entry;
 }
 
-/** The build's errors (failing problems, failed venue checks) and warnings, counted. */
-function problemCounts(report: LatexReport): { errors: number; warnings: number } {
-  const build = report.build;
-  const checks = build.venue?.checks ?? [];
-  const failing = build.diagnostics.filter((item) => !LATEX_WARNING_KINDS.has(item.kind)).length;
-  return {
-    errors: failing + checks.filter((check) => check.status === 'failed').length,
-    warnings:
-      build.diagnostics.length -
-      failing +
-      checks.filter((check) => check.status !== 'failed' && check.status !== 'passed').length,
-  };
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
-/** A count in a small bubble: red for errors, yellow for warnings; the button says it in words. */
-function CountBubble({ count, tone }: { count: number; tone: 'error' | 'warning' }) {
-  if (!count) return null;
-  return (
-    <span
-      aria-hidden="true"
-      className={
-        tone === 'error'
-          ? 'min-w-4 rounded-full bg-destructive px-1 text-[10px] leading-4 font-medium text-destructive-foreground tabular-nums'
-          : 'min-w-4 rounded-full bg-warning px-1 text-[10px] leading-4 font-medium text-warning-foreground tabular-nums'
-      }
-    >
-      {count}
-    </span>
-  );
-}
-
-/** The build log: one button with its error and warning counts; the list opens on click. */
-function BuildSummary({ report, onGo }: { report: LatexReport; onGo: (place: Place) => void }) {
-  const build = report.build;
-  const failed = build.status === 'failed';
-  const { errors, warnings } = problemCounts(report);
-  const label = `Build log: ${
-    errors || warnings
-      ? [errors ? plural(errors, 'error') : '', warnings ? plural(warnings, 'warning') : '']
-          .filter(Boolean)
-          .join(', ')
-      : 'no problems'
-  }`;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button aria-label={label} className="gap-1 px-1.5" size="sm" title={label} variant="ghost">
-          <ScrollTextIcon aria-hidden="true" />
-          <CountBubble count={errors} tone="error" />
-          <CountBubble count={warnings} tone="warning" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 max-w-[90vw]">
-        <PopoverHeader>
-          <PopoverTitle>{failed ? 'The build has problems' : 'The paper built'}</PopoverTitle>
-          {build.network && !build.network.startsWith('bundle_hosts') ? (
-            <PopoverDescription>Network: {build.network}</PopoverDescription>
-          ) : null}
-        </PopoverHeader>
-        <ul className="mt-2 max-h-72 space-y-1 overflow-auto text-sm" aria-label="Build problems">
-          {build.diagnostics.map((item, index) => (
-            <li key={index}>
-              <button
-                className="w-full rounded px-1 py-0.5 text-left hover:bg-muted disabled:cursor-default"
-                disabled={!item.file}
-                onClick={() => onGo({ file: item.file, line: item.line || undefined })}
-                type="button"
-              >
-                <span className="font-medium">{latexKindLabel(item.kind)}</span>
-                {item.file ? (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {' '}
-                    {item.file}
-                    {item.line ? `:${item.line}` : ''}
-                  </span>
-                ) : null}
-                <span className="block text-xs text-muted-foreground">{item.message}</span>
-              </button>
-            </li>
-          ))}
-          {build.venue?.checks.map((check, index) => (
-            <li key={`venue-${index}`}>
-              {/* A check that names a place (an author's name in a section) opens it, as a problem does. */}
-              <button
-                className="w-full rounded px-1 py-0.5 text-left hover:bg-muted disabled:cursor-default"
-                disabled={!check.file}
-                onClick={() => onGo({ file: check.file, line: check.line || undefined })}
-                type="button"
-              >
-                <ClioStatus
-                  compact
-                  value={
-                    check.status === 'failed'
-                      ? 'failed'
-                      : check.status === 'passed'
-                        ? 'completed'
-                        : 'degraded'
-                  }
-                />{' '}
-                <span className="font-medium">{check.rule}</span>
-                {check.file ? (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {' '}
-                    {check.file}
-                    {check.line ? `:${check.line}` : ''}
-                  </span>
-                ) : null}
-                <span className="block text-xs text-muted-foreground">{check.message}</span>
-              </button>
-            </li>
-          ))}
-          {!build.diagnostics.length && !build.venue ? (
-            <li className="text-muted-foreground">No problems.</li>
-          ) : null}
-        </ul>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function OutlineNav({
-  nodes,
-  onGo,
-}: {
-  nodes: LatexOutlineNode[];
-  onGo: (node: LatexOutlineNode) => void;
-}) {
-  const rows: { node: LatexOutlineNode; depth: number }[] = [];
-  const visit = (list: LatexOutlineNode[] | undefined, depth: number) => {
-    for (const node of list ?? []) {
-      rows.push({ node, depth });
-      visit(node.children, depth + 1);
-    }
-  };
-  visit(nodes, 0);
-  if (!rows.length) return <p className="p-3 text-sm text-muted-foreground">No sections yet.</p>;
-  return (
-    <nav aria-label="Paper outline" className="h-full overflow-auto py-1 text-sm">
-      <ul>
-        {rows.map(({ node, depth }, index) => {
-          const name = node.title || node.labels?.[0];
-          return (
-            <li key={index}>
-              <button
-                className="w-full truncate rounded px-2 py-0.5 text-left hover:bg-muted"
-                onClick={() => onGo(node)}
-                style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
-                title={`${node.file}:${node.start_line}`}
-                type="button"
-              >
-                {name && node.kind !== 'section' ? (
-                  <span className="text-xs text-muted-foreground">{node.kind} </span>
-                ) : null}
-                {name || node.kind.charAt(0).toUpperCase() + node.kind.slice(1)}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
-}
+const NO_TEXTS: Record<string, string> = {};
+const PANE = 'm-0 min-h-0 min-w-0 flex-1';
 
 /**
- * The LaTeX workspace (LaTeX plan): source with its build problems in the gutter beside the
- * compiled PDF, click-through both ways (click a source line; double-click the PDF), an
- * outline navigator, and the comment layer on both panes. The server builds, maps and checks;
- * the last successful build stays visible while a new one runs.
+ * The LaTeX workspace (LaTeX plan): the compiled PDF (Render), its source with
+ * each line's build problems in the gutter (Source), or both side by side, with
+ * click-through both ways (click a source line; double-click the PDF) and the
+ * comment layer on both panes. Its outline and build problems are the list
+ * beside the tabs. The server builds, maps and checks; the last successful build
+ * stays visible while a new one runs.
  */
 export function LatexWorkspace({
   artifactId,
   sessionId,
+  framed,
+  source,
 }: {
   artifactId: string;
   sessionId: string;
+  /** A frame bar above takes the controls (a document's own); else detected from the file viewer. */
+  framed?: boolean;
+  /** The .tex itself, shown as Source when the paper cannot be built. */
+  source?: { name: string; text: string };
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -275,21 +81,44 @@ export function LatexWorkspace({
     placeholderData: keepPreviousData,
     staleTime: Infinity,
   });
-  const [chosen, setChosen] = useState<Place>();
+  const inViewer = useContext(FileViewerInformationHost) !== undefined;
+  const facts = useContext(FileViewerFactsRegistry);
+  const slot = useContext(WorkbenchTabListSlot);
+  const ownFrame = !(framed ?? inViewer);
+  const [chosen, setChosen] = useState<LatexPlace>();
   const [highlight, setHighlight] = useState<PdfHighlight>();
-  const [outlineOpen, setOutlineOpen] = useState(true);
-  const [narrowTab, setNarrowTab] = useState('source');
-  const [view, setView] = useState<PaneView>('both');
-  // The section mounts after loading; the width is observed once it exists.
+  const [view, setView] = useState<LatexView>('both');
+  const [revealProblems, setRevealProblems] = useState(0);
+  const [ownHost, setOwnHost] = useState<HTMLDivElement | null>(null);
+  // The section mounts once; the width is observed once it exists.
   const [section, setSection] = useState<HTMLElement | null>(null);
   const sectionRef = useMemo(() => ({ current: section }), [section]);
-  const wide = useContainerQuery(sectionRef, 720);
+  const wide = useContainerQuery(sectionRef, 600);
   const data = report.data;
-  const file = chosen?.file ?? (data ? entryFile(data) : '');
+  const fallback = !data && (!sessionId || report.isError) ? source : undefined;
+  const texts = useMemo(
+    () => data?.texts ?? (fallback ? { [fallback.name]: fallback.text } : NO_TEXTS),
+    [data, fallback],
+  );
+  const entry = data ? entryFile(data) : (fallback?.name ?? '');
+  const file = chosen?.file ?? entry;
   const files = useMemo(
     () => (data ? data.files.filter((name) => /\.(tex|ltx|bib)$/iu.test(name)) : []),
     [data],
   );
+  const problems = useMemo(() => (data ? latexProblems(data) : []), [data]);
+  const rows = useMemo(() => latexOutlineRows(data?.outline?.nodes ?? []), [data]);
+  // Side by side needs the width for both panes; narrower, the source shows instead.
+  const shown: LatexView = !wide && view === 'both' ? 'source' : view;
+  const building = Boolean(sessionId) && report.isFetching;
+  const now = useSharedNow(Boolean(data) && !building, { periodMs: 30_000 });
+  const fact = building
+    ? 'building'
+    : data
+      ? builtAgo(report.dataUpdatedAt, now, data.build.status === 'failed' ? 'failed' : 'built')
+      : fallback && sessionId
+        ? 'not built'
+        : '';
 
   const showPlace = (page: number, rect: number[]) => {
     const size = data?.page_sizes[page - 1];
@@ -300,13 +129,14 @@ export function LatexWorkspace({
       rect: [rect[0]! / width, rect[1]! / height, rect[2]! / width, rect[3]! / height],
     });
   };
-  const goToSource = (place: Place) => {
+  // A place in the source: the PDF alone gives way to the source beside it.
+  const goToSource = (place: LatexPlace) => {
     setChosen(place);
-    setNarrowTab('source');
+    setView((current) => (current === 'pdf' ? 'both' : current));
   };
   const sourceToPdf = async (line: number) => {
     setChosen({ file, line });
-    if (!sessionId) return;
+    if (!sessionId || !data) return;
     const found = await repository.latexLocate(artifactId, sessionId, { file, line });
     const place = found.places[0];
     if (place) showPlace(place.page, place.rect);
@@ -320,37 +150,67 @@ export function LatexWorkspace({
       x: fx * width,
       y: fy * height,
     });
-    if (found.status === 'complete' && found.file) {
+    if (found.status === 'complete' && found.file)
       goToSource({ file: found.file, line: found.line });
-      setView((current) => (current === 'pdf' ? 'both' : current));
-    }
   };
+  // A section shows where it is in whichever panes are open.
   const goToNode = (node: LatexOutlineNode) => {
-    goToSource({ file: node.file, line: node.start_line });
+    setChosen({ file: node.file, line: node.start_line });
     const place = node.places?.[0];
     if (place) showPlace(place.page, place.rect);
   };
+  const goToProblem = (problem: LatexProblem) => {
+    if (problem.file) goToSource({ file: problem.file, line: problem.line });
+  };
+  const picked = slot?.picked;
 
-  if (!sessionId)
-    return <ResourceUnavailable label="Open this paper from a conversation to build it." />;
-  if (report.isPending) return <ResourceLoading className="p-4" label="Building the paper…" />;
-  if (report.isError || !data)
-    return (
-      <ResourceUnavailable detail={report.error?.message} label="The paper could not be built" />
-    );
+  const list = data ? (
+    <LatexListSections
+      entry={entry}
+      onProblem={(problem) => {
+        goToProblem(problem);
+        picked?.();
+      }}
+      onSection={(node) => {
+        goToNode(node);
+        picked?.();
+      }}
+      place={chosen}
+      problems={problems}
+      revealProblems={revealProblems}
+      rows={rows}
+    />
+  ) : null;
+  const format = (
+    <LatexFormat
+      building={building}
+      file={file}
+      files={files}
+      inWorkbench={Boolean(slot)}
+      list={slot ? undefined : (list ?? undefined)}
+      modes={latexModes(wide)}
+      onFile={(name) => setChosen({ file: name })}
+      onRebuild={sessionId ? () => void report.refetch() : undefined}
+      onShowProblems={() => {
+        setRevealProblems((count) => count + 1);
+        slot?.setShown(true);
+      }}
+      onView={setView}
+      problems={problems}
+      view={shown}
+    />
+  );
 
   const sourcePane = (
     <LatexSourcePane
       activeLine={chosen?.file === file ? chosen.line : undefined}
-      diagnostics={data.build.diagnostics}
+      diagnostics={data?.build.diagnostics ?? []}
       file={file}
-      files={files}
-      onFile={(name) => setChosen({ file: name })}
       onLine={(line) => void sourceToPdf(line)}
-      texts={data.texts}
+      texts={texts}
     />
   );
-  const pdfPane = data.build.pdf ? (
+  const pdfPane = data?.build.pdf ? (
     <CommentCapture className="h-full min-h-0" regionAnchor={pdfRegionAnchor}>
       <div className="h-full min-h-0 w-full">
         <ClioPdfPreview
@@ -363,121 +223,98 @@ export function LatexWorkspace({
         />
       </div>
     </CommentCapture>
-  ) : (
-    <ResourceUnavailable
+  ) : data ? (
+    <StateView
       detail={data.build.error}
-      label="No PDF: the build stopped before making one"
+      kind="error"
+      size="viewer"
+      title="No PDF: the build stopped before making one"
+    />
+  ) : (
+    <StateView
+      detail={report.error?.message}
+      kind={sessionId ? 'error' : 'unavailable'}
+      size="viewer"
+      title={
+        sessionId
+          ? 'The paper could not be built'
+          : 'Open this paper from a conversation to build it.'
+      }
     />
   );
-  const outline = <OutlineNav nodes={data.outline?.nodes ?? []} onGo={goToNode} />;
+  let body: ReactNode;
+  if (sessionId && report.isPending)
+    body = <StateView kind="loading" size="viewer" title="Building the paper…" />;
+  else if (!data && !fallback)
+    body = sessionId ? (
+      <StateView
+        action={{ label: 'Retry', onClick: () => void report.refetch() }}
+        detail={report.error?.message}
+        kind="error"
+        size="viewer"
+        title="The paper could not be built"
+      />
+    ) : (
+      <StateView
+        kind="unavailable"
+        size="viewer"
+        title="Open this paper from a conversation to build it."
+      />
+    );
+  else
+    body = (
+      <>
+        {/* Only the shown mode renders its panes: the PDF puts its own facts and
+            controls in the frame bar, and a hidden copy would add a second set. */}
+        <TabsContent className={PANE} value="pdf">
+          {pdfPane}
+        </TabsContent>
+        <TabsContent className={PANE} value="source">
+          {sourcePane}
+        </TabsContent>
+        <TabsContent
+          className={`${PANE} grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)]`}
+          value="both"
+        >
+          <div className="min-h-0 min-w-0 border-r border-border">{sourcePane}</div>
+          <div className="min-h-0 min-w-0">{pdfPane}</div>
+        </TabsContent>
+      </>
+    );
 
   return (
     <section
       aria-label="LaTeX workspace"
-      className="@container/latex flex h-full min-h-0 min-w-0 flex-col"
+      className="flex h-full min-h-0 min-w-0 flex-col"
       data-slot="latex-workspace"
+      data-view={shown}
       ref={setSection}
     >
-      {/* Right-aligned: the comment controls of a workspace file sit at the top left. */}
-      <div className="flex min-h-11 shrink-0 items-center justify-end gap-1 border-b px-2 py-1">
-        {report.isFetching ? (
-          <span className="text-xs text-muted-foreground" role="status">
-            Building…
-          </span>
-        ) : null}
-        <ToggleGroup
-          aria-label="Panes"
-          className="hidden @[720px]/latex:flex"
-          onValueChange={(value) => {
-            if (value) setView(value as PaneView);
-          }}
-          size="sm"
-          spacing={0}
-          type="single"
-          value={view}
-          variant="outline"
-        >
-          {(Object.keys(VIEW_LABELS) as PaneView[]).map((value) => (
-            <ToggleGroupItem className="px-2 text-xs" key={value} value={value}>
-              {VIEW_LABELS[value]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <span
-          aria-hidden="true"
-          className="mx-0.5 hidden h-5 w-px bg-border @[720px]/latex:block"
-        />
-        <BuildSummary
-          onGo={(place) => {
-            goToSource(place);
-            setView((current) => (current === 'pdf' ? 'both' : current));
-          }}
-          report={data}
-        />
-        <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
-        <Button
-          aria-label="Rebuild the paper"
-          onClick={() => void report.refetch()}
-          size="icon-sm"
-          title="Rebuild the paper"
-          variant="ghost"
-        >
-          <RefreshIcon aria-hidden="true" />
-        </Button>
-        <Button
-          aria-label={outlineOpen ? 'Hide the outline' : 'Show the outline'}
-          aria-pressed={outlineOpen}
-          className="hidden @[720px]/latex:inline-flex"
-          onClick={() => setOutlineOpen((value) => !value)}
-          size="icon-sm"
-          title="Outline"
-          variant="ghost"
-        >
-          <ListTreeIcon aria-hidden="true" />
-        </Button>
-      </div>
-      {/* Wide: outline, source and PDF side by side. Narrow: one at a time. */}
-      <div
-        className="hidden min-h-0 flex-1 @[720px]/latex:grid"
-        data-view={view}
-        style={{
-          gridTemplateColumns: [
-            outlineOpen ? '13rem' : '',
-            view === 'pdf' ? '' : 'minmax(0,1fr)',
-            'auto',
-            view === 'source' ? '' : 'minmax(0,1fr)',
-          ]
-            .filter(Boolean)
-            .join(' '),
-        }}
-      >
-        {/* Only the layout that shows renders its panes: each viewer puts its own controls
-            (zoom) in the shared toolbar, and a hidden copy would add a second set. */}
-        {wide && outlineOpen ? <div className="min-h-0 border-r">{outline}</div> : null}
-        {wide && view !== 'pdf' ? <div className="min-h-0 min-w-0">{sourcePane}</div> : null}
-        <PaneDivider onView={setView} view={view} />
-        {wide && view !== 'source' ? <div className="min-h-0 min-w-0">{pdfPane}</div> : null}
-      </div>
+      {/* First, so the build's time leads the PDF's page among the frame's facts. */}
+      {!ownFrame && facts ? <LatexFacts facts={fact ? [fact] : []} /> : null}
+      <span className="sr-only" role="status">
+        {building ? 'Building…' : ''}
+      </span>
       <Tabs
-        className="flex min-h-0 flex-1 flex-col @[720px]/latex:hidden"
-        onValueChange={setNarrowTab}
-        value={narrowTab}
+        className="min-h-0 flex-1 gap-0"
+        onValueChange={(next) => setView(next as LatexView)}
+        value={shown}
       >
-        <TabsList className="mx-2 mt-1 shrink-0">
-          <TabsTrigger value="source">Source</TabsTrigger>
-          <TabsTrigger value="pdf">PDF</TabsTrigger>
-          <TabsTrigger value="outline">Outline</TabsTrigger>
-        </TabsList>
-        <TabsContent className="m-0 min-h-0 flex-1" value="source">
-          {wide ? null : sourcePane}
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 flex-1" value="pdf">
-          {wide ? null : pdfPane}
-        </TabsContent>
-        <TabsContent className="m-0 min-h-0 flex-1" value="outline">
-          {wide ? null : outline}
-        </TabsContent>
+        <LatexFrame
+          crumbs={data ? data.entry.split('/') : fallback ? [fallback.name] : []}
+          fact={fact}
+          factInFormat={!ownFrame && !facts}
+          format={format}
+          onHost={setOwnHost}
+          ownFrame={ownFrame}
+        />
+        {ownFrame ? (
+          <ViewerToolbarHost.Provider value={ownHost}>{body}</ViewerToolbarHost.Provider>
+        ) : (
+          body
+        )}
       </Tabs>
+      {slot && list ? <WorkbenchTabList title="Outline">{list}</WorkbenchTabList> : null}
     </section>
   );
 }
@@ -485,7 +322,7 @@ export function LatexWorkspace({
 /**
  * A paper opened as a workspace file: once the file is an artifact version (a comment or the
  * agent's latex_build registered it), the LaTeX workspace; until then its source, with a way
- * to build it.
+ * to build it in the frame bar.
  */
 export function LatexFileWorkspace({
   workspaceId,
@@ -508,6 +345,7 @@ export function LatexFileWorkspace({
   });
   const register = useMutation({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
+    onError: (error) => toast.error('The paper could not be built', { description: error.message }),
   });
   const artifactId = register.data?.artifact_id ?? target.data?.artifact_id;
   if (sessionId && artifactId)
@@ -515,21 +353,17 @@ export function LatexFileWorkspace({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {sessionId ? (
-        <div className="flex shrink-0 items-center gap-2 border-b px-2 py-1">
+        <ViewerToolbarContent>
           <Button
+            className="h-7 px-2 text-[12px]"
             disabled={register.isPending || target.isPending}
             onClick={() => register.mutate()}
             size="sm"
-            variant="secondary"
+            variant="ghost"
           >
             Build this paper
           </Button>
-          {register.error ? (
-            <span className="text-xs text-destructive" role="alert">
-              {register.error.message}
-            </span>
-          ) : null}
-        </div>
+        </ViewerToolbarContent>
       ) : null}
       <div className="min-h-0 flex-1">{fallback}</div>
     </div>
