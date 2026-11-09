@@ -3,6 +3,7 @@ import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { defaultRemarkPlugins, Streamdown, type ExtraProps } from 'streamdown';
 import { ExternalLink } from '@/components/ui/external-link';
 import { deferredModule } from '@/lib/deferred-chunk';
+import { pendingMathPlugin } from '@/lib/pending-math';
 import {
   normalizeMathMarkdown,
   parseMathMarkdownBlocks,
@@ -14,9 +15,10 @@ type MathPlugin = typeof import('@streamdown/math').math;
 
 // KaTeX is most of the markdown renderer's weight and most text has no math, so it
 // loads when the first text with math syntax renders (or while the app is idle).
+// Until then each formula is a faint box of about its size, never its TeX source.
 const mathChunk = deferredModule(() => import('@streamdown/math').then((module) => module.math));
 const MATH_SYNTAX = /\$|\\[([]|\\begin\{/u;
-const plainPlugins = { cjk };
+const pendingPlugins = { cjk, math: pendingMathPlugin };
 let mathPlugins: { cjk: typeof cjk; math: MathPlugin } | undefined;
 
 function useMathPlugins(needed: boolean) {
@@ -34,7 +36,7 @@ function useMathPlugins(needed: boolean) {
       current = false;
     };
   }, [needed, math]);
-  if (!math) return plainPlugins;
+  if (!math) return pendingPlugins;
   mathPlugins ??= { cjk, math };
   return mathPlugins;
 }
@@ -103,7 +105,7 @@ export function MarkdownText({
     <div className="contents" ref={rootRef}>
       <Streamdown
         // Streamdown memoises blocks by content, so math arriving needs one remount.
-        key={plugins === plainPlugins ? 'plain' : 'math'}
+        key={plugins === pendingPlugins ? 'pending' : 'math'}
         components={{ ...streamdownComponents, ...components }}
         plugins={plugins}
         parseMarkdownIntoBlocksFn={parseMathMarkdownBlocks}
