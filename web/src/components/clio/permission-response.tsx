@@ -1,5 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
+import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import {
   AskBody,
@@ -62,7 +62,12 @@ function askedBy(
       label: 'Asked by',
       icon: <UserRoundIcon />,
       title: ownerLabel ?? `Requested by session ${interaction.owner_session_id}`,
-      value: ownerLabel ?? (
+      value: ownerLabel ? (
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate text-accent-foreground">{ownerLabel}</span>
+        </span>
+      ) : (
         <span className="min-w-0 truncate text-muted-foreground">Session not listed yet</span>
       ),
     },
@@ -135,6 +140,7 @@ export function PermissionResponse({
           copyLabel="Copy script"
           icon={FileCode2Icon}
           label="Script"
+          language="python"
           meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
           name="Script"
           onOpen={onOpenScript ? () => onOpenScript(interaction, script.call_id) : undefined}

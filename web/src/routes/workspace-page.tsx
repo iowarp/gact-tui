@@ -193,6 +193,8 @@ export function WorkspacePage() {
       revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
+        artifacts: entities.artifacts,
+        onOpenArtifact: openArtifact,
         capabilityError: data.interactionCapabilityError ?? undefined,
         error: data.interactionsError ?? undefined,
         onRefetchSurfaces: data.refetchInteractionSurfaces,

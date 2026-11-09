@@ -38,8 +38,8 @@ Only `name` is required. The workspace currently consumes:
 | `iconSvg`                     | Optional monochrome SVG used in navigation, title bar, welcome and connection chrome; inherits the theme color                                 |
 | `faviconSvg`                  | Optional browser favicon; defaults to `logoSvg`                                                                                                |
 | `trayTemplate`                | Optional macOS menu-bar PNG (about 44×44, black mark on transparency) relative to the profile directory; without it the tray uses the app icon |
-| `accent`                      | Product action accent                                                                                                                          |
-| `themeTokens`                 | CSS custom-property overrides for the Light and Dark themes, applied before first paint                                                        |
+| `accent`                      | Product action accent for the Cool and Neutral themes                                                                                          |
+| `themeTokens`                 | CSS custom-property overrides for the Cool and Neutral themes, applied before first paint; Notebook Light and Dark keep the spec's values      |
 | `landing.eyebrow`             | Short domain/product category on the connection screen                                                                                         |
 | `landing.headline`            | Primary product promise on the connection screen                                                                                               |
 | `landing.description`         | Supporting product description on the connection screen                                                                                        |

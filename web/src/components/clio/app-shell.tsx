@@ -13,6 +13,7 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useMenuAction } from '@/tauri/menu-actions';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
@@ -42,11 +43,8 @@ function DesktopNavigationLayout({
   children: ReactNode;
   collapseForWorkbench: boolean;
 }) {
-  // 'toggle-sessions' used to also be reachable via the native View menu
-  // (removed — see menu_spec.rs's application-menu trim); `SidebarTrigger`
-  // below already calls `useSidebar().toggleSidebar` directly, including
-  // its own keyboard shortcut, so no useMenuAction registration is needed.
-  const { open, setOpen } = useSidebar();
+  const { open, setOpen, toggleSidebar } = useSidebar();
+  useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
 
@@ -223,10 +221,6 @@ export function ClioAppShell({
     }
     setWorkbenchOpen(!collapsed);
   }, [setWorkbenchOpen]);
-  // 'toggle-inspector' used to also be reachable via the native View menu
-  // (removed — see menu_spec.rs's application-menu trim); the Ctrl+Shift+B
-  // shortcut and the PanelRightIcon button below already call
-  // `toggleWorkbench` directly, so no useMenuAction registration is needed.
 
   useEffect(() => {
     if (!desktopWorkbench) return;
@@ -255,6 +249,7 @@ export function ClioAppShell({
   }, [applyWorkbenchShare, hasWorkbench]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  useMenuAction('toggle-workbench', toggleWorkbench, hasWorkbench);
   const leftPocketKey = useShortcutPresentation('left-pocket');
 
   // A strip chord with the pocket closed opens it at that strip item. The

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import type { highlightCode } from '@/components/ai-elements/code-block';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
@@ -137,7 +138,7 @@ export function AskCard({
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
         // and the options stay. Open Technical details lift the cap; the dock scrolls the card.
-        '@container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
         EDGE[kind],
         className,
       )}
@@ -148,7 +149,7 @@ export function AskCard({
           shows a hairline once content scrolls under it. */}
       <header
         className={cn(
-          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -mb-px -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-l-[3px] border-border border-b-transparent bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:border-b-border',
+          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -mb-px -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-l-[3px] border-border border-b-transparent bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:border-b-border group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
           EDGE[kind],
         )}
       >
@@ -308,7 +309,7 @@ export function AskButton({
       {...askKeyAttributes(keys)}
       className={cn(
         'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
-        !primary && 'border-input bg-transparent',
+        !primary && 'border-input bg-transparent text-foreground',
         className,
       )}
       data-slot="ask-button"
@@ -456,6 +457,34 @@ export function AskDetails({
 
 const PREVIEW_LINES = 8;
 
+type HighlightedLines = NonNullable<ReturnType<typeof highlightCode>>['tokens'];
+
+/** Theme-coloured tokens for a script, loaded with the shared highlighter; plain text until then. */
+function useHighlightedLines(code: string, language?: string): HighlightedLines | undefined {
+  const [state, setState] = useState<{ code: string; lines: HighlightedLines }>();
+  useEffect(() => {
+    if (language !== 'python') return;
+    let live = true;
+    const apply = (lines: HighlightedLines) => {
+      if (live) setState({ code, lines });
+    };
+    const load = async () => {
+      try {
+        const { highlightCode: highlight } = await import('@/components/ai-elements/code-block');
+        const cached = highlight(code, language, (result) => apply(result.tokens));
+        if (cached) apply(cached.tokens);
+      } catch {
+        // Plain lines stay; colour is not needed to read the script.
+      }
+    };
+    void load();
+    return () => {
+      live = false;
+    };
+  }, [code, language]);
+  return state?.code === code ? state.lines : undefined;
+}
+
 function AskCopyButton({ code, label }: { code: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -515,7 +544,7 @@ export function AskCode({
   icon?: LucideIcon;
   /** Adds a header toggle for wrapping long lines (on by default). */
   wrapToggle?: boolean;
-  language?: 'json';
+  language?: 'json' | 'python';
   previewLines?: number;
   className?: string;
 }) {
@@ -525,6 +554,18 @@ export function AskCode({
   const clipped = !expanded && lines.length > previewLines;
   const shown = clipped ? lines.slice(0, previewLines) : lines;
   const hidden = lines.length - shown.length;
+  const highlighted = useHighlightedLines(code, language);
+  const lineContent = (line: string, index: number): ReactNode => {
+    if (!line) return ' ';
+    if (language === 'json') return jsonLine(line);
+    const tokens = highlighted?.[index];
+    if (!tokens) return line;
+    return tokens.map((token, at) => (
+      <span key={at} style={{ color: token.color }}>
+        {token.content}
+      </span>
+    ));
+  };
   return (
     <AskSection
       aria-label={label}
@@ -572,7 +613,7 @@ export function AskCode({
               {index + 1}
             </span>
             <code className={wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}>
-              {line ? (language === 'json' ? jsonLine(line) : line) : ' '}
+              {lineContent(line, index)}
             </code>
           </span>
         ))}
