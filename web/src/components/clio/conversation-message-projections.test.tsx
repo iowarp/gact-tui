@@ -88,9 +88,7 @@ describe('conversation message projections', () => {
         </ConversationDisplayProvider>
       </AppearanceProvider>,
     );
-    expect(
-      view.container.querySelectorAll('[data-slot="conversation-message-sender"]'),
-    ).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-slot="user-message-actions"]')).toHaveLength(0);
     expect(view.container.querySelector('#message-before')).not.toBeNull();
     expect(view.container.querySelector('#message-after')).toHaveAttribute(
       'data-response-continuation',

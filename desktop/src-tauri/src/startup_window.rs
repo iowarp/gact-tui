@@ -7,8 +7,8 @@ use tauri::{window::Color, Manager, Runtime, WebviewWindow, WebviewWindowBuilder
 /// The window that is held back until the page reports its first frame.
 pub(crate) const STARTUP_WINDOW: &str = "main";
 
-/// The default dark theme's page background (`oklch(0.105 0 0)` in themes.css).
-const STARTUP_BACKGROUND: Color = Color(4, 4, 4, 255);
+/// The default Dark theme's page background (`#1e1c19` in themes.css).
+const STARTUP_BACKGROUND: Color = Color(0x1e, 0x1c, 0x19, 255);
 
 /// Reveal the window anyway when the page never reports its first frame.
 const REVEAL_FALLBACK: Duration = Duration::from_millis(2_500);

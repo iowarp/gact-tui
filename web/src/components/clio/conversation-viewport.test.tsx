@@ -200,7 +200,7 @@ describe('ClioConversation transcript viewport', () => {
     });
     act(() => frames.splice(0).forEach((callback) => callback(0)));
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
   it('does not follow a queued resize after the reader starts scrolling', () => {
     const viewport = stubViewport();
@@ -271,7 +271,7 @@ describe('ClioConversation transcript viewport', () => {
     scrollTo.mockClear();
     viewport.resizeTo(640);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
 
   it('remeasures transcript rows and restores the pinned view on a width change', () => {
@@ -727,7 +727,7 @@ describe('ClioConversation transcript viewport', () => {
     await waitFor(() => expect(document.activeElement).toHaveAttribute('id', 'message-message_1'));
   });
 
-  it('does not rebuild the turn projection when only the activity disclosure changes', () => {
+  it('does not rebuild the turn projection when only a row disclosure changes', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -761,8 +761,8 @@ describe('ClioConversation transcript viewport', () => {
     const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
     expect(buildsAfterMount).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Thinking:/ }));
 
     expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });

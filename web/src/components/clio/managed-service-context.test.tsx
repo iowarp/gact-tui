@@ -223,7 +223,7 @@ describe('SettingsWorkingContext', () => {
     );
     expect(screen.queryByRole('combobox', { name: 'Fit to GPU' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    const input = screen.getByLabelText('Context length');
+    const input = screen.getByLabelText('Context size');
     await user.clear(input);
     await user.type(input, '300000');
     expect(screen.getByRole('alert')).toHaveTextContent('At most 200,000 tokens');
@@ -236,6 +236,9 @@ describe('SettingsWorkingContext', () => {
       choice: 'number',
       tokens: 64_000,
     });
-    expect(await screen.findByText(/In force: 64,000 tokens/u)).toBeVisible();
+    // In force now matches the field, so no note repeats it.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
+    expect(input).toHaveValue(64_000);
+    expect(screen.queryByText(/In force:/u)).toBeNull();
   });
 });
