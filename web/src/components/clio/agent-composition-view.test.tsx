@@ -2,7 +2,7 @@ import type { SessionAgent } from '@clio/core/v3';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addHdf5,
   agentRepository as repository,
@@ -41,6 +41,8 @@ function renderView(view = <AgentCompositionView sessionId="sess_1" />) {
   return renderAgentView(view);
 }
 
+// The drill-in is a lazy chunk; load it once so the first test does not wait on a cold import.
+beforeAll(() => import('./agent-tab-drill-in'));
 beforeEach(seedAgentRepository);
 
 afterEach(() => {
@@ -517,7 +519,9 @@ describe('AgentCompositionView', () => {
     renderView();
     await user.click(await screen.findByRole('button', { name: 'Reset to setup' }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText('Restores Standard’s plugins in this conversation.')).toBeVisible();
+    expect(
+      within(dialog).getByText('Restores Standard’s plugins in this conversation.'),
+    ).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
     await waitFor(() =>
       expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
