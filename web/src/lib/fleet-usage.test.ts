@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { FleetAccount } from '@clio/core/v3';
 import {
+  accountUsageWords,
   busiestWindow,
   formatTokens,
   observedAgo,
@@ -62,6 +64,41 @@ describe('fleet usage presentation', () => {
     };
     expect(busiestWindow(snapshot)?.name).toBe('Weekly');
     expect(busiestWindow(null)).toBeUndefined();
+  });
+
+  it('reads a credit balance as used under Used and as left under Remaining', () => {
+    const account = (balance: {
+      remaining: number | null;
+      limit: number | null;
+      used: number | null;
+    }) =>
+      ({
+        id: 'openrouter',
+        label: 'OpenRouter',
+        billing: 'credit',
+        health: 'ready',
+        failure: '',
+        usage: {
+          account: 'openrouter',
+          state: 'metered',
+          observed_at: '',
+          source: '',
+          windows: [],
+          balance: { ...balance, currency: 'USD' },
+          status: '',
+          read_failure: '',
+          read_failed_at: '',
+        },
+      }) as unknown as FleetAccount;
+    const credit = account({ remaining: 18.42, limit: 50, used: 31.58 });
+    expect(accountUsageWords(credit, 'used').label).toBe('$31.58 used');
+    expect(accountUsageWords(credit, 'remaining').label).toBe('$18.42 left');
+    expect(
+      accountUsageWords(account({ remaining: 5, limit: 50, used: null }), 'used'),
+    ).toMatchObject({ label: '$45.00 used', tone: 'warning' });
+    expect(
+      accountUsageWords(account({ remaining: 5, limit: null, used: null }), 'used'),
+    ).toMatchObject({ label: '$5.00 left', hint: 'Only the remaining balance is reported' });
   });
 
   it('names the model a call ran on and why', () => {
