@@ -320,7 +320,7 @@ function catalogue({ settings, infrastructure }) {
       'menu-service-status',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^[^:]+: .+ · /u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
       },
@@ -331,7 +331,7 @@ function catalogue({ settings, infrastructure }) {
       'menu-clio-add-agent',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^[^:]+: .+ · /u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
         // By key, so moving the pointer away before the capture keeps it open.

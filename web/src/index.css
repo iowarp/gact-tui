@@ -1012,5 +1012,5 @@ html[data-clio-motion='reduced'] *::after {
   inset: 0;
   z-index: 90;
   pointer-events: none;
-  background: rgb(0 0 0 / 0.38);
+  background: var(--scrim);
 }

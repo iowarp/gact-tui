@@ -233,7 +233,7 @@ export async function shellJourney(r) {
       close: 'Escape',
     },
   );
-  await r.overlay('agent menu', 'button', /^[^:]+: .+ · /u);
+  await r.overlay('agent menu', 'button', /^[^:]+: .+, this computer$/u);
   await r.overlay('workspace actions menu', 'button', /^Workspace actions for /u);
   await r.overlay('session row actions menu', 'button', /^Session actions for /u);
   await r.overlay('attention inbox', 'button', /^Notifications|needs your response/u);

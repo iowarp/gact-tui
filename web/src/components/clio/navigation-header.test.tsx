@@ -112,7 +112,7 @@ it('names the agent and where it runs under the product name', () => {
   );
 
   expect(
-    screen.getByRole('button', { name: new RegExp(`^${brand.name}: .+ · this computer$`, 'u') }),
+    screen.getByRole('button', { name: new RegExp(`^${brand.name}: .+, this computer$`, 'u') }),
   ).toBeVisible();
   expect(screen.getByRole('button', { name: 'New conversation' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Import conversation…' })).toBeInTheDocument();
@@ -181,7 +181,7 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
     </MemoryRouter>,
   );
 
-  expect(screen.getByText('Research · Ares')).toBeVisible();
+  expect(screen.getByText('Research, Ares')).toBeVisible();
 });
 
 it.each(['local', 'aurora'] as const)(

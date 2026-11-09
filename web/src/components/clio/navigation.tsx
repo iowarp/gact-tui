@@ -1,7 +1,8 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ArchiveIcon, SlidersHorizontalIcon, UserRoundIcon } from 'lucide-react';
+import { ArchiveIcon, UserRoundIcon } from 'lucide-react';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
+import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
@@ -209,7 +210,7 @@ export function ClioNavigation({
                 state={{ endpoint, from: location.pathname }}
                 to="/settings/general"
               >
-                <SlidersHorizontalIcon aria-hidden="true" className="size-[15px]" />
+                <SettingsIcon aria-hidden="true" className="size-[15px]" />
                 <HeldKeyBadge id="settings" />
               </Link>
             </NamedTooltip>

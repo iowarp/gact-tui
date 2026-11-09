@@ -47,9 +47,9 @@ export function NavigationAgentMenu({
   const versions = useSystemVersionStatus();
   const location = connectionLocation(endpoint, activeLocation);
   const agentName = connectionAgentName(activeLabel, location);
-  // An unnamed agent reads as the product and its place: "CLIO local · this computer".
+  // An unnamed agent reads as the product and its place: "CLIO local, this computer".
   // A longer wordmark already heads the menu, so the line names the agent
-  // instead ("Agent · this computer") and fits beside the bell.
+  // instead ("Agent, this computer") and fits beside the bell.
   const shortMark = brand.wordmark.length <= 6;
   const name =
     agentName !== connectionAgentName(undefined, location) || !shortMark
@@ -153,7 +153,7 @@ function statusLine(
   if (updateReady) {
     return { text: `${name}, update ready`, label: 'Update ready', tone: 'info' };
   }
-  return { text: `${name} · ${place}`, label: 'Live', tone: 'success' };
+  return { text: `${name}, ${place}`, label: 'Live', tone: 'success' };
 }
 
 function placeWords(location: string): string {
