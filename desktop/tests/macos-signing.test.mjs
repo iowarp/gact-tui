@@ -116,6 +116,7 @@ test('pull requests get a verified macOS DMG artifact without notarization', () 
   const apps = read('.github/workflows/apps.yml');
   const job = apps.slice(apps.indexOf('  macos-bundle:'), apps.indexOf('  native-webview-proof:'));
   assert.match(job, /github\.event_name == 'pull_request'/);
+  assert.match(job, /github\.base_ref == 'develop' \|\| github\.base_ref == 'main'/);
   assert.match(job, /--config src-tauri\/tauri\.bundled\.conf\.json/);
   assert.match(job, /--config src-tauri\/tauri\.no-updater\.conf\.json/);
   assert.match(job, /macos-verify-app\.sh/);

@@ -47,6 +47,12 @@ on:
         required: false
         default: ''
 
+# A new push to a pull request cancels that pull request's older run. Pushes,
+# tags and dispatches each keep their own run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   NODE_VERSION: '22.x'
   PNPM_VERSION: '9.15.9'
@@ -253,7 +259,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest, macos-latest]
+        # macOS runners are shared and scarce: build on macOS only for pull
+        # requests into develop or main, pushes to them, tags and dispatches.
+        os: >-
+          ${{ fromJSON(((github.event_name == 'pull_request' && github.base_ref != 'develop' && github.base_ref != 'main')
+          || startsWith(github.ref, 'refs/heads/codex/'))
+          && '["ubuntu-22.04","windows-latest"]'
+          || '["ubuntu-22.04","windows-latest","macos-latest"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -336,7 +348,9 @@ jobs:
   # download until it is opened from System Settings > Privacy & Security.
   macos-bundle:
     name: tauri bundle · macos-latest · aarch64
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request' && (github.base_ref == 'develop' || github.base_ref == 'main'))
     runs-on: macos-latest
     timeout-minutes: 90
     env:
