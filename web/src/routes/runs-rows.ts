@@ -46,7 +46,8 @@ export const sourceLabels: Record<RunSource, string> = {
   flow: 'Flow',
 };
 
-function conciseReason(reason: string | undefined): string | undefined {
+/** One readable line from a server-authored failure reason (JSON or text). */
+export function conciseReason(reason: string | undefined): string | undefined {
   if (!reason) return undefined;
   try {
     const parsed = JSON.parse(reason) as Record<string, unknown>;

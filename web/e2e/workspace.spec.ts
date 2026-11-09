@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   fixtureEndpoint,
   setupWorkspaceBrowser,
-  showEvidenceRail,
+  openConversationRail,
   workspaceUrl,
 } from './workspace-setup';
 
@@ -219,8 +219,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     await page.reload();
     await waitForArtifactPreview(page);
     await page.evaluate(() => document.fonts.ready);
-    await showEvidenceRail(page, 'Session');
-    await page.getByRole('button', { name: 'Open full details' }).click();
+    const rail = await openConversationRail(page);
+    await rail.getByRole('button', { name: 'Open full view' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
     // Full details lands on the Activity list; the Gantt and Context are its Timeline tab.
     await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
@@ -1159,12 +1159,10 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  // The top toolbar exposes the evidence layout control. The
+  // The top toolbar exposes the conversation rail button. The
   // persistent live region retains work status without a second visible badge.
-  const observabilityDock = page.getByRole('button', {
-    name: /^Evidence layout: /u,
-  });
-  await expect(observabilityDock).toHaveAttribute('aria-haspopup', 'dialog');
+  const observabilityDock = page.getByRole('button', { name: 'Conversation rail', exact: true });
+  await expect(observabilityDock).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[aria-live="polite"]').filter({ hasText: /^Working$/ })).toHaveCount(
     1,
   );

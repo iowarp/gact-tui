@@ -123,3 +123,41 @@ test('session creation expands downward from a stable corner and keeps actions r
   await expect(dialog).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('a create menu opened while the conversation is loading stays open once it loads', async ({
+  page,
+}) => {
+  await page.request.post(`${endpoint}/__test/reset`);
+  await page.addInitScript((value) => {
+    if (window !== window.top) return;
+    localStorage.setItem('clio.recent-connections', JSON.stringify([value]));
+  }, endpoint);
+  let releaseSessions!: () => void;
+  const sessionsReleased = new Promise<void>((resolve) => (releaseSessions = resolve));
+  await page.route(
+    (url) => url.pathname === '/v1/sessions',
+    async (route) => {
+      await sessionsReleased;
+      await route.continue();
+    },
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+  const restoring = page.getByText('Restoring saved messages now', { exact: false });
+  await expect(restoring).toBeVisible();
+  const trigger = page.getByRole('button', { name: 'Create or import', exact: true });
+  await trigger.click();
+  const newSession = page.getByRole('menuitem', { name: 'New session', exact: true });
+  await expect(newSession).toBeVisible();
+
+  releaseSessions();
+  // The open menu hides the rest of the page from the accessibility tree, so
+  // read the shell through attributes rather than roles.
+  await expect(page.locator('[aria-label="Workspace canvas loading"]')).toHaveCount(0);
+  await expect(restoring).toHaveCount(0);
+  await expect(page.locator('[aria-label="Create or import"]')).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(newSession).toBeVisible();
+});

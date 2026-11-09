@@ -35,16 +35,24 @@ import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
 import { createSettingsFixture } from './settings-fixture.mjs';
 import { createSettingsCatalog } from './settings-catalog-fixture.mjs';
 import { createAgentFixture } from './agent-fixture.mjs';
+import {
+  DECISION_CARDS,
+  decisionCardInteractions,
+  decisionChildSession,
+} from './fixture-decision-cards.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
   throw new Error(`Invalid CLIO_FIXTURE_PORT: ${process.env['CLIO_FIXTURE_PORT'] ?? ''}`);
 }
 const streamMessageId = 'msg_stream';
+const decisionChildSessionId = 'sess_station_specialist';
 const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
 let questionTrayDemo = false;
+/** One of DECISION_CARDS while the screens harness captures that card. */
+let decisionCardsDemo = null;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
 let a2uiDataDemo = false;
@@ -2459,6 +2467,7 @@ const server = createServer(async (request, response) => {
     permissionPending = true;
     questionPending = true;
     questionTrayDemo = false;
+    decisionCardsDemo = null;
     mcpV2UiDemo = false;
     a2uiMapDemo = false;
     // Every spec shares this server: a demo left on by one spec file (the
@@ -2580,6 +2589,19 @@ const server = createServer(async (request, response) => {
       closes: mcpAppCloses,
       resolved_interactions: [...resolvedInteractionIds],
     });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/decision-cards') {
+    const { card } = await readJson(request);
+    if (!DECISION_CARDS.includes(card)) {
+      sendJson(response, { detail: `card must be one of ${DECISION_CARDS.join(', ')}` }, 400);
+      return;
+    }
+    decisionCardsDemo = card;
+    permissionPending = false;
+    questionPending = false;
+    sendJson(response, { status: 'pending' }, 202);
     return;
   }
 
@@ -3001,7 +3023,9 @@ const server = createServer(async (request, response) => {
       capabilities: {
         ...capabilities.capabilities,
         x_clio_agent_plugins: true,
-        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo ? { x_clio_interactions: true } : {}),
+        ...(mcpV2UiDemo || a2uiMapDemo || questionTrayDemo || decisionCardsDemo
+          ? { x_clio_interactions: true }
+          : {}),
         ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
         ...settingsCatalog.capabilities(request),
       },
@@ -3181,7 +3205,11 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/sessions') {
-    const all = [session, ...branchArtifacts.sessions()];
+    const all = [
+      session,
+      ...(decisionCardsDemo ? [decisionChildSession(session, decisionChildSessionId)] : []),
+      ...branchArtifacts.sessions(),
+    ];
     const byId = new Map(all.map((row) => [row.id, row]));
     const rootOf = (id) => {
       const seen = new Set();
@@ -3720,47 +3748,58 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (
-    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo) &&
+    (mcpV2UiDemo || a2uiMapDemo || questionTrayDemo || decisionCardsDemo) &&
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/interactions`
   ) {
     sendJson(response, {
-      interactions: questionTrayDemo
-        ? [
-            {
-              id: 'native:question:tray',
-              kind: 'question',
-              status: 'pending',
-              requires_human_response: true,
-              audience: 'human',
-              owner_session_id: sessionId,
-              attended_session_id: sessionId,
-              title: 'Question',
-              prompt: 'Which evidence view should remain primary?',
-              created_at: observedAt,
-              source: {
-                protocol: 'native',
-                tool_name: 'ask_user',
-                invocation_id: 'tool_fixture_question',
+      interactions: decisionCardsDemo
+        ? decisionCardInteractions(decisionCardsDemo, {
+            sessionId,
+            childSessionId: decisionChildSessionId,
+            workspaceId,
+            observedAt,
+          }).filter((interaction) => !resolvedInteractionIds.has(interaction.id))
+        : questionTrayDemo
+          ? [
+              {
+                id: 'native:question:tray',
+                kind: 'question',
+                status: 'pending',
+                requires_human_response: true,
+                audience: 'human',
+                owner_session_id: sessionId,
+                attended_session_id: sessionId,
+                title: 'Question',
+                prompt: 'Which evidence view should remain primary?',
+                created_at: observedAt,
+                source: {
+                  protocol: 'native',
+                  tool_name: 'ask_user',
+                  invocation_id: 'tool_fixture_question',
+                },
+                actions: ['answer'],
+                payload: {
+                  question_id: 'tray',
+                  kind: 'choice',
+                  options: [{ label: 'Table', value: 'table' }],
+                },
               },
-              actions: ['answer'],
-              payload: {
-                question_id: 'tray',
-                kind: 'choice',
-                options: [{ label: 'Table', value: 'table' }],
-              },
-            },
-          ]
-        : a2uiMapDemo
-          ? earthScopeMapInteractions()
-          : mcpV2Interactions(),
+            ]
+          : a2uiMapDemo
+            ? earthScopeMapInteractions()
+            : mcpV2Interactions(),
     });
     return;
   }
   const interactionResponseMatch = url.pathname.match(
     new RegExp(`^/v1/sessions/${sessionId}/interactions/([^/]+)/respond$`),
   );
-  if ((mcpV2UiDemo || a2uiMapDemo) && request.method === 'POST' && interactionResponseMatch) {
+  if (
+    (mcpV2UiDemo || a2uiMapDemo || decisionCardsDemo) &&
+    request.method === 'POST' &&
+    interactionResponseMatch
+  ) {
     const interactionId = decodeURIComponent(interactionResponseMatch[1]);
     const body = await readJson(request);
     resolvedInteractionIds.add(interactionId);

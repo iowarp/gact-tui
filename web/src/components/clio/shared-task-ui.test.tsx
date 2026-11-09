@@ -106,7 +106,8 @@ it.each(['MCP', 'Subagent', 'Session'] as const)(
     expect(
       screen.getByRole('img', { name: `${kind === 'MCP' ? 'Tool' : 'Agent'}: running` }),
     ).toBeVisible();
-    expect(screen.queryByText('Running', { exact: true })).not.toBeInTheDocument();
+    // Only the Running section's name; the row states its status through the icon.
+    expect(screen.getAllByText('Running', { exact: true })).toHaveLength(1);
     expect(screen.queryByText('Reading owned evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Task details: Owned work' }));
     expect(screen.getByText('Reading owned evidence')).toBeVisible();

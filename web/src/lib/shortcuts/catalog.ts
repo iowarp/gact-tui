@@ -38,8 +38,8 @@ export interface ShortcutDefinition {
   mac?: readonly string[];
   /** Only where this host owns the key (the desktop app owns Ctrl N). */
   host?: 'desktop' | 'browser';
-  /** Show the chords side by side instead of with "or" (`↑ ↓`). */
-  joiner?: 'or' | 'pair';
+  /** Show the chords side by side instead of with "or" (`↑ ↓`), or as one cap (`↑↓`). */
+  joiner?: 'or' | 'pair' | 'cap';
 }
 
 const def = (
@@ -119,7 +119,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
 
-  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'pair' }),
+  def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'cap' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
   def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
