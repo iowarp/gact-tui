@@ -20,7 +20,7 @@ for (const theme of ['light', 'dark'] as const) {
     await newSession.click();
 
     const create = page.getByRole('dialog', { name: 'Create', exact: true });
-    await expect(create.getByRole('tab', { name: 'Workspace', exact: true })).toHaveCSS(
+    await expect(create.getByRole('radio', { name: 'Workspace', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
     );
@@ -93,19 +93,17 @@ for (const theme of ['light', 'dark'] as const) {
     await sessionActions.hover();
     await expect(sessionActions).toHaveCSS('cursor', 'pointer');
     await sessionActions.click();
-    const exportSession = page.getByRole('menuitem', { name: 'Export session', exact: true });
+    const exportSession = page.getByRole('menuitem', { name: 'Export', exact: true });
     await expect(exportSession).toHaveCSS('cursor', 'pointer');
     await exportSession.hover();
     const workspaceFiles = page.getByRole('menuitemcheckbox', {
-      name: 'Include workspace files',
+      name: 'Workspace files',
       exact: true,
     });
     await expect(workspaceFiles).toHaveCSS('cursor', 'pointer');
     await workspaceFiles.click();
     await expect(workspaceFiles).toBeChecked();
-    await expect(
-      page.getByRole('menuitemcheckbox', { name: 'Include session artifacts' }),
-    ).toBeChecked();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toBeChecked();
     await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
