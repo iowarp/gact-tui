@@ -159,7 +159,7 @@ export const surfaces = [
     title: 'Settings: other sections',
     pairs: [
       {
-        app: 'settings--(general|appearance|notifications|connections?|relays|(new-)?session-defaults|execution-and-history|runtime|browser|scheduled-work|permissions|system|about|profile|health)',
+        app: 'settings--(general|appearance|notifications|connections?|relays|(new-)?session-defaults|execution-and-history|runtime|browser|scheduled-work|permissions|system|about|profile|folders|health)',
         spec: [...st(4, 12, 17)],
       },
       { app: 'settings--memory.*', spec: [...st(14, 15)] },
