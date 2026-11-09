@@ -155,6 +155,8 @@ export function PlanDecisionControls({
             faceProps={{
               ...askKeyAttributes([String(executeNumber), 'Enter']),
               'aria-label': exitOnly ? 'Leave Plan mode' : 'Execute plan',
+              // Stacked, the label fills; the mode chip and ↵ sit at the right edge.
+              className: '@max-[420px]/ask:flex-1 @max-[420px]/ask:justify-start',
               title: canExecute
                 ? undefined
                 : 'Execution needs the complete plan. Request changes, or choose Exit Plan mode only.',
