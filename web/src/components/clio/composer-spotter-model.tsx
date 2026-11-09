@@ -47,6 +47,7 @@ export function ComposerSpotterModel({
         options={options}
         provider={choice?.providerId}
         title="Choose SPOTTER model"
+        placement="composer"
         trigger={
           <Button
             aria-label={`SPOTTER model: ${label}`}

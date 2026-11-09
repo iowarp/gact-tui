@@ -83,7 +83,7 @@ export function ModelPickerRangeSlider({
           {label}
         </h3>
         {token ? (
-          <code className="rounded bg-primary/10 px-1 font-mono text-[0.7rem] text-primary" data-slot="facet-range-token">
+          <code className="rounded bg-accent px-1 font-mono text-[0.7rem] text-accent-foreground" data-slot="facet-range-token">
             {token}
           </code>
         ) : null}

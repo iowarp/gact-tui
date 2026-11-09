@@ -1,5 +1,5 @@
 import type { LanguageModelPreset, ProviderClientFact } from '@clio/core/v3';
-import { isLocalServerPreset } from '@/lib/local-servers';
+import { isLocalServerPreset, isLoopbackAddress } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
   providerSetupNeed,
@@ -83,9 +83,20 @@ export function providerHealthPresentation(
   }[health];
 }
 
-/** One provider row's colour and state label ("Ready", "Needs API key", ...). */
+/**
+ * One provider row's colour and state label ("Ready", "Needs API key", ...). A
+ * remote model server with no answer reads "Can?t reach", the word Settings >
+ * Providers uses (a loopback one is already "Not running", see `localServerNotRunning`).
+ */
 export function providerGroupStatus(group: ProviderGroup): { color: string; label: string } {
+  if (group.health === 'unavailable' && group.endpoint && !isLoopbackAddress(group.endpoint))
+    return { color: 'text-destructive', label: 'Can?t reach' };
   return providerHealthPresentation(group.health, group.setupNeed);
+}
+
+/** Whether a provider's models can be chosen right now; the rest stay listed, dimmed. */
+export function providerRunning(group: ProviderGroup): boolean {
+  return group.health === 'healthy' || group.health === 'checking';
 }
 
 /**

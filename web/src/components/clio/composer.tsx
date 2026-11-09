@@ -653,6 +653,7 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
+                  placement="composer"
                   trigger={
                     <ComposerModelButton
                       aria-label="Change model"
