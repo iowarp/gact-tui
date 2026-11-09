@@ -336,6 +336,7 @@ function largeTree() {
       entries.push({ path, type: 'file', size: specFile(path).bytes.length });
     // Listed only: too large to preview, so the viewer never reads it.
     entries.push({ path: 'ndp/era5_hourly.nc', type: 'file', size: 2_254_857_830 });
+    entries.push({ path: 'figures/swath_mosaic.png', type: 'file', size: 2_254_857_830 });
   }
   if (scenario.largeFileBytes > 0) {
     if (!entries.some((entry) => entry.path === 'perf'))

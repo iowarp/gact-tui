@@ -371,8 +371,26 @@ describe('WorkspaceFileView', () => {
       />,
     );
 
-    expect(await screen.findByText('PDF preview unavailable')).toBeVisible();
+    expect(await screen.findByText("Couldn't read it")).toBeVisible();
     expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
+  });
+
+  it('offers an image too large to read inline instead of reading it', async () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="image/png"
+        path="figures/mosaic.png"
+        size={2_254_857_830}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="state-view"][data-kind="too-large"]'),
+      ).toBeInTheDocument(),
+    );
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
   });
 
   it('presents an unsupported binary as the frame no-preview state, not a code block', async () => {

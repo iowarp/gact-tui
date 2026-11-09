@@ -81,48 +81,61 @@ export function WorkspaceFileView({
   const hdf5Viewer = useHdf5ViewerSupported();
   const html =
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
-  const preview =
-    detected === 'application/pdf' ? (
-      <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
-    ) : detected.startsWith('image/') ? (
-      <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
-    ) : html ? (
-      <WorkspaceTextView
-        html={{ openOnShow: !embedded }}
-        path={path}
-        size={size}
-        workspaceId={workspaceId}
-        mediaType={detected}
-      />
-    ) : isTextMediaType(detected) ? (
-      <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
-    ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
-      <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
-        <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
-      </Suspense>
-    ) : officeMediaType(path) ? (
-      <WorkspaceDocumentView
-        documentView={(artifact) => (
-          <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
-        )}
-        fallback={
-          <WorkspaceBinaryView
-            mediaType={detected}
-            path={path}
-            size={size}
-            workspaceId={workspaceId}
-          />
-        }
-        mediaType={officeMediaType(path)!}
-        path={path}
-        workspaceId={workspaceId}
-      />
-    ) : (
-      <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
-    );
+  const source: FileViewerSource = {
+    kind: 'workspace',
+    workspaceId,
+    path,
+    mediaType: detected,
+    size,
+  };
+  // PDFs and images are read whole, so past the inline cap they are offered, not read.
+  const tooLarge =
+    (detected === 'application/pdf' || detected.startsWith('image/')) &&
+    size !== undefined &&
+    size > INLINE_PREVIEW_MAX_BYTES;
+  const preview = tooLarge ? (
+    <ViewerTooLarge size={size} source={source} />
+  ) : detected === 'application/pdf' ? (
+    <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />
+  ) : detected.startsWith('image/') ? (
+    <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />
+  ) : html ? (
+    <WorkspaceTextView
+      html={{ openOnShow: !embedded }}
+      path={path}
+      size={size}
+      workspaceId={workspaceId}
+      mediaType={detected}
+    />
+  ) : isTextMediaType(detected) ? (
+    <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} mediaType={detected} />
+  ) : detected === HDF5_MEDIA_TYPE && hdf5Viewer ? (
+    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+      <Hdf5ViewerFrame locator={locator} path={path} workspaceId={workspaceId} />
+    </Suspense>
+  ) : officeMediaType(path) ? (
+    <WorkspaceDocumentView
+      documentView={(artifact) => (
+        <ClioDocumentWorkspace artifact={artifact} fallbackPreview={null} key={artifact.id} />
+      )}
+      fallback={
+        <WorkspaceBinaryView
+          mediaType={detected}
+          path={path}
+          size={size}
+          workspaceId={workspaceId}
+        />
+      }
+      mediaType={officeMediaType(path)!}
+      path={path}
+      workspaceId={workspaceId}
+    />
+  ) : (
+    <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+  );
   return (
     <FileViewerShell
-      source={{ kind: 'workspace', workspaceId, path, mediaType: detected, size }}
+      source={source}
       showIdentity={!embedded}
       tabs={[{ value: 'preview', label: 'Preview', icon: EyeIcon, content: preview }]}
     />
@@ -163,6 +176,7 @@ function WorkspacePdfView({
           error={content.error?.message}
           initialPage={initialPage}
           name={fileName(path)}
+          onRetry={() => void content.refetch()}
         />
       </div>
     </WorkspaceFileComments>
@@ -197,6 +211,7 @@ function WorkspaceImageView({
         error={content.error?.message}
         mediaType={mediaType}
         name={fileName(path)}
+        onRetry={() => void content.refetch()}
       />
     </WorkspaceFileComments>
   );

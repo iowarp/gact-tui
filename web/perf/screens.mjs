@@ -381,7 +381,7 @@ function catalogue({ settings, infrastructure }) {
       mermaid: 'diagrams/pipeline.mmd',
       array: 'ndp/soil_moisture.h5',
       'no-preview': 'ndp/forecast.grib2',
-      'state-too-large': 'ndp/era5_hourly.nc',
+      'state-too-large': 'figures/swath_mosaic.png',
     }).map(([format, path]) =>
       s('viewer', format, SESSION, (page) => openFile(page, path), {
         scenario: { specFiles: true },

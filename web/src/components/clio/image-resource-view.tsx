@@ -1,11 +1,11 @@
-import { DownloadIcon, ImageIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { OverlayContainer } from '@/components/ui/overlay-container';
 import { FileViewerInformationHost } from './file-viewer-context';
 import { useFileViewerFacts } from './file-viewer-facts';
-import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ResourceLoading, ViewerReadError } from './resource-states';
 import { downloadBytes } from './surface-export';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
@@ -27,11 +27,13 @@ export function ImageResourceView({
   error,
   mediaType,
   name,
+  onRetry,
 }: {
   bytes?: Uint8Array;
   error?: string;
   mediaType: string;
   name: string;
+  onRetry?: () => void;
 }) {
   const theme = useHtmlPreviewTheme();
   const displayBytes = useMemo(
@@ -108,10 +110,9 @@ export function ImageResourceView({
   };
   if (error || (url && failedImageUrl === url))
     return (
-      <ResourceUnavailable
-        detail={error || 'The image bytes could not be decoded.'}
-        icon={ImageIcon}
-        label="Image preview unavailable"
+      <ViewerReadError
+        error={error || 'The image bytes could not be decoded.'}
+        onRetry={error ? onRetry : undefined}
       />
     );
   if (!url) return <ResourceLoading label={`Loading ${name}`} />;

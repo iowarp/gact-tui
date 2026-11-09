@@ -321,8 +321,9 @@ function ResourcePreview({
       <TextResourceView
         content={bytes ? new TextDecoder().decode(bytes) : undefined}
         error={error}
-        path={resource.name}
         mediaType={resource.detected_mime}
+        onRetry={onRetry}
+        path={resource.name}
       />
     );
   }
@@ -333,6 +334,7 @@ function ResourcePreview({
         error={error}
         mediaType={resource.detected_mime}
         name={resource.name}
+        onRetry={onRetry}
       />
     );
   }
@@ -342,7 +344,7 @@ function ResourcePreview({
     // reads.
     return (
       <div className="size-full overflow-hidden">
-        <ClioPdfPreview bytes={bytes} error={error} name={resource.name} />
+        <ClioPdfPreview bytes={bytes} error={error} name={resource.name} onRetry={onRetry} />
       </div>
     );
   }
