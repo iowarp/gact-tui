@@ -63,9 +63,20 @@ The full window frame. Only the Settings window uses it today.
 - `ModelSelectField { title, options, providerId?, modelId?, option?, placeholder, catalogStatus, onRetryCatalog, onChange, label?, id?, providerName?, disabled? }`
   opens the shared model picker. Use it for every model choice in Settings.
 
-**Detail pane** (E): not built yet. It will land in
-`components/clio/primitives/` and be listed here. Until then, use the existing
-`settings-provider-details-sheet.tsx`.
+**`DetailPane` / `ListDetailLayout`** (E) `components/clio/primitives/detail-pane.tsx`
+
+- `DetailPane { title, onClose, children, icon?, actions?, tabs?, className? }`.
+  It has the dialog's title row (icon, name, icon actions, ×). `tabs` is a
+  `SegmentedControl` under the title row. The pane takes focus when it opens, returns
+  focus to the opener when it closes, and Esc inside it closes only the pane, not the
+  Settings window.
+- `ListDetailLayout { list, detail?, className? }` places the open pane at 42% of the
+  width beside the list. Under 40rem of container width the pane replaces the list
+  until it closes. Open it with Enter or an Explore action on an `ItemRow`; never use
+  a sheet or dialog over the list. Use it for the plugin explorer, provider details,
+  MCP service details, agent preview and memory documents.
+- To keep Esc from closing the window, mark any other nested scope with
+  `data-escape-scope` and handle Esc there.
 
 Other primitives (status indicator, tags, split button, segmented control, key
 chips) are in `components/clio/primitives/` and
