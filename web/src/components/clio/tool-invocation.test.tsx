@@ -709,7 +709,7 @@ it('shows a returned question call as in progress while its question waits (N5a)
     id: 'ask1',
     session_id: 's',
     name: 'ask_user',
-    state: 'completed' as const,
+    state: 'succeeded' as const,
     presentation: { action: 'Ask', summary: '', blocks: [] },
   };
   const waiting = {
