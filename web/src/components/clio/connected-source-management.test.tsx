@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sessionRows = vi.hoisted(() => vi.fn());
 
@@ -13,6 +13,8 @@ const repository = vi.hoisted(() => ({
   sourceMappingOptions: vi.fn(),
   browseConnectedSource: vi.fn(),
   linkConnectedSource: vi.fn(),
+  transferConnectedSource: vi.fn(),
+  createSession: vi.fn(),
   beginSourceDraft: vi.fn(),
   attachSourceFolder: vi.fn(),
 }));
@@ -187,4 +189,105 @@ it('opens a summary-selected source directly without changing the composer selec
   expect(client.getQueryData(key)).toBe('some-other-source');
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
   client.clear();
+});
+
+describe('with no conversations in the workspace', () => {
+  beforeEach(() => {
+    sessionRows.mockResolvedValue([]);
+    repository.createSession.mockImplementation(async (input: { title: string }) => {
+      const created = { id: 'session_new', workspace_id: 'w', title: input.title };
+      sessionRows.mockResolvedValue([created]);
+      return created;
+    });
+    repository.linkConnectedSource.mockResolvedValue({ ...source, linked: true });
+    repository.transferConnectedSource.mockResolvedValue({
+      id: 'op1',
+      state: 'queued',
+      created_at: '2026-11-09',
+    });
+  });
+  const open = async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
+    const track = await screen.findByRole('combobox', { name: 'Track work in' });
+    await waitFor(() => expect(track).toHaveDisplayValue('New conversation'));
+    expect(screen.queryByRole('option', { name: 'Choose a conversation' })).toBeNull();
+    expect(screen.getByText('Starts “OPAL inputs” to track this work.')).toBeVisible();
+    return { user, track };
+  };
+
+  it('links a folder by starting a conversation named after the source', async () => {
+    const { user, track } = await open();
+    await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+    await waitFor(() =>
+      expect(repository.linkConnectedSource).toHaveBeenCalledWith(
+        'w',
+        's1',
+        false,
+        undefined,
+        { access: 'read_only', confirm_remote: false },
+        'session_new',
+      ),
+    );
+    expect(repository.createSession).toHaveBeenCalledOnce();
+    expect(repository.createSession).toHaveBeenCalledWith({
+      workspace_id: 'w',
+      title: 'OPAL inputs',
+    });
+    expect(screen.queryByText('Choose a conversation to track this work.')).toBeNull();
+    await waitFor(() => expect(track).toHaveDisplayValue('OPAL inputs'));
+  });
+
+  it('downloads into the started conversation and reuses it for later work', async () => {
+    const { user } = await open();
+    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await waitFor(() =>
+      expect(repository.transferConnectedSource).toHaveBeenCalledWith(
+        'w',
+        's1',
+        undefined,
+        undefined,
+        'editable',
+        'session_new',
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Download file' }));
+    await waitFor(() =>
+      expect(repository.transferConnectedSource).toHaveBeenLastCalledWith(
+        'w',
+        's1',
+        ['input.csv'],
+        undefined,
+        'editable',
+        'session_new',
+      ),
+    );
+    expect(repository.createSession).toHaveBeenCalledOnce();
+  });
+
+  it('retries starting the conversation after a failure', async () => {
+    repository.createSession.mockRejectedValueOnce(new Error('service unavailable'));
+    const { user } = await open();
+    await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+    expect(await screen.findByText(/service unavailable/)).toBeVisible();
+    expect(repository.linkConnectedSource).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await waitFor(() =>
+      expect(repository.linkConnectedSource).toHaveBeenCalledWith(
+        'w',
+        's1',
+        false,
+        undefined,
+        { access: 'read_only', confirm_remote: false },
+        'session_new',
+      ),
+    );
+    expect(repository.createSession).toHaveBeenCalledTimes(2);
+  });
 });
