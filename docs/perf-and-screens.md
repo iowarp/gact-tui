@@ -66,7 +66,9 @@ resource tables.
 budgets. Interaction budgets are p95 of `readyMs` per category. Layout shift is budgeted per
 interaction (0.05) and per cold load (0.1). Resource
 budgets cover idle and large-data heap, DOM nodes, renderer and desktop RSS,
-idle CPU and unbounded transcript reads. Each budget is checked against the
+idle CPU and unbounded transcript reads. Idle CPU is sampled inside the idle
+window's forced garbage collections, so the harness's own GC is not counted.
+Each budget is checked against the
 [baseline](perf/baseline/README.md); change a budget only with evidence from a
 report.
 

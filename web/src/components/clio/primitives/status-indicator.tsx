@@ -20,7 +20,7 @@ export type StatusTone =
  */
 const MARK: Record<StatusTone, string> = {
   running:
-    'size-[11px] rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin',
+    'size-[11px] rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin-steps',
   waiting: 'size-1.5 rounded-full bg-action ring-2 ring-action/25',
   success: 'size-1.5 rounded-full bg-success',
   warning: 'size-1.5 rounded-full bg-warning',
@@ -79,7 +79,7 @@ export const StatusIndicator = memo(function StatusIndicator({
             markStyle === 'glyph' && tone === 'running' && 'size-3',
             markStyle === 'glyph' &&
               tone === 'waiting' &&
-              'size-3 rounded-full border-[1.5px] border-warning border-t-transparent bg-transparent ring-0 motion-safe:animate-spin',
+              'size-3 rounded-full border-[1.5px] border-warning border-t-transparent bg-transparent ring-0 motion-safe:animate-spin-steps',
           )}
         />
       )}

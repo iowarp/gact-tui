@@ -119,6 +119,12 @@
   --text-title--line-height: 1.3;
   --text-welcome: 1.125rem; /* 18px: the welcome title */
   --text-welcome--line-height: 1.3;
+  /*
+   * Status marks that stay on screen for a whole run turn in 12 steps a second.
+   * A smooth spin makes the compositor draw every frame while a conversation
+   * idles; the steps draw 12.
+   */
+  --animate-spin-steps: spin 1s steps(12, end) infinite;
 }
 
 @theme inline {
