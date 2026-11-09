@@ -221,7 +221,7 @@ export function SystemVersionStatus() {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-3" side="top">
-          <p className="mb-4 text-sm font-semibold">Updates</p>
+          <p className="text-sm font-semibold">Updates</p>
           <ProductUpdateSummary
             state={state}
             updating={desktopShell && Boolean(updating)}
