@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioAppShell } from './app-shell';
 
 vi.mock('@/tauri/menu-actions', () => ({
@@ -29,15 +30,17 @@ function installMatchMedia(matches: (query: string) => boolean) {
 
 function renderShell() {
   return render(
-    <ClioAppShell
-      contextBar={<span>Context</span>}
-      navigation={<nav>Navigation</nav>}
-      statusStrip={<span>Status</span>}
-      workbench={<aside aria-label="Workspace canvas">Canvas content</aside>}
-      workbenchRevealKey="resource-1"
-    >
-      <span>Conversation</span>
-    </ClioAppShell>,
+    <TooltipProvider>
+      <ClioAppShell
+        contextBar={<span>Context</span>}
+        navigation={<nav>Navigation</nav>}
+        statusStrip={<span>Status</span>}
+        workbench={<aside aria-label="Workspace canvas">Canvas content</aside>}
+        workbenchRevealKey="resource-1"
+      >
+        <span>Conversation</span>
+      </ClioAppShell>
+    </TooltipProvider>,
   );
 }
 
