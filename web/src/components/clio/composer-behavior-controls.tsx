@@ -215,12 +215,7 @@ export function ClioComposerBehaviorControls({
         >
           <DropdownMenuTrigger asChild>
             <IconButton
-              className={cn(
-                'aria-expanded:bg-hover',
-                behavior.reasoning_effort &&
-                  !unknownEffort &&
-                  'text-accent-foreground hover:text-accent-foreground',
-              )}
+              className="aria-expanded:bg-hover"
               disabled={disabled}
               icon={
                 <ReasoningBars

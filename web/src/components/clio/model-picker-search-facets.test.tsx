@@ -86,9 +86,11 @@ function barCount(): string {
 }
 
 function tokens(): string[] {
-  return [...document.querySelectorAll('[data-slot="filter-tokens"] [data-token]')].map(
-    (chip) => chip.getAttribute('data-token') ?? '',
-  );
+  return (
+    document.querySelector('[data-slot="model-picker-search"]')?.getAttribute('data-tokens') ?? ''
+  )
+    .split(' ')
+    .filter(Boolean);
 }
 
 function panel(): HTMLElement | null {
