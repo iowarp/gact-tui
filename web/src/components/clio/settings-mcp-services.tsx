@@ -238,7 +238,9 @@ function ServiceActions({
   onDisconnect?: () => void;
   onRemoveSaved?: () => void;
 }) {
-  if (!onDetails && !onReconnect && !onDisconnect && !onRemoveSaved) return null;
+  // An empty slot keeps the status column in line with rows that have actions.
+  if (!onDetails && !onReconnect && !onDisconnect && !onRemoveSaved)
+    return <span aria-hidden="true" className="size-7 shrink-0" />;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

@@ -10,9 +10,8 @@
  */
 import type { PendingInteraction } from '@clio/core/v3';
 import { AlertTriangleIcon, BotIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ClioStatus } from './status';
+import { AskError } from './ask-card';
 
 /**
  * The surface's own read failure, and any degradation that did not fail.
@@ -52,23 +51,10 @@ export function PendingSurfaceNotices({
   );
 }
 
-function OwnerContext({ children }: { children: ReactNode }) {
-  return (
-    <span
-      className="flex min-w-0 items-center gap-1 truncate text-xs font-normal text-muted-foreground"
-      data-slot="pending-interaction-owner"
-    >
-      <BotIcon aria-hidden="true" className="size-3 shrink-0" />
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
 /**
- * Attribution for an interaction whose owner differs from the viewed session.
- * A known owner gets its label; an owner this workspace has not listed (or
- * listed without a usable title) gets the typed unavailable state instead of
- * an invented role.
+ * Attribution for an interaction whose owner differs from the viewed session:
+ * one quiet line. A known owner gets its label; an owner this workspace has not
+ * listed (or listed without a usable title) says so instead of inventing a role.
  */
 export function OwnerAttribution({
   interaction,
@@ -80,25 +66,19 @@ export function OwnerAttribution({
   show: boolean;
 }) {
   if (!show) return null;
-  if (ownerLabel) return <OwnerContext>{ownerLabel}</OwnerContext>;
   return (
-    <ClioStatus
-      className="mt-1"
-      detail={`Requested by session ${interaction.owner_session_id}`}
-      label="Session not listed yet"
-      value="unavailable"
-    />
+    <span
+      className="flex h-5 min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
+      data-slot="pending-interaction-owner"
+      title={ownerLabel ?? `Requested by session ${interaction.owner_session_id}`}
+    >
+      <BotIcon aria-hidden="true" className="size-3 shrink-0" />
+      <span className="truncate">{ownerLabel ?? 'Session not listed yet'}</span>
+    </span>
   );
 }
 
 /** The server's authoritative rejection for THIS card's last attempt, never a list-wide read failure. */
 export function ResponseErrorNotice({ error }: { error?: Error }) {
-  if (!error) return null;
-  return (
-    <Alert className="mt-2" variant="destructive">
-      <AlertTriangleIcon aria-hidden="true" />
-      <AlertTitle>Response unavailable</AlertTitle>
-      <AlertDescription>{error.message}</AlertDescription>
-    </Alert>
-  );
+  return <AskError className="ml-0" error={error} />;
 }

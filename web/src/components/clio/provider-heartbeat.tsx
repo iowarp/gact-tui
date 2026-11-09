@@ -1,4 +1,3 @@
-import { ActivityIcon } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import {
@@ -9,7 +8,7 @@ import {
 } from './model-picker-model';
 
 /**
- * The provider heartbeat: health colour on EVERY provider row -- the model
+ * The provider heartbeat: a health dot on EVERY provider row -- the model
  * picker's column, Settings > Providers' list and its panel header -- with
  * its detail in the HoverCard. A running action (`stage`) shows as
  * `checking` (yellow) with its stage as the label until it settles back to
@@ -25,7 +24,7 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
         <span
           aria-label={`${group.name} status: ${presentation.label}`}
           className={cn(
-            'pointer-events-auto inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-md',
+            'pointer-events-auto inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full',
             presentation.color,
           )}
           data-slot="provider-heartbeat"
@@ -34,7 +33,7 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
           role="img"
           title={`${group.name} status: ${presentation.label}`}
         >
-          <ActivityIcon aria-hidden="true" className="size-4" />
+          <span aria-hidden="true" className="size-[7px] rounded-full bg-current" />
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">

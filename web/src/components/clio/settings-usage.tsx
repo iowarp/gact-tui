@@ -13,6 +13,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { BILLING_ORDER, billingLabel, type UsageMode } from '@/lib/fleet-usage';
 import { SpendSummary, UsageSummary } from './fleet-usage';
+import { SettingsSectionHeading } from './settings-section-heading';
 
 const MODE_KEY = 'clio.usage.mode';
 
@@ -99,11 +100,28 @@ export function UsageSettings() {
       // A per-viewer convenience only: the page works without it.
     }
   };
-  if (fleet.isPending) return <p role="status">Loading usage…</p>;
+  const heading = (
+    <SettingsSectionHeading
+      description={`Account limits and usage recorded by ${vocab.agent}.`}
+      title="Usage"
+    />
+  );
+  if (fleet.isPending)
+    return (
+      <div className="flex max-w-3xl flex-col gap-4">
+        {heading}
+        <p className="text-sm text-muted-foreground" role="status">
+          Loading usage…
+        </p>
+      </div>
+    );
   if (fleet.error || !fleet.data) {
     return (
-      <div role="alert">
-        Usage could not be loaded. <Button onClick={() => void fleet.refetch()}>Retry</Button>
+      <div className="flex max-w-3xl flex-col gap-4">
+        {heading}
+        <div className="flex items-center gap-3 text-sm" role="alert">
+          Usage could not be loaded. <Button onClick={() => void fleet.refetch()}>Retry</Button>
+        </div>
       </div>
     );
   }
@@ -112,13 +130,8 @@ export function UsageSettings() {
   );
   return (
     <section aria-label="Usage" className="flex max-w-3xl flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Usage</h2>
-          <p className="text-sm text-muted-foreground">
-            Account limits and usage recorded by {vocab.agent}.
-          </p>
-        </div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">{heading}</div>
         <ToggleGroup
           aria-label="Show"
           onValueChange={choose}

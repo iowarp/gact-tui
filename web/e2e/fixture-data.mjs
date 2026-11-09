@@ -59,6 +59,23 @@ function providerCatalogModel(overrides) {
   };
 }
 
+/** One response setting a model accepts (clio-schemas AcceptedParameter). */
+function acceptedParameter(name, label, group, kind, minimum, maximum, step, default_ = null) {
+  return {
+    name,
+    label,
+    group,
+    kind,
+    minimum,
+    maximum,
+    step,
+    options: [],
+    default: default_,
+    description: `${label} changes the reply.`,
+    evidence: [{ source: 'litellm', detail: `${name} accepted`, observed_at: '' }],
+  };
+}
+
 export const providerCatalog = {
   catalog_id: 'active',
   authoritative: 'live_handshake',
@@ -127,6 +144,13 @@ export const providerCatalog = {
           context_window: 262144,
           loaded_context_window: null,
           output_limit: 128000,
+          // The response settings the model accepts, for the Settings > Models page.
+          accepted_parameters: [
+            acceptedParameter('temperature', 'Temperature', 'sampling', 'number', 0, 2, 0.05, 0.7),
+            acceptedParameter('top_p', 'Top P', 'sampling', 'number', 0, 1, 0.01),
+            acceptedParameter('max_tokens', 'Longest reply', 'length', 'integer', 1, 128000, 256),
+            acceptedParameter('parallel', 'Replies at once', 'advanced', 'integer', 1, null, 1),
+          ],
           evidence: {
             source: 'overlay',
             generated_at: observedAt,

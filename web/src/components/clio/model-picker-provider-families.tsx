@@ -1,6 +1,5 @@
-import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { IconTile } from '@/components/reui/icon-tile';
+import { ProviderLogoMark } from './provider-logo-mark';
 import {
   providerGroupStatus,
   type PickerNodeData,
@@ -68,11 +67,8 @@ export function groupAlcfProviders(
           {
             ...server,
             label,
-            icon: (
-              <IconTile aria-hidden="true" className="ms-4" size="sm" variant="outline">
-                <ModelSelectorLogo className="size-5" provider="argonne" />
-              </IconTile>
-            ),
+            // A server is indented under the family's name, without its own logo.
+            icon: <ProviderLogoMark provider={null} />,
           },
         ]
       : [];
