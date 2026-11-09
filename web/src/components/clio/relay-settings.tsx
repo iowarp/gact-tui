@@ -1,23 +1,20 @@
-import type { McpServerDefinition, SavedMcpService } from '@clio/core/v3';
+import type { McpServerDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UnplugIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
-import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { anyServerPreparing } from '@/lib/mcp-preparation';
 import { mcpServiceEntries } from '@/lib/mcp-service-entries';
-import { serviceEntryTitle, serviceKind } from '@/lib/mcp-service-presentation';
+import { serviceKind } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ExtensionAddDialog } from './extension-add-dialog';
 import { McpSignInDialog } from './mcp-sign-in';
-import { DialogFrame } from './primitives/dialog-frame';
 import { StateView } from './primitives/state-view';
 import { McpServiceList } from './settings-mcp-services';
 import { SettingsGroupLabel } from './settings-row';
-import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 
 const GROUP = 'Remote MCP servers';
 
@@ -33,10 +30,6 @@ export function RelaySettings() {
   const saved = useSavedMcpServices();
   const [adding, setAdding] = useState(false);
   const [signingIn, setSigningIn] = useState('');
-  const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
-  const [disconnecting, setDisconnecting] = useState<McpServerDefinition>();
-  const [shownDisconnect, setShownDisconnect] = useState<McpServerDefinition>();
-  if (disconnecting && disconnecting !== shownDisconnect) setShownDisconnect(disconnecting);
 
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'global', undefined),
@@ -71,12 +64,12 @@ export function RelaySettings() {
   const disconnect = useMutation({
     mutationFn: (server: McpServerDefinition) => repository.deleteMcpServer(server.id),
     onSuccess: async () => {
-      setDisconnecting(undefined);
       await invalidate();
       toast.success('Remote server disconnected');
     },
     onError: (error) => toast.error(error.message),
   });
+  const removeSaved = useRemoveSavedMcp();
 
   let list;
   if (servers.isPending || saved.isPending)
@@ -106,9 +99,9 @@ export function RelaySettings() {
       <McpServiceList
         entries={entries}
         label={GROUP}
-        onDisconnect={setDisconnecting}
+        onDisconnect={(server) => disconnect.mutateAsync(server)}
         onReconnect={(server) => reconnect.mutate(server)}
-        onRemoveSaved={setRemovingSaved}
+        onRemoveSaved={(service) => removeSaved.mutateAsync(service)}
         reconnecting={reconnect.isPending ? reconnect.variables?.id : undefined}
       />
     );
@@ -128,7 +121,6 @@ export function RelaySettings() {
         its URL.
       </p>
 
-      <RemoveSavedMcpDialog onClose={() => setRemovingSaved(undefined)} service={removingSaved} />
       {signingIn ? (
         <McpSignInDialog
           name={signingIn}
@@ -145,26 +137,6 @@ export function RelaySettings() {
           onSignIn={setSigningIn}
         />
       ) : null}
-      <DialogFrame
-        confirm={{
-          label: disconnect.isPending ? 'Disconnecting?' : 'Disconnect',
-          onConfirm: () => {
-            if (disconnecting) disconnect.mutate(disconnecting);
-          },
-          tone: 'destructive',
-          disabled: disconnect.isPending || !disconnecting,
-        }}
-        description="Its tools stop being available to agents in this service process."
-        icon={<UnplugIcon />}
-        onOpenChange={(open) => (open ? undefined : setDisconnecting(undefined))}
-        open={Boolean(disconnecting)}
-        title={`Disconnect ${shownDisconnect ? serviceEntryTitle({ server: shownDisconnect, name: shownDisconnect.name }) : 'remote server'}?`}
-      >
-        <p className="text-[0.8125rem] text-muted-foreground">
-          Existing transcript evidence remains readable. Add the server again to bring its tools
-          back.
-        </p>
-      </DialogFrame>
     </section>
   );
 }
