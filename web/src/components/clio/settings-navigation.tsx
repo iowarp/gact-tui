@@ -79,6 +79,7 @@ export function SettingsNavigation({
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
+              replace
               state={linkState}
               title={label}
               to={`/settings/${id}${search}`}
@@ -181,6 +182,7 @@ export function SettingsSectionPicker({
               >
                 <Link
                   aria-current={id === current ? 'page' : undefined}
+                  replace
                   state={linkState}
                   to={`/settings/${id}${search}`}
                 >

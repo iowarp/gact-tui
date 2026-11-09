@@ -19,7 +19,9 @@ import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   arrivedFromSearch,
+  historyIndex,
   settingsBackgroundRoute,
+  settingsCloseStep,
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -68,6 +70,8 @@ export function SettingsWindow() {
   const location = useLocation();
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
+  // The history entry the window opened on; closing goes back past it.
+  const [openedAt] = useState(historyIndex);
   const destinations = settingsDestinations(inTauri());
   const repository = useRepository();
   const memory = useQuery({
@@ -162,7 +166,10 @@ export function SettingsWindow() {
       icon={<SettingsIcon />}
       navigation={<SettingsNavigation {...navigation} />}
       onOpenChange={(open) => {
-        if (!open) void navigate(background ?? workspaceRoute);
+        if (open) return;
+        const step = settingsCloseStep(openedAt, historyIndex());
+        if (step !== undefined) void navigate(step);
+        else void navigate(background ?? workspaceRoute, { replace: true });
       }}
       open
       rail={<SettingsNavRail {...navigation} />}
