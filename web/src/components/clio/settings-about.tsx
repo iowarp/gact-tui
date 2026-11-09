@@ -28,7 +28,6 @@ export function AboutSettings() {
   const activeModel = data?.active_model;
   const versions = data?.versions;
   const missing = capabilities.isPending ? 'Loading…' : 'Unavailable';
-  const unreported = data ? 'Unreported by this service' : missing;
   return (
     <div>
       <SettingsSectionHeading description="Version and links." title={`About ${brand.name}`} />
@@ -57,23 +56,27 @@ export function AboutSettings() {
         </div>
       ) : (
         <>
-          <AboutValue
-            label="Agent service version"
-            mono
-            value={data?.service?.version || missing}
-          />
-          <AboutValue label="Backend build" mono value={versions?.backend_build || unreported} />
-          <AboutValue label="Python" mono value={versions?.python || unreported} />
-          <AboutValue
-            label="Marketplace registry"
-            value={
-              !data
-                ? missing
-                : !versions
-                  ? 'Unreported by this service'
-                  : formatMarketplaceRegistry(versions.marketplace)
-            }
-          />
+          {!data || data.service?.version ? (
+            <AboutValue
+              label="Agent service version"
+              mono
+              value={data?.service?.version || missing}
+            />
+          ) : null}
+          {/* Rows the service does not report are left out rather than filled with a placeholder. */}
+          {!data || versions?.backend_build ? (
+            <AboutValue label="Backend build" mono value={versions?.backend_build || missing} />
+          ) : null}
+          {!data || versions?.python ? (
+            <AboutValue label="Python" mono value={versions?.python || missing} />
+          ) : null}
+          {!data || versions ? (
+            <AboutValue
+              label="Marketplace registry"
+              mono
+              value={versions ? formatMarketplaceRegistry(versions.marketplace) : missing}
+            />
+          ) : null}
           <div className="w-full py-2">
             <TechnicalDetails
               contentClassName="pt-1"
@@ -127,12 +130,7 @@ function formatMarketplaceRegistry(marketplace: CapabilityVersions['marketplace'
     : `${marketplace.source}, ref ${ref}, installed commit unavailable`;
 }
 
-const PLACEHOLDERS = new Set([
-  'Unavailable',
-  'Loading…',
-  'Unreported by this service',
-  'Not configured',
-]);
+const PLACEHOLDERS = new Set(['Unavailable', 'Loading…', 'Not configured']);
 
 /** A read-only value in the control column: one line, cut with its full text on hover. */
 function AboutValue({

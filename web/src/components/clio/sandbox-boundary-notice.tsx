@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Tag } from './primitives/tag';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationNavigation } from './presentation-navigation';
@@ -20,10 +21,11 @@ import type { SandboxBoundary } from './sandbox-boundary';
 
 const folderName = (path: string) => path.split(/[\\/]/u).filter(Boolean).at(-1) || path;
 
-/** A call row's short mark that the sandbox blocked it; the explanation on hover. */
+/** A call row's Blocked tag, in the row's fixed badge column; the explanation on hover. */
 export function SandboxBoundaryBadge({ boundary }: { boundary: SandboxBoundary }) {
   const folders = boundary.request_roots.map(folderName).join(', ');
-  const words =
+  const words = boundary.kind === 'elevation_required' ? 'Admin' : 'Blocked';
+  const name =
     boundary.kind === 'elevation_required'
       ? 'Needs administrator rights'
       : folders
@@ -34,22 +36,23 @@ export function SandboxBoundaryBadge({ boundary }: { boundary: SandboxBoundary }
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+            className="grid shrink-0 rounded-[4px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
             data-slot="sandbox-boundary-badge"
+            aria-label={name}
             tabIndex={0}
           >
-            <ShieldAlertIcon aria-hidden="true" className="size-3.5 text-warning" />
-            {words}
+            <Tag tone="caution" title="">
+              {words}
+            </Tag>
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-sm text-sm">
-          <span className="[overflow-wrap:anywhere]">{boundary.message}</span>
+          <span className="[overflow-wrap:anywhere]">{`${name}. ${boundary.message}`}</span>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
-
 /** Words for what the sandbox did, always shown with the icon (never the icon alone). */
 function headline(boundary: SandboxBoundary): string {
   if (boundary.kind === 'elevation_required') return 'Needs administrator rights';
@@ -98,7 +101,7 @@ export function SandboxBoundaryNotice({
       className={
         placement === 'message'
           ? 'flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm'
-          : 'ml-7 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground'
+          : 'ml-[22px] flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground'
       }
       data-placement={placement}
       data-slot="sandbox-boundary"
@@ -107,7 +110,14 @@ export function SandboxBoundaryNotice({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="flex min-w-0 items-center gap-1.5" tabIndex={0}>
-              <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
+              <ShieldAlertIcon
+                aria-hidden="true"
+                className={
+                  placement === 'call'
+                    ? 'size-3.5 shrink-0 text-warning'
+                    : 'size-4 shrink-0 text-warning'
+                }
+              />
               <span className="[overflow-wrap:anywhere]">{headline(boundary)}</span>
             </span>
           </TooltipTrigger>
@@ -127,7 +137,7 @@ export function SandboxBoundaryNotice({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7"
+                  className={placement === 'call' ? 'h-6 gap-1.5 px-2 text-[12px]' : 'h-7'}
                   title={root}
                   disabled={state[root] === 'pending'}
                   onClick={() => setAsking(root)}

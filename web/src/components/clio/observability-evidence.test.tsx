@@ -52,8 +52,8 @@ it('lets Evidence disclose the formatted tool result and preserves semantic fail
   // Tool-call rows carry no task-kind glyph; each mark names its outcome, and a failure
   // is also named in text while success stays quiet.
   expect(document.querySelector('[data-slot="work-kind-status"]')).toBeNull();
-  expect(screen.getByRole('status', { name: 'Succeeded' })).toBeVisible();
-  expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Succeeded' })).toBeVisible();
+  expect(screen.getByRole('img', { name: /^Failed/ })).toBeVisible();
   const row = (id: string) => document.getElementById(`evidence-tool-${id}`)!;
   expect(row('read')).not.toHaveTextContent('failed');
   expect(row('fetch').querySelector('[data-slot="tool-outcome"]')).toHaveTextContent('failed');

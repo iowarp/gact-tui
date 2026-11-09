@@ -33,130 +33,50 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
     ...overrides,
   };
 }
-describe('ConversationTurn Activity folding', () => {
-  function activityHeader() {
-    return screen.getByRole('button', { name: /Activity/u });
+describe('ConversationTurn activity lane', () => {
+  function lane() {
+    return screen.getByRole('group', { name: /^Activity:/u });
+  }
+  function rows() {
+    return lane().querySelectorAll('[data-activity-row]');
   }
 
-  it('opens current live activity and folds it when a newer public entry takes focus', () => {
+  it('keeps live and finished activity visible as rows, without a folding header', () => {
+    const read = iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }]));
     const { rerender } = render(
-      <ConversationTurn
-        followLiveActivity
-        iterations={[
-          iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }])),
-        ]}
-        mode="chain"
-        subagents={{}}
-      />,
+      <ConversationTurn followLiveActivity iterations={[read]} mode="chain" subagents={{}} />,
     );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
-
-    rerender(
-      <ConversationTurn
-        answerStarted
-        iterations={[
-          iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }])),
-        ]}
-        mode="chain"
-        subagents={{}}
-      />,
-    );
-
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('moves automatic expansion to the newest group, keeping individual tool details closed', () => {
-    const first = iteration(
-      activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }]),
-    );
-    const second = iteration({
-      ...activityLane([{ kind: 'tool', id: 'run', tool: tool('run', 'Run') }]),
-      id: 'assistant_1:iteration:1',
-      nextThoughts: ['Check the next file.'],
-    });
-    const view = render(
-      <ConversationTurn followLiveActivity iterations={[first]} mode="chain" subagents={{}} />,
-    );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
+    expect(lane()).toHaveAttribute('aria-busy', 'true');
+    expect(rows()).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /^Activity/u })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Read: Result' })).not.toBeInTheDocument();
-    view.rerender(
-      <ConversationTurn
-        followLiveActivity
-        iterations={[first, second]}
-        mode="chain"
-        subagents={{}}
-      />,
-    );
-    expect(
-      screen
-        .getAllByRole('button', { name: /^Activity:/ })
-        .map((button) => button.getAttribute('aria-expanded')),
-    ).toEqual(['false', 'true']);
+
+    rerender(<ConversationTurn answerStarted iterations={[read]} mode="chain" subagents={{}} />);
+
+    expect(lane()).not.toHaveAttribute('aria-busy');
+    expect(rows()).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /^Activity/u })).not.toBeInTheDocument();
   });
 
-  it('keeps a manual close while new work arrives and a manual open after it moves on', () => {
-    const first = iteration(
-      activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }]),
-    );
-    const second = iteration({
-      ...first,
-      id: 'assistant_1:iteration:1',
-      nextThoughts: ['Check the next file.'],
-    });
-    const view = render(
-      <ConversationTurn followLiveActivity iterations={[first]} mode="chain" subagents={{}} />,
-    );
-    fireEvent.click(activityHeader());
-    view.rerender(
-      <ConversationTurn
-        followLiveActivity
-        iterations={[{ ...first, streaming: true }]}
-        mode="chain"
-        subagents={{}}
-      />,
-    );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(activityHeader());
-    view.rerender(
-      <ConversationTurn
-        followLiveActivity
-        iterations={[first, second]}
-        mode="chain"
-        subagents={{}}
-      />,
-    );
-    expect(
-      screen
-        .getAllByRole('button', { name: /^Activity:/ })
-        .map((button) => button.getAttribute('aria-expanded')),
-    ).toEqual(['true', 'true']);
-  });
-
-  it('opens a finished turn folded, and keeps the reader open once they open it', () => {
-    const { rerender } = render(
+  it('caps a long lane at its latest rows and opens the rest with Show all', () => {
+    const entries: ConversationActivity[] = Array.from({ length: 8 }, (_, index) => ({
+      kind: 'tool',
+      id: `read_${index}`,
+      tool: tool(`read_${index}`, `Read ${index}`),
+    }));
+    render(
       <ConversationTurn
         answerStarted
-        iterations={[
-          iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }])),
-        ]}
+        iterations={[iteration(activityLane(entries))]}
         mode="chain"
         subagents={{}}
       />,
     );
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'false');
+    expect(rows()).toHaveLength(4);
 
-    fireEvent.click(activityHeader());
-    rerender(
-      <ConversationTurn
-        answerStarted
-        iterations={[
-          iteration(activityLane([{ kind: 'tool', id: 'read', tool: tool('read', 'Read') }])),
-        ]}
-        mode="chain"
-        subagents={{}}
-      />,
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 8' }));
 
-    expect(activityHeader()).toHaveAttribute('aria-expanded', 'true');
+    expect(rows()).toHaveLength(8);
+    expect(screen.queryByRole('button', { name: /^Show all/u })).not.toBeInTheDocument();
   });
 });

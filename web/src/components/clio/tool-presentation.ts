@@ -44,7 +44,7 @@ function toolInput(tool: ToolInvocation): Record<string, unknown> | undefined {
 const TASK_OPERATIONS: Record<string, string> = {
   run_flow: 'Start flow',
   run_workflow: 'Start workflow',
-  spawn_agent_task: 'Delegate to agent',
+  spawn_agent_task: 'Delegate',
   observe_tasks: 'Check task status',
   task_result: 'Read task result',
   get_task_result: 'Read task result',

@@ -52,8 +52,8 @@ slot 84 px) so the status word sits at the same x on every page; don't pass per-
 widths. A column whose prop is `undefined` collapses, so pass `null` to keep an empty one
 aligned. Below 42rem of list width the status column narrows to at most 7.5rem and hover
 actions float over the row instead of reserving their column. Sections don't set their
-own max width. `confirm` swaps status, actions and slot for one right-aligned inline
-confirmation ("Remove this rule?", Keep, Remove) and tints the row.
+own max width. `confirm` is an inline confirmation ("Remove this rule?",
+Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
 and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,

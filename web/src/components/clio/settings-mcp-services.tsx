@@ -7,8 +7,7 @@ import {
   UnplugIcon,
   type LucideIcon,
 } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +31,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { ShortcutKeys } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
 import { StatusIndicator } from './primitives/status-indicator';
+import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
 
 const KIND_ICONS: Record<McpServiceKind, LucideIcon> = {
@@ -193,19 +193,11 @@ function McpServiceRow({
     }
   };
   const hasMenu = Boolean(onDetails || onReconnect || onDisconnect || onRemoveSaved);
-  let slot: ReactNode | undefined;
-  if (showSlot)
-    slot = failed ? (
-      <Button
-        aria-busy={reconnecting}
-        disabled={reconnecting}
-        onClick={onReconnect}
-        size="sm"
-        title={`Reconnect ${title}`}
-        variant="outline"
-      >
+  const slot =
+    showSlot && failed && onReconnect ? (
+      <SlotButton disabled={reconnecting} label={`Reconnect ${title}`} onClick={onReconnect}>
         Reconnect
-      </Button>
+      </SlotButton>
     ) : null;
   return (
     <ItemRow
@@ -220,7 +212,7 @@ function McpServiceRow({
                 onClick={onDetails}
               />
             ) : null}
-            {onReconnect ? (
+            {onReconnect && !slot ? (
               <IconButton
                 aria-busy={reconnecting}
                 disabled={reconnecting}
@@ -267,7 +259,7 @@ function McpServiceRow({
               </DropdownMenuContent>
             </DropdownMenu>
           </>
-        ) : undefined
+        ) : null
       }
       actionsVisible={reconnecting}
       aria-current={selected || undefined}
@@ -279,7 +271,6 @@ function McpServiceRow({
       onKeyDown={onKeyDown}
       selected={selected}
       slot={slot}
-      slotWidth={96}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       tabIndex={0}
       title={<span title={title}>{title}</span>}
