@@ -199,8 +199,6 @@ export function FileViewerShell({
     } else selectValue(next);
   };
   const sourceMode = renderer?.modes.find(isSourceMode);
-  // The renderer's panel is named for the mode it shows.
-  const rendererLabel = renderer?.modes.find((mode) => mode.value === renderer.value)?.label;
   const hostRef = useRef<HTMLDivElement>(null);
   useShortcut(
     'render-source',
@@ -257,7 +255,8 @@ export function FileViewerShell({
   const showingSource =
     !frameActive && sourceMode !== undefined && renderer?.value === sourceMode.value;
   const positioned = selectedValue === LINEAGE_VIEW || (!showingSource && rendererFacts.length > 0);
-  const what = positioned ? rendererFacts : size;
+  // A view with no mode segment (one representation) states its facts and its size.
+  const what = !positioned ? size : segmentCount < 2 ? [...rendererFacts, ...size] : rendererFacts;
   const contents = [...readers.values()].at(-1);
   return (
     <ViewerToolbarHost.Provider value={toolbarHost}>
@@ -314,6 +313,7 @@ export function FileViewerShell({
                                 <>
                                   <div
                                     data-slot="viewer-modes"
+                                    hidden={segmentCount < 2}
                                     className={cn(
                                       MODE_SEGMENT_CLASS,
                                       'group-data-[fold-modes]/frame:hidden',
@@ -419,7 +419,7 @@ export function FileViewerShell({
                                     {...(isHost ? { forceMount: true as const } : {})}
                                     {...(named
                                       ? {
-                                          'aria-label': (isHost && rendererLabel) || tab.label,
+                                          'aria-label': tab.label,
                                           'aria-labelledby': undefined,
                                         }
                                       : {})}

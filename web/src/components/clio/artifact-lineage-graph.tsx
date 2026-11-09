@@ -93,6 +93,7 @@ function LineageNode({
         <button
           type="button"
           data-lineage-node={node.kind}
+          data-lineage-id={node.id}
           aria-label={node.detail ? `${node.name}, ${node.detail}` : node.name}
           aria-description={node.tip}
           aria-current={node.kind === 'self' ? 'true' : undefined}

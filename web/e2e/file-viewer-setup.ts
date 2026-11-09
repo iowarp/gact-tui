@@ -25,7 +25,10 @@ export async function selectFileView(page: Page, viewer: Locator, name: string):
     const mode = page.getByRole('menuitemradio', { name, exact: true });
     if (await mode.count()) {
       await mode.click();
-      await expect(viewer.getByRole('tabpanel', { name, exact: true })).toBeVisible();
+      // The segment's tab carries the choice; a renderer names its own panel.
+      await expect(
+        viewer.getByRole('tab', { name, exact: true, includeHidden: true }),
+      ).toHaveAttribute('aria-selected', 'true');
       return;
     }
     await page.keyboard.press('Escape');
@@ -37,6 +40,19 @@ export async function selectFileView(page: Page, viewer: Locator, name: string):
 
 /** Open ▾'s rows: from its chevron, or from the … menu once the frame bar folds Open away. */
 export async function openFrameOpenMenu(page: Page, toolbar: Locator): Promise<void> {
+  // The bar refits as its facts arrive; choose the path once its folds hold still.
+  let last: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const fold = String(await toolbar.getAttribute('data-fold'));
+        const settled = fold === last;
+        last = fold;
+        return settled;
+      },
+      { intervals: [200] },
+    )
+    .toBe(true);
   const chevron = toolbar.getByRole('button', { name: 'Open options', exact: true });
   if (await chevron.isVisible()) {
     await chevron.click();

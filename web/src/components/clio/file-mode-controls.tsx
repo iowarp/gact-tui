@@ -67,10 +67,19 @@ export function FileModeTrigger({
   );
 }
 
-/** A mode's key, as its folded menu row shows it. */
-function ModeShortcut({ id }: { id?: string }) {
-  const presentation = useShortcutPresentation(id);
-  return presentation ? <DropdownMenuShortcut>{presentation.text}</DropdownMenuShortcut> : null;
+/** A folded mode row: its name, with its key shown beside it and announced as a shortcut. */
+function FoldedModeItem({ mode }: { mode: FileMode }) {
+  const { value, label, icon: Icon, shortcut } = mode;
+  const presentation = useShortcutPresentation(shortcut);
+  return (
+    <DropdownMenuRadioItem value={value} aria-keyshortcuts={presentation?.aria}>
+      <Icon aria-hidden="true" />
+      {label}
+      {presentation ? (
+        <DropdownMenuShortcut aria-hidden="true">{presentation.text}</DropdownMenuShortcut>
+      ) : null}
+    </DropdownMenuRadioItem>
+  );
 }
 
 /** The modes folded into the active icon with a chevron that lists them all. */
@@ -99,13 +108,9 @@ export function FoldedFileModes({
         </ToolbarAction>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {modes.map(({ value: mode, label: modeLabel, icon: Icon, shortcut }) => (
-            <DropdownMenuRadioItem key={mode} value={mode}>
-              <Icon aria-hidden="true" />
-              {modeLabel}
-              <ModeShortcut id={shortcut} />
-            </DropdownMenuRadioItem>
+        <DropdownMenuRadioGroup aria-label={label} value={value} onValueChange={onChange}>
+          {modes.map((mode) => (
+            <FoldedModeItem key={mode.value} mode={mode} />
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

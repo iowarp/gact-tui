@@ -427,8 +427,8 @@ for (const layout of [
           .toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         const graph = canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true });
-        const sourceNode = graph.getByTestId(`rf__node-${sourceId}`);
-        const previewNode = graph.getByTestId(`rf__node-${pdfId}`);
+        const sourceNode = graph.locator(`[data-lineage-id="${sourceId}"]`);
+        const previewNode = graph.locator(`[data-lineage-id="${pdfId}"]`);
         await expect(sourceNode).toBeVisible();
         await expect(previewNode).toBeVisible();
         await expect(sourceNode).toContainText(name);
