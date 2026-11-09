@@ -628,6 +628,29 @@ export async function workbenchJourney(r) {
   if (await r.visible(restore, 1000)) await restore.click();
 }
 
+/** Scroll a virtualized list's scroller a page at a time until `target` is rendered. */
+async function scrollTreeTo(list, target, visible) {
+  for (let page = 0; page < 200; page += 1) {
+    if (await visible(target, page === 0 ? 1000 : 150)) return;
+    const moved = await list.evaluate((root, first) => {
+      const scroller = [root, ...root.querySelectorAll('*')].find(
+        (node) =>
+          node.scrollHeight > node.clientHeight + 1 &&
+          /auto|scroll/u.test(getComputedStyle(node).overflowY),
+      );
+      if (!scroller) return false;
+      if (first && scroller.scrollTop > 0) {
+        scroller.scrollTop = 0;
+        return true;
+      }
+      const before = scroller.scrollTop;
+      scroller.scrollTop += Math.max(1, scroller.clientHeight * 0.8);
+      return scroller.scrollTop !== before;
+    }, page === 0);
+    if (!moved) return;
+  }
+}
+
 /**
  * Open files in the workbench. An entry is a path or `{ path, content, after }`:
  * `content` is text that only appears once the file body is rendered (the
@@ -676,6 +699,8 @@ export async function fileViewerJourney(r, entries) {
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();
+    // The tree is virtualized: scroll it until the row is rendered.
+    await scrollTreeTo(list, file, (locator, ms) => r.visible(locator, ms));
     const preview = '[aria-label="Workspace file preview"]';
     const step = await r.measure(
       `open file ${name}`,

@@ -8,7 +8,7 @@
 // N (heap, DOM nodes, listeners, detached nodes) is a leak; a fixed step after
 // the warm-up is a cache. Serves web/dist like `pnpm perf`; build first.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { cdpMetrics, installPerfObservers, round } from './instrument.mjs';
 import { fileViewerJourney, Recorder, SESSION_URL, MESSAGE } from './journeys.mjs';
@@ -23,7 +23,7 @@ const cycles = Number(option('cycles', '10'));
 const only = option('only', '')?.split(',').filter(Boolean);
 // Heap snapshots before and after: names what the growth is made of.
 const snapshots = args.includes('--snapshots');
-const outDir = join(webRoot, option('out', 'test-results/perf-cycles'));
+const outDir = resolve(webRoot, option('out', 'test-results/perf-cycles'));
 const viewport = { width: 1440, height: 900 };
 
 const log = (message) =>
