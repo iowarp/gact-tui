@@ -127,7 +127,9 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await expect(page.getByText('Loading conversation', { exact: true })).toHaveCount(0);
   const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeVisible();
-  await expect(page.getByRole('button', { name: /Return to parent conversation/ })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Return to parent conversation/ }).first(),
+  ).toBeVisible();
   await composer.fill('Independent branch follow-up');
   const sent = page.waitForResponse(
     (response) =>
@@ -151,9 +153,12 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   ).toHaveCount(0);
   expect((await after.json()).messages.length).toBe(before);
   await page.screenshot({ path: testInfo.outputPath('writable-branch.png') });
-  await page.getByRole('button', { name: /Return to parent conversation/ }).click();
+  await page
+    .getByRole('button', { name: /Return to parent conversation/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/sessions\/sess_flat_ndp$/);
-  const branchLink = page.getByRole('link').filter({ hasText: branch.title });
+  const branchLink = page.getByRole('link').filter({ hasText: branch.title }).first();
   await expect(
     page
       .locator('[data-slot="pending-interaction-title"]')
@@ -178,8 +183,12 @@ test('filters the evidence artifact list by type and search from the list header
   await page.getByRole('menuitemradio', { name: 'Scripts (1)' }).click();
   await expect(canvas.getByRole('button', { name: 'Open collect_sweep.py' })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toHaveCount(0);
+  // Reopen only once the closing menu has unmounted; a click during its exit
+  // can land on the old layer instead of the trigger.
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await filter.click();
   await page.getByRole('menuitemradio', { name: '3D models (1)' }).click();
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toBeVisible();
   await canvas.getByRole('button', { name: 'Search artifacts' }).click();
   await canvas.getByRole('textbox', { name: 'Search artifacts' }).fill('missing');
