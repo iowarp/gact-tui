@@ -86,14 +86,17 @@ Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Ma
 The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
-The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap). Below
-600 px it becomes a full-width bottom sheet and drops the chips (spec: dialogs grow to 100%
-and drop the key hints before anything else folds); there the description wraps instead of
-truncating. A section that needs a wider dialog passes its own `w-[clamp(...)]`. With
-`keyboard: false` or a disabled confirm, the confirm button has no chip. Acknowledgement
-dialogs such as What's new pass `cancelLabel={null}` (no Cancel; focus starts on the confirm),
-`confirm.key: 'Enter'` (plain ↵ confirms, and the button's chip shows ↵) and `footerStart` (a
-quiet link on the left). The body is marked
+The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap) and a
+full-width bottom sheet below 600 px. Narrowing drops the chips first (spec: dialogs "drop the
+key hints before anything else"): the footer is a container and the chips hide once it is
+under 28.5rem, the spec frame's ~460 px, which at 44% is a window under about 1036 px, before
+the window's 1024 px fold. They stay hidden in the sheet, where the description wraps instead
+of truncating. A section that needs a wider dialog passes its own `w-[clamp(...)]`; one whose
+floor is 460 px or more keeps its chips until the sheet. With `keyboard: false` or a disabled
+confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
+`cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
+confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The
+body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 

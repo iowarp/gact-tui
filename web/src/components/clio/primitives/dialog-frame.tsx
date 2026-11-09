@@ -68,7 +68,9 @@ function FrameClose({ className }: { className?: string }) {
 /** The key chip inside a footer button; the sheet below 600 px drops it. */
 function FooterKey({ keys, className }: { keys: readonly string[]; className?: string }) {
   return (
-    <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+    // Under the spec frame's ~460 px (44% below a 1036 px window) the chips drop,
+    // before the window's 1024 px fold; the sheet never shows them.
+    <span aria-hidden="true" className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden">
       <ShortcutKeys className={className} keys={keys} variant="inline" />
     </span>
   );
@@ -122,7 +124,8 @@ export interface DialogFrameProps {
 /**
  * The one dialog: icon, title, ×, one-line description, body, buttons on the
  * right. 44% of the window wide (360 to 600 px), a full-width bottom sheet
- * below 600 px, where the key chips in the buttons drop first. Esc or × closes,
+ * below 600 px. The key chips in the buttons drop first, once the footer is
+ * narrower than the spec frame. Esc or × closes,
  * Ctrl+Enter confirms, focus starts on the safe button.
  */
 export const DialogFrame = memo(function DialogFrame({
@@ -217,7 +220,7 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="@container mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
           {footerStart ? (
             <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
