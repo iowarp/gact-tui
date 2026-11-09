@@ -130,6 +130,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
           icon={<NetworkIcon />}
           label={`Infrastructure: ${overall.stateLabel}`}
           shortcut="infrastructure"
+          shortcutPlacement="above"
           tooltipSide="top"
         />
       </PopoverTrigger>

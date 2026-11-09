@@ -10,6 +10,7 @@ import {
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { Button } from '@/components/ui/button';
 import {
@@ -147,7 +148,7 @@ function SessionRow({
                   tooltip={false}
                 />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[250px]">
+              <DropdownMenuContent align="start" className="w-[290px]">
                 <DropdownMenuItem
                   menuKey="↵"
                   onSelect={() => {
@@ -210,14 +211,18 @@ function SessionRow({
               >
                 <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
               </span>
-            ) : unseen ? (
-              <span className="text-[11px] font-medium text-primary">New</span>
             ) : (
-              <ClioRelativeTime
-                className="text-[11px] text-faint group-data-selected/list-row:text-accent-foreground/80"
-                compact
-                timestamp={sessionInteractionAt(session)}
-              />
+              <span className="inline-flex items-center">
+                {unseen ? <span className="sr-only">New activity, </span> : null}
+                <ClioRelativeTime
+                  className={cn(
+                    'text-[11px] group-data-selected/list-row:text-accent-foreground/80',
+                    unseen ? 'font-semibold text-foreground' : 'text-faint',
+                  )}
+                  compact
+                  timestamp={sessionInteractionAt(session)}
+                />
+              </span>
             )
           }
           selected={active}
@@ -246,6 +251,14 @@ function SessionRow({
                 </span>
               ) : null}
               {session.title || 'Untitled session'}
+              {active ? (
+                <HeldKeyBadge
+                  closest="[data-session-row]"
+                  id="previous-conversation"
+                  pairWith="next-conversation"
+                  placement="end"
+                />
+              ) : null}
             </Link>
           }
         />

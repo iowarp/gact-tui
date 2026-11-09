@@ -82,8 +82,8 @@ test('allows central child follow-ups while hiding user branching controls', asy
   ).toBeVisible();
   await expect(page.getByRole('combobox', { name: /^Ask .+ to investigate/ })).toHaveCount(0);
   await page.getByRole('button', { name: `Actions for ${worker.title}`, exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Fork into a new conversation' })).toHaveCount(0);
-  await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Fork' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Share' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('subagent-actions.png') });
   await page.keyboard.press('Escape');
 

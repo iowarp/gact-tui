@@ -22,7 +22,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Fork into a new conversation' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Fork' }));
 
     expect(actions.onFork).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact…' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
       'appends a checkpoint; earlier messages stay in the transcript',
@@ -60,7 +60,7 @@ describe('ClioSessionActions', () => {
     actions.onCompact.mockRejectedValueOnce(new Error('Service unavailable'));
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact conversation…' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact…' }));
     await user.click(screen.getByRole('button', { name: 'Compact conversation' }));
 
     expect(actions.onCompact).toHaveBeenCalledOnce();
@@ -73,7 +73,7 @@ describe('ClioSessionActions', () => {
     const actions = renderActions();
 
     await user.click(screen.getByRole('button', { name: 'Actions for EarthScope NDP' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Share read-only link' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Share' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Anyone with the link can view it');
     await user.click(screen.getByRole('button', { name: 'Create share link' }));
 

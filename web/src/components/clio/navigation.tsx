@@ -1,6 +1,7 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import { ArchiveIcon, SlidersHorizontalIcon, UserRoundIcon } from 'lucide-react';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
@@ -109,6 +110,8 @@ export function ClioNavigation({
   useMenuAction('new-session', () => openNewSession());
   useShortcut('new-conversation-browser', () => openNewSession(), { allowInTextField: true });
   useShortcut('import-conversation', importSession, { allowInTextField: true });
+  useShortcut('previous-conversation', () => stepConversation(-1), { allowInTextField: true });
+  useShortcut('next-conversation', () => stepConversation(1), { allowInTextField: true });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);
@@ -180,11 +183,12 @@ export function ClioNavigation({
             <NamedTooltip label="Settings" shortcut="settings" side="top">
               <Link
                 aria-label="Settings"
-                className="grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                className="relative grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
                 state={{ endpoint, from: location.pathname }}
                 to="/settings/general"
               >
                 <SlidersHorizontalIcon aria-hidden="true" className="size-[15px]" />
+                <HeldKeyBadge id="settings" placement="above" />
               </Link>
             </NamedTooltip>
           </SidebarFooter>
@@ -240,4 +244,14 @@ export function ClioNavigation({
       ) : null}
     </>
   );
+}
+
+/** Opens the conversation above or below the current one, in the left bar's visible order. */
+function stepConversation(step: -1 | 1) {
+  const links = [
+    ...document.querySelectorAll<HTMLAnchorElement>('[data-session-row] a[data-active]'),
+  ];
+  const current = links.findIndex((link) => link.dataset.active === 'true');
+  const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
+  target?.click();
 }

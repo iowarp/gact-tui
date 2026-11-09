@@ -1,9 +1,13 @@
 import { clearDesktopHost, mockDesktopHost } from '@/test/desktop-host';
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as renderElement, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSessionContextBar } from './session-context-bar';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+const render = (ui: ReactElement) => renderElement(ui, { wrapper: TooltipProvider });
 const downloads = vi.hoisted(() => ({ open: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@/tauri/downloads', () => ({ openDownloads: downloads.open }));
 const session: Session = {
@@ -39,8 +43,8 @@ describe('ClioSessionContextBar', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: `Actions for ${session.title}` }));
-    expect(screen.queryByRole('menuitem', { name: 'Fork into a new conversation' })).toBeNull();
-    expect(screen.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Fork' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Share' })).toBeVisible();
     expect(onFork).not.toHaveBeenCalled();
   });
 

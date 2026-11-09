@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { HeldKeyBadge } from './key-chip';
+import { HeldKeyBadge, type HeldKeyPlacement } from './key-chip';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
@@ -46,6 +46,8 @@ export interface IconButtonProps
   icon: ReactNode;
   /** Catalog id; adds the key to the tooltip, the held-key badge and `aria-keyshortcuts`. */
   shortcut?: string;
+  /** Where the held-key badge sits; `above` near the window's bottom edge. */
+  shortcutPlacement?: HeldKeyPlacement;
   /** 28px (default) or 22px for dense rows. */
   size?: 'default' | 'sm';
   /** A small count on the corner (comments, unread). */
@@ -60,6 +62,7 @@ export const IconButton = memo(function IconButton({
   label,
   icon,
   shortcut,
+  shortcutPlacement,
   size = 'default',
   count,
   tooltipSide,
@@ -94,7 +97,7 @@ export const IconButton = memo(function IconButton({
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-      {shortcut ? <HeldKeyBadge id={shortcut} /> : null}
+      {shortcut ? <HeldKeyBadge id={shortcut} placement={shortcutPlacement} /> : null}
     </Button>
   );
   if (!tooltip) return button;

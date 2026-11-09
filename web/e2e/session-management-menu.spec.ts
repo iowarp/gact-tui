@@ -26,10 +26,10 @@ for (const theme of ['light', 'dark']) {
       for (const name of [
         'Pin',
         'Rename',
-        'Fork into a new conversation',
-        'Share read-only link',
+        'Fork',
+        'Share',
         'Export',
-        'Compact conversation…',
+        'Compact…',
         'Remove last message…',
         'Archive',
         'Delete…',

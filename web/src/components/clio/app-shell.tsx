@@ -15,6 +15,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { TopBarEndHost } from './top-bar-end-context';
 import { NamedTooltip } from './primitives/icon-button';
 
 /** The left bar carries its own hide control, even collapsed; on phones it is a sheet the top bar opens. */
@@ -170,6 +171,7 @@ export function ClioAppShell({
   }, [desktopWorkbench, workbenchOpen]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
 
   const sessionSurface = (
     <section
@@ -177,7 +179,9 @@ export function ClioAppShell({
       aria-label="Conversation workspace"
     >
       <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
-        <div className="min-w-0 flex-1">{contextBar}</div>
+        <div className="min-w-0 flex-1">
+          <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+        </div>
         {statusStrip}
         {toolbarActions}
         {hasWorkbench && (
@@ -190,6 +194,7 @@ export function ClioAppShell({
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>
         )}
+        <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
     </section>

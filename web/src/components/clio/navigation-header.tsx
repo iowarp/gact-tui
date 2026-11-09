@@ -77,8 +77,8 @@ export function NavigationHeader({
           >
             <NewConversationIcon aria-hidden="true" className="text-primary" />
             <span className="truncate">New conversation</span>
-            <HeldKeyBadge id="new-conversation" />
-            <HeldKeyBadge id="new-conversation-browser" />
+            <HeldKeyBadge id="new-conversation" placement="end" />
+            <HeldKeyBadge id="new-conversation-browser" placement="end" />
           </SidebarMenuButton>
           <IconButton
             className="absolute right-1 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
@@ -103,7 +103,7 @@ export function NavigationHeader({
               className="ml-auto text-[11px] text-faint group-data-[collapsible=icon]:hidden"
               id="search"
             />
-            <HeldKeyBadge id="search" />
+            <HeldKeyBadge id="search" placement="end" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

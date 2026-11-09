@@ -1,6 +1,7 @@
 import type { Session } from '@clio/core/v3';
 import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, MessageSquareIcon } from 'lucide-react';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { canForkSession } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -62,7 +63,7 @@ export function ClioSessionContextBar({
         {workspaceLabel && !nativeTitle ? (
           <>
             <button
-              className="hidden h-7 min-w-0 max-w-44 shrink-[2] items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent md:flex"
+              className="flex h-7 min-w-12 max-w-44 shrink-[2] items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28"
               disabled={!onOpenWorkspace}
               onClick={onOpenWorkspace}
               title={`Open ${workspaceLabel}`}
@@ -71,10 +72,7 @@ export function ClioSessionContextBar({
               {session ? <WorkspaceMark id={session.workspace_id} /> : null}
               <span className="truncate">{workspaceLabel}</span>
             </button>
-            <ChevronRightIcon
-              aria-hidden="true"
-              className="hidden size-3.5 shrink-0 text-faint md:block"
-            />
+            <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
           </>
         ) : null}
         <TitleElement aria-label={nativeTitle ? undefined : title} className="flex min-w-0">
@@ -87,6 +85,14 @@ export function ClioSessionContextBar({
             onShare={onShare}
             onUndo={onUndo}
             title={session?.title ?? 'session'}
+            more={({ disabled }) => (
+              <IconButton
+                disabled={disabled}
+                icon={<MoreIcon />}
+                label="Conversation menu"
+                shortcut="conversation-menu"
+              />
+            )}
             trigger={({ disabled }) => (
               <button
                 aria-label={`Actions for ${session?.title ?? 'session'}`}
