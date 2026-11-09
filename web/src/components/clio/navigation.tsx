@@ -26,6 +26,7 @@ import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
 import { NavigationInfrastructure } from './navigation-infrastructure';
+import { HeldKeyBadge } from './primitives/key-chip';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -187,6 +188,7 @@ export function ClioNavigation({
                       <Link state={{ endpoint, from: location.pathname }} to="/settings/general">
                         <SettingsIcon aria-hidden="true" />
                         <span>Settings</span>
+                        <HeldKeyBadge id="settings" side="inside-end" />
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

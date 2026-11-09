@@ -5,6 +5,7 @@ import {
   Share2Icon,
   Undo2Icon,
 } from 'lucide-react';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import type { Session } from '@clio/core/v3';
@@ -23,10 +24,11 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { KeyMenuItem } from './menu-key-items';
+import { selectMenuKey } from './select-menu-key';
 import { ClioShareSessionDialog } from './share-session-dialog';
 import {
   DeleteResourceDialog,
@@ -62,8 +64,12 @@ export function ClioSessionActions({
   onUndo,
 }: ClioSessionActionsProps) {
   const [confirmation, setConfirmation] = useState<'compact' | 'undo'>();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pending, setPending] = useState(false);
+  useShortcut('conversation-menu', () => setMenuOpen(true), {
+    enabled: !(disabled || pending),
+  });
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const run = async (action: () => Promise<void>) => {
@@ -101,7 +107,7 @@ export function ClioSessionActions({
   };
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Actions for ${title}`}
@@ -113,26 +119,29 @@ export function ClioSessionActions({
             <MoreIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-64">
+        <DropdownMenuContent align="end" className="min-w-64" onKeyDown={selectMenuKey}>
           {management ? (
-            <>
-              <SessionOrganizeMenuItems
-                actions={management.actions}
-                onAction={runManagementAction}
-                onRename={setRenameTarget}
-                session={management.session}
-              />
-              <DropdownMenuSeparator />
-            </>
+            <SessionOrganizeMenuItems
+              actions={management.actions}
+              onAction={runManagementAction}
+              onRename={setRenameTarget}
+              session={management.session}
+            />
           ) : null}
           {onFork ? (
-            <DropdownMenuItem className="whitespace-nowrap" onSelect={() => void run(onFork)}>
-              <GitForkIcon aria-hidden="true" /> Branch into a new session
-            </DropdownMenuItem>
+            <KeyMenuItem
+              icon={<GitForkIcon aria-hidden="true" />}
+              label="Fork into a new conversation"
+              menuKey="F"
+              onSelect={() => void run(onFork)}
+            />
           ) : null}
-          <DropdownMenuItem className="whitespace-nowrap" onSelect={() => setSharing(true)}>
-            <Share2Icon aria-hidden="true" /> Share read-only link
-          </DropdownMenuItem>
+          <KeyMenuItem
+            icon={<Share2Icon aria-hidden="true" />}
+            label="Share read-only link"
+            menuKey="L"
+            onSelect={() => setSharing(true)}
+          />
           {management ? (
             <SessionExportMenu
               onExport={(mode) =>
@@ -152,26 +161,26 @@ export function ClioSessionActions({
           ) : null}
           <DropdownMenuSeparator />
           {onOpenSystemTerminal ? (
-            <DropdownMenuItem
-              className="whitespace-nowrap"
+            <KeyMenuItem
+              icon={<ExternalLinkIcon aria-hidden="true" />}
+              label="Open in system terminal"
+              menuKey="T"
               onSelect={() => void run(onOpenSystemTerminal)}
-            >
-              <ExternalLinkIcon aria-hidden="true" /> Open in system terminal
-            </DropdownMenuItem>
+            />
           ) : null}
-          <DropdownMenuItem
-            className="whitespace-nowrap"
+          <KeyMenuItem
+            icon={<PackageOpenIcon aria-hidden="true" />}
+            label="Compact conversation…"
+            menuKey="C"
             onSelect={() => setConfirmation('compact')}
-          >
-            <PackageOpenIcon aria-hidden="true" /> Compact conversation
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="whitespace-nowrap"
+          />
+          <KeyMenuItem
+            icon={<Undo2Icon aria-hidden="true" />}
+            label="Remove last message…"
+            menuKey="V"
             onSelect={() => setConfirmation('undo')}
-            variant="destructive"
-          >
-            <Undo2Icon aria-hidden="true" /> Remove last message
-          </DropdownMenuItem>
+            destructive
+          />
           {management ? (
             <>
               <DropdownMenuSeparator />

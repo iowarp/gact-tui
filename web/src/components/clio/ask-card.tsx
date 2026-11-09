@@ -23,7 +23,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
-import { ShortcutKeys } from './primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
 import { TechnicalDetails } from './technical-details';
@@ -52,13 +52,11 @@ const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
 /** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
 export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: string }) {
+  const keys = [KEY_TEXT[askKey] ?? askKey.toUpperCase()];
   return (
     <span aria-hidden="true" className="inline-flex shrink-0">
-      <ShortcutKeys
-        className={className}
-        keys={[KEY_TEXT[askKey] ?? askKey.toUpperCase()]}
-        variant="inline"
-      />
+      <ShortcutKeys className={className} keys={keys} variant="inline" />
+      <HeldKeyBadge keys={keys} side="cover" />
     </span>
   );
 }
