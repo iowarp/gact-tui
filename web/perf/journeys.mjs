@@ -233,7 +233,7 @@ export async function shellJourney(r) {
       close: 'Escape',
     },
   );
-  await r.overlay('agent menu', 'button', /^[^:]+: .+ @ /u);
+  await r.overlay('agent menu', 'button', /^[^:]+: .+ · /u);
   await r.overlay('workspace actions menu', 'button', /^Workspace actions for /u);
   await r.overlay('session row actions menu', 'button', /^Session actions for /u);
   await r.overlay('attention inbox', 'button', /^Notifications|needs your response/u);
@@ -283,8 +283,6 @@ export async function headerJourney(r) {
     { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
     { control: customize },
   );
-  await r.overlay('open questions', 'button', /open question/u, { category: 'dialog' });
-  await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
 
 export async function composerJourney(r) {

@@ -53,8 +53,8 @@ export function NavigationAgentMenu({
   const name =
     agentName === connectionAgentName(undefined, location)
       ? location === 'Local'
-        ? `${brand.name} local`
-        : brand.name
+        ? `${brand.wordmark} local`
+        : brand.wordmark
       : agentName;
   const place = placeWords(location);
   const line = statusLine(stream, versions.state === 'available', name, place);

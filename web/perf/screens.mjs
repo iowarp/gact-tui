@@ -224,9 +224,9 @@ function catalogue({ settings, infrastructure }) {
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
     menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
-    menu('menu-agent', 'button', /^[^:]+: .+ @ /u),
+    menu('menu-agent', 'button', /^[^:]+: .+ · /u),
     s('session', 'menu-clio-add-agent', SESSION, async (page) => {
-      await press(page, 'button', /^[^:]+: .+ @ /u);
+      await press(page, 'button', /^[^:]+: .+ · /u);
       await overlay(page);
       await page.getByRole('menuitem', { name: /^Add an agent/u }).click();
       await page.waitForTimeout(400);
@@ -236,8 +236,6 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
-    menu('menu-open-questions', 'button', /open question/u),
-    menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
