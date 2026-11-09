@@ -159,7 +159,7 @@ describe('AgentSettings', () => {
   it('says in one line when the service does not offer agents', async () => {
     repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
     renderSettings();
-    expect(await screen.findByText('This service does not offer agents')).toBeVisible();
+    expect(await screen.findByText('This service doesn’t offer agents.')).toBeVisible();
     expect(repository.agents).not.toHaveBeenCalled();
   });
 
@@ -167,7 +167,7 @@ describe('AgentSettings', () => {
     const user = userEvent.setup();
     repository.agents.mockRejectedValueOnce(new Error('Request failed with 503'));
     renderSettings();
-    expect(await screen.findByText('Could not load agents')).toBeVisible();
+    expect(await screen.findByText('Agents couldn’t be loaded.')).toBeVisible();
     expect(screen.queryByText(/503/u)).toBeNull();
     await user.click(screen.getByRole('button', { name: /Retry/u }));
     expect(await screen.findByRole('group', { name: 'Your agents' })).toBeVisible();
@@ -178,7 +178,7 @@ describe('AgentSettings', () => {
     repository.agents.mockResolvedValue([standard]);
     renderSettings();
     const yours = await screen.findByRole('group', { name: 'Your agents' });
-    expect(within(yours).getByText('No agents of your own yet')).toBeVisible();
+    expect(within(yours).getByText('No agents of your own yet.')).toBeVisible();
     await user.click(within(yours).getByRole('button', { name: 'New agent' }));
     const pane = await screen.findByRole('complementary', { name: 'CLIO' });
     expect(await within(pane).findByRole('button', { name: 'Save local variation' })).toBeEnabled();

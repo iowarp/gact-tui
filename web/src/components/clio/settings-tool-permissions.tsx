@@ -105,7 +105,7 @@ export function ToolPermissionsSettings() {
           bulkLabel: `All ${plugin.id} tools`,
           tools: [],
           notice: {
-            text: 'Tool settings could not be loaded',
+            text: 'Tool settings couldn’t be loaded.',
             title: result.error.message,
             status: 'Not loaded',
             tone: 'error',
@@ -126,24 +126,28 @@ export function ToolPermissionsSettings() {
   // Filtering and outcome modes only mean something once there are tools.
   let toolbar = false;
   if (supported === false) {
-    body = <StateView kind="unavailable" title="This agent does not offer plugin tools" />;
+    body = (
+      <StateView kind="unavailable" size="row" title="This service doesn’t offer plugin tools." />
+    );
   } else if (catalog.error) {
     body = (
-      <StateView
-        action={{ label: 'Retry', onClick: () => void catalog.refetch() }}
-        detail={catalog.error.message}
-        kind="error"
-        title="Tools could not be listed"
-      />
+      <div title={catalog.error.message}>
+        <StateView
+          action={{ label: 'Retry', onClick: () => void catalog.refetch() }}
+          kind="error"
+          size="row"
+          title="Plugin tools couldn’t be loaded."
+        />
+      </div>
     );
   } else if (catalog.isPending || results.some((result) => result.isPending)) {
-    body = <StateView kind="loading" title="Loading tools" />;
+    body = <StateView kind="loading" size="row" title="Loading plugin tools…" />;
   } else if (!anyTools && !sections.length) {
     body = (
       <StateView
-        detail="Install an extension that brings tools, and its tools are listed here."
         kind="empty"
-        title="No plugin tools yet"
+        size="row"
+        title="No plugin tools yet. Extensions that bring tools list them here."
       />
     );
   } else if (!sections.length) {
@@ -152,7 +156,8 @@ export function ToolPermissionsSettings() {
       <StateView
         action={{ label: 'Clear filter', onClick: () => setFilter('') }}
         kind="empty"
-        title="No tools match"
+        size="row"
+        title={`No tools match “${filter.trim()}”.`}
       />
     );
   } else {

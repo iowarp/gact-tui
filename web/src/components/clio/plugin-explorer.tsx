@@ -33,7 +33,7 @@ import {
   sourceName,
 } from '@/lib/extension-library-entries';
 import { EditIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
-import { serviceStatus } from '@/lib/mcp-service-presentation';
+import { serviceStatus, specTarget } from '@/lib/mcp-service-presentation';
 import { catalogMember } from '@/lib/plugin-catalog-tree';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -587,13 +587,7 @@ function Capabilities({
               const server = servers.find(
                 (row) => row.name === name && (!row.plugin || row.plugin === plugin.ref),
               );
-              const spec = server?.spec;
-              const target =
-                typeof spec?.url === 'string'
-                  ? spec.url
-                  : typeof spec?.command === 'string'
-                    ? spec.command
-                    : '';
+              const target = specTarget(server?.spec)?.short;
               return (
                 <ExtensionRow
                   icon={<ServerIcon />}

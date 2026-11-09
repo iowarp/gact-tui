@@ -165,7 +165,7 @@ it('shows a non-transient failure once instead of retrying it', async () => {
   mocks.repository.capabilities.mockResolvedValue({ gact_versions: ['0.1'] });
   renderFirstLaunch();
 
-  expect(await screen.findByText("Can't connect")).toBeVisible();
+  expect(await screen.findByRole('alert')).toHaveTextContent(/^Can't connect\s/u);
   await new Promise((resolve) => setTimeout(resolve, 600));
   await waitFor(() => expect(mocks.resolveConnection).toHaveBeenCalledOnce());
   expect(mocks.connect).not.toHaveBeenCalled();
