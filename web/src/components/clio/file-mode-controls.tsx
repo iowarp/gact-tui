@@ -31,17 +31,21 @@ export interface FileMode {
 /**
  * One mode as a checked menu row, with the key that works without the menu
  * in the right column (workbench-keyboard, "Menus show the key that works
- * anywhere"). The key is announced through `aria-keyshortcuts`.
+ * anywhere"). Key and check share that column, as the spec's rows do: the
+ * active mode shows its check. The key is announced through `aria-keyshortcuts`.
  */
 export function FileModeMenuItem({ mode }: { mode: FileMode }) {
   const keys = useShortcutPresentation(mode.shortcut);
   const Icon = mode.icon;
   return (
-    <DropdownMenuRadioItem value={mode.value} aria-keyshortcuts={keys?.aria}>
+    <DropdownMenuRadioItem value={mode.value} aria-keyshortcuts={keys?.aria} className="group/mode">
       <Icon aria-hidden="true" />
       {mode.label}
       {mode.shortcut ? (
-        <span aria-hidden="true" className="ml-auto pl-4">
+        <span
+          aria-hidden="true"
+          className="-mr-6 ml-auto pl-4 group-data-[state=checked]/mode:hidden"
+        >
           <ShortcutKeys id={mode.shortcut} />
         </span>
       ) : null}
