@@ -3,7 +3,8 @@ import type { StreamState } from '@clio/core/v3';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { brand } from '@brand';
-import { MENU_ACTION_EVENT } from '@/tauri/menu-actions';
+import { MENU_ACTION_EVENT, useMenuAction, type MenuAction } from '@/tauri/menu-actions';
+import type { ReactNode } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDesktopTitleStore } from '@/store/desktop-title';
 import { DesktopTitleBar } from './desktop-title-bar';
@@ -43,6 +44,27 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
 }));
 
+const switchConnection = vi.hoisted(() => vi.fn(async (_connection: unknown) => undefined));
+vi.mock('@/hooks/use-switch-connection', () => ({
+  useSwitchConnection: () => switchConnection,
+}));
+vi.mock('@/hooks/use-known-connections', () => ({
+  useKnownConnections: () => [
+    {
+      endpoint: 'http://127.0.0.1',
+      label: 'This computer',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+    {
+      endpoint: 'https://aurora.example:8787',
+      label: 'Aurora',
+      source: 'recent',
+      availability: { state: 'available', label: 'Ready', detail: 'Ready.' },
+    },
+  ],
+}));
+
 vi.mock('@/hooks/use-workspace-capabilities', () => ({
   useWorkspaceCapabilities: () => ({
     capabilities: { data: { service: capabilitiesService.current } },
@@ -55,10 +77,23 @@ vi.mock('@/store/live-store', () => ({
   ) => selector({ entities: { stream: liveStreamState.current }, streamOwners: 1 }),
 }));
 
+function MenuWorkflow({ action, handler }: { action: MenuAction; handler: () => void }) {
+  useMenuAction(action, handler);
+  return null;
+}
+
+/** Stands in for the screens that own each menu workflow in the app. */
+function MenuWorkflows({ actions }: { actions: Partial<Record<MenuAction, () => void>> }) {
+  return Object.entries(actions).map(([action, handler]) =>
+    handler ? <MenuWorkflow action={action as MenuAction} handler={handler} key={action} /> : null,
+  );
+}
+
 describe('DesktopTitleBar', () => {
-  const renderTitleBar = () =>
+  const renderTitleBar = (workflows?: ReactNode) =>
     render(
       <TooltipProvider>
+        {workflows}
         <DesktopTitleBar />
       </TooltipProvider>,
     );
@@ -224,18 +259,120 @@ describe('DesktopTitleBar', () => {
   });
 
   it('routes overflow actions through the existing application workflows', async () => {
-    const action = vi.fn();
-    window.addEventListener(MENU_ACTION_EVENT, action);
-    renderTitleBar();
+    const openSettings = vi.fn();
+    renderTitleBar(<MenuWorkflows actions={{ 'open-settings': openSettings }} />);
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /settings/i }));
 
-    expect(action).toHaveBeenCalledOnce();
-    const dispatchedEvent = action.mock.calls[0]?.[0];
-    expect(dispatchedEvent).toBeDefined();
-    expect((dispatchedEvent as CustomEvent).detail).toBe('open-settings');
-    window.removeEventListener(MENU_ACTION_EVENT, action);
+    expect(openSettings).toHaveBeenCalledOnce();
+  });
+
+  it('groups the app menu like the macOS menu bar and runs the same workflows', async () => {
+    const search = vi.fn();
+    const connectByAddress = vi.fn();
+    const installAgent = vi.fn();
+    const keyboardShortcuts = vi.fn();
+    renderTitleBar(
+      <MenuWorkflows
+        actions={{
+          search,
+          'connect-by-address': connectByAddress,
+          'install-agent': installAgent,
+          'keyboard-shortcuts': keyboardShortcuts,
+        }}
+      />,
+    );
+    const openMenu = async () => {
+      fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+      return screen.findByRole('menu');
+    };
+    const openSubmenu = async (name: string) => {
+      fireEvent.click(within(await openMenu()).getByRole('menuitem', { name }));
+      return screen.findByRole('menu', { name });
+    };
+
+    const topLevel = within(await openMenu())
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim());
+    expect(topLevel.slice(0, 5)).toEqual(['File', 'View', 'Agent', 'Window', 'Help']);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    fireEvent.click(within(await openSubmenu('View')).getByRole('menuitem', { name: /^search/i }));
+    expect(search).toHaveBeenCalledOnce();
+
+    // No screen hosts a workbench here, so its row can't pretend to work.
+    expect(
+      within(await openSubmenu('View')).getByRole('menuitem', { name: /workbench/i }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
+
+    const agentRows = within(await openSubmenu('Agent'))
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim());
+    expect(agentRows).toEqual([
+      'Connection settings',
+      'Switch to',
+      'Manage agents',
+      'Add an agent…',
+      expect.stringMatching(/^Infrastructure/),
+    ]);
+    const openAddAgent = async () => {
+      fireEvent.click(
+        within(await openSubmenu('Agent')).getByRole('menuitem', { name: 'Add an agent…' }),
+      );
+      return screen.findByRole('menu', { name: 'Add an agent…' });
+    };
+    fireEvent.keyDown(screen.getAllByRole('menu')[0] as HTMLElement, { key: 'Escape' });
+    fireEvent.click(
+      within(await openAddAgent()).getByRole('menuitem', { name: /connect by address/i }),
+    );
+    expect(connectByAddress).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(await openAddAgent()).getByRole('menuitem', {
+        name: `Install ${brand.agentName} on a computer`,
+      }),
+    );
+    expect(installAgent).toHaveBeenCalledOnce();
+
+    fireEvent.click(
+      within(await openSubmenu('Help')).getByRole('menuitem', { name: /keyboard shortcuts/i }),
+    );
+    expect(keyboardShortcuts).toHaveBeenCalledOnce();
+
+    fireEvent.click(
+      within(await openSubmenu('Window')).getByRole('menuitem', { name: 'Minimize' }),
+    );
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('minimize'));
+
+    fireEvent.click(
+      within(await openSubmenu('File')).getByRole('menuitem', { name: 'Close window' }),
+    );
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`Keep ${brand.productName} running?`);
+    expect(runDesktopWindowAction).not.toHaveBeenCalledWith('hide');
+  });
+
+  it('switches to another saved agent from Agent › Switch to', async () => {
+    renderTitleBar();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+    fireEvent.click(
+      within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Agent' }),
+    );
+    fireEvent.click(
+      within(await screen.findByRole('menu', { name: 'Agent' })).getByRole('menuitem', {
+        name: 'Switch to',
+      }),
+    );
+    const switchMenu = await screen.findByRole('menu', { name: 'Switch to' });
+    const rows = within(switchMenu).getAllByRole('menuitem');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('Aurora');
+    fireEvent.click(rows[0] as HTMLElement);
+    await waitFor(() =>
+      expect(switchConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ endpoint: 'https://aurora.example:8787' }),
+      ),
+    );
   });
 
   it('opens the application menu on Alt+Space, same as the hamburger', () => {
@@ -330,8 +467,11 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
-    expect(await screen.findByRole('menuitem', { name: /new session/i })).toHaveTextContent('⌘N');
-    expect(screen.getByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');
+    expect(await screen.findByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(await screen.findByRole('menuitem', { name: /new conversation/i })).toHaveTextContent(
+      '⌘N',
+    );
 
     fireEvent.keyDown(window, { key: 'n', metaKey: true });
     expect(action).toHaveBeenCalledWith(expect.objectContaining({ detail: 'new-session' }));

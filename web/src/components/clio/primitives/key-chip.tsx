@@ -11,9 +11,12 @@ import {
 } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
 
-export type KeyCapSize = 'md' | 'sm';
+export type KeyCapSize = 'md' | 'row' | 'sm';
 
-/** One key cap: `Ctrl`, `⌘`, `L`. `sm` is the menu footer's and search row's cap. */
+/**
+ * One key cap: `Ctrl`, `⌘`, `L`. `row` is the ↵ on a menu's highlighted row
+ * (the spec's `.lr .ret .kk`); `sm` is the menu footer's and search row's cap.
+ */
 export function KeyCap({
   children,
   size = 'md',
@@ -30,7 +33,9 @@ export function KeyCap({
         'inline-flex shrink-0 items-center justify-center rounded-[5px] border border-b-2 border-key-border bg-key font-mono leading-none font-normal whitespace-nowrap text-foreground',
         size === 'sm'
           ? 'h-[18px] min-w-[18px] px-1 text-[10px]'
-          : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
+          : size === 'row'
+            ? 'h-5 min-w-5 px-1.5 text-[11px]'
+            : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
         className,
       )}
     >
@@ -39,7 +44,7 @@ export function KeyCap({
   );
 }
 
-export type ShortcutKeysVariant = 'caps' | 'text' | 'inline';
+export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row';
 
 interface ShortcutKeysProps {
   /** A catalog id; the key follows the catalog everywhere it is shown. */
@@ -51,6 +56,7 @@ interface ShortcutKeysProps {
   /**
    * `caps`: one cap per key (the shortcut sheet). `text`: one quiet line (a
    * menu's right column, a tooltip). `inline`: one small chip inside a button.
+   * `row`: one full cap at the end of a menu's highlighted row.
    */
   variant?: ShortcutKeysVariant;
   /** Cap size for `caps`. */
@@ -104,6 +110,13 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     );
   }
   const text = shortcutText(definition, platform);
+  if (variant === 'row') {
+    return (
+      <KeyCap size="row" className={className}>
+        {text}
+      </KeyCap>
+    );
+  }
   if (variant === 'inline') {
     return (
       <kbd
@@ -273,7 +286,7 @@ interface HeldKeyBadgeProps {
   keys?: readonly string[];
   /** One key of a range shortcut. */
   position?: number;
-  /** The other half of a pair, joined into one badge (`Alt ??`). */
+  /** The other half of a pair, joined into one badge (`Alt ←→`). */
   pairId?: string;
   /** Where it sits against the control: under it (default), over it, to its left, inside its right end, or on it. */
   side?: HeldKeySide;
@@ -281,8 +294,8 @@ interface HeldKeyBadgeProps {
 }
 
 /**
- * The badge a control shows while Ctrl (?) is held: on Windows the key
- * without the held Ctrl (`?B`), on a Mac the whole key (`??B`). Place it
+ * The badge a control shows while Ctrl (⌘) is held: on Windows the key
+ * without the held Ctrl (`⇧B`), on a Mac the whole key (`⇧⌘B`). Place it
  * inside the control; it takes no space, floats above every clip and stays in
  * the window.
  */
@@ -342,7 +355,7 @@ export function HeldKeyBadge({
 }
 
 /**
- * While Ctrl (?) is held the app dims behind its key badges. Mount once.
+ * While Ctrl (⌘) is held the app dims behind its key badges. Mount once.
  */
 export function HeldKeysScrim() {
   const held = useCommandKeyHeld();

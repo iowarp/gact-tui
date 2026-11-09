@@ -25,8 +25,9 @@ import { cn } from '@/lib/utils';
  * folders, Open, Copy, @, the position fact (a page, a row count; marked
  * `data-frame-position`), then the modes folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
- * the group rules go and the gaps tighten, so no control leaves the bar. Children
- * hide on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
+ * the modes move into the … menu as a checked list (`modes-menu`; see
+ * `useFrameModes`), then the group rules go and the gaps tighten. Children hide
+ * on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
   'facts',
@@ -37,6 +38,7 @@ const FRAME_FOLDS = [
   'position',
   'modes',
   'name',
+  'modes-menu',
   'rules',
 ] as const;
 

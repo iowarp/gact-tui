@@ -14,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { NewConversationPage } from '@/routes/new-conversation-page';
@@ -151,8 +152,21 @@ export default function App() {
   useMenuAction('open-settings', openSettings);
   // Bound here rather than in the desktop title bar so the web build has Ctrl+, too.
   useShortcut('settings', openSettings);
+  useMenuAction('connection-settings', () =>
+    navigate('/settings/connections', { state: settingsReturnState }),
+  );
+  useMenuAction('manage-agents', () => navigate('/?intent=connect'));
+  // A static native menu can't list the saved agents: it opens the CLIO menu,
+  // or the agent picker when no CLIO menu is on screen.
+  useMenuAction('switch-agent', () => {
+    if (!requestClioMenu()) navigate('/?intent=connect');
+  });
+  useMenuAction('connect-by-address', () => navigate('/?intent=connect&mode=address'));
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
-  useShortcut('infrastructure', () => navigate('/infrastructure', { state: settingsReturnState }));
+  useMenuAction('install-agent', () => navigate('/?intent=connect&mode=deploy'));
+  const openInfrastructure = () => navigate('/infrastructure', { state: settingsReturnState });
+  useShortcut('infrastructure', openInfrastructure);
+  useMenuAction('open-infrastructure', openInfrastructure);
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
