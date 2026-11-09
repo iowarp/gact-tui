@@ -11,10 +11,10 @@ import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model
 // Human copy for the server's typed `redacted` reasons
 // (workspace_file_policy.workspace_read_redaction_reason). A folder carrying
 // one of these is listed (the owner ruling is to show dot folders, not hide
-// their existence) but its contents were never walked â€” the note explains why
+// their existence) but its contents were never walked — the note explains why
 // an expanded folder shows nothing, instead of silently looking empty.
 const REDACTED_REASON_LABEL: Record<string, string> = {
-  sandbox_child_cache: 'Sandbox cache â€” contents not shown',
+  sandbox_child_cache: 'Sandbox cache — contents not shown',
 };
 
 /** One flat row of a Files tree; folders and files are keyed by path. */
