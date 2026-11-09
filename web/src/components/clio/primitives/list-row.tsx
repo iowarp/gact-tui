@@ -41,6 +41,12 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    */
   layout?: 'inline' | 'stacked';
   selected?: boolean;
+  /**
+   * `highlight` marks the selected row with the menu-highlight tone. `accent`
+   * is the spec's chosen-item row (a service to open): accent fill, with the
+   * icon, description and status in the accent foreground.
+   */
+  selectedTone?: 'highlight' | 'accent';
   /** For virtualized lists: the absolute position the virtualizer assigns. */
   style?: CSSProperties;
 }
@@ -66,6 +72,7 @@ export const ListRow = memo(
       info,
       layout = 'inline',
       selected = false,
+      selectedTone = 'highlight',
       className,
       style,
       ...rest
@@ -81,7 +88,10 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+          selectedTone === 'accent'
+            ? 'data-selected:bg-accent data-selected:hover:bg-accent'
+            : 'data-selected:bg-menu-highlight',
           layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-[12.5px]' : 'h-7',
           className,
         )}
@@ -93,7 +103,10 @@ export const ListRow = memo(
         {icon ? (
           <span
             aria-hidden="true"
-            className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
+              selectedTone === 'accent' && 'group-data-selected/list-row:text-accent-foreground',
+            )}
           >
             {icon}
           </span>
@@ -102,7 +115,13 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  'min-w-0 truncate text-[11px] text-muted-foreground',
+                  selectedTone === 'accent' &&
+                    'group-data-selected/list-row:text-accent-foreground',
+                )}
+              >
                 {description}
               </span>
             ) : null}
