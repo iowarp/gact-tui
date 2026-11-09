@@ -3,6 +3,7 @@ import { providerComponentsSchema, type SessionDefaults } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,7 +125,9 @@ function renderSettings(
   return render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <SessionDefaultsSettings />
+        <TooltipProvider>
+          <SessionDefaultsSettings />
+        </TooltipProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -137,7 +140,7 @@ describe('new session defaults settings', () => {
 
     expect(await screen.findByRole('heading', { name: 'New session defaults' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Change default model' })).toHaveTextContent(
-      'OpenAI Codex / Luna',
+      /OpenAI Codex\s*\/\s*Luna/u,
     );
     expect(screen.queryByText('Models default')).not.toBeInTheDocument();
     expect(
@@ -161,7 +164,6 @@ describe('new session defaults settings', () => {
     await user.click(screen.getByRole('option', { name: /Deep research/u }));
     await user.click(screen.getByRole('combobox', { name: 'Confirmations' }));
     await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith({
@@ -173,7 +175,7 @@ describe('new session defaults settings', () => {
     );
   });
 
-  it('uses the shared searchable model picker and stages a specific model without rebinding Models', async () => {
+  it('uses the shared searchable model picker and applies a specific model without rebinding Models', async () => {
     const user = userEvent.setup();
     renderSettings();
 
@@ -185,9 +187,8 @@ describe('new session defaults settings', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Use model from Models settings' })).toBeVisible();
-    expect(repository.updateSessionDefaults).not.toHaveBeenCalled();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith({
         ...initialDefaults,
@@ -218,7 +219,6 @@ describe('new session defaults settings', () => {
       screen.queryByRole('button', { name: 'Use model from Models settings' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Models default')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(initialDefaults),
     );
@@ -249,7 +249,6 @@ describe('new session defaults settings', () => {
     await user.click(await screen.findByText('gpt-5.6-sol', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Low');
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-sol', effort: null }),
@@ -265,7 +264,6 @@ describe('new session defaults settings', () => {
     await user.click(await screen.findByText('gpt-5.6-luna', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent('Default');
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
         expect.objectContaining({ provider_id: 'codex', model_id: 'gpt-5.6-luna', effort: null }),
@@ -273,12 +271,33 @@ describe('new session defaults settings', () => {
     );
   });
 
+  it('reports a failed write in plain language and retries the latest choice', async () => {
+    repository.updateSessionDefaults.mockRejectedValueOnce(new Error('Request failed with 500'));
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(await screen.findByRole('combobox', { name: 'Confirmations' }));
+    await user.click(screen.getByRole('option', { name: 'SPOTTER review' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Your change could not be saved.');
+    expect(screen.queryByText(/500/u)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(repository.updateSessionDefaults).toHaveBeenCalledTimes(2));
+    expect(repository.updateSessionDefaults).toHaveBeenLastCalledWith({
+      ...initialDefaults,
+      approval_mode: 'spotter-ai',
+    });
+    expect(await screen.findByText('Saved to Research agent.')).toBeVisible();
+  });
+
   it('reports a defaults read failure instead of leaving the page loading', async () => {
     repository.sessionDefaults.mockRejectedValueOnce(new Error('Defaults unavailable'));
     renderSettings();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Defaults unavailable');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('New session defaults could not be loaded.');
+    expect(alert).not.toHaveTextContent('Defaults unavailable');
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(
-      screen.queryByText('Loading defaults from the connected service…'),
+      screen.queryByText('Loading defaults from the connected serviceâ€¦'),
     ).not.toBeInTheDocument();
   });
 });
@@ -305,7 +324,6 @@ describe('new session default reasoning comes from the model', () => {
 
     await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
     await user.click(screen.getByRole('option', { name: 'Default (Medium)' }));
-    await user.click(screen.getByRole('button', { name: 'Save defaults' }));
 
     await waitFor(() =>
       expect(repository.updateSessionDefaults).toHaveBeenCalledWith(
