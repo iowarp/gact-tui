@@ -21,6 +21,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
+import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
+import type { WorkbenchListView } from './workbench-strip';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { rangeReadsFromText } from '@/test/workspace-file-range';
 
@@ -100,6 +102,19 @@ function strip() {
   return within(screen.getByRole('toolbar', { name: 'Workbench lists' }));
 }
 
+/** A returning conversation: the pocket restores what it showed last time. A fresh one opens no tab. */
+function restorePocket({
+  timeline = true,
+  listView = 'files',
+}: { timeline?: boolean; listView?: WorkbenchListView } = {}) {
+  saveWorkbenchState('workspace_1', {
+    tabs: timeline ? [sessionTab] : [],
+    activeTabId: timeline ? sessionTab.id : '',
+    listView,
+    pinnedIds: [],
+  });
+}
+
 const REPORT = {
   id: 'report_1',
   session_id: 'session_parent',
@@ -149,6 +164,7 @@ describe('ClioWorkbench canvas', () => {
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const user = userEvent.setup();
+    restorePocket();
     const { container } = render(
       <ClioWorkbench
         artifacts={[]}
@@ -171,6 +187,7 @@ describe('ClioWorkbench canvas', () => {
   });
 
   it('keeps tabs mounted while suspending hidden canvas content', () => {
+    restorePocket();
     const { rerender } = render(
       <WorkspaceCanvasVisibilityProvider visible={false}>
         <ClioWorkbench
@@ -207,21 +224,33 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('starts with session activity and switches the list beside the tabs from the strip', async () => {
+  it('starts a conversation on its Activity list and switches the list beside the tabs from the strip', async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
+    // Activity replaces the old Observability tab: a fresh pocket opens no tab.
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const activity = screen.getByRole('region', { name: 'Activity list' });
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByText('No tabs open')).toBeVisible();
+
+    await user.click(within(activity).getByRole('button', { name: 'Open timeline and context' }));
     expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
     expect(screen.getByRole('tablist').parentElement).toHaveClass('no-scrollbar');
-    expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
 
     const artifacts = strip().getByRole('button', { name: 'Artifacts' });
     await user.click(artifacts);
     expect(artifacts).toHaveAttribute('aria-pressed', 'true');
-    expect(strip().getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('region', { name: 'Files list' })).not.toBeInTheDocument();
+    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.queryByRole('region', { name: 'Activity list' })).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Artifacts list' })).toBeVisible();
     expect(screen.getByText('No artifacts in this conversation')).toBeVisible();
     // The tab stays where it was: a list is not a tab.
@@ -267,6 +296,7 @@ describe('ClioWorkbench canvas', () => {
   it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
     const user = userEvent.setup();
     const handle = createRef<ClioWorkbenchHandle>();
+    restorePocket();
     const { container } = render(
       <ClioWorkbench
         artifacts={[]}
@@ -334,6 +364,7 @@ describe('ClioWorkbench canvas', () => {
   it('pins, moves and closes tabs from the tab context menu', async () => {
     const user = userEvent.setup();
     const handle = createRef<ClioWorkbenchHandle>();
+    restorePocket();
     render(
       <ClioWorkbench
         artifacts={[]}
@@ -439,6 +470,7 @@ describe('ClioWorkbench canvas', () => {
 
   it('closes and reopens activity as a normal canvas tab', async () => {
     const user = userEvent.setup();
+    restorePocket();
     renderWorkbench();
 
     const activityTab = screen.getByRole('tab', { name: 'Timeline' });
@@ -495,6 +527,7 @@ describe('ClioWorkbench canvas', () => {
     const ref = createRef<ClioWorkbenchHandle>();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     repository.readWorkspaceFile.mockResolvedValue('# workspace report');
+    restorePocket({ timeline: false });
     render(
       <QueryClientProvider client={queryClient}>
         <ClioWorkbench

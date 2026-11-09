@@ -716,6 +716,8 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
+  // A fresh pocket opens on the Activity list; Timeline is one button away.
+  await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
   const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
@@ -966,7 +968,11 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Timeline' })).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Workspace canvas' }).getByRole('button', {
+      name: 'Open timeline and context',
+    }),
+  ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toHaveCount(0);

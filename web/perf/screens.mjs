@@ -247,7 +247,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'activity', SESSION, openCanvas),
     s('canvas', 'tab-context-menu', SESSION, async (page) => {
-      await openCanvas(page);
+      await openFile(page, 'results/stations.csv');
       await page
         .locator('[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]')
         .filter({ visible: true })

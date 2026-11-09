@@ -381,19 +381,6 @@ export async function workbenchJourney(r) {
       { control: open },
     );
   }
-  const activeTab = page
-    .locator('[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]')
-    .filter({ visible: true })
-    .first();
-  if (await r.visible(activeTab, 1500)) {
-    await r.measure(
-      'tab context menu',
-      'menu',
-      () => activeTab.click({ button: 'right' }),
-      OVERLAY,
-      { close: 'Escape', control: activeTab },
-    );
-  }
   const strip = page.getByRole('toolbar', { name: 'Workbench lists' });
   for (const item of ['Files', 'Sources', 'Artifacts', 'Activity']) {
     const button = strip.getByRole('button', { name: item, exact: true }).first();
@@ -422,6 +409,21 @@ export async function workbenchJourney(r) {
       { control: activity, close: undefined },
     );
   }
+  const timeline = page
+    .getByRole('region', { name: 'Activity list' })
+    .getByRole('button', { name: 'Open timeline and context' });
+  if (await r.visible(timeline, 1000)) {
+    await r.measure(
+      'open canvas tab: Timeline',
+      'tab',
+      () => timeline.click(),
+      {
+        css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]',
+        text: 'Timeline',
+      },
+      { control: timeline, close: undefined },
+    );
+  }
   const agent = strip.getByRole('button', { name: 'Agent', exact: true }).first();
   if (await r.visible(agent, 1000)) {
     await r.measure(
@@ -430,6 +432,20 @@ export async function workbenchJourney(r) {
       () => agent.click(),
       { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
       { control: agent, close: undefined },
+    );
+  }
+  // A fresh pocket opens no tab, so the menu is measured once the Agent tab is open.
+  const activeTab = page
+    .locator('[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]')
+    .filter({ visible: true })
+    .first();
+  if (await r.visible(activeTab, 1500)) {
+    await r.measure(
+      'tab context menu',
+      'menu',
+      () => activeTab.click({ button: 'right' }),
+      OVERLAY,
+      { close: 'Escape', control: activeTab },
     );
   }
   const tabs = await page.locator('[aria-label="Workspace canvas"] [role="tab"]').all();

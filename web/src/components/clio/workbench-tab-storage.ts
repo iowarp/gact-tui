@@ -54,12 +54,15 @@ export function saveWorkbenchState(workspaceId: string, state: RestoredWorkbench
   );
 }
 
+/** A fresh pocket opens no tab: a conversation starts on its Activity list (Timeline is one
+ * row away there), a workspace without one on Files. */
 export function restoredWorkbenchState(workspaceId: string, hasSession = true): RestoredWorkbench {
-  const defaultTabs = hasSession ? [sessionTab] : [];
+  const defaultTabs: WorkbenchTab[] = [];
+  const defaultList: WorkbenchListView = hasSession ? 'activity' : 'files';
   const fresh: RestoredWorkbench = {
     tabs: defaultTabs,
-    activeTabId: defaultTabs[0]?.id ?? '',
-    listView: 'files',
+    activeTabId: '',
+    listView: defaultList,
     pinnedIds: [],
   };
   if (typeof window === 'undefined') return fresh;
@@ -90,7 +93,7 @@ export function restoredWorkbenchState(workspaceId: string, hasSession = true): 
         ? undefined
         : typeof record.listView === 'string' && LIST_VIEWS.has(record.listView)
           ? (record.listView as WorkbenchListView)
-          : 'files';
+          : defaultList;
     const pinnedIds = Array.isArray(record.pinnedIds)
       ? record.pinnedIds.filter(
           (id): id is string => typeof id === 'string' && tabs.some((tab) => tab.id === id),
