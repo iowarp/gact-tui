@@ -21,6 +21,8 @@ import { ContextHistorySettings } from '@/components/clio/settings-context-histo
 import { ConnectionsSettings } from '@/components/clio/settings-connection';
 import { AppearanceSettings } from '@/components/clio/settings-appearance';
 import { NotificationSettings } from '@/components/clio/settings-notifications';
+import { ProfileSettings } from '@/components/clio/settings-profile';
+import { FoldersSettings } from '@/components/clio/settings-folders';
 
 export function SettingsSection({
   section,
@@ -77,6 +79,8 @@ export function SettingsSection({
   if (section === 'schedules') return <ScheduleSettings initialSessionId={sessionId} />;
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
   if (section === 'memory') return <MemorySettings />;
+  if (section === 'folders') return <FoldersSettings initialWorkspaceId={workspaceId} />;
+  if (section === 'profile') return <ProfileSettings />;
   if (section === 'system') return <SystemSettings />;
   if (section === 'notifications') return <NotificationSettings />;
   if (section === 'general') return <GeneralSettings />;
