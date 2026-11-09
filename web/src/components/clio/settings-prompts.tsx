@@ -1,9 +1,10 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { PromptDefinition } from '@clio/core/v3';
+import { TransportError, type CommandDefinition, type PromptDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileTextIcon } from 'lucide-react';
-import { useState } from 'react';
+import { BellIcon, FileTextIcon, FolderIcon, ScrollTextIcon, SquareSlashIcon } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -11,139 +12,188 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 import { useRepository } from '@/hooks/use-repository';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { commandGroups, commandSource } from '@/lib/command-table';
+import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { reminderMeta } from '@/lib/reminder-meta';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { MetaLine } from './extension-parts';
 import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
-import { DialogFrame } from './primitives/dialog-frame';
-import { SettingsLoadError } from './settings-health-load-error';
-import { plainReason } from './settings-health-reason';
 import { IconButton } from './primitives/icon-button';
-import { ItemList, ItemRow } from './primitives/item-row';
+import { ItemList, ItemRow, type ItemRowProps } from './primitives/item-row';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
-import { StatusIndicator } from './primitives/status-indicator';
-import { CommandDetail, CommandList } from './settings-prompts-commands';
-import {
-  PromptDefinitionForm,
-  PromptEditorActions,
-  PromptPreview,
-} from './settings-prompts-editor';
-import { commandKey, promptScopeLabel, usePromptEditor } from './settings-prompts-model';
+import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { PromptEditorDialog } from './settings-prompt-editor';
+import { scopeLabel } from './settings-prompt-scope';
 import { RemindersList } from './settings-reminders';
-import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { Button } from '@/components/ui/button';
 
 type View = 'prompts' | 'reminders' | 'commands';
-const VIEWS = [
-  { value: 'prompts', label: 'Prompts' },
-  { value: 'reminders', label: 'Reminders' },
-  { value: 'commands', label: 'Commands' },
-] as const;
 
-type EditorView = 'definition' | 'preview';
-const EDITOR_VIEWS = [
-  { value: 'definition', label: 'Definition' },
-  { value: 'preview', label: 'Rendered preview' },
-] as const;
+const INFO =
+  'Inspect the instructions, reminders and commands the service supplies. Built-ins are read-only: customizing one saves a visible override for the entire service or one workspace, validated and previewed against the live agent context first.';
 
-/** One prompt family opened beside the list: its definition, a live render and its save actions. */
-function PromptDetail({
-  prompt,
-  workspaceId,
-  onClose,
-}: {
-  prompt: PromptDefinition;
-  workspaceId: string;
-  onClose: () => void;
+const COMMAND_KIND_LABELS: Record<string, string> = {
+  builtin: 'Built-in',
+  command: 'Command file',
+  mcp_prompt: 'MCP prompt',
+  skill: 'Skill',
+};
+
+/** A service that does not serve these routes at all, as opposed to one that failed. */
+const unsupported = (error: unknown) =>
+  error instanceof TransportError && [404, 405, 501].includes(error.status ?? 0);
+
+/** The command's state in words; the reason is its hover text. */
+function commandState(command: CommandDefinition): {
+  tone: StatusTone;
+  label: string;
+  detail?: string;
+} {
+  const detail = command.disabled_detail || command.disabled_reason || undefined;
+  if (command.disabled_reason === 'command_shadowed')
+    return {
+      tone: 'idle',
+      label: 'Shadowed',
+      detail: detail ?? 'Another command file of the same name wins.',
+    };
+  if (command.disabled_reason === 'command_name_reserved')
+    return {
+      tone: 'idle',
+      label: 'Reserved name',
+      detail: detail ?? 'A built-in command already has this name.',
+    };
+  if (!command.enabled)
+    return { tone: 'stopped', label: 'Unavailable', detail: detail ?? 'This command cannot run.' };
+  if (command.ambiguous)
+    return {
+      tone: 'warning',
+      label: 'Same name elsewhere',
+      detail: `Another source also has ${command.name}; this one runs as ${command.qualified_id}.`,
+    };
+  if (command.unsupported_fields.length)
+    return {
+      tone: 'warning',
+      label: 'Some fields ignored',
+      detail: `This file’s ${command.unsupported_fields.join(', ')} settings are not used.`,
+    };
+  return { tone: 'success', label: 'Available' };
+}
+
+/** Whether the element is narrower than `width`, so a toolbar can fold labels to icons. */
+function useNarrow<T extends HTMLElement>(width: number) {
+  const ref = useRef<T>(null);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setNarrow(entry.contentRect.width < width);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [width]);
+  return [ref, narrow] as const;
+}
+
+/** A whole row that opens its details; it has no controls of its own. */
+function OpenRow({
+  onOpen,
+  ...props
+}: Omit<ItemRowProps, 'onClick' | 'onKeyDown' | 'role' | 'tabIndex'> & {
+  onOpen: () => void;
 }) {
-  const editor = usePromptEditor({ prompt, workspaceId, onSaved: () => undefined });
-  const [view, setView] = useState<EditorView>('definition');
   return (
-    <DetailPane
-      icon={<FileTextIcon />}
-      onClose={onClose}
-      tabs={
-        <SegmentedControl
-          label="Prompt view"
-          onValueChange={setView}
-          options={EDITOR_VIEWS}
-          value={view}
-        />
-      }
-      title={prompt.title || prompt.id}
-    >
-      <p className="pb-3 text-xs text-muted-foreground">
-        {prompt.scope === 'builtin'
-          ? 'The packaged definition stays untouched; saving creates an explicit override.'
-          : 'Changes are validated by the connected service before they are saved.'}
+    <ItemRow
+      {...props}
+      className="cursor-default"
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onOpen();
+      }}
+      role="button"
+      tabIndex={0}
+    />
+  );
+}
+
+function CommandDetail({ command, onClose }: { command: CommandDefinition; onClose: () => void }) {
+  const state = commandState(command);
+  const items: KeyValueItem[] = [
+    { label: 'Kind', value: COMMAND_KIND_LABELS[command.kind] ?? command.kind },
+    ...(commandSource(command) ? [{ label: 'Source', value: commandSource(command) }] : []),
+    {
+      label: 'Status',
+      value: (
+        <span className="inline-flex justify-end" title={state.detail}>
+          <StatusIndicator label={state.label} tone={state.tone} />
+        </span>
+      ),
+      title: state.detail ?? state.label,
+    },
+    { label: 'Name', value: command.id, mono: true },
+    ...(command.argument_hint
+      ? [{ label: 'Usage', value: `${command.id} ${command.argument_hint}`, mono: true }]
+      : []),
+    ...(command.aliases.length
+      ? [{ label: 'Also available as', value: command.aliases.join(', '), mono: true }]
+      : []),
+  ];
+  return (
+    <DetailPane icon={<SquareSlashIcon />} onClose={onClose} title={command.title}>
+      <p className="mb-3 text-[0.8125rem] text-muted-foreground">
+        {command.description || 'The service did not provide a description.'}
       </p>
-      {view === 'definition' ? (
-        <PromptDefinitionForm editor={editor} />
-      ) : (
-        <PromptPreview editor={editor} />
-      )}
-      <PromptEditorActions editor={editor} />
+      {!command.enabled && (command.disabled_detail || command.disabled_reason) ? (
+        <p className="mb-3 text-xs text-destructive" role="alert">
+          {command.disabled_detail || command.disabled_reason}
+        </p>
+      ) : null}
+      <KeyValueGrid items={items} />
     </DetailPane>
   );
 }
 
-function PromptCreateDialog({
-  workspaceId,
-  onClose,
+/** One list's stand-in while it loads, fails, is not offered or is empty. */
+function ListState({
+  query,
+  noun,
+  empty,
 }: {
-  workspaceId: string;
-  onClose: () => void;
-}) {
-  const editor = usePromptEditor({ workspaceId, onSaved: onClose });
-  return (
-    <DialogFrame
-      confirm={{
-        label: 'Create prompt',
-        onConfirm: () => editor.save.mutate(),
-        disabled: !editor.canSave,
-      }}
-      description="Changes are validated by the connected service before they are saved."
-      icon={<FileTextIcon className="size-4" />}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      open
-      secondary={
-        <Button
-          className="mr-auto"
-          disabled={!editor.canValidate}
-          onClick={() => editor.validate.mutate()}
-          variant="ghost"
-        >
-          Validate
-        </Button>
-      }
-      title="New prompt"
-    >
-      <div className="clio-scrollbar -mx-[18px] max-h-[60vh] overflow-y-auto px-[18px] pb-1">
-        <PromptDefinitionForm editor={editor} />
-      </div>
-    </DialogFrame>
-  );
-}
-
-function promptMeta(prompt: PromptDefinition) {
-  const count = Object.keys(prompt.profiles).length;
-  return `${count} ${count === 1 ? 'profile' : 'profiles'}, default ${prompt.default_profile || 'unavailable'}`;
+  query: { isPending: boolean; error: Error | null; refetch: () => unknown };
+  noun: string;
+  empty: string;
+}): ReactNode {
+  if (query.isPending) return <StateView kind="loading" size="row" title={`Loading ${noun}…`} />;
+  if (query.error)
+    return unsupported(query.error) ? (
+      <StateView kind="unavailable" size="row" title={`This service doesn’t offer ${noun}.`} />
+    ) : (
+      <StateView
+        action={{ label: 'Retry', onClick: () => void query.refetch() }}
+        kind="error"
+        size="row"
+        title={`${noun[0]?.toUpperCase()}${noun.slice(1)} couldn’t be loaded.`}
+      />
+    );
+  return <StateView kind="empty" size="row" title={empty} />;
 }
 
 export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId ?? '');
+  const [toolbar, narrow] = useNarrow<HTMLDivElement>(600);
   const [view, setView] = useState<View>('prompts');
-  const [openPromptId, setOpenPromptId] = useState<string>();
-  const [openCommandKey, setOpenCommandKey] = useState<string>();
-  const [creating, setCreating] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState(initialWorkspaceId ?? '');
+  const [editor, setEditor] = useState<{ prompt?: PromptDefinition; key: number }>();
+  const [selectedCommand, setSelectedCommand] = useState<CommandDefinition>();
   const context = workspaceId ? { workspaceId } : {};
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'prompt-settings'),
@@ -152,10 +202,12 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const prompts = useQuery({
     queryKey: queryKeys.key('prompts', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.prompts(signal, context),
+    retry: false,
   });
   const commands = useQuery({
     queryKey: queryKeys.key('commands', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.commands(signal, context),
+    retry: false,
   });
   const reload = useMutation({
     mutationFn: () => repository.reloadPrompts(context),
@@ -167,183 +219,168 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         description: `${result.prompt_count} prompt ${result.prompt_count === 1 ? 'family' : 'families'} available.`,
       });
     },
-    onError: (error) =>
-      toast.error('Could not reload prompts', { description: plainReason(error) }),
+    onError: () => toast.error('Prompt sources weren’t reloaded. Try again.'),
   });
-  const openPrompt = prompts.data?.find((prompt) => prompt.id === openPromptId);
-  const openCommand = commands.data?.find((command) => commandKey(command) === openCommandKey);
+  const openEditor = (prompt?: PromptDefinition) =>
+    setEditor((current) => ({ prompt, key: (current?.key ?? 0) + 1 }));
   const families = prompts.data?.filter((prompt) => !reminderMeta(prompt)) ?? [];
-  const closeDetails = () => {
-    setOpenPromptId(undefined);
-    setOpenCommandKey(undefined);
-  };
-  const togglePrompt = (id: string) =>
-    setOpenPromptId((current) => (current === id ? undefined : id));
+  const workspaceName = workspaces.data?.find((row) => row.id === workspaceId)?.display_name;
 
-  const promptsState = prompts.error ? (
-    <SettingsLoadError
-      error={prompts.error}
-      onRetry={() => void prompts.refetch()}
-      retrying={prompts.isFetching}
-      title="Prompts unavailable."
-    />
-  ) : prompts.isPending ? (
-    <StateView kind="loading" size="row" title="Loading prompts…" />
-  ) : null;
+  const promptRow = (prompt: PromptDefinition) => {
+    const profiles = Object.keys(prompt.profiles).length;
+    const problem = prompt.validation_errors[0];
+    return (
+      <OpenRow
+        icon={<FileTextIcon />}
+        key={prompt.id}
+        meta={
+          problem ? (
+            <span className="text-destructive" title={prompt.validation_errors.join(', ')}>
+              {problem}
+            </span>
+          ) : (
+            <MetaLine
+              parts={[
+                scopeLabel(prompt.scope),
+                `${profiles} ${profiles === 1 ? 'profile' : 'profiles'}`,
+                profiles > 1 && prompt.default_profile ? `default ${prompt.default_profile}` : '',
+              ]}
+            />
+          )
+        }
+        onOpen={() => openEditor(prompt)}
+        status={
+          <StatusIndicator
+            label={prompt.enabled ? 'Ready' : 'Needs attention'}
+            tone={prompt.enabled ? 'success' : 'warning'}
+          />
+        }
+        statusWidth={132}
+        title={prompt.title || prompt.id}
+      />
+    );
+  };
+
+  const commandRow = (command: CommandDefinition) => {
+    const state = commandState(command);
+    return (
+      <OpenRow
+        aria-current={selectedCommand === command || undefined}
+        icon={<ScrollTextIcon />}
+        key={`${command.kind}:${command.qualified_id}:${command.source}`}
+        meta={
+          <MetaLine
+            parts={[
+              {
+                text: command.argument_hint ? `${command.id} ${command.argument_hint}` : command.id,
+                mono: true,
+              },
+              commandSource(command),
+              command.description ?? '',
+            ]}
+          />
+        }
+        onOpen={() => setSelectedCommand(command)}
+        selected={selectedCommand === command}
+        status={
+          <span className="flex min-w-0" title={state.detail}>
+            <StatusIndicator label={state.label} tone={state.tone} />
+          </span>
+        }
+        statusWidth={150}
+        title={command.title}
+      />
+    );
+  };
 
   const list =
     view === 'prompts' ? (
-      <>
-        <SettingsGroupLabel
-          addLabel="New prompt"
-          info="Built-ins are read-only. Customizing one saves a visible scoped override."
-          onAdd={() => setCreating(true)}
-        >
-          Prompt families
-        </SettingsGroupLabel>
-        {promptsState}
-        {prompts.error ? null : families.length ? (
-          <ItemList label="Prompt families">
-            {families.map((prompt) => (
-              <ItemRow
-                aria-expanded={openPromptId === prompt.id}
-                className="cursor-pointer"
-                icon={<FileTextIcon />}
-                key={prompt.id}
-                meta={
-                  <>
-                    <span className="mr-2.5">{promptScopeLabel(prompt.scope)}</span>
-                    <span>{promptMeta(prompt)}</span>
-                  </>
-                }
-                onClick={() => togglePrompt(prompt.id)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  togglePrompt(prompt.id);
-                }}
-                role="button"
-                selected={openPromptId === prompt.id}
-                status={
-                  <StatusIndicator
-                    label={prompt.enabled ? 'Ready' : 'Needs attention'}
-                    tone={prompt.enabled ? 'success' : 'warning'}
-                  />
-                }
-                statusWidth={136}
-                tabIndex={0}
-                title={prompt.title || prompt.id}
-              />
-            ))}
-          </ItemList>
-        ) : prompts.data ? (
-          <StateView
-            kind="empty"
-            size="row"
-            title="No prompt families were reported for this view."
-          />
-        ) : null}
-      </>
+      <div className="min-w-0">
+        <SettingsGroupLabel className="mt-0">Prompt families</SettingsGroupLabel>
+        <ItemList label="Prompt families">
+          {families.length ? (
+            families.map(promptRow)
+          ) : (
+            <ListState
+              empty="No prompt families in this view"
+              noun="prompt families"
+              query={prompts}
+            />
+          )}
+        </ItemList>
+      </div>
     ) : view === 'reminders' ? (
-      <>
-        <SettingsGroupLabel info="Notes the agent receives during its work. Switch one off, or open it to edit its text; a change saves a visible override.">
-          Reminders
-        </SettingsGroupLabel>
-        {promptsState}
+      <div className="min-w-0">
+        <SettingsGroupLabel className="mt-0">Reminders</SettingsGroupLabel>
         {prompts.data ? (
           <RemindersList
             onChanged={() => void prompts.refetch()}
-            onEdit={(prompt) => togglePrompt(prompt.id)}
-            openId={openPromptId}
+            onEdit={(prompt) => openEditor(prompt)}
             prompts={prompts.data}
           />
-        ) : null}
-      </>
-    ) : (
-      <>
-        {commands.error ? (
-          <>
-            <SettingsGroupLabel>Commands</SettingsGroupLabel>
-            <SettingsLoadError
-              error={commands.error}
-              onRetry={() => void commands.refetch()}
-              retrying={commands.isFetching}
-              title="Commands unavailable."
-            />
-          </>
-        ) : commands.isPending ? (
-          <StateView kind="loading" size="row" title="Loading commands…" />
-        ) : commands.data?.length ? (
-          <CommandList
-            commands={commands.data}
-            onOpen={(key) => setOpenCommandKey((current) => (current === key ? undefined : key))}
-            openKey={openCommandKey}
-          />
         ) : (
-          <>
-            <SettingsGroupLabel>Commands</SettingsGroupLabel>
-            <StateView kind="empty" size="row" title="No commands were reported for this view." />
-          </>
+          <ItemList label="Reminders">
+            <ListState empty="" noun="reminders" query={prompts} />
+          </ItemList>
         )}
-      </>
+      </div>
+    ) : commands.data?.length ? (
+      <div className="min-w-0">
+        {commandGroups(commands.data).map((group, index) => (
+          <div key={group.heading}>
+            <SettingsGroupLabel className={index ? undefined : 'mt-0'}>
+              {group.heading}
+            </SettingsGroupLabel>
+            <ItemList label={group.heading}>{group.rows.map(commandRow)}</ItemList>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="min-w-0">
+        <SettingsGroupLabel className="mt-0">Commands</SettingsGroupLabel>
+        <ItemList label="Commands">
+          <ListState empty="No commands in this view" noun="commands" query={commands} />
+        </ItemList>
+      </div>
     );
 
-  const detail =
-    view === 'commands' ? (
-      openCommand ? (
-        <CommandDetail
-          command={openCommand}
-          key={openCommandKey}
-          onClose={() => setOpenCommandKey(undefined)}
-        />
-      ) : undefined
-    ) : openPrompt ? (
-      <PromptDetail
-        key={`${openPrompt.id}:${workspaceId}`}
-        onClose={() => setOpenPromptId(undefined)}
-        prompt={openPrompt}
-        workspaceId={workspaceId}
-      />
-    ) : undefined;
-
   return (
-    <div className="grid gap-1">
-      <SettingsSectionHeading
-        actions={
-          <>
-            <SegmentedControl
-              label="Show"
-              onValueChange={(next) => {
-                closeDetails();
-                setView(next);
-              }}
-              options={VIEWS}
-              value={view}
-            />
-            <IconButton
-              disabled={reload.isPending}
-              icon={<RefreshIcon />}
-              label="Reload sources"
-              onClick={() => reload.mutate()}
-            />
-          </>
-        }
-        info="Inspect the instructions and commands supplied by the service. Validate and preview prompt overrides against the live agent context before saving them. Commands come from the service, installed plugins, and skills."
-        title="Prompts & commands"
-      />
-      <SettingsRow title="Workspace">
-        <Select
-          onValueChange={(value) => {
-            closeDetails();
-            setWorkspaceId(value === 'all' ? '' : value);
+    <div className="grid min-w-0 gap-1">
+      <SettingsSectionHeading info={INFO} title="Prompts and commands" />
+      <div
+        className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2.5 whitespace-nowrap"
+        data-slot="settings-toolbar"
+        ref={toolbar}
+      >
+        <SegmentedControl
+          iconOnly={narrow ? 'others' : false}
+          label="View"
+          onValueChange={(next) => {
+            setView(next);
+            setSelectedCommand(undefined);
           }}
+          options={[
+            { value: 'prompts', label: 'Prompts', icon: <FileTextIcon aria-hidden="true" /> },
+            { value: 'reminders', label: 'Reminders', icon: <BellIcon aria-hidden="true" /> },
+            {
+              value: 'commands',
+              label: 'Commands',
+              icon: <SquareSlashIcon aria-hidden="true" />,
+            },
+          ]}
+          value={view}
+        />
+        <Select
+          onValueChange={(value) => setWorkspaceId(value === 'all' ? '' : value)}
           value={workspaceId || 'all'}
         >
           <SelectTrigger
             aria-label="Prompt workspace"
-            className="h-[1.875rem] w-full min-w-0 text-[0.78125rem]"
+            className="h-7! w-44 min-w-0 shrink gap-1.5 px-2 text-xs"
             size="sm"
+            title={workspaceName ?? 'Global service view'}
           >
+            <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -355,10 +392,47 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             ))}
           </SelectContent>
         </Select>
-      </SettingsRow>
-      <ListDetailLayout detail={detail} list={list} />
-      {creating ? (
-        <PromptCreateDialog onClose={() => setCreating(false)} workspaceId={workspaceId} />
+        <span className="flex-1" />
+        <IconButton
+          disabled={reload.isPending}
+          icon={reload.isPending ? <Spinner /> : <RefreshIcon />}
+          label="Reload sources"
+          onClick={() => reload.mutate()}
+        />
+        {narrow ? (
+          <IconButton icon={<AddIcon />} label="New prompt" onClick={() => openEditor()} />
+        ) : (
+          <Button
+            className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
+            onClick={() => openEditor()}
+            size="sm"
+            variant="outline"
+          >
+            <AddIcon aria-hidden="true" /> New prompt
+          </Button>
+        )}
+      </div>
+      <ListDetailLayout
+        className="min-h-[20rem]"
+        detail={
+          view === 'commands' && selectedCommand ? (
+            <CommandDetail
+              command={selectedCommand}
+              key={`${selectedCommand.kind}:${selectedCommand.qualified_id}`}
+              onClose={() => setSelectedCommand(undefined)}
+            />
+          ) : undefined
+        }
+        list={list}
+      />
+
+      {editor ? (
+        <PromptEditorDialog
+          key={editor.key}
+          onClose={() => setEditor(undefined)}
+          prompt={editor.prompt}
+          workspaceId={workspaceId}
+        />
       ) : null}
     </div>
   );

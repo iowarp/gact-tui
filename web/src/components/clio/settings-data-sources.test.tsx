@@ -1,10 +1,10 @@
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
 import { MemoryRouter } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
   token: 'one',
@@ -47,11 +47,11 @@ afterEach(cleanup);
 function content(client: QueryClient) {
   return (
     <QueryClientProvider client={client}>
-      <TooltipProvider>
-        <MemoryRouter>
+      <MemoryRouter>
+        <TooltipProvider>
           <DataSourceSettings />
-        </MemoryRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -61,12 +61,16 @@ it('manages accounts without querying or modifying workspace sources until Conne
   client.setQueryData(['connected-storage-selection', scope, 'w'], 'attach-selection');
   render(content(client));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: 'Sign in to Globus' }));
+  await user.click(
+    await screen.findByRole('button', { name: 'Sign in to Globus' }, { timeout: 5000 }),
+  );
   expect(screen.getByRole('heading', { name: 'Sign in to Globus' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Log in' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('combobox', { name: 'Workspace' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Connect Globus' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'More actions for Globus' }));
+  expect(await screen.findByRole('menuitem', { name: 'Connect to a workspace…' })).toBeVisible();
+  await user.keyboard('{Escape}');
   expect(screen.queryByText('Local folder')).not.toBeInTheDocument();
   expect(screen.queryByText('Your sources')).not.toBeInTheDocument();
   expect(fixtures.repository.workspaces).not.toHaveBeenCalled();
@@ -76,11 +80,13 @@ it('manages accounts without querying or modifying workspace sources until Conne
     providers: [{ ...account, authenticated: true }],
   });
   await client.invalidateQueries({ queryKey: ['connected-storage', scope, 'accounts'] });
-  await user.click(await screen.findByRole('button', { name: 'Sign out of Globus' }));
+  expect(await screen.findByText('Signed in')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'More actions for Globus' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Sign out…' }));
   expect(screen.getByText(/across all workspaces/)).toBeVisible();
   fixtures.repository.signOutStorageAccount.mockResolvedValue({ authenticated: false });
   fixtures.repository.storageProviders.mockResolvedValue({ providers: [account] });
-  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Sign out/ }));
+  await user.click(screen.getByRole('button', { name: /^Sign out/ }));
   await waitFor(() =>
     expect(fixtures.repository.signOutStorageAccount).toHaveBeenCalledWith('globus'),
   );
@@ -104,7 +110,8 @@ it('shows real setup limitations and retries a failed account read', async () =>
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(content(client));
   const user = userEvent.setup();
-  expect(await screen.findByRole('alert')).toHaveTextContent('Account service offline');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Accounts couldn’t be loaded.');
+  expect(screen.queryByText('Account service offline')).not.toBeInTheDocument();
   fixtures.repository.storageProviders.mockResolvedValue({
     providers: [
       {

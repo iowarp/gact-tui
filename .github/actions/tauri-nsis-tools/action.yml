@@ -1,0 +1,20 @@
+name: Tauri NSIS tools
+description: >-
+  Restore or pre-fetch, with retries, the NSIS toolset Tauri's bundler
+  downloads from GitHub releases, so a transient 504 cannot fail a build.
+  Windows only. Keep the URLs and hashes in fetch.ps1 in step with the
+  @tauri-apps/cli version in desktop/package.json.
+runs:
+  using: composite
+  steps:
+    - id: paths
+      shell: pwsh
+      run: '"dir=$env:LOCALAPPDATA\tauri\NSIS" >> $env:GITHUB_OUTPUT'
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.paths.outputs.dir }}
+        key: tauri-nsis-${{ runner.os }}-${{ hashFiles('.github/actions/tauri-nsis-tools/fetch.ps1') }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: '& "${{ github.action_path }}/fetch.ps1" -Destination "${{ steps.paths.outputs.dir }}"'

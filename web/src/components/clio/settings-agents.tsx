@@ -1,29 +1,22 @@
 import type { AgentEntry } from '@clio/core/v3';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
-
+import { connectionScope } from '@/lib/connection-scope';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { AgentRow, AgentPreviewDialog } from './agent-library-row';
-import { CatalogGroup } from './catalog-group';
-
+import { AgentPreviewPane, AgentRow } from './agent-library-row';
+import { DialogFrame } from './primitives/dialog-frame';
+import { ListDetailLayout } from './primitives/detail-pane';
+import { ItemList } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
+import { Tag } from './primitives/tag';
+import { SavedAgentFile } from './private-local-details';
+import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /** Installed agents and the person's own agents (a parent plus a delta). */
@@ -35,7 +28,25 @@ export function AgentSettings() {
   const supported = useAgentPluginsSupported();
   const agents = useInstalledAgents();
   const [deleting, setDeleting] = useState<AgentEntry>();
-  const [previewing, setPreviewing] = useState<AgentEntry>();
+  const [previewRef, setPreviewRef] = useState<string>();
+  const [sourceAgent, setSourceAgent] = useState<AgentEntry>();
+  const defaults = useQuery({
+    queryKey: queryKeys.key('session-defaults', settings.endpoint),
+    queryFn: ({ signal }) => repository.sessionDefaults(signal),
+    enabled: supported === true,
+  });
+  const local = useQuery({
+    // The same namespace the private library reads; saving or deleting an agent refreshes it.
+    queryKey: queryKeys.key(
+      'agents',
+      settings.endpoint,
+      'local-sources',
+      connectionScope(settings),
+    ),
+    queryFn: ({ signal }) => repository.localLibrary(signal),
+    retry: false,
+    enabled: Boolean(sourceAgent),
+  });
   useEffect(() => {
     if (!location.hash.startsWith('#agent-')) return;
     const row = document.getElementById(location.hash.slice(1));
@@ -46,6 +57,7 @@ export function AgentSettings() {
     mutationFn: (agent: AgentEntry) => repository.deleteUserAgent(agent.id),
     onSuccess: async (_value, agent) => {
       setDeleting(undefined);
+      setPreviewRef((current) => (current === agent.ref ? undefined : current));
       await queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
       toast.success(`Deleted ${agent.name || agent.ref}`);
     },
@@ -58,115 +70,124 @@ export function AgentSettings() {
   );
   if (supported === false) {
     return (
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {heading}
-        <Alert>
-          <AlertTitle>Plugins are not available on this service</AlertTitle>
-          <AlertDescription>
-            The connected service does not compose agents from plugins.
-          </AlertDescription>
-        </Alert>
+        <StateView kind="unavailable" size="row" title="This service does not offer agents" />
       </div>
     );
   }
-  const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
-  const installed = agents.data?.filter((agent) => agent.kind !== 'user') ?? [];
+  const all = agents.data ?? [];
+  const mine = all.filter((agent) => agent.kind === 'user');
+  const installed = all.filter((agent) => agent.kind !== 'user');
+  const defaultRef = defaults.data?.agent_ref || defaults.data?.default_agent_ref || '';
+  const previewing = all.find((agent) => agent.ref === previewRef);
+  // A new agent starts as a saved variation of an installed one.
+  const starter = installed.find((agent) => agent.ref === defaultRef) ?? installed[0];
+  const newAgent = starter ? () => setPreviewRef(starter.ref) : undefined;
+  const row = (agent: AgentEntry) => (
+    <AgentRow
+      agent={agent}
+      agents={all}
+      key={agent.ref}
+      onDelete={agent.kind === 'user' ? () => setDeleting(agent) : undefined}
+      onPreview={() => setPreviewRef(agent.ref)}
+      onViewSource={agent.kind === 'user' ? () => setSourceAgent(agent) : undefined}
+      selected={agent.ref === previewRef}
+      slot={agent.ref === defaultRef ? <Tag>Default</Tag> : null}
+    />
+  );
+  const list = (
+    <div className="min-w-0">
+      <SettingsGroupLabel className="mt-0">Installed agents</SettingsGroupLabel>
+      <ItemList label="Installed agents">
+        {installed.length ? (
+          installed.map(row)
+        ) : (
+          <StateView kind="empty" size="row" title="No agents are installed" />
+        )}
+      </ItemList>
+      <SettingsGroupLabel addLabel="New agent" onAdd={newAgent}>
+        Your agents
+      </SettingsGroupLabel>
+      <ItemList label="Your agents">
+        {mine.length ? (
+          mine.map(row)
+        ) : (
+          <StateView
+            action={newAgent ? { label: 'New agent', onClick: newAgent } : undefined}
+            className="h-[2.875rem] border-b border-border/70 px-2"
+            kind="empty"
+            size="row"
+            title="No agents of your own yet"
+          />
+        )}
+      </ItemList>
+    </div>
+  );
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-4">
       {heading}
       {agents.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Agents unavailable</AlertTitle>
-          <AlertDescription>{agents.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {agents.isPending ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading agents…
-        </p>
-      ) : null}
-      {agents.data ? (
-        <>
-          <section aria-label="Your agents" className="grid gap-2">
-            <h2 className="text-sm font-semibold">Your agents</h2>
-            {!mine.length ? (
-              <p className="text-sm text-muted-foreground">
-                Open an installed agent to explore it and save your own variation.
-              </p>
-            ) : null}
-            <ul className="grid gap-2">
-              {mine.map((agent) => (
-                <AgentRow
-                  agent={agent}
-                  agents={agents.data ?? []}
-                  key={agent.ref}
-                  onDelete={() => setDeleting(agent)}
-                  onPreview={() => setPreviewing(agent)}
-                />
-              ))}
-            </ul>
-          </section>
-          <section aria-label="Installed agents" className="grid gap-2">
-            <h2 className="text-sm font-semibold">Installed agents</h2>
-            {[...new Set(installed.map((agent) => agent.marketplace))].map((marketplace) => (
-              <CatalogGroup
-                key={marketplace}
-                name={marketplace}
-                count={installed.filter((agent) => agent.marketplace === marketplace).length}
-              >
-                <ul className="grid gap-2">
-                  {installed
-                    .filter((agent) => agent.marketplace === marketplace)
-                    .map((agent) => (
-                      <AgentRow
-                        key={agent.ref}
-                        agent={agent}
-                        agents={agents.data ?? []}
-                        onPreview={() => setPreviewing(agent)}
-                      />
-                    ))}
-                </ul>
-              </CatalogGroup>
-            ))}
-          </section>
-        </>
-      ) : null}
-      <AlertDialog
+        <StateView
+          action={{ label: 'Retry', onClick: () => void agents.refetch() }}
+          kind="error"
+          size="row"
+          title="Could not load agents"
+        />
+      ) : agents.isPending ? (
+        <StateView kind="loading" size="row" title="Loading agents…" />
+      ) : (
+        <ListDetailLayout
+          className="min-h-[24rem]"
+          detail={
+            previewing ? (
+              <AgentPreviewPane
+                agent={previewing}
+                key={previewing.ref}
+                onClose={() => setPreviewRef(undefined)}
+              />
+            ) : undefined
+          }
+          list={list}
+        />
+      )}
+      <DialogFrame
+        confirm={{
+          label: 'Delete agent',
+          tone: 'destructive',
+          disabled: remove.isPending,
+          onConfirm: () => {
+            if (deleting) remove.mutate(deleting);
+          },
+        }}
+        cancelLabel="Keep agent"
+        description="New conversations can no longer choose it."
+        icon={<DeleteIcon className="size-3.5" />}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDeleting(undefined);
+          remove.reset();
+        }}
         open={Boolean(deleting)}
-        onOpenChange={(open) => (open ? undefined : setDeleting(undefined))}
+        title={`Delete ${deleting?.name || deleting?.ref || 'agent'}?`}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleting?.name || deleting?.ref}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              New conversations can no longer choose it. Conversations already using it keep their
-              pinned plugins.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {remove.error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {remove.error.message}
-            </p>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep agent</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={remove.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                if (deleting) remove.mutate(deleting);
-              }}
-            >
-              Delete agent
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      {previewing ? (
-        <AgentPreviewDialog
-          key={previewing.ref}
-          agent={previewing}
-          onClose={() => setPreviewing(undefined)}
+        <p className="text-muted-foreground">
+          Conversations already using it keep their pinned plugins.
+        </p>
+        {remove.error ? (
+          <p className="mt-2 text-destructive" role="alert">
+            Could not delete the agent. Try again.
+          </p>
+        ) : null}
+      </DialogFrame>
+      {sourceAgent ? (
+        <SavedAgentFile
+          agent={sourceAgent}
+          error={local.error?.message}
+          onClose={() => setSourceAgent(undefined)}
+          onRetry={() => void local.refetch()}
+          pending={local.isPending}
+          source={local.data?.agents.find((source) => source.ref === sourceAgent.ref)}
         />
       ) : null}
     </div>

@@ -1,26 +1,36 @@
 import type { PromptDefinition } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import { BellIcon } from 'lucide-react';
+import { EditIcon } from '@/lib/icon-vocabulary';
+import type { KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
-import { reminderMeta } from '@/lib/reminder-meta';
+import { reminderMeta, type ReminderMeta } from '@/lib/reminder-meta';
+import { MetaLine } from './extension-parts';
+import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
-import { plainReason } from './settings-health-reason';
+
+function metaParts(prompt: PromptDefinition, meta: ReminderMeta) {
+  const params = Object.entries(meta.params).map(([name, value]) => `${name} = ${value}`);
+  return [
+    meta.trigger ? `When ${meta.trigger}` : (prompt.description ?? ''),
+    params.join(', '),
+    { text: meta.variables.map((name) => `{{${name}}}`).join(' '), mono: true },
+  ];
+}
 
 /** Reminders CLIO adds to what the agent reads: each can be switched off or edited. */
 export function RemindersList({
   prompts,
   onEdit,
   onChanged,
-  openId,
 }: {
   prompts: PromptDefinition[];
   onEdit: (prompt: PromptDefinition) => void;
   onChanged: () => void;
-  openId?: string;
 }) {
   const repository = useRepository();
   const toggle = useMutation({
@@ -40,8 +50,7 @@ export function RemindersList({
       toast.success(active ? 'Reminder turned on' : 'Reminder turned off');
       onChanged();
     },
-    onError: (error) =>
-      toast.error('Could not change this reminder', { description: plainReason(error) }),
+    onError: () => toast.error('The reminder wasn’t changed. Try again.'),
   });
   const reminders = prompts.flatMap((prompt) => {
     const meta = reminderMeta(prompt);
@@ -49,80 +58,62 @@ export function RemindersList({
   });
   if (!reminders.length)
     return (
-      <StateView
-        detail="Update the agent to edit them here."
-        kind="empty"
-        size="row"
-        title="This server reports no reminders."
-      />
+      <ItemList label="Reminders">
+        <StateView kind="empty" size="row" title="This service reports no reminders" />
+      </ItemList>
     );
   return (
     <ItemList label="Reminders">
       {reminders.map(({ prompt, meta }) => {
-        const title = prompt.title || prompt.id;
-        const settings = Object.entries(meta.params)
-          .map(([name, value]) => `${name} = ${value}`)
-          .join(', ');
-        const details = [
-          meta.trigger ? `When: ${meta.trigger}` : '',
-          meta.required ? `Cannot be turned off: ${meta.required}` : '',
-          settings ? `Settings: ${settings}` : '',
-          meta.variables.length
-            ? `Variables: ${meta.variables.map((name) => `{{${name}}}`).join(', ')}`
-            : '',
-        ].filter(Boolean);
-        const open = () => onEdit(prompt);
+        const name = prompt.title || prompt.id;
+        const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.target !== event.currentTarget || event.key !== 'Enter') return;
+          event.preventDefault();
+          onEdit(prompt);
+        };
         return (
           <ItemRow
-            aria-expanded={openId === prompt.id}
-            className="cursor-pointer"
+            actions={
+              <IconButton
+                icon={<EditIcon />}
+                label={`Edit ${name}`}
+                onClick={() => onEdit(prompt)}
+              />
+            }
+            actionsWidth={30}
             icon={<BellIcon />}
             key={prompt.id}
-            meta={
-              details.length ? (
-                <span title={[prompt.description, ...details].filter(Boolean).join('\n')}>
-                  {details.map((line) => (
-                    <span className="mr-2.5" key={line}>
-                      {line}
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                prompt.description
-              )
-            }
-            onClick={open}
-            onKeyDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key !== 'Enter' && event.key !== ' ') return;
-              event.preventDefault();
-              open();
+            meta={<MetaLine parts={metaParts(prompt, meta)} />}
+            onClick={(event) => {
+              if ((event.target as Element).closest('button, [role="switch"]')) return;
+              onEdit(prompt);
             }}
-            role="button"
-            selected={openId === prompt.id}
+            onKeyDown={onKeyDown}
             slot={
-              meta.required ? (
-                <span />
-              ) : (
+              meta.required ? null : (
                 <Switch
-                  aria-label={`${title} on`}
+                  aria-label={`${name} on`}
                   checked={meta.active}
                   disabled={toggle.isPending}
                   onCheckedChange={(active) => toggle.mutate({ prompt, active })}
-                  onClick={(event) => event.stopPropagation()}
                 />
               )
             }
-            slotWidth={48}
+            slotWidth={44}
             status={
-              <StatusIndicator
-                label={meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
-                tone={meta.required || meta.active ? 'success' : 'stopped'}
-              />
+              <span
+                className="flex min-w-0"
+                title={meta.required ? `Cannot be turned off: ${meta.required}` : undefined}
+              >
+                <StatusIndicator
+                  label={meta.required ? 'Always on' : meta.active ? 'On' : 'Off'}
+                  tone={meta.active ? 'success' : 'idle'}
+                />
+              </span>
             }
             statusWidth={96}
             tabIndex={0}
-            title={title}
+            title={name}
           />
         );
       })}

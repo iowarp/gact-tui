@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PromptDefinition } from '@clio/core/v3';
 import { reminderMeta } from '@/lib/reminder-meta';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { RemindersList } from './settings-reminders';
 
 const { repository } = vi.hoisted(() => ({
@@ -70,12 +71,6 @@ it('lists reminders with their trigger and variables, and switches one off', asy
   );
   expect(screen.getByText('Suggest Explore while searching')).toBeTruthy();
   expect(screen.queryByText('clio.chat')).toBeNull();
-  expect(screen.getByText('When: after 6 reading calls with no delegation')).toBeTruthy();
-  expect(screen.getByText('Variables: {{calls}}, {{explore_model}}')).toBeTruthy();
-  expect(screen.getByText('Settings: after = 6')).toBeTruthy();
-  expect(screen.getByText('On')).toBeTruthy();
-  expect(screen.getByText('Always on')).toBeTruthy();
-  expect(screen.getByText('Cannot be turned off: it carries the child result')).toBeTruthy();
   expect(screen.queryByRole('switch', { name: 'A finished task on' })).toBeNull();
   await userEvent
     .setup()

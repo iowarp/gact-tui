@@ -1,65 +1,76 @@
-import type { McpRegistryPage } from '@clio/core/v3';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpenIcon, CableIcon, PackageIcon, SearchIcon } from 'lucide-react';
-import { useState } from 'react';
+import type { McpServerDefinition, PluginMarketplace, SavedMcpService } from '@clio/core/v3';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BoxIcon, CopyIcon, GlobeIcon, KeyRoundIcon, PlugIcon, SparklesIcon } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
-import { ExternalLink } from '@/components/ui/external-link';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
+import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import {
-  usePluginCatalog,
   useExtensionsSupported,
   useInstalledAgents,
+  usePluginCatalog,
   usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
-import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { connectionScope } from '@/lib/connection-scope';
+import {
+  copyAddress,
+  copyReference,
+  EXTENSION_TYPE_LABELS,
+  extensionEntries,
+  LOCAL_MARKETPLACE,
+  type ExtensionEntry,
+  type ExtensionType,
+} from '@/lib/extension-library-entries';
+import { DeleteIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { serviceTarget } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ExtensionAddDialog, ExtensionAddMenu, type ExtensionAdd } from './extension-add-dialog';
-import { InstalledPluginList } from './installed-plugin-list';
+import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
+import { useDiscoverItems, type DiscoverItem } from './extension-discover';
+import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
+import { ExtensionToolbar, type ExtensionView } from './extension-library-toolbar';
+import { ExtensionRow, SlotButton } from './extension-parts';
+import { PluginIcon } from './installed-plugin-list';
+import { marketplaceSlot, useMarketplaceManager } from './marketplace-manager';
+import { MarketplaceActions } from './marketplace-actions';
 import { McpSignInDialog } from './mcp-sign-in';
-import { MarketplaceSettings } from './settings-plugins';
-import { PluginExplorer } from './plugin-explorer';
-import { downloadBytes } from './surface-export';
-import { ToolsSettings } from './settings-tools';
-import { CatalogItem } from './catalog-item';
+import { PluginDetailPane } from './plugin-explorer';
+import { ListDetailLayout } from './primitives/detail-pane';
+import { IconButton } from './primitives/icon-button';
+import { ItemList } from './primitives/item-row';
+import { StateView } from './primitives/state-view';
 import { PrivateLocalLibrary } from './private-local-library';
+import { SettingsGroupLabel } from './settings-row';
+import { SettingsSectionHeading } from './settings-section-heading';
+import { MarketplaceDetailPane } from './settings-plugins';
+import { RemoveSavedMcpDialog } from './settings-saved-mcp';
+import { downloadBytes } from './surface-export';
 
-function registryChoice(server: McpRegistryPage['servers'][number]['server']): ExtensionAdd {
-  const title = server.title || server.name.split('/').at(-1);
-  if (server.remotes[0]?.url) return { kind: 'remote', url: server.remotes[0].url, title };
-  const pkg = server.packages.find(
-    (row) => row.registryType === 'pypi' || row.registryType === 'npm',
-  );
-  if (pkg?.registryType === 'pypi')
-    return {
-      kind: 'local',
-      title,
-      command: 'uvx',
-      args: [pkg.identifier + (pkg.version ? `==${pkg.version}` : '')],
-    };
-  if (pkg?.registryType === 'npm')
-    return {
-      kind: 'local',
-      title,
-      command: 'npx',
-      args: ['-y', pkg.identifier + (pkg.version ? `@${pkg.version}` : '')],
-    };
-  return { kind: 'local', title };
-}
+type Detail =
+  | { kind: 'plugin'; ref: string; pending: boolean; skill?: string }
+  | { kind: 'marketplace'; name: string }
+  | { kind: 'mcp'; name: string }
+  | { kind: 'discover'; key: string };
 
-/** A shared library of installed instructions, packages and user-owned MCP connections. */
+const ROW_SLOT = 92;
+
+/** The private local marketplace before anything is saved to it. */
+const LOCAL_PLACEHOLDER: PluginMarketplace = {
+  name: LOCAL_MARKETPLACE,
+  source: '',
+  commit: '',
+  format: '',
+  trusted: true,
+  trust_reason: 'local',
+  default: false,
+  parent: '',
+  installed_at: '',
+  diagnostics: [],
+};
+
+/** Plugins, marketplaces, MCP connections and skills: one list, one pane beside it. */
 export function ExtensionLibrary(props: {
   initialWorkspaceId?: string;
   initialSessionId?: string;
@@ -68,9 +79,24 @@ export function ExtensionLibrary(props: {
   return <ExtensionLibraryContents key={connectionScope(settings)} {...props} />;
 }
 
+/** The settings window's scrolling height, so the pane can fill it beside a long list. */
+function useWindowContentHeight() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const scroller = ref.current?.closest<HTMLElement>('[data-window-content]');
+    if (!scroller || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setHeight(scroller.clientHeight || undefined);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, height] as const;
+}
+
 function ExtensionLibraryContents({
   initialWorkspaceId,
-  initialSessionId,
 }: {
   initialWorkspaceId?: string;
   initialSessionId?: string;
@@ -82,23 +108,80 @@ function ExtensionLibraryContents({
   const catalog = usePluginCatalog();
   const marketplaces = usePluginMarketplaces();
   const supported = useExtensionsSupported();
-  const [view, setView] = useState('yours');
-  const [kind, setKind] = useState<NonNullable<ExtensionAdd['category']>>('mcp');
+  const agents = useInstalledAgents();
+  const saved = useSavedMcpServices();
+  const manager = useMarketplaceManager();
+  const servers = useQuery({
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, initialWorkspaceId || 'global'),
+    queryFn: ({ signal }) => repository.mcpServers(initialWorkspaceId || undefined, signal),
+  });
+  const [type, setType] = useState<ExtensionType>('all');
+  const [view, setView] = useState<ExtensionView>('yours');
   const [search, setSearch] = useState('');
   const [registrySearch, setRegistrySearch] = useState('');
   const [cursor, setCursor] = useState('');
+  const [detail, setDetail] = useState<Detail>();
   const [adding, setAdding] = useState<ExtensionAdd>();
   const [signing, setSigning] = useState<string>();
+  const [removing, setRemoving] = useState<SavedMcpService>();
   const [backup, setBackup] = useState(false);
   const [localDetails, setLocalDetails] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [skill, setSkill] = useState<string>();
-  const [exploring, setExploring] = useState<string>();
-  const agents = useInstalledAgents();
+  const [paneRoot, paneHeight] = useWindowContentHeight();
+
+  const plugins = catalog.data?.plugins ?? [];
+  const installed = marketplaces.data ?? [];
+  const services = saved.data ?? [];
+  const serverRows = servers.data ?? [];
+  const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const hasLocalItems = Boolean(
-    catalog.data?.plugins.some((plugin) => plugin.marketplace === 'private-local') ||
-      agents.data?.some((agent) => agent.kind === 'user'),
+    plugins.some((plugin) => plugin.marketplace === LOCAL_MARKETPLACE) || mine.length,
   );
+  const listed = installed.some((row) => row.name === LOCAL_MARKETPLACE)
+    ? installed
+    : [...installed, LOCAL_PLACEHOLDER];
+  const marketplaceFor = (name: string) => listed.find((row) => row.name === name);
+  const term = search.trim();
+  const entries = extensionEntries({
+    type,
+    plugins,
+    // Your library appears in All once something is saved to it.
+    marketplaces:
+      type === 'marketplaces' || hasLocalItems
+        ? listed
+        : listed.filter((row) => row !== LOCAL_PLACEHOLDER),
+    saved: services,
+    servers: serverRows,
+    term,
+  });
+  const nothingInstalled =
+    !plugins.length && !installed.length && !services.length && !hasLocalItems;
+  const loadError = catalog.error ?? marketplaces.error;
+  const loading = supported !== false && (catalog.isPending || marketplaces.isPending);
+
+  const invalidate = () =>
+    Promise.all(
+      (
+        [
+          'plugins',
+          'plugin-marketplaces',
+          'agents',
+          'agent-resolution',
+          'session-agent',
+          'mcp-configurations',
+          'mcp-servers',
+          'tools',
+        ] as const
+      ).map((key) => client.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) })),
+    );
+  const reconnect = useMutation({
+    mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
+    onSuccess: async (_value, server) => {
+      await client.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) });
+      toast.success(`Reconnected ${server.name}`);
+    },
+    onError: (error: Error) => toast.error('Reconnect failed', { description: error.message }),
+  });
   const exportMarketplace = async () => {
     setExporting(true);
     try {
@@ -115,423 +198,540 @@ function ExtensionLibraryContents({
       setExporting(false);
     }
   };
-  const saved = useSavedMcpServices();
-  const registry = useQuery({
-    queryKey: ['extension-discovery', scope, registrySearch, cursor],
-    queryFn: ({ signal }) => repository.discoverMcp(registrySearch, cursor, signal),
-    enabled: view === 'discover' && kind === 'mcp',
-    staleTime: 60_000,
-    retry: false,
+
+  const { curated, registry, registryItems } = useDiscoverItems({
+    enabled: view === 'discover' && (type === 'all' || type === 'mcp'),
+    search: registrySearch,
+    cursor,
+    plugins,
+    marketplaces: installed,
+    services,
+    onAdd: setAdding,
+    onAddMarketplace: manager.openInstall,
+    onViewSkill: (plugin, skill) =>
+      setDetail({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust, skill }),
   });
-  const invalidate = () =>
-    Promise.all(
-      (
-        [
-          'plugins',
-          'plugin-marketplaces',
-          'agents',
-          'agent-resolution',
-          'session-agent',
-          'mcp-configurations',
-          'mcp-servers',
-          'tools',
-        ] as const
-      ).map((key) => client.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) })),
+  const matches = (item: DiscoverItem) =>
+    item.types.includes(type) &&
+    (!term || `${item.title} ${item.description}`.toLowerCase().includes(term.toLowerCase()));
+  const discoverItems = [...curated, ...registryItems];
+
+  const open = (next: Detail) => setDetail(next);
+  const close = () => setDetail(undefined);
+  const isOpen = (next: Detail) =>
+    Boolean(detail) && JSON.stringify(detail) === JSON.stringify(next);
+  const changeType = (next: ExtensionType) => {
+    setType(next);
+    setCursor('');
+  };
+  const paneClass = 'sticky top-0 self-start h-(--ext-pane-h,min(80dvh,57rem))';
+
+  const pane = (() => {
+    if (!detail) return null;
+    if (detail.kind === 'plugin') {
+      const plugin = plugins.find((row) => row.ref === detail.ref);
+      const marketplace = marketplaceFor(plugin?.marketplace ?? detail.ref.split('/')[0]!);
+      return (
+        <PluginDetailPane
+          className={paneClass}
+          initialSkill={detail.skill}
+          key={`${detail.ref}:${detail.pending}:${detail.skill}`}
+          onCheck={marketplace ? () => manager.check(marketplace.name) : undefined}
+          onClose={close}
+          onTrust={marketplace ? () => manager.requestTrust(marketplace) : undefined}
+          onUpdate={marketplace ? () => manager.update(marketplace.name) : undefined}
+          pending={detail.pending}
+          reference={detail.ref}
+          updating={marketplace ? manager.updating(marketplace.name) : false}
+        />
+      );
+    }
+    if (detail.kind === 'marketplace') {
+      const marketplace = marketplaceFor(detail.name);
+      if (!marketplace) return null;
+      const local = marketplace.name === LOCAL_MARKETPLACE;
+      return (
+        <MarketplaceDetailPane
+          className={paneClass}
+          exportDisabled={!hasLocalItems || exporting}
+          key={marketplace.name}
+          localCollection={
+            local ? (
+              <>
+                <SettingsGroupLabel>Saved here</SettingsGroupLabel>
+                <PrivateLocalLibrary
+                  detailsOpen={localDetails}
+                  onDetailsClose={() => setLocalDetails(false)}
+                  onExplore={(plugin) =>
+                    open({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust })
+                  }
+                />
+              </>
+            ) : undefined
+          }
+          manager={manager}
+          marketplace={marketplace}
+          onBackup={() => setBackup(true)}
+          onClose={close}
+          onExplorePlugin={(plugin) =>
+            open({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust })
+          }
+          onExport={() => void exportMarketplace()}
+          onLocalDetails={() => setLocalDetails(true)}
+          placeholder={marketplace === LOCAL_PLACEHOLDER}
+          plugins={plugins}
+        />
+      );
+    }
+    if (detail.kind === 'mcp') {
+      const entry = entries.find((row) => row.kind === 'mcp' && row.name === detail.name);
+      const row =
+        entry?.kind === 'mcp'
+          ? entry
+          : extensionEntries({
+              type: 'mcp',
+              plugins: [],
+              marketplaces: [],
+              saved: services,
+              servers: serverRows,
+            }).find((item) => item.kind === 'mcp' && item.name === detail.name);
+      if (row?.kind !== 'mcp') return null;
+      return (
+        <McpConnectionPane
+          className={paneClass}
+          entry={row}
+          key={row.name}
+          onClose={close}
+          onReconnect={row.server ? () => reconnect.mutate(row.server!) : undefined}
+          onRemove={row.saved ? () => setRemoving(row.saved) : undefined}
+          onSignIn={row.saved && row.remote ? () => setSigning(row.name) : undefined}
+          reconnecting={reconnect.isPending}
+        />
+      );
+    }
+    const item = discoverItems.find((row) => row.key === detail.key);
+    return item ? (
+      <DiscoverPane className={paneClass} item={item} key={item.key} onClose={close} />
+    ) : null;
+  })();
+
+  const row = (entry: ExtensionEntry) => {
+    if (entry.kind === 'plugin') {
+      const { plugin } = entry;
+      const marketplace = marketplaceFor(plugin.marketplace);
+      const target: Detail = { kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust };
+      return (
+        <ExtensionRow
+          icon={<PluginIcon kind={plugin.kind} />}
+          key={entry.key}
+          meta={entry.meta}
+          name={plugin.id}
+          onExplore={() => open(target)}
+          selected={isOpen(target)}
+          aligned
+          slotWidth={ROW_SLOT}
+          status={entry.status}
+          actions={
+            marketplace && marketplace.name !== LOCAL_MARKETPLACE ? (
+              <IconButton
+                disabled={manager.busy}
+                icon={<RefreshIcon />}
+                label={`Update ${marketplace.name}`}
+                onClick={() => manager.update(marketplace.name)}
+              />
+            ) : null
+          }
+          menu={
+            <>
+              {marketplace && (plugin.pending_trust || !plugin.trusted) ? (
+                <DropdownMenuItem onSelect={() => manager.requestTrust(marketplace)}>
+                  {plugin.pending_trust ? 'Trust update…' : `Trust ${marketplace.name}…`}
+                </DropdownMenuItem>
+              ) : null}
+              {marketplace ? (
+                <DropdownMenuItem onSelect={() => manager.check(marketplace.name)}>
+                  Check plugins
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onSelect={() => copyReference(plugin.ref)}>
+                <CopyIcon aria-hidden="true" />
+                Copy reference
+              </DropdownMenuItem>
+            </>
+          }
+        />
+      );
+    }
+    if (entry.kind === 'skill') {
+      const target: Detail = {
+        kind: 'plugin',
+        ref: entry.plugin.ref,
+        pending: entry.plugin.pending_trust,
+        skill: entry.skill,
+      };
+      return (
+        <ExtensionRow
+          icon={<SparklesIcon />}
+          key={entry.key}
+          meta={entry.meta}
+          name={entry.skill}
+          onExplore={() => open(target)}
+          selected={isOpen(target)}
+          aligned
+          slotWidth={ROW_SLOT}
+          status={entry.status}
+        />
+      );
+    }
+    if (entry.kind === 'marketplace') {
+      const { marketplace } = entry;
+      const local = marketplace.name === LOCAL_MARKETPLACE;
+      const placeholder = marketplace === LOCAL_PLACEHOLDER;
+      const target: Detail = { kind: 'marketplace', name: marketplace.name };
+      return (
+        <ExtensionRow
+          icon={<BoxIcon />}
+          key={entry.key}
+          meta={entry.meta}
+          name={marketplace.name}
+          onExplore={() => open(target)}
+          selected={isOpen(target)}
+          slot={
+            placeholder ? undefined : marketplaceSlot(marketplace, entry.pendingUpdates, manager)
+          }
+          aligned
+          slotWidth={ROW_SLOT}
+          status={entry.status}
+          title={entry.title}
+          actions={
+            <>
+              {!marketplace.default && !local ? (
+                <IconButton
+                  disabled={manager.busy}
+                  icon={<DeleteIcon />}
+                  label={`Uninstall ${marketplace.name}`}
+                  onClick={() => manager.requestUninstall(marketplace)}
+                />
+              ) : null}
+              <MarketplaceActions
+                checking={manager.checking(marketplace.name)}
+                exportDisabled={!hasLocalItems || exporting}
+                name={marketplace.name}
+                onAddRemote={local ? manager.openInstall : undefined}
+                onBackup={local ? () => setBackup(true) : undefined}
+                onCheck={placeholder ? undefined : () => manager.check(marketplace.name)}
+                onDetails={
+                  local
+                    ? () => {
+                        open(target);
+                        setLocalDetails(true);
+                      }
+                    : undefined
+                }
+                onExport={local ? () => void exportMarketplace() : undefined}
+                source={local ? undefined : marketplace.source}
+              />
+            </>
+          }
+        />
+      );
+    }
+    const target: Detail = { kind: 'mcp', name: entry.name };
+    const address = serviceTarget({ saved: entry.saved, server: entry.server });
+    // An unavailable connection offers its retry in the slot; otherwise it waits in the hover column.
+    const retry = entry.server && entry.status?.tone === 'error' ? entry.server : undefined;
+    return (
+      <ExtensionRow
+        icon={entry.remote ? <GlobeIcon /> : <PlugIcon />}
+        key={entry.key}
+        meta={entry.meta}
+        name={entry.title}
+        onExplore={() => open(target)}
+        selected={isOpen(target)}
+        aligned
+        slotWidth={ROW_SLOT}
+        status={entry.status}
+        slot={
+          retry ? (
+            <SlotButton
+              disabled={reconnect.isPending}
+              label={`Reconnect ${entry.title}`}
+              onClick={() => reconnect.mutate(retry)}
+            >
+              Reconnect
+            </SlotButton>
+          ) : undefined
+        }
+        actions={
+          <>
+            {entry.server && !retry ? (
+              <IconButton
+                disabled={reconnect.isPending}
+                icon={<RefreshIcon />}
+                label={`Reconnect ${entry.title}`}
+                onClick={() => reconnect.mutate(entry.server!)}
+              />
+            ) : null}
+            {entry.saved ? (
+              <IconButton
+                icon={<DeleteIcon />}
+                label={`Remove ${entry.title}`}
+                onClick={() => setRemoving(entry.saved)}
+              />
+            ) : null}
+          </>
+        }
+        menu={
+          entry.saved?.transport !== undefined && entry.remote ? (
+            <>
+              <DropdownMenuItem onSelect={() => setSigning(entry.name)}>
+                <KeyRoundIcon aria-hidden="true" />
+                Sign in…
+              </DropdownMenuItem>
+              {address ? (
+                <DropdownMenuItem onSelect={() => copyAddress(address.full)}>
+                  <CopyIcon aria-hidden="true" />
+                  Copy address
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : address ? (
+            <DropdownMenuItem onSelect={() => copyAddress(address.full)}>
+              <CopyIcon aria-hidden="true" />
+              {entry.remote ? 'Copy address' : 'Copy command'}
+            </DropdownMenuItem>
+          ) : undefined
+        }
+      />
     );
-  const term = search.trim().toLowerCase();
-  const plugins = (catalog.data?.plugins ?? []).filter(
-    (row) => kind === 'plugins' || (kind === 'skills' && row.skills.length > 0),
+  };
+
+  const discoverRow = (item: DiscoverItem) => {
+    const target: Detail = { kind: 'discover', key: item.key };
+    return (
+      <ExtensionRow
+        icon={item.icon}
+        key={item.key}
+        meta={item.meta}
+        name={item.title}
+        onExplore={() => open(target)}
+        selected={isOpen(target)}
+        slot={
+          <SlotButton
+            disabled={supported !== true && item.action.label !== 'View'}
+            label={`${item.action.label} ${item.title}`}
+            onClick={item.action.run}
+          >
+            {item.action.label}
+          </SlotButton>
+        }
+        aligned
+        slotWidth={ROW_SLOT}
+      />
+    );
+  };
+
+  const suggestions = curated.filter((item) => item.suggested && !item.installed && matches(item));
+  const yours = loadError ? (
+    <StateView
+      action={{
+        label: 'Retry',
+        onClick: () => {
+          void catalog.refetch();
+          void marketplaces.refetch();
+        },
+      }}
+      className="mt-6"
+      detail={loadError.message}
+      kind="error"
+      title="Extensions could not be loaded"
+    />
+  ) : loading ? (
+    <StateView className="mt-6" kind="loading" title="Loading extensions…" />
+  ) : nothingInstalled && type === 'all' && !term ? (
+    <StateView
+      action={{ label: 'Add a marketplace', onClick: manager.openInstall }}
+      className="mt-6"
+      detail="Plugins, marketplaces, MCP connections and skills you add appear here."
+      kind="empty"
+      secondaryAction={{ label: 'Discover', onClick: () => setView('discover') }}
+      title="No extensions yet"
+    />
+  ) : (
+    <>
+      {entries.length ? (
+        <ItemList label="Extensions">{entries.map(row)}</ItemList>
+      ) : (
+        <StateView
+          className="mt-6"
+          kind="empty"
+          size="row"
+          title={
+            term ? 'No matching extensions' : `No ${EXTENSION_TYPE_LABELS[type].toLowerCase()} yet`
+          }
+        />
+      )}
+      {suggestions.length ? (
+        <>
+          <SettingsGroupLabel>Discover</SettingsGroupLabel>
+          <ItemList label="Suggested extensions">{suggestions.map(discoverRow)}</ItemList>
+        </>
+      ) : null}
+    </>
   );
-  const filtered = plugins.filter(
-    (row) =>
-      !term || `${row.id} ${row.description} ${row.marketplace}`.toLowerCase().includes(term),
+  const shownCurated = curated.filter(matches);
+  const showRegistry = type === 'all' || type === 'mcp';
+  const discover = (
+    <>
+      {shownCurated.length ? (
+        <>
+          <SettingsGroupLabel>Suggested</SettingsGroupLabel>
+          <ItemList label="Suggested extensions">{shownCurated.map(discoverRow)}</ItemList>
+        </>
+      ) : null}
+      {showRegistry ? (
+        <section aria-label="MCP Registry">
+          <SettingsGroupLabel>MCP Registry</SettingsGroupLabel>
+          {registry.isPending ? (
+            <StateView kind="loading" size="row" title="Searching the MCP Registry…" />
+          ) : null}
+          {registry.error ? (
+            <StateView
+              action={{ label: 'Retry', onClick: () => void registry.refetch() }}
+              kind="error"
+              size="row"
+              title={registry.error.message}
+            />
+          ) : null}
+          {registryItems.length ? (
+            <ItemList label="MCP Registry servers">{registryItems.map(discoverRow)}</ItemList>
+          ) : null}
+          {registry.data && !registry.data.servers.length ? (
+            <StateView kind="empty" size="row" title="No matching servers" />
+          ) : null}
+          <div className="mt-2 flex items-center gap-2">
+            {registry.data?.next_cursor ? (
+              <Button
+                onClick={() => setCursor(registry.data!.next_cursor)}
+                size="sm"
+                variant="outline"
+              >
+                Next page
+              </Button>
+            ) : null}
+            {cursor ? (
+              <Button onClick={() => setCursor('')} size="sm" variant="ghost">
+                Back to first page
+              </Button>
+            ) : null}
+            <span className="min-w-0 truncate text-xs text-faint">
+              Public server metadata. Browsing starts no servers.
+            </span>
+          </div>
+        </section>
+      ) : null}
+      {!shownCurated.length && !showRegistry ? (
+        <StateView kind="empty" size="row" title="No matching suggestions" />
+      ) : null}
+    </>
   );
-  const services = saved.data ?? [];
-  const haSource = marketplaces.data?.find(
-    (row) =>
-      row.source.replace(/\.git$/u, '').replace(/\/$/u, '') ===
-      'https://github.com/homeassistant-ai/skills',
-  );
-  const haSkill = catalog.data?.plugins.find(
-    (row) => row.marketplace === haSource?.name && row.id === 'home-assistant-skills',
-  );
-  return (
-    <div className="grid gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Extensions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Skills, MCP connections and plugins for your agents.
-          </p>
-        </div>
-        {kind !== 'marketplaces' ? <ExtensionAddMenu category={kind} onChoose={setAdding} /> : null}
-      </header>
+
+  const list = (
+    <div className="@container/ext min-w-0 pt-4 pr-5 pb-17 sm:pr-7">
+      <SettingsSectionHeading
+        description="Plugins, marketplaces, MCP connections and skills for your agents."
+        title="Extensions"
+      />
+      <ExtensionToolbar
+        onAdd={setAdding}
+        onAddMarketplace={manager.openInstall}
+        onSearchChange={setSearch}
+        onSearchSubmit={(next) => {
+          setRegistrySearch(next);
+          setCursor('');
+        }}
+        onTypeChange={changeType}
+        onViewChange={(next) => {
+          setView(next);
+          setCursor('');
+        }}
+        search={search}
+        supported={supported}
+        type={type}
+        view={view}
+      />
       {supported === false ? (
-        <p role="status" className="rounded-md border p-3 text-sm">
+        <p
+          className="mt-1 truncate text-xs text-muted-foreground"
+          role="status"
+          title="Update the connected agent service to add or compose extensions here. Existing sources can still be inspected."
+        >
           Update the connected agent service to add or compose extensions here. Existing sources can
           still be inspected.
         </p>
       ) : null}
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Extension types">
-        {[
-          ['marketplaces', 'Marketplaces'],
-          ['mcp', 'MCP connections'],
-          ['skills', 'Skills'],
-          ['plugins', 'Plugins'],
-        ].map(([value, label]) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={kind === value ? 'secondary' : 'ghost'}
-            aria-pressed={kind === value}
-            onClick={() => {
-              setKind(value as NonNullable<ExtensionAdd['category']>);
-              setCursor('');
-            }}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {kind !== 'marketplaces' ? (
-          <Tabs value={view} onValueChange={setView}>
-            <TabsList>
-              <TabsTrigger value="yours">Yours</TabsTrigger>
-              <TabsTrigger value="discover">Discover</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        ) : null}
-        {kind !== 'marketplaces' ? (
-          <form
-            className="flex w-full gap-2 sm:w-80"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setRegistrySearch(search);
-              setCursor('');
-            }}
-          >
-            <Input
-              aria-label="Search extensions"
-              placeholder="Search extensions"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            {view === 'discover' && kind === 'mcp' ? (
-              <Button type="submit" variant="outline" size="icon" aria-label="Search MCP Registry">
-                <SearchIcon />
-              </Button>
-            ) : null}
-          </form>
-        ) : null}
-      </div>
-      {kind === 'marketplaces' ? (
-        <MarketplaceSettings
-          onBackup={() => setBackup(true)}
-          onExport={() => void exportMarketplace()}
-          exportDisabled={!hasLocalItems || exporting}
-          onLocalDetails={() => setLocalDetails(true)}
-          localCollection={
-            <PrivateLocalLibrary
-              detailsOpen={localDetails}
-              onDetailsClose={() => setLocalDetails(false)}
-            />
-          }
+      {catalog.data?.default_marketplace_error ? (
+        <StateView
+          className="mt-3"
+          detail={`${catalog.data.default_marketplace_error.message} Other marketplaces still work.`}
+          kind="error"
+          size="row"
+          title="The shipped marketplace could not be installed"
         />
-      ) : view === 'yours' ? (
-        <>
-          {kind === 'mcp' ? (
-            <ToolsSettings
-              embedded
-              filter={term}
-              showAdd={false}
-              initialWorkspaceId={initialWorkspaceId}
-              initialSessionId={initialSessionId}
-            />
-          ) : null}
-          {kind === 'plugins' ? (
-            <InstalledPluginList
-              plugins={filtered}
-              pending={catalog.isPending}
-              error={catalog.error?.message}
-              hideFilter
-            />
-          ) : null}
-          {kind === 'skills' ? (
-            <section aria-label="Your skills" className="grid gap-2">
-              {catalog.isPending ? <p role="status">Loading skills…</p> : null}
-              {catalog.error ? <p role="alert">{catalog.error.message}</p> : null}
-              {plugins.flatMap((plugin) =>
-                plugin.skills
-                  .filter(
-                    (id) =>
-                      !term ||
-                      `${id} ${plugin.description} ${plugin.marketplace}`
-                        .toLowerCase()
-                        .includes(term),
-                  )
-                  .map((id) => (
-                    <CatalogItem
-                      key={`${plugin.ref}:${id}`}
-                      label={id}
-                      icon={<BookOpenIcon />}
-                      metadata={
-                        <span className="truncate">
-                          {plugin.marketplace} / {plugin.id}
-                        </span>
-                      }
-                    >
-                      <p className="text-muted-foreground">
-                        {plugin.description || `From ${plugin.ref}`}
-                      </p>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="justify-self-start"
-                        onClick={() => {
-                          setSkill(id);
-                          setExploring(plugin.ref);
-                        }}
-                      >
-                        Open skill
-                      </Button>
-                    </CatalogItem>
-                  )),
-              )}
-              {!catalog.isPending &&
-              !catalog.error &&
-              !plugins.some((plugin) =>
-                plugin.skills.some(
-                  (id) =>
-                    !term ||
-                    `${id} ${plugin.description} ${plugin.marketplace}`
-                      .toLowerCase()
-                      .includes(term),
-                ),
-              ) ? (
-                <p className="text-sm text-muted-foreground">No matching skills.</p>
-              ) : null}
-            </section>
-          ) : null}
-        </>
-      ) : (
-        <div className="grid gap-5">
-          {kind !== 'mcp' ? (
-            <section className="grid gap-3">
-              <h2 className="text-sm font-semibold">Explore extensions</h2>
-              <div className="grid gap-0">
-                <DiscoveryCard
-                  icon="skill"
-                  title="Home Assistant skills"
-                  filter={term}
-                  description="Best practices, dashboards, automations and reference files from homeassistant-ai."
-                  source="https://github.com/homeassistant-ai/skills"
-                  actionLabel={haSkill ? 'View' : 'Add'}
-                  onAdd={() => {
-                    if (haSkill) {
-                      setSkill('home-assistant-best-practices');
-                      setExploring(haSkill.ref);
-                    } else
-                      setAdding({
-                        kind: 'import',
-                        category: 'skills',
-                        source: 'https://github.com/homeassistant-ai/skills',
-                      });
-                  }}
-                />
-                <DiscoveryCard
-                  icon="plugin"
-                  title={kind === 'skills' ? 'Bring your own skills' : 'Bring your own plugin'}
-                  filter={term}
-                  description={
-                    kind === 'skills'
-                      ? 'Import a repository of Agent Skills, or upload one skill folder as a ZIP.'
-                      : 'Import Agent Plugins or Claude Code plugins, or compose your own capabilities.'
-                  }
-                  onAdd={() => setAdding({ kind: 'import', category: kind })}
-                />
-              </div>
-              <Button variant="link" className="w-fit px-0" onClick={() => setKind('mcp')}>
-                Browse the MCP Registry
-              </Button>
-            </section>
-          ) : null}
-          {kind === 'mcp' ? (
-            <DiscoveryCard
-              icon="mcp"
-              title="Home Assistant MCP"
-              filter={term}
-              description="Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
-              source="https://github.com/homeassistant-ai/ha-mcp"
-              onAdd={() => setAdding({ kind: 'remote', title: 'Home Assistant' })}
-            />
-          ) : null}
-          {kind === 'mcp' ? (
-            <section className="grid gap-3" aria-label="MCP Registry">
-              <div>
-                <h2 className="font-medium">MCP Registry</h2>
-                <p className="text-sm text-muted-foreground">
-                  Public server metadata. Adding a connection is your choice; browsing starts no
-                  servers.
-                </p>
-              </div>
-              {registry.isPending ? <p role="status">Searching the MCP Registry…</p> : null}
-              {registry.error ? (
-                <p className="text-destructive text-sm" role="alert">
-                  {registry.error.message}
-                </p>
-              ) : null}
-              <div className="grid gap-0">
-                {registry.data?.servers.map(({ server }) => (
-                  <DiscoveryCard
-                    key={`${server.name}:${server.version}`}
-                    icon="mcp"
-                    title={server.title || server.name}
-                    description={server.description}
-                    source={server.repository?.url}
-                    onAdd={() => setAdding(registryChoice(server))}
-                    detail={
-                      server.remotes.length
-                        ? 'Remote connection'
-                        : server.packages
-                            .map((row) => `${row.registryType}: ${row.identifier}`)
-                            .join(', ') || 'See server documentation'
-                    }
-                  />
-                ))}
-              </div>
-              {registry.data && !registry.data.servers.length ? (
-                <p className="text-sm text-muted-foreground">No matching servers.</p>
-              ) : null}
-              {registry.data?.next_cursor ? (
-                <Button
-                  variant="outline"
-                  className="w-fit"
-                  onClick={() => setCursor(registry.data!.next_cursor)}
-                >
-                  Next page
-                </Button>
-              ) : null}
-              {cursor ? (
-                <Button variant="ghost" className="w-fit" onClick={() => setCursor('')}>
-                  Back to first page
-                </Button>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-      )}
+      ) : null}
+      <div className="mt-3">{view === 'yours' ? yours : discover}</div>
+      {manager.report}
+    </div>
+  );
+
+  return (
+    <div
+      className="-mt-4 -mr-5 -mb-17 flex min-w-0 sm:-mr-7"
+      ref={paneRoot}
+      style={
+        paneHeight
+          ? ({
+              minHeight: paneHeight,
+              ['--ext-pane-h' as string]: `${paneHeight}px`,
+            } as CSSProperties)
+          : undefined
+      }
+    >
+      <ListDetailLayout className="min-w-0 flex-1 items-stretch" detail={pane} list={list} />
+      {manager.dialogs}
       {backup ? (
-        <Dialog open onOpenChange={setBackup}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Back up to GitHub</DialogTitle>
-              <DialogDescription>
-                Export your saved agents, skills and plugins to a repository you control.
-              </DialogDescription>
-            </DialogHeader>
-            <ol className="list-decimal space-y-3 pl-5 text-sm">
-              <li>Download the marketplace ZIP and unpack it.</li>
-              <li>
-                Create a private GitHub repository and upload the unpacked files, preserving the
-                folders.
-              </li>
-              <li>
-                To use the backup on another host, add its repository URL from Marketplaces. That
-                host needs access to your private repository.
-              </li>
-            </ol>
-            <p className="text-sm text-muted-foreground">
-              This is a manual backup. Future edits remain local until you upload them again. Saved
-              MCP credentials are not included; configure those connections on each host.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                disabled={exporting || !hasLocalItems}
-                onClick={() => void exportMarketplace()}
-              >
-                {exporting ? 'Preparing…' : 'Download marketplace ZIP'}
-              </Button>
-              <ExternalLink href="https://github.com/new" className="self-center text-sm underline">
-                Create GitHub repository
-              </ExternalLink>
-            </div>
-            {!hasLocalItems ? (
-              <p className="text-sm text-muted-foreground">Save an agent, skill or plugin first.</p>
-            ) : null}
-          </DialogContent>
-        </Dialog>
+        <BackupDialog
+          exporting={exporting}
+          hasLocalItems={hasLocalItems}
+          onClose={() => setBackup(false)}
+          onExport={() => void exportMarketplace()}
+        />
       ) : null}
       {adding ? (
         <ExtensionAddDialog
-          key={`${scope}:${adding.kind}`}
           choice={adding}
           connections={services}
+          key={`${scope}:${adding.kind}`}
           onClose={() => setAdding(undefined)}
           onSaved={invalidate}
           onSignIn={setSigning}
-        />
-      ) : null}
-      {exploring ? (
-        <PluginExplorer
-          reference={exploring}
-          initialSkill={skill}
-          onClose={() => {
-            setExploring(undefined);
-            setSkill(undefined);
-          }}
         />
       ) : null}
       {signing ? (
         <McpSignInDialog
           key={`${scope}:${signing}`}
           name={signing}
-          title={services.find((row) => row.name === signing)?.label}
           onClose={() => setSigning(undefined)}
+          title={services.find((row) => row.name === signing)?.label}
         />
       ) : null}
+      <RemoveSavedMcpDialog
+        onClose={() => {
+          if (removing && detail?.kind === 'mcp' && detail.name === removing.name) close();
+          setRemoving(undefined);
+        }}
+        service={removing}
+      />
     </div>
-  );
-}
-
-function DiscoveryCard({
-  icon,
-  title,
-  description,
-  source,
-  onAdd,
-  detail,
-  actionLabel = 'Add',
-  filter = '',
-}: {
-  icon: 'mcp' | 'skill' | 'plugin';
-  title: string;
-  description: string;
-  source?: string;
-  onAdd: () => void;
-  detail?: string;
-  actionLabel?: string;
-  filter?: string;
-}) {
-  const Icon = icon === 'mcp' ? CableIcon : icon === 'skill' ? BookOpenIcon : PackageIcon;
-  if (filter && !`${title} ${description}`.toLowerCase().includes(filter)) return null;
-  return (
-    <CatalogItem
-      label={title}
-      icon={<Icon />}
-      actions={
-        <Button size="xs" variant="outline" aria-label={`${actionLabel} ${title}`} onClick={onAdd}>
-          {actionLabel}
-        </Button>
-      }
-    >
-      <p className="text-muted-foreground">{description}</p>
-      {detail ? <p className="text-xs text-muted-foreground">{detail}</p> : null}
-      {source ? (
-        <ExternalLink href={source} className="text-xs underline underline-offset-4">
-          Source
-        </ExternalLink>
-      ) : null}
-    </CatalogItem>
   );
 }

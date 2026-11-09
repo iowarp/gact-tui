@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { SourceProvider } from '@clio/core/v3';
+import { FolderIcon, LinkIcon } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
-import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
-import { DialogFrame } from './primitives/dialog-frame';
-import { StateView } from './primitives/state-view';
-import { SettingsLoadError } from './settings-health-load-error';
-import { SettingsRow } from './settings-row';
-import { SourceProviderLogo } from './source-provider-logo';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { SettingsSelectField } from './model-select-field';
 import type { ObsidianChoice } from './obsidian-source-form';
+import { DialogFrame } from './primitives/dialog-frame';
+import { SettingsRow } from './settings-row';
 
 /** Settings actions explicitly choose a workspace before opening its shared source form. */
 export function SettingsSourceConnect({
@@ -27,6 +33,7 @@ export function SettingsSourceConnect({
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const navigate = useNavigate();
+  const id = useId();
   const [workspaceId, setWorkspaceId] = useState('');
   const workspaces = useQuery({
     queryKey: ['source-settings-workspaces', scope],
@@ -36,60 +43,59 @@ export function SettingsSourceConnect({
   const selected =
     workspaces.data?.find((row) => row.id === workspaceId) ??
     (workspaces.data?.length === 1 ? workspaces.data[0] : undefined);
+  const proceed = () => {
+    if (!selected) return;
+    void navigate(newConversationRoute(selected.id), {
+      state: { sourceConnection: { scope, providerId: provider.id, choice } },
+    });
+  };
   return (
     <DialogFrame
-      confirm={{
-        label: 'Continue',
-        disabled: !selected,
-        onConfirm: () => {
-          if (!selected) return;
-          void navigate(newConversationRoute(selected.id), {
-            state: { sourceConnection: { scope, providerId: provider.id, choice } },
-          });
-        },
-      }}
-      description="Choose the workspace for this source. Review access in the next step."
-      icon={<SourceProviderLogo provider={provider.id} />}
+      confirm={{ label: 'Continue', onConfirm: proceed, disabled: !selected }}
+      className="w-[clamp(360px,44vw,720px)]"
+      icon={<LinkIcon className="size-3.5" />}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       open
       title={choice === 'new' ? 'New vault' : `Connect ${provider.name}`}
     >
-      <SettingsRow htmlFor="source-workspace" title="Workspace">
-        <select
-          className="h-[1.875rem] w-full min-w-0 rounded-md border border-input bg-input/30 px-2 text-[0.78125rem] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-          data-initial-focus=""
-          id="source-workspace"
-          onChange={(event) => setWorkspaceId(event.target.value)}
-          title={selected?.display_name}
-          value={selected?.id ?? ''}
-        >
-          <option value="">
-            {workspaces.isPending ? 'Loading workspaces…' : 'Choose a workspace'}
-          </option>
-          {workspaces.data?.map((row) => (
-            <option key={row.id} value={row.id}>
-              {row.display_name}
-            </option>
-          ))}
-        </select>
+      <SettingsRow
+        error={workspaces.error ? 'Workspaces couldn’t be loaded.' : undefined}
+        htmlFor={`${id}-workspace`}
+        info="The source is added to this workspace. You review its access in the next step."
+        note={
+          workspaces.isSuccess && !workspaces.data.length
+            ? 'Create a workspace first, then connect its data here.'
+            : undefined
+        }
+        title="Workspace"
+      >
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild disabled={!workspaces.data?.length}>
+            <SettingsSelectField
+              aria-label={`Workspace: ${selected?.display_name ?? 'none chosen'}`}
+              data-initial-focus=""
+              icon={<FolderIcon />}
+              id={`${id}-workspace`}
+              placeholder={workspaces.isPending ? 'Loading workspaces…' : 'Choose a workspace'}
+              value={selected?.display_name}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+          >
+            <DropdownMenuRadioGroup onValueChange={setWorkspaceId} value={selected?.id ?? ''}>
+              {workspaces.data?.map((row) => (
+                <DropdownMenuRadioItem key={row.id} value={row.id}>
+                  {row.display_name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SettingsRow>
-      {workspaces.error ? (
-        <SettingsLoadError
-          error={workspaces.error}
-          onRetry={() => void workspaces.refetch()}
-          retrying={workspaces.isFetching}
-          title="Workspaces unavailable."
-        />
-      ) : null}
-      {workspaces.isSuccess && !workspaces.data.length ? (
-        <StateView
-          kind="empty"
-          size="row"
-          title="Create a workspace first, then connect its data here."
-        />
-      ) : null}
     </DialogFrame>
   );
 }
