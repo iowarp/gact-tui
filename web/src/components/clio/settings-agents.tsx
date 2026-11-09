@@ -70,7 +70,7 @@ export function AgentSettings() {
   );
   if (supported === false) {
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-2">
         {heading}
         <StateView kind="unavailable" size="row" title="This service doesn’t offer agents." />
       </div>
@@ -104,7 +104,7 @@ export function AgentSettings() {
   );
   const list = (
     <div className="min-w-0">
-      <SettingsGroupLabel className="mt-0">Installed agents</SettingsGroupLabel>
+      <SettingsGroupLabel className="mt-2">Installed agents</SettingsGroupLabel>
       <ItemList label="Installed agents">
         {agents.isPending ? (
           <StateView kind="loading" size="row" title="Loading agents…" />
@@ -143,7 +143,7 @@ export function AgentSettings() {
     </div>
   );
   return (
-    <div className="grid min-w-0 gap-4">
+    <div className="min-w-0">
       {heading}
       <ListDetailLayout
         className="min-h-[24rem]"
