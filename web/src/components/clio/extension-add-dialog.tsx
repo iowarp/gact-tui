@@ -1,4 +1,4 @@
-import type { LocalExtensionInput, McpConfigurationInput } from '@clio/core/v3';
+import type { LocalExtensionInput } from '@clio/core/v3';
 import { useRef, useState } from 'react';
 import { PackageIcon, BoxesIcon, CableIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
@@ -13,9 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { EnvironmentTable } from './environment-table';
-import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useRepository } from '@/hooks/use-repository';
@@ -23,6 +20,7 @@ import { usePluginCatalog, useExtensionsSupported } from '@/hooks/use-session-ag
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SplitButton } from './primitives/split-button';
 import type { SavedMcpService } from '@clio/core/v3';
+import { McpConnectionDialog } from './mcp-connection-dialog';
 
 export type ExtensionAdd = {
   kind: 'remote' | 'local' | 'import' | 'skill' | 'plugin' | 'upload';
@@ -57,20 +55,25 @@ export function ExtensionAddMenu({
   onChoose,
   mcpOnly = false,
   category,
+  label: labelOverride,
 }: {
   onChoose: (choice: ExtensionAdd) => void;
   mcpOnly?: boolean;
   category?: ExtensionAdd['category'];
+  /** Visible face label when the surrounding heading already names what is added. */
+  label?: string;
 }) {
   const supported = useExtensionsSupported();
   const mcp = mcpOnly || category === 'mcp';
-  const label = mcp
-    ? 'Add MCP'
-    : category === 'skills'
-      ? 'Add skill'
-      : category === 'plugins'
-        ? 'Add plugin'
-        : 'Add';
+  const label = labelOverride
+    ? labelOverride
+    : mcp
+      ? 'Add MCP'
+      : category === 'skills'
+        ? 'Add skill'
+        : category === 'plugins'
+          ? 'Add plugin'
+          : 'Add';
   const kinds = CHOICES.filter((kind) => {
     if (mcp) return kind === 'remote' || kind === 'local';
     if (category === 'skills') return kind === 'skill' || kind === 'import' || kind === 'upload';
@@ -78,14 +81,12 @@ export function ExtensionAddMenu({
     return true;
   });
   return (
-    <span
-      className="inline-flex shrink-0"
-      title={
-        supported === false
-          ? 'Update the connected agent service to use the extension library'
-          : undefined
-      }
-    >
+    <span className="inline-flex shrink-0 items-center gap-2.5">
+      {supported === false ? (
+        <span className="text-xs whitespace-nowrap text-muted-foreground">
+          Needs a newer agent service
+        </span>
+      ) : null}
       <SplitButton
         disabled={supported !== true}
         icon={<AddIcon aria-hidden="true" />}
@@ -120,50 +121,52 @@ const slug = (text: string) =>
     .replace(/[^a-z0-9-]+/gu, '-')
     .replace(/^-+|-+$/gu, '');
 
-function processEnvironment(text: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const raw of text.split('\n')) {
-    if (!raw.trim() || isEnvironmentComment(raw)) continue;
-    const split = raw.indexOf('=');
-    const name = raw.slice(0, split).trim();
-    if (split < 1 || environmentNameProblem(name))
-      throw new Error('Use valid NAME=value process settings');
-    result[name] = raw.slice(split + 1).trim();
-  }
-  return result;
-}
-
-/** One add surface; advanced transport details stay behind disclosure. */
-export function ExtensionAddDialog({
-  choice,
-  connections,
-  onClose,
-  onSaved,
-  onSignIn,
-}: {
+/** One add surface; MCP connections get their own frame, sources and packages this one. */
+export function ExtensionAddDialog(props: {
   choice: ExtensionAdd;
   connections: SavedMcpService[];
   onClose: () => void;
   onSaved: () => Promise<unknown>;
   onSignIn: (name: string) => void;
 }) {
+  const { choice } = props;
+  if (choice.kind === 'remote' || choice.kind === 'local')
+    return (
+      <McpConnectionDialog
+        connections={props.connections}
+        initial={{
+          title: choice.title,
+          url: choice.url,
+          command: choice.command,
+          args: choice.args,
+        }}
+        kind={choice.kind}
+        onClose={props.onClose}
+        onSaved={props.onSaved}
+        onSignIn={props.onSignIn}
+      />
+    );
+  return <ExtensionSourceDialog {...props} />;
+}
+
+function ExtensionSourceDialog({
+  choice,
+  connections,
+  onClose,
+  onSaved,
+}: {
+  choice: ExtensionAdd;
+  connections: SavedMcpService[];
+  onClose: () => void;
+  onSaved: () => Promise<unknown>;
+}) {
   const repository = useRepository();
   const supported = useExtensionsSupported();
 
   const [name, setName] = useState(choice.title ?? '');
   const [source, setSource] = useState(choice.source ?? '');
-  const [url, setUrl] = useState(choice.url ?? '');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
-  const [command, setCommand] = useState(choice.command || 'uvx');
-  const [args, setArgs] = useState(choice.args ? JSON.stringify(choice.args) : '');
-  const [environment, setEnvironment] = useState('');
-  const [everyConversation, setEveryConversation] = useState(false);
-  const [headers, setHeaders] = useState('');
-  const [auth, setAuth] = useState<'auto' | 'none' | 'oauth'>('auto');
-  const [transport, setTransport] = useState<'http' | 'sse'>(
-    choice.url?.endsWith('/sse') ? 'sse' : 'http',
-  );
   const [refs, setRefs] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [file, setFile] = useState<File>();
@@ -177,109 +180,58 @@ export function ExtensionAddDialog({
     try {
       if (supported !== true)
         throw new Error('Update the connected agent service to use this extension setup');
-      const rawKey = slug(name);
-      const key =
-        (choice.kind === 'remote' || choice.kind === 'local') && rawKey && !/^[a-z]/u.test(rawKey)
-          ? `mcp-${rawKey}`
-          : rawKey;
+      const key = slug(name);
       if (!key && choice.kind !== 'import')
         throw new Error('Include a letter or number in the extension name');
       if (choice.kind === 'plugin' && !refs.length && !selected.length)
         throw new Error('Choose at least one skill, plugin or MCP connection');
-      if (choice.kind === 'remote' || choice.kind === 'local') {
-        if (connections.some((row) => row.name === key))
-          throw new Error('That connection name already exists. Choose another name.');
-        let input: McpConfigurationInput;
-        if (choice.kind === 'remote') {
-          const parsedHeaders: Record<string, string> = {};
-          for (const line of headers.split('\n').filter((line) => line.trim())) {
-            const colon = line.indexOf(':');
-            if (colon < 1) throw new Error('Use one Header: value per line');
-            parsedHeaders[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
-          }
-          input = {
-            transport,
-            url: url.trim(),
-            name,
-            authentication: auth,
-            headers: parsedHeaders,
-            always_load: everyConversation,
-            connection_only: !everyConversation,
-          };
-        } else {
-          const argv: unknown = JSON.parse(args || '[]');
-          if (!Array.isArray(argv) || !argv.every((arg) => typeof arg === 'string'))
-            throw new Error('Arguments must be a JSON array of strings');
-          const env = processEnvironment(environment);
-          input = {
-            transport: 'stdio',
-            command: command.trim(),
-            args: argv,
-            env,
-            name,
-            always_load: everyConversation,
-            connection_only: !everyConversation,
-          };
-        }
-        const result = await repository.configureMcpServer(key, input);
-        await onSaved();
-        onClose();
-        if (result.status === 'auth_required' || auth === 'oauth') onSignIn(key);
-        else if (result.status === 'ready')
-          toast.success(`Connected ${name}`, {
-            description: `${result.tools_count} ${result.tools_count === 1 ? 'tool' : 'tools'} available. Compose a plugin to add it to an agent.`,
-          });
-        else toast.warning('Connection saved; check failed', { description: result.error });
-      } else {
-        if (choice.kind === 'import')
-          await repository.installPluginMarketplace({
-            source: source.trim(),
-            name: key || undefined,
-          });
-        else if (choice.kind === 'upload') {
-          if (!file) throw new Error('Choose a ZIP file');
-          if (file.size > 2 * 1024 * 1024)
-            throw new Error('Use a ZIP smaller than 2 MiB, or add its repository');
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          let binary = '';
-          for (const byte of bytes) binary += String.fromCharCode(byte);
-          await repository.uploadExtension(
-            key,
-            btoa(binary),
-            choice.category === 'skills'
-              ? 'skill'
-              : choice.category === 'plugins'
-                ? 'plugin'
-                : undefined,
-          );
-        } else {
-          const body: LocalExtensionInput = {
-            name: key,
-            description,
-            requires: refs,
-            connections: Object.fromEntries(selected.map((value) => [value, value])),
-          };
-          if (choice.kind === 'skill')
-            body.skill = `---\nname: ${key}\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n\n${instructions}\n`;
-          await repository.createLocalExtension(body);
-        }
-        await onSaved();
-        onClose();
-        toast.success(
-          choice.kind === 'import' ? 'Source installed' : 'Saved to Private local marketplace',
-          {
-            description:
-              'Inspect the contents, then trust the source to make it available to agents.',
-          },
+      if (choice.kind === 'import')
+        await repository.installPluginMarketplace({
+          source: source.trim(),
+          name: key || undefined,
+        });
+      else if (choice.kind === 'upload') {
+        if (!file) throw new Error('Choose a ZIP file');
+        if (file.size > 2 * 1024 * 1024)
+          throw new Error('Use a ZIP smaller than 2 MiB, or add its repository');
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        await repository.uploadExtension(
+          key,
+          btoa(binary),
+          choice.category === 'skills'
+            ? 'skill'
+            : choice.category === 'plugins'
+              ? 'plugin'
+              : undefined,
         );
+      } else {
+        const body: LocalExtensionInput = {
+          name: key,
+          description,
+          requires: refs,
+          connections: Object.fromEntries(selected.map((value) => [value, value])),
+        };
+        if (choice.kind === 'skill')
+          body.skill = `---\nname: ${key}\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n\n${instructions}\n`;
+        await repository.createLocalExtension(body);
       }
+      await onSaved();
+      onClose();
+      toast.success(
+        choice.kind === 'import' ? 'Source installed' : 'Saved to Private local marketplace',
+        {
+          description:
+            'Inspect the contents, then trust the source to make it available to agents.',
+        },
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not add extension');
     } finally {
       setBusy(false);
     }
   }
-  const remote = choice.kind === 'remote';
   const importing = choice.kind === 'import';
   return (
     <Dialog
@@ -296,17 +248,13 @@ export function ExtensionAddDialog({
               : TITLES[choice.kind]}
           </DialogTitle>
           <DialogDescription>
-            {remote
-              ? 'Enter the address from your MCP server. Sign-in opens in your browser when required.'
-              : importing
-                ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
-                : choice.kind === 'plugin'
-                  ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
-                  : choice.kind === 'upload'
-                    ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
-                    : choice.kind === 'skill'
-                      ? 'Save reusable instructions in your private marketplace.'
-                      : 'Run an MCP server on the connected agent host.'}
+            {importing
+              ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
+              : choice.kind === 'plugin'
+                ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
+                : choice.kind === 'upload'
+                  ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
+                  : 'Save reusable instructions in your private marketplace.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -323,73 +271,15 @@ export function ExtensionAddDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={
-                remote
-                  ? 'Home Assistant'
-                  : choice.kind === 'skill' || choice.category === 'skills'
-                    ? 'My skill'
-                    : choice.kind === 'plugin' || choice.category === 'plugins'
-                      ? 'My plugin'
-                      : 'My connection'
+                choice.kind === 'skill' || choice.category === 'skills'
+                  ? 'My skill'
+                  : choice.kind === 'plugin' || choice.category === 'plugins'
+                    ? 'My plugin'
+                    : 'My source'
               }
               required={!importing}
             />
           </Label>
-          {remote ? (
-            <>
-              <Label className="grid gap-2">
-                MCP server URL
-                <Input
-                  type="url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://your-server.example/mcp"
-                  required
-                />
-              </Label>
-              <details className="text-sm">
-                <summary className="cursor-pointer">Advanced connection settings</summary>
-                <div className="grid gap-3 pt-3">
-                  <Label className="grid gap-2">
-                    Authentication
-                    <select
-                      aria-label="Authentication"
-                      className="h-9 rounded-md border bg-background px-2"
-                      value={auth}
-                      onChange={(event) => setAuth(event.target.value as typeof auth)}
-                    >
-                      <option value="auto">Detect when connecting</option>
-                      <option value="oauth">Sign in with OAuth</option>
-                      <option value="none">No OAuth (open access or request headers)</option>
-                    </select>
-                  </Label>
-                  <Label className="grid gap-2">
-                    Transport
-                    <select
-                      aria-label="Transport"
-                      className="h-9 rounded-md border bg-background px-2"
-                      value={transport}
-                      onChange={(event) => setTransport(event.target.value as typeof transport)}
-                    >
-                      <option value="http">Streamable HTTP</option>
-                      <option value="sse">SSE (legacy)</option>
-                    </select>
-                  </Label>
-                  <Label className="grid gap-2">
-                    Request headers
-                    <Textarea
-                      value={headers}
-                      onChange={(event) => setHeaders(event.target.value)}
-                      placeholder="Authorization: Bearer …"
-                      autoComplete="off"
-                    />
-                  </Label>
-                  <p className="text-muted-foreground">
-                    Header values are saved privately on the agent host and hidden after saving.
-                  </p>
-                </div>
-              </details>
-            </>
-          ) : null}
           {importing ? (
             <Label className="grid gap-2">
               Repository URL or folder on the agent host
@@ -443,56 +333,6 @@ export function ExtensionAddDialog({
               </span>
             </div>
           ) : null}
-          {choice.kind === 'local' ? (
-            <>
-              <Label className="grid gap-2">
-                Command
-                <Input
-                  value={command}
-                  onChange={(event) => setCommand(event.target.value)}
-                  required
-                />
-              </Label>
-              <Label className="grid gap-2">
-                Arguments
-                <Textarea
-                  value={args}
-                  onChange={(event) => setArgs(event.target.value)}
-                  placeholder={'["ha-mcp"]'}
-                />
-              </Label>
-              <details className="text-sm">
-                <summary className="cursor-pointer">Environment variables</summary>
-                <div className="pt-3">
-                  <EnvironmentTable
-                    id="mcp-process-settings"
-                    value={environment}
-                    onChange={setEnvironment}
-                  />
-                </div>
-              </details>
-              <p className="text-sm text-muted-foreground">
-                Runs on the connected agent host. The command starts when you add this connection.
-              </p>
-            </>
-          ) : null}
-          {remote || choice.kind === 'local' ? (
-            <details className="text-sm">
-              <summary className="cursor-pointer">Conversation access</summary>
-              <label className="mt-3 flex items-start gap-2">
-                <Checkbox
-                  checked={everyConversation}
-                  onCheckedChange={(value) => setEveryConversation(value === true)}
-                />
-                <span>
-                  Available in every conversation
-                  <span className="block text-muted-foreground">
-                    Otherwise, include this connection in a plugin and add it to selected agents.
-                  </span>
-                </span>
-              </label>
-            </details>
-          ) : null}
           {choice.kind === 'skill' || choice.kind === 'plugin' ? (
             <Label className="grid gap-2">
               Description
@@ -530,7 +370,7 @@ export function ExtensionAddDialog({
               {error}
             </p>
           ) : null}
-          {!remote && choice.kind !== 'local' && !importing ? (
+          {!importing ? (
             <p className="text-sm text-muted-foreground">
               Saves to your Private local marketplace on this agent host. GitHub backup is available
               from Marketplaces.
@@ -541,13 +381,7 @@ export function ExtensionAddDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={busy || supported !== true}>
-              {busy
-                ? 'Adding…'
-                : remote || choice.kind === 'local'
-                  ? 'Connect'
-                  : importing
-                    ? 'Install source'
-                    : 'Save to private marketplace'}
+              {busy ? 'Adding…' : importing ? 'Install source' : 'Save to private marketplace'}
             </Button>
           </div>
         </form>
