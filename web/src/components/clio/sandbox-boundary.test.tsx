@@ -1,5 +1,5 @@
 ﻿import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render as rtlRender, screen } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -77,6 +77,8 @@ describe('SandboxBoundaryNotice', () => {
     expect(dialog).toHaveTextContent('Read and write in /home/ada/Desktop');
     expect(dialog).toHaveTextContent('This workspace');
     expect(dialog).toHaveTextContent('You remove it in Settings, Permissions');
+    // A grant starts on the safe button.
+    expect(within(dialog).getByRole('button', { name: /^Cancel/u })).toHaveFocus();
     expect(repository.grantWorkspaceFolder).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Allow folder' }));
     expect(repository.grantWorkspaceFolder).toHaveBeenCalledWith('ws_1', '/home/ada/Desktop');

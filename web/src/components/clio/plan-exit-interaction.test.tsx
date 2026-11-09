@@ -101,6 +101,8 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     expect(
       await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
     ).toBeVisible();
+    // The glance runs from the summary into the numbered steps; the outline still counts them.
+    expect(screen.queryByRole('heading', { name: 'Steps' })).not.toBeInTheDocument();
     expect(screen.getByText('4 steps, execution recommendation, 2 risks')).toBeVisible();
     expect(screen.getByText('Plan ready')).toBeVisible();
     // Recommended mode is the default; the trigger names it.

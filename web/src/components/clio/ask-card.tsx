@@ -51,7 +51,7 @@ const TONE: Record<AskKind, string> = {
 
 const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
-/** A key chip inside a button or hint: `1`, `â†µ`, `Esc`, `D`. */
+/** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
 export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: string }) {
   const keys = [KEY_TEXT[askKey] ?? askKey.toUpperCase()];
   return (
@@ -248,7 +248,7 @@ export interface AskFact {
   value: ReactNode;
   title?: string;
   mono?: boolean;
-  /** At a fifth of the window: a shorter value, or `false` to move the row behind â“˜. */
+  /** At a fifth of the window: a shorter value, or `false` to move the row behind ⓘ. */
   narrow?: ReactNode | false;
 }
 
@@ -321,7 +321,7 @@ export function AskButton({
       {...props}
     >
       {number ? <AskKeyChip askKey={String(number)} /> : null}
-      {/* Stacked, the label fills: number key left, â†µ/Esc at the right edge. */}
+      {/* Stacked, the label fills: number key left, ↵/Esc at the right edge. */}
       <span className="min-w-0 truncate text-left @max-[420px]/ask:flex-1">{children}</span>
       {hint ? <AskKeyChip askKey={hint} /> : null}
     </Button>
@@ -334,7 +334,7 @@ export interface AskRowProps extends Omit<ComponentProps<'button'>, 'children'> 
   detail?: ReactNode;
   /** A checkbox or a mark before the label (multi-choice). */
   control?: ReactNode;
-  /** The row â†µ would pick. */
+  /** The row ↵ would pick. */
   highlighted?: boolean;
 }
 
@@ -461,7 +461,7 @@ export function AskDetails({
 
 const PREVIEW_LINES = 8;
 
-/** A hook arrow (â†ª) tiled once per line box down the gutter of a wrapped line. */
+/** A hook arrow (↪) tiled once per line box down the gutter of a wrapped line. */
 const WRAP_MARKS: CSSProperties = {
   maskImage:
     "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 10 5 5-5 5'/%3E%3Cpath d='M4 4v7a4 4 0 0 0 4 4h12'/%3E%3C/svg%3E\")",
@@ -655,7 +655,7 @@ export function AskCode({
             <span aria-hidden="true" className="relative pr-3 text-right text-faint select-none">
               {index + 1}
               {wrap ? (
-                // â†ª on each continuation row a wrapped line takes, as the spec's gutter shows.
+                // ↪ on each continuation row a wrapped line takes, as the spec's gutter shows.
                 <span
                   className="absolute inset-x-0 top-[1.65em] bottom-0 bg-warning"
                   data-slot="ask-code-wrap-marks"
@@ -663,7 +663,10 @@ export function AskCode({
                 />
               ) : null}
             </span>
-            <code className={wrap ? 'break-all whitespace-pre-wrap' : 'whitespace-pre'}>
+            {/* Wraps at spaces; only a token wider than the block breaks inside. */}
+            <code
+              className={wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre'}
+            >
               {lineContent(line, index)}
             </code>
           </span>

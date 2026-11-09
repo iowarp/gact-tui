@@ -28,6 +28,9 @@ function planFileName(path: string) {
   return parts.slice(-2).join('/');
 }
 
+/** A plan's own "Steps" heading; the preview drops it (the full plan keeps it). */
+const STEPS_HEADING = /^#{2,6}[ \t]+steps?[ \t]*:?[ \t]*(?:\r?\n|$)/imu;
+
 /** The payload's guidance when the markdown does not already carry it. */
 function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
   const sections = planSections(plan?.plan_content);
@@ -90,6 +93,8 @@ function PlanPreview({
   const plan = interaction.payload?.plan_exit;
   const content = plan?.plan_content?.trim();
   const [expanded, setExpanded] = useAttentionDraft(`${interaction.id}:plan-expanded`, false);
+  // The glance goes from the summary straight to the numbered steps, as the spec draws.
+  const glance = expanded ? content : content?.replace(STEPS_HEADING, '');
   const [overflowing, setOverflowing] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -127,7 +132,7 @@ function PlanPreview({
       >
         <div ref={bodyRef}>
           {content ? (
-            <MessageResponse className={PLAN_MARKDOWN}>{content}</MessageResponse>
+            <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
             <div className="grid gap-1 text-[12.5px] leading-[1.6]">
               {plan?.summary ? <p className="text-foreground/90">{plan.summary}</p> : null}
