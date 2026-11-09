@@ -7,14 +7,14 @@ Paths are under `web/src/`.
 
 ## Window and navigation (owned by S3)
 
-| Part | Path | Notes |
-| --- | --- | --- |
-| Settings window | `routes/settings-window.tsx` `SettingsWindow` | Mounts over the workspace through `WindowShell`; closes with × / Esc. Sections load lazily. |
-| Section switch | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only. |
-| Nav entries | `lib/application-destinations.ts` | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter. |
-| Route helpers | `lib/settings-window-route.ts` | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`. |
-| Scope | `lib/settings-scope-context.ts` `SettingsScopeContext` | `{ group, line }`, the scope line shown under the page title. |
-| Anchor | `data-settings-anchor="<id>"` | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it. |
+| Part            | Path                                                                                | Notes                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc. Sections load lazily.                            |
+| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                         |
+| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter. |
+| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                    |
+| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                          |
+| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.               |
 
 ## Page parts
 
@@ -58,6 +58,7 @@ Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Ma
 The full window frame. Only the Settings window uses it today.
 
 **Picker field** `components/clio/model-select-field.tsx`
+
 - `SettingsSelectField`: a button-styled select with `icon?`, `value?` and `placeholder?`, plus button props.
 - `ModelSelectField { title, options, providerId?, modelId?, option?, placeholder, catalogStatus, onRetryCatalog, onChange, label?, id?, providerName?, disabled? }`
   opens the shared model picker. Use it for every model choice in Settings.
