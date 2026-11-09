@@ -173,7 +173,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'activity-expanded', SESSION, async (page) => {
       await page
-        .getByRole('button', { name: /^Activity: / })
+        .getByRole('button', { name: /^Expand / })
         .filter({ visible: true })
         .last()
         .click();
