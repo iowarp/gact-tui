@@ -4,6 +4,7 @@ import { CodeIcon, EyeIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tabs } from '@/components/ui/tabs';
+import { narrowFrameBars } from '@/test/narrow-frame-bars';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,24 +57,6 @@ function Frame({
       />
     </Tabs>
   );
-}
-
-/** jsdom has no layout: make every frame bar report it is cut off so it folds all the way. */
-function narrowFrameBars() {
-  const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return this.dataset.slot === 'frame-bar' ? 400 : 0;
-  });
-  const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return this.dataset.slot === 'frame-bar' ? 200 : 0;
-  });
-  return () => {
-    scroll.mockRestore();
-    client.mockRestore();
-  };
 }
 
 afterEach(cleanup);

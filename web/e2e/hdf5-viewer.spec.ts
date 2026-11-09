@@ -152,9 +152,22 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
       await canvas.getByText('results', { exact: true }).first().click();
     await file.click();
   }
-  await expect(modes.getByRole('button', { name: 'Image', pressed: true })).toBeVisible({
-    timeout: 15_000,
+  await expect(frameElement).toBeVisible({ timeout: 15_000 });
+  // Beside the conversation the frame is at its narrowest fold, where the
+  // modes are a checked list in the frame's … menu.
+  const actions = canvas.getByRole('toolbar', { name: 'File' }).getByRole('button', {
+    name: 'File actions',
   });
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await actions.click();
+    await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+      { timeout: 1_000 },
+    );
+  }).toPass({ timeout: 15_000 });
+  await page.keyboard.press('Escape');
 
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);

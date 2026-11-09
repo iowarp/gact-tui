@@ -1,13 +1,18 @@
 import { HOST_SOURCE, VIEWER_SOURCE } from '@clio/hdf5-viewer/protocol';
 import { TransportError } from '@clio/core/v3';
-import { act, cleanup, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { narrowFrameBars } from '@/test/narrow-frame-bars';
 import { FileViewerContentsRegistry } from './file-viewer-action-context';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
+import { FrameTalkTake } from './file-viewer-take';
 import { entityFacts, valuesAsTsv } from './hdf5-viewer-facts';
 import { HDF5_VIEWER_URL, Hdf5ViewerFrame } from './hdf5-viewer-frame';
+import { FrameBar } from './primitives/frame-bar';
+import { ViewerToolbarHost } from './viewer-toolbar-context';
 
 const repository = vi.hoisted(() => ({ readWorkspaceHdf5: vi.fn() }));
 const theme = vi.hoisted(() => ({ resolvedTheme: 'dark' as 'dark' | 'light' }));
@@ -35,16 +40,33 @@ type FrameHost = {
   setContents: ReturnType<typeof vi.fn<(id: string, read?: () => unknown) => void>>;
 };
 
+/** A workbench frame bar with the file's … menu, whose Format host the viewer fills. */
+function InFrame({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  return (
+    <>
+      <FrameBar
+        label="File"
+        where={<span>water.h5</span>}
+        format={<div data-slot="frame-format-host" ref={setHost} />}
+        actions={<FrameTalkTake menu={null} />}
+      />
+      <ViewerToolbarHost.Provider value={host}>{children}</ViewerToolbarHost.Provider>
+    </>
+  );
+}
+
 /** Render the frame and capture what it posts to the iframe window. */
 function renderFrame(
   props: Partial<Parameters<typeof Hdf5ViewerFrame>[0]> = {},
   frame?: FrameHost,
+  inFrame = false,
 ) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <TooltipProvider>
       <FileViewerFactsRegistry.Provider value={frame?.setFacts}>
         <FileViewerContentsRegistry.Provider value={frame?.setContents}>
-          {children}
+          {inFrame ? <InFrame>{children}</InFrame> : children}
         </FileViewerContentsRegistry.Provider>
       </FileViewerFactsRegistry.Provider>
     </TooltipProvider>
@@ -331,6 +353,33 @@ describe('Hdf5ViewerFrame in the workbench frame', () => {
     });
     act(() => screen.getByRole('button', { name: 'Attributes' }).click());
     expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', mode: 'plot' });
+  });
+
+  it('moves the modes and Explorer into the frame’s … menu at the narrowest fold', async () => {
+    const restore = narrowFrameBars();
+    try {
+      const { posted, send } = renderFrame({}, undefined, true);
+      send({
+        source: VIEWER_SOURCE,
+        type: 'modes',
+        modes: ['table', 'image', 'attributes'],
+        mode: 'image',
+        explorer: true,
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      const menu = within(screen.getByRole('menu'));
+      const modes = within(menu.getByRole('group', { name: 'Show as' }));
+      expect(modes.getByRole('menuitemradio', { name: 'Image' }).getAttribute('aria-checked')).toBe(
+        'true',
+      );
+      await userEvent.click(modes.getByRole('menuitemradio', { name: 'Table' }));
+      expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', mode: 'table' });
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Explorer' }));
+      expect(lastMessage(posted)).toEqual({ source: HOST_SOURCE, type: 'show', explorer: false });
+    } finally {
+      restore();
+    }
   });
 
   it('copies a small dataset as tab-separated values', async () => {

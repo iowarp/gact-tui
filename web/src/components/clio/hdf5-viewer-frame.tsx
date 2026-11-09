@@ -24,6 +24,7 @@ import { useFileViewerFacts } from './file-viewer-facts';
 import { entityFacts, valuesAsTsv, type ViewerEntity } from './hdf5-viewer-facts';
 import { currentViewerLocation, HDF5_VIEWER_PATH } from './hdf5-viewer-location';
 import { NamedTooltip } from './primitives/icon-button';
+import { useFrameModes } from './primitives/frame-modes';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 
 /** The h5web viewer page, built from packages/hdf5-viewer and served by the web app. */
@@ -250,8 +251,9 @@ const MODES: Record<Hdf5Mode, { label: string; icon: LucideIcon }> = {
 };
 
 // FileModeControls' segmented look; these modes live in the viewer page, not in shell tabs.
+// They leave the bar for the … menu with the file's own modes.
 const MODES_CLASS =
-  'inline-flex h-7 shrink-0 gap-px rounded-[7px] border border-input bg-transparent p-[2px]';
+  'inline-flex h-7 shrink-0 gap-px rounded-[7px] border border-input bg-transparent p-[2px] [[data-fold-modes-menu]:has([data-frame-modes-menu])_&]:hidden';
 const MODE_CLASS =
   'inline-flex h-[22px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-menu-highlight aria-pressed:text-foreground [&_svg]:size-3.5';
 
@@ -267,11 +269,34 @@ function Hdf5Modes({
   onShow: (request: { mode?: Hdf5Mode; explorer?: boolean }) => void;
 }) {
   const display = view.modes.find((mode) => mode !== 'attributes');
+  const group = useRef<HTMLDivElement>(null);
+  const modes = useMemo(
+    () => view.modes.map((mode) => ({ value: mode, ...MODES[mode] })),
+    [view.modes],
+  );
+  // Narrowest, the modes are a checked list in the frame's … menu (workbench-lineage step 6).
+  useFrameModes(
+    group,
+    view.modes.length
+      ? {
+          label: 'Show as',
+          modes,
+          value: view.mode ?? '',
+          onChange: (mode) => onShow({ mode: mode as Hdf5Mode }),
+        }
+      : null,
+  );
   return (
     <ViewerToolbarContent>
       <TooltipProvider delayDuration={200}>
         {view.modes.length ? (
-          <div aria-label="Show as" className={MODES_CLASS} data-slot="viewer-modes" role="group">
+          <div
+            aria-label="Show as"
+            className={MODES_CLASS}
+            data-slot="viewer-modes"
+            ref={group}
+            role="group"
+          >
             {view.modes.map((mode) => {
               const { label, icon: Icon } = MODES[mode];
               const pressed = view.mode === mode;
