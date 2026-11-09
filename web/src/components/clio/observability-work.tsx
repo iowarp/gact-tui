@@ -46,7 +46,7 @@ export function ObservabilityWork(
       data-slot="conversation-work-header"
       className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2"
     >
-      <h3 className="text-xs font-semibold">Conversations &amp; delegated work</h3>
+      <h2 className="text-xs font-semibold">Conversations &amp; delegated work</h2>
       <div className="flex items-center gap-1">
         {!relationships && hasFamily ? (
           <Button size="sm" variant="ghost" onClick={() => update({ details: !details })}>

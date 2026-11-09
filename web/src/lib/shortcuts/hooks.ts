@@ -64,20 +64,43 @@ export interface ShortcutPresentation {
   aria: string | undefined;
 }
 
-/** How a shortcut reads on this platform; nothing when the id is unknown. */
-export function useShortcutPresentation(id: string | undefined): ShortcutPresentation | undefined {
-  const definition = useShortcutDefinition(id);
+const RANGE = /\d–\d/u;
+
+/** One position of a range shortcut (`Ctrl+Shift+1–7` at 3 is `Ctrl+Shift+3`). */
+export function shortcutAtPosition(
+  definition: ShortcutDefinition,
+  position: number,
+): ShortcutDefinition {
+  const at = (chord: string) => chord.replace(RANGE, String(position));
+  return {
+    ...definition,
+    keys: definition.keys.map(at),
+    mac: definition.mac?.map(at),
+  };
+}
+
+/**
+ * How a shortcut reads on this platform; nothing when the id is unknown.
+ * `position` picks one key of a range (the strip's third icon reads
+ * `Ctrl Shift 3`, not `Ctrl Shift 1–7`).
+ */
+export function useShortcutPresentation(
+  id: string | undefined,
+  position?: number,
+): ShortcutPresentation | undefined {
+  const catalogued = useShortcutDefinition(id);
   const platform = useKeyPlatform();
-  return useMemo(
-    () =>
-      definition && {
-        definition,
-        text: shortcutText(definition, platform),
-        labels: shortcutLabels(definition, platform),
-        aria: shortcutAria(definition, platform),
-      },
-    [definition, platform],
-  );
+  return useMemo(() => {
+    if (!catalogued) return undefined;
+    const definition =
+      position === undefined ? catalogued : shortcutAtPosition(catalogued, position);
+    return {
+      definition,
+      text: shortcutText(definition, platform),
+      labels: shortcutLabels(definition, platform),
+      aria: shortcutAria(definition, platform),
+    };
+  }, [catalogued, platform, position]);
 }
 
 export interface UseShortcutOptions {

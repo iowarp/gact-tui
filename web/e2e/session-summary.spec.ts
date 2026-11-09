@@ -73,6 +73,11 @@ test('compact Session rows open source, tool and Context details, with Work kept
   await expect(page.getByRole('region', { name: 'Session rail', exact: true })).toHaveCount(0);
   await expect(work.getByRole('button', { name: 'Open Check the report' })).toBeVisible();
   await work.getByRole('button', { name: 'Open Check the report', exact: true }).click();
+  // Work folds into Activity: the todo list is one row that opens the full Work tab.
+  await page
+    .getByRole('region', { name: 'Activity list', exact: true })
+    .getByRole('button', { name: /^Todos, / })
+    .click();
   await expect(page.getByRole('tab', { name: 'Work', exact: true })).toHaveAttribute(
     'data-state',
     'active',
