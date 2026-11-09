@@ -18,6 +18,8 @@ export interface KeyValueItem {
    * `false` to drop the row (its content then lives behind the card's details).
    */
   narrow?: ReactNode | false;
+  /** `facts` only: wrap onto more lines instead of an ellipsis (a path being approved). */
+  wrap?: boolean;
 }
 
 /**
@@ -91,7 +93,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       data-variant={variant}
       className={cn(
         facts
-          ? 'grid auto-rows-[24px] items-center gap-x-2.5 text-[12.5px]'
+          ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-[12.5px]'
           : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
         facts
           ? hasAction
@@ -106,9 +108,10 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       {items.map((item) => {
         const dropNarrow = facts && item.narrow === false;
         const narrowValue = facts && item.narrow ? item.narrow : null;
+        const wrap = facts && item.wrap;
         const wideValue =
           facts && typeof item.value === 'string' ? (
-            <span className="min-w-0 truncate">{item.value}</span>
+            <span className={wrap ? 'min-w-0' : 'min-w-0 truncate'}>{item.value}</span>
           ) : (
             item.value
           );
@@ -118,6 +121,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
               className={cn(
                 'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
                 facts && 'text-[12px]',
+                wrap && 'h-6 self-start',
                 dropNarrow && '@max-[420px]:hidden',
               )}
               title={facts ? item.label : undefined}
@@ -139,7 +143,9 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             </dt>
             <dd
               className={cn(
-                'min-w-0 truncate whitespace-nowrap',
+                wrap
+                  ? 'min-w-0 py-[3px] leading-[18px] [overflow-wrap:anywhere]'
+                  : 'min-w-0 truncate whitespace-nowrap',
                 facts
                   ? 'flex items-center gap-[7px] text-left text-foreground/90'
                   : 'text-right text-foreground/85',

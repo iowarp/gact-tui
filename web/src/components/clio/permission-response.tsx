@@ -189,7 +189,7 @@ export function PermissionResponse({
           <div className="grid gap-1.5">
             {owner.length ? (
               <p
-                className="hidden min-w-0 truncate @max-[420px]/ask:block"
+                className="min-w-0 truncate"
                 data-slot="ask-details-owner"
                 title={owner[0]?.title}
               >
