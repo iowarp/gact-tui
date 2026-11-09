@@ -48,7 +48,14 @@ export function NavigationAgentMenu({
   const streamError = useLiveStore((state) => (state.streamOwners > 0 ? state.error : undefined));
   const versions = useSystemVersionStatus();
   const location = connectionLocation(endpoint, activeLocation);
-  const name = connectionAgentName(activeLabel, location);
+  const agentName = connectionAgentName(activeLabel, location);
+  // An unnamed agent reads as the product and its place: "CLIO local · this computer".
+  const name =
+    agentName === connectionAgentName(undefined, location)
+      ? location === 'Local'
+        ? `${brand.name} local`
+        : brand.name
+      : agentName;
   const place = placeWords(location);
   const line = statusLine(stream, versions.state === 'available', name, place);
 
@@ -189,7 +196,7 @@ function statusLine(
   if (updateReady) {
     return { text: `${name}, update ready`, label: 'Update ready', tone: 'info' };
   }
-  return { text: `${name} @ ${place}`, label: 'Live', tone: 'success' };
+  return { text: `${name} · ${place}`, label: 'Live', tone: 'success' };
 }
 
 function versionStateWord(state: ReturnType<typeof useSystemVersionStatus>['state']): string {

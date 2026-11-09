@@ -674,7 +674,7 @@ function WorkspaceActionsMenu({
       <DropdownMenuTrigger asChild>
         <IconButton icon={<MoreIcon />} label={`Workspace actions for ${labelText}`} size="sm" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[250px]">
+      <DropdownMenuContent align="start" className="w-[290px]">
         <DropdownMenuItem menuKey="N" onSelect={() => onCreateSession(workspace.id)}>
           <NewConversationIcon aria-hidden="true" /> New conversation here
         </DropdownMenuItem>
