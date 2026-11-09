@@ -124,7 +124,7 @@ async function expectRegionScreenshot(
   });
 }
 
-type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer' | 'status';
+type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer';
 
 /**
  * Review each workspace surface against its own baseline, so restyling one
@@ -153,10 +153,6 @@ async function expectWorkspaceRegions(
     },
     attention: { region: attention, mask: [] },
     composer: { region: composerStack, mask: [attention] },
-    status: {
-      region: page.locator('section[aria-label="Conversation workspace"] > footer'),
-      mask: [],
-    },
   };
   for (const name of regions) {
     const { region, mask } = surfaces[name];
@@ -302,32 +298,29 @@ test('reveals workspace creation and overflow actions without changing disclosur
   await expect(disclosure).toBeVisible();
   await waitForArtifactPreview(page);
   const newSession = page.getByRole('button', {
-    name: 'New session in flat-NDP',
+    name: 'New conversation in flat-NDP',
     exact: true,
     includeHidden: true,
   });
   const overflow = page.getByRole('button', {
     name: 'Workspace actions for flat-NDP',
     exact: true,
+    includeHidden: true,
   });
   const actions = newSession.locator('..');
   await page.mouse.move(1090, 790);
   await expect(actions).toHaveCSS('opacity', '0');
   await page.screenshot({ path: testInfo.outputPath('workspace-row-at-rest.png') });
+  await disclosure.hover();
   await newSession.hover();
   await expect(actions).toHaveCSS('opacity', '1');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-hover.png') });
   await newSession.click();
-  const create = page.getByRole('dialog', { name: 'Create', exact: true });
-  await expect(create.getByRole('radio', { name: 'Session', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(create.getByRole('combobox', { name: 'Workspace', exact: true })).toHaveText(
-    'flat-NDP',
-  );
-  await create.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // A new conversation is a draft in place in that workspace (full-picture/08).
+  await expect(page).toHaveURL(/\/workspaces\/ws_flat_ndp\/new$/u);
+  await expect(page.getByRole('dialog', { name: 'Create', exact: true })).toHaveCount(0);
+  await page.goBack();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
   await disclosure.click();
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
@@ -346,10 +339,12 @@ test('reveals workspace creation and overflow actions without changing disclosur
     ),
     contentType: 'application/json',
   });
-  await expect(menu.getByRole('menuitem', { name: 'Edit workspace', exact: true })).toBeVisible();
+  await expect(
+    menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }),
+  ).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'New session', exact: true })).toHaveCount(0);
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await menu.getByRole('menuitem', { name: 'Edit workspace', exact: true }).hover();
+  await menu.getByRole('menuitem', { name: 'Workspace settings…', exact: true }).hover();
   await expect(actions).toHaveCSS('opacity', '1');
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('workspace-row-menu.png') });
@@ -400,9 +395,9 @@ test('keeps same-named sessions on one line and reveals details on hover or focu
     await expect(row).not.toContainText(/messages|Started/u);
     expect(
       await row.evaluate(
-        (element) => element.closest('[class~="group/row"]')?.getBoundingClientRect().height,
+        (element) => element.closest('[data-slot="list-row"]')?.getBoundingClientRect().height,
       ),
-    ).toBe(32);
+    ).toBe(28);
   }
   await page.screenshot({ path: testInfo.outputPath('session-rows-single-line.png') });
   const card = page.locator('[data-slot="hover-card-content"]');
@@ -651,7 +646,7 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   await expectWorkspaceRegions(
     page,
     'workspace-desktop-dark',
-    ['left-bar', 'header', 'transcript', 'attention', 'composer', 'status'],
+    ['left-bar', 'header', 'transcript', 'attention', 'composer'],
     { animations: 'allow', maxDiffPixels: desktopMaxDiffPixels },
   );
 
@@ -986,7 +981,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expectWorkspaceRegions(
     page,
     'workspace-mobile-light-reduced',
-    ['header', 'transcript', 'attention', 'composer', 'status'],
+    ['header', 'transcript', 'attention', 'composer'],
     { animations: 'disabled', maxDiffPixels: mobileMaxDiffPixels },
   );
 

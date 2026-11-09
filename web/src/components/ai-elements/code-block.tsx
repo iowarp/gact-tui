@@ -23,7 +23,6 @@ import {
   useState,
 } from 'react';
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
-import { createCssVariablesTheme, createHighlighter } from 'shiki';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -157,14 +156,24 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
-// Token colors are `var(--syntax-*)` references, so highlighting follows the
-// active theme (web/src/theme/themes.css) without re-tokenizing.
-const syntaxTheme = createCssVariablesTheme({
-  name: 'clio-syntax',
-  variablePrefix: '--syntax-',
-  variableDefaults: {},
-  fontStyle: true,
-});
+// Shiki loads on first highlight so it stays out of the initial bundle; raw
+// tokens render until it arrives. Token colors are `var(--syntax-*)`
+// references, so highlighting follows the active theme
+// (web/src/theme/themes.css) without re-tokenizing.
+const createLazyHighlighter = async (language: BundledLanguage) => {
+  const { createCssVariablesTheme, createHighlighter } = await import('shiki');
+  return createHighlighter({
+    langs: [language],
+    themes: [
+      createCssVariablesTheme({
+        name: 'clio-syntax',
+        variablePrefix: '--syntax-',
+        variableDefaults: {},
+        fontStyle: true,
+      }),
+    ],
+  });
+};
 
 const getHighlighter = (
   language: BundledLanguage,
@@ -174,10 +183,7 @@ const getHighlighter = (
     return cached;
   }
 
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: [syntaxTheme],
-  });
+  const highlighterPromise = createLazyHighlighter(language);
 
   highlighterCache.set(language, highlighterPromise);
   return highlighterPromise;
