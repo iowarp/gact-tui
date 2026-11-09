@@ -262,7 +262,10 @@ export function ConversationTurn({
     else groups[groups.length - 1].push(iteration);
   }
   return (
-    <div className="flex min-w-0 flex-col gap-1" data-slot="transcript-entry-sequence">
+    <div
+      className="flex min-w-0 flex-col gap-1 [&>[data-row-run]+[data-row-run]]:-mt-1"
+      data-slot="transcript-entry-sequence"
+    >
       {groups.map((group, index) => {
         const iteration = group[0];
         const summary = transcriptActivitySummary(group);
@@ -381,7 +384,8 @@ function ActivityLane({
       role="group"
       aria-label={`Activity: ${label}`}
       aria-busy={live || undefined}
-      className="my-1 min-w-0"
+      className="min-w-0"
+      data-row-run=""
       data-slot="transcript-activity-timeline"
     >
       {folded ? (

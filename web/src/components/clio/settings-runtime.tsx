@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import type { RuntimeSetting, RuntimeSettings, UpdateRuntimeSettings } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon } from 'lucide-react';
@@ -295,7 +297,7 @@ export function RuntimeSettingsPanel({
         <SettingsLoadError error={apply.error} title="That change was not applied." />
       ) : null}
       <SaveBar
-        className="sticky bottom-0 z-10 bg-background @3xl:w-[60%]"
+        className={cn('sticky bottom-0 z-10 bg-background', SETTINGS_COLUMN)}
         count={changeCount}
         error={
           save.error

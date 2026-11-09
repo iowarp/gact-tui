@@ -223,6 +223,15 @@ describe('authored dashboard', () => {
     );
     const user = userEvent.setup();
     const toolbar = document.querySelector('[data-slot="frame-bar"]') as HTMLElement;
+    expect(within(toolbar).getByText('2 tabs')).toBeInTheDocument();
+    // The crumb names the dashboard by its title under its kind, not by its file name.
+    expect(within(toolbar).getByText('dashboards')).toBeInTheDocument();
+    expect(within(toolbar).getByText(report.title)).toBeInTheDocument();
+    expect(within(toolbar).queryByText('design.dashboard.json')).toBeNull();
+    expect(
+      within(toolbar).getByRole('button', { name: 'Capture labelled regions' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: report.title })).toBeNull();
     for (const label of ['PNG image (displayed view)', 'HTML dashboard (all tabs and data)']) {
       await user.click(within(toolbar).getByRole('button', { name: 'Open options' }));
       await user.click(

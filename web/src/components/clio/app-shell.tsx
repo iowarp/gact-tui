@@ -259,12 +259,15 @@ export function ClioAppShell({
       data-slot="conversation-surface"
     >
       <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
+        {/* The update page brings its own header; the conversation's is stale while it runs. */}
         <div className="min-w-0 flex-1">
-          <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+          {updating ? null : (
+            <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+          )}
         </div>
-        {statusStrip}
-        {toolbarActions}
-        {hasWorkbench && (
+        {updating ? null : statusStrip}
+        {updating ? null : toolbarActions}
+        {hasWorkbench && !updating && (
           <ToolbarAction
             label={workbenchOpen ? 'Close workspace canvas' : 'Open workspace canvas'}
             onClick={toggleWorkbench}

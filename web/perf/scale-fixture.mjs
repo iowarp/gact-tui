@@ -227,7 +227,13 @@ function hugeMessage(index, sessionId = HUGE_SESSION) {
       role,
       created_at: iso(index * 20),
       completed_at: iso(index * 20 + 15),
-      ...(role === 'assistant' ? { stop_reason: 'end_turn' } : {}),
+      ...(role === 'assistant'
+        ? {
+            stop_reason: 'end_turn',
+            model: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+            usage: { input: 18_400 + index * 40, output: 212, cache_read: 0, cache_write: 0 },
+          }
+        : {}),
       blocks: [
         ...tools.map((tool, slot) => ({
           id: `part_${pad(index, 6)}_${slot}`,
