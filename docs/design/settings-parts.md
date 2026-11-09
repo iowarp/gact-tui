@@ -71,7 +71,7 @@ rows. `default` (46 px, meta under the name) is for lists whose meta needs room,
 for typed values only. It binds Ctrl S / ⌘S.
 
 **`DialogFrame`** (F) `components/clio/primitives/dialog-frame.tsx`
-`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard? }, cancelLabel?, secondary?, help?, className? }`.
+`{ open, onOpenChange, icon?, title, description?, children?, confirm?: { label, onConfirm, tone?: 'default' | 'destructive', disabled?, keyboard?, key?: 'Enter' }, cancelLabel?: string | null, secondary?, help?, footerStart?, className? }`.
 Use it for add, edit and confirm dialogs. `destructive` is only for deleting. Mark the first field
 `data-initial-focus`. The title row is 48 px with `help` behind an ⓘ before the ×; put `SettingsRow`s in the body.
 The key chips sit inside the buttons, as the spec draws them: `Cancel Esc` on the safe button
@@ -79,7 +79,9 @@ and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no
 the left. The chips are hidden from screen readers, so a button's name stays its label.
 Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
 100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
-confirm, the confirm button has no chip. The body is marked
+confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
+`cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
+confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
