@@ -60,14 +60,15 @@ export function ClioSessionContextBar({
         {workspaceLabel && !nativeTitle ? (
           <>
             <button
-              className="flex h-7 min-w-12 max-w-44 shrink-[2] items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28"
+              className="flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28"
               disabled={!onOpenWorkspace}
               onClick={onOpenWorkspace}
               title={`Open ${workspaceLabel}`}
               type="button"
             >
               {session ? <WorkspaceMark id={session.workspace_id} /> : null}
-              <span className="truncate">{workspaceLabel}</span>
+              {/* Phones keep the mark so the conversation title gets the width. */}
+              <span className={cn('truncate', session && 'max-sm:sr-only')}>{workspaceLabel}</span>
             </button>
             <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
           </>
