@@ -193,9 +193,18 @@ export function WorkspacePage() {
       revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
+        artifacts: entities.artifacts,
+        onOpenArtifact: openArtifact,
         capabilityError: data.interactionCapabilityError ?? undefined,
         error: data.interactionsError ?? undefined,
         onRefetchSurfaces: data.refetchInteractionSurfaces,
+        onOpenScript: (interaction, callId) =>
+          revealWorkbench({
+            kind: 'tool-call',
+            callId,
+            sessionId: interaction.owner_session_id,
+            label: 'Script',
+          }),
         ownerLabels: interactionOwnerLabels,
         surfaces: data.interactionSurfaces,
         viewedSessionId: sessionId,

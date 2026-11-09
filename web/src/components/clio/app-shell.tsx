@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useMenuAction } from '@/tauri/menu-actions';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
@@ -64,16 +65,16 @@ function DesktopNavigationLayout({
   navigation,
   children,
   collapseForWorkbench,
+  onFoldChange,
 }: {
   navigation: ReactNode;
   children: ReactNode;
   collapseForWorkbench: boolean;
+  /** Runs once the bar has folded or unfolded, when the content's width has changed. */
+  onFoldChange?: () => void;
 }) {
-  // 'toggle-sessions' used to also be reachable via the native View menu
-  // (removed — see menu_spec.rs's application-menu trim); `SidebarTrigger`
-  // below already calls `useSidebar().toggleSidebar` directly, including
-  // its own keyboard shortcut, so no useMenuAction registration is needed.
-  const { open, setOpen } = useSidebar();
+  const { open, setOpen, toggleSidebar } = useSidebar();
+  useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
@@ -103,6 +104,7 @@ function DesktopNavigationLayout({
     previous?: PanelSize,
   ) => {
     if (!previous) return;
+    if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
     if (size.inPixels <= 64 && open) setOpen(false);
     if (size.inPixels >= 216 && !open) setOpen(true);
   };
@@ -138,18 +140,44 @@ function DesktopNavigationLayout({
 
 const WORKBENCH_SHARE_KEY = 'clio.workbench-share.v1';
 const DEFAULT_WORKBENCH_SHARE = 0.4;
+const MAX_WORKBENCH_SHARE = 0.7;
+const MIN_WORKBENCH_WIDTH = 320;
+const MIN_CONVERSATION_WIDTH = 400;
+/** The left bar's open width; folded, it is the 56 px icon column. */
+const OPEN_NAVIGATION_WIDTH = 292;
+/** Under this the workbench slides over the conversation instead of sitting beside it. */
+const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
 
 /** The workbench width as a share of the window: 40% to start, then what the user dragged. */
 function storedWorkbenchShare(): number {
   if (typeof window === 'undefined') return DEFAULT_WORKBENCH_SHARE;
   const value = Number(window.localStorage.getItem(WORKBENCH_SHARE_KEY));
-  return Number.isFinite(value) && value >= 0.15 && value <= 0.7 ? value : DEFAULT_WORKBENCH_SHARE;
+  return Number.isFinite(value) && value >= 0.15 && value <= MAX_WORKBENCH_SHARE
+    ? value
+    : DEFAULT_WORKBENCH_SHARE;
 }
 
-/** The workbench's pixel width from its remembered share of the window. */
-function workbenchWidth(): string {
-  const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth;
-  return `${Math.max(320, Math.round(storedWorkbenchShare() * viewport))}px`;
+function workbenchWidth(share: number, windowWidth: number): number {
+  return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
+}
+
+/** Up to this the left bar folds whenever the workbench is open (spec "Laptop, 1280px"). */
+const LAPTOP_WIDTH = 1280;
+
+/**
+ * The left bar folds first when the open bar would push the conversation under
+ * 400 px, and always at laptop widths and below.
+ */
+function conversationNeedsFoldedNavigation(share: number, windowWidth: number): boolean {
+  return (
+    windowWidth <= LAPTOP_WIDTH ||
+    OPEN_NAVIGATION_WIDTH + workbenchWidth(share, windowWidth) + MIN_CONVERSATION_WIDTH >
+      windowWidth
+  );
+}
+
+function currentWindowWidth(): number {
+  return typeof window === 'undefined' ? 1280 : window.innerWidth;
 }
 
 export function ClioAppShell({
@@ -166,12 +194,14 @@ export function ClioAppShell({
   const workbenchRevealKey = revealKeyProp ?? subscribedRevealKey;
   const updating = useUpdatePane();
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
-  // The split workbench needs enough room for both its 400 px conversation
-  // panel and 320 px canvas after the desktop navigation rail is accounted for.
-  // Compact desktop widths use the existing Sheet so the canvas cannot be
-  // laid out beyond the visible viewport.
-  const desktopWorkbench = useMediaQuery('(min-width: 1024px)');
-  const workbenchNeedsNavigationRail = useMediaQuery('(min-width: 820px) and (max-width: 1279px)');
+  // Side by side needs the 400 px conversation, the 320 px workbench and the
+  // folded 56 px left bar; under 900 px the workbench slides over at 86%.
+  const desktopWorkbench = useMediaQuery(SPLIT_WORKBENCH_QUERY);
+  const [initialWorkbenchShare] = useState(storedWorkbenchShare);
+  const workbenchShareRef = useRef(initialWorkbenchShare);
+  const [conversationCrowded, setConversationCrowded] = useState(() =>
+    conversationNeedsFoldedNavigation(initialWorkbenchShare, currentWindowWidth()),
+  );
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
@@ -180,17 +210,22 @@ export function ClioAppShell({
   // open/closed choice survives route changes while this shell stays mounted.
   const hasWorkbench = Boolean(workbench);
   const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
-  const collapseNavigationForWorkbench = workbenchOpen && workbenchNeedsNavigationRail;
+  const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
-  // Read once: the panel keeps its share of the group as the window resizes.
-  const [workbenchDefaultSize] = useState(workbenchWidth);
-  const rememberWorkbenchWidth = useCallback((size: PanelSize) => {
-    if (size.inPixels < 320 || typeof window === 'undefined' || !window.innerWidth) return;
-    window.localStorage.setItem(
-      WORKBENCH_SHARE_KEY,
-      String(Math.round((size.inPixels / window.innerWidth) * 1000) / 1000),
-    );
+  // Opens at the remembered share of the window; the panel keeps those pixels
+  // until the window itself resizes (below), so folding the left bar widens
+  // the conversation rather than the workbench.
+  const [workbenchDefaultSize] = useState(
+    () => `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`,
+  );
+  const applyWorkbenchShare = useCallback(() => {
+    const share = workbenchShareRef.current;
+    const width = currentWindowWidth();
+    setConversationCrowded(conversationNeedsFoldedNavigation(share, width));
+    const panel = workbenchPanelRef.current;
+    if (panel && !panel.isCollapsed())
+      panel.resize(`${Math.round(workbenchWidth(share, width))}px`);
   }, []);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
@@ -204,31 +239,51 @@ export function ClioAppShell({
     () => setWorkbenchOpen(!workbenchOpen),
     [setWorkbenchOpen, workbenchOpen],
   );
+  // A drag on the separator ends here: remember the new width as a share of the
+  // window, or follow a drag that collapsed the panel.
   const synchronizeWorkbenchPanel = useCallback(() => {
     const panel = workbenchPanelRef.current;
     if (!panel) return;
-    setWorkbenchOpen(!panel.isCollapsed());
+    const collapsed = panel.isCollapsed();
+    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
+      const share = Math.round((panel.getSize().inPixels / window.innerWidth) * 1000) / 1000;
+      if (share !== workbenchShareRef.current) {
+        workbenchShareRef.current = share;
+        window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
+        setConversationCrowded(conversationNeedsFoldedNavigation(share, window.innerWidth));
+      }
+    }
+    setWorkbenchOpen(!collapsed);
   }, [setWorkbenchOpen]);
-  // 'toggle-inspector' used to also be reachable via the native View menu
-  // (removed — see menu_spec.rs's application-menu trim); the Ctrl+Shift+B
-  // shortcut and the PanelRightIcon button below already call
-  // `toggleWorkbench` directly, so no useMenuAction registration is needed.
 
   useEffect(() => {
     if (!desktopWorkbench) return;
-    const panel = workbenchPanelRef.current;
-    if (!workbenchOpen) {
-      panel?.collapse();
-      return;
-    }
-    if (!panel?.isCollapsed()) return;
-    // The group stores sizes as shares of its width, which can change after it
-    // mounts (the left bar settling), so open at the remembered pixel width.
-    panel.expand();
-    panel.resize(workbenchWidth());
-  }, [desktopWorkbench, workbenchOpen]);
+    if (workbenchOpen) {
+      workbenchPanelRef.current?.expand();
+      applyWorkbenchShare();
+    } else workbenchPanelRef.current?.collapse();
+  }, [applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
+
+  // The width is a share of the window, so a window resize re-applies it.
+  useEffect(() => {
+    if (!hasWorkbench) return;
+    let frame = 0;
+    const scheduleApply = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        applyWorkbenchShare();
+      });
+    };
+    window.addEventListener('resize', scheduleApply);
+    return () => {
+      window.removeEventListener('resize', scheduleApply);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [applyWorkbenchShare, hasWorkbench]);
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
+  useMenuAction('toggle-workbench', toggleWorkbench, hasWorkbench);
   const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
 
   // A strip chord with the pocket closed opens it at that strip item. The
@@ -316,9 +371,9 @@ export function ClioAppShell({
               collapsedSize="0px"
               collapsible
               defaultSize={workbenchDefaultSize}
+              groupResizeBehavior="preserve-pixel-size"
               maxSize="70%"
               minSize="320px"
-              onResize={rememberWorkbenchWidth}
               panelRef={workbenchPanelRef}
             >
               {visibleWorkbench}
@@ -337,6 +392,9 @@ export function ClioAppShell({
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}
+          // The workbench opens while the bar is still open; once the bar folds,
+          // the content has room for the workbench's full share.
+          onFoldChange={applyWorkbenchShare}
           navigation={navigation}
         >
           {workspace}
@@ -358,6 +416,8 @@ export function ClioAppShell({
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            // The spec's narrow layout keeps the folded left bar visible and undimmed.
+            overlayClassName="bg-transparent"
             ref={workbenchSheetRef}
             showCloseButton={false}
             side="right"

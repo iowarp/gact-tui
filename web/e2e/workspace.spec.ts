@@ -1281,11 +1281,11 @@ test('shows summarization as one quiet line and discloses its exact received tex
   );
   await expect(compactionRow).toBeVisible();
   const disclosure = compactionRow.getByRole('button', {
-    name: 'Compacted here, earlier context summarized',
+    name: 'Compacted here, earlier messages summarized',
     exact: true,
   });
   await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-  await expect(compactionRow.getByText('Automatic')).toBeVisible();
+  await expect(disclosure).toHaveAccessibleDescription('Started automatically');
   await expect(compactionRow).not.toContainText('EarthScope station evidence ledger');
   // Scroll the row to the top of the viewport: it sits near the tail of the
   // transcript, close enough to the composer that the floating "Agent needs
