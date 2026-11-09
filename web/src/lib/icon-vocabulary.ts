@@ -21,6 +21,8 @@
  * - Add: create a new item (a workspace, an agent).
  * - New conversation: the pen-on-a-page; always a new conversation, never + .
  * - Adjust: pick a level on a scale (reasoning effort).
+ * - Connection settings: the sliders, as the CLIO menu's details draw the
+ *   link to the agent's connection page (spec v15).
  */
 export {
   SettingsIcon,
@@ -39,6 +41,7 @@ export {
   PlusIcon as AddIcon,
   SquarePenIcon as NewConversationIcon,
   SlidersHorizontalIcon as AdjustIcon,
+  SlidersHorizontalIcon as ConnectionSettingsIcon,
   SaveIcon,
   TargetIcon as GoalIcon,
   Repeat2Icon as LoopIcon,

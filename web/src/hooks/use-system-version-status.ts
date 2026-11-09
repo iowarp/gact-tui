@@ -6,16 +6,14 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { compareReleaseVersions, displayReleaseVersion, releaseTag } from '@/lib/release-version';
-import { latestPublishedRelease, ReleaseFeedRateLimited } from '@/lib/github-releases';
-import { QUERY_RETRY_COUNT } from '@/lib/runtime-limits';
 import { initializeUpdateChannel, useUpdateChannel } from '@/lib/update-channel';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   checkForDesktopUpdate,
   getDesktopUpdateSnapshot,
-  installDesktopUpdate,
   subscribeDesktopUpdate,
 } from '@/tauri/desktop-updater';
+import { latestClioReleaseQuery, runDesktopUpdate } from '@/hooks/use-update-status';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { agentCheckIssue, desktopCheckIssue } from '@/components/clio/version-check-issue';
 import { managedClioVersion } from '@/tauri/clio-update-verification';
@@ -46,15 +44,6 @@ type RowState = VersionState | 'browser';
 function webBuildVersion(): string | undefined {
   const stamped: unknown = import.meta.env.VITE_CLIO_WORKSPACE_VERSION;
   return displayReleaseVersion(typeof stamped === 'string' ? stamped : undefined);
-}
-
-/** Every native entry point uses the same release coordinator. */
-async function runUpdate(): Promise<void> {
-  try {
-    await installDesktopUpdate((progress) => useUpdateFlowStore.getState().setProgress(progress));
-  } catch (error) {
-    useUpdateFlowStore.getState().fail(error instanceof Error ? error.message : String(error));
-  }
 }
 
 /**
@@ -97,23 +86,8 @@ export function useSystemVersionStatus() {
   // GitHub's CORS-enabled API, so an older connected agent needs no upgrade
   // before the UI can discover its next beta.
   const latestClioRelease = useQuery({
+    ...latestClioReleaseQuery(repository, settings.endpoint, updateChannel),
     enabled: credentialsReady && !desktopShell,
-    queryKey: [...queryKeys.key('latest-release', settings.endpoint), updateChannel],
-    queryFn: async ({ signal }) => {
-      if (updateChannel === 'stable') return repository.latestRelease(signal);
-      if (!brand.agentReleaseUrl) throw new Error('No beta release feed is configured.');
-      const release = await latestPublishedRelease(brand.agentReleaseUrl, updateChannel, signal);
-      return {
-        version: release.tag_name,
-        source: `${brand.agentReleaseUrl}/tag/${release.tag_name}`,
-        checked_at: new Date().toISOString(),
-        degradation: null,
-      };
-    },
-    staleTime: 5 * 60 * 1000,
-    // A rate-limited feed answers the same until its reset; retrying only adds a 403.
-    retry: (failures, error) =>
-      !(error instanceof ReleaseFeedRateLimited) && failures < QUERY_RETRY_COUNT,
   });
 
   useEffect(() => {
@@ -216,7 +190,7 @@ export function useSystemVersionStatus() {
   };
 
   const updateAll = (): void => {
-    if (desktopShell && desktopUpdateAvailable) void runUpdate();
+    if (desktopShell && desktopUpdateAvailable) void runDesktopUpdate();
     else void recheck();
   };
 

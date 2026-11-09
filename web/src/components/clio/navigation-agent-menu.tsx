@@ -1,22 +1,21 @@
 import { brand } from '@brand';
 import type { StreamState } from '@clio/core/v3';
 import { ChevronsUpDownIcon } from 'lucide-react';
-import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
-import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useState } from 'react';
+import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SidebarMenuButton } from '@/components/ui/sidebar';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availability';
 import type { ConnectionSettings } from '@/lib/connection';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { releaseTag } from '@/lib/release-version';
+import { useShortcut } from '@/lib/shortcuts/hooks';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
 import { useLiveStore } from '@/store/live-store';
 import { BrandIcon } from './brand-icon';
 import { ClioMenuContent } from './clio-menu';
 import { connectionAgentName, connectionLocation } from './connection-names';
 import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
-import { ProductUpdateIcon } from './product-update-summary';
 
 interface NavigationAgentMenuProps {
   endpoint: string;
@@ -32,8 +31,7 @@ interface NavigationAgentMenuProps {
  * The left bar's one header button: the mark, the product name and the line
  * under it that names the agent you're talking to and where it runs. It turns
  * amber or red, in words, while reconnecting, offline or with an update ready.
- * The menu is the shared CLIO menu, with the stream error, the update state
- * and Check again added under its version grid.
+ * The menu is the shared CLIO menu; a stream error is named in the tooltip.
  */
 export function NavigationAgentMenu({
   endpoint,
@@ -51,12 +49,18 @@ export function NavigationAgentMenu({
   const name = connectionAgentName(activeLabel, location);
   const place = placeWords(location);
   const line = statusLine(stream, versions.state === 'available', name, place);
+  const tooltip = `${brand.name}: ${line.text}${streamError ? `. ${streamError}` : ''}`;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
+  useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
 
   return (
     <DropdownMenu
       onOpenChange={(open) => {
+        setMenuOpen(open);
         if (open) void versions.recheck();
       }}
+      open={menuOpen}
     >
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton
@@ -64,7 +68,7 @@ export function NavigationAgentMenu({
           className="h-10 min-w-0 flex-1 gap-2 px-1.5"
           data-connection-state={stream}
           size="lg"
-          tooltip={`${brand.name}: ${line.text}`}
+          tooltip={tooltip}
         >
           <span className="grid size-6 shrink-0 place-items-center text-primary">
             <BrandIcon className="size-5" />
@@ -102,56 +106,6 @@ export function NavigationAgentMenu({
         currentPath={currentPath}
         endpoint={endpoint}
         onConnect={onConnect}
-        versionActions={
-          <>
-            {streamError ? (
-              <p className="truncate px-2 pb-1 text-[12px] text-destructive" title={streamError}>
-                {streamError}
-              </p>
-            ) : null}
-            <DropdownMenuItem
-              aria-label={versions.statusLabel}
-              disabled={versions.updating}
-              onSelect={(event) => {
-                event.preventDefault();
-                if (versions.desktopShell && versions.state === 'available') versions.updateAll();
-                else void versions.recheck();
-              }}
-              title={versions.message}
-            >
-              <MenuRow
-                description={versions.message}
-                icon={<ProductUpdateIcon state={versions.state} />}
-                label={versionStateWord(versions.state)}
-                tag={{
-                  text:
-                    versions.desktopShell && versions.state === 'available'
-                      ? 'Update'
-                      : 'Check again',
-                  tone: 'info',
-                }}
-              />
-            </DropdownMenuItem>
-            {!versions.desktopShell &&
-            versions.agentBehindLatest &&
-            brand.agentReleaseUrl &&
-            versions.latestClioVersion ? (
-              <DropdownMenuItem asChild>
-                <a
-                  href={`${brand.agentReleaseUrl}/tag/${releaseTag(versions.latestClioVersion)}`}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <MenuRow
-                    description="Install it on that computer, then reload"
-                    icon={<RefreshIcon />}
-                    label="View release"
-                  />
-                </a>
-              </DropdownMenuItem>
-            ) : null}
-          </>
-        }
       />
     </DropdownMenu>
   );
@@ -193,17 +147,6 @@ function statusLine(
     return { text: `${name}, update ready`, label: 'Update ready', tone: 'info' };
   }
   return { text: `${name} @ ${place}`, label: 'Live', tone: 'success' };
-}
-
-function versionStateWord(state: ReturnType<typeof useSystemVersionStatus>['state']): string {
-  return {
-    unknown: 'Not checked yet',
-    checking: 'Checking versions',
-    current: 'Up to date',
-    available: 'Update available',
-    unavailable: 'Could not check',
-    error: 'Needs attention',
-  }[state];
 }
 
 function placeWords(location: string): string {

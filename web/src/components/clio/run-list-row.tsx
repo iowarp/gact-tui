@@ -1,48 +1,30 @@
-import { memo, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import type { RunState } from '@clio/core/v3';
-import { InfoIcon } from '@/lib/icon-vocabulary';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { memo, type MouseEvent, type ReactNode } from 'react';
+import { HelpIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
-import { KeyValueGrid } from '@/components/clio/primitives/key-value-grid';
 import { ListRow } from '@/components/clio/primitives/list-row';
-import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
-import { MetaValue } from '@/components/clio/primitives/tag';
+import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import {
   RUN_ACTIONS_WIDTH,
   compactWhen,
-  runConversationHref,
+  runLook,
   runStateLabel,
 } from '@/components/clio/run-presentation';
-import { sourceLabels, type RunRow } from '@/routes/runs-rows';
+import { sourceLabels, type RunRow, type RunSource } from '@/routes/runs-rows';
 
-/**
- * Develop's states folded onto a status mark and one plain word in a fixed
- * column: a spinner while working, a ring when queued, a dot for an outcome.
- * Failed and needs-inspection words take the error and warning tone.
- */
-const LOOK: Partial<Record<RunState, { tone: StatusTone; word: string }>> = {
-  running: { tone: 'running', word: 'running' },
-  recovering: { tone: 'running', word: 'recovering' },
-  stopping: { tone: 'running', word: 'stopping' },
-  cancellation_requested: { tone: 'running', word: 'stopping' },
-  pause_requested: { tone: 'waiting', word: 'pausing' },
-  paused: { tone: 'stopped', word: 'paused' },
-  queued: { tone: 'idle', word: 'queued' },
-  waiting_user: { tone: 'waiting', word: 'reply' },
-  waiting_permission: { tone: 'waiting', word: 'approve' },
-  task_state_uncertain: { tone: 'warning', word: 'inspect' },
-  recovery_required: { tone: 'warning', word: 'inspect' },
-  completed: { tone: 'success', word: 'done' },
-  failed: { tone: 'error', word: 'failed' },
-  cancelled: { tone: 'stopped', word: 'cancelled' },
-  interrupted: { tone: 'stopped', word: 'halted' },
-  stopped: { tone: 'stopped', word: 'stopped' },
-  yielded: { tone: 'idle', word: 'idle' },
+const SOURCE_ICONS: Record<RunSource, typeof BotIcon> = {
+  agent_task: BotIcon,
+  mcp_task: WrenchIcon,
+  flow: WorkflowIcon,
+  unknown: HelpIcon,
 };
+
+/** What ran: an agent, a tool, a flow. */
+export function RunSourceIcon({ source, className }: { source: RunSource; className?: string }) {
+  const Icon = SOURCE_ICONS[source];
+  return <Icon aria-hidden="true" className={className} />;
+}
 
 function fullWhen(iso: string): string {
   const at = Date.parse(iso);
@@ -52,53 +34,21 @@ function fullWhen(iso: string): string {
   );
 }
 
-function RunDetails({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
-  return (
-    <Popover>
-      <NamedTooltip label="Details">
-        <PopoverTrigger asChild>
-          <Button
-            aria-label={`Details for ${row.label}`}
-            className="text-muted-foreground hover:bg-hover hover:text-foreground"
-            size="icon-xs"
-            variant="ghost"
-          >
-            <InfoIcon aria-hidden="true" />
-          </Button>
-        </PopoverTrigger>
-      </NamedTooltip>
-      <PopoverContent align="end" className="w-80 space-y-2 p-3 text-[12px]">
-        <p className="truncate text-[13px] font-medium" title={row.label}>
-          {row.label}
-        </p>
-        <KeyValueGrid
-          items={[
-            { label: 'State', value: stateLabel },
-            { label: 'Backend status', value: row.reportedStatus, mono: true },
-            ...(row.taskKind ? [{ label: 'Kind', value: row.taskKind }] : []),
-            { label: 'Execution', value: sourceLabels[row.source] },
-            {
-              label: row.source === 'flow' ? 'Placement' : 'Host',
-              value: (row.source === 'flow' ? row.placement : row.host) || 'Host unavailable',
-            },
-            { label: 'Workspace', value: row.workspaceLabel },
-            { label: 'Updated', value: fullWhen(row.updatedAt) },
-            { label: 'Task', value: row.taskId, mono: true },
-          ]}
-        />
-        {row.assignment ? (
-          <p className="clio-scrollbar max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t pt-2">
-            {row.assignment}
-          </p>
-        ) : null}
-        {row.statusDetail ? (
-          <p className="clio-scrollbar max-h-32 overflow-y-auto whitespace-pre-wrap border-t pt-2 text-muted-foreground [overflow-wrap:anywhere]">
-            Reported issue: {row.statusDetail}
-          </p>
-        ) : null}
-      </PopoverContent>
-    </Popover>
-  );
+/** "3 of 5" when a running task reports counted progress; it fits the state column. */
+function countedProgress(progress: RunRow['progress']): string | undefined {
+  const completed = progress?.completed;
+  const total = progress?.total;
+  return typeof completed === 'number' && typeof total === 'number' && total > 0
+    ? `${completed} of ${total}`
+    : undefined;
+}
+
+/** Whole percent done, for the inline bar; undefined without counted progress. */
+function progressPercent(progress: RunRow['progress']): number | undefined {
+  const completed = progress?.completed;
+  const total = progress?.total;
+  if (typeof completed !== 'number' || typeof total !== 'number' || total <= 0) return undefined;
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
 }
 
 export interface RunListRowProps {
@@ -106,101 +56,120 @@ export interface RunListRowProps {
   cancelRequested: boolean;
   /** The Stop and More actions shown on hover (RunActions). */
   actions?: ReactNode;
+  selected?: boolean;
+  /** Open the run in the tab beside the list. */
+  onSelect?: (row: RunRow) => void;
   /** Hide the workspace column (a conversation's own rail). */
   showWorkspace?: boolean;
 }
 
 /**
- * One run on one line: status mark, name, progress or a failed run's reason,
- * state word, execution, workspace, time, hover actions and details. Every
- * column has one width; source and workspace drop first as the list narrows.
+ * One run on one 32px line: status mark, name, a progress bar, the state word (or "3 of 5"),
+ * what ran, workspace, time and hover actions. A failed run's reason takes a
+ * second line. Every column has one width; source and workspace drop first as
+ * the list narrows. Choosing the row opens it beside the list.
  */
 export const RunListRow = memo(function RunListRow({
   row,
   cancelRequested,
   actions,
+  selected = false,
+  onSelect,
   showWorkspace = true,
 }: RunListRowProps) {
-  const look = LOOK[row.state] ?? {
-    tone: 'info' as const,
-    word: row.state,
-  };
+  const look = runLook(row);
   const stateLabel = runStateLabel(row, cancelRequested);
   const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
   const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
+  const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
+  const percent = look.tone === 'running' ? progressPercent(row.progress) : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
-  const href = runConversationHref(row);
   const where = row.source === 'flow' ? row.placement : row.host || 'Host unavailable';
+  const source =
+    row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`;
+  const select = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as Element;
+    if (!event.currentTarget.contains(target)) return;
+    if (target.closest('[data-slot=list-row-actions]')) return;
+    onSelect?.(row);
+  };
   return (
     <ListRow
+      className={reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]'}
       data-run-state={row.state}
+      layout={reason ? 'stacked' : 'inline'}
+      onClick={select}
+      selected={selected}
       status={<StatusIndicator display="column" label={stateLabel} tone={look.tone} />}
       title={
-        href ? (
-          <Link
-            className="font-medium hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            title={row.label}
-            to={href}
-          >
-            {row.label}
-          </Link>
-        ) : (
-          <span className="font-medium" title={row.label}>
-            {row.label}
-          </span>
-        )
+        <button
+          aria-current={selected ? 'true' : undefined}
+          className="max-w-full truncate rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          title={progress ? `${row.label}: ${progress}` : row.label}
+          type="button"
+        >
+          {row.label}
+        </button>
       }
       description={
         reason ? (
-          <span className="text-destructive" title={reason}>
+          <span className="text-[11.5px] text-destructive" title={reason}>
             {reason}
-          </span>
-        ) : progress ? (
-          <span className="hidden @[520px]/runs:inline" title={progress}>
-            {progress}
           </span>
         ) : undefined
       }
       columns={
         <>
-          <span
-            className={cn(
-              'w-[64px] shrink-0 truncate text-[12px] text-muted-foreground',
-              look.tone === 'error' && 'text-destructive',
-              look.tone === 'warning' && 'text-warning',
+          <span className="hidden w-6 shrink-0 @[440px]/runs:flex" data-slot="run-progress">
+            {percent === undefined ? null : (
+              <span
+                aria-label={`${percent}% done`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={percent}
+                className="h-[3px] w-full overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+              >
+                <span
+                  className="block h-full rounded-full bg-primary"
+                  style={{ width: `${percent}%` }}
+                />
+              </span>
             )}
-            data-slot="run-state-word"
-            title={stateLabel}
-          >
-            {word}
           </span>
           <span
-            className="hidden w-[88px] shrink-0 truncate text-[12px] text-muted-foreground @[880px]/runs:block"
-            title={`${sourceLabels[row.source]}, ${where}`}
+            className="w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums"
+            data-slot="run-state-word"
+            title={progress ?? stateLabel}
           >
-            {row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`}
+            {counted ?? word}
           </span>
+          <NamedTooltip label={source}>
+            <span className="hidden w-3.5 shrink-0 text-muted-foreground @[560px]/runs:flex">
+              <RunSourceIcon className="size-3.5" source={row.source} />
+              <span className="sr-only">{source}</span>
+            </span>
+          </NamedTooltip>
           {showWorkspace ? (
             <span
-              className="hidden w-[132px] shrink-0 truncate text-[12px] text-muted-foreground @[680px]/runs:block"
+              className="hidden w-[92px] shrink-0 truncate text-[11px] text-muted-foreground @[680px]/runs:block"
               title={row.workspaceLabel}
             >
               {row.workspaceLabelFields.name}
             </span>
           ) : null}
-        </>
-      }
-      meta={
-        <MetaValue>
-          <time dateTime={row.updatedAt} title={fullWhen(row.updatedAt)}>
+          <time
+            className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground"
+            dateTime={row.updatedAt}
+            title={fullWhen(row.updatedAt)}
+          >
             {compactWhen(row.updatedAt)}
           </time>
-        </MetaValue>
+        </>
       }
       actions={actions ?? null}
       actionsWidth={RUN_ACTIONS_WIDTH}
-      info={<RunDetails row={row} stateLabel={stateLabel} />}
     />
   );
 });

@@ -25,6 +25,7 @@ import { InfraTabActionsProvider } from '@/components/clio/infrastructure-tab-ac
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
+import { cn } from '@/lib/utils';
 import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
@@ -214,8 +215,20 @@ export function InfrastructurePage() {
         />
       </div>
       <InfraTabActionsProvider value={tabActions}>
-        <div className="mx-auto max-w-5xl px-2 sm:px-3">
-          <section aria-label={sectionDefinition.label} className="min-w-0 pt-1.5 pb-12">
+        {/* Overview's connection map fills the tab below its rows. */}
+        <div
+          className={cn(
+            'mx-auto max-w-5xl px-2 sm:px-3',
+            currentSection === 'overview' && 'flex min-h-[calc(100%-2.75rem)] flex-col',
+          )}
+        >
+          <section
+            aria-label={sectionDefinition.label}
+            className={cn(
+              'min-w-0 pt-1.5',
+              currentSection === 'overview' ? 'flex flex-1 flex-col pb-3' : 'pb-12',
+            )}
+          >
             {error ? (
               <StateView
                 className="mt-6 rounded-md border"
