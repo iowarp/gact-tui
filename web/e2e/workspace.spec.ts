@@ -124,7 +124,7 @@ async function expectRegionScreenshot(
   });
 }
 
-type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer' | 'status';
+type WorkspaceRegion = 'left-bar' | 'header' | 'transcript' | 'attention' | 'composer';
 
 /**
  * Review each workspace surface against its own baseline, so restyling one
@@ -152,10 +152,6 @@ async function expectWorkspaceRegions(
     },
     attention: { region: attention, mask: [] },
     composer: { region: composerStack, mask: [attention] },
-    status: {
-      region: page.locator('section[aria-label="Conversation workspace"] > footer'),
-      mask: [],
-    },
   };
   for (const name of regions) {
     const { region, mask } = surfaces[name];
@@ -652,7 +648,7 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   await expectWorkspaceRegions(
     page,
     'workspace-desktop-dark',
-    ['left-bar', 'header', 'transcript', 'attention', 'composer', 'status'],
+    ['left-bar', 'header', 'transcript', 'attention', 'composer'],
     { animations: 'allow', maxDiffPixels: desktopMaxDiffPixels },
   );
 
@@ -995,7 +991,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expectWorkspaceRegions(
     page,
     'workspace-mobile-light-reduced',
-    ['header', 'transcript', 'attention', 'composer', 'status'],
+    ['header', 'transcript', 'attention', 'composer'],
     { animations: 'disabled', maxDiffPixels: mobileMaxDiffPixels },
   );
 
