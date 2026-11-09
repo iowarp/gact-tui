@@ -182,7 +182,7 @@ it('shows one compact task row and discloses complete assignments and technical 
       subagents={[child]}
     />,
   );
-  expect(screen.getByRole('button', { name: 'Background tasks, 1 recorded' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Running, 1 recorded' })).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
   const row = screen.getByRole('button', { name: 'Task details: Worker #1' });
   expect(row).toHaveAttribute('aria-expanded', 'false');
