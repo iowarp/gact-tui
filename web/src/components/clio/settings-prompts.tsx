@@ -371,7 +371,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         >
           <SelectTrigger
             aria-label="Prompt workspace"
-            className="h-7! w-44 min-w-0 shrink gap-1.5 px-2 text-xs"
+            className="h-7! w-44 min-w-0 shrink gap-1.5 px-2 text-xs *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate"
             size="sm"
             title={workspaceName ?? 'Global service view'}
           >

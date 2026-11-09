@@ -76,7 +76,9 @@ export const StatusIndicator = memo(function StatusIndicator({
           className={cn(
             'block',
             MARK[tone],
-            markStyle === 'glyph' && tone === 'running' && 'size-3',
+            markStyle === 'glyph' &&
+              tone === 'running' &&
+              'size-3 border-2 border-primary/40 border-t-primary',
             markStyle === 'glyph' &&
               tone === 'waiting' &&
               'size-3 rounded-full border-[1.5px] border-warning border-t-transparent bg-transparent ring-0 motion-safe:animate-spin-steps',

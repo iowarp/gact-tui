@@ -197,7 +197,7 @@ describe('access rules', { timeout: 15_000 }, () => {
 
     await user.click(await screen.findByRole('button', { name: 'Remove rule 1' }));
     const confirm = screen.getByRole('group', { name: 'Remove this rule?' });
-    await user.click(within(confirm).getByRole('button', { name: 'Keep rule' }));
+    await user.click(within(confirm).getByRole('button', { name: 'Keep' }));
     expect(rows().getByText('*.untrusted.test')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Unsaved changes' })).toBeNull();
 
