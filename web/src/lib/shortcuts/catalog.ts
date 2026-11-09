@@ -74,7 +74,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('composer-focus', 'Back to the composer', 'anywhere', ['Shift+Esc']),
   def('next-region', 'Next region', 'anywhere', ['F6']),
   def('previous-region', 'Previous region', 'anywhere', ['Shift+F6']),
-  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: ['Shift+Cmd+/'] }),
+  // On a Mac the menu bar is the app menu, and ⇧⌘/ searches it; the app takes no key.
+  def('app-menu', 'App menu', 'anywhere', ['Alt+Space'], { mac: [] }),
   def('settings', 'Settings', 'anywhere', ['Ctrl+,']),
   def('infrastructure', 'Infrastructure', 'anywhere', ['Ctrl+Shift+,']),
   // Ctrl Shift A is the browser's tab search, so notifications take Ctrl Alt N.
@@ -85,6 +86,9 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('zoom-in', 'Zoom in', 'anywhere', ['Ctrl+='], { host: 'desktop' }),
   def('zoom-out', 'Zoom out', 'anywhere', ['Ctrl+-'], { host: 'desktop' }),
   def('zoom-reset', 'Actual size', 'anywhere', ['Ctrl+0'], { host: 'desktop' }),
+  // The desktop webview has no browser reload or downloads keys of its own.
+  def('reload', 'Reload workspace', 'anywhere', ['Ctrl+R'], { host: 'desktop' }),
+  def('downloads', 'Downloads', 'anywhere', ['Ctrl+J'], { host: 'desktop' }),
 
   def('send', 'Send', 'composer', ['Enter']),
   def('steer', 'Steer while it runs', 'composer', ['Ctrl+Enter']),
@@ -108,7 +112,8 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('maximize', 'Maximize', 'tab', ['Alt+Enter']),
   def('previous-tab', 'Previous tab', 'tab', ['Alt+Left']),
   def('next-tab', 'Next tab', 'tab', ['Alt+Right']),
-  def('close-tab', 'Close the tab', 'tab', ['Delete']),
+  // A Mac's ⌫ key sends Backspace, and a bare one would delete in place.
+  def('close-tab', 'Close the tab', 'tab', ['Delete'], { mac: ['Cmd+Backspace'] }),
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
 
