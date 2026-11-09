@@ -584,8 +584,7 @@ export async function fileViewerJourney(r, entries) {
         .locator('[role="tree"]')
         .first()
         .evaluate((tree) => {
-          const viewport =
-            tree.closest('[data-slot="scroll-area-viewport"]') ?? tree.parentElement;
+          const viewport = tree.closest('[data-slot="scroll-area-viewport"]') ?? tree.parentElement;
           if (!viewport) return true;
           const before = viewport.scrollTop;
           viewport.scrollTop += viewport.clientHeight * 0.8;
