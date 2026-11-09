@@ -577,6 +577,25 @@ export async function fileViewerJourney(r, entries) {
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();
+    // A long tree mounts only the rows near view: scroll to the file like a
+    // reader would, outside the measured click.
+    for (let page_ = 0; page_ < 400 && !(await file.count()); page_ += 1) {
+      const atEnd = await list
+        .locator('[role="tree"]')
+        .first()
+        .evaluate((tree) => {
+          const viewport =
+            tree.closest('[data-slot="scroll-area-viewport"]') ?? tree.parentElement;
+          if (!viewport) return true;
+          const before = viewport.scrollTop;
+          viewport.scrollTop += viewport.clientHeight * 0.8;
+          return viewport.scrollTop === before;
+        })
+        .catch(() => true);
+      await page.waitForTimeout(16);
+      if (atEnd) break;
+    }
+    if (await file.count()) await file.scrollIntoViewIfNeeded();
     const preview = '[aria-label="Workspace file preview"]';
     const step = await r.measure(
       `open file ${name}`,
