@@ -38,6 +38,15 @@ function FrameClose({ className }: { className?: string }) {
   );
 }
 
+/** The key chip inside a footer button; the sheet below 600 px drops it. */
+function FooterKey({ keys, className }: { keys: readonly string[]; className?: string }) {
+  return (
+    <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+      <ShortcutKeys className={className} keys={keys} variant="inline" />
+    </span>
+  );
+}
+
 export interface DialogFrameConfirm {
   label: string;
   onConfirm: () => void;
@@ -157,26 +166,14 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="mt-1.5 flex min-w-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
-          <span
-            aria-hidden="true"
-            className="mr-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11.5px] whitespace-nowrap text-faint"
-          >
-            <ShortcutKeys keys={['Esc']} variant="caps" />
-            <span className="truncate">{cancelLabel ?? confirm?.label ?? 'Close'}</span>
-            {confirmKeys && confirm ? (
-              <>
-                <ShortcutKeys className="ml-1.5" keys={['Ctrl+Enter']} variant="caps" />
-                <span className="truncate">{confirm.label}</span>
-              </>
-            ) : null}
-          </span>
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
               <Button variant="ghost" data-initial-focus="">
                 {cancelLabel ?? 'Close'}
+                <FooterKey className="text-muted-foreground" keys={['Esc']} />
               </Button>
             </DialogPrimitive.Close>
           )}
@@ -190,6 +187,9 @@ export const DialogFrame = memo(function DialogFrame({
               ref={confirmOnly ? focusOnMount : undefined}
             >
               {confirm.label}
+              {confirmKeys ? (
+                <FooterKey className="border-current/45" keys={['Ctrl+Enter']} />
+              ) : null}
             </Button>
           ) : null}
         </div>

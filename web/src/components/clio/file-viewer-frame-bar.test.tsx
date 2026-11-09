@@ -108,10 +108,11 @@ describe('file viewer frame bar', () => {
     expect(copyText).toHaveBeenCalledWith('station,count\nMTA1,3\n');
   });
 
-  it('lists the Open variants, the one download and the renderer exports', async () => {
+  it('lists the Open variants and the renderer exports beside a visible Download', async () => {
     const user = userEvent.setup();
     const onOpenFolder = vi.fn();
     const frame = renderFrame(onOpenFolder);
+    expect(within(frame).getByRole('button', { name: 'Download' })).toBeEnabled();
     await user.click(within(frame).getByRole('button', { name: 'Open options' }));
     const menu = await screen.findByRole('menu');
     const rows = within(menu)
@@ -121,10 +122,9 @@ describe('file viewer frame bar', () => {
       expect.stringMatching(/^In a browser tab/u),
       expect.stringMatching(/^In the system app/u),
       expect.stringMatching(/^Show in Files/u),
-      expect.stringMatching(/^Download/u),
       expect.stringMatching(/^Export to PNG image/u),
     ]);
-    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F', 'D', null]);
+    expect(rows.map(([, key]) => key)).toEqual(['B', 'S', 'F', null]);
     expect(within(menu).getByRole('menuitem', { name: /^In the system app/u })).toHaveTextContent(
       'Needs the desktop app',
     );

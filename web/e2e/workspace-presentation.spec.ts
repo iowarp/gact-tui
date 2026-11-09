@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { downloadFromFrame, selectFileView } from './file-viewer-setup';
-import { showWorkbenchList } from './workspace-setup';
+import { hideWorkbenchList, showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -100,6 +100,9 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+  // The pocket list sits beside the tabs at this width; this case measures the
+  // frame bar alone.
+  await hideWorkbenchList(page);
   const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(canvas.getByRole('img', { name: 'vertical-displacement.png' })).toBeVisible();
   await expectImageCentred(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
@@ -245,7 +248,7 @@ test('SVG previews stay centred through pane resizing and zoom', async ({ page }
   await page.screenshot({ path: testInfo.outputPath('image-centred-wide-dark.png') });
 });
 
-test('an unsupported workspace file uses one shared original download', async ({
+test('an unsupported workspace file downloads its original from the frame and the state', async ({
   page,
 }, testInfo) => {
   const bytes = Buffer.from([137, 72, 68, 70, 13, 10, 26, 10]);
@@ -268,10 +271,13 @@ test('an unsupported workspace file uses one shared original download', async ({
   await expect(preview.getByText('run.h5', { exact: true })).toHaveCount(1);
   const state = preview.locator('[data-slot="state-view"][data-kind="no-preview"]');
   await expect(state).toContainText('.h5');
-  await expect(state.getByRole('button', { name: 'Download', exact: true })).toHaveCount(1);
   await expect(preview.locator('[data-slot="frame-bar"]')).toHaveCount(1);
   const downloaded = await downloadFromFrame(page, preview);
   expect(downloaded.suggestedFilename()).toBe('run.h5');
   expect(await readFile((await downloaded.path())!)).toEqual(bytes);
+  // The state body offers the same original download, so it is never a dead end.
+  const fromState = page.waitForEvent('download');
+  await state.getByRole('button', { name: 'Download', exact: true }).click();
+  expect((await fromState).suggestedFilename()).toBe('run.h5');
   await page.screenshot({ path: testInfo.outputPath('unsupported-file-shared-toolbar.png') });
 });

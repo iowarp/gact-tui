@@ -111,12 +111,28 @@ export function accountUsageWords(
     return { label, tone: stale || used >= 80 ? 'warning' : 'success', hint };
   }
   const balance = snapshot.balance;
-  if (balance && balance.remaining !== null) {
-    const amount =
+  if (balance && (balance.remaining !== null || balance.used !== null)) {
+    const amount = (value: number) =>
       balance.currency === 'USD'
-        ? `$${balance.remaining.toFixed(2)}`
-        : `${balance.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
-    return { label: `${amount} left`, tone: stale ? 'warning' : 'success', hint: stale };
+        ? `$${value.toFixed(2)}`
+        : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
+    const used =
+      balance.used ??
+      (balance.limit !== null && balance.remaining !== null
+        ? balance.limit - balance.remaining
+        : null);
+    const low = balance.limit !== null && used !== null && used >= balance.limit * 0.8;
+    const tone = stale || low ? 'warning' : 'success';
+    // One measure per mode: "used" under Used, "left" under Remaining.
+    if (mode === 'used' && used !== null)
+      return { label: `${amount(used)} used`, tone, hint: stale };
+    if (balance.remaining !== null)
+      return {
+        label: `${amount(balance.remaining)} left`,
+        tone,
+        hint: stale ?? (mode === 'used' ? 'Only the remaining balance is reported' : undefined),
+      };
+    return { label: `${amount(used as number)} used`, tone, hint: stale };
   }
   return { label: 'No windows', tone: 'idle', hint: stale };
 }
