@@ -56,6 +56,8 @@ export interface DialogFrameProps {
   cancelLabel?: string;
   /** Extra buttons left of Cancel (a link-like secondary action). */
   secondary?: ReactNode;
+  /** Controls in the title row before × (a mode switch such as URL | Command). */
+  titleActions?: ReactNode;
   className?: string;
 }
 
@@ -74,6 +76,7 @@ export const DialogFrame = memo(function DialogFrame({
   confirm,
   cancelLabel = confirm ? 'Cancel' : 'Close',
   secondary,
+  titleActions,
   className,
 }: DialogFrameProps) {
   const onKeyDown = useCallback(
@@ -114,6 +117,7 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogTitle className="min-w-0 flex-1 truncate text-[14px] leading-7 [overflow-wrap:normal]">
             {title}
           </DialogTitle>
+          {titleActions}
           <FrameClose />
         </div>
         {description ? (
