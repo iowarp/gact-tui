@@ -60,6 +60,7 @@ export function SettingsRow({
     >
       <div
         data-slot="settings-row"
+        data-setting={title}
         data-dirty={dirty || undefined}
         className={cn(
           'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',

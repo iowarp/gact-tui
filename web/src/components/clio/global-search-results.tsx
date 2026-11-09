@@ -1,10 +1,15 @@
+import { useQuery } from '@tanstack/react-query';
 import { BotIcon, CableIcon, ChevronRightIcon, ServerIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CommandGroup, CommandItem, CommandShortcut } from '@/components/ui/command';
+import { CommandGroup, CommandItem } from '@/components/ui/command';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { agentSearchTarget, type GlobalSearchCommand } from '@/lib/global-search-commands';
 import { capRows, inCommandMenuScope, type CommandMenuScope } from '@/lib/command-menu-scopes';
-import { useTheme } from '@/providers/appearance-provider';
+import { useAppearancePreferences, useTheme } from '@/providers/appearance-provider';
+import { useRepository } from '@/hooks/use-repository';
+import { queryKeys } from '@/lib/query-keys';
+import type { SettingsSearchValue } from '@/lib/settings-search-rows';
+import { THEMES } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
 import { ShortcutKeys } from './primitives/key-chip';
 import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
@@ -32,7 +37,42 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
   return (
     <span className="flex min-w-0 items-center justify-between gap-3 whitespace-nowrap">
       <span className="truncate">{label}</span>
-      {count ? <span className="shrink-0 tabular-nums">{count}</span> : null}
+      {count ? (
+        <span className="shrink-0 font-mono text-[10.5px] font-normal tabular-nums">{count}</span>
+      ) : null}
+    </span>
+  );
+}
+
+/** Quiet text beside a result's name: its workspace, folder or place in Settings. */
+export function ResultDetail({ children, title }: { children: ReactNode; title?: string }) {
+  return (
+    <span
+      className="min-w-0 shrink-[100] truncate text-[11.5px] text-muted-foreground"
+      title={title}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The right end of a result: its value, time or size, then ↵ on the row the
+ * keyboard is on.
+ */
+export function ResultTrail({ children }: { children?: ReactNode }) {
+  return (
+    <span
+      className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+      data-slot="command-shortcut"
+    >
+      {children}
+      <span
+        aria-hidden="true"
+        className="hidden group-data-[selected=true]/command-item:inline-flex"
+      >
+        <ShortcutKeys id="menu-pick" variant="inline" />
+      </span>
     </span>
   );
 }
@@ -104,6 +144,9 @@ export function GlobalSearchGroups({
   const { settings } = useConnectionSettings();
   const { setTheme, theme } = useTheme();
   const { commands, switching } = matches;
+  const settingValue = useSettingValues(
+    searching && commands.Settings.some((item) => item.setting?.value === 'default-model'),
+  );
   const commandGroup = (
     group: GlobalSearchCommand['group'],
     heading: string,
@@ -132,16 +175,19 @@ export function GlobalSearchGroups({
             value={item.id}
           >
             <item.icon aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate">
+            <span className="min-w-0 flex-[0_1_auto] truncate">
               <SearchHighlight query={query} text={item.label} />
             </span>
-            {'theme' in item.action && theme === item.action.theme ? (
-              <CommandShortcut>Current</CommandShortcut>
-            ) : item.shortcut ? (
-              <ShortcutKeys id={item.shortcut} />
-            ) : item.trail ? (
-              <CommandShortcut>{item.trail}</CommandShortcut>
-            ) : null}
+            {item.trail ? <ResultDetail>{item.trail}</ResultDetail> : null}
+            <ResultTrail>
+              {'theme' in item.action && theme === item.action.theme ? (
+                'Current'
+              ) : item.shortcut ? (
+                <ShortcutKeys capSize="sm" id={item.shortcut} variant="caps" />
+              ) : item.setting?.value ? (
+                <span className="max-w-[14rem] truncate">{settingValue(item.setting.value)}</span>
+              ) : null}
+            </ResultTrail>
           </CommandItem>
         ))}
         <MoreResultsItem hidden={hidden} noun={noun} onMore={onMore} scope={groupScope} />
@@ -168,16 +214,13 @@ export function GlobalSearchGroups({
               value={`agent:${item.ref}`}
             >
               <BotIcon aria-hidden="true" />
-              <span className="shrink-0 truncate">
+              <span className="min-w-0 flex-[0_1_auto] truncate">
                 <SearchHighlight query={query} text={item.name || item.id} />
               </span>
-              <span
-                className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-                title={item.description || undefined}
-              >
-                {item.description}
-              </span>
-              <CommandShortcut>{item.kind === 'user' ? 'Your agent' : 'Agent'}</CommandShortcut>
+              {item.description ? (
+                <ResultDetail title={item.description}>{item.description}</ResultDetail>
+              ) : null}
+              <ResultTrail>{item.kind === 'user' ? 'Your agent' : 'Agent'}</ResultTrail>
             </CommandItem>
           ))}
           <MoreResultsItem hidden={agents.hidden} noun="agents" onMore={onMore} scope="settings" />
@@ -213,15 +256,13 @@ export function GlobalSearchGroups({
               value={`connection:${item.endpoint}`}
             >
               <CableIcon aria-hidden="true" />
-              <span className="shrink-0 truncate" title={item.endpoint}>
+              <span className="min-w-0 flex-[0_1_auto] truncate" title={item.endpoint}>
                 <SearchHighlight query={query} text={item.label || connectionName(item.endpoint)} />
               </span>
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                {item.location}
-              </span>
-              <CommandShortcut>
+              {item.location ? <ResultDetail>{item.location}</ResultDetail> : null}
+              <ResultTrail>
                 {item.endpoint === settings.endpoint ? 'Current' : item.availability.label}
-              </CommandShortcut>
+              </ResultTrail>
             </CommandItem>
           ))}
           <MoreResultsItem
@@ -252,10 +293,10 @@ export function GlobalSearchGroups({
               value={`host:${item.id}`}
             >
               <ServerIcon aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0 flex-[0_1_auto] truncate">
                 <SearchHighlight query={query} text={item.label || item.id} />
               </span>
-              <CommandShortcut>Infrastructure</CommandShortcut>
+              <ResultTrail>Infrastructure</ResultTrail>
             </CommandItem>
           ))}
           <MoreResultsItem hidden={targets.hidden} noun="hosts" onMore={onMore} scope="more" />
@@ -272,6 +313,38 @@ export function GlobalSearchGroups({
       ) : null}
     </>
   );
+}
+
+/**
+ * The current values setting results show. The model is read only while a
+ * matching row is listed, from the same cache Settings ? Models uses.
+ */
+function useSettingValues(readModel: boolean): (value: SettingsSearchValue) => string | undefined {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const { theme } = useTheme();
+  const { conversationWidth, interfaceSize, motion } = useAppearancePreferences();
+  const configuration = useQuery({
+    enabled: readModel,
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
+  });
+  return (value) => {
+    switch (value) {
+      case 'theme':
+        return theme === 'system'
+          ? 'System'
+          : (THEMES.find((item) => item.id === theme)?.label ?? theme);
+      case 'interface-size':
+        return `${interfaceSize}%`;
+      case 'conversation-width':
+        return conversationWidth === 'wide' ? 'Wide' : 'Focused';
+      case 'motion':
+        return motion === 'reduced' ? 'Reduce motion' : 'Follow system';
+      case 'default-model':
+        return configuration.data?.model || undefined;
+    }
+  };
 }
 
 /** A connection without a label is named by its host; the full address stays in the tooltip. */
