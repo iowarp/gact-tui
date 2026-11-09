@@ -44,6 +44,7 @@ import {
   savedRules,
   sourceText,
 } from './plugin-tool-settings-text';
+import { IconButton } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import type { RowStatus, ToolEditor } from './settings-tools-editor';
 import { ChoicePicker, ValueMark, type PickerOption } from './settings-tools-picker';
@@ -483,8 +484,17 @@ function GroupRow({
         : CALLERS_TEXT[callers].label;
   const busy = names.some((name) => editor.busy.has(name));
   const hasTools = names.length > 0;
+  const meta =
+    section.meta ??
+    (section.count === undefined
+      ? []
+      : [`${section.count} ${section.count === 1 ? 'tool' : 'tools'}`]);
+  const changed = section.tools.some((tool) => tool.permission || tool.configured_callers);
   return (
-    <div className={cn(COLUMNS, 'mt-1.5 min-h-10 py-1')} data-tool-group={section.id}>
+    <div
+      className={cn(COLUMNS, 'group/group mt-1.5 min-h-10 py-1')}
+      data-tool-group={section.id}
+    >
       {hasTools ? (
         <button
           aria-expanded={open}
@@ -505,22 +515,20 @@ function GroupRow({
         </span>
       )}
       <span className="grid min-w-0 gap-0.5">
-        <span className="flex min-w-0 items-center" title={section.hint}>
-          <h3 className="truncate text-[13px] font-semibold text-foreground">{section.title}</h3>
-          {section.count !== undefined ? (
-            <span className="ml-1.5 inline-block min-w-5 shrink-0 rounded-full bg-muted px-1 text-center text-[10.5px] text-muted-foreground">
-              {section.count}
-            </span>
-          ) : null}
-        </span>
-        {section.notice || section.meta?.length ? (
+        <h3
+          className="truncate text-[13px] font-semibold text-foreground"
+          title={section.hint}
+        >
+          {section.title}
+        </h3>
+        {section.notice || meta.length ? (
           <span className="flex min-w-0 gap-3 text-xs whitespace-nowrap text-faint">
             {section.notice ? (
               <span className="truncate" title={section.notice.title ?? section.notice.text}>
                 {section.notice.text}
               </span>
             ) : (
-              section.meta!.map((part) => (
+              meta.map((part) => (
                 <span className="truncate first:shrink-0" key={part}>
                   {part}
                 </span>
@@ -575,7 +583,23 @@ function GroupRow({
             selected={callers === 'mixed' ? undefined : callers}
             title={bulkTitle(callers, callersLabel)}
           />
-          <span />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton
+                className="invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible"
+                icon={<MoreIcon />}
+                label={`More for ${section.bulkLabel.toLowerCase()}`}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem
+                disabled={busy || !changed}
+                onSelect={() => editor.save({ tools: names, permission: null, callers: null })}
+              >
+                Reset all to defaults
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       ) : null}
     </div>
