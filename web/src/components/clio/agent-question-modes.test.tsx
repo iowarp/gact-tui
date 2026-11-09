@@ -64,7 +64,7 @@ describe('explicit agent question modes', () => {
         />
       </QuestionAnswerContext.Provider>,
     );
-    expect(screen.getByRole('complementary')).toHaveStyle({ bottom: '92px' });
+    expect(screen.getByRole('complementary')).toHaveStyle({ bottom: '86px' });
     await userEvent.click(screen.getByRole('button', { name: '2 open questions' }));
     expect(screen.getByRole('dialog', { name: 'Open questions' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));

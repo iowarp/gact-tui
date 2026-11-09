@@ -49,12 +49,23 @@ export function formatResourceSize(bytes: number): string {
  *   differences matter (tool timings).
  * - `compact`: single-letter units with no space, for badges inside a graph
  *   node or another space-constrained glyph.
+ * - `elapsed`: the transcript's 44px elapsed column. Tenths below ten seconds
+ *   (`0.4s`, `8.2s`), whole seconds below a minute (`41s`), then `2m 5s`, `1h 4m`.
  */
-export type DurationStyle = 'unit' | 'tenths' | 'compact';
+export type DurationStyle = 'unit' | 'tenths' | 'compact' | 'elapsed';
 
 /** Formats an elapsed duration in milliseconds for display. */
 export function formatDuration(milliseconds: number, style: DurationStyle = 'unit'): string {
   const elapsed = Math.max(0, milliseconds);
+  if (style === 'elapsed') {
+    const seconds = elapsed / MILLISECONDS_PER_SECOND;
+    if (seconds < 9.95) return `${seconds.toFixed(1)}s`;
+    const whole = Math.round(seconds);
+    if (whole < 60) return `${whole}s`;
+    const minutes = Math.floor(whole / 60);
+    if (minutes < 60) return whole % 60 ? `${minutes}m ${whole % 60}s` : `${minutes}m`;
+    return minutes % 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes / 60}h`;
+  }
   if (style === 'compact') {
     if (elapsed < MILLISECONDS_PER_MINUTE) {
       return `${Math.max(1, Math.round(elapsed / MILLISECONDS_PER_SECOND))}s`;

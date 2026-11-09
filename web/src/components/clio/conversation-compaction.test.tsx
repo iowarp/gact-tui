@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { A2UISurface, Message, PendingCompaction, PendingInteraction } from '@clio/core/v3';
 import type { ReactElement } from 'react';
@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
+import { SummarizationInjection } from './conversation-summarization';
 
 // Compaction rendering gets its own file rather than adding to
 // `conversation.test.tsx`, which is already at the frontend file-size cap.
@@ -183,11 +184,12 @@ describe('ClioConversation summarization injection', () => {
       document.querySelector('[data-slot="harness-injection"][data-source="summarization"]'),
     ).toBeNull();
     await user.click(screen.getByRole('button', { name: /^Activity:/u }));
-    expect(screen.getByText('Summarization')).toBeInTheDocument();
     expect(screen.getByText('Automatic')).toBeInTheDocument();
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
 
-    const disclosure = screen.getByRole('button', { name: /Injection Summarization/u });
+    const disclosure = screen.getByRole('button', {
+      name: 'Compacted here, earlier context summarized',
+    });
     await user.click(disclosure);
     expect(screen.getByText(/unique-marker-tail/u).textContent).toBe(summary);
     await user.click(disclosure);
@@ -223,7 +225,9 @@ describe('ClioConversation summarization injection', () => {
       { ...summaryMessage, blocks: [{ ...summaryBlock, text: `${summary}\n\n${recall}` }] },
     ]);
     expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Injection Summarization/u }));
+    await user.click(
+      screen.getByRole('button', { name: 'Compacted here, earlier context summarized' }),
+    );
     expect(screen.getByText(/call recall_context to retrieve it/u).textContent).toBe(
       `${summary}\n\n${recall}`,
     );
@@ -239,6 +243,19 @@ describe('ClioConversation summarization injection', () => {
     expect(screen.getByText('Requested')).toBeInTheDocument();
     expect(screen.queryByText('Automatic')).not.toBeInTheDocument();
   });
+
+  it('marks a compaction as one line that discloses the summary on press', () => {
+    render(<SummarizationInjection block={summaryBlock} />);
+    const line = screen.getByRole('button', {
+      name: 'Compacted here, earlier context summarized',
+    });
+    expect(line).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Automatic')).toBeInTheDocument();
+    expect(screen.queryByText(/unique-marker-tail/u)).not.toBeInTheDocument();
+    fireEvent.click(line);
+    expect(line).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/unique-marker-tail/u)).toBeInTheDocument();
+  });
 });
 
 describe('ClioConversation compaction progress', () => {
@@ -247,7 +264,7 @@ describe('ClioConversation compaction progress', () => {
 
     const row = progressRow();
     expect(row).not.toBeNull();
-    expect(row).toHaveAttribute('role', 'status');
+    expect(within(row!).getByRole('status')).toHaveTextContent('Summarizing context');
     expect(row).toHaveTextContent('Summarizing context');
     expect(row).toHaveTextContent('Automatic');
     // In place: inside the open turn's assistant message, after its content.

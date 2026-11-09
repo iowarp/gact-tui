@@ -124,7 +124,7 @@ it('shows the recorded interruption cause even when tools and partial output exi
   await waitFor(() =>
     expect(screen.getByText('The PDF is created; reviewing pages.')).toBeVisible(),
   );
-  expect(screen.getByText('Interrupted')).toBeVisible();
+  expect(screen.getByText('Failed')).toBeVisible();
 });
 
 it('withholds recovery actions while an empty response is still active', () => {
@@ -245,10 +245,10 @@ describe('ClioConversation recovery actions', () => {
       .getByText('Analyze this filing.')
       .closest<HTMLElement>('[data-slot="message-text"]');
     expect(textBubble).toHaveClass(
-      'group-[.is-user]:rounded-lg',
+      'group-[.is-user]:rounded-xl',
       'group-[.is-user]:bg-secondary',
-      'group-[.is-user]:px-4',
-      'group-[.is-user]:py-2.5',
+      'group-[.is-user]:px-3.5',
+      'group-[.is-user]:py-[9px]',
     );
     expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
     const attachmentTray = attachment.closest<HTMLElement>('[data-slot="scroll-area"]');
@@ -379,8 +379,8 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const message = screen.getByText('Use the newer evidence.').closest('.border-dashed');
-    expect(message).toHaveClass('border-dashed');
+    expect(screen.getByText('Use the newer evidence.').closest('.border-dashed')).toBeNull();
+    expect(screen.getByText('Queued')).toBeVisible();
     expect(screen.queryByText(/steering|safe boundary/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel pending message' }));
@@ -409,9 +409,8 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Inspect the alternate station.').closest('.border-dashed'),
-    ).toHaveClass('border-dashed');
+    expect(screen.getByText('Inspect the alternate station.')).toBeVisible();
+    expect(screen.getByText('Queued')).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Cancel pending message' }),
     ).not.toBeInTheDocument();
@@ -430,16 +429,17 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Loading conversation')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading messages…');
     expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
   });
 
-  it('reports a transcript failure instead of presenting a false empty session', () => {
+  it('names the loading messages, not session setup, before a running session first page', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
-        error="The agent could not return this transcript."
+        awaitingFirstPage
         messages={[]}
+        preparation={{ activeTurnId: 'run', sessionState: 'running' }}
         subagents={{}}
         surfaces={{}}
         tasks={{}}
@@ -447,9 +447,74 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Conversation unavailable')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading messages…');
+    expect(screen.queryByText('Setting up session')).not.toBeInTheDocument();
+  });
+
+  it('reports a transcript failure instead of presenting a false empty session', () => {
+    const onReload = vi.fn();
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        error="The agent could not return this transcript."
+        messages={[]}
+        onReload={onReload}
+        preparation={{ activeTurnId: 'run', sessionState: 'running' }}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    // A running turn's preparation must not hide the failure.
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('This conversation could not be loaded');
+    expect(alert).not.toHaveTextContent('The agent could not return this transcript.');
+    expect(screen.queryByText('Setting up session')).not.toBeInTheDocument();
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
+    expect(onReload).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Technical details' }));
     expect(screen.getByText('The agent could not return this transcript.')).toBeVisible();
     expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
+  });
+
+  it('shows older pages as one quiet line: loadable, loading, or failed with Retry', () => {
+    const load = vi.fn();
+    const message = {
+      id: 'message_page',
+      session_id: 'session_1',
+      role: 'user' as const,
+      created_at: '2026-08-22T00:00:00Z',
+      blocks: [{ id: 'text_page', type: 'text' as const, text: 'Newest page.' }],
+    };
+    const view = (earlier: { loading: boolean; error?: string }) => (
+      <ClioConversation
+        artifacts={{}}
+        earlier={{ hasEarlier: true, load, ...earlier }}
+        messages={[message]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />
+    );
+    const wrap = (element: ReactElement) => (
+      <AppearanceProvider>
+        <ConversationDisplayProvider>{element}</ConversationDisplayProvider>
+      </AppearanceProvider>
+    );
+    const { rerender } = render(wrap(view({ loading: false })));
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }));
+    expect(load).toHaveBeenCalledTimes(1);
+
+    rerender(wrap(view({ loading: true })));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading earlier messages…');
+
+    rerender(wrap(view({ loading: false, error: 'Page failed' })));
+    expect(screen.getByRole('alert')).toHaveTextContent('Earlier messages didn’t load');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it('uses the shared message action for recoverable assistant responses', () => {

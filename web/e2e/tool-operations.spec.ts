@@ -112,7 +112,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
     await expect(row('delegate').getByRole('region')).toHaveCount(0);
     await row('delegate')
-      .getByRole('button', { name: 'Show result for Delegate to', exact: true })
+      .getByRole('button', { name: 'Show result for Delegate', exact: true })
       .click();
     await expect(row('delegate')).toContainText('running as standard on model-review');
     await expect(row('delegate')).toContainText(

@@ -49,7 +49,7 @@ const excerpt = {
 };
 
 async function settleCapture(page: Page) {
-  const follow = page.getByRole('button', { name: 'Scroll to bottom' });
+  const follow = page.getByRole('button', { name: 'Jump to latest' });
   if (await follow.isVisible()) await follow.click();
   await expect(follow).toHaveCount(0);
   await page.mouse.move(8, 8);

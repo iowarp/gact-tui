@@ -1,10 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  ClioSubagentCard,
-  ClioSubagentLifecycleLine,
-  ClioSubagentProgressLine,
-} from './subagent-card';
+import { ClioSubagentCard, ClioSubagentLifecycleLine } from './subagent-card';
 import { PresentationNavigation } from './presentation-navigation';
 
 afterEach(cleanup);
@@ -185,27 +181,5 @@ describe('ClioSubagentLifecycleLine', () => {
     show('delegate.superseded');
     expect(screen.getByRole('button', { name: 'Show result for Continue subagent' })).toBeVisible();
     expect(screen.queryByText(/turn ended/i)).not.toBeInTheDocument();
-  });
-});
-
-describe('ClioSubagentProgressLine', () => {
-  it('keeps running work visible and opens the actual child conversation', () => {
-    const child = {
-      id: 'audit',
-      session_id: 'parent',
-      child_session_id: 'child',
-      agent_id: 'main',
-      title: 'A long assignment that stays in the tool details',
-      state: 'running' as const,
-    };
-    const onOpen = vi.fn();
-    render(<ClioSubagentProgressLine subagent={child} onOpen={onOpen} />);
-    expect(screen.getByText('main')).toBeVisible();
-    expect(screen.getByText('Running')).toBeVisible();
-    expect(screen.getByText(child.title)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Open subagent main' }));
-    expect(onOpen).toHaveBeenLastCalledWith(child, 'canvas');
-    fireEvent.click(screen.getByRole('button', { name: 'Open subagent main' }), { shiftKey: true });
-    expect(onOpen).toHaveBeenLastCalledWith(child, 'conversation');
   });
 });

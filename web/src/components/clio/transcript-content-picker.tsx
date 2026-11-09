@@ -17,6 +17,7 @@ import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { connectionScope } from '@/lib/connection-scope';
 import type { SelectionTarget } from '@/lib/selection-actions';
 import { InfoTip } from './info-tip';
+import { IconButton } from './primitives/icon-button';
 import { useAttentionAvailable } from '@/lib/attention-availability';
 
 /** Select exact stored parts even when tool cards or media are collapsed. */
@@ -56,9 +57,12 @@ function ContentPicker({ sessionId, messageId }: { sessionId: string; messageId:
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon-xs" aria-label="Select content for attention">
-          <LayersIcon aria-hidden="true" className="size-3.5" />
-        </Button>
+        <IconButton
+          icon={<LayersIcon aria-hidden="true" />}
+          label="Select content for attention"
+          size="sm"
+          type="button"
+        />
       </DialogTrigger>
       <DialogContent className="max-h-[85dvh] flex flex-col">
         <DialogHeader>

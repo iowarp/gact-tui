@@ -177,7 +177,7 @@ describe('production operation readers', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Independent audit' }));
     expect(open).toHaveBeenCalledOnce();
     expect(screen.queryByText('Audit every calibration interval.')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Show result for Delegate to' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show result for Delegate' }));
     expect(screen.getByText('Audit every calibration interval.')).toBeVisible();
     expect(screen.queryByText(/Queued|Work:|inherited/u)).not.toBeInTheDocument();
   });

@@ -30,6 +30,15 @@ describe('formatDuration', () => {
     expect(formatDuration(119_999)).toBe('2 min');
   });
 
+  it('fits the transcript elapsed column: tenths under ten seconds, then whole units', () => {
+    expect(formatDuration(400, 'elapsed')).toBe('0.4s');
+    expect(formatDuration(8_200, 'elapsed')).toBe('8.2s');
+    expect(formatDuration(9_970, 'elapsed')).toBe('10s');
+    expect(formatDuration(41_000, 'elapsed')).toBe('41s');
+    expect(formatDuration(125_000, 'elapsed')).toBe('2m 5s');
+    expect(formatDuration(3_840_000, 'elapsed')).toBe('1h 4m');
+  });
+
   it('keeps one decimal below a minute in the tenths style', () => {
     expect(formatDuration(1_540, 'tenths')).toBe('1.5 s');
     expect(formatDuration(2_000, 'tenths')).toBe('2 s');

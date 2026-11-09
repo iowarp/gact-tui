@@ -83,10 +83,7 @@ test('renders reader-controlled causal entries and a truthful completion footer 
         nodes.some(
           (node) =>
             node.querySelector('button[aria-label^="Activity:"]')?.getAttribute('aria-expanded') ===
-              'true' &&
-            node
-              .querySelector('[data-slot="message-completion-footer"]')
-              ?.textContent?.includes('Done'),
+              'true' && node.querySelector('[data-slot="message-completion-footer"]') !== null,
         ),
       );
       completedMeasurements = completed ? completedMeasurements + 1 : 0;
@@ -188,11 +185,14 @@ test('renders reader-controlled causal entries and a truthful completion footer 
     expect((await read.boundingBox())!.y).toBeLessThan((await run.boundingBox())!.y);
     expect(await timeline.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     const footer = message.locator('[data-slot="message-completion-footer"]');
-    await expect(footer).toContainText('Done');
-    await expect(footer).toContainText('129K in / 3K out');
-    await expect(footer).toContainText('$0');
-    await expect(footer).toContainText('2 (1 failed) tool calls');
+    await expect(footer).toContainText('129K in, 3K out');
+    await expect(footer).not.toContainText('Done');
     await expect(footer).not.toContainText('·');
+    await footer.locator('[data-slot="message-reply-meta"]').hover();
+    const used = page.getByRole('region', { name: 'This reply used' });
+    await expect(used).toContainText('$0');
+    await expect(used).toContainText('2 tool calls, 1 failed');
+    await page.mouse.move(0, 0);
     expect(await footer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     await read.click();
     const details = message.getByRole('region', { name: 'Read: Result' });

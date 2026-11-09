@@ -200,7 +200,7 @@ describe('ClioConversation transcript viewport', () => {
     });
     act(() => frames.splice(0).forEach((callback) => callback(0)));
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
   it('does not follow a queued resize after the reader starts scrolling', () => {
     const viewport = stubViewport();
@@ -271,7 +271,7 @@ describe('ClioConversation transcript viewport', () => {
     scrollTo.mockClear();
     viewport.resizeTo(640);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
   });
 
   it('remeasures transcript rows and restores the pinned view on a width change', () => {

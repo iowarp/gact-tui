@@ -7,7 +7,14 @@ import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { useQuestionAnswer } from './question-answer-context';
 import { openHumanQuestions } from '@/lib/inline-question';
 import { OpenQuestionList } from './open-question-list';
+import { TRANSCRIPT_CONTROL_LANE_PX } from './transcript-inline-states';
 
+const CHIP_HEIGHT_PX = 28;
+
+/**
+ * The open-questions chip, at the right of the transcript's control lane above
+ * the composer, so it never sits over transcript text.
+ */
 export function OpenQuestionsTracker({
   interactions,
   bottomInset,
@@ -25,7 +32,7 @@ export function OpenQuestionsTracker({
     <aside
       aria-label="Open questions tracker"
       className="pointer-events-auto absolute right-3 z-30"
-      style={{ bottom: bottomInset + 12 }}
+      style={{ bottom: bottomInset + (TRANSCRIPT_CONTROL_LANE_PX - CHIP_HEIGHT_PX) / 2 }}
     >
       <Popover.Root
         open={open}

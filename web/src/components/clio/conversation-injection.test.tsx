@@ -88,6 +88,8 @@ describe('ClioConversation harness injection', () => {
             session_id: 'child',
             role: 'assistant',
             created_at: '2026-10-25T10:00:01Z',
+            completed_at: '2026-10-25T10:00:07Z',
+            stop_reason: 'end_turn',
             model: { model_id: 'gpt-6.1-sol', provider_id: 'codex' },
             blocks: [{ id: 'answer-text', type: 'text', text: 'I will inspect the archive.' }],
           },
@@ -96,8 +98,10 @@ describe('ClioConversation harness injection', () => {
     );
     expect(await screen.findByText(prompt)).toBeVisible();
     expect(screen.getByText('Parent')).toBeVisible();
-    await waitFor(() => expect(screen.getAllByText('Storage analyst')[0]).toBeVisible());
     expect(screen.getAllByText('gpt-6.1-sol').length).toBeGreaterThan(0);
+    // The answering agent is named in the reply's model card, not a header.
+    await userEvent.hover(document.querySelector<HTMLElement>('[data-slot="message-reply-meta"]')!);
+    expect(await screen.findByText('Storage analyst', {}, { timeout: 2000 })).toBeVisible();
     expect(screen.queryByText('Agent Workspace')).toBeNull();
     expect(screen.getByText('Preserve the read-only boundary.')).toBeVisible();
     expect(screen.getByText(raw)).not.toBeVisible();
@@ -159,10 +163,10 @@ describe('ClioConversation harness injection', () => {
           ]}
         />,
       );
-      expect(screen.getAllByText('You')).toHaveLength(1);
+      expect(container.querySelectorAll('[data-slot="user-message-actions"]')).toHaveLength(1);
       const wake = within(container.querySelector<HTMLElement>('[data-message-id="wake"]')!);
       expect(wake.queryByRole('button', { name: 'Copy message' })).toBeNull();
-      expect(wake.queryByRole('button', { name: 'Branch from here' })).toBeNull();
+      expect(wake.queryByRole('button', { name: 'Fork into a new conversation' })).toBeNull();
       expect(wake.queryByRole('button', { name: 'Rewind to here' })).toBeNull();
       expect(wake.queryByRole('button', { name: /Mark message/u })).toBeNull();
       expect(screen.queryByText(/The report is incomplete/u)).toBeNull();
@@ -176,7 +180,7 @@ describe('ClioConversation harness injection', () => {
       ).toBeVisible();
       const prompt = within(container.querySelector<HTMLElement>('[data-message-id="prompt"]')!);
       expect(prompt.getByRole('button', { name: 'Copy message' })).toBeInTheDocument();
-      expect(prompt.queryByRole('button', { name: 'Branch from here' })).toBeNull();
+      expect(prompt.queryByRole('button', { name: 'Fork into a new conversation' })).toBeNull();
       expect(prompt.queryByRole('button', { name: 'Rewind to here' })).toBeNull();
       expect(prompt.queryByRole('button', { name: 'Select content for attention' })).toBeNull();
     },

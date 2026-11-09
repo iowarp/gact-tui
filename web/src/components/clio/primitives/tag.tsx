@@ -1,12 +1,22 @@
 import { memo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type TagTone = 'neutral' | 'on' | 'off' | 'info' | 'success' | 'warning' | 'danger';
+export type TagTone =
+  | 'neutral'
+  | 'on'
+  | 'off'
+  | 'caution'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'danger';
 
 const TONE: Record<TagTone, string> = {
   neutral: 'border-border text-muted-foreground',
   on: 'border-primary/50 text-accent-foreground',
   off: 'border-destructive/45 text-destructive',
+  /** An outlined warning word on a quiet row (Blocked). */
+  caution: 'border-warning/45 text-warning',
   info: 'border-info/25 bg-info/15 text-info-foreground',
   success: 'border-success/25 bg-success/15 text-success-foreground',
   warning: 'border-warning/25 bg-warning/15 text-warning-foreground',
