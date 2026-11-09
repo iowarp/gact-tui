@@ -268,10 +268,9 @@ function FilesList({
             changedPaths.size ? (
               <>
                 <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
-                <p className="flex h-7 min-w-0 items-center px-2 text-[11.5px] whitespace-nowrap text-faint">
-                  <span className="truncate">
-                    <span className="text-changed">Teal</span>: changed in this conversation
-                  </span>
+                {/* The spec's exact wording; a narrow column wraps it rather than cutting it off. */}
+                <p className="min-h-7 px-2 py-1.5 text-[11.5px] leading-[1.35] text-faint">
+                  <span className="text-changed">Teal</span>: changed in this conversation
                 </p>
               </>
             ) : null
