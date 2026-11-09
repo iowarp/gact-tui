@@ -12,7 +12,7 @@ import { ClioObservabilityDock } from './observability-dock';
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
-it('toggles the work rail with the conversation-runs shortcut', async () => {
+it('toggles the conversation rail with the conversation-runs shortcut', async () => {
   const user = userEvent.setup();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -32,10 +32,9 @@ it('toggles the work rail with the conversation-runs shortcut', async () => {
     </QueryClientProvider>,
   );
 
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
   await user.keyboard('{Control>}.{/Control}');
-  expect(screen.getByRole('region', { name: 'Work rail' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Evidence layout: Bottom' })).toBeVisible();
+  expect(screen.getByRole('region', { name: 'This conversation' })).toBeVisible();
   await user.keyboard('{Control>}.{/Control}');
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'This conversation' })).not.toBeInTheDocument();
 });

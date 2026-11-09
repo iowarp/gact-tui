@@ -44,12 +44,19 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * `activity` is the transcript's activity row: a 12px disclosure column
    * (`leading`) before the icon, 12.5px text, and the right edge ordered
    * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
-   * the time it explains. Empty columns keep their width.
+   * the time it explains. Empty columns keep their width; below 600px the row
+   * drops its hover actions, elapsed and an empty badge so the text keeps room.
    */
   variant?: 'list' | 'activity';
   /** The 12px column before the icon (an expand chevron) in `activity` rows. */
   leading?: ReactNode;
   selected?: boolean;
+  /**
+   * `highlight` marks the selected row with the menu-highlight tone. `accent`
+   * is the spec's chosen-item row (a service to open): accent fill, with the
+   * icon, description and status in the accent foreground.
+   */
+  selectedTone?: 'highlight' | 'accent';
   /** For virtualized lists: the absolute position the virtualizer assigns. */
   style?: CSSProperties;
 }
@@ -77,6 +84,7 @@ export const ListRow = memo(
       variant = 'list',
       leading,
       selected = false,
+      selectedTone = 'highlight',
       className,
       style,
       ...rest
@@ -93,7 +101,8 @@ export const ListRow = memo(
           aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
           style={style}
           className={cn(
-            'group/list-row relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
+            // A container, so a narrow row drops its time and hover columns (spec `.xc.n2`).
+            'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
           {...rest}
@@ -115,19 +124,28 @@ export const ListRow = memo(
           </span>
           {columns}
           {badge !== undefined ? (
-            <span className="flex w-[58px] shrink-0 justify-end">{badge}</span>
+            <span
+              className={cn(
+                'flex w-[58px] shrink-0 justify-end',
+                badge === null && '@max-[600px]/activity:hidden',
+              )}
+            >
+              {badge}
+            </span>
           ) : null}
           {actions !== undefined ? (
             <span
               data-slot="list-row-actions"
               style={{ width: actionsWidth }}
-              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden"
+              className="invisible flex shrink-0 items-center justify-end group-focus-within/list-row:visible group-hover/list-row:visible max-sm:hidden @max-[600px]/activity:hidden"
             >
               {actions}
             </span>
           ) : null}
           {meta !== undefined ? (
-            <span className="flex w-11 shrink-0 justify-end max-[480px]:hidden">{meta}</span>
+            <span className="flex w-11 shrink-0 justify-end max-[480px]:hidden @max-[600px]/activity:hidden">
+              {meta}
+            </span>
           ) : null}
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
           {primaryAction !== undefined ? (
@@ -151,7 +169,10 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-menu-highlight',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
+          selectedTone === 'accent'
+            ? 'data-selected:bg-accent data-selected:hover:bg-accent'
+            : 'data-selected:bg-menu-highlight',
           layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-[12.5px]' : 'h-7',
           className,
         )}
@@ -163,7 +184,10 @@ export const ListRow = memo(
         {icon ? (
           <span
             aria-hidden="true"
-            className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
+              selectedTone === 'accent' && 'group-data-selected/list-row:text-accent-foreground',
+            )}
           >
             {icon}
           </span>
@@ -172,7 +196,13 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
             <span className="min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  'min-w-0 truncate text-[11px] text-muted-foreground',
+                  selectedTone === 'accent' &&
+                    'group-data-selected/list-row:text-accent-foreground',
+                )}
+              >
                 {description}
               </span>
             ) : null}
@@ -181,7 +211,8 @@ export const ListRow = memo(
           <span className="flex min-w-0 flex-1 items-baseline gap-2">
             <span className="min-w-0 shrink truncate">{title}</span>
             {description ? (
-              <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+              // Keeps a readable start (never a one-letter stub); the title truncates first.
+              <span className="min-w-[min(5rem,35%)] flex-1 truncate text-[12px] text-muted-foreground">
                 {description}
               </span>
             ) : null}

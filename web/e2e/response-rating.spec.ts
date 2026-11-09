@@ -9,8 +9,20 @@ test('ratings toggle off and a top-right comment action attaches editable feedba
   const fixture = await installResponseRatingFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.session.workspace_id}/sessions/${fixture.session.id}`);
   await expect(page.getByText(fixture.text, { exact: true })).toBeVisible();
+  // Each rating change confirms with a top-center toast that can cover the
+  // reply, and sonner keeps a hovered toast open, so a hover that lands on it
+  // would never reach the reply. Close confirmations the way a user would.
+  const notifications = page.getByRole('region', { name: /^Notifications/ });
+  const dismissNotifications = async () => {
+    await expect(async () => {
+      const close = notifications.getByRole('button').filter({ visible: true }).first();
+      if ((await close.count()) > 0) await close.click({ timeout: 1_000 });
+      await expect(notifications.getByRole('listitem')).toHaveCount(0, { timeout: 500 });
+    }).toPass({ timeout: 10_000 });
+  };
   // Reply actions are named on hover; reveal them before each use.
   const rating = async (name: string) => {
+    await dismissNotifications();
     await page.locator(`#message-${fixture.messageId}`).hover();
     return page.getByRole('button', { name, exact: true });
   };

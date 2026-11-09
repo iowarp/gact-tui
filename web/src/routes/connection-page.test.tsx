@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { brand } from '@brand';
@@ -132,9 +132,12 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
-  expect(screen.getByText('Starting the local service')).toBeVisible();
-  expect(screen.getByText('Loading the bundled scientific workspace')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(
+    'Starting the local service',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));
+  expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
@@ -407,7 +410,9 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   // run and would never fire again.
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
-  expect(screen.queryByRole('heading', { name: `Starting ${brand.name}` })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: `Starting ${brand.agentName} local` }),
+  ).not.toBeInTheDocument();
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 
@@ -484,7 +489,7 @@ it('offers to remove and redeploy a saved connection whose infrastructure target
   expect(alert).toHaveTextContent(
     'Ares lab is not known on this computer. Remove it and deploy it again to reconnect.',
   );
-  const recover = within(alert).getByRole('button', { name: /Remove it and deploy/u });
+  const recover = within(alert).getByRole('button', { name: 'Remove and redeploy' });
 
   await user.click(recover);
 
@@ -541,7 +546,8 @@ it('keeps a service the probe cannot reach closed, and lets Retry make the real 
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText("Can't connect: no answer from 127.0.0.1:9999")).toBeVisible();
+  // A local failure is not reported as "no answer"; the row gives what happened.
+  expect(await screen.findByText("Can't connect: Connection refused")).toBeVisible();
   expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled();
 
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
@@ -691,7 +697,6 @@ it('auto-connects to a draft without minting a persistent session', async () => 
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
   expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
-
 
 // The bounded session reads, answered from this test's session list.
 Object.assign(

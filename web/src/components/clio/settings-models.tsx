@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import type {
   ContextControls,
   LanguageModelConfiguration,
@@ -67,16 +69,18 @@ export function ModelsSettings() {
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
-        <StateView
-          action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
-          kind="error"
-          size="row"
-          title={configuration.error.message}
-        />
+        <div className="w-full @3xl:w-[60%]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void configuration.refetch() }}
+            kind="error"
+            size="row"
+            title={configuration.error.message}
+          />
+        </div>
       ) : (
         <Skeleton
           aria-label="Loading models"
-          className="mt-3 h-40 w-full @3xl:w-[60%]"
+          className={cn('mt-3 h-40 w-full', SETTINGS_COLUMN)}
           role="status"
         />
       )}
@@ -190,7 +194,10 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       : catalog.error && !catalog.data
         ? 'error'
         : 'ready';
-  const providerName = activePreset ? providerDisplayName(activePreset) : undefined;
+  // The catalog's name, as the picker and the helper selects show it; the
+  // preset's label only when the model is not in the catalog.
+  const providerName =
+    option?.providerName ?? (activePreset ? providerDisplayName(activePreset) : undefined);
   const marker = (row: SavedRow) =>
     saving === row && save.isPending ? (
       <SaveMark saving />
@@ -362,7 +369,7 @@ function ModelsBody({
         />
       ) : null}
       <SaveBar
-        className="@3xl:w-[60%]"
+        className={SETTINGS_COLUMN}
         count={count}
         error={save.error?.message ?? context?.saveError}
         invalid={Boolean(context?.draft && context.error) || responseInvalid}

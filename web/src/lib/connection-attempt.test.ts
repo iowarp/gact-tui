@@ -1,6 +1,15 @@
 import { TransportError } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { connectRetryDelayMs, serviceStillStarting } from './connection-attempt';
+import { vocab } from './brand-vocabulary';
+import type { KnownConnection } from '@/hooks/use-known-connections';
+import { ServiceTimeoutError, unavailableFromError } from '@/hooks/use-connection-availability';
+import {
+  connectRetryDelayMs,
+  knownServiceFailure,
+  serviceStillStarting,
+  type ConnectAttempt,
+} from './connection-attempt';
+import { ServiceVersionError } from './service-version-error';
 
 describe('connect retry backoff (#739 B1)', () => {
   it('starts at 250 ms and doubles to a 2 s ceiling', () => {
@@ -37,4 +46,60 @@ describe('a service still starting', () => {
     ['a non-transport failure', new Error('incompatible')],
     ['no error', undefined],
   ])('is not %s', (_name, error) => expect(serviceStillStarting(error)).toBe(false));
+});
+
+describe('a service on another interface version', () => {
+  it('names the side to update and keeps version numbers in the details', () => {
+    const older = new ServiceVersionError('0.3', ['0.2']);
+    expect(older.message).toBe(
+      `This ${vocab.agent} is older than this app. Update ${vocab.agent} to open it here.`,
+    );
+    expect(older.message).not.toMatch(/protocol|0\.[23]/iu);
+    expect(older.details).toEqual({ required: '0.3', offered: ['0.2'] });
+    expect(new ServiceVersionError('0.3', ['0.4']).message).toMatch(/Update this app/u);
+    expect(new ServiceVersionError('0.3', ['0.2', '0.4']).message).toMatch(/same release/u);
+    expect(new ServiceVersionError('0.3', []).message).toMatch(/not a .+ this app can open/u);
+  });
+});
+describe('a failed service row', () => {
+  const idle: ConnectAttempt = {
+    isError: false,
+    isPending: false,
+    error: null,
+    submittedAt: 0,
+    mutate: () => {},
+  };
+  const row = (error: unknown, label?: string) => {
+    const connection = { endpoint: 'http://127.0.0.1:9', label } as KnownConnection;
+    return knownServiceFailure(connection, unavailableFromError(error), idle);
+  };
+
+  it('says "no answer" only when nothing answered, and names the host only on a named row', () => {
+    const down = new TransportError('down', undefined, 'network_unavailable');
+    expect(row(down)).toBe("Can't connect: no answer");
+    expect(row(down, 'Lab')).toBe("Can't connect: no answer from 127.0.0.1:9");
+  });
+
+  it.each([
+    ['a probe that timed out', new ServiceTimeoutError(), "Can't connect: no response in time"],
+    [
+      'a service that answered with a 502',
+      new TransportError('bad gateway', 502, 'upstream'),
+      "Can't connect: the service reported an error",
+    ],
+    [
+      'a service on another version',
+      new ServiceVersionError('0.3', ['0.2']),
+      "Can't connect: incompatible version",
+    ],
+    [
+      'an incompatible capabilities response',
+      new TransportError('X-GACT-Version 0.3', undefined, 'incompatible_capabilities'),
+      "Can't connect: incompatible version",
+    ],
+    ['a local failure', new Error('Connection refused'), "Can't connect: Connection refused"],
+  ])('reports %s as what happened', (_name, error, line) => {
+    expect(row(error)).toBe(line);
+    expect(row(error)).not.toMatch(/no answer|protocol|0\.\d/iu);
+  });
 });

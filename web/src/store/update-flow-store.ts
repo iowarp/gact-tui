@@ -46,6 +46,8 @@ interface UpdateFlowState {
   version?: string;
   progress?: UpdateDownloadProgress;
   lines: readonly string[];
+  /** When each step this run observed began (ms since epoch), for elapsed times. */
+  stepStartedAt: Partial<Record<UpdateStep, number>>;
   /** Typed, always-present reason once `step === 'failed'` — no silent failure. */
   reason?: string;
   /** Begin a fresh update run driven by this session (not a resumed one). */
@@ -66,6 +68,7 @@ const initialState = {
   version: undefined,
   progress: undefined,
   lines: [] as readonly string[],
+  stepStartedAt: {} as Partial<Record<UpdateStep, number>>,
   reason: undefined,
 };
 
@@ -78,6 +81,7 @@ export const useUpdateFlowStore = create<UpdateFlowState>((set) => ({
       version,
       progress: undefined,
       lines: [],
+      stepStartedAt: { checking: Date.now() },
       reason: undefined,
     }),
   resume: (action, version) =>
@@ -87,9 +91,14 @@ export const useUpdateFlowStore = create<UpdateFlowState>((set) => ({
       version,
       progress: undefined,
       lines: [],
+      stepStartedAt: { reconnecting: Date.now() },
       reason: undefined,
     }),
-  setStep: (step) => set({ step }),
+  setStep: (step) =>
+    set((state) => ({
+      step,
+      stepStartedAt: { ...state.stepStartedAt, [step]: state.stepStartedAt[step] ?? Date.now() },
+    })),
   setProgress: (progress) => set({ progress }),
   appendLine: (line) =>
     set((state) => ({

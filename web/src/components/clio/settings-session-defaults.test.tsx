@@ -181,7 +181,7 @@ describe('new session defaults settings', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose a model for new sessions' });
-    expect(within(picker).getByRole('button', { name: 'Hidden (0)' })).toBeVisible();
+    expect(within(picker).getByRole('button', { name: 'Hidden 0' })).toBeVisible();
     await user.type(within(picker).getByPlaceholderText('Search providers and models'), 'luna');
     await user.click(within(picker).getByText('gpt-5.6-luna', { exact: true }));
 
@@ -207,7 +207,7 @@ describe('new session defaults settings', () => {
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose a model for new sessions' });
     expect(within(picker).queryByText('OpenAI Codex')).not.toBeInTheDocument();
-    await user.click(within(picker).getByRole('button', { name: 'Hidden (1)' }));
+    await user.click(within(picker).getByRole('button', { name: 'Hidden 1' }));
     expect(await within(picker).findByText('OpenAI Codex')).toBeVisible();
   });
 

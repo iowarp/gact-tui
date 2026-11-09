@@ -86,3 +86,11 @@ export function contextPercent(value: number, limit: number): string {
   const result = (value / limit) * 100;
   return result > 0 && result < 0.1 ? '<0.1%' : `${result.toFixed(1)}%`;
 }
+
+/** "16.6K of 1M": the used total against the model's window. */
+export function contextUsedSummary(context?: ContextSnapshot, messages: readonly Message[] = []) {
+  const { used, limit } = contextComposition(context, messages);
+  return limit
+    ? `${contextTokens(used)} of ${contextTokens(limit)}`
+    : `${contextTokens(used)} used`;
+}

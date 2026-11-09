@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { showEvidenceRail, showWorkbenchList } from './workspace-setup';
+import { closeNotifications, openConversationRail, showWorkbenchList } from './workspace-setup';
 
 const fixtureEndpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   }, fixtureEndpoint);
 });
 
-test('opens children in tabs, uses Shift for the center, and fits evidence equally', async ({
+test('opens children in tabs from the pinned rail and uses Shift for the center', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
@@ -20,19 +20,9 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
     await page.request.post(`${fixtureEndpoint}/__test/subagent-navigation`)
   ).json();
   await page.goto(workspaceUrl);
-  await showEvidenceRail(page, 'Work');
-  const evidence = page.getByRole('dialog', { name: 'Activity and evidence', exact: true });
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  const parentWidth = await evidence.evaluate((element) => element.clientWidth);
-  const child = evidence.getByRole('button', {
-    name: 'Open child conversation Station analysis worker',
-    exact: true,
-  });
-  await expect(child).not.toBeVisible();
-  await evidence.getByRole('button', { name: 'Completed work', exact: true }).click();
-  await evidence
-    .getByRole('button', { name: 'Task details: Station analysis worker', exact: true })
-    .click();
+  const evidence = await openConversationRail(page);
+  // The rail's Running section lists the conversation's runs; a row opens its child as a tab.
+  const child = evidence.getByRole('button', { name: 'Station analysis worker', exact: true });
   await expect(child).toBeVisible();
   await child.click();
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
@@ -43,28 +33,15 @@ test('opens children in tabs, uses Shift for the center, and fits evidence equal
   await expect(
     page.getByRole('button', { name: 'Open workspace canvas', exact: true }),
   ).toBeVisible();
+  // Pinned: the rail stays open while the canvas opens and closes.
   await expect(evidence).toBeVisible();
-  // Closing the canvas resizes/rehosts the rail. Wait for its parent layout
-  // before inspecting an uncontrolled task disclosure from the new host.
-  await expect.poll(() => evidence.evaluate((element) => element.clientWidth)).toBe(parentWidth);
-  const reopenedDetails = evidence.getByRole('button', {
-    name: 'Task details: Station analysis worker',
-    exact: true,
-  });
-  await reopenedDetails.click({ trial: true });
-  if ((await reopenedDetails.getAttribute('aria-expanded')) !== 'true') {
-    await reopenedDetails.click();
-  }
-  await expect(reopenedDetails).toHaveAttribute('aria-expanded', 'true');
   await expect(child).toBeVisible();
   await child.click({ modifiers: ['Shift'] });
   await expect(page).toHaveURL(new RegExp(`/sessions/${worker.id}$`));
   await expect(page.getByRole('textbox', { name: 'Message this agent' })).toBeVisible();
-  await expect(evidence).toHaveAttribute('data-showcase-mode', 'docked');
-  await expect.poll(async () => (await evidence.boundingBox())?.width).toBeCloseTo(parentWidth, 0);
-  const bounds = await evidence.boundingBox();
-  const composer = await page.locator('[data-evidence-composer]').boundingBox();
-  expect(bounds!.x).toBeGreaterThan(composer!.x + composer!.width);
+  await expect(evidence).toBeVisible();
+  const bounds = (await evidence.boundingBox())!;
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(1920);
 });
 
 test('allows central child follow-ups while hiding user branching controls', async ({
@@ -75,6 +52,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${worker.id}`);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation.getByText('Baseline complete.', { exact: true })).toBeVisible();
+  await closeNotifications(page);
   await conversation.getByText('Baseline complete.', { exact: true }).hover();
   await expect(
     page.getByRole('button', { name: 'Fork into a new conversation', exact: true }),
@@ -84,7 +62,7 @@ test('allows central child follow-ups while hiding user branching controls', asy
   ).toBeVisible();
   await expect(page.getByRole('combobox', { name: /^Ask / })).toHaveCount(0);
   await page.getByRole('button', { name: `Actions for ${worker.title}`, exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Branch into a new session' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Fork into a new conversation' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('subagent-actions.png') });
   await page.keyboard.press('Escape');
@@ -137,7 +115,9 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await expect(page.getByText('Loading messages…', { exact: true })).toHaveCount(0);
   const composer = page.getByRole('combobox', { name: /^Ask / });
   await expect(composer).toBeVisible();
-  await expect(page.getByRole('button', { name: /Return to parent conversation/ })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Return to parent conversation/ }).first(),
+  ).toBeVisible();
   await composer.fill('Independent branch follow-up');
   const sent = page.waitForResponse(
     (response) =>
@@ -161,9 +141,12 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   ).toHaveCount(0);
   expect((await after.json()).messages.length).toBe(before);
   await page.screenshot({ path: testInfo.outputPath('writable-branch.png') });
-  await page.getByRole('button', { name: /Return to parent conversation/ }).click();
+  await page
+    .getByRole('button', { name: /Return to parent conversation/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/sessions\/sess_flat_ndp$/);
-  const branchLink = page.getByRole('link').filter({ hasText: branch.title });
+  const branchLink = page.getByRole('link').filter({ hasText: branch.title }).first();
   await expect(
     page
       .locator('[data-slot="pending-interaction-title"]')
@@ -176,30 +159,29 @@ test('branches from a message with a composer, keeps its parent link, and reopen
   await expect(composer).toBeVisible();
 });
 
-test('filters the evidence artifact list by scripts and 3D models in both themes', async ({
+test('filters the evidence artifact list by type and search from the list header', async ({
   page,
-}, testInfo) => {
+}) => {
   await page.request.post(`${fixtureEndpoint}/__test/artifact-navigation`);
   await page.goto(workspaceUrl);
   await showWorkbenchList(page, 'Artifacts');
   const canvas = page.getByRole('region', { name: 'Artifacts list', exact: true });
-  const category = canvas.getByRole('combobox', { name: 'Artifact category' });
-  await expect(category).toBeVisible();
-  await category.click();
-  await page.getByRole('option', { name: 'Scripts (1)' }).click();
+  const filter = canvas.getByRole('button', { name: 'Filter artifacts' });
+  await filter.click();
+  await page.getByRole('menuitemradio', { name: 'Scripts (1)' }).click();
   await expect(canvas.getByRole('button', { name: 'Open collect_sweep.py' })).toBeVisible();
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath('artifact-filters-light.png') });
-  await category.click();
-  await page.getByRole('option', { name: '3D models (1)' }).click();
+  // Reopen only once the closing menu has unmounted; a click during its exit
+  // can land on the old layer instead of the trigger.
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await filter.click();
+  await page.getByRole('menuitemradio', { name: '3D models (1)' }).click();
+  await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toBeVisible();
-  await canvas.getByRole('searchbox', { name: 'Search artifacts' }).fill('missing');
-  await expect(canvas.getByText('No artifacts match these filters.')).toBeVisible();
+  await canvas.getByRole('button', { name: 'Search artifacts' }).click();
+  await canvas.getByRole('textbox', { name: 'Search artifacts' }).fill('missing');
+  await expect(canvas.getByText('No artifacts match', { exact: true })).toBeVisible();
   await canvas.getByRole('button', { name: 'Clear filters' }).click();
-  await page.evaluate(() => localStorage.setItem('theme', 'dark'));
-  await page.reload();
-  await expect(page.locator('html')).toHaveClass(/dark/);
-  await showWorkbenchList(page, 'Artifacts');
-  await expect(canvas.getByRole('combobox', { name: 'Artifact category' })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('artifact-filters-dark.png') });
+  await expect(canvas.getByRole('button', { name: 'Open collect_sweep.py' })).toBeVisible();
+  await expect(canvas.getByRole('button', { name: 'Open optimized_iso0.5.glb' })).toBeVisible();
 });

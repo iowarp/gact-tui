@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { HeldKeyBadge } from './key-chip';
+import { HeldKeyBadge, type HeldKeySide } from './key-chip';
 import { focusIsQuiet } from './quiet-focus';
+import { TOOLTIP_KEY } from './tooltip-key';
 
 interface NamedTooltipProps {
   /** The control's name, shown on hover and focus. */
@@ -45,11 +46,7 @@ export function NamedTooltip({
         className="gap-2 px-2 py-1 text-[11.5px] font-medium"
       >
         <span>{label}</span>
-        {presentation ? (
-          <kbd className="rounded-[3px] bg-background/15 px-1 font-mono text-[10.5px] font-normal">
-            {presentation.text}
-          </kbd>
-        ) : null}
+        {presentation ? <kbd className={TOOLTIP_KEY}>{presentation.text}</kbd> : null}
       </TooltipContent>
     </Tooltip>
   );
@@ -64,6 +61,8 @@ export interface IconButtonProps
   shortcut?: string;
   /** One key of a range shortcut (the strip's icons by position). */
   shortcutPosition?: number;
+  /** Where the held-key badge sits (below by default). */
+  shortcutSide?: HeldKeySide;
   /** 28px (default), 26px for the composer's toolbar row, or 22px for dense rows. */
   size?: 'default' | 'toolbar' | 'sm';
   /** A small count on the corner (comments, unread). */
@@ -84,6 +83,7 @@ export const IconButton = memo(function IconButton({
   icon,
   shortcut,
   shortcutPosition,
+  shortcutSide,
   size = 'default',
   count,
   tooltipSide,
@@ -127,7 +127,9 @@ export const IconButton = memo(function IconButton({
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-      {shortcut ? <HeldKeyBadge id={shortcut} position={shortcutPosition} /> : null}
+      {shortcut ? (
+        <HeldKeyBadge id={shortcut} position={shortcutPosition} side={shortcutSide} />
+      ) : null}
     </Button>
   );
   if (!tooltip) return button;

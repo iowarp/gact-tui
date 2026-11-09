@@ -77,7 +77,8 @@ function setup(pinned = false) {
 it('renames from the header using the shared resource dialog', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Rename session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+  expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeVisible();
   await user.clear(screen.getByRole('textbox', { name: 'Name' }));
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Renamed review');
   await user.click(screen.getByRole('button', { name: 'Save name' }));
@@ -88,16 +89,14 @@ it('renames from the header using the shared resource dialog', async () => {
 it.each([false, true])('toggles the authoritative pinned state from %s', async (pinned) => {
   const { actions, user, open } = setup(pinned);
   await open();
-  await user.click(
-    screen.getByRole('menuitem', { name: pinned ? 'Unpin session' : 'Pin session' }),
-  );
+  await user.click(screen.getByRole('menuitem', { name: pinned ? 'Unpin' : 'Pin' }));
   expect(actions.setSessionPinned).toHaveBeenCalledWith(session.id, !pinned);
 });
 
 it('archives the session through the shared navigation action', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Archive session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Archive' }));
   expect(actions.archiveSession).toHaveBeenCalledWith(session.id);
 });
 
@@ -105,7 +104,7 @@ it('requires the existing permanent deletion confirmation and keeps failures vis
   const { actions, user, open } = setup();
   vi.mocked(actions.deleteSession).mockRejectedValueOnce(new Error('Service unavailable'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Delete session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Delete…' }));
   expect(actions.deleteSession).not.toHaveBeenCalled();
   expect(screen.getByRole('alertdialog')).toHaveTextContent('permanently removes the session');
   await user.click(screen.getByRole('button', { name: 'Remove session' }));
@@ -120,7 +119,7 @@ it('reports pin failures without an unhandled rejection', async () => {
   const { actions, user, open } = setup();
   vi.mocked(actions.setSessionPinned).mockRejectedValueOnce(new Error('Pin failed'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Pin session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Pin' }));
   expect(toast.error).toHaveBeenCalledWith(
     'Pin failed',
     expect.objectContaining({ closeButton: true }),
@@ -131,7 +130,7 @@ it('reports pin failures without an unhandled rejection', async () => {
 it('exports HTML through the shared download flow and retains the service base path', async () => {
   const { actions, user, open } = setup();
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
   expect(actions.exportSession).toHaveBeenCalledWith(session.id, 'transcript');
   await waitFor(() =>
@@ -147,7 +146,7 @@ it('shows export failures and does not start a download', async () => {
   const { actions, user, open } = setup();
   vi.mocked(actions.exportSession).mockRejectedValueOnce(new Error('Export failed'));
   await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Export session' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
   expect(downloadUrl).not.toHaveBeenCalled();
   await waitFor(() =>

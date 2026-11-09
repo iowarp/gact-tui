@@ -265,6 +265,55 @@ export async function headerJourney(r) {
   await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
 
+export async function railJourney(r) {
+  const { page } = r;
+  const button = r.control('button', 'Conversation rail');
+  if (!(await r.visible(button))) {
+    r.steps.push({
+      scenario: r.scenario,
+      name: 'open conversation rail',
+      skipped: 'control not found',
+    });
+    return;
+  }
+  if ((await button.getAttribute('aria-expanded')) === 'true') await button.click();
+  await r.measure(
+    'open conversation rail',
+    'toggle',
+    () => button.click(),
+    { css: '[role="region"][aria-label="This conversation"]', minCount: 1 },
+    { control: button },
+  );
+  const expand = r.control('button', 'Expand Context', { exact: true });
+  await r.measure(
+    'expand rail section (Context)',
+    'toggle',
+    () => expand.click(),
+    { css: 'button[aria-label="Collapse Context"]', minCount: 1 },
+    { control: expand },
+  );
+  await r.measure('close conversation rail', 'toggle', () => button.click(), {
+    css: 'button[aria-label="Conversation rail"][aria-expanded="false"]',
+    minCount: 1,
+  });
+  // The draft opens from the top bar's new-conversation control; measure its
+  // in-app route change from a conversation.
+  await r.measure(
+    'new conversation draft',
+    'navigation',
+    () =>
+      page.evaluate((path) => {
+        history.pushState({}, '', path);
+        dispatchEvent(new PopStateEvent('popstate'));
+      }, '/workspaces/ws_flat_ndp/new'),
+    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation' },
+    { timeoutMs: 8000 },
+  );
+  await page.goto(new URL(SESSION_URL, page.url()).href);
+  await page.locator(MESSAGE).first().waitFor({ timeout: 30_000 });
+  await waitIdle(page, 1000);
+}
+
 export async function composerJourney(r) {
   const { page } = r;
   const composer = page.locator(COMPOSER).first();
@@ -590,7 +639,7 @@ export async function settingsJourney(r) {
     step.headings = await page.locator(`${content} h1`).filter({ visible: true }).count();
     await waitIdle(page, 200);
     if (name === 'Models') {
-      await r.overlay('default model picker', 'button', 'Change', { category: 'picker' });
+      await r.overlay('default model picker', 'button', /^Default model$/u, { category: 'picker' });
     }
   }
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {

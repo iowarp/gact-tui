@@ -61,6 +61,9 @@ type Mode = 'view' | 'edit' | 'remove';
  * "Can't reach". ↵ edits the address in place, Delete asks inline, Shift F10
  * opens the menu.
  */
+/** The item row's slot button (.xi .btn): 26 px, 12 px. */
+const SLOT_BUTTON = 'h-[1.625rem] px-2.5 text-xs';
+
 export function ModelServerRow({
   preset,
   saved,
@@ -210,12 +213,12 @@ export function ModelServerRow({
       />
     ) : (
       <span className="flex min-w-0 items-baseline gap-3">
-        <span className="shrink-0 font-mono" title={address}>
+        <span className="min-w-0 truncate font-mono" title={address}>
           {shortServerAddress(address)}
         </span>
         {detail ? (
           <span
-            className={cn('min-w-0 truncate', error && 'text-destructive')}
+            className={cn('min-w-0 shrink-[100] truncate', error && 'text-destructive')}
             role={error ? 'alert' : undefined}
             title={detail}
           >
@@ -304,6 +307,7 @@ export function ModelServerRow({
       <Button
         disabled={!typed || pending}
         onClick={() => void saveAddress()}
+        className={SLOT_BUTTON}
         size="sm"
         type="button"
       >
@@ -321,6 +325,7 @@ export function ModelServerRow({
         aria-label={`Use ${label}`}
         disabled={applying || pending}
         onClick={() => void use()}
+        className={SLOT_BUTTON}
         size="sm"
         type="button"
         variant="outline"
@@ -332,6 +337,7 @@ export function ModelServerRow({
         aria-label={status.kind === 'unknown' ? `Check ${label}` : `Retry ${label}`}
         disabled={pending}
         onClick={() => void runCheck().catch(() => undefined)}
+        className={SLOT_BUTTON}
         size="sm"
         type="button"
         variant="outline"
@@ -346,10 +352,18 @@ export function ModelServerRow({
         <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
           {custom ? `Remove ${label}?` : `Go back to ${shortServerAddress(preset.api_base ?? '')}?`}
         </span>
-        <Button autoFocus onClick={cancel} size="sm" type="button" variant="ghost">
+        <Button
+          autoFocus
+          className={SLOT_BUTTON}
+          onClick={cancel}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
           Keep
         </Button>
         <Button
+          className={SLOT_BUTTON}
           disabled={pending}
           onClick={() => void confirmRemove()}
           size="sm"

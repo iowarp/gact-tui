@@ -1,4 +1,12 @@
-import { useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -13,7 +21,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
-import { ShortcutKeys } from './primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
 import { TechnicalDetails } from './technical-details';
@@ -42,13 +50,11 @@ const KEY_TEXT: Record<string, string> = { Enter: 'Enter', Escape: 'Esc' };
 
 /** A key chip inside a button or hint: `1`, `↵`, `Esc`, `D`. */
 export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: string }) {
+  const keys = [KEY_TEXT[askKey] ?? askKey.toUpperCase()];
   return (
     <span aria-hidden="true" className="inline-flex shrink-0">
-      <ShortcutKeys
-        className={className}
-        keys={[KEY_TEXT[askKey] ?? askKey.toUpperCase()]}
-        variant="inline"
-      />
+      <ShortcutKeys className={className} keys={keys} variant="inline" />
+      <HeldKeyBadge keys={keys} side="cover" />
     </span>
   );
 }
@@ -127,13 +133,16 @@ export function AskCard({
         handleAskCardKeys(event);
       }}
       className={cn(
-        '@container/ask relative min-w-0 rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
+        // and the options stay. Open Technical details lift the cap; the dock scrolls the card.
+        '@container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col has-[[data-slot=ask-details]>[data-state=open]]:max-h-none rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring',
         EDGE[kind],
         className,
       )}
       {...props}
     >
-      <header className="flex min-h-[26px] min-w-0 items-center gap-[9px]">
+      {/* With Technical details open the dock scrolls the card; the title and pager stay. */}
+      <header className="sticky top-0 z-[1] -mt-[9px] flex min-h-[35px] min-w-0 shrink-0 items-center gap-[9px] bg-card pt-[9px]">
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
           className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
@@ -172,6 +181,43 @@ export function AskCard({
 export function AskSection({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div className={cn('mt-2 ml-[25px] min-w-0 @max-[420px]/ask:ml-0', className)} {...props} />
+  );
+}
+
+/**
+ * What the reader weighs before answering (facts, a script). When the card is
+ * capped this part scrolls, so the options and Technical details stay in view.
+ */
+export function AskBody({ className, ...props }: ComponentProps<'div'>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const clipped = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      element.toggleAttribute('data-clipped', clipped);
+    };
+    update();
+    element.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(element);
+    for (const child of element.children) observer?.observe(child);
+    return () => {
+      element.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        // No reserved gutter (over .clio-scrollbar's): body blocks end on the header's edge.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        className,
+      )}
+      data-slot="ask-body"
+      {...props}
+    />
   );
 }
 
@@ -215,12 +261,12 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
   );
 }
 
-/** The options row: numbered buttons, wrapping only when there is no room; stacked when narrow. */
+/** The options row: full-size numbered buttons that wrap when there is no room; stacked when narrow. */
 export function AskOptions({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+        'mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
         className,
       )}
       data-slot="ask-options"
@@ -238,7 +284,7 @@ export interface AskButtonProps extends Omit<ComponentProps<typeof Button>, 'siz
   primary?: boolean;
 }
 
-/** One 28px option button with its keys inside. */
+/** One 28px option button with its keys inside; it never shrinks or cuts its label. */
 export function AskButton({
   number,
   hint,
@@ -252,7 +298,7 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-center',
         !primary && 'border-input bg-transparent',
         className,
       )}
@@ -320,9 +366,7 @@ export function AskRow({
       {number && number < 10 ? <AskKeyChip askKey={String(number)} /> : null}
       <span className="min-w-0 shrink truncate">{label}</span>
       {detail ? (
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
-          {detail}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-foreground/70">{detail}</span>
       ) : (
         <span className="flex-1" />
       )}
@@ -378,12 +422,18 @@ export function AskDetails({
   title?: string;
   hint?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
   return (
-    <AskSection className="mt-2">
+    <AskSection className="mt-2 shrink-0 scroll-mb-3" data-slot="ask-details" ref={ref}>
       <TechnicalDetails
         className="text-[11.5px] text-muted-foreground"
-        contentClassName="mt-1 border-t border-border pt-1.5"
+        contentClassName="mt-1"
         hint={hint}
+        // Opening lifts the card's cap; bring the details into the dock's view.
+        onOpenChange={(open) => {
+          if (open)
+            requestAnimationFrame(() => ref.current?.scrollIntoView?.({ block: 'nearest' }));
+        }}
         shortcut="D"
         summaryClassName="h-6 font-normal"
         title={title}
@@ -492,12 +542,15 @@ export function AskCode({
   return (
     <AskSection
       aria-label={label}
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      className={cn(
+        'shrink-0 overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="ask-code"
       role="group"
     >
       {name ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2 border-b border-border pr-1 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="truncate text-[12px] font-medium text-foreground/90">{name}</span>
           {meta ? <span className="truncate">{meta}</span> : null}
           {copyLabel ? <AskCopyButton code={code} label={copyLabel} /> : null}
@@ -505,7 +558,7 @@ export function AskCode({
       ) : null}
       <pre
         className={cn(
-          'clio-scrollbar grid grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
             ? 'max-h-[140px] overflow-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
             : 'max-h-[min(24rem,40dvh)] overflow-auto',
@@ -524,7 +577,7 @@ export function AskCode({
         ))}
       </pre>
       {hidden > 0 || onOpen ? (
-        <div className="flex h-[30px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="truncate">{hidden > 0 ? `${hidden} more lines` : null}</span>
           <AskButton
             {...askKeyAttributes(['o'])}

@@ -72,7 +72,7 @@ export function AgentSettings() {
     return (
       <div className="grid gap-4">
         {heading}
-        <StateView kind="unavailable" size="row" title="This service does not offer agents" />
+        <StateView kind="unavailable" size="row" title="This service doesn’t offer agents." />
       </div>
     );
   }
@@ -109,7 +109,7 @@ export function AgentSettings() {
         {installed.length ? (
           installed.map(row)
         ) : (
-          <StateView kind="empty" size="row" title="No agents are installed" />
+          <StateView kind="empty" size="row" title="No agents are installed." />
         )}
       </ItemList>
       <SettingsGroupLabel addLabel="New agent" onAdd={newAgent}>
@@ -121,10 +121,9 @@ export function AgentSettings() {
         ) : (
           <StateView
             action={newAgent ? { label: 'New agent', onClick: newAgent } : undefined}
-            className="h-[2.875rem] border-b border-border/70 px-2"
             kind="empty"
             size="row"
-            title="No agents of your own yet"
+            title="No agents of your own yet."
           />
         )}
       </ItemList>
@@ -138,7 +137,7 @@ export function AgentSettings() {
           action={{ label: 'Retry', onClick: () => void agents.refetch() }}
           kind="error"
           size="row"
-          title="Could not load agents"
+          title="Agents couldn’t be loaded."
         />
       ) : agents.isPending ? (
         <StateView kind="loading" size="row" title="Loading agents…" />

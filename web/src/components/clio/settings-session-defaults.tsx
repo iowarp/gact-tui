@@ -1,3 +1,5 @@
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -125,7 +127,7 @@ export function SessionDefaultsSettings() {
     return (
       <div>
         <SectionHeading />
-        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+        <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
             action={{ label: 'Retry', onClick: () => void defaults.refetch() }}
             kind="error"
@@ -141,7 +143,7 @@ export function SessionDefaultsSettings() {
     return (
       <div>
         <SectionHeading />
-        <div className="w-full border-b border-border/70 py-1 @3xl:w-[60%]">
+        <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
             kind="loading"
             size="row"
@@ -315,7 +317,7 @@ export function SessionDefaultsSettings() {
         </SettingsRow>
       </div>
       {save.isError ? (
-        <div className="w-full py-1 @3xl:w-[60%]">
+        <div className={cn('w-full py-1', SETTINGS_COLUMN)}>
           <StateView
             action={{
               label: 'Retry',

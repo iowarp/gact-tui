@@ -38,9 +38,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * hover actions and a slot. `size="line"` is the shared 30px one-line row
  * (name, then muted meta that shrinks first). Every row of a list shares the
  * column widths, so status words and buttons line up. Below 42rem of list width
- * the status column narrows to at most 9.875rem (the spec's 158 px), enough for "Update waits for trust" (still one width for every row),
- * the slot keeps its width, and hover actions float over the row's right side
- * instead of reserving a column, so the name keeps the room.
+ * the status column narrows to at most 9.875rem (the spec's 158 px), enough for
+ * "Update waits for trust" (still one width for every row), the slot keeps its
+ * width, and hover actions float over the end of the name, left of the status,
+ * instead of reserving a column, so the name keeps the room and the status word
+ * stays visible.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -64,6 +66,9 @@ export const ItemRow = memo(
     },
     ref,
   ) {
+    // Below 24rem of list width a two-line row stacks, as setting rows do: the
+    // status drops under the name, so a phone keeps the name readable.
+    const stacks = size !== 'line';
     const columns: CSSProperties = {
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
       ['--item-actions' as string]: `${actions === undefined ? 0 : actionsWidth}px`,
@@ -85,6 +90,12 @@ export const ItemRow = memo(
           actionsVisible
             ? '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]'
             : '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+          stacks &&
+            (actionsVisible
+              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
+              : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
+          // A stacked confirm takes row 2, so the name and meta get the freed columns.
+          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -98,6 +109,7 @@ export const ItemRow = memo(
           aria-hidden="true"
           className={cn(
             'grid place-items-center text-muted-foreground',
+            stacks && '@max-sm:row-span-2',
             size === 'sm'
               ? "[&_svg:not([class*='size-'])]:size-3.5"
               : size === 'line'
@@ -135,28 +147,47 @@ export const ItemRow = memo(
           ) : null}
         </span>
         {confirm ? (
+          // The confirming action is solid, not the tinted destructive button.
           <span
-            className="col-[3/-1] flex min-w-0 items-center justify-end gap-2"
+            className={cn(
+              'col-[3/-1] flex min-w-0 items-center justify-end gap-2',
+              stacks && '@max-sm:col-[2/-1] @max-sm:row-start-2',
+              '[&_[data-variant=destructive]]:bg-destructive [&_[data-variant=destructive]]:text-background [&_[data-variant=destructive]:hover]:bg-destructive/90',
+              'dark:[&_[data-variant=destructive]]:bg-[color-mix(in_oklab,var(--destructive)_45%,var(--background))] dark:[&_[data-variant=destructive]]:text-foreground dark:[&_[data-variant=destructive]:hover]:bg-[color-mix(in_oklab,var(--destructive)_55%,var(--background))]',
+            )}
             data-slot="item-row-confirm"
           >
             {confirm}
           </span>
         ) : (
           <>
-            <span className="flex min-w-0 items-center overflow-hidden" data-slot="item-row-status">
+            <span
+              className={cn(
+                'flex min-w-0 items-center overflow-hidden',
+                stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
+              )}
+              data-slot="item-row-status"
+            >
               {status}
             </span>
             <span
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+1.125rem)] @max-2xl:bg-hover @max-2xl:w-[min(var(--item-status),9.875rem)] @max-2xl:min-w-max',
+                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-2xl:bg-hover @max-2xl:pl-1',
+                !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
               )}
               data-slot="item-row-actions"
             >
               {actions}
             </span>
-            <span className="flex min-w-0 items-center justify-end gap-2" data-slot="item-row-slot">
+            <span
+              className={cn(
+                'flex min-w-0 items-center justify-end gap-2',
+                stacks && '@max-sm:row-span-2',
+              )}
+              data-slot="item-row-slot"
+            >
               {slot}
             </span>
           </>

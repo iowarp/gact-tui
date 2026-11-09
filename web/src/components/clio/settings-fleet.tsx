@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Undo2Icon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
@@ -80,12 +81,14 @@ export function FleetSettingsPanel() {
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <StateView
-          action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
-          kind="error"
-          size="row"
-          title="Helper models could not be loaded."
-        />
+        <div className="w-full @3xl:w-[60%]">
+          <StateView
+            action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
+            kind="error"
+            size="row"
+            title={fleet.error?.message || 'The agent could not load the helper models.'}
+          />
+        </div>
       </section>
     );
   const data = fleet.data;
@@ -118,11 +121,13 @@ export function FleetSettingsPanel() {
     return (
       // The select fills the value column; inline-size containment keeps a long
       // model name from widening that column, so every select shares one left
-      // edge. The reset sits just outside it, in the gap before the column.
+      // edge. The reset sits just outside it, in the gap before the column; when
+      // the row stacks it moves up to the end of the label line, so the select
+      // keeps the row's full width.
       <div className="relative flex w-full min-w-0 items-center gap-2 [contain:inline-size]">
         {choice ? (
           <IconButton
-            className="@md:absolute @md:right-full @md:mr-2"
+            className="absolute right-0 bottom-[calc(100%+0.375rem)] @md:right-full @md:bottom-auto @md:mr-2 max-[1023px]:in-data-window-content:right-0! max-[1023px]:in-data-window-content:bottom-[calc(100%+0.375rem)]! max-[1023px]:in-data-window-content:mr-0!"
             disabled={save.isPending}
             icon={<Undo2Icon />}
             label="Use conversation model"
@@ -251,7 +256,18 @@ function ExploreNudgeSetting({
   onChange: (value: { enabled: boolean; after: number }) => void;
 }) {
   const [draft, setDraft] = useState<number>();
+  const [typed, setTyped] = useState<string>();
   const after = draft ?? value.after;
+  const commit = (next: number | undefined) => {
+    if (next !== undefined && next !== value.after) onChange({ ...value, after: next });
+    setDraft(undefined);
+  };
+  const commitTyped = () => {
+    if (typed === undefined) return;
+    const next = Number(typed);
+    setTyped(undefined);
+    if (Number.isInteger(next)) commit(Math.min(20, Math.max(2, next)));
+  };
   return (
     <>
       <SettingsRow
@@ -269,25 +285,35 @@ function ExploreNudgeSetting({
         />
       </SettingsRow>
       <SettingsRow
-        description="How many searches and reads in a row before the suggestion."
+        description="How many searches and reads in a row before the suggestion, from 2 to 20."
+        htmlFor="fleet-explore-after"
         title="Reads before the suggestion"
       >
         <Slider
           aria-label="Reads before the Explore suggestion"
-          className="min-w-20 flex-1"
+          className="w-[34%] min-w-[5.625rem] shrink-0"
           disabled={pending || !value.enabled}
           max={20}
           min={2}
           onValueChange={(next) => setDraft(next[0])}
-          onValueCommit={(next) => {
-            if (next[0] !== undefined && next[0] !== value.after)
-              onChange({ ...value, after: next[0] });
-            setDraft(undefined);
-          }}
+          onValueCommit={(next) => commit(next[0])}
           step={1}
           value={[after]}
         />
-        <span className="w-6 shrink-0 text-right text-xs tabular-nums">{after}</span>
+        <Input
+          aria-label="Reads before the Explore suggestion, as a number"
+          className="w-[4.5rem] shrink-0 px-2 text-right font-mono text-xs tabular-nums md:text-xs"
+          disabled={pending || !value.enabled}
+          id="fleet-explore-after"
+          inputMode="numeric"
+          onBlur={commitTyped}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitTyped();
+            if (event.key === 'Escape') setTyped(undefined);
+          }}
+          value={typed ?? String(after)}
+        />
       </SettingsRow>
     </>
   );

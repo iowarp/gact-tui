@@ -255,7 +255,7 @@ describe('ProvidersSettings', () => {
     expect(within(lmStudio).getByText('127.0.0.1:1234')).toBeVisible();
     const vllm = await row('vllm');
     expect(within(vllm).getByText('Not running')).toBeVisible();
-    expect(tone(vllm)).toBe('stopped');
+    expect(tone(vllm)).toBe('inactive');
     const workstation = await row('server-workstation');
     expect(within(workstation).getByText('Can’t reach')).toBeVisible();
     expect(within(workstation).getByText('No answer at this address')).toBeVisible();
@@ -577,7 +577,9 @@ describe('ProvidersSettings', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Details' }));
 
     const pane = await screen.findByRole('complementary', { name: 'vLLM' });
-    expect(within(pane).getByText('Endpoint')).toBeVisible();
+    expect(within(pane).getByText('Address')).toBeVisible();
+    expect(within(pane).queryByText('connection refused')).toBeNull();
+    await user.click(within(pane).getByRole('button', { name: 'Technical details' }));
     expect(within(pane).getByText('connection refused')).toBeVisible();
     expect(within(pane).getByText('Unreachable')).toBeVisible();
     expect(vllm).toHaveAttribute('data-selected');

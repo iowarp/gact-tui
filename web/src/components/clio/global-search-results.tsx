@@ -138,7 +138,9 @@ export function GlobalSearchGroups({
             {'theme' in item.action && theme === item.action.theme ? (
               <CommandShortcut>Current</CommandShortcut>
             ) : item.shortcut ? (
-              <ShortcutKeys id={item.shortcut} />
+              <ShortcutKeys id={item.shortcut} variant="caps" capSize="sm" className="ml-auto" />
+            ) : item.trail ? (
+              <CommandShortcut>{item.trail}</CommandShortcut>
             ) : null}
           </CommandItem>
         ))}
@@ -166,13 +168,14 @@ export function GlobalSearchGroups({
               value={`agent:${item.ref}`}
             >
               <BotIcon aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  <SearchHighlight query={query} text={item.name || item.id} />
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {item.description || item.ref}
-                </span>
+              <span className="shrink-0 truncate">
+                <SearchHighlight query={query} text={item.name || item.id} />
+              </span>
+              <span
+                className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+                title={item.description || undefined}
+              >
+                {item.description}
               </span>
               <CommandShortcut>{item.kind === 'user' ? 'Your agent' : 'Agent'}</CommandShortcut>
             </CommandItem>
@@ -181,8 +184,12 @@ export function GlobalSearchGroups({
         </CommandGroup>
       ) : null}
       {inCommandMenuScope(scope, 'settings') && matches.agentsError ? (
-        <p className="px-3 py-2 text-xs text-destructive" role="alert">
-          Agents could not be searched. {matches.agentsError.message}
+        <p
+          className="truncate px-3 py-2 text-xs text-destructive"
+          role="alert"
+          title={matches.agentsError.message}
+        >
+          Agents could not be searched. Try again, or open Settings › Agents.
         </p>
       ) : null}
       {after}
@@ -206,13 +213,11 @@ export function GlobalSearchGroups({
               value={`connection:${item.endpoint}`}
             >
               <CableIcon aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  <SearchHighlight query={query} text={item.label || item.endpoint} />
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {item.location || item.endpoint}
-                </span>
+              <span className="shrink-0 truncate" title={item.endpoint}>
+                <SearchHighlight query={query} text={item.label || connectionName(item.endpoint)} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {item.location}
               </span>
               <CommandShortcut>
                 {item.endpoint === settings.endpoint ? 'Current' : item.availability.label}
@@ -257,10 +262,23 @@ export function GlobalSearchGroups({
         </CommandGroup>
       ) : null}
       {more && matches.targetsError ? (
-        <p className="px-3 py-2 text-xs text-destructive" role="alert">
-          Hosts could not be searched. {matches.targetsError.message}
+        <p
+          className="truncate px-3 py-2 text-xs text-destructive"
+          role="alert"
+          title={matches.targetsError.message}
+        >
+          Hosts could not be searched. Try again, or open Infrastructure.
         </p>
       ) : null}
     </>
   );
+}
+
+/** A connection without a label is named by its host; the full address stays in the tooltip. */
+function connectionName(endpoint: string): string {
+  try {
+    return new URL(endpoint).host || endpoint;
+  } catch {
+    return endpoint;
+  }
 }

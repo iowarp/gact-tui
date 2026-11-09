@@ -69,7 +69,8 @@ export function ToolTechnicalDetailsDialog({
       ? [
           {
             label: active ? 'Elapsed time' : 'Execution time',
-            value: `${formatDuration(duration, 'tenths')}${started ? `, started ${started}` : ''}`,
+            // The same reading as the row's elapsed column, so 820 ms reads 0.8s in both.
+            value: `${formatDuration(duration, 'elapsed')}${started ? `, started ${started}` : ''}`,
           },
         ]
       : []),
