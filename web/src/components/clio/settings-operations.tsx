@@ -243,8 +243,9 @@ export function SystemSettings() {
   const integrations = health.data?.integrations ?? [];
   const open = integrations.find((integration) => integration.name === openName);
   const ready = integrations.filter((row) => statusValue(row.status) === 'healthy').length;
+  // One list-width column, so the rows, counts and integrations share the ItemList edge.
   const list = (
-    <>
+    <div className="@container min-w-0 max-w-[47.5rem]">
       <SettingsGroupLabel
         actions={
           integrations.length ? (
@@ -306,7 +307,7 @@ export function SystemSettings() {
         retrying={hooks.isFetching}
         title="Hook inspection unavailable."
       />
-    </>
+    </div>
   );
   return (
     <div className="grid gap-1">

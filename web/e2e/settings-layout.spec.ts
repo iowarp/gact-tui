@@ -93,7 +93,7 @@ for (const theme of ['dark', 'light'] as const) {
       await page.goto('/settings/session-defaults');
       const panel = page.locator('[data-slot="session-defaults-panel"]');
       const model = page.getByRole('button', { name: 'Change default model' });
-      await expect(model).toHaveText(/Codex \/ gpt-5\.6-luna/);
+      await expect(model).toHaveText(/Codex\s*\/\s*Luna/);
       await expect(page.getByRole('combobox', { name: 'Reasoning effort' })).toHaveText(
         'Default (Medium)',
       );
@@ -118,7 +118,7 @@ for (const theme of ['dark', 'light'] as const) {
       await page.screenshot({ path: testInfo.outputPath(`${theme}-${width}-pinned.png`) });
       await reset.click();
       await expect(reset).toHaveCount(0);
-      await expect(model).toHaveText(/Codex \/ gpt-5\.6-luna/);
+      await expect(model).toHaveText(/Codex\s*\/\s*Luna/);
       await page.screenshot({
         path: testInfo.outputPath(`${theme}-${width}-session-defaults.png`),
       });

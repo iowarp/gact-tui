@@ -17,7 +17,7 @@ export function SettingsNumberField({
   onChange: (value: string) => void;
   min?: number;
   max?: number;
-  /** Faint unit at the field's right end ("characters", "lines"). */
+  /** Short faint unit at the field's right end ("chars", "lines"), like the spec's "120 s". */
   unit?: string;
   invalid?: boolean;
   className?: string;

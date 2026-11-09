@@ -17,7 +17,11 @@ import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { findSelectedModelOption, type ClioModelOption } from '@/lib/model-options';
+import {
+  compactModelName,
+  findSelectedModelOption,
+  type ClioModelOption,
+} from '@/lib/model-options';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { IconButton } from './primitives/icon-button';
 import { ModelSelectField } from './model-select-field';
@@ -102,7 +106,13 @@ export function SessionDefaultsSettings() {
 
   const providerId = form?.provider_id || modelConfiguration.data?.provider_id;
   const modelId = form?.provider_id ? form.model_id : modelConfiguration.data?.model;
-  const selectedModel = findSelectedModelOption(options, providerId, modelId);
+  const catalogModel = findSelectedModelOption(options, providerId, modelId);
+  const selectedModel = catalogModel
+    ? {
+        ...catalogModel,
+        label: compactModelName(catalogModel.providerId, catalogModel.id, catalogModel.label),
+      }
+    : undefined;
   const reasoning = useModelReasoningLevels(
     providerId,
     modelId,
@@ -190,13 +200,14 @@ export function SessionDefaultsSettings() {
                     : 'ready'
               }
               id="session-default-model"
+              inherited={!pinned}
               label="Change default model"
-              // Inheritance shows the effective model as the field's muted value,
-              // not a pinned choice: selecting that same row creates an override.
-              modelId={pinned ? modelId : undefined}
+              // The effective model reads as the value whether inherited or pinned;
+              // the reset button beside it marks a pin.
+              modelId={modelId}
               onChange={chooseModel}
               onRetryCatalog={(id) => catalog.refreshCatalog(id)}
-              option={pinned ? selectedModel : undefined}
+              option={selectedModel}
               options={options}
               placeholder={modelName}
               providerId={providerId}

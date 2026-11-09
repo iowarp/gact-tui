@@ -140,7 +140,7 @@ describe('new session defaults settings', () => {
 
     expect(await screen.findByRole('heading', { name: 'New session defaults' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Change default model' })).toHaveTextContent(
-      'OpenAI Codex / gpt-5.6-luna',
+      /OpenAI Codex\s*\/\s*Luna/u,
     );
     expect(screen.queryByText('Models default')).not.toBeInTheDocument();
     expect(

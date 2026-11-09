@@ -58,7 +58,7 @@ export function GeneralSettings() {
           invalid={pasteDirty && Boolean(pasteError)}
           min={0}
           onChange={(next) => setDraft((current) => ({ ...current, paste: next }))}
-          unit="characters"
+          unit="chars"
           value={paste}
         />
       </SettingsRow>
