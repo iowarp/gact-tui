@@ -33,6 +33,7 @@ import {
 } from './conversation-list-groups';
 import { groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
+import { holdPreviews } from './row-preview-hold';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
 import { useRailSessionCount, useRailSessions } from '@/hooks/use-rail-sessions';
 
@@ -353,7 +354,10 @@ function ShowMoreRow({
         <button
           aria-expanded={expanded}
           className="outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
-          onClick={onToggle}
+          onClick={(event) => {
+            holdPreviews(event.clientX, event.clientY);
+            onToggle();
+          }}
           type="button"
         >
           {label}

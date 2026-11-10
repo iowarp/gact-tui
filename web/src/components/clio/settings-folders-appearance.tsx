@@ -84,7 +84,7 @@ export function IconSelect({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <SettingsSelectField
-          className="w-full"
+          className="w-[150px]"
           icon={<current.Icon />}
           id={id}
           title={current.label}

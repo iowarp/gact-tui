@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils';
 import { deployNameError, type KnownServiceName } from './deploy-name';
 import { CONNECTION_FIELD, endpointError } from './settings-connection-runtime';
 
-const DIALOG_FIELD = 'w-60 max-w-full';
-
 /** Save another agent to switch to later; it is not connected to yet. */
 export function AddAgentDialog({
   open,
@@ -67,14 +65,9 @@ export function AddAgentDialog({
         </Button>
       }
     >
-      <SettingsRow
-        inlineControl
-        title="Name"
-        htmlFor="add-agent-name"
-        error={touched ? nameError : undefined}
-      >
+      <SettingsRow title="Name" htmlFor="add-agent-name" error={touched ? nameError : undefined}>
         <Input
-          className={cn(CONNECTION_FIELD, DIALOG_FIELD)}
+          className={CONNECTION_FIELD}
           id="add-agent-name"
           onChange={(event) => setName(event.target.value)}
           placeholder="ares-genesis"
@@ -82,7 +75,6 @@ export function AddAgentDialog({
         />
       </SettingsRow>
       <SettingsRow
-        inlineControl
         title="Address"
         htmlFor="add-agent-address"
         info="The agent’s full address, including http or https."
@@ -91,7 +83,7 @@ export function AddAgentDialog({
         <Input
           autoCapitalize="off"
           autoCorrect="off"
-          className={cn(CONNECTION_FIELD, DIALOG_FIELD, 'font-mono')}
+          className={cn(CONNECTION_FIELD, 'font-mono')}
           id="add-agent-address"
           inputMode="url"
           onChange={(event) => setAddress(event.target.value)}
@@ -143,13 +135,12 @@ export function RenameAgentDialog({
       }}
     >
       <SettingsRow
-        inlineControl
         title="Name"
         htmlFor="rename-agent-name"
         error={draft === undefined ? undefined : error}
       >
         <Input
-          className={cn(CONNECTION_FIELD, DIALOG_FIELD)}
+          className={CONNECTION_FIELD}
           data-initial-focus=""
           id="rename-agent-name"
           onChange={(event) => setDraft(event.target.value)}

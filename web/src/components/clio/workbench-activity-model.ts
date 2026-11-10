@@ -174,6 +174,23 @@ function short(value: string | undefined, max = 9): string | undefined {
   return value && value.length <= max ? value : undefined;
 }
 
+/** One humane line for a tool call: "Read soil_sites.csv", "Run command (ls)". */
+export function toolActivityName(tool: ToolInvocation): string {
+  const path = inputPath(tool);
+  const verb = toolVerb(tool.name);
+  return verb && path ? `${verb} ${fileName(path)}` : getToolActivityTitle(tool) || tool.name;
+}
+
+/** How long a finished call took, from its reported duration or its timestamps. */
+export function toolDurationMs(tool: ToolInvocation): number | undefined {
+  if (tool.duration_ms !== undefined) return tool.duration_ms;
+  const started = tool.started_at ? Date.parse(tool.started_at) : NaN;
+  const completed = tool.completed_at ? Date.parse(tool.completed_at) : NaN;
+  return Number.isFinite(started) && Number.isFinite(completed) && completed >= started
+    ? completed - started
+    : undefined;
+}
+
 function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
   const status = getToolStatus(tool);
   const running = RUNNING_STATES.has(status);
@@ -194,7 +211,7 @@ function toolRow(tool: ToolInvocation, group: ActivityGroup): ActivityItem {
     kind: verb && path ? 'file' : isSearch ? 'search' : 'tool',
     filter: verb && path ? 'files' : 'tools',
     group: running ? 'now' : group,
-    name: verb && path ? `${verb} ${fileName(path)}` : getToolActivityTitle(tool) || tool.name,
+    name: toolActivityName(tool),
     trailing,
     status: duration && !running ? `${statusWords}, ${duration}` : statusWords,
     running,

@@ -3,11 +3,10 @@ import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { canForkSession } from '@/lib/session-state';
-import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace-labels';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
 import type { ClioSessionActionsProps } from './session-actions';
-import { WorkspaceMark } from './workspace-mark';
+import { WorkspaceCrumbMark } from './workspace-mark';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
@@ -62,10 +61,7 @@ export function ClioSessionContextBar({
               title={`Open ${workspaceLabel}`}
               type="button"
             >
-              {/* Loose conversations have no workspace mark, as in the left bar. */}
-              {session && session.workspace_id !== DEFAULT_WORKSPACE_ID ? (
-                <WorkspaceMark id={session.workspace_id} />
-              ) : null}
+              {session ? <WorkspaceCrumbMark id={session.workspace_id} /> : null}
               <span className="truncate">{workspaceLabel}</span>
             </button>
             <ChevronRightIcon

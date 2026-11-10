@@ -70,6 +70,7 @@ export function GeneralSettings() {
         title="Transcript preview lines"
       >
         <SettingsNumberField
+          className="w-[8.5rem]"
           id="transcript-preview-lines"
           invalid={previewDirty && Boolean(previewError)}
           max={50}

@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
+import { MenuAcceleratorKey } from './primitives/menu-row';
 import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
@@ -85,19 +86,26 @@ export function FileModeTrigger({
  * active mode shows its check. The key is announced through `aria-keyshortcuts`,
  * not the row's name.
  */
-export function FileModeMenuItem({ mode }: { mode: FileMode }) {
+export function FileModeMenuItem({ mode, accelerator }: { mode: FileMode; accelerator?: string }) {
   const { value, label, icon: Icon, shortcut } = mode;
   const keys = useShortcutPresentation(shortcut);
   return (
-    <DropdownMenuRadioItem value={value} aria-keyshortcuts={keys?.aria} className="group/mode">
+    <DropdownMenuRadioItem
+      value={value}
+      aria-keyshortcuts={keys?.aria}
+      data-accelerator={accelerator || undefined}
+      className="group/mode"
+    >
       <Icon aria-hidden="true" />
       {label}
-      {keys ? (
-        <span
-          aria-hidden="true"
-          className="-mr-6 ml-auto pl-4 group-data-[state=checked]/mode:hidden"
-        >
-          <ShortcutKeys id={shortcut} variant="menu" />
+      {keys || accelerator ? (
+        <span className="ml-auto flex items-center pl-4 group-data-[state=unchecked]/mode:-mr-6">
+          {keys ? (
+            <span aria-hidden="true" className="group-data-[state=checked]/mode:hidden">
+              <ShortcutKeys id={shortcut} variant="menu" />
+            </span>
+          ) : null}
+          {accelerator ? <MenuAcceleratorKey letter={accelerator} /> : null}
         </span>
       ) : null}
     </DropdownMenuRadioItem>
