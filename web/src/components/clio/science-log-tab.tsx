@@ -357,15 +357,12 @@ export function ScienceLogView({
         what={
           mode === 'graph' && graph ? (
             <>
-              <span className="tabular-nums" data-frame-position="">
-                {count(graph.entryCount, 'entry', 'entries')}
-              </span>
+              <span className="tabular-nums">{count(graph.entryCount, 'entry', 'entries')}</span>
               <span className="tabular-nums">{count(graph.linkCount, 'link', 'links')}</span>
             </>
           ) : filter.kind === 'view' ? undefined : (
-            <span className="tabular-nums" data-frame-position="">
-              {count(shown.length, 'entry', 'entries')}
-            </span>
+            // A count, not a position: it folds before @ and Copy/Open (runs-attention/09).
+            <span className="tabular-nums">{count(shown.length, 'entry', 'entries')}</span>
           )
         }
         where={<FrameCrumbs parts={crumbs} />}
