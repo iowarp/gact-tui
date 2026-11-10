@@ -1,9 +1,8 @@
-import type { AsyncProcess, Run, SubagentRun, ToolInvocation } from '@clio/core/v3';
+import type { AsyncProcess, ToolInvocation } from '@clio/core/v3';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
 import { AppearanceProvider } from '../../src/providers/appearance-provider';
-import { ClioProcessLanes } from '../../src/components/clio/observability-processes';
 import {
   ClioActivityTimeline,
   type ObservabilityActivityItem,
@@ -31,23 +30,6 @@ const processes: AsyncProcess[] = names.map((title, index) => ({
   updated_at: at(ends[index]!),
   metadata: {},
 }));
-const subagents: SubagentRun[] = processes.map((process) => ({
-  id: process.id,
-  session_id: 'root',
-  child_session_id: process.child_session_id,
-  title: process.title,
-  state: 'completed',
-}));
-const runs: Run[] = [
-  {
-    id: 'run',
-    session_id: 'root',
-    state: 'completed',
-    started_at: at(0),
-    completed_at: at(180),
-    summary: 'Compare station availability and publish findings',
-  },
-];
 const tools: ToolInvocation[] = processes.flatMap((process, index) => [
   {
     id: `read-${index}`,
@@ -87,7 +69,6 @@ const tools: ToolInvocation[] = processes.flatMap((process, index) => [
 ]);
 
 function Review() {
-  const [view, setView] = useState('gantt');
   const [opened, setOpened] = useState('');
   const activity: ObservabilityActivityItem[] = processes.flatMap((process) => {
     const common = {
@@ -137,22 +118,8 @@ function Review() {
     <main className="p-3">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
         <h1>Synthetic multi-agent layout fixture · 4 child agents, 12 tool calls, 3 minutes</h1>
-        <nav aria-label="Observability view" className="flex gap-3">
-          <button onClick={() => setView('gantt')}>Gantt</button>
-          <button onClick={() => setView('timeline')}>Timeline</button>
-        </nav>
       </header>
-      {view === 'gantt' ? (
-        <ClioProcessLanes
-          processes={processes}
-          runs={runs}
-          tools={tools}
-          subagents={subagents}
-          onOpenSubagent={(child, target) => setOpened(`${child.title} · ${target}`)}
-        />
-      ) : (
-        <ClioActivityTimeline items={activity} messages={[]} />
-      )}
+      <ClioActivityTimeline items={activity} messages={[]} />
       <output aria-label="Opened event">{opened}</output>
     </main>
   );
