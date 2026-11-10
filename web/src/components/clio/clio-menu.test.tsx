@@ -153,14 +153,16 @@ it('copies the agent address and keeps the menu open', async () => {
   ).toBeVisible();
 });
 
-it('opens straight onto Talking to, with search only for many saved agents', async () => {
+it('opens with agent search, Talking to and the key footer', async () => {
   renderMenu([
     { endpoint: 'https://ares.iit.edu:8100', label: 'ares-genesis' },
     { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
   ]);
 
   expect(screen.getByText('Talking to')).toBeVisible();
-  expect(screen.queryByRole('searchbox', { name: 'Search agents' })).toBeNull();
+  expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+  expect(screen.getByText('move')).toBeVisible();
+  expect(screen.getByText('switch')).toBeVisible();
   expect(screen.getByRole('menuitem', { name: /^Infrastructure/u })).toHaveAttribute(
     'href',
     '/infrastructure',
@@ -172,10 +174,6 @@ it('filters saved agents as you type anywhere in the menu', async () => {
   renderMenu([
     { endpoint: 'https://ares.iit.edu:8100', label: 'ares-genesis' },
     { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
-    ...['b1', 'b2', 'b3', 'b4', 'b5'].map((name, index) => ({
-      endpoint: `http://10.0.5.${index + 1}:8100`,
-      label: `bench-${name}`,
-    })),
   ]);
 
   screen.getByRole('menuitem', { name: /Connection settings/u }).focus();

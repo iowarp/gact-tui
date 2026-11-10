@@ -27,7 +27,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
+import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
@@ -58,8 +60,11 @@ interface ClioMenuContentProps {
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
 }
 
-/** Search joins the menu only once the saved agents outgrow a glance. */
-const SEARCH_AFTER = 6;
+const MENU_HINTS = [
+  { id: 'menu-move', label: 'move' },
+  { id: 'menu-pick', label: 'switch' },
+  { id: 'menu-open', label: 'open' },
+] as const;
 
 /** A short state word for the 62px status column; the full sentence is on hover. */
 function availabilityStatus(
@@ -189,9 +194,8 @@ export function ClioMenuContent({
   const returnState = { endpoint, from: currentPath };
   const interfaceVersion = webBuildVersion();
   const needle = query.trim().toLowerCase();
-  const saved = connections.filter((connection) => connection.endpoint !== endpoint);
-  const searchable = saved.length > SEARCH_AFTER;
-  const others = saved
+  const others = connections
+    .filter((connection) => connection.endpoint !== endpoint)
     .map((connection) => ({
       connection,
       saved: agentIdentity(connection.endpoint, connection.label, connection.location),
@@ -241,7 +245,7 @@ export function ClioMenuContent({
         search.focus();
       }}
     >
-      {searchable && !adding ? (
+      {!adding ? (
         <label className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3.5 text-muted-foreground">
           <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />
           <input
@@ -390,9 +394,12 @@ export function ClioMenuContent({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
-          <InfrastructureItem returnState={returnState} />
         </div>
       )}
+      <div className="flex items-center border-t border-border/70 pr-1">
+        <MenuKeyHints className="min-w-0 flex-1 border-t-0 pl-3.5" hints={MENU_HINTS} />
+        <InfrastructureItem returnState={returnState} />
+      </div>
     </DropdownMenuContent>
   );
 }
@@ -463,20 +470,25 @@ function AddressFact({ address }: { address: string }) {
   );
 }
 
-/** Infrastructure, named with its key: the menu's way to hosts, services, models and storage. */
+/** The footer's Infrastructure icon: one menu item, named on hover with its key. */
 function InfrastructureItem({ returnState }: { returnState: { endpoint: string; from: string } }) {
   const shortcut = useShortcutPresentation('infrastructure');
   return (
-    <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
-      <Link aria-keyshortcuts={shortcut?.aria} state={returnState} to="/infrastructure">
-        <MenuRow
-          className="gap-[9px]"
-          icon={<ServerIcon />}
-          label="Infrastructure"
-          shortcut="infrastructure"
-        />
-      </Link>
-    </DropdownMenuItem>
+    <NamedTooltip label="Infrastructure" shortcut="infrastructure" side="top">
+      <DropdownMenuItem
+        asChild
+        className="size-6 min-h-0 justify-center rounded-[5px] p-0 text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
+      >
+        <Link
+          aria-keyshortcuts={shortcut?.aria}
+          aria-label="Infrastructure"
+          state={returnState}
+          to="/infrastructure"
+        >
+          <ServerIcon aria-hidden="true" />
+        </Link>
+      </DropdownMenuItem>
+    </NamedTooltip>
   );
 }
 
