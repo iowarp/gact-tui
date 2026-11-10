@@ -8,16 +8,25 @@ import {
 } from './notification-preferences-provider';
 
 function PreferenceProbe() {
-  const { attentionSound, desktopNotifications, setAttentionSound, setDesktopNotifications } =
-    useNotificationPreferences();
+  const {
+    attentionSound,
+    desktopNotifications,
+    finishedWork,
+    setAttentionSound,
+    setDesktopNotifications,
+    setFinishedWork,
+  } = useNotificationPreferences();
   return (
     <>
-      <output>{`${attentionSound}:${desktopNotifications}`}</output>
+      <output>{`${attentionSound}:${desktopNotifications}:${finishedWork}`}</output>
       <button onClick={() => setAttentionSound('always')} type="button">
         Always
       </button>
       <button onClick={() => setDesktopNotifications(true)} type="button">
         Desktop
+      </button>
+      <button onClick={() => setFinishedWork('off')} type="button">
+        Finished off
       </button>
     </>
   );
@@ -31,7 +40,7 @@ afterEach(() => {
 beforeEach(() => window.localStorage.clear());
 
 describe('notification preferences', () => {
-  it('persists configurable attention sound and desktop notification choices', async () => {
+  it('persists configurable attention sound, desktop notification and finished work choices', async () => {
     const user = userEvent.setup();
     render(
       <NotificationPreferencesProvider>
@@ -39,15 +48,35 @@ describe('notification preferences', () => {
       </NotificationPreferencesProvider>,
     );
 
-    expect(screen.getByText('off:false')).toBeVisible();
+    expect(screen.getByText('off:false:bell')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Always' }));
     await user.click(screen.getByRole('button', { name: 'Desktop' }));
+    await user.click(screen.getByRole('button', { name: 'Finished off' }));
 
-    expect(screen.getByText('always:true')).toBeVisible();
+    expect(screen.getByText('always:true:off')).toBeVisible();
     expect(JSON.parse(window.localStorage.getItem('clio.notifications.v1') ?? '{}')).toEqual({
       attentionSound: 'always',
       desktopNotifications: true,
+      finishedWork: 'off',
     });
+  });
+
+  it('reads an unknown stored finished work choice as the bell default', () => {
+    window.localStorage.setItem(
+      'clio.notifications.v1',
+      JSON.stringify({
+        attentionSound: 'always',
+        desktopNotifications: true,
+        finishedWork: 'loud',
+      }),
+    );
+    render(
+      <NotificationPreferencesProvider>
+        <PreferenceProbe />
+      </NotificationPreferencesProvider>,
+    );
+
+    expect(screen.getByText('always:true:bell')).toBeVisible();
   });
 
   it('writes localStorage once per change, not twice under StrictMode updater double-invocation', async () => {
