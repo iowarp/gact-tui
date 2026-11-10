@@ -44,6 +44,7 @@ import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { fitWorkbenchWidthTo } from './workbench-list-fit';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -438,6 +439,7 @@ export function ClioAppShell({
             onClick={toggleWorkbench}
             shortcut="right-pocket"
             aria-pressed={workbenchOpen}
+            {...tourAnchor('workbench-lists')}
           >
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>

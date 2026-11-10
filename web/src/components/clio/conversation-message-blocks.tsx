@@ -38,6 +38,7 @@ import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -121,6 +122,7 @@ export function DeferredA2UISurface({
     <div
       aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      {...tourAnchor('interactive-surface')}
       onFocusCapture={() => setHasInteracted(true)}
       onPointerDownCapture={() => setHasInteracted(true)}
       ref={hostRef}

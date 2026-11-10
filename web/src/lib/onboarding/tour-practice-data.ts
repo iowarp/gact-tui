@@ -1,0 +1,180 @@
+import type { A2UISurface, Artifact, Message, ToolInvocation } from '@clio/core/v3';
+import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import type { ClioConversationProps } from '@/components/clio/conversation-types';
+import { TOUR_PRACTICE_SESSION_ID as SESSION } from './tour-transport';
+
+/*
+ * The scripted practice conversation. Every id resolves to bundled sample data
+ * (`gallery-repository.ts`), so the real transcript, artifact card and A2UI
+ * components render it exactly as they would a live session.
+ */
+
+const SURFACE_ID = 'tour_storm_tracks';
+const PLOT_ARTIFACT = 'artifact_plot';
+const TRACKS = 'artifact://artifact_gallery_hurricane_tracks';
+const model = { provider_id: 'tour', model_id: 'practice' };
+const started = Date.parse('2026-10-01T09:00:00Z');
+const at = (seconds: number) => new Date(started + seconds * 1000).toISOString();
+
+const PLOT_SCRIPT = [
+  'import pandas as pd, matplotlib.pyplot as plt',
+  "gnss = pd.read_csv('data/BKL1.csv', parse_dates=['time'])",
+  "gnss.plot(x='days', y='up_mm', title='Vertical displacement, station BKL1')",
+  "plt.savefig('figures/bkl1-vertical.png', dpi=150)",
+].join('\n');
+
+function user(id: string, text: string, seconds: number): Message {
+  return {
+    id,
+    session_id: SESSION,
+    role: 'user',
+    created_at: at(seconds),
+    model,
+    blocks: [{ id: `${id}-text`, type: 'text', text }],
+  };
+}
+
+function assistant(id: string, seconds: number, blocks: Message['blocks']): Message {
+  return {
+    id,
+    run_id: `run_${id}`,
+    turn_id: `turn_${id}`,
+    session_id: SESSION,
+    role: 'assistant',
+    created_at: at(seconds),
+    model,
+    blocks,
+  };
+}
+
+const plotTool: ToolInvocation = {
+  id: 'tour_plot',
+  session_id: SESSION,
+  name: 'run_code',
+  title: 'Run script',
+  state: 'succeeded',
+  input: { path: 'scripts/plot_bkl1.py', language: 'python', code: PLOT_SCRIPT },
+  output: { exit_code: 0, stdout: 'Saved figures/bkl1-vertical.png' },
+  started_at: at(3),
+  completed_at: at(5),
+  duration_ms: 2100,
+  presentation: {
+    action: 'Run script',
+    subject: 'script',
+    summary: 'exit 0',
+    blocks: [
+      {
+        id: 'script',
+        type: 'link',
+        target: 'file',
+        uri: 'scripts/plot_bkl1.py',
+        label: 'plot_bkl1.py',
+      },
+      { id: 'code', type: 'code', language: 'python', text: PLOT_SCRIPT },
+      {
+        id: 'terminal',
+        type: 'terminal',
+        command: 'python scripts/plot_bkl1.py',
+        text: 'Saved figures/bkl1-vertical.png\n',
+        exit_code: 0,
+      },
+    ],
+  },
+};
+
+const plot: Artifact = {
+  id: PLOT_ARTIFACT,
+  session_id: SESSION,
+  workspace_id: 'tour',
+  name: 'bkl1-vertical.png',
+  media_type: 'image/png',
+  uri: `artifact://${PLOT_ARTIFACT}`,
+  size: 53953,
+  created_at: at(5),
+};
+
+const surface: A2UISurface = {
+  id: SURFACE_ID,
+  session_id: SESSION,
+  run_id: 'run_tracks',
+  message_id: 'tracks',
+  part_id: 'tour_tracks_part',
+  catalog_id: CLIO_WORKSPACE_CATALOG_ROW.catalogId,
+  protocol_version: '0.9.1',
+  revision: 1,
+  state: 'ready',
+  message_revisions: [1, 1],
+  messages: [
+    {
+      version: 'v0.9.1',
+      createSurface: { surfaceId: SURFACE_ID, catalogId: CLIO_WORKSPACE_CATALOG_ROW.catalogId },
+    },
+    {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: 'root', component: 'Column', children: ['map', 'table'] },
+          {
+            id: 'map',
+            component: 'clio.map.v1',
+            title: 'Atlantic hurricane tracks, 2017 and 2019',
+            dataUri: TRACKS,
+            latitudeField: 'lat',
+            longitudeField: 'lon',
+            labelField: 'label',
+            idField: 'observation_id',
+            trackField: 'storm',
+            orderField: 'time',
+            filterFields: ['storm', 'year', 'wind_kt'],
+            selection: { path: '/selection/tracks' },
+            selectionField: 'observation_id',
+          },
+          {
+            id: 'table',
+            component: 'clio.data-table.v1',
+            dataUri: TRACKS,
+            columns: ['storm', 'time', 'wind_kt', 'lat', 'lon'],
+            selection: { path: '/selection/tracks' },
+            selectionField: 'observation_id',
+          },
+        ],
+      },
+    },
+  ],
+} as A2UISurface;
+
+export function practiceConversation(): ClioConversationProps {
+  return {
+    sessionId: SESSION,
+    workspaceId: 'tour',
+    messages: [
+      user('plot', 'Plot the vertical displacement at station BKL1.', 0),
+      assistant('plot_reply', 2, [
+        { id: 'plot-tool', type: 'tool', tool_id: plotTool.id },
+        {
+          id: 'plot-text',
+          type: 'text',
+          channel: 'answer',
+          text: 'BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70.',
+        },
+        { id: 'plot-artifact', type: 'artifact', artifact_id: PLOT_ARTIFACT },
+      ]),
+      user('tracks', 'Show the 2017 and 2019 Atlantic hurricane tracks.', 30),
+      assistant('tracks_reply', 32, [
+        {
+          id: 'tracks-text',
+          type: 'text',
+          channel: 'answer',
+          text: 'Harvey, Maria and Dorian, 212 observations. The map and table share one selection.',
+        },
+        { id: 'tracks-surface', type: 'a2ui', surface_id: SURFACE_ID },
+      ]),
+    ],
+    tools: { [plotTool.id]: plotTool },
+    tasks: {},
+    subagents: {},
+    artifacts: { [plot.id]: plot },
+    surfaces: { [surface.id]: surface },
+  };
+}
