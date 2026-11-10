@@ -51,8 +51,16 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
 /**
  * The spec's waiting outcome: "waiting for you" on the asking row, which jumps
  * to the answer card below. The word is the row's state, so it never wraps.
+ * Before the call's interaction has loaded, the server's `pending` state alone
+ * says it; there is no card to jump to yet.
  */
-export function WaitingForYou({ interaction }: { interaction: PendingInteraction }) {
+export function WaitingForYou({ interaction }: { interaction?: PendingInteraction }) {
+  if (!interaction)
+    return (
+      <span className="text-warning" data-slot="activity-waiting">
+        waiting for you
+      </span>
+    );
   const label = interaction.prompt ?? interaction.title;
   const verb = interaction.kind === 'permission' ? 'Review below' : 'Answer below';
   return (

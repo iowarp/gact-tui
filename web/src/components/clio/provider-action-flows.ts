@@ -64,9 +64,11 @@ export function providerActionStageFlow(
 /**
  * A running stage as one short word for a provider row ("Verifying…",
  * "Loading models…"): the title of the step it belongs to. The plain
- * checks come first so "Checking…" stays "Checking…".
+ * checks come first so "Checking…" stays "Checking…". A queued install keeps
+ * its own word: it has not started installing yet.
  */
 export function providerActionStageWord(stage: string): string {
+  if (stage === 'Waiting to install…') return stage;
   for (const flow of ['check', 'sign_in', 'install', 'api_key'] as const) {
     const step = providerActionStep(flow, stage as ProviderActionStage);
     if (step) return `${FLOW_STEPS[flow][step - 1].title}…`;

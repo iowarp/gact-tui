@@ -31,6 +31,8 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   );
   if (thinking && !activeOperation) return { label: 'Thinking', running: true, failed: 0 };
   const toolLabel = (tool: ToolInvocation) => {
+    // The server holds a call as `pending` while it waits on the person's answer.
+    if (tool.state === 'pending') return 'waiting for you';
     const active = ['pending', 'running'].includes(tool.state);
     if (tool.name === 'ask_user')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';
