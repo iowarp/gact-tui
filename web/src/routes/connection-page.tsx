@@ -64,6 +64,8 @@ import {
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { historyIndex, settingsCloseStep } from '@/lib/settings-window-route';
 import { cn } from '@/lib/utils';
 
 /** The spec's row glyphs: this computer, a CLIO reached over SSH, or a service by address. */
@@ -96,7 +98,7 @@ function knownCandidate(connection: KnownConnection): ConnectionSettings {
   };
 }
 
-export function ConnectionPage() {
+export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } = {}) {
   const searchOpen = useCommandMenuVisibility((state) => state.open);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -130,12 +132,10 @@ export function ConnectionPage() {
   const [selectedEndpoint, setSelectedEndpoint] = useState(
     initialKnownConnection?.endpoint ?? settings.endpoint,
   );
-  const [endpointDraft, setEndpointDraft] = useState(
-    initialKnownConnection ? defaultEndpoint() : settings.endpoint,
-  );
-  const [serviceNameDraft, setServiceNameDraft] = useState(
-    initialKnownConnection ? '' : (settings.label ?? ''),
-  );
+  // Empty, under the example placeholder: the page's own origin or a default
+  // port is not an address the person chose (spec connect-infrastructure 04).
+  const [endpointDraft, setEndpointDraft] = useState('');
+  const [serviceNameDraft, setServiceNameDraft] = useState('');
   const [token, setToken] = useState('');
   const [deployOpen, setDeployOpen] = useState(inTauri() && requestedMode === 'deploy');
   // The CLIO menu links here while the page may already be open, so a new
@@ -380,6 +380,10 @@ export function ConnectionPage() {
     setManualModeRequested(false);
     mutation.reset();
   };
+  // Over the app, × and Esc close the dialog. Cancel returns to the list only when
+  // the list led to the form; opened as Connect by address, it closes too.
+  const cancelManual = dialog && requestedMode === 'address' ? dialog.onClose : backToKnown;
+  const showCancel = canCancelManual || (dialog !== undefined && showManualForm);
   // In the list, progress shows only in the connecting row; the manual form has no row.
   const submitLabel = showManualForm
     ? mutation.isPending
@@ -404,15 +408,15 @@ export function ConnectionPage() {
     mutation.mutate(knownCandidate(connection));
   };
 
-  return (
-    <main className="relative h-full min-h-0 overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto flex min-h-full w-full max-w-[492px] flex-col justify-center gap-4 px-4 py-14">
-        <p className="flex items-center gap-2 font-heading text-[15px] font-semibold">
-          <BrandIcon className="size-[22px] shrink-0 text-primary" />
-          {brand.name}
-        </p>
+  const frame = (
         <ConnectFrame
-          closeLabel="Back to the agent list"
+          className={
+            dialog
+              ? 'max-h-[calc(100dvh-2rem)] w-full overflow-y-auto max-[599px]:max-h-[85dvh] max-[599px]:rounded-t-[14px] max-[599px]:rounded-b-none max-[599px]:border-x-0 max-[599px]:border-b-0'
+              : undefined
+          }
+          closeLabel={dialog ? 'Close' : 'Back to the agent list'}
+          dialog={dialog !== undefined}
           footer={
             emptyService ? undefined : (
               <>
@@ -427,10 +431,10 @@ export function ConnectionPage() {
                   </Button>
                 ) : null}
                 <span className="flex-1" />
-                {canCancelManual ? (
+                {showCancel ? (
                   <Button
                     className={buttonClass}
-                    onClick={backToKnown}
+                    onClick={cancelManual}
                     type="button"
                     variant="ghost"
                   >
@@ -461,7 +465,7 @@ export function ConnectionPage() {
             )
           }
           icon={showManualForm ? <GlobeIcon /> : <ServerIcon />}
-          onClose={canCancelManual ? backToKnown : undefined}
+          onClose={dialog ? dialog.onClose : canCancelManual ? backToKnown : undefined}
           title={
             emptyService
               ? `Open ${brand.name}`
@@ -635,7 +639,7 @@ export function ConnectionPage() {
                     onClick={() => {
                       attemptGeneration.current += 1;
                       setManualModeRequested(true);
-                      setEndpointDraft(defaultEndpoint());
+                      setEndpointDraft('');
                       setServiceNameDraft('');
                       setToken('');
                       mutation.reset();
@@ -705,9 +709,58 @@ export function ConnectionPage() {
             </form>
           )}
         </ConnectFrame>
+  );
+
+  if (dialog) {
+    return (
+      <Dialog open onOpenChange={(open) => (open ? undefined : dialog.onClose())}>
+        <DialogContent
+          aria-describedby={undefined}
+          className="top-1/2 w-[460px] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 overflow-visible rounded-[12px] bg-transparent p-0 ring-0 sm:max-w-[calc(100%-2rem)] max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-b-none"
+          showCloseButton={false}
+          // Start in the content (the address field or the first agent), not on
+          // the close button, so Esc closes the dialog on the first press.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            const content = event.currentTarget as HTMLElement;
+            const first = [
+              ...content.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]'),
+            ].find((element) => element.getAttribute('aria-label') !== 'Close');
+            first?.focus();
+          }}
+        >
+          {frame}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <main className="relative h-full min-h-0 overflow-y-auto bg-background text-foreground">
+      <div className="mx-auto flex min-h-full w-full max-w-[492px] flex-col justify-center gap-4 px-4 py-14">
+        <p className="flex items-center gap-2 font-heading text-[15px] font-semibold">
+          <BrandIcon className="size-[22px] shrink-0 text-primary" />
+          {brand.name}
+        </p>
+        {frame}
       </div>
     </main>
   );
+}
+
+/**
+ * Connect by address, Manage agents and the other in-app ways in, as a dialog
+ * over the page they were opened from. Closing returns to that page.
+ */
+export function ConnectionDialog({ background }: { background: string }) {
+  const navigate = useNavigate();
+  const [openedAt] = useState(historyIndex);
+  const close = () => {
+    const step = settingsCloseStep(openedAt, historyIndex());
+    if (step !== undefined) void navigate(step);
+    else void navigate(background, { replace: true });
+  };
+  return <ConnectionPage dialog={{ onClose: close }} />;
 }
 
 const buttonClass = 'h-[30px] rounded-[6px] px-3 text-[12.5px] font-medium';
