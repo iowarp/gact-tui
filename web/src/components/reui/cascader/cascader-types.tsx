@@ -46,7 +46,9 @@ export type CascaderSearchScope = 'level' | 'deep';
  */
 export type CascaderSelectable<T = unknown> = 'leaf' | 'any' | ((node: CascaderNode<T>) => boolean);
 
-export type CascaderChangeReason = 'select' | 'deselect' | 'clear';
+/** `reselect`: a single-select press (click or Enter) on the row already chosen;
+ *  the value is unchanged, but the person still made the choice. */
+export type CascaderChangeReason = 'select' | 'deselect' | 'clear' | 'reselect';
 
 /** Second argument to `onValueChange`: resolved nodes, so no re-lookup. */
 export interface CascaderChangeDetails<T = unknown> {

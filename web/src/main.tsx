@@ -7,8 +7,10 @@ import { RouteErrorBoundary } from '@/components/clio/route-error-boundary';
 import { RevealDesktopWindow } from '@/components/clio/reveal-desktop-window';
 import { removeLegacyCredentialStorage } from '@/lib/legacy-credential-storage';
 import { holdModalBodyPointerEvents } from '@/components/ui/overlay-container';
+import { wrapOptionTabInModals } from '@/components/ui/modal-focus';
 
 holdModalBodyPointerEvents();
+wrapOptionTabInModals();
 
 try {
   removeLegacyCredentialStorage(window.localStorage);
