@@ -29,7 +29,7 @@ import { IconButton } from './primitives/icon-button';
 import { ModelSelectField } from './model-select-field';
 import { StateView } from './primitives/state-view';
 import { SettingsRow } from './settings-row';
-import { ReasoningLevelField } from './reasoning-level-field';
+import { ReasoningLevelSegmented } from './reasoning-level-segmented';
 import { sessionDefaultsPatch } from './session-defaults-patch';
 import { SettingsSectionHeading } from './settings-section-heading';
 import {
@@ -223,19 +223,23 @@ export function SessionDefaultsSettings() {
             ) : null}
           </div>
         </SettingsRow>
-        <ReasoningLevelField
-          allowModelDefault
-          info={
-            form.effort === 'unknown'
-              ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
-              : 'The starting thinking depth for new sessions. You can change it again from the composer.'
-          }
-          id="session-default-effort"
-          layout="row"
-          onChange={(effort) => update('effort', effort)}
-          reasoning={reasoning}
-          value={form.effort}
-        />
+        {reasoning?.levels.length ? (
+          <SettingsRow
+            info={
+              form.effort === 'unknown'
+                ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
+                : 'The starting thinking depth for new sessions. You can change it again from the composer.'
+            }
+            title="Reasoning effort"
+            wideControl
+          >
+            <ReasoningLevelSegmented
+              onChange={(effort) => update('effort', effort || undefined)}
+              reasoning={reasoning}
+              value={form.effort && form.effort !== 'unknown' ? form.effort : ''}
+            />
+          </SettingsRow>
+        ) : null}
         <SettingsRow
           htmlFor="session-default-agent"
           title="Agent"

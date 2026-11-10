@@ -244,7 +244,12 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className={cn('min-w-0 truncate', Icon && iconOnly && 'sr-only')}>{name}</span>
+          {/* Folded to icons, the selected choice still names itself. */}
+          <span
+            className={cn('min-w-0 truncate', Icon && iconOnly && value !== option && 'sr-only')}
+          >
+            {name}
+          </span>
         </Label>
       ))}
     </RadioGroup>
