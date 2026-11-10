@@ -171,7 +171,7 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   if (activityView !== 'events')
     return (
       <>
-        <WorkbenchListHeader actions={switcher} title={title} />
+        <WorkbenchListHeader actions={switcher} title={title} titleYieldsWhenNarrow />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-slot="activity-session">
           <ObservabilityViewControl.Provider
             value={{
@@ -284,18 +284,29 @@ export function WorkbenchListHeader({
   title,
   actions,
   onHide,
+  titleYieldsWhenNarrow = false,
 }: {
   title: string;
   actions?: ReactNode;
   /** Absent for a list in a tab: its tab closes it. */
   onHide?: () => void;
+  /**
+   * In a narrow header the title (which repeats its tab's name) leaves room
+   * for the actions instead of being cut to a letter; it stays for screen readers.
+   */
+  titleYieldsWhenNarrow?: boolean;
 }) {
   return (
     <div
       data-slot="workbench-list-header"
       className="group/list-header @container/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
     >
-      <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
+      <h2
+        className={cn(
+          'min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground',
+          titleYieldsWhenNarrow && '@max-[360px]/list-header:sr-only',
+        )}
+      >
         {title}
       </h2>
       {actions}
