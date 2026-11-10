@@ -1316,6 +1316,15 @@ function catalogue({ settings, infrastructure }) {
           await phoneTabBody(page, 'Outline');
         },
       ],
+      [
+        'latex-maximized',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, ['Overfull hbox', 'SMAP L3 soil moisture']);
+          await press(page, 'button', 'Maximize canvas');
+          await page.waitForTimeout(800);
+        },
+      ],
       // Jupyter notebooks read as cells; Source keeps the JSON as written.
       ['notebook', (page) => openFile(page, 'analysis/opal-gnss.ipynb')],
       [

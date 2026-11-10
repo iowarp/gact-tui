@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, useMemo, type RefObject } from 'react';
 import type { FileMode } from './file-mode-controls';
 
 /** A renderer's own representations, lifted into the frame's one segment. */
@@ -27,6 +27,28 @@ export const FileViewerModeSlotContext = createContext<FileViewerModeSlot | unde
 /** The renderer mode that shows the bytes as text. */
 export const isSourceMode = (mode: Pick<FileMode, 'value'>) =>
   mode.value === 'source' || mode.value === 'raw';
+
+/**
+ * Where a frame's tab keys (⇧V, ⇧L, C) answer: the whole pocket showing it, so
+ * they also work with focus on its tab or the strip, but only while it shows.
+ * Elsewhere (a file card in the conversation) only the frame itself.
+ */
+export function frameKeyRegion(frame: Element | null): Element | null {
+  if (!frame?.isConnected || !frame.getClientRects().length) return null;
+  return frame.closest('[data-workbench-pocket]') ?? frame;
+}
+
+/** `frameKeyRegion` as the ref a shortcut's `region` takes, read at key time. */
+export function useFrameKeyRegion(frame: RefObject<Element | null>): RefObject<Element | null> {
+  return useMemo(
+    () => ({
+      get current() {
+        return frameKeyRegion(frame.current);
+      },
+    }),
+    [frame],
+  );
+}
 
 /**
  * Switching unmounts the old body, and focus with it. Keep it in the frame,

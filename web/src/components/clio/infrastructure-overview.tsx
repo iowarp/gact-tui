@@ -24,6 +24,7 @@ import { agentIdentity } from './connection-names';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { InfrastructureTopology } from './infrastructure-topology';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import type { StatusTone } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
@@ -288,7 +289,10 @@ function webResearchRow(
     const name = infrastructureServiceName(builtIn.service_id);
     return {
       description: `Built-in search engine: ${name}`,
-      meta: data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
+      meta:
+        builtIn.target_id === 'local'
+          ? AGENT_COMPUTER
+          : data.targets.find((target) => target.id === builtIn.target_id)?.label || 'Local',
       reason: status.reason,
       action:
         status.action === 'install'

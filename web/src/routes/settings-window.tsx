@@ -6,9 +6,11 @@ import { StateView } from '@/components/clio/primitives/state-view';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
   SettingsNavigation,
+  SettingsQueryField,
   SettingsSearchButton,
   SettingsSectionPicker,
 } from '@/components/clio/settings-navigation';
+import { SettingsResults } from '@/components/clio/settings-results';
 import { useRepository } from '@/hooks/use-repository';
 import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
 import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
@@ -26,6 +28,7 @@ import {
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
 import { settingFromHash } from '@/lib/settings-search-rows';
+import { settingsSearchResults } from '@/lib/settings-search-results';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   returnRouteFromState,
@@ -78,7 +81,14 @@ export function SettingsWindow() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const background = settingsBackgroundRoute(location, settings.endpoint);
   const [searchParams] = useSearchParams();
+  // `?q=` is the filtered window (Ctrl ? from the global search): its field stays
+  // while the query is edited, even empty, until Esc clears it.
+  const searching = searchParams.has('q');
   const filter = searchParams.get('q') ?? '';
+  const results = settingsSearchResults(destinations, filter);
+  const showResults = searching && Boolean(filter.trim());
+  // Clearing the field hands focus to the search button, so a second Esc closes.
+  const [cleared, setCleared] = useState(false);
   // Without the workspace behind the window, section links keep it detached:
   // a remembered route can be stale and must not mount under Settings.
   const linkState = background
@@ -105,15 +115,15 @@ export function SettingsWindow() {
     place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
   };
   useEffect(() => {
-    if (!sectionsLoaded) return;
+    if (!sectionsLoaded || showResults) return;
     const anchor = destination?.host
       ? content.current?.querySelector(`[data-settings-anchor="${section}"]`)
       : undefined;
     if (anchor) anchor.scrollIntoView({ block: 'start' });
     else content.current?.scrollTo({ left: 0, top: 0 });
-  }, [section, destination?.host, sectionsLoaded]);
+  }, [section, destination?.host, sectionsLoaded, showResults]);
   useEffect(() => {
-    if (!fromSearch || !sectionsLoaded) return;
+    if (!fromSearch || !sectionsLoaded || showResults) return;
     const setting = settingFromHash(location.hash);
     let target: Element | null | undefined;
     let done: number | undefined;
@@ -159,10 +169,30 @@ export function SettingsWindow() {
       window.clearTimeout(done);
       target?.classList.remove('clio-search-arrival');
     };
-  }, [fromSearch, section, destination?.host, location.key, location.hash, sectionsLoaded]);
+  }, [
+    fromSearch,
+    section,
+    destination?.host,
+    location.key,
+    location.hash,
+    sectionsLoaded,
+    showResults,
+  ]);
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
+  const setQuery = (query: string) =>
+    void navigate(
+      { pathname: location.pathname, search: `?q=${encodeURIComponent(query)}` },
+      { replace: true, state: withoutSearchArrival(location.state) },
+    );
+  const clearQuery = () => {
+    setCleared(true);
+    void navigate(
+      { pathname: location.pathname, hash: location.hash },
+      { replace: true, state: withoutSearchArrival(location.state) },
+    );
+  };
   const navigation = {
     sections: destinations,
     section,
@@ -170,13 +200,17 @@ export function SettingsWindow() {
     scopeLabels,
     badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
     unavailable,
-    filter,
-    onClearFilter: () =>
-      void navigate(
-        { pathname: location.pathname, hash: location.hash },
-        { replace: true, state: withoutSearchArrival(location.state) },
-      ),
+    counts: showResults ? results.counts : undefined,
+    onClearFilter: clearQuery,
   };
+  const page = (id: string) => (
+    <SettingsSection
+      key={connectionScope(settings)}
+      section={id}
+      sessionId={sessionId}
+      workspaceId={workspaceId}
+    />
+  );
   return (
     <WindowShell
       className="h-[min(calc(100dvh-2rem),60rem)] w-[min(calc(100vw-2rem),82rem)] min-[1024px]:h-[min(88dvh,60rem)] min-[1024px]:w-[min(88vw,82rem)]"
@@ -193,19 +227,38 @@ export function SettingsWindow() {
       open
       picker={<SettingsSectionPicker {...navigation} />}
       rail={<SettingsNavRail {...navigation} />}
-      search={<SettingsSearchButton />}
+      search={
+        searching ? (
+          <SettingsQueryField
+            count={results.total}
+            onChange={setQuery}
+            onClear={clearQuery}
+            query={filter}
+          />
+        ) : (
+          <SettingsSearchButton autoFocus={cleared} />
+        )
+      }
       title="Settings"
     >
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>
             <Suspense fallback={<SectionsLoading />}>
-              <SettingsSection
-                key={connectionScope(settings)}
-                section={section}
-                sessionId={sessionId}
-                workspaceId={workspaceId}
-              />
+              {showResults ? (
+                <SettingsResults
+                  onClear={clearQuery}
+                  onOpen={(id) =>
+                    void navigate(`/settings/${id}`, { replace: true, state: linkState })
+                  }
+                  query={filter}
+                  renderSection={page}
+                  results={results}
+                  scopeLabels={scopeLabels}
+                />
+              ) : (
+                page(section)
+              )}
               {sectionsLoaded ? null : <SectionsLoaded onLoaded={markSectionsLoaded} />}
             </Suspense>
           </SettingsScopeContext.Provider>

@@ -366,9 +366,14 @@ export function WorkbenchTabRow({
                 })}
               </TabsList>
             </Sortable>
-            {/* At the strip's visible end, so it never hides the active tab's name. */}
+            {/* On the active tab's bottom edge, between its name and the frame bar's icons. */}
             {tabs.length > 1 ? (
-              <HeldKeyBadge id="previous-tab" pairId="next-tab" side="inside-end" />
+              <HeldKeyBadge
+                anchor={activeTabRef}
+                id="previous-tab"
+                pairId="next-tab"
+                side="bottom-edge"
+              />
             ) : null}
           </div>
         </ContextMenuTrigger>
