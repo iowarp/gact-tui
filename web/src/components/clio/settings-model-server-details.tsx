@@ -110,6 +110,8 @@ export function ModelServerDetails({
 
   return (
     <DetailPane
+      // The pane sits on the settings surface, not on the app background.
+      className="bg-transparent"
       actions={
         <>
           {!isDefault && status.kind === 'running' ? (
