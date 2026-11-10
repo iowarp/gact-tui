@@ -385,7 +385,9 @@ export function ClioComposer({
         first && rest.length === 0
           ? `${first} is too large`
           : `${error.files?.length ?? 'Some'} files are too large`,
-        { description: `Files up to ${formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES)} can be attached.` },
+        {
+          description: `Files up to ${formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES)} can be attached.`,
+        },
       );
       return;
     }

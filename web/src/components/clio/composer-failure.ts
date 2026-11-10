@@ -14,7 +14,8 @@ export function composerFailureReason(error: unknown, fallback: string): string 
     if (error.code === 'network_unavailable') return "The service can't be reached.";
     if (error.status && error.status >= 500) return 'The service hit an error.';
   }
-  const message = error instanceof Error ? error.message.trim() : typeof error === 'string' ? error.trim() : '';
+  const message =
+    error instanceof Error ? error.message.trim() : typeof error === 'string' ? error.trim() : '';
   return humanFailureText(message) ?? fallback;
 }
 
