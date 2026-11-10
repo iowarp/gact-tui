@@ -1,3 +1,11 @@
+import type { SourceMode } from '@clio/core/v3';
+
+export const sourceModeNames: Record<SourceMode, string> = {
+  read_only: 'Read only',
+  working_copy: 'Editable download',
+  write_enabled: 'Read and write link',
+};
+
 export type LinkAccess = 'read_only' | 'publish_later' | 'write_through';
 export type DownloadAccess = 'read_only' | 'editable';
 

@@ -81,6 +81,7 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
             </TooltipProvider>
           </div>
           <ResultDialogContent
+            icon={<InfoIcon />}
             title="Parent assignment: Technical details"
             description="The parent's original assignment."
           >
