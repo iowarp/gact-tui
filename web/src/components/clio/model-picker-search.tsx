@@ -227,7 +227,7 @@ export function ModelPickerSearch({
             <input
               id={inputId}
               aria-label={label}
-              className="h-7 w-full min-w-[4.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"
+              className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"
               placeholder={label}
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
