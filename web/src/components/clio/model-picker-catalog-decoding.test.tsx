@@ -39,6 +39,8 @@ const { repository } = vi.hoisted(() => ({
     providerHandshake: vi.fn(),
     refreshProviderModels: vi.fn(),
     installProviderSupport: vi.fn(),
+    startProviderInstall: vi.fn(),
+    providerInstallJobs: vi.fn().mockResolvedValue([]),
     authenticateProvider: vi.fn(),
     completeProviderAuthentication: vi.fn(),
     providerAuthStatus: vi.fn(),

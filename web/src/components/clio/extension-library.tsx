@@ -17,6 +17,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import {
   copyAddress,
   copyReference,
+  defaultAdd,
   EXTENSION_TYPE_LABELS,
   extensionEntries,
   LOCAL_MARKETPLACE,
@@ -26,6 +27,7 @@ import {
 import { DeleteIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { serviceTarget } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
+import { newItemKey } from '@/lib/settings-row-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
@@ -404,6 +406,9 @@ function ExtensionLibraryContents({
           key={entry.key}
           meta={entry.meta}
           name={marketplace.name}
+          onDelete={
+            !marketplace.default && !local ? () => manager.requestUninstall(marketplace) : undefined
+          }
           onExplore={() => open(target)}
           selected={isOpen(target)}
           slot={
@@ -455,6 +460,7 @@ function ExtensionLibraryContents({
         key={entry.key}
         meta={entry.meta}
         name={entry.title}
+        onDelete={entry.saved ? () => setAskingRemove(entry.key) : undefined}
         onExplore={() => open(target)}
         selected={isOpen(target)}
         aligned
@@ -663,7 +669,14 @@ function ExtensionLibraryContents({
   );
 
   const list = (
-    <div className="@container/ext min-w-0 pt-4 pr-5 pb-17 sm:pr-7">
+    <div
+      className="@container/ext min-w-0 pt-4 pr-5 pb-17 sm:pr-7"
+      onKeyDown={newItemKey(
+        supported === true
+          ? () => (type === 'marketplaces' ? manager.openInstall() : setAdding(defaultAdd(type)))
+          : undefined,
+      )}
+    >
       <SettingsSectionHeading
         description="Plugins, marketplaces, MCP connections and skills for your agents."
         title="Extensions"

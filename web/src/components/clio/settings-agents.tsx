@@ -7,6 +7,8 @@ import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { queryKeys } from '@/lib/query-keys';
+import { newItemKey } from '@/lib/settings-row-keys';
+import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentPreviewPane, AgentRow } from './agent-library-row';
 import { ListDetailLayout } from './primitives/detail-pane';
@@ -100,7 +102,11 @@ export function AgentSettings() {
       slot={
         agent.ref === defaultRef ? (
           <Tag
-            className="h-[22px] rounded-[7px] bg-hover px-2 text-xs font-normal text-foreground"
+            className={cn(
+              'h-[22px] rounded-[7px] bg-hover px-2 text-xs font-normal text-foreground',
+              // The selected row's fill matches the chip's; an edge keeps it a chip.
+              agent.ref === previewRef && 'border border-input bg-background',
+            )}
             tone="chip"
             width="auto"
           >
@@ -111,7 +117,7 @@ export function AgentSettings() {
     />
   );
   const list = (
-    <div className="min-w-0">
+    <div className="min-w-0" onKeyDown={newItemKey(newAgent)}>
       <SettingsGroupLabel className="mt-2">Installed agents</SettingsGroupLabel>
       <ItemList label="Installed agents">
         {agents.isPending ? (
