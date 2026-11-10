@@ -94,7 +94,7 @@ Do not run `Reset-ClioDev.ps1`, create a generation, clone repositories, synchro
 .\scripts\Test-ClioDevPreflight.ps1
 ```
 
-Preserved installations may need to rehydrate large session ledgers on the first health request after restart. The startup and preflight health checks share a bounded 300-second readiness budget so valid stored sessions are not deleted or misclassified as a dead backend.
+Preserved installations may need to rehydrate large session ledgers on the first health request after restart. The startup and preflight health checks share a bounded 300-second readiness budget so valid stored sessions are not deleted or misclassified as a dead backend. The preflight polls health within that budget rather than sampling it once, and a failure lists the integrations that were not ready. The document processor's `/readyz` answers 503 overall whenever the optional SearXNG or GROBID services are absent; the preflight judges its `checks.docling` value, as startup does, rather than the HTTP status.
 
 Containment fails when generated paths escape the owned root or a legacy runtime root exists. Live preflight fails when:
 

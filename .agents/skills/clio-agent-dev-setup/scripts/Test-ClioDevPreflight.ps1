@@ -75,7 +75,16 @@ function Get-OneListenerPid {
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
 $documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
-$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
+# Health reports the document processor as degraded while a restarted Docling
+# worker warms again, so wait within the health budget instead of sampling once.
+$healthDeadline = [DateTime]::UtcNow.AddSeconds($HealthTimeoutSec)
+do {
+    $health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
+    if (Test-ClioDevHealthReady -Health $health) {
+        break
+    }
+    Start-Sleep -Seconds 3
+} while ([DateTime]::UtcNow -lt $healthDeadline)
 $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
@@ -140,7 +149,12 @@ $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
 if (-not (Test-ClioDevHealthReady -Health $health)) {
-    throw "CLIO health is '$($health.overall_status)', not ready."
+    $blocking = @(
+        $health.integrations |
+            Where-Object { $_.status -ne "ready" } |
+            ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 4 }
+    ) -join ", "
+    throw "CLIO health is '$($health.overall_status)', not ready. Integrations: $blocking"
 }
 # Bundled agents, SPOTTER and the default marketplace serve particular campaigns.
 # A fresh generation without them still runs CLIO sessions, so report them as
@@ -208,7 +222,9 @@ if ($resourceDegradations.Count -gt 0) {
 }
 $activeDocumentProcessorUrl = ([string]$configuredDocumentProcessor.endpoint).TrimEnd("/")
 # Docling's worker can briefly report loading again while the backend's first
-# conversions warm it. Give it a bounded window before failing.
+# conversions warm it. Give it a bounded window before failing. /readyz answers
+# 503 overall whenever the optional SearXNG or GROBID services are absent, so
+# judge the Docling check itself, as startup does.
 $activeDocumentProcessorDeadline = [DateTime]::UtcNow.AddSeconds(180)
 do {
     try {
@@ -216,10 +232,7 @@ do {
             -Uri "$activeDocumentProcessorUrl/readyz" `
             -TimeoutSec 30
         $activeDocumentProcessorHealth = $activeDocumentProcessorResponse.Content | ConvertFrom-Json
-        $activeDocumentProcessorReady = (
-            $activeDocumentProcessorResponse.StatusCode -eq 200 -and
-            $activeDocumentProcessorHealth.checks.docling -eq "ready"
-        )
+        $activeDocumentProcessorReady = $activeDocumentProcessorHealth.checks.docling -eq "ready"
     }
     catch {
         $activeDocumentProcessorReady = $false
