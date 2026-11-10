@@ -1,4 +1,5 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
+import { interactionAnswerLabels } from './agent-answer-domain';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -35,6 +36,22 @@ export function withQuestionPresentation(
   interactions: readonly PendingInteraction[] = [],
 ): ToolInvocation {
   const rows = questions(tool);
+  if (rows.length && tool.state === 'failed') {
+    // A rejected ask names the question it tried, not the transport's "Task".
+    const prompt = String(rows[0]!.question);
+    const kept = (tool.presentation?.blocks ?? []).filter((block) => block.severity === 'error');
+    return {
+      ...tool,
+      presentation: {
+        ...tool.presentation,
+        status: tool.presentation?.status ?? 'failed',
+        action: 'Ask you',
+        subject: 'question-subject',
+        summary: '',
+        blocks: [{ id: 'question-subject', type: 'text', text: prompt }, ...kept],
+      },
+    };
+  }
   if (!rows.length || ['failed', 'denied', 'cancelled', 'unknown'].includes(tool.state))
     return tool;
   const blocks: ToolPresentationBlock[] = rows.flatMap((question, index) => {
@@ -88,6 +105,13 @@ export function withQuestionPresentation(
   const outer = record(output);
   const receipt = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
   const interaction = interactions.find((row) => row.task_id === receipt?.handle);
+  // Once answered, the ask folds into the spec's decision row: "Answered · 2020–2023".
+  const answers =
+    receipt?.kind === 'Question' && receipt.accepted === true
+      ? interactions
+          .filter((row) => row.task_id === receipt.handle && row.status === 'answered')
+          .flatMap(interactionAnswerLabels)
+      : [];
   if (receipt?.kind === 'Question' && receipt.accepted === true) {
     const status = interaction?.status;
     blocks.push({
@@ -98,7 +122,7 @@ export function withQuestionPresentation(
         status === 'pending'
           ? 'Waiting for your answer'
           : status === 'answered'
-            ? 'Answered'
+            ? answers.join(', ') || 'Answered'
             : status === 'cancelled'
               ? 'Cancelled'
               : status === 'expired'
@@ -106,13 +130,17 @@ export function withQuestionPresentation(
                 : 'Answer requested at this step',
     });
   }
+  if (answers.length)
+    blocks.unshift({ id: 'question-answer', type: 'text', text: answers.join(', ') });
   return {
     ...tool,
     presentation: {
       ...tool.presentation,
-      action: 'Ask you',
-      subject: undefined,
-      summary: `${rows.length} ${rows.length === 1 ? 'question' : 'questions'}`,
+      action: answers.length ? 'Answered' : 'Ask you',
+      subject: answers.length ? 'question-answer' : undefined,
+      summary: answers.length
+        ? ''
+        : `${rows.length} ${rows.length === 1 ? 'question' : 'questions'}`,
       blocks,
     },
   };

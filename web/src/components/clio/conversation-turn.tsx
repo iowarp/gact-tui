@@ -27,6 +27,7 @@ import {
   permissionInteractionForTool,
   questionInteractionsForTool,
   splitWaitingQuestion,
+  withPermissionDecision,
 } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
@@ -440,8 +441,13 @@ function ActivityLane({
     </Button>
   ) : null;
   const run = collapses
-    ? transcriptRunSummary(head, (tool) =>
-        subagentsForTool(tool, subagents).map((subagent) => subagent.id),
+    ? transcriptRunSummary(
+        head.map((item) => ({
+          ...item,
+          // A call the person refused is counted as denied, not failed.
+          tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
+        })),
+        (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
       )
     : undefined;
   return (

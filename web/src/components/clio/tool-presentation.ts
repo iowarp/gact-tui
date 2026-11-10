@@ -58,7 +58,8 @@ const TASK_OPERATIONS: Record<string, string> = {
 
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
-  if (tool.name === 'ask_user') return 'Ask you';
+  if (tool.name === 'ask_user')
+    return tool.presentation?.action === 'Answered' ? 'Answered' : 'Ask you';
   if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
   if (isA2uiCatalogLookup(tool)) return 'Inspect widget catalog';
   let action = tool.presentation?.action || tool.title || tool.name;
