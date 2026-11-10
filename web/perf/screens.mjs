@@ -225,12 +225,23 @@ async function tabOnly(page, stripName, tabListTitle) {
   await page.waitForTimeout(800);
 }
 
+/** On a phone the pane holds the tab's list or its body; show the body. */
+async function phoneTabBody(page, listTitle) {
+  if ((page.viewportSize()?.width ?? 1280) > 480) return;
+  const hide = control(page, 'button', `Hide ${listTitle}`, { exact: true });
+  if (await hide.isVisible().catch(() => false)) {
+    await hide.dispatchEvent('click');
+    await page.waitForTimeout(600);
+  }
+}
+
 /** Open the study's science log from the workbench strip. */
 async function openScienceLog(page) {
   await stripList(page, 'Science log');
   // A list left open on the strip covers the study's own; show the study.
   const show = control(page, 'button', 'Show Study', { exact: true });
-  if (await show.isVisible().catch(() => false)) await show.click();
+  // On a phone the canvas sheet takes the pointer; click by event.
+  if (await show.isVisible().catch(() => false)) await show.dispatchEvent('click');
   await showsText(page, 'Was 2022 below baseline?');
   await page.waitForTimeout(800);
 }
@@ -360,7 +371,13 @@ function seededSettingsShots() {
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();
-      await server.getByRole('button', { name: 'Remove', exact: true }).click();
+      const remove = server.getByRole('button', { name: 'Remove', exact: true });
+      // On a phone the row's actions fold into its ⋯ menu.
+      if (await remove.isVisible()) await remove.click();
+      else {
+        await press(page, 'button', 'More for Workstation');
+        await page.getByRole('menuitem', { name: /^Remove/u }).click();
+      }
       await page.waitForTimeout(300);
     }),
     seeded('providers-details', '/settings/providers', async (page) => {
@@ -741,7 +758,9 @@ function catalogue({ settings, infrastructure }) {
       'dialog-allow-folder',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Allow opal');
+        // From the keyboard, so the focus ring shows where it starts (Cancel), as the spec draws.
+        await control(page, 'button', 'Allow opal').focus();
+        await page.keyboard.press('Enter');
         await overlay(page);
       },
       { route: 'sandbox-blocked' },
@@ -760,7 +779,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await press(page, 'menuitem', 'Delete…', { exact: true });
       await overlay(page);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
@@ -872,6 +891,23 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    // workbench-lineage "The tab row, as it narrows": several tabs, the last opened in front.
+    s(
+      'canvas',
+      'tabs-many',
+      SESSION,
+      async (page) => {
+        for (const path of [
+          'ndp/soil_sites.csv',
+          'scripts/soil_qc.py',
+          'ndp/soil_moisture.h5',
+          'plan.md',
+          'diagrams/pipeline.mmd',
+        ])
+          await openFile(page, path);
+      },
+      { scenario: { specFiles: true }, settleMs: 1500 },
+    ),
     // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
     // tab), the modes are a checked list in …. Where the list is a sheet over
     // the tab, it hides first.
@@ -924,6 +960,9 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
       await openCanvas(page);
+      // Under 900px the list is a sheet over the tab and covers the row's Maximize;
+      // opening a file closes the sheet, as a tap on a narrow window does.
+      if ((page.viewportSize()?.width ?? 1280) < 900) await openFile(page, 'results/stations.csv');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
@@ -1017,6 +1056,21 @@ function catalogue({ settings, infrastructure }) {
       },
       { ready: 'h1', settleMs: 1200 },
     ),
+    // A computer row with its hover actions showing (narrow, laid over the row's end).
+    // Touch layouts have no hover, so the row takes keyboard focus instead.
+    s(
+      'infrastructure',
+      'agent-hosts-hover',
+      '/infrastructure/agent',
+      async (page) => {
+        const host = page.locator('[data-slot="list-row"]', { hasText: 'utah-cluster' }).first();
+        await host.hover();
+        // The actions are hidden until then, so focus goes to the name's button.
+        await host.locator('button[aria-expanded]').first().focus();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, keepPointer: true },
+    ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
       scenario: { messages: 600, toolsPerMessage: 2 },
@@ -1103,9 +1157,10 @@ function catalogue({ settings, infrastructure }) {
         'science-log',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           // The spec opens one observation in place.
           const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
-          if (await row.isVisible().catch(() => false)) await row.click();
+          if (await row.isVisible().catch(() => false)) await row.dispatchEvent('click');
           await page.waitForTimeout(600);
         },
       ],
@@ -1113,6 +1168,7 @@ function catalogue({ settings, infrastructure }) {
         'study-graph',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
         },
       ],
@@ -1143,6 +1199,7 @@ function catalogue({ settings, infrastructure }) {
             'SMAP L3 soil moisture',
           ]);
           await tabOnly(page, 'Files', 'Outline');
+          await phoneTabBody(page, 'Outline');
         },
       ],
     ].map(([state, setup]) =>

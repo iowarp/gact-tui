@@ -37,6 +37,7 @@
   --muted-foreground: #675f53;
   --faint: #6f675b;
   --changed: #276a63;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
   --key: #f8f4ec;
@@ -52,6 +53,7 @@
   --primary: #2f6f6a;
   --primary-foreground: #fbf8f1;
   --action: #9a4a12;
+  --question: #9a4a12;
   --sidebar: #ede8dd;
   --sidebar-foreground: #2b2a26;
   --sidebar-primary: #2f6f6a;
@@ -143,6 +145,7 @@
   --muted-foreground: #9c9588;
   --faint: #6f695f;
   --changed: #74b8b0;
+  --spin-track: #2f5551;
   --hover: #25231f;
   --menu-highlight: #38342d;
   --key: #23211d;
@@ -158,6 +161,7 @@
   --primary: #5fa8a0;
   --primary-foreground: #16211f;
   --action: #e8a05f;
+  --question: #e8a05f;
   --sidebar: #1a1916;
   --sidebar-foreground: #ece6da;
   --sidebar-primary: #5fa8a0;
@@ -250,6 +254,7 @@
   --muted-foreground: oklch(0.47 0.035 235);
   --faint: oklch(0.6 0.02 230);
   --changed: oklch(0.5 0.1 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.96 0.012 225);
   --menu-highlight: oklch(0.925 0.02 220);
   --key: oklch(0.97 0.008 225);
@@ -265,6 +270,7 @@
   --primary: oklch(0.63 0.14 205);
   --primary-foreground: oklch(0.12 0.03 225);
   --action: oklch(0.64 0.17 55);
+  --question: oklch(0.64 0.17 55);
   --sidebar: oklch(0.965 0.012 225);
   --sidebar-foreground: oklch(0.2 0.03 235);
   --sidebar-primary: oklch(0.63 0.14 205);
@@ -356,6 +362,7 @@
   --muted-foreground: oklch(0.7 0 0);
   --faint: oklch(0.5 0 0);
   --changed: oklch(0.78 0.11 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.165 0 0);
   --menu-highlight: oklch(0.255 0 0);
   --key: oklch(0.155 0 0);
@@ -371,6 +378,7 @@
   --primary: oklch(0.77 0.145 198);
   --primary-foreground: oklch(0.13 0 0);
   --action: oklch(0.75 0.17 57);
+  --question: oklch(0.75 0.17 57);
   --sidebar: oklch(0.125 0 0);
   --sidebar-foreground: oklch(0.92 0 0);
   --sidebar-primary: oklch(0.77 0.145 198);
@@ -466,6 +474,7 @@
   --muted-foreground: #a30000;
   --faint: #ff9999;
   --changed: #008080;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ffd0d0;
   --menu-highlight: #ffb3b3;
   --key: #ffd9d9;
@@ -481,6 +490,7 @@
   --primary: #e00000;
   --primary-foreground: #fff0f0;
   --action: #ff3333;
+  --question: #ff3333;
   --sidebar: #ffd9d9;
   --sidebar-foreground: #7a0000;
   --sidebar-primary: #e00000;

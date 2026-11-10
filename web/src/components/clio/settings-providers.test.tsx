@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { catalog, catalogEntry } from '@/test-fixtures/provider-catalog';
 import { setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ProvidersSettings } from './settings-providers';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
@@ -172,6 +173,9 @@ function tone(target: HTMLElement): string | null {
 
 /** Words that belong only in a server's details. */
 const TECHNICAL = /endpoint|configuration|credential|catalog|handshake|probe/iu;
+
+// The picker's catalog loads on first open; warm it once so each open renders it at once.
+beforeAll(() => modelPickerCatalog.load());
 
 describe('ProvidersSettings', () => {
   it('adds a known runtime by kind and saves an Ollama root without the OpenAI API prefix', async () => {

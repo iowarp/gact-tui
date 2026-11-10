@@ -71,23 +71,22 @@ function iteration(tool: ToolInvocation): ConversationIteration {
 it.each([
   ['mail_received', 'Interrupted by mail'],
   ['stopped', 'Interrupted by a stop request'],
-])(
-  'shows a stopped wait as one yellow stop icon with its %s reason on hover',
-  (cause, reason) => {
-    const tool = wait(cause);
-    const before = JSON.stringify(tool);
-    const view = render(<ClioToolInvocation compact tool={tool} />);
-    expect(getToolStatus(tool)).toBe('interrupted');
-    expect(getToolFailureDetail(tool)).toBeUndefined();
-    const mark = view.container.querySelector('[data-slot="tool-interrupted-mark"]');
-    expect(mark?.querySelector('[data-tone="stopped"] .text-warning')).not.toBeNull();
-    expect(view.container.querySelectorAll('[data-slot="tool-interrupted-mark"]')).toHaveLength(1);
-    expect(view.container.querySelector('.text-destructive')).toBeNull();
-    expect(screen.queryByText('Interrupted', { exact: true })).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: reason })).toHaveAttribute('title', reason);
-    expect(JSON.stringify(tool)).toBe(before);
-  },
-);
+])('shows a stopped wait as one yellow stop icon with its %s reason on hover', (cause, reason) => {
+  const tool = wait(cause);
+  const before = JSON.stringify(tool);
+  const view = render(<ClioToolInvocation compact tool={tool} />);
+  expect(getToolStatus(tool)).toBe('interrupted');
+  expect(getToolFailureDetail(tool)).toBeUndefined();
+  const mark = view.container.querySelector('[data-slot="status-indicator"][data-tone="stopped"]');
+  expect(mark?.querySelector('.text-warning')).not.toBeNull();
+  expect(
+    view.container.querySelectorAll('[data-slot="status-indicator"][data-tone="stopped"]'),
+  ).toHaveLength(1);
+  expect(view.container.querySelector('.text-destructive')).toBeNull();
+  expect(screen.queryByText('Interrupted', { exact: true })).not.toBeInTheDocument();
+  expect(screen.getByRole('img', { name: reason })).toHaveAttribute('title', reason);
+  expect(JSON.stringify(tool)).toBe(before);
+});
 it('projects the exact retained cancellation marker without claiming mail or user attribution', () => {
   const tool = legacy();
   const before = JSON.stringify(tool);
@@ -111,7 +110,9 @@ it('does not count or decorate an interrupted wait as a failed activity group', 
   // Lanes never fold: the interrupted wait is a visible row.
   const view = render(<ConversationTurn iterations={[item]} mode="chain" subagents={{}} />);
   expect(view.container.querySelector('[data-slot="activity-failed-mark"]')).toBeNull();
-  expect(view.container.querySelector('[data-slot="tool-interrupted-mark"]')).not.toBeNull();
+  expect(
+    view.container.querySelector('[data-slot="status-indicator"][data-tone="stopped"]'),
+  ).not.toBeNull();
   expect(screen.queryByText('Interrupted', { exact: true })).not.toBeInTheDocument();
   expect(screen.queryByText('failed', { exact: true })).not.toBeInTheDocument();
 });
@@ -137,7 +138,9 @@ it('keeps an independent wait error failed even if its partial snapshot also men
   expect(getToolFailureDetail(tool)).toBe('Task history is unavailable.');
   const view = render(<ClioToolInvocation compact tool={tool} />);
   expect(screen.getByRole('img', { name: /^Failed/ })).toBeVisible();
-  expect(view.container.querySelector('[data-slot="tool-interrupted-mark"]')).toBeNull();
+  expect(
+    view.container.querySelector('[data-slot="status-indicator"][data-tone="stopped"]'),
+  ).toBeNull();
   expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
     'title',
     'Failed: Task history is unavailable.',
