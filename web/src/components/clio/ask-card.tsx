@@ -395,6 +395,9 @@ export function AskRow({
     ...(number && number < 10 ? [String(number)] : []),
     ...(highlighted ? ['Enter'] : []),
   ];
+  // A choosable row (radio, checkbox) keeps a 14px check column, as the spec's menus do.
+  const checkable = props['aria-checked'] !== undefined;
+  const checked = props['aria-checked'] === true || props['aria-checked'] === 'true';
   return (
     <button
       {...askKeyAttributes(keys)}
@@ -418,6 +421,15 @@ export function AskRow({
         <span className="flex-1" />
       )}
       {highlighted ? <AskKeyChip askKey="Enter" /> : null}
+      {checkable ? (
+        <span
+          aria-hidden="true"
+          className="grid w-3.5 shrink-0 place-items-center"
+          data-slot="ask-row-check"
+        >
+          {checked ? <CheckIcon className="size-[13px] text-accent-foreground" /> : null}
+        </span>
+      ) : null}
     </button>
   );
 }
