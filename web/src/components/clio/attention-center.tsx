@@ -27,7 +27,7 @@ import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
-import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { SettingsIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import {
   markAllNotificationsRead,
   markConversationSeen,
@@ -433,7 +433,7 @@ export function ClioAttentionCenter({
             Mark all read
           </button>
           <IconButton
-            icon={<AdjustIcon />}
+            icon={<SettingsIcon />}
             label="Notification settings"
             onClick={() => {
               setOpen(false);
