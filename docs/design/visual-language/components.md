@@ -187,6 +187,9 @@ above while redesigning the surface; the change is not mechanical.
 - Never show status with color alone. `StatusIndicator` pairs each state with
   a shape and a word, and `column` display keeps the word for assistive
   technology.
+- A mark that can stay running indefinitely spins with `animate-spin-steps`
+  (12 discrete steps), not a smooth `animate-spin`: a smooth spinner keeps the
+  compositor drawing every frame and alone costs a few percent of idle CPU.
 - `StatusIndicator` is the one status word (cross-surface X4): a mark that
   carries the color and a 12px muted word, in every state. Use it for
   Ready, Connected, Running, Completed, Failed and the like in lists, menus,

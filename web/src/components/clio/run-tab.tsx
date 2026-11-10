@@ -1,10 +1,10 @@
 import type { SubagentRun } from '@clio/core/v3';
-import { ExternalLinkIcon } from 'lucide-react';
+import { ArrowLeftIcon, ExternalLinkIcon } from 'lucide-react';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FrameBar, FrameCrumbs, FrameTab } from '@/components/clio/primitives/frame-bar';
-import { NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { KeyValueGrid } from '@/components/clio/primitives/key-value-grid';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
@@ -12,6 +12,7 @@ import { RunSourceIcon } from '@/components/clio/run-list-row';
 import { compactWhen, runConversationHref, runLook } from '@/components/clio/run-presentation';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { TechnicalDetails } from '@/components/clio/technical-details';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
 
 const FlowRunView = lazy(() =>
@@ -92,7 +93,9 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
  * The selected run as a tab beside the list: its name in the tab strip, Runs ›
  * name with what ran and when, then a flow's diagram and steps or an
  * execution's state, assignment and where it ran. Backend ids stay under
- * Technical details.
+ * Technical details. Under 900px, where the workbench slides over the list,
+ * the run takes the whole window with Back instead of leaving a strip of
+ * clipped list rows beside it.
  */
 export function RunTab({
   row,
@@ -107,6 +110,7 @@ export function RunTab({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const sheet = useMediaQuery('(max-width: 899px)');
   const href = runConversationHref(row, false);
   const flow = row.flowHandle && row.targetSessionId ? row.flowHandle : undefined;
   const openSubagent = (subagent: SubagentRun) => {
@@ -117,12 +121,24 @@ export function RunTab({
     );
   };
   return (
-    <aside aria-label={`Run: ${row.label}`} className="flex h-full min-h-0 flex-col bg-background">
+    <aside
+      aria-label={`Run: ${row.label}`}
+      className="flex h-full min-h-0 flex-col bg-background"
+      data-maximized={sheet || undefined}
+    >
       <div
         aria-label="Open runs"
-        className="flex h-[38px] shrink-0 items-center border-b border-border px-1.5"
+        className="flex h-[38px] shrink-0 items-center gap-1 border-b border-border px-1.5"
         role="tablist"
       >
+        {sheet ? (
+          <IconButton
+            icon={<ArrowLeftIcon aria-hidden="true" />}
+            label="Back to runs"
+            onClick={onClose}
+            size="sm"
+          />
+        ) : null}
         <FrameTab
           active
           icon={<RunSourceIcon source={row.source} />}
@@ -160,7 +176,7 @@ export function RunTab({
             </time>
           </>
         }
-        where={<FrameCrumbs parts={[{ label: 'Runs' }, { label: row.label }]} />}
+        where={<FrameCrumbs parts={[{ label: 'Runs', onSelect: onClose }, { label: row.label }]} />}
       />
       <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto" role="tabpanel">
         {flow && row.targetSessionId ? (

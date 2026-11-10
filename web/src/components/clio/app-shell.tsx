@@ -232,9 +232,14 @@ export function ClioAppShell({
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // Opens at the remembered share of the window; the panel keeps those pixels
   // until the window itself resizes (below), so folding the left bar widens
-  // the conversation rather than the workbench.
-  const [workbenchDefaultSize] = useState(
-    () => `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`,
+  // the conversation rather than the workbench. A closed canvas mounts
+  // collapsed: mounting it open and collapsing it in an effect lays the
+  // conversation out at the wrong width first and re-renders it on every
+  // workspace mount. Opening then expands and applies the share.
+  const [workbenchDefaultSize] = useState(() =>
+    workbenchOpen
+      ? `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`
+      : '0px',
   );
   // A list tab's fitted width. The left bar still folds by the stored share, so
   // switching tabs never folds or unfolds it. A drag while fitted overrides the

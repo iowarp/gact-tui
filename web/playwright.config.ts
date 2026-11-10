@@ -21,6 +21,7 @@ export default defineConfig({
     '**/dialog-layout.spec.ts',
     '**/fs-file-tools.spec.ts',
     '**/component-gallery.spec.ts',
+    '**/parent-delegation.spec.ts',
   ],
   snapshotPathTemplate:
     '{testDir}/../tests/visual/snapshots/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
