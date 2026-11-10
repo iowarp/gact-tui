@@ -67,7 +67,7 @@ function DraftConversationRow({ topLevel }: { topLevel: boolean }) {
     <ListRow
       aria-current="page"
       className={cn(
-        'data-selected:bg-accent data-selected:text-accent-foreground data-selected:shadow-[inset_2px_0_0_var(--primary)]',
+        'data-selected:bg-accent data-selected:text-accent-foreground',
         topLevel ? 'pl-2.5' : 'pl-[34px]',
       )}
       data-draft-row=""
@@ -552,7 +552,8 @@ function WorkspaceTreeItem({
         )}
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
         meta={
-          sessionTotal > 0 ? (
+          // An open workspace shows its conversations; only a folded one counts them.
+          sessionTotal > 0 && !expanded ? (
             <span className="text-[11px] font-normal tabular-nums text-muted-foreground">
               {sessionTotal}
             </span>

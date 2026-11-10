@@ -1,10 +1,11 @@
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ResourceActions } from './resource-dialogs';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { SessionAttention } from '@/lib/session-attention';
 
 const actions: ResourceActions = {
@@ -187,6 +188,76 @@ describe('session navigation state', () => {
 
     expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
     expect(screen.queryByText('Started')).not.toBeInTheDocument();
+  });
+});
+
+describe('row menu', () => {
+  function renderMenuRow(rowActions: ResourceActions, row: Session = session) {
+    const onAction = vi.fn((action: () => Promise<void>) => void action());
+    render(
+      <MemoryRouter>
+        <TooltipProvider>
+          <SessionNavigationRow
+            actions={rowActions}
+            activeSessionId="sess_active"
+            onAction={onAction}
+            onDelete={vi.fn()}
+            onDownloadSession={vi.fn().mockResolvedValue(undefined)}
+            onRename={vi.fn()}
+            onVisit={vi.fn()}
+            session={row}
+            workspaceId="ws_ndp"
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    return onAction;
+  }
+
+  it('offers the title menu’s fork and share, in the spec’s order', async () => {
+    const user = userEvent.setup();
+    const forkSession = vi.fn().mockResolvedValue(undefined);
+    const shareSession = vi.fn().mockResolvedValue('https://clio.test/share/abc');
+    renderMenuRow({ ...actions, forkSession, shareSession });
+
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      expect.stringMatching(/^Open/u),
+      expect.stringMatching(/^Pin/u),
+      expect.stringMatching(/^Rename/u),
+      expect.stringMatching(/^Fork into a new conversation/u),
+      expect.stringMatching(/^Share read-only link/u),
+      expect.stringMatching(/^Export/u),
+      expect.stringMatching(/^Archive/u),
+      expect.stringMatching(/^Delete/u),
+    ]);
+
+    await user.click(screen.getByRole('menuitem', { name: /Fork into a new conversation/u }));
+    expect(forkSession).toHaveBeenCalledWith('sess_review');
+
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    await user.click(screen.getByRole('menuitem', { name: /Share read-only link/u }));
+    const dialog = await screen.findByRole('dialog', { name: 'Share Evidence review' });
+    await user.click(within(dialog).getByRole('button', { name: 'Create share link' }));
+    expect(shareSession).toHaveBeenCalledWith('sess_review', 604800);
+    expect(await within(dialog).findByDisplayValue('https://clio.test/share/abc')).toBeVisible();
+  });
+
+  it('leaves out fork for an agent’s own conversation and both without the actions', async () => {
+    const user = userEvent.setup();
+    renderMenuRow({ ...actions, forkSession: vi.fn(), shareSession: vi.fn() }, {
+      ...session,
+      session_kind: 'agent',
+    } as Session);
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /Fork/u })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /Share read-only link/u })).toBeVisible();
+    cleanup();
+
+    renderMenuRow(actions);
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /Fork/u })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Share/u })).toBeNull();
   });
 });
 

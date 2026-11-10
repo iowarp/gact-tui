@@ -38,6 +38,16 @@ export function SessionOrganizeMenuItems({
   );
 }
 
+/** Fork, shared by the title and left bar menus so both name it the same way. */
+export function SessionForkMenuItem({ onSelect }: { onSelect: () => void }) {
+  return <KeyMenuItem label="Fork into a new conversation" menuKey="F" onSelect={onSelect} />;
+}
+
+/** Share, shared by the title and left bar menus; it opens the share dialog. */
+export function SessionShareMenuItem({ onSelect }: { onSelect: () => void }) {
+  return <KeyMenuItem label="Share read-only link" menuKey="L" onSelect={onSelect} />;
+}
+
 /** Archive and delete use the same service actions and confirmation entry point. */
 export function SessionLifecycleMenuItems({
   session,

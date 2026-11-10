@@ -155,6 +155,17 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         }
         await refreshNavigation();
       },
+      forkSession: async (targetSessionId) => {
+        const forked = await repository.forkSession(targetSessionId, {});
+        await refreshNavigation(forked.workspace_id);
+        await navigate(
+          `/workspaces/${encodeURIComponent(forked.workspace_id)}/sessions/${encodeURIComponent(forked.id)}`,
+        );
+      },
+      shareSession: async (targetSessionId, ttlSeconds) => {
+        const shared = await repository.shareSession(targetSessionId, ttlSeconds);
+        return new URL(shared.url, settings.endpoint).toString();
+      },
       restoreSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: false });
         await refreshNavigation();
@@ -196,6 +207,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       refreshWorkspaceFolders,
       repository,
       sessionId,
+      settings.endpoint,
       workspaceId,
       updateSessionIdentity,
     ],

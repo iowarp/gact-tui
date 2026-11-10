@@ -31,7 +31,12 @@ import {
 } from './resource-dialogs';
 import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
-import { SessionLifecycleMenuItems, SessionOrganizeMenuItems } from './session-management-menu';
+import {
+  SessionForkMenuItem,
+  SessionLifecycleMenuItems,
+  SessionOrganizeMenuItems,
+  SessionShareMenuItem,
+} from './session-management-menu';
 import { TopBarEnd } from './top-bar-end';
 
 export interface ClioSessionActionsProps {
@@ -124,14 +129,8 @@ export function ClioSessionActions({
           <DropdownMenuSeparator />
         </>
       ) : null}
-      {onFork ? (
-        <KeyMenuItem
-          label="Fork into a new conversation"
-          menuKey="F"
-          onSelect={() => void run(onFork)}
-        />
-      ) : null}
-      <KeyMenuItem label="Share read-only link" menuKey="L" onSelect={() => setSharing(true)} />
+      {onFork ? <SessionForkMenuItem onSelect={() => void run(onFork)} /> : null}
+      <SessionShareMenuItem onSelect={() => setSharing(true)} />
       {management ? (
         <SessionExportMenu
           onExport={(mode) =>
