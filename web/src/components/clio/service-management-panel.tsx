@@ -308,7 +308,9 @@ export function ManagedServiceCard({
   // Setup's Install sits in the hosting dialog's footer, right of Cancel, as in the spec.
   const setFooterConfirm = useContext(ServiceConfirmSlot);
   const runInstall = useRef(run);
-  runInstall.current = run;
+  useEffect(() => {
+    runInstall.current = run;
+  });
   const installLabel = activeAction === 'install' ? progressLabels.install : labels.install;
   const installDisabled = disabledFor('install');
   useEffect(() => {
