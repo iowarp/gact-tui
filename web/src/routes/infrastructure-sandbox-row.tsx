@@ -33,6 +33,7 @@ import { restartClio } from '@/tauri/managed-backend';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatDuration } from '@/lib/format';
 import {
+  foundationMeaning,
   foundationSummary,
   foundationTitle,
   integrationStatus,
@@ -175,7 +176,11 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
     ? `Setup finished. Restart ${vocab.agent} to protect tool processes that were already running.`
     : row?.reason === 'codex_enforcement_unverified'
       ? 'Protection has not been verified on this computer. Complete setup before retrying commands.'
-      : row?.summary || row?.detail || foundationSummary(integration);
+      : row?.summary ||
+        row?.detail ||
+        foundationSummary(integration) ||
+        foundationMeaning(integration) ||
+        integration.summary;
 
   const working = setup.isPending || polling;
   const setupOffered = (status !== 'healthy' || working) && !setupUnsupported;
@@ -224,7 +229,10 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
   return (
     <InfraRow
       className="cursor-pointer"
-      description={reasonLabel ?? summary}
+      description={
+        // A protected, idle row reads only "Ready" (spec); its explanation stays in the details.
+        status === 'healthy' && !working && !pendingRestart ? undefined : (reasonLabel ?? summary)
+      }
       details={
         expanded ? (
           <>

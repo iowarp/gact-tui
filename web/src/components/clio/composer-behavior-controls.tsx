@@ -285,7 +285,7 @@ export function ClioComposerBehaviorControls({
             icon={<ModeIcon />}
             label={`Mode: ${modeLabel}`}
             shortcut="mode"
-            shortcutSide="top-edge"
+            shortcutSide="under-icon"
             size="toolbar"
             tooltipSide="top"
             type="button"

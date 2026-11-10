@@ -2,16 +2,23 @@ import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import {
   BrainIcon,
   BrushCleaningIcon,
+  CircleArrowUpIcon,
   CircleDotIcon,
   CpuIcon,
   DatabaseIcon,
+  FileCogIcon,
   FolderIcon,
   FolderLockIcon,
   GitForkIcon,
+  GlobeIcon,
   HardDriveIcon,
   ListTreeIcon,
   MemoryStickIcon,
+  MessageSquareTextIcon,
+  PackageIcon,
   PlugIcon,
+  ScrollTextIcon,
+  SearchIcon,
   ServerIcon,
   ShieldCheckIcon,
   WaypointsIcon,
@@ -26,6 +33,7 @@ import { TechnicalDetails } from '@/components/clio/technical-details';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import {
+  foundationMeaning,
   foundationSummary,
   foundationTitle,
   integrationStatus,
@@ -45,6 +53,14 @@ const FOUNDATION_ICONS: Record<string, LucideIcon> = {
   clio_core_liveness: PlugIcon,
   clio_core_daemon_memory: CircleDotIcon,
   cte_cold_tier_disk: HardDriveIcon,
+  cte_store_location: FolderIcon,
+  cte_metadata_log: ScrollTextIcon,
+  arc_store_format: FileCogIcon,
+  store_migrations: CircleArrowUpIcon,
+  compaction_prompt: MessageSquareTextIcon,
+  browser: GlobeIcon,
+  ripgrep: SearchIcon,
+  managed_packages: PackageIcon,
   sandbox_conformance: ShieldCheckIcon,
   child_reaper: BrushCleaningIcon,
   child_processes: ListTreeIcon,
@@ -65,7 +81,11 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   const status = integrationStatus(integration.status);
   const action = foundationAction(integration);
   const Icon = FOUNDATION_ICONS[integration.name] ?? ServerIcon;
-  const nextStep = integration.next_action || action?.description;
+  // A ready row reads only its name and "Ready"; what it means moves into its opened details.
+  const nextStep =
+    integration.next_action ||
+    action?.description ||
+    (status === 'healthy' ? foundationMeaning(integration) || integration.summary : undefined);
   const facts: KeyValueItem[] = [
     {
       label: 'Needed by the agent',
@@ -90,7 +110,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   // The raw health record stands in when the server gave no summary, so the
   // row always offers its technical details beside the fix.
   const technical =
-    [integration.summary, integration.detail].filter(Boolean).join('\n') ||
+    [...new Set([integration.summary, integration.detail].filter(Boolean))].join('\n') ||
     JSON.stringify(integration, null, 2);
   const actionLink = action ? (
     <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">

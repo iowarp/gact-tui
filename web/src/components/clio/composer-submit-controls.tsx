@@ -52,7 +52,7 @@ export function ComposerSubmitControls({
           label="Stop"
           onClick={onStop}
           shortcut="stop"
-          shortcutSide="top-edge"
+          shortcutSide="under-icon"
           tooltipSide="top"
           type="button"
         />
@@ -64,7 +64,7 @@ export function ComposerSubmitControls({
           label="Send"
           onClick={onSubmit}
           shortcut="send"
-          shortcutSide="top-edge"
+          shortcutSide="under-icon"
           tooltipSide="top"
           type="submit"
         />
@@ -76,7 +76,7 @@ export function ComposerSubmitControls({
           label="Steer"
           onClick={onSubmit}
           shortcut="steer"
-          shortcutSide="top-edge"
+          shortcutSide="under-icon"
           tooltipSide="top"
           type="submit"
         />
