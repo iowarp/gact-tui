@@ -52,7 +52,7 @@ export function DateTimeField({
     ? `${format(parsed, 'PPP')}${enableTime && time ? ` at ${time}` : ''}`
     : 'Choose a date';
   return (
-    <div className="grid min-w-0 gap-2" data-slot="date-time-field">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2" data-slot="date-time-field">
       <Label id={`${id}-label`} htmlFor={id}>
         {label}
       </Label>

@@ -109,7 +109,7 @@ export function McpConnectionDialog({
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   // Below this the frame can't hold the title and a labelled toggle together.
-  const narrow = useMediaQuery('(max-width: 959px)');
+  const narrow = useMediaQuery('(max-width: 1119px)');
   const [error, setError] = useState('');
   const remote = kind === 'remote';
 

@@ -223,7 +223,6 @@ export function AccessRuleDialog({
           title="Scope"
         >
           <SegmentedControl
-            className="ml-auto"
             label="Scope"
             onValueChange={(value) => set({ scope: value, scopeId: '' })}
             options={[

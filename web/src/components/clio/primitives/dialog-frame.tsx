@@ -77,7 +77,7 @@ function FooterKey({ keys, className }: { keys: readonly string[]; className?: s
   return (
     // Under the spec frame's ~460 px (44% below a 1036 px window) the chips drop,
     // before the window's 1024 px fold; the sheet never shows them.
-    <span aria-hidden="true" className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden">
+    <span aria-hidden="true" className="inline-flex @max-[24rem]:hidden max-[599px]:hidden">
       <ShortcutKeys className={className} keys={keys} variant="inline" />
     </span>
   );
@@ -144,11 +144,12 @@ export interface DialogFrameProps {
 }
 
 /**
- * The one dialog width (spec settings.html F): 44% of the window, 338 px at 768,
- * capped at 600 px; under 600 px the frame is a full-width bottom sheet. Callers
- * don't widen it. A dialog built on `DialogContent` uses this class to match.
+ * The one dialog width (spec connect-infrastructure "Dialogs"): 36% of the window,
+ * 340 to 640 px (340 at 768, 461 at 1280); under 600 px the frame is a full-width
+ * bottom sheet. Callers don't widen it. A dialog built on `DialogContent` uses this
+ * class to match.
  */
-export const DIALOG_FRAME_WIDTH = 'w-[clamp(320px,44vw,600px)]';
+export const DIALOG_FRAME_WIDTH = 'w-[clamp(340px,36vw,640px)]';
 
 /**
  * The one dialog: icon, title, ×, a description under the title, body, buttons on the
@@ -246,9 +247,11 @@ export const DialogFrame = memo(function DialogFrame({
           <div
             data-slot="dialog-frame-body"
             // The body starts under the title text (spec `.xd .bd`: 16px icon + 10px gap).
-            // No rule closes it, so a last settings row drops its own too.
+            // No rule closes it, so a last settings row drops its own too. Its setting rows
+            // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
             className={cn(
               'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               icon ? 'pl-[42px]' : 'pl-[18px]',
             )}
           >
