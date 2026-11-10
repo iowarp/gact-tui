@@ -340,6 +340,7 @@ function ServiceChooser({
     <div className="flex flex-col gap-2">
       <InfraSearchField
         className="w-full"
+        initialFocus
         label="Search services"
         onValueChange={setQuery}
         placeholder="Search services"
