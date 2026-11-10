@@ -11,7 +11,7 @@ export const linkAccessNames: Record<LinkAccess, string> = {
 };
 
 /** The access choice's own name (spec Access: Read only, Editable download, Read and write link). */
-const accessNames: Record<LinkAccess, string> = {
+export const sourceAccessNames: Record<LinkAccess, string> = {
   read_only: 'Read only',
   publish_later: 'Editable download',
   write_through: 'Read and write link',
@@ -30,7 +30,7 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
 /** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */
 export function sourceSublineParts(source: ConnectedSourceState): string[] {
   const access = source.linked
-    ? accessNames[source.link_access ?? 'read_only']
+    ? sourceAccessNames[source.link_access ?? 'read_only']
     : source.local_path
       ? source.download_access === 'editable'
         ? 'Editable download'

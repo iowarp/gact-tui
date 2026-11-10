@@ -2,12 +2,22 @@ import type { ConnectedSourceState } from '@clio/core/v3';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { FolderUpIcon } from 'lucide-react';
+import { CircleAlertIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { uploadWorkspaceResources } from '@/lib/upload-workspace-resources';
 import { InfoTip } from './info-tip';
+import { RingSpinner } from './primitives/ring-spinner';
+import {
+  AccessRows,
+  FolderFace,
+  SourceField,
+  SourceStatusLine,
+  folderTriggerClass,
+  sourceInputClass,
+} from './source-form-parts';
+import { useSourceFrameFooter } from './use-source-frame-footer';
 
 /** Explicit, resumable desktop-to-connected-CLIO transfer retaining relative file paths. */
 export function DesktopFolderUpload({
@@ -20,7 +30,7 @@ export function DesktopFolderUpload({
   workspaceId: string;
   hostLabel: string;
   onComplete: (source: ConnectedSourceState) => void;
-  onBack: () => void;
+  onBack?: () => void;
   initialFiles?: File[];
 }) {
   const repository = useRepository();
@@ -91,75 +101,90 @@ export function DesktopFolderUpload({
     },
     onSuccess: onComplete,
   });
+  const folderName =
+    files[0]?.webkitRelativePath.split('/')[0] || (files.length ? 'Selected folder' : '');
+  const footer = useSourceFrameFooter({
+    confirm: {
+      label: upload.isPending ? 'Uploading…' : 'Upload folder',
+      disabled: !files.length || upload.isPending,
+    },
+    onConfirm: () => upload.mutate(),
+    start: upload.isPending
+      ? { label: 'Pause upload', onClick: () => controller.current?.abort() }
+      : onBack
+        ? { label: 'Back', back: true, onClick: onBack }
+        : undefined,
+  });
   return (
-    <section className="space-y-4" aria-label="Upload desktop folder">
-      <div className="flex items-center gap-2">
-        <FolderUpIcon aria-hidden="true" className="size-5" />
-        <h3 className="text-sm font-medium">Upload a folder</h3>
-        <InfoTip label="About desktop folder transfers">
-          Files and their folder structure are uploaded to {hostLabel}. The desktop original stays
-          unchanged. Empty folders are not exposed by the browser picker. If interrupted, select the
-          same folder to resume from uploaded bytes.
-        </InfoTip>
-      </div>
-      <div className="space-y-2 text-sm">
-        <p>From your computer → {hostLabel}</p>
-        <input
-          ref={folderInput}
-          className="hidden"
-          aria-label="Folder on your computer"
-          type="file"
-          multiple
-          {...{ webkitdirectory: '' }}
-          disabled={upload.isPending}
-          onChange={(event) => {
-            const picked = Array.from(event.target.files ?? []);
-            setFiles(picked);
-            setLabel(picked[0]?.webkitRelativePath.split('/')[0] ?? '');
-            upload.reset();
-          }}
-        />
-        <div className="flex items-center gap-3 rounded-md border p-2">
+    <section className="flex flex-col gap-[13px]" aria-label="Upload desktop folder">
+      <input
+        ref={folderInput}
+        className="hidden"
+        aria-label="Folder on your computer"
+        type="file"
+        multiple
+        {...{ webkitdirectory: '' }}
+        disabled={upload.isPending}
+        onChange={(event) => {
+          const picked = Array.from(event.target.files ?? []);
+          setFiles(picked);
+          setLabel(picked[0]?.webkitRelativePath.split('/')[0] ?? '');
+          upload.reset();
+        }}
+      />
+      <SourceField
+        label="Folder on your computer"
+        aside={
+          <InfoTip label="About desktop folder transfers">
+            Files and their folder structure are uploaded to {hostLabel}. The desktop original stays
+            unchanged. Empty folders are not exposed by the browser picker. If interrupted, select
+            the same folder to resume from uploaded bytes.
+          </InfoTip>
+        }
+        hint={
+          files.length
+            ? `${files.length} files, ${(files.reduce((sum, file) => sum + file.size, 0) / 1024 ** 2).toFixed(1)} MB, copied to ${hostLabel}`
+            : `Copied to ${hostLabel}`
+        }
+      >
+        <FolderFace path={folderName}>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
+            size="sm"
+            className={folderTriggerClass}
             disabled={upload.isPending}
             onClick={() => folderInput.current?.click()}
           >
-            Choose folder
+            Choose…
           </Button>
-          <span role="status" className="min-w-0 break-all text-muted-foreground">
-            {files.length
-              ? files[0]?.webkitRelativePath.split('/')[0] || 'Selected folder'
-              : 'No folder chosen'}
-          </span>
-        </div>
-      </div>
-      {files.length > 0 && (
-        <>
-          <label className="block space-y-2 text-sm">
-            Source name
-            <Input
-              value={label}
-              disabled={upload.isPending}
-              onChange={(e) => setLabel(e.target.value)}
-            />
-          </label>
-          <p className="text-sm text-muted-foreground">
-            {files.length} files,{' '}
-            {(files.reduce((sum, file) => sum + file.size, 0) / 1024 ** 2).toFixed(1)} MB →{' '}
-            {hostLabel}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Read-only inputs. Desktop writeback is unavailable through a browser upload.
-          </p>
-        </>
-      )}
+        </FolderFace>
+      </SourceField>
+      <SourceField label="Name" aside="Optional">
+        <Input
+          aria-label="Source name"
+          className={sourceInputClass}
+          value={label}
+          placeholder="The folder name"
+          disabled={upload.isPending}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </SourceField>
+      <AccessRows
+        value="read_only"
+        onChange={() => undefined}
+        unavailable={{
+          editable: 'A browser upload cannot write back to your computer',
+          write: 'A browser upload cannot write back to your computer',
+        }}
+      />
       {upload.isPending && (
-        <div role="status" className="space-y-2">
-          <p className="break-all text-xs">{progress.stage}</p>
+        <div role="status" className="flex flex-col gap-1.5">
+          <SourceStatusLine icon={<RingSpinner />}>
+            {progress.stage || 'Uploading…'}
+          </SourceStatusLine>
           <progress
-            className="h-2 w-full accent-primary"
+            className="h-1 w-full accent-primary"
             aria-label="Folder upload progress"
             value={progress.loaded}
             max={progress.total || 1}
@@ -167,26 +192,13 @@ export function DesktopFolderUpload({
         </div>
       )}
       {upload.error && (
-        <p role="alert" className="text-sm text-destructive">
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
           {upload.error.name === 'AbortError'
-            ? 'Upload paused. Already uploaded bytes are retained; transfer again to resume.'
+            ? 'Upload paused. Uploaded bytes are kept; upload again to resume.'
             : upload.error.message}
-        </p>
+        </SourceStatusLine>
       )}
-      <div className="flex justify-between gap-2">
-        <Button variant="ghost" disabled={upload.isPending} onClick={onBack}>
-          Back
-        </Button>
-        {upload.isPending ? (
-          <Button variant="outline" onClick={() => controller.current?.abort()}>
-            Pause upload
-          </Button>
-        ) : (
-          <Button disabled={!files.length} onClick={() => upload.mutate()}>
-            Upload folder
-          </Button>
-        )}
-      </div>
+      {footer}
     </section>
   );
 }
