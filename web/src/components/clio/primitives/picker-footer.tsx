@@ -12,6 +12,8 @@ export interface PickerHint {
   disabled?: boolean;
   /** Dropped first when the picker is narrow. */
   optional?: boolean;
+  /** Sits at the right edge, apart from the hints before it ("Ask"). */
+  end?: boolean;
 }
 
 interface PickerFooterProps {
@@ -20,6 +22,8 @@ interface PickerFooterProps {
   start?: ReactNode;
   /** Right edge: a hidden-items count. */
   end?: ReactNode;
+  /** `start`: the hints lead the line (a narrow picker), `end` stays free. */
+  hintsAlign?: 'start' | 'end';
   className?: string;
 }
 
@@ -32,6 +36,7 @@ export const PickerFooter = memo(function PickerFooter({
   hints,
   start,
   end,
+  hintsAlign = 'end',
   className,
 }: PickerFooterProps) {
   return (
@@ -44,14 +49,24 @@ export const PickerFooter = memo(function PickerFooter({
     >
       {start}
       {/* One line tall: hints that don't fit wrap out of sight, never under `end`. */}
-      <span className="ml-auto flex h-5 min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-4 overflow-hidden">
+      <span
+        className={cn(
+          'flex h-5 min-w-0 flex-wrap items-center gap-x-3 gap-y-4 overflow-hidden',
+          hintsAlign === 'start' || hints.some((hint) => hint.end)
+            ? 'flex-1'
+            : 'ml-auto justify-end',
+        )}
+      >
         {hints.map((hint) => {
           const content = (
             <>
               <span>{hint.label}</span> <ShortcutKeys id={hint.shortcut} variant="inline" />
             </>
           );
-          const visibility = hint.optional ? 'hidden @[28rem]:inline-flex' : 'inline-flex';
+          const visibility = cn(
+            hint.optional ? 'hidden @[28rem]:inline-flex' : 'inline-flex',
+            hint.end && 'ml-auto',
+          );
           return hint.onSelect ? (
             <button
               className={cn(

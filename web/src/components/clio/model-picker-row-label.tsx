@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { displayedTags } from '@/lib/model-capability-tags';
@@ -24,7 +24,12 @@ interface PickerRowLabelProps {
    * header -- "matches / total" and a fold chevron, which pressing the row
    * turns (the picker folds the group rather than drilling in).
    */
-  search?: { count: ProviderSearchCount; collapsed: boolean };
+  search?: {
+    count: ProviderSearchCount;
+    collapsed: boolean;
+    /** A narrow picker's group header with no search typed: "OpenRouter 3". */
+    plain?: boolean;
+  };
   /** Clicking a row's tag adds its filter token. */
   onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
@@ -33,6 +38,11 @@ interface PickerRowLabelProps {
   onToggleVisibility?: () => void;
   /** The running action's stage for THIS provider: the heartbeat turns yellow. */
   stage?: string;
+  /**
+   * One column: a model's name sits on the group label's edge, with the ✓
+   * leading only the chosen row (no reserved check slot).
+   */
+  flush?: boolean;
   state: CascaderItemState<PickerNodeData>;
 }
 
@@ -65,8 +75,42 @@ export function PickerRowLabel({
   node,
   onToggleVisibility,
   stage,
+  flush = false,
   state,
 }: PickerRowLabelProps) {
+  if (node.data?.kind === 'provider-more') {
+    // A truncated group's last model row: "309 more", opened with → or ↵.
+    return (
+      <span className="flex w-full min-w-0 items-center gap-2" data-slot="provider-more">
+        <span className="min-w-0 truncate text-start text-muted-foreground">{node.label}</span>
+        <span className="ms-auto hidden items-center gap-1 in-data-highlighted:inline-flex">
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">→</KeyCap>
+          <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">↵</KeyCap>
+        </span>
+      </span>
+    );
+  }
+  if (node.data?.kind === 'provider' && search?.plain) {
+    // One column: a small muted group label with only its count; its manage
+    // row (status and actions) ends the group. Pressing it folds the group.
+    return (
+      <span
+        className="flex w-full min-w-0 items-center gap-[7px] text-[11px] font-semibold text-muted-foreground"
+        data-collapsed={search.collapsed ? '' : undefined}
+        data-slot="provider-group-header"
+      >
+        <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
+        <span
+          aria-label={`${search.count.matches} models`}
+          className="shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums"
+          data-slot="provider-filter-count"
+        >
+          {search.count.matches || null}
+        </span>
+        <span className="sr-only">{search.collapsed ? 'Collapsed' : 'Expanded'}</span>
+      </span>
+    );
+  }
   if (node.data?.kind === 'provider') {
     // The model count and the drill chevron are the Cascader's own trailing
     // slots and render after this label -- except in search results, where
@@ -86,12 +130,7 @@ export function PickerRowLabel({
         </span>
         {!providerRunning(node.data.group) && !stage ? (
           <span
-            className={cn(
-              'shrink-0 text-[11px]',
-              node.data.group.health === 'unavailable' || node.data.group.health === 'degraded'
-                ? 'text-destructive'
-                : 'text-muted-foreground',
-            )}
+            className="shrink-0 text-[11px] text-muted-foreground"
             data-slot="provider-row-status"
             title={node.data.group.detail}
           >
@@ -142,8 +181,17 @@ export function PickerRowLabel({
   const description = router ? facts?.facts.description : undefined;
   return (
     <span className="flex w-full min-w-0 flex-1 items-center gap-2">
+      {/* The spec's ✓ leads the row; in columns every model keeps the slot so names align. */}
+      {flush && !state.selected ? null : (
+        <span aria-hidden="true" className="grid w-3.5 shrink-0 place-items-center">
+          {state.selected ? <CheckIcon className="size-3.5 text-accent-foreground" /> : null}
+        </span>
+      )}
       <span
-        className={cn('min-w-0 truncate text-start', state.selected && 'font-medium')}
+        className={cn(
+          'min-w-0 truncate text-start font-normal',
+          state.selected && 'text-accent-foreground',
+        )}
         data-slot="model-row-name"
       >
         {node.label}
