@@ -4,6 +4,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
@@ -50,7 +51,9 @@ export type ClioWorkbenchOpenRequest =
   /** One page of the shared browser, labelled by its session (a subagent's by its task). */
   | { kind: 'browser'; pageId: string; sessionId?: string; label?: string }
   /** One tool call's Activity detail, in the session that made it. */
-  | { kind: 'tool-call'; callId: string; sessionId?: string; label: string };
+  | { kind: 'tool-call'; callId: string; sessionId?: string; label: string }
+  /** Ctrl K's results for a query, as a tab (Ctrl Enter on mixed results). */
+  | { kind: 'search'; query: string; scope?: CommandMenuScope };
 
 /** The requests whose tab depends only on the request and the conversation. */
 export type TabOpenRequest = Exclude<
@@ -151,6 +154,14 @@ export function tabForOpenRequest(
         pageId: request.pageId,
         sessionId: request.sessionId ?? sessionId,
         workspaceId,
+      };
+    case 'search':
+      return {
+        id: `search:${request.query}`,
+        kind: 'search',
+        label: request.query,
+        query: request.query,
+        scope: request.scope,
       };
     case 'tool-call':
       return activityTab(

@@ -1,81 +1,38 @@
 import { vocab } from '@/lib/brand-vocabulary';
-import { queryKeys } from '@/lib/query-keys';
-import type { MemorySearchHit } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
-import {
-  BoxIcon,
-  FileIcon,
-  FolderIcon,
-  LayersIcon,
-  LoaderCircleIcon,
-  MessageSquareTextIcon,
-  ZapIcon,
-} from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { LoaderCircleIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { brand } from '@brand';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { useRepository } from '@/hooks/use-repository';
-import {
-  isPrimarySession,
-  PRIMARY_SESSION_KINDS,
-  sessionInteractionAt,
-} from '@/lib/recent-sessions';
+import { Command, CommandEmpty, CommandInput, CommandList } from '@/components/ui/command';
 import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ClioRelativeTime } from './relative-time';
-import { useLiveStore } from '@/store/live-store';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { ClioSearchAssistant } from './search-assistant';
-import { SearchHighlight } from './search-highlight';
-import { messageSearchHash } from '@/lib/search-matches';
 import { connectionScope } from '@/lib/connection-scope';
 import {
   ALL_SCOPE_GROUP_LIMIT,
   COMMAND_MENU_SCOPES,
   adjacentCommandMenuScope,
-  capRows,
-  inCommandMenuScope,
   parseCommandMenuQuery,
   withoutCommandMenuPrefix,
   type CommandMenuScope,
 } from '@/lib/command-menu-scopes';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { GlobalSearchMatchesScope } from './global-search-results';
+import type { GlobalSearchMatches } from './use-global-search-matches';
 import {
-  GlobalSearchGroups,
-  GlobalSearchMatchesScope,
-  MoreResultsItem,
-  ResultDetail,
-  ResultsHeading,
-  ResultTrail,
-} from './global-search-results';
-import {
-  isMissingEndpoint,
-  retryUnlessMissing,
-  type GlobalSearchMatches,
-} from './use-global-search-matches';
+  COMMAND_MENU_LIMITS,
+  COMMAND_MENU_SCOPE_ICONS,
+  commandMenuCounts,
+  useCommandMenuOpeners,
+  useCommandMenuResults,
+} from './command-menu-results';
+import { CommandMenuResultGroups } from './command-menu-result-groups';
 import { CommandMenuNoMatch } from './command-menu-no-match';
-import { MoreIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { TextTabs } from './primitives/text-tabs';
-import { ArtifactResultGroup, FileResultGroup, MessageHitGroup } from './command-menu-work-groups';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import { isSettingsRoute } from '@/lib/settings-window-route';
 import {
@@ -92,25 +49,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-
-/**
- * How many results each command-menu group shows. Unit: entries per group.
- * The menu is a keyboard jump list, so every group has to stay scannable
- * without scrolling; raise a value only if a group routinely hides the entry
- * people are reaching for.
- */
-const COMMAND_MENU_LIMITS = {
-  /** Workspace files matching the typed query. */
-  files: 16,
-  /** Session artifacts matching the typed query. */
-  artifacts: 12,
-  /** Remembered-context hits fetched from the backend per query. */
-  memoryHits: 12,
-  /** Sessions shown while searching, where the query already narrows them. */
-  searchedSessions: 20,
-  /** Sessions shown on open, before anything is typed. */
-  recentSessions: 10,
-} as const;
 
 export function ClioCommandMenu({
   onOpenResource,
@@ -142,7 +80,6 @@ export function ClioCommandMenu({
   const compactTabs = useMediaQuery('(max-width: 899px)');
   const navigate = useNavigate();
   const location = useLocation();
-  const repository = useRepository();
   const { settings, credentialsReady = true, credentialError } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const routeParams = useParams();
@@ -158,76 +95,16 @@ export function ClioCommandMenu({
       (currentWorkspaceId ? undefined : sessionIdFromRoute(workspaceRoute)) ??
       '',
   );
-  const artifacts = useLiveStore((state) => state.entities.artifacts);
-  const workspaces = useQuery({
+  const results = useCommandMenuResults({
     enabled: open && credentialsReady,
-    queryKey: queryKeys.key('workspaces', settings.endpoint, connectionScope(settings)),
-    queryFn: ({ signal }) => repository.workspaces(signal),
+    local: !aiMode,
+    searchText,
+    serverQuery,
+    workspaceId,
+    sessionId,
+    limits: COMMAND_MENU_LIMITS,
   });
-  // One page from the server: the newest conversations, or the titles matching the
-  // (debounced) query. The menu never loads every session.
-  const sessions = useQuery({
-    enabled: open && credentialsReady,
-    queryKey: queryKeys.key(
-      'session-pages',
-      settings.endpoint,
-      'command-menu',
-      connectionScope(settings),
-      serverQuery,
-    ),
-    queryFn: async ({ signal }) =>
-      (
-        await repository.sessionPage(
-          {
-            kinds: PRIMARY_SESSION_KINDS,
-            limit: serverQuery
-              ? COMMAND_MENU_LIMITS.searchedSessions
-              : COMMAND_MENU_LIMITS.recentSessions,
-            search: serverQuery || undefined,
-          },
-          signal,
-        )
-      ).sessions,
-  });
-  const entitySessions = useLiveStore((state) => state.entities.sessions);
-  const files = useQuery({
-    // The `@`-picker excludes ONLY CLIO's own .clio/.clio-* service storage
-    // (exclude_service_storage), independent of the Files-view-only "Hide dot
-    // files and folders" toggle — an ordinary dotfile like .gitignore or
-    // .github/workflows/ci.yml must stay @-mentionable, but referencing a
-    // workspace's own agent state in a message is not what this picker is for.
-    // The 4th key part spells out the exact param (not a bare boolean) so this
-    // can never collide with the Files view's differently parameterized
-    // include_hidden variant; the base ['workspace-files', endpoint,
-    // workspaceId] prefix stays intact so it still gets invalidated on writes.
-    queryKey: queryKeys.key(
-      'workspace-files',
-      settings.endpoint,
-      workspaceId,
-      'exclude_service_storage=true',
-      connectionScope(settings),
-    ),
-    queryFn: ({ signal }) =>
-      repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }),
-    enabled: open && credentialsReady && !aiMode && Boolean(workspaceId),
-  });
-  const memory = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-memory-search',
-      settings.endpoint,
-      'all-workspaces',
-      connectionScope(settings),
-      serverQuery,
-    ),
-    queryFn: ({ signal }) =>
-      repository.searchMemory(
-        serverQuery,
-        { includeCrossSession: true, limit: COMMAND_MENU_LIMITS.memoryHits },
-        signal,
-      ),
-    enabled: open && credentialsReady && !aiMode && serverQuery.length >= 2,
-    retry: retryUnlessMissing,
-  });
+  const { workspaces } = results;
 
   useShortcut('search', () => changeOpen(!open), { overrideHandled: true });
   useMenuAction('search', () => changeOpen(true));
@@ -244,60 +121,7 @@ export function ClioCommandMenu({
     if (open && !aiMode) searchInput.current?.focus();
   }, [open, aiMode]);
 
-  const normalizedQuery = searchText.trim().toLocaleLowerCase();
   const searchWorkspaceId = workspaceId || workspaces.data?.[0]?.id;
-  const matchingFiles = useMemo(
-    () =>
-      normalizedQuery
-        ? (files.data?.entries ?? [])
-            .filter(
-              (file) =>
-                file.type === 'file' && file.path.toLocaleLowerCase().includes(normalizedQuery),
-            )
-            .slice(0, COMMAND_MENU_LIMITS.files)
-        : [],
-    [files.data, normalizedQuery],
-  );
-  const matchingArtifacts = useMemo(
-    () =>
-      normalizedQuery
-        ? Object.values(artifacts)
-            .filter(
-              (artifact) =>
-                artifact.session_id === sessionId &&
-                artifact.name.toLocaleLowerCase().includes(normalizedQuery),
-            )
-            .slice(0, COMMAND_MENU_LIMITS.artifacts)
-        : [],
-    [artifacts, normalizedQuery, sessionId],
-  );
-  const workspaceNames = useMemo(
-    () =>
-      new Map((workspaces.data ?? []).map((workspace) => [workspace.id, workspace.display_name])),
-    [workspaces.data],
-  );
-  const visibleSessions = useMemo(() => {
-    const candidates = (sessions.data ?? []).filter(
-      (session) =>
-        !session.archived &&
-        isPrimarySession(session) &&
-        (normalizedQuery
-          ? `${session.title} ${workspaceNames.get(session.workspace_id) ?? ''}`
-              .toLocaleLowerCase()
-              .includes(normalizedQuery)
-          : true),
-    );
-    return candidates
-      .sort(
-        (left, right) =>
-          Number(right.pinned) - Number(left.pinned) ||
-          sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
-      )
-      .slice(
-        0,
-        normalizedQuery ? COMMAND_MENU_LIMITS.searchedSessions : COMMAND_MENU_LIMITS.recentSessions,
-      );
-  }, [normalizedQuery, sessions.data, workspaceNames]);
 
   const finish = (action: () => void) => {
     changeOpen(false);
@@ -314,41 +138,12 @@ export function ClioCommandMenu({
         },
       }),
     );
-  // The conversation to open in a workspace: the open one when it is there, else the
-  // workspace's newest (one row from the server).
-  const latestSessionIn = async (id: string) => {
-    const current = entitySessions[sessionId];
-    if (current?.workspace_id === id && !current.archived && isPrimarySession(current)) {
-      return current;
-    }
-    const page = await repository.sessionPage({
-      workspaceId: id,
-      kinds: PRIMARY_SESSION_KINDS,
-      limit: 1,
-    });
-    return page.sessions[0];
-  };
-  const openWorkspace = async (id: string) => {
-    const latest = await latestSessionIn(id).catch(() => undefined);
-    openRoute(
-      latest
-        ? `/workspaces/${encodeURIComponent(id)}/sessions/${encodeURIComponent(latest.id)}`
-        : newConversationRoute(id),
-    );
-  };
-  const openMemoryHit = async (hit: MemorySearchHit) => {
-    const session =
-      sessions.data?.find((candidate) => candidate.id === hit.session_id) ??
-      entitySessions[hit.session_id] ??
-      (hit.workspace_id
-        ? undefined
-        : (await repository.sessionsById([hit.session_id]).catch(() => []))[0]);
-    const targetWorkspace = hit.workspace_id || session?.workspace_id;
-    if (!targetWorkspace) return;
-    openRoute(
-      `/workspaces/${encodeURIComponent(targetWorkspace)}/sessions/${encodeURIComponent(hit.session_id)}${messageSearchHash(hit.message_id, hit.part_id ?? undefined, searchText.trim())}`,
-    );
-  };
+  const { latestSessionIn, openWorkspace, openMemoryHit } = useCommandMenuOpeners({
+    results,
+    sessionId,
+    searchText,
+    openRoute,
+  });
   const openResource = async (request: ClioWorkbenchOpenRequest) => {
     if (onOpenResource) return finish(() => onOpenResource(request));
     const targetWorkspace =
@@ -383,34 +178,14 @@ export function ClioCommandMenu({
     );
   };
 
-  const searching = Boolean(normalizedQuery);
+  const { searching, memory } = results;
   const groupLimit = activeScope === 'all' ? ALL_SCOPE_GROUP_LIMIT : undefined;
-  const memoryHits = serverQuery === searchText.trim() && !aiMode ? (memory.data?.hits ?? []) : [];
-  const matchingWorkspaces = normalizedQuery
-    ? (workspaces.data ?? [])
-        .filter((item) =>
-          `${item.display_name} ${item.name} ${item.path}`
-            .toLocaleLowerCase()
-            .includes(normalizedQuery),
-        )
-        .slice(0, 20)
-    : [];
   const pickScope = (next: CommandMenuScope) => {
     if (prefixScope) setQuery(withoutCommandMenuPrefix(query));
     setScope(next);
     searchInput.current?.focus();
   };
-  const scopeCounts = (global: GlobalSearchMatches): Record<CommandMenuScope, number> => {
-    const counts = {
-      conversations: visibleSessions.length + memoryHits.length,
-      files: matchingFiles.length,
-      artifacts: matchingArtifacts.length,
-      actions: global.counts.actions,
-      settings: global.counts.settings,
-      more: global.counts.more + matchingWorkspaces.length,
-    };
-    return { all: Object.values(counts).reduce((sum, count) => sum + count, 0), ...counts };
-  };
+  const scopeCounts = (global: GlobalSearchMatches) => commandMenuCounts(results, global);
   // Every result is a setting: Ctrl Enter opens Settings filtered to them.
   const settingsResultsRoute = (
     global: GlobalSearchMatches,
@@ -422,7 +197,16 @@ export function ClioCommandMenu({
     const route = first && 'route' in first ? first.route : '/settings/agents';
     return `${route.split('#')[0]}?q=${encodeURIComponent(searchText.trim())}`;
   };
-  const searchKeyDown = (event: KeyboardEvent<HTMLInputElement>, settingsRoute?: string) => {
+  // Mixed results: Ctrl Enter moves the whole list into a workbench tab.
+  const allResultsAction = (counts: Record<CommandMenuScope, number>, settingsRoute?: string) =>
+    searching && counts.all > 0 && !settingsRoute
+      ? () => void openResource({ kind: 'search', query: searchText.trim(), scope: activeScope })
+      : undefined;
+  const searchKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    settingsRoute?: string,
+    openAllResults?: () => void,
+  ) => {
     if (event.nativeEvent.isComposing) return;
     const modified = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
     if (event.key === 'Tab' && !event.shiftKey && credentialsReady && searchWorkspaceId) {
@@ -432,10 +216,11 @@ export function ClioCommandMenu({
     }
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       // Ctrl Enter is the "All results" key, never a second Enter: with every
-      // result a setting it opens Settings filtered to them; mixed results wait
-      // for the spec's All results workbench tab.
+      // result a setting it opens Settings filtered to them; mixed results move
+      // into the All results workbench tab.
       event.preventDefault();
       if (settingsRoute) openRoute(settingsRoute);
+      else openAllResults?.();
       return;
     }
     if (event.key === 'Backspace' && !query && scope !== 'all') {
@@ -453,18 +238,13 @@ export function ClioCommandMenu({
     pickScope(next);
   };
   const scopeLabel = COMMAND_MENU_SCOPES.find((item) => item.value === activeScope)?.label ?? '';
-  const fetching = memory.isFetching || files.isFetching;
+  const { fetching } = results;
   const emptyText = memory.isFetching
     ? 'Searching conversations…'
     : !searching && (activeScope === 'files' || activeScope === 'artifacts')
       ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
       : 'Nothing here yet.';
   const canAsk = credentialsReady && Boolean(searchWorkspaceId);
-  const sessionRows = capRows(visibleSessions, groupLimit);
-  const messageRows = capRows(memoryHits, groupLimit);
-  const fileRows = capRows(matchingFiles, groupLimit);
-  const artifactRows = capRows(matchingArtifacts, groupLimit);
-  const workspaceRows = capRows(matchingWorkspaces, groupLimit);
 
   return (
     <Dialog onOpenChange={changeOpen} open={open}>
@@ -509,6 +289,7 @@ export function ClioCommandMenu({
               {(global) => {
                 const counts = scopeCounts(global);
                 const settingsRoute = settingsResultsRoute(global, counts);
+                const openAllResults = allResultsAction(counts, settingsRoute);
                 const hints: PickerHint[] = [
                   { label: 'Close', shortcut: 'menu-close', optional: true },
                   activeScope !== 'all' && !searchText
@@ -522,6 +303,15 @@ export function ClioCommandMenu({
                           shortcut: 'menu-all-results',
                           accent: true,
                           onSelect: () => openRoute(settingsRoute),
+                        },
+                      ]
+                    : []),
+                  ...(openAllResults
+                    ? [
+                        {
+                          label: 'All results',
+                          shortcut: 'menu-all-results' as const,
+                          onSelect: openAllResults,
                         },
                       ]
                     : []),
@@ -561,7 +351,7 @@ export function ClioCommandMenu({
                           </span>
                         ) : null
                       }
-                      onKeyDown={(event) => searchKeyDown(event, settingsRoute)}
+                      onKeyDown={(event) => searchKeyDown(event, settingsRoute, openAllResults)}
                     />
                     <div className="border-b px-3">
                       <TextTabs
@@ -571,7 +361,7 @@ export function ClioCommandMenu({
                         onValueChange={pickScope}
                         tabs={COMMAND_MENU_SCOPES.map((tab) => ({
                           ...tab,
-                          icon: compactTabs ? SCOPE_ICONS[tab.value] : undefined,
+                          icon: compactTabs ? COMMAND_MENU_SCOPE_ICONS[tab.value] : undefined,
                           gathers: tab.value === 'more',
                           count: searching ? counts[tab.value] : undefined,
                         }))}
@@ -601,132 +391,18 @@ export function ClioCommandMenu({
                       ) : (
                         <CommandEmpty>{emptyText}</CommandEmpty>
                       )}
-                      {inCommandMenuScope(activeScope, 'conversations') &&
-                      sessionRows.rows.length ? (
-                        <CommandGroup
-                          heading={
-                            <ResultsHeading
-                              count={searching ? visibleSessions.length : undefined}
-                              label={searching ? 'Conversations' : 'Recent conversations'}
-                            />
-                          }
-                        >
-                          {sessionRows.rows.map((session) => (
-                            <CommandItem
-                              key={session.id}
-                              onSelect={() =>
-                                openRoute(
-                                  `/workspaces/${session.workspace_id}/sessions/${session.id}`,
-                                )
-                              }
-                              value={`session:${session.id}`}
-                            >
-                              <MessageSquareTextIcon aria-hidden="true" />
-                              <span className="min-w-0 flex-[0_1_auto] truncate">
-                                <SearchHighlight text={session.title} query={searchText} />
-                              </span>
-                              <ResultDetail>
-                                <SearchHighlight
-                                  text={
-                                    workspaceNames.get(session.workspace_id) ??
-                                    'Workspace unavailable'
-                                  }
-                                  query={searchText}
-                                />
-                              </ResultDetail>
-                              <ResultTrail>
-                                <ClioRelativeTime
-                                  compact
-                                  timestamp={sessionInteractionAt(session)}
-                                />
-                              </ResultTrail>
-                            </CommandItem>
-                          ))}
-                          <MoreResultsItem
-                            hidden={sessionRows.hidden}
-                            noun="conversations"
-                            onMore={pickScope}
-                            scope="conversations"
-                          />
-                        </CommandGroup>
-                      ) : null}
-                      {inCommandMenuScope(activeScope, 'conversations') &&
-                      memory.error &&
-                      !isMissingEndpoint(memory.error) ? (
-                        <p role="alert" className="px-3 py-2 text-xs text-destructive">
-                          Conversation search failed. {memory.error.message}
-                        </p>
-                      ) : null}
-                      {inCommandMenuScope(activeScope, 'conversations') &&
-                      messageRows.rows.length ? (
-                        <MessageHitGroup
-                          hits={messageRows}
-                          onMore={pickScope}
-                          onOpen={(hit) => void openMemoryHit(hit)}
-                          query={searchText}
-                          total={memoryHits.length}
-                          workspaceNames={workspaceNames}
-                        />
-                      ) : null}
-                      {inCommandMenuScope(activeScope, 'files') && fileRows.rows.length ? (
-                        <FileResultGroup
-                          files={fileRows}
-                          onMore={pickScope}
-                          onOpen={(path) => void openResource({ kind: 'workspace-file', path })}
-                          query={searchText}
-                          total={matchingFiles.length}
-                        />
-                      ) : null}
-                      {inCommandMenuScope(activeScope, 'artifacts') && artifactRows.rows.length ? (
-                        <ArtifactResultGroup
-                          artifacts={artifactRows}
-                          onMore={pickScope}
-                          onOpen={(artifact) => void openResource({ kind: 'artifact', artifact })}
-                          query={searchText}
-                          total={matchingArtifacts.length}
-                        />
-                      ) : null}
-                      <GlobalSearchGroups
+                      <CommandMenuResultGroups
+                        global={global}
                         limit={groupLimit}
-                        matches={global}
                         onFinish={() => finish(() => {})}
                         onMore={pickScope}
+                        onOpenMemoryHit={(hit) => void openMemoryHit(hit)}
+                        onOpenResource={(request) => void openResource(request)}
+                        onOpenWorkspace={(id) => void openWorkspace(id)}
                         onRoute={openRoute}
-                        query={searchText}
+                        results={results}
                         scope={activeScope}
-                        searching={searching}
-                        after={
-                          inCommandMenuScope(activeScope, 'more') && workspaceRows.rows.length ? (
-                            <CommandGroup
-                              heading={
-                                <ResultsHeading
-                                  count={matchingWorkspaces.length}
-                                  label="Workspaces"
-                                />
-                              }
-                            >
-                              {workspaceRows.rows.map((item) => (
-                                <CommandItem
-                                  key={item.id}
-                                  value={`workspace:${item.id}`}
-                                  onSelect={() => void openWorkspace(item.id)}
-                                >
-                                  <FolderIcon aria-hidden="true" />
-                                  <span className="min-w-0 flex-[0_1_auto] truncate">
-                                    <SearchHighlight text={item.display_name} query={searchText} />
-                                  </span>
-                                  <ResultTrail>Workspace</ResultTrail>
-                                </CommandItem>
-                              ))}
-                              <MoreResultsItem
-                                hidden={workspaceRows.hidden}
-                                noun="workspaces"
-                                onMore={pickScope}
-                                scope="more"
-                              />
-                            </CommandGroup>
-                          ) : null
-                        }
+                        searchText={searchText}
                       />
                     </CommandList>
                     <PickerFooter hints={hints} />
@@ -740,13 +416,3 @@ export function ClioCommandMenu({
     </Dialog>
   );
 }
-
-const SCOPE_ICONS: Record<CommandMenuScope, ReactNode> = {
-  all: <LayersIcon aria-hidden="true" />,
-  conversations: <MessageSquareTextIcon aria-hidden="true" />,
-  files: <FileIcon aria-hidden="true" />,
-  artifacts: <BoxIcon aria-hidden="true" />,
-  actions: <ZapIcon aria-hidden="true" />,
-  settings: <SettingsIcon aria-hidden="true" />,
-  more: <MoreIcon aria-hidden="true" />,
-};

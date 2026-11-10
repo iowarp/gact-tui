@@ -4,6 +4,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import type { ActivityKind } from './workbench-activity-model';
 import type { WorkbenchListView, WorkbenchTabListView } from './workbench-strip';
 
@@ -103,7 +104,9 @@ type WorkbenchTabKind =
       pageId: string;
       sessionId: string;
       workspaceId: string;
-    };
+    }
+  /** Ctrl K's results for `query`, moved into a tab (All results). */
+  | { id: string; kind: 'search'; label: string; query: string; scope?: CommandMenuScope };
 
 export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {
   return {
