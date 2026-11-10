@@ -52,6 +52,14 @@ body,
   flex: 1 1 auto !important;
 }
 
+/*
+ * h5web draws toolbar buttons, the dimension toggles and the domain slider
+ * with a grey bevel. The workbench's controls are flat with one hairline.
+ */
+.viewer-root [class*='_btnLike_'] {
+  box-shadow: inset 0 0 0 1px var(--secondary-dark-15) !important;
+}
+
 
 /*
  * Below the width that fits the tree beside a plot (MIN_EXPLORER_PANE in
