@@ -1,5 +1,5 @@
 import { SchemaSection } from './tool-schema-section';
-import type { McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
+import type { McpServerDefinition, ToolCatalogItem, ToolPermission } from '@clio/core/v3';
 import {
   BrainIcon,
   EyeIcon,
@@ -51,12 +51,15 @@ export function CatalogToolset({
   tools,
   query = '',
   source = 'all',
+  permissions,
   onClearFilters,
 }: {
   servers?: McpServerDefinition[];
   tools: ToolCatalogItem[];
   query?: string;
   source?: ToolSource;
+  /** Each tool's permission by name (Settings › Tools); the status column says it. */
+  permissions?: ReadonlyMap<string, ToolPermission>;
   onClearFilters?: () => void;
 }) {
   const bundles = useMemo(() => toolBundles(tools, servers, query), [query, servers, tools]);
@@ -73,14 +76,24 @@ export function CatalogToolset({
       {builtin.length ? (
         <InfraList heading="Built in" hover={26} meta={128} pinned={false}>
           {builtin.map((entry) => (
-            <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
+            <ToolRow
+              entry={entry}
+              key={toolKey(entry.tool)}
+              onInspect={setSelected}
+              permission={permissions?.get(entry.tool.name)}
+            />
           ))}
         </InfraList>
       ) : null}
       {mcp.length ? (
         <InfraList heading="MCP servers" hover={26} meta={128} pinned={false}>
           {mcp.map((entry) => (
-            <ToolRow entry={entry} key={toolKey(entry.tool)} onInspect={setSelected} />
+            <ToolRow
+              entry={entry}
+              key={toolKey(entry.tool)}
+              onInspect={setSelected}
+              permission={permissions?.get(entry.tool.name)}
+            />
           ))}
         </InfraList>
       ) : null}
@@ -112,9 +125,11 @@ export function CatalogToolset({
 function ToolRow({
   entry,
   onInspect,
+  permission,
 }: {
   entry: ToolEntry;
   onInspect: (entry: ToolEntry) => void;
+  permission?: ToolPermission;
 }) {
   const { tool } = entry;
   const inspect = (event: MouseEvent) => {
@@ -129,7 +144,7 @@ function ToolRow({
       // The meta column names where the tool comes from: the agent itself or its server.
       meta={tool.server_id ? entry.group : vocab.agent}
       onClick={() => onInspect(entry)}
-      status={toolStatus(tool)}
+      status={toolStatus(tool, permission)}
       title={
         <button className="max-w-full truncate text-left" onClick={inspect} type="button">
           {tool.name}
@@ -169,10 +184,19 @@ function ToolIcon({ tool }: { tool: ToolCatalogItem }) {
   return <Icon />;
 }
 
-function toolStatus(tool: ToolCatalogItem): InfraStatus {
-  if (tool.enabled === false) return { tone: 'stopped', label: 'Off' };
+const PERMISSION_STATUS: Record<ToolPermission, InfraStatus> = {
+  allow: { tone: 'success', label: 'Allowed' },
+  ask: { tone: 'warning', label: 'Asks first' },
+  deny: { tone: 'idle', label: 'Off' },
+};
+
+/** The permission when Settings knows it (spec: Allowed, Asks first, Off), else availability. */
+function toolStatus(tool: ToolCatalogItem, permission?: ToolPermission): InfraStatus {
+  if (tool.enabled === false) return { tone: 'idle', label: 'Off' };
   const status = tool.status?.trim().toLocaleLowerCase();
-  if (!status || ['available', 'enabled', 'ready', 'healthy'].includes(status)) {
+  const healthy = !status || ['available', 'enabled', 'ready', 'healthy'].includes(status);
+  if (permission && healthy) return PERMISSION_STATUS[permission];
+  if (healthy) {
     return { tone: 'success', label: 'Available' };
   }
   return { tone: 'warning', label: humanize(status) };

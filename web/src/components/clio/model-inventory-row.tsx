@@ -54,7 +54,7 @@ function modelStatus(model: ModelAcquisition, runtimeUnavailable?: string): Infr
     case 'failed':
       return { tone: 'error', label: 'Failed' };
     case 'cancelled':
-      return { tone: 'stopped', label: 'Cancelled' };
+      return { tone: 'idle', label: 'Cancelled' };
     case 'interrupted':
       return { tone: 'warning', label: 'Interrupted' };
     case 'stale':

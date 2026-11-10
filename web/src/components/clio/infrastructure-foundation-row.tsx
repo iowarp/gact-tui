@@ -71,6 +71,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
       label: 'Needed by the agent',
       icon: <ShieldCheckIcon />,
       value: integration.required === false ? 'No' : 'Yes',
+      mono: true,
     },
     ...(integration.endpoint
       ? [{ label: 'Endpoint', icon: <PlugIcon />, value: integration.endpoint, mono: true }]

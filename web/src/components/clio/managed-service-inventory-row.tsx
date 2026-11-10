@@ -41,7 +41,7 @@ function rowStatus(service: ManagedServiceDefinition, working: boolean): InfraSt
     return { tone: 'running', label: status.label };
   if (working) return { tone: 'running', label: 'Working' };
   if (status.kind === 'running') return { tone: 'success', label: status.label };
-  if (status.kind === 'stopped') return { tone: 'stopped', label: status.label };
+  if (status.kind === 'stopped') return { tone: 'idle', label: status.label };
   if (status.kind === 'not_installed' && status.reason)
     return { tone: 'warning', label: status.label };
   return { tone: 'idle', label: status.label };
