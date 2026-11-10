@@ -12,6 +12,7 @@ import {
   Link2Icon,
   LoaderCircleIcon,
   PlugIcon,
+  RocketIcon,
   SearchIcon,
   ServerIcon,
   TerminalSquareIcon,
@@ -397,7 +398,7 @@ export function ClioMenuContent({
         </div>
       )}
       <div className="flex items-center border-t border-border/70 pr-1">
-        <MenuKeyHints className="min-w-0 flex-1 border-t-0 pl-3.5" hints={MENU_HINTS} />
+        <MenuKeyHints className="min-w-0 flex-1 border-t-0 pl-3.5" hints={MENU_HINTS} keysFirst />
         <InfrastructureItem returnState={returnState} />
       </div>
     </DropdownMenuContent>
@@ -412,8 +413,8 @@ function AddAgentItems({ desktop }: { desktop: boolean }) {
         <Link to="/?intent=connect&mode=address">
           <MenuRow
             className="gap-[9px]"
-            detail="Already running at an address"
-            icon={<Link2Icon />}
+            detail={`${brand.agentName} already running at an address`}
+            icon={<GlobeIcon />}
             label="Connect by address"
           />
         </Link>
@@ -433,7 +434,7 @@ function AddAgentItems({ desktop }: { desktop: boolean }) {
           <MenuRow
             className="gap-[9px]"
             detail={desktop ? 'Set it up over SSH, then connect' : 'In the desktop app'}
-            icon={<DownloadIcon />}
+            icon={<RocketIcon />}
             label={`Install ${brand.agentName} on a computer`}
           />
         </Link>
