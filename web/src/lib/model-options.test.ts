@@ -2,7 +2,9 @@ import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from 
 import { describe, expect, it } from 'vitest';
 import {
   buildModelOptions,
+  compactModelName,
   findSelectedModelOption,
+  isVendorApi,
   matchesConfiguredModel,
   modelAvailabilityLabel,
 } from './model-options';
@@ -717,5 +719,37 @@ describe('findSelectedModelOption', () => {
 
   it("never returns an unavailable row or another provider's model", () => {
     expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')).toBeUndefined();
+  });
+});
+
+describe('compactModelName', () => {
+  it.each([
+    ['gpt-6.1-luna', 'luna 6.1'],
+    ['gpt-6-luna', 'luna 6'],
+    ['gpt-5.6-luna', 'luna 5.6'],
+    ['openai/gpt-6.1-sol', 'sol 6.1'],
+    ['claude-sonnet-5-5', 'sonnet 5.5'],
+    ['claude-sonnet-5.5', 'sonnet 5.5'],
+    ['claude-opus-4-20250514', 'opus 4'],
+    ['claude-sonnet-4-5-20250929', 'sonnet 4.5'],
+    ['anthropic/claude-3-5-haiku-20241022', 'haiku 3.5'],
+  ])('keeps the family and version of %s', (id, name) => {
+    expect(compactModelName(id, id)).toBe(name);
+  });
+
+  it('keeps the label of any other model', () => {
+    expect(compactModelName('mercury-3', 'mercury-3')).toBe('mercury-3');
+    expect(compactModelName('gpt-5.3-codex', 'GPT-5.3 Codex')).toBe('GPT-5.3 Codex');
+  });
+});
+
+describe('isVendorApi', () => {
+  it('names the route only when it is not the maker’s own API', () => {
+    expect(isVendorApi('openai', 'gpt-6.1-luna')).toBe(true);
+    expect(isVendorApi('codex', 'gpt-6.1-luna')).toBe(false);
+    expect(isVendorApi('anthropic', 'claude-sonnet-5-5')).toBe(true);
+    expect(isVendorApi('claude_code', 'claude-sonnet-5-5')).toBe(false);
+    expect(isVendorApi('openrouter', 'openai/gpt-6.1-luna')).toBe(false);
+    expect(isVendorApi('openai', 'mercury-3')).toBe(false);
   });
 });

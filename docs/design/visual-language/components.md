@@ -140,8 +140,7 @@ These call sites still use their own markup. Migrate them to the components
 above while redesigning the surface; the change is not mechanical.
 
 - **Menus to `MenuRow`:** `clio/session-export-menu.tsx`,
-  `clio/session-management-menu.tsx`, `clio/session-behavior-menu.tsx`,
-  `clio/agent-switch-menu.tsx`, `clio/context-compaction-controls.tsx`,
+  `clio/session-management-menu.tsx`, `clio/agent-switch-menu.tsx`, `clio/context-compaction-controls.tsx`,
   `clio/message-history-actions.tsx`.
 - **Dialogs to `DialogFrame`:** `clio/share-session-dialog.tsx`,
   `clio/archived-sessions-dialog.tsx`, `clio/whats-new-dialog.tsx`, tool detail

@@ -571,7 +571,16 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
 }, testInfo) => {
   await openDenseFlatNdp(page);
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
+  const modelButton = page.getByRole('button', { name: 'Change model' });
+  await expect(modelButton).toContainText('codex / luna 5.6');
+  // A short route stays on the label's one line beside the model.
+  expect(
+    await modelButton.evaluate((node) => {
+      const line = node.querySelector('[data-slot="model-choice-label"]')!.getBoundingClientRect();
+      const route = node.querySelector('[data-slot="model-choice-provider"]')!;
+      return route.getBoundingClientRect().bottom <= line.bottom + 1;
+    }),
+  ).toBe(true);
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(pendingResponses).toBeVisible();

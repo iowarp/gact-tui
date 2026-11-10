@@ -9,10 +9,6 @@ import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
 import { sessionObservabilityQueryKey } from './use-session-observability';
 
-export function sessionContextQueryKey(endpoint: string, sessionId: string) {
-  return queryKeys.sessionContext(endpoint, sessionId);
-}
-
 /** Selected agent context plus server-owned compaction controls. */
 export function useSessionContext(
   sessionId: string,

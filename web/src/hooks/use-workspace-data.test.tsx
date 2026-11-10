@@ -115,6 +115,7 @@ vi.mock('@/store/live-store', () => {
 });
 
 import { useWorkspaceData } from './use-workspace-data';
+import { useModelCatalogStatus } from './use-model-catalog-status';
 import { sessionReads } from '@/test/session-reads';
 
 const approval = {
@@ -236,6 +237,28 @@ describe('useWorkspaceData interaction reads', () => {
 
     await waitFor(() => expect(result.current.interactions).toHaveLength(1));
     resolveCapabilities?.({ capabilities: {}, gact_versions: [] });
+  });
+
+  it('reads every conversation request with no conversation open, naming owners by id', async () => {
+    // Running, so the waiting list does not hold it: its request outran its state.
+    mocks.sessionRows.mockResolvedValue([
+      { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'running' },
+    ]);
+    mocks.repository.pendingApprovals.mockResolvedValue([approval]);
+
+    const { result } = renderHook(
+      () => useWorkspaceData({ contextTargetId: '', sessionId: '', workspaceId: 'ws_1' }),
+      { wrapper: Wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.allSessions.data?.map((session) => session.id)).toEqual(['sess_1']),
+    );
+    expect(result.current.attentionInteractions).toEqual([
+      expect.objectContaining({ id: 'perm_1', attended_session_id: 'sess_1' }),
+    ]);
+    expect(mocks.repository.pendingApprovals).toHaveBeenCalledWith(undefined, expect.anything());
+    expect(sessionReadMocks.sessionsById).toHaveBeenCalledWith(['sess_1'], expect.anything());
   });
 
   it('uses the unified read once the capability is advertised', async () => {
@@ -632,7 +655,17 @@ describe('useWorkspaceData transcript recovery', () => {
 
 describe('useWorkspaceData background polls', () => {
   it('reports an explicit model catalog refresh while retaining its cached catalog', async () => {
-    const { result } = renderWorkspaceData();
+    const { result } = renderHook(
+      () => {
+        const data = useWorkspaceData({
+          contextTargetId: 'sess_1',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        });
+        return { ...data, modelCatalogStatus: useModelCatalogStatus(data.modelCatalogStatus) };
+      },
+      { wrapper: Wrapper },
+    );
     await waitFor(() => expect(result.current.modelCatalogStatus).toBe('ready'));
     const previous = result.current.providerCatalog.data;
     const payload = { providers: [] };

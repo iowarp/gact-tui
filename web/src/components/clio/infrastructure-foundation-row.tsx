@@ -110,7 +110,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
             {nextStep ? (
               <p className="text-[12px] whitespace-normal text-muted-foreground">{nextStep}</p>
             ) : null}
-            <KeyValueGrid className={INFRA_FACTS_GRID} items={facts} />
+            <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {technical ? (
               <TechnicalDetails
                 beside={actionLink}

@@ -121,12 +121,6 @@ const requiredImports = {
   // git-style causal graph (SVG connector paths across stable agent-strand
   // lanes); Timeline's linear-item model can't represent concurrent strands,
   // so no sourced component composes this view (reviewed 2026-09-12).
-  'web/src/components/clio/inspector.tsx': [
-    '@/components/ai-elements/context',
-    '@/components/ai-elements/file-tree',
-    '@/components/reui/timeline',
-    './artifact-card',
-  ],
   // a2ui-catalog.tsx moved to web/src/lib/a2ui/kernel-catalog.tsx
   // (docs/design/a2ui-compat-campaign-2026-09.md S6): the registry-driven
   // catalog wiring lives beside the DOM-free registry it feeds, not under
@@ -163,8 +157,6 @@ const requiredImports = {
     '@/components/ui/select',
     './model-select-field',
   ],
-  // Settings use a flat adapter; retain the complete chain to the sourced ReUI primitives.
-  'web/src/components/clio/settings-frame.tsx': ['@/components/reui/frame'],
   // Every Settings model choice opens the shared picker through this field.
   'web/src/components/clio/model-select-field.tsx': ['./model-picker'],
   'web/src/components/clio/settings-prompt-editor.tsx': ['@/components/ai-elements/code-block'],

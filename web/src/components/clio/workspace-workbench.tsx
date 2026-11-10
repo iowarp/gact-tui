@@ -8,6 +8,7 @@ import type { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal
 import { useSubagentControl } from '@/hooks/use-subagent-control';
 import { useTaskCancellation } from '@/hooks/use-task-cancellation';
 import { isDocumentPreview } from '@/lib/artifact-presentation';
+import { useQueryFetching } from '@/lib/query-notify';
 import { ClioWorkbench } from './workbench';
 import {
   WorkbenchActivityProvider,
@@ -46,7 +47,8 @@ export function WorkspaceWorkbench({
   onFilesViewActiveChange,
   workspaceFolders,
 }: {
-  data: ObservabilityData & Pick<WorkspaceData, 'sessionArtifacts' | 'workspaceFiles'>;
+  data: ObservabilityData &
+    Pick<WorkspaceData, 'sessionArtifacts' | 'workspaceFiles' | 'workspaceFilesKey'>;
   navigation: ObservabilityNavigation & Pick<ReturnType<typeof useWorkbenchNavigation>, 'requests'>;
   sessionId: string;
   workspaceId: string;
@@ -63,6 +65,7 @@ export function WorkspaceWorkbench({
   onFilesViewActiveChange: (active: boolean) => void;
 }) {
   const { sessionArtifacts, workspaceFiles, workspaceResources } = data;
+  const filesFetching = useQueryFetching(data.workspaceFilesKey);
   const onCancelTask = useTaskCancellation(sessionId);
   const onControlTask = useSubagentControl(sessionId);
   const diffs = data.sessionObservability.diffs.data;
@@ -120,7 +123,7 @@ export function WorkspaceWorkbench({
         diffs={data.sessionObservability.diffs.data ?? []}
         files={workspaceFiles.data?.entries ?? []}
         filesError={workspaceFiles.error?.message}
-        filesFetching={workspaceFiles.isFetching}
+        filesFetching={filesFetching}
         filesPending={workspaceFiles.isPending}
         filesTruncated={workspaceFiles.data?.truncated ?? false}
         filesNextOffset={workspaceFiles.data?.next_offset}

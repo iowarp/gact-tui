@@ -7,7 +7,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { FileViewerContentsRegistry } from './file-viewer-action-context';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
 import { entityFacts, valuesAsTsv } from './hdf5-viewer-facts';
-import { HDF5_VIEWER_URL, Hdf5ViewerFrame } from './hdf5-viewer-frame';
+import { Hdf5ViewerFrame } from './hdf5-viewer-frame';
+import { HDF5_VIEWER_PATH } from './hdf5-viewer-location';
 
 const repository = vi.hoisted(() => ({ readWorkspaceHdf5: vi.fn() }));
 const theme = vi.hoisted(() => ({ resolvedTheme: 'dark' as 'dark' | 'light' }));
@@ -71,7 +72,7 @@ function lastMessage(posted: ReturnType<typeof vi.spyOn>) {
 describe('Hdf5ViewerFrame', () => {
   it('loads the viewer page', () => {
     const { iframe } = renderFrame();
-    expect(iframe.getAttribute('src')).toBe(HDF5_VIEWER_URL);
+    expect(iframe.getAttribute('src')).toBe(`/${HDF5_VIEWER_PATH}`);
     expect(iframe.title).toBe('HDF5 viewer: runs/water.h5');
   });
 

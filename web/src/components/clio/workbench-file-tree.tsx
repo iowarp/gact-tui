@@ -3,9 +3,11 @@ import { ChevronRightIcon, FileIcon, FolderIcon, FolderOpenIcon } from 'lucide-r
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FileTreeIcon, FileTreeName } from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
+import { formatBytes, formatCompactBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { MetaValue } from './primitives/tag';
 import { ResourceLoading } from './resource-states';
-import { isChangedPath } from './workbench-shared';
+import { changeCountFor, isChangedPath, type ChangeCounts } from './workbench-shared';
 import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model';
 
 // Human copy for the server's typed `redacted` reasons
@@ -27,6 +29,8 @@ export type FileTreeRow =
       depth: number;
       alignWithFolders: boolean;
       icon?: ReactNode;
+      /** Bytes, shown as the trailing meta when the conversation did not change it. */
+      size?: number;
     }
   | { kind: 'note'; key: string; depth: number; label: string; tone?: 'muted' | 'error' }
   | { kind: 'loading'; key: string; depth: number; label: string }
@@ -60,11 +64,13 @@ export function WorkbenchFileTree({
   selectedPath,
   onSelect,
   changedPaths,
+  changeCounts,
 }: {
   nodes: readonly WorkspaceFileNode[];
   selectedPath?: string;
   onSelect: (path: string) => void;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const toggle = useCallback((path: string) => {
@@ -82,7 +88,14 @@ export function WorkbenchFileTree({
       for (const node of level) {
         const path = node.entry.path;
         if (node.entry.type !== 'dir') {
-          result.push({ kind: 'file', path, name: node.name, depth, alignWithFolders });
+          result.push({
+            kind: 'file',
+            path,
+            name: node.name,
+            depth,
+            alignWithFolders,
+            size: node.entry.size,
+          });
           continue;
         }
         const open = expanded.has(path);
@@ -111,6 +124,7 @@ export function WorkbenchFileTree({
 
   return (
     <WindowedFileTree
+      changeCounts={changeCounts}
       changedPaths={changedPaths}
       onSelect={onSelect}
       onToggle={toggle}
@@ -128,12 +142,14 @@ export function WindowedFileTree({
   rows,
   selectedPath,
   changedPaths,
+  changeCounts,
   onSelect,
   onToggle,
 }: {
   rows: readonly FileTreeRow[];
   selectedPath?: string;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
   onSelect: (path: string) => void;
   onToggle: (path: string) => void;
 }) {
@@ -180,6 +196,7 @@ export function WindowedFileTree({
     >
       {items.map(({ row, top }) => (
         <TreeRowView
+          changeCounts={changeCounts}
           changedPaths={changedPaths}
           key={rowKey(row)}
           onSelect={onSelect}
@@ -198,6 +215,7 @@ function TreeRowView({
   top,
   selectedPath,
   changedPaths,
+  changeCounts,
   onSelect,
   onToggle,
 }: {
@@ -205,6 +223,7 @@ function TreeRowView({
   top: number | undefined;
   selectedPath?: string;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
   onSelect: (path: string) => void;
   onToggle: (path: string) => void;
 }) {
@@ -282,9 +301,17 @@ function TreeRowView({
     case 'file': {
       const changed = isChangedPath(changedPaths, row.path);
       const selected = selectedPath === row.path;
+      const added = changed ? changeCountFor(changeCounts, row.path) : undefined;
+      const sizeKnown = row.size !== undefined && row.size >= 0;
+      const detail = [
+        added ? `${added} lines added` : undefined,
+        sizeKnown ? formatBytes(row.size!) : undefined,
+      ]
+        .filter(Boolean)
+        .join(', ');
       return (
         <div
-          aria-label={changed ? `${row.name}, changed in this conversation` : undefined}
+          aria-label={changed ? `${row.name}, changed in this conversation` : row.name}
           aria-level={row.depth + 1}
           aria-selected={selected}
           className={cn(
@@ -300,6 +327,7 @@ function TreeRowView({
           role="treeitem"
           style={style}
           tabIndex={0}
+          title={detail || undefined}
         >
           {row.alignWithFolders ? <span aria-hidden="true" className="w-3 shrink-0" /> : null}
           <FileTreeIcon
@@ -314,6 +342,12 @@ function TreeRowView({
             {row.icon ?? <FileIcon className="size-3.5" />}
           </FileTreeIcon>
           <FileTreeName>{row.name}</FileTreeName>
+          {added || sizeKnown ? (
+            // Spec `.zx .t`: one quiet trailing meta, `+N` on a changed file, else its size.
+            <MetaValue className={cn('ml-auto text-faint', selected && 'text-accent-foreground')}>
+              {added ? `+${added}` : formatCompactBytes(row.size!)}
+            </MetaValue>
+          ) : null}
         </div>
       );
     }

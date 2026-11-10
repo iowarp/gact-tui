@@ -51,7 +51,7 @@ import { WorkbenchListResizeHandle } from './workbench-list-resize';
 import { useListFitWidth } from './workbench-list-fit';
 import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
-import type { WorkbenchTab } from './workbench-shared';
+import { LIST_HEADER_SECONDARY, type ChangeCounts, type WorkbenchTab } from './workbench-shared';
 import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 
 export type WorkbenchActivityView = 'timeline' | 'events' | 'relationships' | 'context';
@@ -83,6 +83,7 @@ export interface WorkbenchListColumnProps {
   directory?: string;
   onClearDirectory: () => void;
   changedPaths: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
   onOpenFile: (path: string) => void;
   // Sources
   resources: readonly WorkspaceResource[];
@@ -288,20 +289,22 @@ export function WorkbenchListHeader({
   return (
     <div
       data-slot="workbench-list-header"
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
+      className="group/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
     >
       <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
         {title}
       </h2>
       {actions}
       {onHide ? (
-        <IconButton
-          icon={<PanelRightCloseIcon />}
-          label={`Hide ${title}`}
-          onClick={onHide}
-          size="sm"
-          tooltipSide="bottom"
-        />
+        <span className={LIST_HEADER_SECONDARY}>
+          <IconButton
+            icon={<PanelRightCloseIcon />}
+            label={`Hide ${title}`}
+            onClick={onHide}
+            size="sm"
+            tooltipSide="bottom"
+          />
+        </span>
       ) : null}
     </div>
   );
@@ -334,6 +337,7 @@ function FilesList({
   directory,
   onClearDirectory,
   changedPaths,
+  changeCounts,
   onOpenFile,
   tabs,
   activeTabId,
@@ -349,6 +353,7 @@ function FilesList({
       <div className="min-h-0 flex-1">
         <FileBrowser
           key={directory ?? ''}
+          changeCounts={changeCounts}
           changedPaths={changedPaths}
           directory={directory}
           files={files}

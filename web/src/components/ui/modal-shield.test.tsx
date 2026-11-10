@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Button } from './button';
@@ -122,6 +122,102 @@ describe('modal layer shields', () => {
     await user.click(screen.getByRole('button', { name: 'Filter' }));
     expect(screen.getByText('Filters')).toBeInTheDocument();
     expect(shields()).toHaveLength(1);
+  });
+
+  it('dismisses on a shield press and returns focus to the trigger', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Button>Elsewhere</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Rename</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    await waitFor(() =>
+      expect(screen.getByRole('menu')).toContainElement(document.activeElement as HTMLElement),
+    );
+    await user.click(shields()[0]!);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Actions' })).toHaveFocus());
+  });
+
+  it('keeps a shielded menu open when focus leaves it, as Radix modal mode did', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <>
+        <Button>Elsewhere</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Rename</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    act(() => screen.getByRole('button', { name: 'Elsewhere', hidden: true }).focus());
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+
+    rerender(
+      <>
+        <Button>Elsewhere</Button>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button>Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Rename</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    act(() => screen.getByRole('button', { name: 'Elsewhere' }).focus());
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
+
+  it('keeps Tab inside a modal popover and the page reachable to assistive tech', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <main>
+          <Button>Elsewhere</Button>
+        </main>
+        <Popover modal>
+          <PopoverTrigger asChild>
+            <Button>Model</Button>
+          </PopoverTrigger>
+          <PopoverContent>
+            <input aria-label="Search models" />
+            <Button>Refresh</Button>
+          </PopoverContent>
+        </Popover>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Model' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Search models' })).toHaveFocus(),
+    );
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('textbox', { name: 'Search models' })).toHaveFocus();
+    // The shield blocks the page; no aria-hidden or scroll-lock restyle of the document.
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden');
+    expect(document.body).not.toHaveAttribute('data-scroll-locked');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Model' })).toHaveFocus());
   });
 
   it('keeps Select open state observable while it shields the page', async () => {

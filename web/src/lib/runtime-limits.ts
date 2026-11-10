@@ -395,11 +395,6 @@ export const RUN_REASON_TRUNCATE_CHARS = 140;
 export const DIAGRAM_LABEL_TRUNCATE_CHARS = 160;
 
 /**
- * Maximum length of a subagent's assignment text on its card. Unit: characters.
- */
-export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
-
-/**
  * Characters of a message kept for a transcript minimap preview.
  * Unit: characters. The rail's hover card and the outline list both render a
  * short projection of a message that can itself be arbitrarily long, so the
@@ -407,12 +402,6 @@ export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
  * CSS afterwards. Wide enough to fill the three lines the hover card shows.
  */
 export const TRANSCRIPT_PREVIEW_TRUNCATE_CHARS = 320;
-
-/**
- * Maximum length of a subagent's returned result on its card. Unit: characters.
- * Longer than the assignment because the result is the part a reader scans.
- */
-export const SUBAGENT_RESULT_TRUNCATE_CHARS = 300;
 
 // ## Query policy
 // Defaults applied to every cached read, and the shared options for reads that

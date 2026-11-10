@@ -19,9 +19,9 @@ it('keeps the native package output in Startup details and times the current ste
     <LocalStartupProgress active status={{ kind: 'starting', detail: 'installing_runtime' }} />,
   );
   await act(() => vi.advanceTimersByTimeAsync(2000));
-  expect(screen.getByRole('status')).toHaveTextContent('Preparing the runtime and packages');
+  expect(screen.getByRole('status')).toHaveTextContent('Preparing the local runtime and packages');
   const current = screen.getByRole('listitem', { current: 'step' });
-  expect(current).toHaveTextContent('Preparing the runtime and packages');
+  expect(current).toHaveTextContent('Preparing the local runtime and packages');
   expect(current).toHaveTextContent('2s');
   expect(screen.queryByText(/Preparing sandbox read\/execute access/u)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));

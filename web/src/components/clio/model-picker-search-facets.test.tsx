@@ -425,6 +425,27 @@ describe('ClioModelPicker filter panel', () => {
     expect(searchField()).toHaveFocus();
   }, 15_000);
 
+  it('the Filters button leaves the keys with the search field, by pointer or by key', async () => {
+    const user = await openPicker();
+    const button = screen.getByRole('button', { name: /^Filters/u });
+    await user.click(button);
+    expect(searchField()).toHaveFocus();
+    const first = highlighted()!;
+    await user.keyboard('{ArrowDown}');
+    expect(highlighted()).not.toBe(first);
+    await user.keyboard('{ArrowUp}{ }');
+    expect(first).toHaveAttribute('aria-checked', 'true');
+
+    // Closed again, then reached with Tab and opened with Enter.
+    await user.click(button);
+    expect(panel()).toBeNull();
+    button.focus();
+    await user.keyboard('{Enter}');
+    expect(searchField()).toHaveFocus();
+    await user.keyboard('{PageDown}');
+    expect(highlighted()).toHaveAttribute('data-range', 'context');
+  }, 15_000);
+
   it('folds the groups after the ranges into one row that PgDn opens', async () => {
     const user = await openPicker();
     await user.click(searchField());

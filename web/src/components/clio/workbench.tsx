@@ -47,14 +47,15 @@ import {
   useWorkspaceCanvasVisibility,
 } from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
-import type { CanvasResourceKind } from './canvas-launcher';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import {
   tabForOpenRequest,
+  type CanvasResourceKind,
   type ClioWorkbenchOpenRequest,
   type TabOpenRequest,
 } from './workbench-open-request';
 import {
+  changeCountMap,
   changedPathSet,
   fileName,
   loadResourceViewers,
@@ -259,6 +260,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     }, [canvasEmpty, canvasVisible, openTab]);
     const tabList = useWorkbenchTabListSlot({ narrow, activeTabId });
     const changedPaths = useMemo(() => changedPathSet(diffs), [diffs]);
+    const changeCounts = useMemo(() => changeCountMap(diffs), [diffs]);
 
     // `TabsContent` unmounts inactive panels (Radix Presence, no forceMount),
     // so "the Files tab or a foreign workspace's Files tab is active" is
@@ -539,6 +541,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       artifactsError,
       artifactsPending,
       artifactsTruncated,
+      changeCounts,
       changedPaths,
       directory: listDirectory,
       files,

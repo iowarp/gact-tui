@@ -1,9 +1,7 @@
-import type { ContextControls } from '@clio/core/v3';
 import { Input } from '@/components/ui/input';
 import { formatTokens, modelEffectiveContext } from './context-control-model';
-import { SaveBar } from './primitives/save-bar';
 import { SettingsChoice, SettingsRow } from './settings-row';
-import { useWorkingContext, type WorkingContextState } from './use-working-context';
+import type { WorkingContextState } from './use-working-context';
 
 /**
  * Context size as one setting row: Max or a typed number. The context in force
@@ -77,27 +75,5 @@ export function WorkingContextRow({ state }: { state: WorkingContextState }) {
         value={shown}
       />
     </SettingsRow>
-  );
-}
-
-/** The working context on its own, with its own save bar. */
-export function SettingsWorkingContext(props: {
-  providerId: string;
-  modelId: string;
-  seed: ContextControls;
-}) {
-  const state = useWorkingContext(props);
-  return (
-    <section aria-label="Working context" data-slot="working-context">
-      <WorkingContextRow state={state} />
-      <SaveBar
-        count={state.draft ? 1 : 0}
-        error={state.saveError}
-        invalid={Boolean(state.error)}
-        onDiscard={() => state.setDraft(undefined)}
-        onSave={state.save}
-        saving={state.saving}
-      />
-    </section>
   );
 }

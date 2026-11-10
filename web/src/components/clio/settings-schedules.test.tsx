@@ -63,6 +63,7 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ScheduleSettings } from './settings-schedules';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { sessionReads } from '@/test/session-reads';
 
 afterEach(() => {
@@ -77,7 +78,15 @@ function renderSettings(initialSessionId?: string) {
   return render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-        <ScheduleSettings initialSessionId={initialSessionId} />
+        <SettingsScopeContext.Provider
+          value={{
+            group: 'Agent',
+            line: 'CLIO local, applies to every conversation on this agent',
+            place: 'CLIO local',
+          }}
+        >
+          <ScheduleSettings initialSessionId={initialSessionId} />
+        </SettingsScopeContext.Provider>
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -103,6 +112,8 @@ describe('scheduled work settings', { timeout: 30_000 }, () => {
     expect(within(row).getByText('Scheduled')).toBeVisible();
     expect(screen.getByText('Upcoming')).toBeVisible();
     expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
+    expect(screen.getByText('CLIO local, applies to the selected conversation')).toBeVisible();
+    expect(screen.queryByText(/every conversation on this agent/u)).not.toBeInTheDocument();
   });
 
   it('submits a typed repeating time in the service time zone only on Schedule work', async () => {
@@ -229,7 +240,7 @@ describe('scheduled work settings', { timeout: 30_000 }, () => {
     reject(new Error('Service unavailable'));
     expect(await screen.findByText('Scheduled work could not be loaded')).toBeVisible();
     expect(screen.queryByText('Service unavailable')).not.toBeInTheDocument();
-    expect(screen.queryByText('Nothing is scheduled for this session')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing is scheduled in Evidence review')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Inspect fresh results.')).toBeVisible();
   });
@@ -237,7 +248,7 @@ describe('scheduled work settings', { timeout: 30_000 }, () => {
   it('says plainly when nothing is scheduled and keeps add available', async () => {
     repository.scheduledTurns.mockResolvedValueOnce({ timezone: 'America/Chicago', schedules: [] });
     renderSettings('sess_1');
-    expect(await screen.findByText('Nothing is scheduled for this session')).toBeVisible();
+    expect(await screen.findByText('Nothing is scheduled in Evidence review')).toBeVisible();
     expect(screen.getByRole('button', { name: 'New scheduled work' })).toBeEnabled();
   });
 });

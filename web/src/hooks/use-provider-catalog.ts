@@ -46,6 +46,13 @@ export function useProviderCatalog(enabled = true) {
   // tracks only the fields it reads.
   return Object.create(query, {
     isRefreshing: { enumerable: true, get: () => query.isFetching || refresh.isPending },
+    refreshPending: { enumerable: true, get: () => refresh.isPending },
+
     refreshCatalog: { enumerable: true, value: refresh.mutate },
-  }) as typeof query & { isRefreshing: boolean; refreshCatalog: typeof refresh.mutate };
+  }) as typeof query & {
+    isRefreshing: boolean;
+    refreshPending: boolean;
+
+    refreshCatalog: typeof refresh.mutate;
+  };
 }

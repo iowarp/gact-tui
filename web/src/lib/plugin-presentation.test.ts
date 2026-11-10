@@ -18,7 +18,7 @@ const agents = [
 
 describe('plugin presentation', () => {
   it('labels every provenance source in words', () => {
-    expect(provenanceLabel({ source: 'core', via: 'core', label: 'core' })).toBe('Core');
+    expect(provenanceLabel({ source: 'core', via: 'core', label: 'core' })).toBe('Built in');
     expect(provenanceLabel({ source: 'agent', via: 'standard', label: 'standard' })).toBe(
       'From standard',
     );
