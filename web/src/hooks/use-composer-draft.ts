@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { CommentAttachment } from '@clio/core/v3';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
 
@@ -66,6 +66,52 @@ function createTextStore() {
   };
 }
 
+/** Typing settles for this long before the draft is written to tab storage. */
+const DRAFT_SAVE_DELAY_MS = 400;
+
+function storeText(storageKey: string, value: string) {
+  try {
+    if (value) window.sessionStorage.setItem(storageKey, value);
+    else window.sessionStorage.removeItem(storageKey);
+  } catch {
+    // The current tab retains the draft even if browser storage is unavailable.
+  }
+}
+
+/**
+ * Writes the draft to tab storage once typing pauses rather than on every
+ * keystroke. A cleared draft is removed at once, and a pending write is flushed
+ * before another session's draft is written and whenever `flush` is called.
+ */
+function createDraftSaver() {
+  let pending: { storageKey: string; value: string } | null = null;
+  let timer: number | undefined;
+  const flush = () => {
+    window.clearTimeout(timer);
+    timer = undefined;
+    if (!pending) return;
+    const { storageKey, value } = pending;
+    pending = null;
+    storeText(storageKey, value);
+  };
+  return {
+    flush,
+    save(storageKey: string, value: string) {
+      if (pending && pending.storageKey !== storageKey) flush();
+      if (!value) {
+        window.clearTimeout(timer);
+        timer = undefined;
+        pending = null;
+        storeText(storageKey, value);
+        return;
+      }
+      pending = { storageKey, value };
+      window.clearTimeout(timer);
+      timer = window.setTimeout(flush, DRAFT_SAVE_DELAY_MS);
+    },
+  };
+}
+
 /** Render the draft text; only the calling component re-renders as it changes. */
 export function useComposerDraftValue(
   draft: Pick<ComposerDraft, 'readValue' | 'subscribeValue'>,
@@ -95,7 +141,23 @@ export function useComposerDraft(
   const storageKey = persistence.persist ? `clio:composer-draft:${scope}` : null;
   const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(scope));
   const [text] = useState(createTextStore);
+  const [saver] = useState(createDraftSaver);
   const current = draft.scope === scope ? draft : emptyDraft(scope);
+
+  // A reload, a closed tab or leaving the session keeps the last keystrokes.
+  useEffect(() => {
+    if (!storageKey) return undefined;
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') saver.flush();
+    };
+    window.addEventListener('pagehide', saver.flush);
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    return () => {
+      window.removeEventListener('pagehide', saver.flush);
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+      saver.flush();
+    };
+  }, [saver, storageKey]);
 
   const patch = useCallback(
     (change: Partial<Omit<HeldDraft, 'scope'>>) =>
@@ -108,15 +170,9 @@ export function useComposerDraft(
   const onValueChange = useCallback(
     (value: string) => {
       text.write(scope, storageKey, value);
-      if (!storageKey) return;
-      try {
-        if (value) window.sessionStorage.setItem(storageKey, value);
-        else window.sessionStorage.removeItem(storageKey);
-      } catch {
-        // The current tab retains the draft even if browser storage is unavailable.
-      }
+      if (storageKey) saver.save(storageKey, value);
     },
-    [scope, storageKey, text],
+    [saver, scope, storageKey, text],
   );
   const readValue = useCallback(() => text.read(scope, storageKey), [scope, storageKey, text]);
   const onReferencesChange = useCallback(
