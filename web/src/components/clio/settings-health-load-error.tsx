@@ -49,7 +49,13 @@ export function UnofferedParts({ children, order }: { children: ReactNode; order
         <StateView
           kind="unavailable"
           size="row"
-          title={`This agent doesn’t offer ${joined(nouns)}.`}
+          // The whole page body at phone width, so it wraps rather than hiding behind an ellipsis.
+          className="h-auto min-h-7 py-1"
+          title={
+            <span className="whitespace-normal text-pretty">
+              This agent doesn’t offer {joined(nouns)}.
+            </span>
+          }
         />
       ) : null}
     </UnofferedReport.Provider>

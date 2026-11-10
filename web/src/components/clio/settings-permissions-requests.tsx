@@ -14,6 +14,25 @@ import { SettingsGroupLabel } from './settings-row';
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
+/** Reason codes the service records, in words; an unknown code is sentence-cased. */
+const REASONS: Record<string, string> = {
+  policy_allow: 'Allowed by an access rule',
+  policy_deny: 'Blocked by an access rule',
+  policy_ask: 'An access rule asked',
+  user_approved: 'You allowed it',
+  user_denied: 'You blocked it',
+  user_requested_session_delete: 'You deleted the conversation',
+  permission_request_cancelled: 'Request cancelled',
+  permission_request_expired: 'Request expired',
+};
+
+function reasonText(reason: string | undefined): string | undefined {
+  const value = reason?.trim();
+  if (!value) return undefined;
+  if (REASONS[value]) return REASONS[value];
+  return /^[a-z0-9]+(?:_[a-z0-9]+)+$/u.test(value) ? capitalize(value.replaceAll('_', ' ')) : value;
+}
+
 const inputRecord = (input: unknown): Record<string, unknown> =>
   input && typeof input === 'object' && !Array.isArray(input)
     ? (input as Record<string, unknown>)
@@ -60,8 +79,8 @@ export function PermissionRequests() {
             permission.tool_name,
             inputRecord(permission.input),
           );
-          const title = permission.summary?.trim() || operation || 'Protected action';
-          const meta = permission.reason?.trim();
+          const title = capitalize(permission.summary?.trim() || operation || 'Protected action');
+          const meta = reasonText(permission.reason);
           return (
             <ItemRow
               {...RULE_COLUMNS}
