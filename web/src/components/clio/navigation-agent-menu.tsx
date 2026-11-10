@@ -141,6 +141,7 @@ export function NavigationAgentMenu({
         connections={connections}
         currentPath={currentPath}
         endpoint={endpoint}
+        live={stream === 'live'}
         onConnect={onConnect}
       />
     </DropdownMenu>

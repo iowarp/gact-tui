@@ -67,7 +67,18 @@ interface ClioMenuContentProps {
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
   /** Where focus goes on close when the menu has no visible trigger to return to. */
   onCloseAutoFocus?: (event: Event) => void;
+  /**
+   * The current route's connection is live. It outranks a probe of the agent
+   * you're on that is still checking or timed out on a slow agent.
+   */
+  live?: boolean;
 }
+
+const LIVE_AVAILABILITY: ConnectionAvailability = {
+  state: 'healthy',
+  label: 'Ready',
+  detail: 'Connected now.',
+};
 
 const MENU_HINTS = [
   { id: 'menu-move', label: 'move' },
@@ -187,6 +198,7 @@ export function ClioMenuContent({
   connections,
   onConnect,
   onCloseAutoFocus,
+  live = false,
 }: ClioMenuContentProps) {
   const runtime = useRuntimeVersion();
   const update = useUpdateStatus(runtime.version);
@@ -206,7 +218,11 @@ export function ClioMenuContent({
   }, [adding]);
   const searchRef = useRef<HTMLInputElement>(null);
   const identity = agentIdentity(endpoint, activeLabel, activeLocation);
-  const active = connectionAvailability(connectionAvailabilities, endpoint);
+  const probed = connectionAvailability(connectionAvailabilities, endpoint);
+  const active =
+    live && (probed.state === 'checking' || probed.state === 'unavailable')
+      ? LIVE_AVAILABILITY
+      : probed;
   const activeStatus = availabilityStatus(active, true);
   const returnState = { endpoint, from: currentPath };
   const interfaceVersion = webBuildVersion();
@@ -572,6 +588,7 @@ function UpdateFact({ update }: { update: UpdateStatus }) {
       <span
         className={cn(
           FACT_LABEL,
+          busy && 'col-span-2',
           update.state === 'available' ? 'text-warning' : 'text-muted-foreground',
         )}
       >
@@ -580,7 +597,7 @@ function UpdateFact({ update }: { update: UpdateStatus }) {
         </span>
         <span className="truncate">{label}</span>
       </span>
-      <span className="min-w-0 truncate text-right text-link">{busy ? null : action}</span>
+      {busy ? null : <span className="min-w-0 truncate text-right text-link">{action}</span>}
       <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
         {busy ? null : installable ? <DownloadIcon /> : <RefreshIcon />}
       </span>
