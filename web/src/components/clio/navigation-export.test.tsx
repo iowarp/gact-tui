@@ -78,7 +78,6 @@ it.each([
       .mockResolvedValue({ download_path: '/v1/session-export/file', filename });
     const actions: ResourceActions = {
       createWorkspace: vi.fn(),
-      createSession: vi.fn(),
       renameWorkspace: vi.fn(),
       updateWorkspace: vi.fn().mockResolvedValue(undefined),
       grantWorkspaceFolder: vi.fn(),
