@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ClioRepository, PendingInteraction } from '@clio/core/v3';
+import type { Artifact, ClioRepository, PendingInteraction } from '@clio/core/v3';
 import {
   MessageCircleQuestionIcon,
-  NotebookTextIcon,
   ShieldQuestionIcon,
 } from 'lucide-react';
 import '../../src/index.css';
@@ -14,12 +13,16 @@ import { RepositoryOverride } from '../../src/providers/repository-override-cont
 import { ClioPendingInteractions } from '../../src/components/clio/pending-interactions';
 import { AskAnsweredRow } from '../../src/components/clio/ask-card';
 import { PlanDecision } from '../../src/components/clio/plan-decision-controls';
+import { PlanExitResponse } from '../../src/components/clio/plan-exit-interaction';
+import { ActivityInfoButton } from '../../src/components/clio/activity-row';
+import { CopyAction } from '../../src/components/clio/tool-compact-row';
 import { QuestionAnswerContext } from '../../src/components/clio/question-answer-context';
 import { TooltipProvider } from '../../src/components/ui/tooltip';
 import { A2uiSessionRegistryOwner } from '../../src/test-fixtures/a2ui/v0_9_1/test-harness';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '../../src/test-fixtures/a2ui/v0_9_1/fixtures';
 import {
   ANSWERED_COMMAND,
+  APPROVED_PLAN,
   CANCELLED_PLAN,
   REVIEW_SESSION,
   SCENARIOS,
@@ -98,20 +101,57 @@ function Transcript() {
   );
 }
 
+/** The spec's hover actions on a permission or question row (S5 owns those rows live). */
+function RowActions({ value }: { value: string }) {
+  return (
+    <>
+      <CopyAction label="Copy" value={value} />
+      <span className="w-[22px]" />
+    </>
+  );
+}
+
+const PLAN_ARTIFACT = { id: 'artifact:plan', title: 'soil-regrid.md' } as unknown as Artifact;
+
 function AnsweredRows() {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (key: string) => (value: boolean) => setOpen((all) => ({ ...all, [key]: value }));
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-0.5" data-review-capture="">
-      <AskAnsweredRow detail={ANSWERED_COMMAND} icon={ShieldQuestionIcon} mono verb="Allowed once" />
-      <AskAnsweredRow detail="2020–2023" icon={MessageCircleQuestionIcon} verb="Answered" />
       <AskAnsweredRow
-        detail="Interactive, context cleared"
-        icon={NotebookTextIcon}
-        verb="Plan approved"
+        actions={<RowActions value={ANSWERED_COMMAND} />}
+        detail={ANSWERED_COMMAND}
+        icon={ShieldQuestionIcon}
+        info={<ActivityInfoButton label="Technical details for Allowed once" />}
+        mono
+        onOpenChange={toggle('allowed')}
+        open={Boolean(open.allowed)}
+        verb="Allowed once"
       />
       <AskAnsweredRow
+        actions={<RowActions value="2020–2023" />}
+        detail="2020–2023"
+        icon={MessageCircleQuestionIcon}
+        mono
+        onOpenChange={toggle('answered')}
+        open={Boolean(open.answered)}
+        verb="Answered"
+      />
+      <PlanExitResponse
+        artifact={PLAN_ARTIFACT}
+        interaction={APPROVED_PLAN}
+        onOpenArtifact={() => undefined}
+        onResponse={async () => undefined}
+        showOwner={false}
+      />
+      <AskAnsweredRow
+        actions={<RowActions value="rm -rf out/" />}
         detail="rm -rf out/"
         icon={ShieldQuestionIcon}
+        info={<ActivityInfoButton label="Technical details for Denied" />}
         mono
+        onOpenChange={toggle('denied')}
+        open={Boolean(open.denied)}
         outcome="you denied it"
         tone="denied"
         verb="Denied"

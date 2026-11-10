@@ -44,7 +44,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   pause_agent: define('Pause', 'ack', 'handle'),
   resume_agent: define('Resume', 'ack', 'handle'),
   restart_agent: define('Restart', 'task', 'handle'),
-  ask_user: define('Ask you'),
+  ask_user: { ...define('Ask you'), presentedAction: true },
   make_plugin: define('Create plugin', 'value', 'name'),
   cron_create: { ...define('Schedule'), instruction: 'prompt' },
   cron_list: define('List schedules'),

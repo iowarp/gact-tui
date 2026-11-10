@@ -339,11 +339,12 @@ export function RunsPage() {
       ),
     [location.state, setSearchParams],
   );
-  const runActions = (row: RunRow) => {
+  const runActions = (row: RunRow, part?: 'menu') => {
     const cancelRequested = Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId);
     return (
       <RunActions
         onCancel={() => setConfirmedAction({ kind: 'cancel', row })}
+        part={part}
         pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
         row={{ ...row, cancelRequested }}
       />
@@ -626,9 +627,19 @@ export function RunsPage() {
       workbench={
         selectedRow ? (
           <RunTab
-            actions={runActions(selectedRow)}
+            actions={runActions(selectedRow, 'menu')}
             onClose={closeRun}
+            onStop={
+              selectedRow.cancellable
+                ? () => setConfirmedAction({ kind: 'cancel', row: selectedRow })
+                : undefined
+            }
             row={selectedRow}
+            stopping={
+              Boolean(selectedRow.cancelRequested) ||
+              requestedCancellation.has(selectedRow.handleId) ||
+              (cancel.isPending && cancel.variables?.handleId === selectedRow.handleId)
+            }
             stateLabel={runStateLabel(
               selectedRow,
               Boolean(selectedRow.cancelRequested) ||

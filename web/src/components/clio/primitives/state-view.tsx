@@ -213,6 +213,7 @@ export const StateView = memo(function StateView({
               variant="outline"
               size={row ? 'xs' : 'default'}
               onClick={secondaryAction.onClick}
+              data-slot="state-secondary-action"
             >
               {secondaryAction.label}
             </Button>

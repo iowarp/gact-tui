@@ -22,6 +22,7 @@ import {
 } from './resource-dialogs';
 import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
+import { SessionMoveMenu } from './session-move-menu';
 import {
   SessionHistoryConfirmDialog,
   type SessionHistoryConfirmation,
@@ -123,6 +124,13 @@ export function ClioSessionActions({
         />
       ) : null}
       {onFork ? <SessionForkMenuItem onSelect={() => void run(onFork)} /> : null}
+      {management ? (
+        <SessionMoveMenu
+          actions={management.actions}
+          onAction={runManagementAction}
+          session={management.session}
+        />
+      ) : null}
       <SessionShareMenuItem onSelect={() => setSharing(true)} />
       {management ? (
         <SessionExportMenu

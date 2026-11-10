@@ -179,14 +179,18 @@ function WorkspaceTextWindowView({
   startAtEnd: boolean;
 }) {
   const [showEnd, setShowEnd] = useState(startAtEnd);
-  const textWindow = useWorkspaceTextWindow(workspaceId, path, { tail: showEnd });
+  // A table's end keeps the file's header and shows its last rows, not the end's first ones.
+  const table = textFileFormat(path, mediaType) === 'csv';
+  // The end alone reads one window: the head only when a table needs its header.
+  const textWindow = useWorkspaceTextWindow(workspaceId, path, {
+    tail: showEnd,
+    head: !showEnd || table,
+  });
   const sourceWindow = useMemo(
     () => ({ onEndReached: textWindow.loadMore }),
     [textWindow.loadMore],
   );
   const head = textWindow.head;
-  // A table's end keeps the file's header and shows its last rows, not the end's first ones.
-  const table = textFileFormat(path, mediaType) === 'csv';
   const tail = useMemo(() => {
     if (textWindow.tail === undefined || !table) return textWindow.tail;
     if (!head && !textWindow.headError) return undefined;
@@ -230,7 +234,10 @@ function WorkspaceTextWindowView({
         ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
         : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="text-file-window">
+    <div
+      className="@container/text-window flex h-full min-h-0 min-w-0 flex-col"
+      data-slot="text-file-window"
+    >
       <div className="min-h-0 flex-1">
         <FileWindowNoticeShown.Provider value>
           {showEnd || !head ? (
@@ -255,7 +262,8 @@ function WorkspaceTextWindowView({
             : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
           onClick: () => setShowEnd(!showEnd),
         }}
-        className="shrink-0 border-t px-3"
+        // Narrow, the status line keeps its room; scrolling to the end still loads more.
+        className="shrink-0 border-t px-3 @max-[420px]/text-window:[&_[data-slot=state-secondary-action]]:hidden"
         kind={!showEnd && textWindow.loadingMore ? 'loading' : 'too-large'}
         secondaryAction={
           !showEnd && textWindow.loadMore

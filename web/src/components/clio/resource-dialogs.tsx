@@ -32,6 +32,8 @@ export interface ResourceActions {
   archiveSession: (sessionId: string) => Promise<void>;
   /** Branches a conversation into a new one and opens it. */
   forkSession?: (sessionId: string) => Promise<void>;
+  /** Moves a conversation or branch into another workspace (`x_clio_session_move`). */
+  moveSession?: (sessionId: string, workspaceId: string) => Promise<void>;
   /** Appends a compaction checkpoint and reports whether the service compacted. */
   compactSession?: (sessionId: string) => Promise<void>;
   /** Permanently removes the conversation's last stored message. */
