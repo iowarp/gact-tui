@@ -243,7 +243,7 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
 
 // The service records a call the person stopped as failed; its diagnostic says it was cancelled.
 const STOPPED_DIAGNOSTIC =
-  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by the (?:user|client|person)\b|\bturn cancell?ed\b/iu;
+  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by (?:the )?(?:user|client|person)\b|\bturn cancell?ed\b/iu;
 
 function stoppedDiagnostic(tool: ToolInvocation): boolean {
   return [
@@ -252,6 +252,36 @@ function stoppedDiagnostic(tool: ToolInvocation): boolean {
       .filter((block) => block.severity === 'error')
       .map((block) => block.text),
   ].some((text) => Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim())));
+}
+
+/**
+ * A call older sessions recorded as failed with a cancellation diagnostic reads like one the
+ * service now projects as cancelled: one Stopped outcome in place of the raw cancellation error.
+ */
+export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
+  if (tool.state === 'cancelled' || getToolStatus(tool) !== 'cancelled') return tool;
+  const blocks = tool.presentation?.blocks ?? [];
+  const cancellation = (text?: string) =>
+    Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim()));
+  if (!blocks.some((block) => block.severity === 'error' && cancellation(block.text))) return tool;
+  return {
+    ...tool,
+    presentation: {
+      ...tool.presentation,
+      summary: tool.presentation?.summary ?? '',
+      status: 'cancelled',
+      blocks: [
+        ...blocks.filter((block) => !(block.severity === 'error' && cancellation(block.text))),
+        {
+          id: 'execution-outcome',
+          type: 'text',
+          label: 'Stopped',
+          severity: 'warning',
+          text: 'Stopped before it finished; no result was returned.',
+        },
+      ],
+    },
+  };
 }
 
 /** The call ended because it was stopped or interrupted, not because it failed. */

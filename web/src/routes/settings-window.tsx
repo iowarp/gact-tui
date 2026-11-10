@@ -117,11 +117,30 @@ export function SettingsWindow() {
   };
   useEffect(() => {
     if (!sectionsLoaded || showResults) return;
+    const scroller = content.current;
     const anchor = destination?.host
-      ? content.current?.querySelector(`[data-settings-anchor="${section}"]`)
+      ? scroller?.querySelector(`[data-settings-anchor="${section}"]`)
       : undefined;
-    if (anchor) anchor.scrollIntoView({ block: 'start' });
-    else content.current?.scrollTo({ left: 0, top: 0 });
+    if (!scroller || !anchor) {
+      scroller?.scrollTo({ left: 0, top: 0 });
+      return;
+    }
+    anchor.scrollIntoView({ block: 'start' });
+    // The host page above the anchor (Models above Helper models) is still
+    // loading and grows, pushing the anchor down: keep it at the top until the
+    // page settles or the person scrolls themselves.
+    const observer = new ResizeObserver(() => anchor.scrollIntoView({ block: 'start' }));
+    const stop = () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+      for (const type of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const)
+        scroller.removeEventListener(type, stop);
+    };
+    const timer = window.setTimeout(stop, 30_000);
+    for (const child of Array.from(scroller.children)) observer.observe(child);
+    for (const type of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const)
+      scroller.addEventListener(type, stop, { passive: true });
+    return stop;
   }, [section, destination?.host, sectionsLoaded, showResults]);
   useEffect(() => {
     if (!fromSearch || !sectionsLoaded || showResults) return;

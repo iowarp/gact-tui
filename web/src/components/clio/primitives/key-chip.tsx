@@ -400,8 +400,8 @@ export function HeldKeyBadge({
 
 /**
  * While Ctrl (⌘) is held the app dims behind its key badges, as lightly as
- * workbench-keyboard draws it (`brightness(.62)`, a 38% black veil in dark),
- * not as heavily as a modal's scrim. Mount once.
+ * workbench-keyboard draws it: `brightness(.62)`, which is a 38% black veil in
+ * either theme, not a theme-tinted modal scrim. Mount once.
  */
 export function HeldKeysScrim() {
   const held = useCommandKeyHeld();
@@ -411,7 +411,7 @@ export function HeldKeysScrim() {
     <div
       aria-hidden="true"
       data-slot="held-keys-scrim"
-      className="pointer-events-none fixed inset-0 z-[60] bg-[color-mix(in_srgb,var(--scrim)_61%,transparent)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
+      className="pointer-events-none fixed inset-0 z-[60] bg-[rgb(0_0_0/38%)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
     />,
     container ?? document.body,
   );

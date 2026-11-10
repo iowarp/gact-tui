@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BotIcon, CableIcon, ChevronRightIcon, ServerIcon } from 'lucide-react';
+import { BotIcon, CableIcon, ChevronRightIcon, EllipsisIcon, ServerIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CommandGroup, CommandItem } from '@/components/ui/command';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -104,7 +104,7 @@ export function MoreResultsItem({
       onSelect={() => onMore(scope)}
       value={`more:${scope}:${noun}`}
     >
-      <span aria-hidden="true" className="size-4 shrink-0" />
+      <EllipsisIcon aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">
         {hidden} more {noun}
       </span>

@@ -29,6 +29,7 @@ import { entityFacts, valuesAsTsv, type ViewerEntity } from './hdf5-viewer-facts
 import { currentViewerLocation } from './hdf5-viewer-location';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
+import { ResourceLoading } from './resource-states';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 
 /** Most files whose last selection is remembered. */
@@ -125,6 +126,9 @@ export function Hdf5ViewerFrame({
   const selectionRef = useRef({ fileKey, locator });
   const [entity, setEntity] = useState<ViewerEntity>();
   const [view, setView] = useState<ViewerView>();
+  // The viewer page boots blank; the frame's Loading state covers it until the
+  // viewer first draws (or a read fails).
+  const [settled, setSettled] = useState<string>();
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -133,6 +137,7 @@ export function Hdf5ViewerFrame({
   useEffect(() => {
     const origin = viewer.origin;
     const inFlight = new Map<number, AbortController>();
+    let fallback: number | undefined;
     // Read the frame's window on every use: moving the iframe in the page
     // (the canvas does, on maximize and restore) reloads it as a new window
     // without remounting this component.
@@ -151,6 +156,10 @@ export function Hdf5ViewerFrame({
           for (const controller of inFlight.values()) controller.abort();
           inFlight.clear();
           readyRef.current = true;
+          setSettled(undefined);
+          // Never cover the page for good, e.g. if h5web shows its own error.
+          window.clearTimeout(fallback);
+          fallback = window.setTimeout(() => setSettled(selectionRef.current.fileKey), 8000);
           post(initMessage(initRef.current));
           return;
         case 'fetch': {
@@ -167,6 +176,7 @@ export function Hdf5ViewerFrame({
             })
             .catch((error: unknown) => {
               if (controller.signal.aborted) return;
+              setSettled(selectionRef.current.fileKey);
               post({
                 source: HOST_SOURCE,
                 type: 'response',
@@ -204,6 +214,8 @@ export function Hdf5ViewerFrame({
           });
           return;
         case 'modes':
+          // h5web offers modes once its main area is drawn.
+          if (message.modes.length) setSettled(selectionRef.current.fileKey);
           setView({ modes: message.modes, mode: message.mode, explorer: message.explorer });
           return;
       }
@@ -212,6 +224,7 @@ export function Hdf5ViewerFrame({
     window.addEventListener('message', onMessage);
     return () => {
       window.removeEventListener('message', onMessage);
+      window.clearTimeout(fallback);
       for (const controller of inFlight.values()) controller.abort();
     };
   }, [repository, workspaceId, viewer.origin]);
@@ -261,13 +274,21 @@ export function Hdf5ViewerFrame({
       {view ? <Hdf5Modes view={view} onShow={show} /> : null}
       {/* No sandbox: the page is first-party, and h5web's exports need
           downloads. Isolation comes from the separate origin on desktop. */}
-      <iframe
-        className="block size-full min-h-[32rem] border-0 bg-background"
-        data-hdf5-viewer={path}
-        ref={iframeRef}
-        src={viewer.src}
-        title={`HDF5 viewer: ${path}`}
-      />
+      <div className="relative size-full">
+        <iframe
+          className="block size-full min-h-[32rem] border-0 bg-background"
+          data-hdf5-viewer={path}
+          ref={iframeRef}
+          src={viewer.src}
+          title={`HDF5 viewer: ${path}`}
+        />
+        {settled === fileKey ? null : (
+          <ResourceLoading
+            className="absolute inset-0 bg-background"
+            label={`Loading ${path.split('/').at(-1) ?? path}`}
+          />
+        )}
+      </div>
     </>
   );
 }

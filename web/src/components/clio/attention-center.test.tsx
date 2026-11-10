@@ -1,7 +1,7 @@
 import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { playAttentionSound } from '@/lib/attention-sound';
@@ -15,7 +15,9 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 
-vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { dismiss: vi.fn(), error: vi.fn(), warning: vi.fn() }),
+}));
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
 const respond = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false, variables: undefined }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -36,8 +38,11 @@ vi.mock('@/hooks/use-repository', () => ({
     retryTurn: proposals.retryTurn,
   }),
 }));
+const versionStatus = vi.hoisted(() => ({
+  value: { state: 'current', desktopShell: false, updating: false } as Record<string, unknown>,
+}));
 vi.mock('@/hooks/use-system-version-status', () => ({
-  useSystemVersionStatus: () => ({ state: 'current', desktopShell: false, updating: false }),
+  useSystemVersionStatus: () => versionStatus.value,
 }));
 
 const baseSession: Session = {
@@ -66,27 +71,38 @@ function waitingAttention(sessionId: string): SessionAttention {
   };
 }
 
+const notifierQueries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 function Notifier(props: {
   activeSessionId: string;
   attentions: Record<string, SessionAttention>;
   sessions: Session[];
 }) {
   return (
-    <MemoryRouter>
-      <NotificationPreferencesProvider>
-        <ClioAttentionNotifier {...props} />
-      </NotificationPreferencesProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={notifierQueries}>
+      <MemoryRouter>
+        <NotificationPreferencesProvider>
+          <ClioAttentionNotifier {...props} />
+          <CurrentPath />
+        </NotificationPreferencesProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
+}
+
+function CurrentPath() {
+  return <output data-testid="current-path">{useLocation().pathname}</output>;
 }
 
 describe('ClioAttentionNotifier', () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.localStorage.setItem(
-      'clio.notifications.v1',
+      'clio.notifications.v2',
       JSON.stringify({ attentionSound: 'always', desktopNotifications: false }),
     );
+    // Asked already: these cases are not about the first-run prompt.
+    window.localStorage.setItem('clio.notifications.asked', '2026-09-01T00:00:00Z');
     vi.mocked(toast.warning).mockClear();
     vi.mocked(playAttentionSound).mockClear();
     vi.mocked(playAttentionSound).mockResolvedValue(true);
@@ -149,7 +165,7 @@ describe('ClioAttentionNotifier', () => {
 
   it('surfaces a muted attention sound at least once per preference change', async () => {
     window.localStorage.setItem(
-      'clio.notifications.v1',
+      'clio.notifications.v2',
       JSON.stringify({ attentionSound: 'always', desktopNotifications: false }),
     );
     vi.mocked(playAttentionSound).mockResolvedValue(false);
@@ -170,8 +186,38 @@ describe('ClioAttentionNotifier', () => {
     );
   });
 
+  it('asks once on first run, and the system prompt follows the click', async () => {
+    window.localStorage.removeItem('clio.notifications.asked');
+    const requestPermission = vi.fn(async () => 'granted' as const);
+    vi.stubGlobal(
+      'Notification',
+      Object.assign(function Notification() {}, { permission: 'default', requestPermission }),
+    );
+    try {
+      render(<Notifier activeSessionId="other" attentions={{}} sessions={[]} />);
+      await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+      const [title, options] = vi.mocked(toast).mock.calls[0] as unknown as [
+        string,
+        { action: { onClick: () => void } },
+      ];
+      expect(title).toMatch(/Get notified/);
+      expect(requestPermission).not.toHaveBeenCalled();
+
+      options.action.onClick();
+      expect(requestPermission).toHaveBeenCalledTimes(1);
+      expect(window.localStorage.getItem('clio.notifications.asked')).not.toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.mocked(toast).mockClear();
+    }
+  });
+
   describe('finished work', () => {
-    const notices: { title: string; options?: NotificationOptions }[] = [];
+    const notices: {
+      title: string;
+      options?: NotificationOptions;
+      onclick?: (() => void) | null;
+    }[] = [];
     let hasFocus: MockInstance<() => boolean>;
     beforeEach(() => {
       notices.length = 0;
@@ -179,8 +225,9 @@ describe('ClioAttentionNotifier', () => {
         'Notification',
         Object.assign(
           function Notification(title: string, options?: NotificationOptions) {
-            notices.push({ title, options });
-            return { addEventListener: vi.fn(), close: vi.fn() };
+            const notice = { title, options, onclick: null, close: vi.fn() };
+            notices.push(notice);
+            return notice;
           },
           { permission: 'granted' },
         ),
@@ -193,7 +240,7 @@ describe('ClioAttentionNotifier', () => {
     });
 
     function runTo(finishedWork: string, from: Session['state'], to: Session['state']) {
-      window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork }));
+      window.localStorage.setItem('clio.notifications.v2', JSON.stringify({ finishedWork }));
       const session: Session = { ...baseSession, id: 'sess_run', state: from };
       const { rerender } = render(
         <Notifier activeSessionId="other" attentions={{}} sessions={[session]} />,
@@ -218,7 +265,18 @@ describe('ClioAttentionNotifier', () => {
       );
     });
 
-    it('stays in the bell by default and says nothing for a run you cancelled', async () => {
+    it('opens the conversation when its banner is clicked', async () => {
+      runTo('desktop', 'running', 'completed');
+      await waitFor(() => expect(notices).toHaveLength(1));
+      notices[0].onclick?.();
+      await waitFor(() =>
+        expect(screen.getByTestId('current-path')).toHaveTextContent(
+          '/workspaces/ws_1/sessions/sess_run',
+        ),
+      );
+    });
+
+    it('stays in the bell when chosen and says nothing for a run you cancelled', async () => {
       runTo('bell', 'running', 'completed');
       cleanup();
       runTo('desktop', 'running', 'cancelled');
@@ -247,6 +305,7 @@ describe('ClioAttentionCenter', () => {
     resetNotificationReadsForTest();
     proposals.list = [];
     proposals.recent = [];
+    versionStatus.value = { state: 'current', desktopShell: false, updating: false };
   });
   afterEach(cleanup);
 
@@ -350,7 +409,7 @@ describe('ClioAttentionCenter', () => {
     );
   });
   it('leaves finished and stopped runs out with Finished work off, keeping paused ones', async () => {
-    window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork: 'off' }));
+    window.localStorage.setItem('clio.notifications.v2', JSON.stringify({ finishedWork: 'off' }));
     const sessions = [
       ended('done', 'completed', 8),
       ended('halted', 'cancelled', 7),
@@ -387,6 +446,42 @@ describe('ClioAttentionCenter', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Nothing needs you.')).toBeInTheDocument();
     expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('says a failed update check could not finish, with no Update action or badge', async () => {
+    versionStatus.value = {
+      state: 'unavailable',
+      desktopShell: true,
+      updating: false,
+      message:
+        "Could not check for updates: this app's release v0.9.6-beta.0 is not published, so the runtime (0.9.5.1) cannot be restored to match it.",
+    };
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+    expect(within(bell).queryByText(/\d/)).toBeNull();
+    fireEvent.click(bell);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText("Couldn't check for updates")).toBeInTheDocument();
+    expect(
+      within(dialog).getAllByText(/^This app's release v0\.9\.6-beta\.0 is not published/)[0],
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText('Update ready')).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Update' })).toBeNull();
+  });
+
+  it('offers Update only when a newer release is ready', async () => {
+    versionStatus.value = {
+      state: 'available',
+      desktopShell: true,
+      updating: false,
+      updateAll: vi.fn(),
+    };
+    render(<Center attentions={{}} sessions={[baseSession]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Update ready')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Update' })).toBeInTheDocument();
+    expect(within(dialog).queryByText("Couldn't check for updates")).toBeNull();
   });
 
   it('lists waiting sessions with their pending work and opens with its shortcut', async () => {

@@ -21,6 +21,7 @@ import {
   getToolStatus,
   getToolFailureDetail,
   isA2uiCatalogLookup,
+  withStoppedOutcome,
 } from './tool-presentation';
 import { flowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
@@ -128,29 +129,31 @@ export function ClioToolInvocation({
     flow?.handle && navigation?.onOpenFlow
       ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
       : undefined;
-  const presentedTool = withOperationOutcome(
-    withAgentMessagePresentation(
-      withQuestionPresentation(
-        withMemoryPresentation(
-          withResourcePresentation(
-            withSkillPresentation(
-              withTaskWaitInterruption(
-                withTodoPresentation(
-                  withStorageToolPresentation(
-                    withPermissionDecision(tool, questionContext?.interactions),
+  const presentedTool = withStoppedOutcome(
+    withOperationOutcome(
+      withAgentMessagePresentation(
+        withQuestionPresentation(
+          withMemoryPresentation(
+            withResourcePresentation(
+              withSkillPresentation(
+                withTaskWaitInterruption(
+                  withTodoPresentation(
+                    withStorageToolPresentation(
+                      withPermissionDecision(tool, questionContext?.interactions),
+                    ),
                   ),
                 ),
               ),
+              navigation?.resources,
             ),
-            navigation?.resources,
           ),
+          questionContext?.interactions,
         ),
-        questionContext?.interactions,
-      ),
-      agentMessageName(
-        sentMessage?.sessionId ?? sentMessage?.target,
-        navigation?.subagents,
-        recipientTitle,
+        agentMessageName(
+          sentMessage?.sessionId ?? sentMessage?.target,
+          navigation?.subagents,
+          recipientTitle,
+        ),
       ),
     ),
   );
@@ -183,23 +186,48 @@ export function ClioToolInvocation({
     : [];
   const status = getToolStatus(presentedTool);
   // A call paused on the person has no outcome yet, whatever a reload projected.
-  const failure = waitingFor ? undefined : getToolFailureDetail(presentedTool);
+  const failure =
+    waitingFor || tool.state === 'pending' ? undefined : getToolFailureDetail(presentedTool);
   const declaredFailure = presentedTool.presentation?.blocks.some(
     (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
   );
 
   const actionLabel = operation.action;
   const active = status === 'running' || status === 'pending';
+  // A stopped call is not an error; its declared outcome already says how it ended.
+  const stopped = status === 'cancelled' || status === 'interrupted';
+  const declaredOutcome = presentedTool.presentation?.blocks.some(
+    (block) => block.severity && block.text?.trim(),
+  );
   const expanded = resultOpen && operation.expandable;
   const blocks = presentedTool.presentation?.blocks ?? [];
   const contentBlocks = blocks.filter((block) => block.id !== subject?.id);
   // In the transcript a file change or a command reads as the spec's compact body.
+  const terminalBlocks = contentBlocks.filter((block) => block.type === 'terminal');
+  const terminalOutput = terminalBlocks[0]?.text ?? '';
+  const outputCarries = (text?: string) =>
+    !text?.trim() || terminalOutput.includes(text.trim().split('\n').at(-1)!.trim());
+  // A failed command keeps its command and output; its error shows only when the output lacks it.
+  // A stopped command shows its Stopped outcome in the same place.
+  const outcomeBlock = (block: (typeof contentBlocks)[number]) =>
+    block.type !== 'terminal' &&
+    (block.severity === 'error' || (stopped && block.severity === 'warning'));
+  const outcomeText = contentBlocks.find(
+    (block) => outcomeBlock(block) && !outputCarries(block.text),
+  )?.text;
+  const failureText = failure && !outputCarries(failure) ? failure : undefined;
+  const terminalFailure = stopped ? (outcomeText ?? failureText) : (failureText ?? outcomeText);
   const compactBody =
-    surface !== 'evidence' && operation.kind === 'declared' && !failure && !declaredFailure
-      ? contentBlocks.length === 1 && contentBlocks[0]!.type === 'diff' && contentBlocks[0]!.text
+    surface !== 'evidence' && operation.kind === 'declared'
+      ? !failure &&
+        !declaredFailure &&
+        contentBlocks.length === 1 &&
+        contentBlocks[0]!.type === 'diff' &&
+        contentBlocks[0]!.text
         ? ({ kind: 'diff', block: contentBlocks[0]! } as const)
-        : contentBlocks.length === 1 && contentBlocks[0]!.type === 'terminal'
-          ? ({ kind: 'terminal', block: contentBlocks[0]! } as const)
+        : terminalBlocks.length === 1 &&
+            contentBlocks.every((block) => block.type === 'terminal' || outcomeBlock(block))
+          ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
           : undefined
       : undefined;
   // One delegate's row already names the agent and its task; opened, it shows the child's calls.
@@ -239,7 +267,11 @@ export function ClioToolInvocation({
           onExpandedChange={setResultOpen}
           duration={duration}
           surface={surface}
-          waiting={waitingFor ? <WaitingForYou interaction={waitingFor} /> : undefined}
+          waiting={
+            waitingFor || tool.state === 'pending' ? (
+              <WaitingForYou interaction={waitingFor} />
+            ) : undefined
+          }
           // A call the sandbox blocked says so before it is opened (#1905).
           badge={boundary ? <SandboxBoundaryBadge boundary={boundary} /> : undefined}
           attention={
@@ -264,6 +296,8 @@ export function ClioToolInvocation({
                 tool={presentedTool}
                 block={compactBody.block}
                 live={active}
+                failure={terminalFailure}
+                failed={status === 'failed'}
               />
             )}
           </ToolDetailsContent>
@@ -276,10 +310,10 @@ export function ClioToolInvocation({
                 !presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')
               }
             >
-              {failure && !declaredFailure ? (
+              {failure && !declaredFailure && !(stopped && declaredOutcome) ? (
                 <p
-                  role="alert"
-                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
+                  role={stopped ? undefined : 'alert'}
+                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
                 >
                   {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                 </p>

@@ -3,6 +3,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ViewerZoomControls } from './viewer-zoom-controls';
+import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
 import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
 import {
   estimatedPdfPageHeight,
@@ -38,6 +39,7 @@ export function ClioDocumentPdfViewer({
   name,
   highlight,
   onPagePoint,
+  pageFacts = false,
 }: {
   bytes: Uint8Array;
   fit?: 'page' | 'width';
@@ -49,6 +51,8 @@ export function ClioDocumentPdfViewer({
   highlight?: PdfHighlight;
   /** A double-click on a page, as its 0-based index and the point as fractions of the page. */
   onPagePoint?: (page: number, x: number, y: number) => void;
+  /** States "12 pages" and the size as the frame's facts (frame-bar 07), for a PDF file itself. */
+  pageFacts?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
@@ -204,6 +208,11 @@ export function ClioDocumentPdfViewer({
         ),
       );
   const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
+  useFileViewerFacts(
+    pageFacts && pageCount
+      ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`, FILE_SIZE_FACT]
+      : undefined,
+  );
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
   // The page sits between zoom − and + (frame-bar 07), so the bar's fact is the size.
   const pageCounter = pageFact ? (

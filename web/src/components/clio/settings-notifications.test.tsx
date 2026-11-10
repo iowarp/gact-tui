@@ -50,6 +50,16 @@ afterEach(() => {
 });
 
 describe('NotificationSettings', () => {
+  it('offers to allow notifications the system has not been asked about yet', async () => {
+    const requestPermission = stubNotification('default', 'granted');
+    preferences.desktopNotifications = true;
+    renderNotifications();
+
+    expect(await screen.findByText('Not allowed yet')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+    await waitFor(() => expect(requestPermission).toHaveBeenCalledTimes(1));
+  });
+
   it('chooses when the sound plays and plays a test chime', async () => {
     stubNotification('default');
     sound.playAttentionSound.mockResolvedValue(false);
@@ -67,7 +77,7 @@ describe('NotificationSettings', () => {
     expect(screen.getByRole('img', { name: 'Notification settings' })).toBeInTheDocument();
   });
 
-  it('keeps finished work in the bell by default and asks before adding desktop alerts', async () => {
+  it('asks for permission before adding desktop alerts to finished work', async () => {
     const requestPermission = stubNotification('default', 'granted');
     renderNotifications();
 
@@ -106,7 +116,7 @@ describe('NotificationSettings', () => {
     stubNotification('denied');
     renderNotifications();
 
-    expect(screen.getByText('Blocked in browser settings')).toBeVisible();
+    expect(await screen.findByText('Blocked in browser settings')).toBeVisible();
     fireEvent.click(screen.getByRole('combobox', { name: 'Desktop alerts' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Needs you' }));
 

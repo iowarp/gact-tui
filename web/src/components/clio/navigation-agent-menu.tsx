@@ -125,7 +125,9 @@ export function NavigationAgentMenu({
                       @
                     </span>
                   ) : null}
-                  <span className="truncate">{line.parts[1]}</span>
+                  <span className="truncate" data-full-text={line.text}>
+                    {line.parts[1]}
+                  </span>
                 </span>
               ) : (
                 <span className="truncate">{line.text}</span>
@@ -141,6 +143,7 @@ export function NavigationAgentMenu({
         connections={connections}
         currentPath={currentPath}
         endpoint={endpoint}
+        live={stream === 'live'}
         onConnect={onConnect}
       />
     </DropdownMenu>

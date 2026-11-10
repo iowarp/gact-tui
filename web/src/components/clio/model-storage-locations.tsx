@@ -89,6 +89,7 @@ export function ModelStorageLocations({
         icon={<HardDriveIcon />}
         title={`Storage on ${hostLabel}`}
         description={`Paths are on ${hostLabel}. New deployments inherit these locations.`}
+        bodyInset="edge"
         confirm={{
           label: saveState?.pending ? 'Saving…' : 'Save locations',
           onConfirm: () => saveState?.submit(),

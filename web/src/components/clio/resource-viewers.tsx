@@ -281,6 +281,7 @@ function WorkspacePdfView({
           initialPage={initialPage}
           name={fileName(path)}
           onRetry={() => void content.refetch()}
+          pageFacts
         />
       </div>
     </WorkspaceFileComments>

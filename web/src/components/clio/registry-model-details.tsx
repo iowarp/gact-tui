@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ModelRegistryDetails } from '@clio/core/v3';
-import { ExternalLinkIcon, BookOpenIcon, CircleAlertIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  CircleAlertIcon,
+  CpuIcon,
+  ExternalLinkIcon,
+  FileTextIcon,
+  HardDriveIcon,
+  LayersIcon,
+  MessageSquareTextIcon,
+  PinIcon,
+  SparklesIcon,
+} from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { registryModelTags } from '@/lib/registry-model-tags';
@@ -72,25 +83,34 @@ function CompactModelDetails({
     .filter((tag) => tag !== taskTag && tag.axis !== 'size' && tag.axis !== 'context')
     .map(modelCapabilityTagLabel)
     .join(', ');
+  // Spec `.c3kv`: every fact leads with its icon, so the labels share one x.
   const items: KeyValueItem[] = [
-    ...(taskLabel ? [{ label: 'Task', value: taskLabel }] : []),
-    ...(parameters ? [{ label: 'Parameters', value: parameters, mono: true }] : []),
-    ...(sizeBytes ? [{ label: 'Size', value: formatBytes(sizeBytes), mono: true }] : []),
-    ...(license ? [{ label: 'License', value: license, mono: true }] : []),
+    ...(taskLabel ? [{ label: 'Task', icon: <LayersIcon />, value: taskLabel }] : []),
+    ...(parameters
+      ? [{ label: 'Parameters', icon: <CpuIcon />, value: parameters, mono: true }]
+      : []),
+    ...(sizeBytes
+      ? [{ label: 'Size', icon: <HardDriveIcon />, value: formatBytes(sizeBytes), mono: true }]
+      : []),
+    ...(license ? [{ label: 'License', icon: <FileTextIcon />, value: license, mono: true }] : []),
     ...(model?.context_window
       ? [
           {
             label: 'Context',
+            icon: <MessageSquareTextIcon />,
             value: `${formatContextSize(model.context_window)} tokens`,
             mono: true,
           },
         ]
       : []),
-    ...(capabilities ? [{ label: 'Capabilities', value: capabilities }] : []),
+    ...(capabilities
+      ? [{ label: 'Capabilities', icon: <SparklesIcon />, value: capabilities }]
+      : []),
     ...(model?.revision
       ? [
           {
             label: 'Pinned source',
+            icon: <PinIcon />,
             value: model.revision.slice(0, 12),
             title: model.revision,
             mono: true,

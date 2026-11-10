@@ -1,10 +1,14 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { PendingInteraction, ToolInvocation } from '@clio/core/v3';
+import { toolWaitsForYou } from './agent-answer-domain';
 import type { ConversationIteration } from './conversation-turn-model';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { getToolStatus, isToolStopped } from './tool-presentation';
 
 /** Keep entry disclosures about actions; numeric outcomes belong in the message footer. */
-export function transcriptActivitySummary(iterations: readonly ConversationIteration[]): {
+export function transcriptActivitySummary(
+  iterations: readonly ConversationIteration[],
+  interactions?: readonly PendingInteraction[],
+): {
   label: string;
   running: boolean;
   /** Failed calls in the group, marked on the collapsed row by an icon (the label stays verbs). */
@@ -31,6 +35,9 @@ export function transcriptActivitySummary(iterations: readonly ConversationItera
   );
   if (thinking && !activeOperation) return { label: 'Thinking', running: true, failed: 0 };
   const toolLabel = (tool: ToolInvocation) => {
+    // A call paused on an approval or question waits for the person, even an async
+    // ask_user that already returned its task handle.
+    if (toolWaitsForYou(tool, interactions)) return 'waiting for you';
     const active = ['pending', 'running'].includes(tool.state);
     if (tool.name === 'ask_user')
       return tool.state === 'running' ? 'asking questions' : 'asked questions';

@@ -112,12 +112,14 @@ export function useUpdateStatus(runtimeVersion: string | undefined): UpdateStatu
     }
   }
 
-  const reported = displayReleaseVersion(latest.data?.version ?? undefined);
-  if (!reported || latest.data?.degradation || !runtimeVersion) return undefined;
   const check = () => {
     void latest.refetch();
     void queryClient.refetchQueries({ queryKey: queryKeys.key('capabilities', settings.endpoint) });
   };
+  // The first check holds the row's place so the menu doesn't grow when it answers.
+  if (!latest.data && latest.isFetching && runtimeVersion) return { state: 'checking', check };
+  const reported = displayReleaseVersion(latest.data?.version ?? undefined);
+  if (!reported || latest.data?.degradation || !runtimeVersion) return undefined;
   if (latest.isFetching) return { state: 'checking', check };
   return compareReleaseVersions(runtimeVersion, reported) < 0
     ? { state: 'available', targetVersion: reported, check }
