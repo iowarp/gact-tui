@@ -86,6 +86,8 @@ function DesktopNavigationLayout({
   const { open, setOpen, toggleSidebar } = useSidebar();
   useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
+  // Resize callbacks can arrive before a fold commits; they read the latest request.
+  const openRef = useRef(open);
   const previousCollapseForWorkbenchRef = useRef(false);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
@@ -104,8 +106,16 @@ function DesktopNavigationLayout({
   }, [collapse, open, setOpen]);
 
   useEffect(() => {
-    if (open) panelRef.current?.expand();
-    else panelRef.current?.collapse();
+    openRef.current = open;
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (!open) {
+      panel.collapse();
+      return;
+    }
+    panel.expand();
+    // With no remembered width the library expands to its 216 px minimum.
+    if (panel.getSize().inPixels <= 216) panel.resize(`${OPEN_NAVIGATION_WIDTH}px`);
   }, [open]);
 
   const synchronizeCollapsedState = (
@@ -115,8 +125,15 @@ function DesktopNavigationLayout({
   ) => {
     if (!previous) return;
     if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
-    if (size.inPixels <= 64 && open) setOpen(false);
-    if (size.inPixels >= 216 && !open) setOpen(true);
+    if (size.inPixels <= 64) {
+      if (openRef.current) setOpen((openRef.current = false));
+      return;
+    }
+    if (openRef.current) return;
+    // Only a drag out of the strip reopens the bar. A viewport resize scales
+    // the panel too, and must not undo the fold below 1024px.
+    if (previous.inPixels <= 64 && size.inPixels >= 216) setOpen((openRef.current = true));
+    else panelRef.current?.collapse();
   };
 
   return (
@@ -140,7 +157,8 @@ function DesktopNavigationLayout({
           aria-label="Resize navigation"
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
         />
-        <ResizablePanel id="workspace-content" minSize="520px">
+        {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
+        <ResizablePanel id="workspace-content" minSize={`${MIN_CONVERSATION_WIDTH}px`}>
           {children}
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -486,6 +504,11 @@ export function ClioAppShell({
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               workbenchSheetRef.current?.focus();
+            }}
+            // A list search field closes itself on Escape; that press must not close the sheet.
+            onEscapeKeyDown={(event) => {
+              if ((event.target as Element | null)?.closest?.('[data-escape-owner]'))
+                event.preventDefault();
             }}
             // The spec's narrow layout keeps the folded left bar visible and undimmed.
             overlayClassName="bg-transparent"

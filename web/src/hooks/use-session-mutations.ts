@@ -230,6 +230,32 @@ export function useSessionMutations({
     [queryClient, repository, sessionId, workspaceId],
   );
 
+  // A draft becomes one session, whether its first action is a message or a command.
+  // Retain a successful creation across failed sends/retries; concurrent
+  // submits share the same creation rather than minting extra sessions.
+  const materializeDraft = (
+    fields: Omit<Parameters<typeof repository.createSession>[0], 'workspace_id' | 'title'>,
+  ): Promise<Session> => {
+    const controller = uploadController.current;
+    if (!controller || controller.signal.aborted)
+      return Promise.reject(new Error('This draft is no longer open.'));
+    draftSession.current ??= repository
+      .createSession({
+        workspace_id: workspaceId,
+        title: 'New conversation',
+        ...fields,
+        ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
+        ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
+          ? { agent_delta: draftAgentDelta }
+          : {}),
+      })
+      .catch((error: unknown) => {
+        draftSession.current = null;
+        throw error;
+      });
+    return draftSession.current;
+  };
+
   const sendIdentities = useRef(new SendIdentities());
   const reconcileTurnMode = async (behavior: MessageBehavior, target = session) => {
     if (!target) return;
@@ -268,31 +294,15 @@ export function useSessionMutations({
       const controller = uploadController.current;
       let target = session;
       if (!sessionId && createOnSend) {
-        if (!controller || controller.signal.aborted)
-          throw new Error('This draft is no longer open.');
-        // Retain a successful creation across failed sends/retries. Concurrent
-        // submits share the same creation rather than minting extra sessions.
-        draftSession.current ??= repository
-          .createSession({
-            workspace_id: workspaceId,
-            title: 'New conversation',
-            // The created session carries the turn's model, so the open
-            // conversation names it before the first turn reports back.
-            ...route,
-            mode: sessionModeForExecution(value.behavior.execution_mode),
-            routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
-            approval_mode: value.behavior.confirmation_policy,
-            ...(value.spotterModel ? { spotter_model: value.spotterModel } : {}),
-            ...(draftAgentRef ? { agent_ref: draftAgentRef } : {}),
-            ...(draftAgentDelta && draftAgentDelta.add.length + draftAgentDelta.remove.length
-              ? { agent_delta: draftAgentDelta }
-              : {}),
-          })
-          .catch((error: unknown) => {
-            draftSession.current = null;
-            throw error;
-          });
-        target = await draftSession.current;
+        target = await materializeDraft({
+          // The created session carries the turn's model, so the open
+          // conversation names it before the first turn reports back.
+          ...route,
+          mode: sessionModeForExecution(value.behavior.execution_mode),
+          routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
+          approval_mode: value.behavior.confirmation_policy,
+          ...(value.spotterModel ? { spotter_model: value.spotterModel } : {}),
+        });
         if (value.memoryOff) await repository.turnMemoryOff(target.id);
       }
       const targetId = sessionId || target?.id;
@@ -351,6 +361,21 @@ export function useSessionMutations({
           queryKeys.key('pending-questions', settings.endpoint),
         ]);
       }
+    },
+  });
+
+  // A command chosen in a draft runs in the conversation it starts, then opens it.
+  const runDraftCommand = useMutation({
+    mutationFn: async ({ commandId, input }: { commandId: string; input: string }) => {
+      const controller = uploadController.current;
+      const target = await materializeDraft({
+        ...(activeProvider && activeModel
+          ? { provider_id: activeProvider, model_id: activeModel }
+          : {}),
+      });
+      const result = await repository.dispatchCommand(target.id, commandId, input);
+      openStartedSession(target, controller);
+      return result;
     },
   });
 
@@ -598,6 +623,7 @@ export function useSessionMutations({
     respondInteraction,
     respondPermission,
     retry,
+    runDraftCommand,
     send,
     updateQueuedMessage,
     updateSessionBehavior,

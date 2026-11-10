@@ -22,6 +22,9 @@ import {
   ComposerSuggestionPopup,
   Highlighted,
   MatchCount,
+  ROW_CUT_SLOT,
+  SuggestionDetail,
+  useHoveredRow,
 } from './composer-suggestion-popup';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
@@ -89,6 +92,10 @@ const commandKey = (command: CommandDefinition) =>
 
 const NAMED_STATES = new Set(['command_shadowed', 'command_name_reserved']);
 
+/** A title that only repeats the command's name, as a skill named after its file has. */
+const namesItself = (command: CommandDefinition, text: string) =>
+  text === command.id || text === command.id.replace(/^\//u, '');
+
 /** The faint words after a command's id: its title, or what it does. */
 function commandDetail(command: CommandDefinition): string {
   // Shadowed and reserved rows say so in their tag, with the reason on hover;
@@ -97,27 +104,41 @@ function commandDetail(command: CommandDefinition): string {
     return NAMED_STATES.has(command.disabled_reason ?? '')
       ? ''
       : command.disabled_detail || command.disabled_reason || '';
-  if (command.title && command.title !== command.id) return command.title;
+  if (command.title && !namesItself(command, command.title)) return command.title;
   return command.description || command.argument_hint || '';
 }
 
-/** Everything about the command, for the row's tooltip. */
-function commandSummary(command: CommandDefinition): string {
+/** Everything about the command beyond its id, one part per line of its tooltip. */
+function commandSummaryParts(command: CommandDefinition): string[] {
   return [command.title, command.argument_hint, command.description]
-    .filter((part, index, parts) => part && part !== command.id && parts.indexOf(part) === index)
-    .join('\n');
+    .map((part) => part?.trim() ?? '')
+    .filter(
+      (part, index, parts) => part && !namesItself(command, part) && parts.indexOf(part) === index,
+    );
+}
+
+/** The parts as one line of prose: each ends as a sentence, with no decorative joins. */
+function asSentences(parts: readonly string[]): string {
+  return parts
+    .map((part, index) =>
+      index < parts.length - 1 && !/[.!?…:;]$/u.test(part) ? `${part}.` : part,
+    )
+    .join(' ');
 }
 
 const CommandOption = memo(function CommandOption({
   active,
   command,
   id,
+  onHover,
   onPick,
   query,
 }: {
   active: boolean;
   command: CommandDefinition;
   id: string;
+  /** The pointer reached this row, so the detail strip shows it. */
+  onHover: (key: string) => void;
   onPick: (command: CommandDefinition) => void;
   /** What follows the typed `/`, marked in the name. */
   query: string;
@@ -125,6 +146,7 @@ const CommandOption = memo(function CommandOption({
   const source = commandSource(command);
   const detail = commandDetail(command);
   const status = CommandStatus({ command });
+  const summary = commandSummaryParts(command).join('\n');
   return (
     // The editor keeps focus and the keys; a press only picks.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -140,8 +162,9 @@ const CommandOption = memo(function CommandOption({
       id={id}
       onClick={command.enabled ? () => onPick(command) : undefined}
       onMouseDown={keepFocus}
+      onMouseEnter={() => onHover(commandKey(command))}
       role="option"
-      title={commandSummary(command) || undefined}
+      title={summary ? `${command.id}\n${summary}` : command.id}
     >
       <span
         className={cn(
@@ -152,7 +175,12 @@ const CommandOption = memo(function CommandOption({
         <Highlighted query={query} text={command.id.replace(/^\//u, '')} />
       </span>
       {detail ? (
-        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
+        <span
+          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint"
+          data-slot={ROW_CUT_SLOT}
+        >
+          {detail}
+        </span>
       ) : null}
       {status || source || active ? (
         <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
@@ -297,6 +325,13 @@ export function ClioComposerCommandMenu({
   }, [popoverId]);
 
   const dismiss = useCallback(() => setDismissedQuery(query), [query]);
+  const hover = useHoveredRow();
+  const described =
+    groups
+      .flatMap((group) => group.rows)
+      .find((command) => commandKey(command) === hover.hovered) ?? active;
+  const describedParts = described ? commandSummaryParts(described) : [];
+  const describedDetail = described ? commandDetail(described) : '';
 
   if (!open) return null;
   return (
@@ -315,6 +350,7 @@ export function ClioComposerCommandMenu({
       <div
         aria-label="Suggestions"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
+        onMouseLeave={hover.onLeave}
         role="listbox"
       >
         {total === 0 ? (
@@ -334,6 +370,7 @@ export function ClioComposerCommandMenu({
                 command={command}
                 id={optionId(command)}
                 key={commandKey(command)}
+                onHover={hover.onHover}
                 onPick={onPick}
                 query={query.replace(/^\//u, '')}
               />
@@ -341,6 +378,15 @@ export function ClioComposerCommandMenu({
           </div>
         ))}
       </div>
+      {described ? (
+        <SuggestionDetail
+          description={asSentences(describedParts)}
+          mono
+          more={describedParts.some((part) => part !== describedDetail)}
+          name={described.id}
+          rowId={optionId(described)}
+        />
+      ) : null}
       {total ? (
         <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
       ) : null}

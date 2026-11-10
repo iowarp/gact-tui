@@ -13,7 +13,7 @@ preserved for reconciliation.
 | Attachments        | AI Elements `Attachments`                                         | Workspace custody, upload progress, resource identity      |
 | Queued messages    | CLIO one-line queue rows, dnd-kit reorder                         | Persistence, revisions, promotion, conflict recovery       |
 | Model picker       | AI Elements `ModelSelector`, ReUI Cascader two-column composition | Live catalog normalization and provider configuration link |
-| Transcript minimap | TanStack Virtual, shadcn `HoverCard`                              | Semantic landmark types and virtualized transcript jumps   |
+| Transcript outline | TanStack Virtual, shadcn `HoverCard`                              | Marked-message filter and virtualized transcript jumps     |
 
 No CLIO component recreates the interaction machinery supplied by those foundations. Domain
 adapters translate GACT state into their public props and events.
@@ -50,22 +50,20 @@ and model ID globally. Provider health, freshness, and endpoint are supplemental
 settings action remains directly reachable. At narrow widths the two columns become a staged
 provider-then-model flow with an explicit Back action rather than horizontally compressed text.
 
-## Transcript minimap
+## Transcript outline
 
-The minimap occupies a narrow conversation gutter and uses 8–12 px strokes for user, assistant,
-activity, approval/question, error, A2UI, and artifact landmarks. TanStack Virtual owns the
-normalized index, the active landmark, and every jump: the transcript's own virtualizer reports
-which message is in view, so the active landmark can be one the rail has not mounted. Reading it
-back from mounted DOM anchors instead could only ever name a landmark already on screen, so no
-scroll-spy observer takes part. Hover and keyboard focus open the same shadcn HoverCard preview,
-showing a bounded projection of the message rather than its full text. A narrow conversation
-replaces the rail with one outline button. Reduced motion uses immediate jumps and opacity-only
-feedback.
+The v24 conversation spec has no landmark strip beside the transcript, so the transcript's index
+is one outline button at its top left. It opens a virtualized list with one 28 px line per message
+and a Marked filter. TanStack Virtual owns the normalized index, the active line, and every jump:
+the transcript's own virtualizer reports which message is in view, so the active line can be one
+the transcript has not mounted, and no scroll-spy observer takes part. Hover and keyboard focus
+open a shadcn HoverCard preview, showing a bounded projection of the message rather than its full
+text. Reduced motion uses immediate jumps.
 
 ## Required visible walkthroughs
 
 Review desktop, tablet, and mobile widths in light, dark, and reduced-motion modes. Exercise pointer,
 keyboard, and touch for model selection, provider configuration, file add/drop/remove, queued-message
-edit/reorder/promote/delete, live steering, disconnect/reconnect, minimap previews, and normalized
+edit/reorder/promote/delete, live steering, disconnect/reconnect, outline previews, and normalized
 jumps. Capture idle, running, waiting, offline, upload-processing, narrow, and touch screenshots
 before treating broad automated gates as acceptance evidence.

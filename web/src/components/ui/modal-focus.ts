@@ -60,6 +60,12 @@ export function subscribeToModals(listener: () => void): () => void {
 }
 
 let lastBlurred: HTMLElement | null = null;
+// Safari and WKWebView do not focus a clicked button: focus goes to its nearest
+// focusable ancestor (or the body). The control the pointer pressed is the real
+// opener; a key press clears it, so a shortcut keeps the focused element.
+const PRESSABLE =
+  'button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [tabindex]:not([tabindex="-1"])';
+let lastPressed: HTMLElement | null = null;
 if (typeof document !== 'undefined') {
   document.addEventListener(
     'focusout',
@@ -68,6 +74,29 @@ if (typeof document !== 'undefined') {
     },
     true,
   );
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      lastPressed =
+        event.target instanceof Element ? event.target.closest<HTMLElement>(PRESSABLE) : null;
+    },
+    true,
+  );
+  document.addEventListener(
+    'keydown',
+    () => {
+      lastPressed = null;
+    },
+    true,
+  );
+}
+
+/** The pressed control, when focus only reached one of its ancestors (WebKit). */
+function pressedWithin(candidate: Element | null): HTMLElement | null {
+  const pressed = lastPressed;
+  if (!pressed?.isConnected || pressed === candidate) return null;
+  if (!candidate || candidate === document.body || candidate.contains(pressed)) return pressed;
+  return null;
 }
 
 /**
@@ -101,7 +130,9 @@ export function useModalFocusReturn<T extends HTMLElement>({
           return;
         }
         const active = document.activeElement;
-        let candidate = active && node.contains(active) ? lastBlurred : active;
+        let candidate: Element | null = active && node.contains(active) ? lastBlurred : active;
+        const pressed = pressedWithin(candidate);
+        if (pressed && !node.contains(pressed)) candidate = pressed;
         // A menu item that opened the dialog is about to unmount: return to the
         // trigger of its outermost menu (a submenu is labelled by its sub-trigger).
         let menu = candidate instanceof Element ? candidate.closest('[role=menu]') : null;

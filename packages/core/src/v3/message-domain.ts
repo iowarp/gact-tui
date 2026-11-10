@@ -52,6 +52,20 @@ export type MessageBlock = MessageBlockContext &
         call_id?: string;
         trigger?: 'auto' | 'manual';
         compaction_id?: string;
+        /**
+         * A summarization's `compacted_message_ids` are the messages its summary
+         * replaced; `derived_from` names the summaries it folded in;
+         * `kept_message_ids` are the messages the agent still sees verbatim
+         * beside it; `system_prompt` is the prompt in force when it ran (absent
+         * when the agent had not recorded one).
+         */
+        metadata?: {
+          compacted_message_ids?: string[];
+          derived_from?: string[];
+          kept_message_ids?: string[];
+          system_prompt?: string;
+          [key: string]: unknown;
+        };
         /** Set when a variant try received it: the block belongs to that try's tab. */
         variants_id?: string;
         try_index?: number;

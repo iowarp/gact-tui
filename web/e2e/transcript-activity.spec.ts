@@ -104,6 +104,12 @@ test('renders always-visible causal rows and a truthful completion footer at des
   // The settled thought is no longer live and keeps its text.
   await expect(reasoning).not.toHaveAttribute('aria-busy');
   await expect(thought).toHaveText(/^Thought/u);
+  // The finished turn folds its run into one counted row that opens to its calls.
+  const runSummary = message.getByRole('button', { name: 'Expand Called 2 tools' });
+  await expect(runSummary).toBeVisible();
+  await expect(read).toHaveCount(0);
+  await runSummary.click();
+  await expect(read).toBeVisible();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     // Let virtualized row measurements settle before measuring the actual click.

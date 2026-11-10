@@ -10,7 +10,11 @@ import { conversationForkOrigin } from './conversation-fork-origin';
 import { ClioConversation, type ClioConversationProps } from './conversation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 import { WorkspaceStatusStrip } from './workspace-route-surfaces';
-import { countActiveWork, countWorkNeedingInspection } from './workspace-route-state';
+import {
+  countActiveWork,
+  countWorkNeedingInspection,
+  unansweredMessageIds,
+} from './workspace-route-state';
 
 function useSessionMessages(sessionId: string): Message[] {
   const messages = useLiveStore((state) => state.entities.messages);
@@ -112,6 +116,17 @@ export function WorkspaceLiveConversation({
     [subagentEntities, subagentList],
   );
   const earlier = useEarlierMessages(sessionId, hasEarlierMessages, messages[0]?.id);
+  const { pendingMessageIds: listedPending, cancellablePendingMessageIds: listedCancellable } =
+    props;
+  const running = sessionState === 'running';
+  const pendingMessageIds = useMemo(
+    () => unansweredMessageIds(listedPending, messages, running),
+    [listedPending, messages, running],
+  );
+  const cancellablePendingMessageIds = useMemo(
+    () => unansweredMessageIds(listedCancellable, messages, running),
+    [listedCancellable, messages, running],
+  );
   const entities = useMemo(
     () => ({ actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools }),
     [actionLifecycles, artifacts, compactions, subagents, surfaces, tasks, tools],
@@ -125,6 +140,8 @@ export function WorkspaceLiveConversation({
       earlier={earlier}
       forkOrigin={forkOrigin}
       messages={messages}
+      pendingMessageIds={pendingMessageIds}
+      cancellablePendingMessageIds={cancellablePendingMessageIds}
       preparation={{ activeTurnId, activeTurnResponded, dependencies, sessionState }}
     />
   );

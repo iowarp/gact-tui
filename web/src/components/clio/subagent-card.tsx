@@ -12,6 +12,7 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+import { DelegateCalls } from './delegate-calls';
 import {
   ActivityBody,
   ActivityDisclosure,
@@ -167,7 +168,6 @@ export function ClioDelegateRow({
   subagent,
   task,
   result,
-  terminal = false,
   state,
   onOpen,
   disclosureKey,
@@ -178,8 +178,6 @@ export function ClioDelegateRow({
   task: string;
   /** What the agent returned; shown in the body once it has. */
   result?: string;
-  /** The row records a return: its body says when nothing came back. */
-  terminal?: boolean;
   /** Override the run's state (a launch line was accepted, whatever came next). */
   state?: RunState;
   onOpen?: OpenSubagent;
@@ -187,13 +185,12 @@ export function ClioDelegateRow({
 }) {
   const [open, setOpen] = useTranscriptDisclosure(disclosureKey);
   const [details, setDetails] = useState(false);
-  const lines = useTranscriptPreviewLines();
   const runState = state ?? subagent?.state ?? 'running';
   const tone = delegateTone(runState);
   const statusLabel = clioStatusLabel(runState);
   const name = agentName(subagent);
   const outcomeTone = OUTCOME_TONE[tone];
-  const body = Boolean(task || result || terminal);
+  const body = Boolean(subagent || result);
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0" data-slot="delegate">
       <ActivityRow
@@ -234,24 +231,7 @@ export function ClioDelegateRow({
       />
       {body ? (
         <CollapsibleContent>
-          <ActivityBody label={`${action} ${name}`} className="space-y-3 px-3 py-2.5">
-            {task ? (
-              <section className="space-y-1">
-                <h4 className="text-[12px] font-medium text-foreground">Assignment</h4>
-                <p className="whitespace-pre-wrap text-[13px] text-muted-foreground">{task}</p>
-              </section>
-            ) : null}
-            {result ? (
-              <section className="space-y-1">
-                <h4 className="text-[12px] font-medium text-foreground">Returned result</h4>
-                <BoundedResult lines={lines} title={`${action} ${name}`}>
-                  <GroundedMessageResponse mode="static">{result}</GroundedMessageResponse>
-                </BoundedResult>
-              </section>
-            ) : terminal ? (
-              <p className="text-[13px] text-muted-foreground">No result was recorded.</p>
-            ) : null}
-          </ActivityBody>
+          {open ? <DelegateCalls name={name} result={result} subagent={subagent} /> : null}
         </CollapsibleContent>
       ) : null}
       {details ? (
@@ -297,7 +277,6 @@ export function ClioSubagentLifecycleLine({
       subagent={subagent}
       task={assignment}
       result={terminal ? subagent?.result || subagent?.summary : undefined}
-      terminal={terminal}
       state={
         terminal && !failed && !cancelled && subagent && delegateTone(subagent.state) === 'running'
           ? 'completed'
@@ -386,7 +365,6 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
       subagent={subagent}
       task={getChildAgentAssignment(subagent).label}
       result={subagent.result}
-      terminal={delegateTone(subagent.state) !== 'running' && subagent.state !== 'waiting_user'}
       onOpen={onOpen}
       disclosureKey={`delegate-card:${subagent.id}`}
     />

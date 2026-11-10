@@ -6,12 +6,12 @@ import {
   type ToolInvocation,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
 import { useLiveStore } from '@/store/live-store';
-import { NestedToolCalls } from './nested-tool-calls';
+import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
 import { PermissionResponse } from './permission-response';
 import { PresentationNavigation } from './presentation-navigation';
 
@@ -121,12 +121,17 @@ describe('run_code nesting', () => {
     expect(screen.getByText('11')).toBeInTheDocument();
   });
 
-  it('renders nothing for a call without children', () => {
+  it('renders nothing for a call without children, and keeps its source until it has some', () => {
     seed([tool('run', { name: 'run_code' })]);
     const { container } = render(
       <NestedToolCalls parentId="run" renderCall={() => <span>child</span>} />,
     );
     expect(container).toBeEmptyDOMElement();
+    cleanup();
+    render(<UnlessNestedCalls parentId="run">script source</UnlessNestedCalls>);
+    expect(screen.getByText('script source')).toBeInTheDocument();
+    act(() => seed([tool('run', { name: 'run_code' }), tool('11', { parent_call_id: 'run' })]));
+    expect(screen.queryByText('script source')).not.toBeInTheDocument();
   });
 });
 

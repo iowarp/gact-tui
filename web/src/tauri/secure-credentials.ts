@@ -29,7 +29,11 @@ export async function deleteConnectionCredential(endpoint: string): Promise<void
   await invokeCredential('credential_delete', { endpoint });
 }
 
-/** Read a provider API key from the desktop credential vault. */
+/**
+ * Read a provider API key from the desktop credential vault. The desktop host
+ * reads each key from the OS at most once per launch and remembers a denied
+ * read, so callers may ask on every apply without re-prompting the person.
+ */
 export async function readProviderCredential(
   providerId: string,
   apiBase: string,
@@ -51,4 +55,10 @@ export async function storeProviderCredential(
 ): Promise<void> {
   if (!inTauri()) return;
   await invokeCredential('provider_credential_store', { providerId, apiBase, secret });
+}
+
+/** Delete a provider API key so the provider goes back to needing one. */
+export async function deleteProviderCredential(providerId: string, apiBase: string): Promise<void> {
+  if (!inTauri()) return;
+  await invokeCredential('provider_credential_delete', { providerId, apiBase });
 }

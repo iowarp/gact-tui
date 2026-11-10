@@ -41,6 +41,7 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
+import { FileTypeIcon } from './file-type-icon';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
@@ -69,6 +70,8 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
     return <ArtifactTypeIcon artifact={tab.artifact} className="size-3.5" />;
   if (tab.kind === 'activity')
     return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
+  // A tab that drops its name keeps a format icon that tells it apart (workbench-lineage).
+  if (tab.kind === 'workspace-file') return <FileTypeIcon className="size-3.5" name={tab.path} />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
@@ -90,20 +93,26 @@ function workbenchTabReference(
 }
 
 /**
- * A tab shortcut that unmounts the focused tab or its body lands focus on the new
- * active tab, or on the composer when the last tab closed the canvas.
+ * After a tab shortcut, focus follows the active tab: when focus was lost (the
+ * focused tab or its body unmounted) or sat on another canvas tab, it lands on the
+ * new active tab, or on the composer when the last tab closed the canvas.
  */
 export function refocusActiveCanvasTab(region: Element | null) {
   requestAnimationFrame(() => {
     const active = document.activeElement;
-    if (active && active !== document.body) return;
+    const onCanvasTab =
+      active instanceof HTMLElement &&
+      active.matches('[data-slot=canvas-tab-row] [role=tab]') &&
+      Boolean(region?.contains(active));
+    if (active && active !== document.body && !onCanvasTab) return;
     const tab = region?.isConnected
       ? region.querySelector<HTMLElement>(
           '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
         )
       : null;
-    if (tab) tab.focus();
-    else
+    if (tab) {
+      if (tab !== active) tab.focus();
+    } else if (!onCanvasTab)
       focusEditorAtOffset(
         document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
       );

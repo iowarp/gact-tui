@@ -1,5 +1,6 @@
 import {
   agentPluginsSupported,
+  TransportError,
   type AgentDelta,
   type PluginChangeApply,
   type SessionAgent,
@@ -8,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { connectionScope } from '@/lib/connection-scope';
+import { CAPABILITIES_RETRY_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 /**
@@ -16,8 +18,13 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  */
 export function useAgentPluginsSupported(): boolean | undefined {
   const capabilities = useAgentCapabilities();
-  if (!capabilities.data) return capabilities.isError ? false : undefined;
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
   return agentPluginsSupported(capabilities.data.capabilities);
+}
+
+/** Only a service with no capabilities route lacks them; any other failure is not an answer. */
+function notOffered(error: Error | null) {
+  return error instanceof TransportError && error.status === 404;
 }
 
 function useAgentCapabilities() {
@@ -26,13 +33,18 @@ function useAgentCapabilities() {
   return useQuery({
     queryKey: queryKeys.key('capabilities', settings.endpoint, connectionScope(settings)),
     queryFn: ({ signal }) => repository.capabilities(signal),
+    // A restarting service stays unknown, not unsupported, until it answers again.
+    refetchInterval: (query) =>
+      query.state.status === 'error' && !notOffered(query.state.error)
+        ? CAPABILITIES_RETRY_MS
+        : false,
   });
 }
 
 /** New connection-only and sign-in semantics must be acknowledged by the agent host. */
 export function useExtensionsSupported(): boolean | undefined {
   const capabilities = useAgentCapabilities();
-  if (!capabilities.data) return capabilities.isError ? false : undefined;
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
   return capabilities.data.capabilities.x_clio_extension_library === true;
 }
 
