@@ -1,6 +1,6 @@
 import type { Artifact, ArtifactLineage, ArtifactVersion } from '@clio/core/v3';
 import { TriangleAlertIcon, WrenchIcon } from 'lucide-react';
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
@@ -14,6 +14,11 @@ import {
 import type { LineageActivity } from './artifact-lineage-view';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { useFileViewerFacts } from './file-viewer-facts';
+import { GraphEdgeCues } from './graph-edge-fade';
+import { fitWidth, usePaneSize, useScrollEdges } from './graph-fit';
+
+/** The canvas's `p-3.5` inset around the drawing. Unit: CSS px. */
+const LINEAGE_CANVAS_PADDING = 14;
 
 /**
  * What the service recorded about one file, drawn as the spec's node graph.
@@ -127,7 +132,6 @@ function LineageNode({
             <b
               className={cn(
                 'truncate font-medium',
-                node.kind === 'action' && 'font-mono text-[11px]',
                 node.kind === 'self' && 'text-accent-foreground',
               )}
             >
@@ -163,71 +167,93 @@ function LineageGraph({
 }) {
   const marker = useId();
   const gapMarker = `${marker}-gap`;
+  const canvas = useRef<HTMLDivElement>(null);
+  const drawing = useRef<HTMLDivElement>(null);
+  const pane = usePaneSize(canvas);
+  // Fits the pane's width while names stay readable; below that floor the rest scrolls into view.
+  const zoom = fitWidth(pane?.w, graph.width, LINEAGE_CANVAS_PADDING);
+  const edges = useScrollEdges(canvas, drawing);
   return (
-    <div
-      role="region"
-      aria-label={label}
-      data-slot="lineage-canvas"
-      className="flex h-full min-h-0 min-w-0 items-start overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px] p-3.5"
-    >
-      {/* Laid out from the top-left, as the spec's canvas is; spare room falls below and right. */}
+    <div className="relative h-full min-h-0 min-w-0">
       <div
-        data-slot="lineage-layout"
-        className="relative shrink-0"
-        style={{ width: graph.width, height: graph.height }}
+        ref={canvas}
+        role="region"
+        aria-label={label}
+        data-slot="lineage-canvas"
+        className="flex h-full min-h-0 min-w-0 items-start overflow-auto bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-[length:16px_16px] p-3.5"
       >
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-visible"
-          width={graph.width}
-          height={graph.height}
+        {/* Laid out from the top-left, as the spec's canvas is; spare room falls below and right. */}
+        <div
+          ref={drawing}
+          data-slot="lineage-fit"
+          className="relative shrink-0"
+          style={{ width: graph.width * zoom, height: graph.height * zoom }}
         >
-          <defs>
-            <marker
-              id={marker}
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
+          <div
+            data-slot="lineage-layout"
+            data-zoom={zoom < 1 ? zoom.toFixed(2) : undefined}
+            className="absolute top-0 left-0 origin-top-left"
+            style={{
+              width: graph.width,
+              height: graph.height,
+              transform: zoom < 1 ? `scale(${zoom})` : undefined,
+            }}
+          >
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-visible"
+              width={graph.width}
+              height={graph.height}
             >
-              <path d="M0,0 L8,4 L0,8 z" className="fill-muted-foreground" />
-            </marker>
-            <marker
-              id={gapMarker}
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M0,0 L8,4 L0,8 z" className="fill-warning" />
-            </marker>
-          </defs>
-          {graph.edges.map((edge) => (
-            <path
-              key={edge.id}
-              d={edge.path}
-              fill="none"
-              strokeWidth={1.3}
-              strokeDasharray={edge.gap ? '4 3' : undefined}
-              markerEnd={`url(#${edge.gap ? gapMarker : marker})`}
-              className={edge.gap ? 'stroke-warning/80' : 'stroke-muted-foreground/70'}
-            />
-          ))}
-        </svg>
-        {graph.nodes.map((node) => (
-          <LineageNode
-            key={node.id}
-            node={node}
-            self={self}
-            onOpen={canOpenLineageNode(node) ? onOpen : undefined}
-          />
-        ))}
-        {children}
+              <defs>
+                <marker
+                  id={marker}
+                  viewBox="0 0 8 8"
+                  refX="7"
+                  refY="4"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0,0 L8,4 L0,8 z" className="fill-muted-foreground" />
+                </marker>
+                <marker
+                  id={gapMarker}
+                  viewBox="0 0 8 8"
+                  refX="7"
+                  refY="4"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0,0 L8,4 L0,8 z" className="fill-warning" />
+                </marker>
+              </defs>
+              {graph.edges.map((edge) => (
+                <path
+                  key={edge.id}
+                  d={edge.path}
+                  fill="none"
+                  strokeWidth={1.3}
+                  strokeDasharray={edge.gap ? '4 3' : undefined}
+                  markerEnd={`url(#${edge.gap ? gapMarker : marker})`}
+                  className={edge.gap ? 'stroke-warning/80' : 'stroke-muted-foreground/70'}
+                />
+              ))}
+            </svg>
+            {graph.nodes.map((node) => (
+              <LineageNode
+                key={node.id}
+                node={node}
+                self={self}
+                onOpen={canOpenLineageNode(node) ? onOpen : undefined}
+              />
+            ))}
+            {children}
+          </div>
+        </div>
       </div>
+      <GraphEdgeCues edges={edges} />
     </div>
   );
 }

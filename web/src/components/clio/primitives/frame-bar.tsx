@@ -66,10 +66,11 @@ function frameOverflows(bar: HTMLElement) {
 
 /**
  * The bar above whatever a frame shows: Where (crumbs) · What (facts) ·
- * Format (modes) · Talk and Take (actions, last). 34px, one line. No fixed
- * breakpoints: it measures, and folds the next group only while something
- * would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
- * (`data-slot="frame-format-host"`) is empty, with no modes, hides with its rule.
+ * Format (modes) | Talk and Take (actions, last). 34px, one line. One rule, before
+ * the actions; the modes sit right-aligned beside them, as every spec bar draws
+ * them. No fixed breakpoints: it measures, and folds the next group only while
+ * something would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
+ * (`data-slot="frame-format-host"`) is empty, with no modes, hides.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -151,7 +152,6 @@ export const FrameBar = memo(function FrameBar({
           data-slot="frame-format"
           className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
         >
-          <FrameDivider />
           {format}
         </div>
       ) : null}
