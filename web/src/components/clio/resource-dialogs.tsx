@@ -2,7 +2,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { AgentEntry, SessionDefaults, Workspace } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
@@ -22,16 +22,15 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { ClioPathPicker } from './path-picker';
 import { DialogFrame } from './primitives/dialog-frame';
-import { SegmentedControl } from './primitives/segmented-control';
 import {
   SESSION_APPROVAL_OPTIONS,
   SESSION_MODE_OPTIONS,
   SESSION_MODE_PATCHES,
 } from './session-behavior-options';
-import { SettingsRow } from './settings-row';
 
 const SELECT_FIELD =
   'w-full min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+const TEXT_FIELD = 'h-[30px] text-[12.5px] md:text-[12.5px]';
 
 export type ResourceTarget = {
   kind: 'workspace' | 'session';
@@ -199,7 +198,8 @@ function CreateResourceDialog({
     }
   };
 
-  const kindLabel = createKind === 'workspace' ? vocab.workspace : createKind;
+  // One kind per dialog, chosen by the control that opened it (spec: no Session|Workspace toggle).
+  const kindLabel = createKind === 'workspace' ? vocab.workspace : 'conversation';
   return (
     <DialogFrame
       confirm={{
@@ -209,31 +209,23 @@ function CreateResourceDialog({
           (createKind === 'workspace' ? !rootPath.trim() : !selectedWorkspaceId || !title.trim()),
         onConfirm: () => void submit(),
       }}
-      description={`Start a session or create a ${vocab.workspace}.`}
+      description={
+        createKind === 'workspace'
+          ? `Name it and choose the folder it works in.`
+          : `Name it and choose where it runs.`
+      }
       growDown
       onOpenChange={(open) => onCreateKindChange(open ? createKind : null)}
       open
-      title="Create"
-      titleActions={
-        <SegmentedControl
-          className="mr-1"
-          label="What to create"
-          onValueChange={onCreateKindChange}
-          options={[
-            { value: 'session', label: 'Session' },
-            { value: 'workspace', label: capitalize(vocab.workspace) },
-          ]}
-          value={createKind}
-        />
-      }
+      title={`New ${kindLabel}`}
     >
       <div
         aria-label="Creation options"
-        className="-mx-[18px] -mt-2 max-h-[min(34rem,calc(100dvh-var(--dialog-frame-top,1rem)-10rem))] overflow-y-auto px-[18px] [scrollbar-gutter:stable]"
+        className="-mx-[18px] -mt-2 max-h-[min(34rem,calc(100dvh-var(--dialog-frame-top,1rem)-10rem))] overflow-y-auto px-[18px] pt-0.5 pb-1 [scrollbar-gutter:stable]"
         role="region"
         tabIndex={0}
       >
-        <div hidden={createKind !== 'workspace'}>
+        {createKind === 'workspace' ? (
           <WorkspaceFields
             name={workspaceName}
             onNameChange={setWorkspaceName}
@@ -241,8 +233,7 @@ function CreateResourceDialog({
             path={rootPath}
             workspaces={workspaces}
           />
-        </div>
-        <div hidden={createKind !== 'session'}>
+        ) : (
           <SessionFields
             approvalMode={approvalMode}
             agents={agents}
@@ -259,7 +250,7 @@ function CreateResourceDialog({
             workspaceId={selectedWorkspaceId}
             workspaces={workspaces}
           />
-        </div>
+        )}
         {error ? (
           <p className="mt-2 text-[12.5px] text-destructive" role="alert">
             {error}
@@ -284,25 +275,25 @@ function WorkspaceFields({
   workspaces: readonly Workspace[];
 }) {
   return (
-    <>
-      <SettingsRow
-        description={`The short name shown throughout the ${vocab.workspace}.`}
-        htmlFor="new-workspace-name"
-        title={`${capitalize(vocab.workspace)} name`}
-      >
+    <div className="grid gap-3">
+      <StackedField htmlFor="new-workspace-name" label={`${capitalize(vocab.workspace)} name`}>
         <Input
           autoFocus
+          className={TEXT_FIELD}
           id="new-workspace-name"
           onChange={(event) => onNameChange(event.target.value)}
           placeholder="EarthScope analysis"
           value={name}
         />
-      </SettingsRow>
-      <SettingsRow
+      </StackedField>
+      <StackedField
         description={`This becomes the ${vocab.workspace} boundary. Files on disk are not moved.`}
-        title={`${capitalize(vocab.workspace)} folder`}
+        htmlFor="new-workspace-folder"
+        label={`${capitalize(vocab.workspace)} folder`}
       >
         <ClioPathPicker
+          className="h-[30px]"
+          inputId="new-workspace-folder"
           knownFolders={workspaces.flatMap((workspace) =>
             (workspace.source_folders?.length
               ? workspace.source_folders
@@ -323,8 +314,36 @@ function WorkspaceFields({
           placeholder="Choose a folder"
           value={path}
         />
-      </SettingsRow>
-    </>
+      </StackedField>
+    </div>
+  );
+}
+
+/** Spec `.xf`: a 12px label above a full-width 30px field, with an optional note below. */
+function StackedField({
+  children,
+  description,
+  htmlFor,
+  label,
+}: {
+  children: ReactNode;
+  description?: string;
+  htmlFor: string;
+  label: string;
+}) {
+  return (
+    <div className="grid min-w-0 gap-1.5">
+      <Label
+        className="text-xs font-normal whitespace-nowrap text-muted-foreground"
+        htmlFor={htmlFor}
+      >
+        {label}
+      </Label>
+      {children}
+      {description ? (
+        <p className="text-[11.5px] leading-snug text-muted-foreground">{description}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -351,17 +370,18 @@ function SessionFields(props: SessionFieldsProps) {
     useSpotterAvailability(props.workspaceId),
   );
   return (
-    <>
-      <SettingsRow htmlFor="new-session-title" title="Session name">
+    <div className="grid gap-3">
+      <StackedField htmlFor="new-session-title" label="Conversation name">
         <Input
           autoFocus
+          className={TEXT_FIELD}
           id="new-session-title"
           onChange={(event) => props.onTitleChange(event.target.value)}
           placeholder="Investigate station anomalies"
           value={props.title}
         />
-      </SettingsRow>
-      <SettingsRow htmlFor="new-session-workspace" title={capitalize(vocab.workspace)}>
+      </StackedField>
+      <StackedField htmlFor="new-session-workspace" label={capitalize(vocab.workspace)}>
         <Select onValueChange={props.onWorkspaceIdChange} value={props.workspaceId}>
           <SelectTrigger className={SELECT_FIELD} id="new-session-workspace">
             <SelectValue placeholder={`Choose a ${vocab.workspace}`} />
@@ -374,11 +394,11 @@ function SessionFields(props: SessionFieldsProps) {
             ))}
           </SelectContent>
         </Select>
-      </SettingsRow>
-      <SettingsRow
+      </StackedField>
+      <StackedField
         description="The agent's plugins bring its tools, skills and guidance. You can add or remove plugins in the conversation."
         htmlFor="new-session-agent"
-        title="Agent"
+        label="Agent"
       >
         <Select onValueChange={props.onAgentRefChange} value={props.agentRef}>
           <SelectTrigger className={SELECT_FIELD} id="new-session-agent">
@@ -394,22 +414,22 @@ function SessionFields(props: SessionFieldsProps) {
             ))}
           </SelectContent>
         </Select>
-      </SettingsRow>
+      </StackedField>
       <Collapsible>
         <CollapsibleTrigger asChild>
           <Button
-            className="group h-9 w-full justify-between px-0 text-[13px] font-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+            className="group h-7 w-full justify-between px-0 text-[12.5px] font-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
             type="button"
             variant="ghost"
           >
-            Advanced session behavior
+            Advanced behavior
             <ChevronDownIcon
               aria-hidden="true"
               className="text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
             />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="data-[state=closed]:hidden">
+        <CollapsibleContent className="grid gap-3 pt-1 data-[state=closed]:hidden">
           <BehaviorSelect
             id="new-session-mode"
             label="Default work mode"
@@ -436,7 +456,7 @@ function SessionFields(props: SessionFieldsProps) {
           />
         </CollapsibleContent>
       </Collapsible>
-    </>
+    </div>
   );
 }
 
@@ -460,7 +480,7 @@ function BehaviorSelect({
   value: string;
 }) {
   return (
-    <SettingsRow htmlFor={id} note={description} title={label}>
+    <StackedField description={description} htmlFor={id} label={label}>
       <Select onValueChange={onChange} value={value}>
         <SelectTrigger className={SELECT_FIELD} id={id}>
           <SelectValue />
@@ -476,7 +496,7 @@ function BehaviorSelect({
           })}
         </SelectContent>
       </Select>
-    </SettingsRow>
+    </StackedField>
   );
 }
 
@@ -520,7 +540,7 @@ export function RenameResourceDialog({
       icon={<EditIcon />}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={`Rename ${target.kind}`}
+      title={target.kind === 'session' ? 'Rename conversation' : `Rename ${vocab.workspace}`}
     >
       {/* Label over a full-width field (spec .xf), so the current name reads in full. */}
       <div className="grid gap-1.5">
@@ -573,30 +593,35 @@ export function DeleteResourceDialog({
       setPending(false);
     }
   };
+  const session = target.kind === 'session';
   return (
     <DialogFrame
       alert
+      cancelLabel={session ? 'Keep conversation' : `Keep ${vocab.workspace}`}
       confirm={{
-        label: pending ? 'Removing…' : `Remove ${target.kind}`,
+        label: session
+          ? pending
+            ? 'Deleting…'
+            : 'Delete permanently'
+          : pending
+            ? 'Removing…'
+            : `Remove ${vocab.workspace}`,
         tone: 'destructive',
         disabled: pending,
         onConfirm: () => void remove(),
       }}
+      description={
+        session
+          ? 'Removes it and its record from the service. This can’t be undone.'
+          : `Unregisters the ${vocab.workspace} and removes its conversations from the service. Files on disk are not deleted.`
+      }
       icon={<DeleteIcon />}
       onOpenChange={(open) => !open && onClose()}
       open
-      title={`Remove ${target.kind}?`}
+      title={`${session ? 'Delete' : 'Remove'} ${target.label}?`}
     >
-      <p className="truncate font-medium" title={target.label}>
-        {target.label}
-      </p>
-      <p className="mt-1 text-muted-foreground">
-        {target.kind === 'workspace'
-          ? 'This unregisters the workspace and removes its sessions from this service. Files on disk are not deleted.'
-          : 'This permanently removes the session and its recorded conversation from this service.'}
-      </p>
       {error ? (
-        <p className="mt-2 text-[12.5px] text-destructive" role="alert">
+        <p className="text-[12.5px] text-destructive" role="alert">
           {error}
         </p>
       ) : null}

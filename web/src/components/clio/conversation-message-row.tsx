@@ -253,7 +253,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             <div
               className={
                 message.role === 'user'
-                  ? 'group/prompt relative mb-1.5 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]'
+                  ? 'group/prompt relative mb-2 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]'
                   : undefined
               }
             >
@@ -430,8 +430,15 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </MessageContent>
               {message.role === 'user' ? (
                 <div
-                  // The spec's `.rft`: one 24px line under the bubble at every width.
-                  className="flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
+                  // The spec's `.rft`: one 24px line under the bubble. With only the hover
+                  // time and actions in it, a pointer screen gives it no room (spec `.ub`
+                  // margin 8 + gap 4 to the next row): it shows beside the bubble's last
+                  // line, in the free space, so it never covers the first row's columns.
+                  className={cn(
+                    'flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+                    !(pendingSteer || executionMode || marked) &&
+                      'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-1 sm:mr-2 sm:max-w-none',
+                  )}
                   data-slot="user-message-actions"
                 >
                   {pendingSteer ? (

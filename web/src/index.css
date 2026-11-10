@@ -292,6 +292,18 @@
   [data-radix-popper-content-wrapper]:has(> [data-name-tooltip]) {
     pointer-events: none;
   }
+  /* A picker marked as a sheet leaves its anchor below 600 px: Radix's inline
+     position gives way to a full-width bottom sheet over a scrim. */
+  @media (max-width: 599px) {
+    [data-radix-popper-content-wrapper]:has(> [data-picker-sheet]) {
+      inset: auto 0 0 0 !important;
+      min-width: 0 !important;
+      transform: none !important;
+    }
+    :root:has([data-picker-sheet]) [data-slot='modal-shield'] {
+      background: var(--scrim);
+    }
+  }
   input[type='file']:not(:disabled)::file-selector-button {
     cursor: pointer;
   }

@@ -1,13 +1,9 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ArchiveIcon, UserRoundIcon } from 'lucide-react';
-import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
-import { HeldKeyBadge } from '@/components/clio/primitives/key-chip';
-import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarRail } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
 import { useKnownConnections } from '@/hooks/use-known-connections';
@@ -16,6 +12,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
+import { NavigationFooter } from './navigation-footer';
 import { NavigationHeader } from './navigation-header';
 import { StableInput } from './primitives/stable-input';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
@@ -23,7 +20,6 @@ import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
-import { useLocalProfile } from './settings-profile-store';
 import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
@@ -51,8 +47,6 @@ export function ClioNavigation({
   attentions,
 }: ClioNavigationProps) {
   const location = useLocation();
-  const profileName = useLocalProfile().profile.name;
-  const initials = profileInitials(profileName);
   const { settings } = useConnectionSettings();
   const knownConnections = useKnownConnections();
   const activeConnection = useMemo(() => [{ ...settings, endpoint }], [endpoint, settings]);
@@ -186,50 +180,12 @@ export function ClioNavigation({
               workspaces={workspaces}
             />
           </SidebarContent>
-          <SidebarFooter className="flex-row items-center gap-1 border-t border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
-            <NamedTooltip label="Profile" side="top">
-              <Link
-                className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-[6px] px-1 outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring group-data-[collapsible=icon]:hidden"
-                state={{ endpoint, from: location.pathname }}
-                to="/settings/profile"
-              >
-                <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
-                  {initials ? initials : <UserRoundIcon aria-hidden="true" className="size-3.5" />}
-                </span>
-                <span className="flex min-w-0 flex-col leading-tight">
-                  {profileName ? (
-                    <span className="truncate text-[13px] text-foreground">{profileName}</span>
-                  ) : null}
-                  <span
-                    className={
-                      profileName
-                        ? 'truncate text-[11px] text-muted-foreground'
-                        : 'truncate text-[13px] text-foreground'
-                    }
-                  >
-                    Local profile
-                  </span>
-                </span>
-              </Link>
-            </NamedTooltip>
-            <IconButton
-              icon={<ArchiveIcon />}
-              label="Archived conversations"
-              onClick={() => setArchivedOpen(true)}
-              tooltipSide="top"
-            />
-            <NamedTooltip label="Settings" shortcut="settings" side="top">
-              <Link
-                aria-label="Settings"
-                className="relative grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
-                state={{ endpoint, from: location.pathname }}
-                to="/settings/general"
-              >
-                <SettingsIcon aria-hidden="true" className="size-[15px]" />
-                <HeldKeyBadge id="settings" />
-              </Link>
-            </NamedTooltip>
-          </SidebarFooter>
+          <NavigationFooter
+            availability={activeAvailability[endpoint]}
+            endpoint={endpoint}
+            from={location.pathname}
+            onOpenArchived={() => setArchivedOpen(true)}
+          />
         </nav>
         <SidebarRail />
       </Sidebar>
@@ -288,16 +244,6 @@ export function ClioNavigation({
 }
 
 /** Opens the conversation above or below the current one, in the left bar's visible order. */
-/** Up to two initials from the profile name, e.g. "Jaime Cernuda" → "JC". */
-function profileInitials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const letters = words.length > 1 ? [words[0], words[words.length - 1]] : words;
-  return letters
-    .map((word) => Array.from(word)[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
-
 function stepConversation(step: -1 | 1) {
   const links = [
     ...document.querySelectorAll<HTMLAnchorElement>('[data-session-row] a[data-active]'),
