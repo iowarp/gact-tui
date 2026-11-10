@@ -311,12 +311,16 @@ export function variantRunView(
         (finalPick ? run.selection?.comment : undefined) ||
         refinedFrom.get(item.try_index) ||
         undefined,
-      candidateId: candidate?.id,
+      // A failed try has nothing to continue from, so it is never pickable.
+      candidateId: item.state === 'failed' ? undefined : candidate?.id,
     };
   });
   // A pick opens on the newest refined draft (what the comment asked for),
   // otherwise on the best-scored draft offered, otherwise the first.
-  const candidates = pick?.candidates ?? [];
+  const candidates = (pick?.candidates ?? []).filter(
+    (candidate) =>
+      run.tries.find((item) => item.try_index === candidate.try_index)?.state !== 'failed',
+  );
   const refined = candidates.filter(
     (candidate) =>
       run.tries.find((item) => item.try_index === candidate.try_index)?.forked_from !== undefined,

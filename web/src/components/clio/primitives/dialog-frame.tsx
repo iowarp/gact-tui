@@ -77,7 +77,7 @@ function FooterKey({ keys, className }: { keys: readonly string[]; className?: s
   return (
     // Under the spec frame's ~460 px (44% below a 1036 px window) the chips drop,
     // before the window's 1024 px fold; the sheet never shows them.
-    <span aria-hidden="true" className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden">
+    <span aria-hidden="true" className="inline-flex @max-[24rem]:hidden max-[599px]:hidden">
       <ShortcutKeys className={className} keys={keys} variant="inline" />
     </span>
   );
@@ -144,8 +144,16 @@ export interface DialogFrameProps {
 }
 
 /**
+ * The one dialog width (spec connect-infrastructure "Dialogs"): 36% of the window,
+ * 340 to 640 px (340 at 768, 461 at 1280); under 600 px the frame is a full-width
+ * bottom sheet. Callers don't widen it. A dialog built on `DialogContent` uses this
+ * class to match.
+ */
+export const DIALOG_FRAME_WIDTH = 'w-[clamp(340px,36vw,640px)]';
+
+/**
  * The one dialog: icon, title, ×, a description under the title, body, buttons on the
- * right. 44% of the window wide (360 to 600 px), a full-width bottom sheet
+ * right. {@link DIALOG_FRAME_WIDTH} wide, a full-width bottom sheet
  * below 600 px. The key chips in the buttons drop first, once the footer is
  * narrower than the spec frame. Esc or × closes, Ctrl+Enter confirms, focus
  * starts on the safe button unless a body field is marked `data-initial-focus`.
@@ -198,8 +206,8 @@ export const DialogFrame = memo(function DialogFrame({
         {...(alert ? { role: 'alertdialog' } : {})}
         data-frame="dialog"
         className={cn(
-          // 44% of the window, as the spec's frame; the spec caps it at 600 px.
-          'top-1/2 w-[clamp(360px,44vw,600px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
+          'top-1/2 max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
+          DIALOG_FRAME_WIDTH,
           DIALOG_SHEET_CLASS,
           className,
         )}
@@ -241,9 +249,11 @@ export const DialogFrame = memo(function DialogFrame({
           <div
             data-slot="dialog-frame-body"
             // The body starts under the title text (spec `.xd .bd`: 16px icon + 10px gap).
-            // No rule closes it, so a last settings row drops its own too.
+            // No rule closes it, so a last settings row drops its own too. Its setting rows
+            // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
             className={cn(
               'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               icon ? 'pl-[42px]' : 'pl-[18px]',
             )}
           >

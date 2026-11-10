@@ -99,12 +99,12 @@ The key chips sit inside the buttons as 18 px `.xk` caps: `Cancel Esc` on the sa
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
 The overlay is the theme's `--scrim`; Notebook dark uses the spec's `rgba(10,9,8,.62)`.
-The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap) and a
-full-width bottom sheet below 600 px. Narrowing drops the chips first (spec: dialogs "drop the
-key hints before anything else"): the footer is a container and the chips hide once it is
-under 28.5rem, the spec frame's ~460 px, which at 44% is a window under about 1036 px, before
-the window's 1024 px fold. They stay hidden in the sheet. A section that needs a wider dialog passes its own `w-[clamp(...)]`; one whose
-floor is 460 px or more keeps its chips until the sheet. With `keyboard: false` or a disabled
+The frame is `DIALOG_FRAME_WIDTH`: 36% of the window, 340 to 640 px (`clamp(340px,36vw,640px)`,
+connect-infrastructure's "Dialogs" rule; 340 px at 768, 461 px at 1280), and a full-width
+bottom sheet below 600 px. Callers don't override it. Its setting rows stay inline at every
+width: label 36%, control the rest (spec `.xdb .xr`). Narrowing drops the chips first (spec:
+dialogs "drop the key hints before anything else"): the footer is a container and the chips
+hide once it is under 24rem, a window under about 1180 px. They stay hidden in the sheet. With `keyboard: false` or a disabled
 confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
 `cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
 confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The

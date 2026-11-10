@@ -276,7 +276,8 @@ function AgentComposition({
     <div
       className={
         embedded
-          ? '@container/agent-tab flex min-w-0 flex-col'
+          ? // A detail pane already pads its body; the rows' own gutters would inset twice.
+            '@container/agent-tab -mx-3.5 flex min-w-0 flex-col'
           : 'clio-scrollbar @container/agent-tab flex h-full min-h-0 min-w-0 flex-col overflow-y-auto'
       }
       data-slot="agent-tab"

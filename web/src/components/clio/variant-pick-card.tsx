@@ -23,6 +23,7 @@ import {
 } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { respondFromControl } from './interaction-control';
+import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
 
 export type VariantPick = (candidateId: string, comment: string) => Promise<void>;
 
@@ -70,9 +71,9 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
   const commentRef = useRef<HTMLInputElement>(null);
 
   // A new pick brings its tries into the workbench once, beside the conversation;
-  // on a phone the workbench would cover this card, so its steps and [ ] open them.
+  // where the workbench would slide over this card, its steps and [ ] open them.
   useEffect(() => {
-    if (window.matchMedia?.('(max-width: 767px)').matches) return;
+    if (!window.matchMedia?.(SPLIT_WORKBENCH_QUERY).matches) return;
     if (claimVariantTriesOpen(view.variantsId))
       openTries(view, current?.tryIndex ?? view.defaultTab);
     // Only the run's first pick opens them.
@@ -189,7 +190,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
           </AskHint>
         ) : null}
         {candidates.length > 1 ? (
-          <span className="inline-flex min-w-0 items-center gap-1.5">
+          <span className="inline-flex min-w-0 items-center gap-1.5 max-md:hidden">
             <button
               {...askKeyAttributes(['['])}
               aria-label={`Previous ${noun}`}

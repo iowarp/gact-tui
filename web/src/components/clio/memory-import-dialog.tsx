@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlertIcon, CopyIcon, UploadIcon } from 'lucide-react';
+import { BotIcon, CircleAlertIcon, CopyIcon, FileArchiveIcon, UploadIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import { memoryErrorText } from './memory-document-helpers';
 import { MemoryPicker, MemoryScopePicker, type MemoryScopeOptions } from './memory-scope-picker';
@@ -30,6 +31,8 @@ export function MemoryImportDialog({
   const client = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const [source, setSource] = useState<ImportSource>('archive');
+  // Under 1120 px the 36% dialog is too narrow for both labels; the other choice keeps its name on hover.
+  const narrow = useMediaQuery('(max-width: 1119px)');
   const [file, setFile] = useState<File>();
   const [text, setText] = useState('');
   const [scope, setScope] = useState('user');
@@ -100,11 +103,20 @@ export function MemoryImportDialog({
       <div className="grid">
         <SettingsRow title="From">
           <SegmentedControl
+            iconOnly={narrow ? 'others' : false}
             label="Import from"
             onValueChange={setSource}
             options={[
-              { value: 'archive', label: 'Memory export' },
-              { value: 'assistant', label: 'Another assistant' },
+              {
+                value: 'archive',
+                label: 'Memory export',
+                icon: narrow ? <FileArchiveIcon /> : undefined,
+              },
+              {
+                value: 'assistant',
+                label: 'Another assistant',
+                icon: narrow ? <BotIcon /> : undefined,
+              },
             ]}
             value={source}
           />

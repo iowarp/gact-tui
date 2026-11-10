@@ -127,7 +127,6 @@ export function AccessRuleDialog({
   };
   return (
     <DialogFrame
-      className="w-[clamp(360px,44vw,600px)]"
       confirm={{
         label: 'Save rule',
         onConfirm: () => {
@@ -224,7 +223,6 @@ export function AccessRuleDialog({
           title="Scope"
         >
           <SegmentedControl
-            className="ml-auto"
             label="Scope"
             onValueChange={(value) => set({ scope: value, scopeId: '' })}
             options={[
