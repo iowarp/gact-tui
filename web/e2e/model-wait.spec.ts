@@ -8,35 +8,33 @@ for (const width of [1280, 390]) {
     await page.goto('/tests/review/model-wait.html');
     const pill = page.getByRole('button', { name: 'Change model', exact: true });
     const fullName = 'AmSC Model Access Gateway / inkling-small-xhigh@cborg';
+    // The hover name ends with the picker's key chip (Ctrl ' off a Mac).
+    const hoverName = `${fullName}Ctrl '`;
     await expect(pill).toBeVisible();
     await expect(pill).toHaveAccessibleDescription(fullName);
     const provider = pill.locator('[data-slot="model-choice-provider"]');
     const model = pill.locator('[data-slot="model-choice-model"]');
-    // The spec's narrow rule: the model shrinks to its name, then its logo.
-    // Hover and the accessible description keep the full selection either way.
-    const shown = width >= 1280 ? [provider, model] : [];
-    for (const name of shown) {
-      await expect(name).toBeVisible();
-      await expect(name).toHaveCSS('text-overflow', 'ellipsis');
-      expect((await name.boundingBox())!.width).toBeGreaterThan(30);
-    }
-    if (!shown.length) await expect(provider).toBeHidden();
-    // The provider takes only its own width, never padding after a short name.
-    if (shown.length)
-      expect(
-        await provider.evaluate(
-          (node) => node.getBoundingClientRect().width <= node.scrollWidth + 1,
-        ),
-      ).toBe(true);
+    // The route sits beside the model when both fit and wraps off the one-line
+    // label when they don't, so it never squeezes the model. Hover and the
+    // accessible description keep the full selection either way.
+    const routeClipped = () =>
+      provider.evaluate((node) => {
+        const line = node.closest('[data-slot="model-choice-label"]')!.getBoundingClientRect();
+        return node.getBoundingClientRect().top >= line.bottom - 1;
+      });
+    await expect(model).toBeVisible();
+    expect((await model.boundingBox())!.width).toBeGreaterThan(30);
+    // This long route and model can't share the capped button at any width.
+    expect(await routeClipped()).toBe(true);
     await pill.hover();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await page.screenshot({ path: test.info().outputPath(`model-label-hover-${width}.png`) });
     // Radix keeps a grace corridor from the trigger to its hoverable tooltip;
     // move through it instead of teleporting to the final pointer coordinate.
     await page.mouse.move(0, 0, { steps: 3 });
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await pill.focus();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await pill.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
     await page.keyboard.press('Escape');

@@ -11,6 +11,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { SettingsSearchValue } from '@/lib/settings-search-rows';
 import { THEMES } from '@/theme/contract';
 import { SearchHighlight } from './search-highlight';
+import { agentAvailabilityLabel } from './connection-names';
 import { KeyCap, ShortcutKeys } from './primitives/key-chip';
 import { useGlobalSearchMatches, type GlobalSearchMatches } from './use-global-search-matches';
 
@@ -48,7 +49,7 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
 export function ResultDetail({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <span
-      className="min-w-0 shrink-[100] truncate text-[11.5px] text-muted-foreground"
+      className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint"
       title={title}
     >
       {children}
@@ -63,7 +64,7 @@ export function ResultDetail({ children, title }: { children: ReactNode; title?:
 export function ResultTrail({ children }: { children?: ReactNode }) {
   return (
     <span
-      className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+      className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] whitespace-nowrap text-faint tabular-nums"
       data-slot="command-shortcut"
     >
       {children}
@@ -262,7 +263,9 @@ export function GlobalSearchGroups({
               </span>
               {item.location ? <ResultDetail>{item.location}</ResultDetail> : null}
               <ResultTrail>
-                {item.endpoint === settings.endpoint ? 'Current' : item.availability.label}
+                {item.endpoint === settings.endpoint
+                  ? 'Current'
+                  : agentAvailabilityLabel(item.availability, false)}
               </ResultTrail>
             </CommandItem>
           ))}

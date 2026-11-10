@@ -12,6 +12,12 @@ export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
 export const MANAGE_NODE_PREFIX = 'manage:';
 export const MORE_NODE_PREFIX = 'more:';
+/** Search typed, two columns: the providers column's first row, every match grouped. */
+export const SEARCH_ALL_VALUE = 'search:all';
+/** A provider's header over its matches in the "All providers" column. */
+export const SEARCH_HEADER_PREFIX = 'search-header:';
+/** A match listed under "All providers" (the same model also lists under its provider). */
+export const SEARCH_RESULT_PREFIX = 'search-result:';
 
 /**
  * The heartbeat follows the provider's LATEST check: `checking` while a probe
@@ -85,7 +91,23 @@ export type PickerNodeData =
   | ProviderFamilyNodeData
   | ModelNodeData
   | ProviderManageNodeData
-  | ProviderMoreNodeData;
+  | ProviderMoreNodeData
+  | SearchAllNodeData
+  | SearchHeaderNodeData;
+
+/** Search typed, two columns: "All providers", with the match count. */
+export interface SearchAllNodeData {
+  kind: 'search-all';
+  matches: number;
+}
+
+/** Search typed, two columns: a provider's header in the "All providers" column. */
+export interface SearchHeaderNodeData {
+  kind: 'search-header';
+  group: ProviderGroup;
+  matches: number;
+  total: number;
+}
 
 export function providerHealthPresentation(
   health: ProviderHealth,

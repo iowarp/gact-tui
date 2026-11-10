@@ -12,9 +12,12 @@ import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { cn } from '@/lib/utils';
 
-/** Infrastructure facts: a 46% label column, right-aligned values, 25px rows. */
-export const INFRA_FACTS_GRID =
-  'max-w-[440px] auto-rows-[25px] grid-cols-[46%_minmax(0,1fr)] gap-y-0';
+/**
+ * Infrastructure facts across the row: a 40% label column, values right-aligned
+ * to the row's edge and a 24px action column, in 25px rows (spec `.c3kv`).
+ * Pass `actionColumn` so the column is kept when no fact has an action.
+ */
+export const INFRA_FACTS_GRID = 'auto-rows-[25px] grid-cols-[40%_minmax(0,1fr)_24px] gap-y-0';
 
 interface InfraColumns {
   /** Status column: mark and words ("Running", "2 connected"). */
@@ -65,7 +68,10 @@ export function InfraList({
   const headingId = useId();
   return (
     <InfraColumnsContext.Provider value={columns}>
-      <div className={cn('@container/infra flex min-w-0 flex-col', className)}>
+      <div
+        className={cn('@container/infra flex min-w-0 flex-col', className)}
+        data-slot="infra-list"
+      >
         {heading ? (
           <ListGroupLabel action={headingAction} id={headingId}>
             {heading}
@@ -108,13 +114,13 @@ export interface InfraRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ti
 /**
  * Under 480px the row keeps its name: the status word moves from its column to
  * the start of the sub-line (the mark keeps a 16px column), the meta column is
- * already gone, and hover actions float over the row's end instead of holding
- * empty width.
+ * already gone, and the hover actions fold into one always-shown "more"
+ * button (InfraRowMenu), so the dot and the pinned action keep their columns.
  */
 const NARROW_STATUS =
   'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
 const NARROW_ACTIONS =
-  '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:absolute @max-[480px]/infra:[&>[data-slot=list-row-actions]]:top-1/2 @max-[480px]/infra:[&>[data-slot=list-row-actions]]:-translate-y-1/2 @max-[480px]/infra:[&>[data-slot=list-row-actions]]:rounded-[5px] @max-[480px]/infra:[&>[data-slot=list-row-actions]]:bg-hover @max-[480px]/infra:[&>[data-slot=list-row-actions]]:pl-1 @max-[480px]/infra:data-selected:[&>[data-slot=list-row-actions]]:bg-menu-highlight';
+  '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
 
 /** A two-line inventory row with fixed status, meta and action columns. */
 export const InfraRow = memo(
@@ -149,7 +155,13 @@ export const InfraRow = memo(
           columns={
             <>
               <span className={NARROW_STATUS} style={{ width: columns.status }}>
-                {status ? <StatusIndicator label={status.label} tone={status.tone} /> : null}
+                {status ? (
+                  <StatusIndicator
+                    className="text-[11px]"
+                    label={status.label}
+                    tone={status.tone}
+                  />
+                ) : null}
               </span>
               {columns.meta ? (
                 <span
@@ -165,19 +177,7 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
-          className={cn(
-            columns.hover &&
-              (columns.pinned
-                ? cn(
-                    NARROW_ACTIONS,
-                    '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:right-[34px]',
-                  )
-                : cn(
-                    NARROW_ACTIONS,
-                    '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:right-2',
-                  )),
-            className,
-          )}
+          className={cn(columns.hover && NARROW_ACTIONS, className)}
           {...rest}
         />
         {details ? <InfraRowDetails>{details}</InfraRowDetails> : null}

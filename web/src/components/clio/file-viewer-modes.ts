@@ -27,3 +27,29 @@ export const FileViewerModeSlotContext = createContext<FileViewerModeSlot | unde
 /** The renderer mode that shows the bytes as text. */
 export const isSourceMode = (mode: Pick<FileMode, 'value'>) =>
   mode.value === 'source' || mode.value === 'raw';
+
+/**
+ * Switching unmounts the old body, and focus with it. Keep it in the frame,
+ * on the new body's panel (or the active mode), so the key toggles back.
+ */
+export function keepFocusInFrame(frame: Element | null) {
+  if (!frame) return;
+  // A panel that only hid (the renderer stays mounted under Lineage) hides what it holds.
+  const hidden = (element: Element) =>
+    element.closest('[role="tabpanel"][data-state="inactive"]') !== null;
+  requestAnimationFrame(() => {
+    if (!frame.isConnected) return;
+    const active = document.activeElement;
+    if (active && frame.contains(active) && !hidden(active)) return;
+    // A hidden candidate (the modes fold away when narrow) refuses focus; try the next.
+    for (const selector of [
+      '[role="tabpanel"][data-state="active"]',
+      '[data-slot="viewer-modes"] [data-state="active"]',
+    ]) {
+      const next = [...frame.querySelectorAll(selector)].find((element) => !hidden(element));
+      if (!(next instanceof HTMLElement)) continue;
+      next.focus({ preventScroll: true });
+      if (document.activeElement === next) return;
+    }
+  });
+}

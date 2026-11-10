@@ -39,8 +39,6 @@ export interface WorkspaceAppearance {
 
 export const DEFAULT_APPEARANCE: WorkspaceAppearance = { colour: 'amber', icon: 'folder' };
 
-export const workspaceColour = (id: string) =>
-  WORKSPACE_COLOURS.find((colour) => colour.id === id) ?? WORKSPACE_COLOURS[1];
 export const workspaceIcon = (id: string) =>
   WORKSPACE_ICONS.find((icon) => icon.id === id) ?? WORKSPACE_ICONS[0];
 

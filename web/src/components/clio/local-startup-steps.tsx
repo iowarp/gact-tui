@@ -6,7 +6,7 @@ import { TechnicalDetails } from './technical-details';
 
 const STEPS = [
   { id: 'checking', label: 'Checking the local service' },
-  { id: 'preparing', label: 'Preparing the runtime and packages' },
+  { id: 'preparing', label: 'Preparing the local runtime and packages' },
   { id: 'starting', label: 'Starting the local service' },
   { id: 'opening', label: 'Opening the workspace' },
 ] as const;
@@ -56,8 +56,9 @@ function startupSteps({
 }
 
 /**
- * The local service's startup as a step list with each step's time, and the
- * whole boot log in Startup details.
+ * The local service's startup as a step list (connect-infrastructure, Local startup),
+ * with each step's time in the step's meta column as conversation-states draws it.
+ * Tool output (the boot log) stays out of the steps and shows only in Startup details.
  */
 export function LocalStartupSteps({
   current,
@@ -87,8 +88,8 @@ export function LocalStartupSteps({
       {detail || log ? (
         <TechnicalDetails
           title="Startup details"
-          className="mt-3 ml-6 min-w-0 text-[12px]"
-          summaryClassName="gap-1.5 font-normal"
+          className="mt-1.5 min-w-0 text-[12.5px]"
+          summaryClassName="min-h-[30px] gap-2.5 font-normal"
           contentClassName="pt-1.5"
         >
           {detail ? <p className="m-0 text-muted-foreground">{detail}</p> : null}

@@ -12,6 +12,8 @@ export interface PickerHint {
   disabled?: boolean;
   /** Dropped first when the picker is narrow. */
   optional?: boolean;
+  /** Shown only on a wide picker (48rem); dropped before any other hint. */
+  wide?: boolean;
   /** Sits at the right edge, apart from the hints before it ("Ask"). */
   end?: boolean;
 }
@@ -24,6 +26,12 @@ interface PickerFooterProps {
   end?: ReactNode;
   /** `start`: the hints lead the line (a narrow picker), `end` stays free. */
   hintsAlign?: 'start' | 'end';
+  /**
+   * Below a 30rem footer the hints keep only their keys (the word stays for
+   * assistive tech), so a footer that also holds `start` and `end` shows its
+   * last hint whole instead of clipping it.
+   */
+  keysOnlyNarrow?: boolean;
   className?: string;
 }
 
@@ -37,6 +45,7 @@ export const PickerFooter = memo(function PickerFooter({
   start,
   end,
   hintsAlign = 'end',
+  keysOnlyNarrow = false,
   className,
 }: PickerFooterProps) {
   return (
@@ -60,11 +69,16 @@ export const PickerFooter = memo(function PickerFooter({
         {hints.map((hint) => {
           const content = (
             <>
-              <span>{hint.label}</span> <ShortcutKeys id={hint.shortcut} variant="inline" />
+              <span className={cn(keysOnlyNarrow && '@max-[30rem]:sr-only')}>{hint.label}</span>{' '}
+              <ShortcutKeys id={hint.shortcut} variant="inline" />
             </>
           );
           const visibility = cn(
-            hint.optional ? 'hidden @[28rem]:inline-flex' : 'inline-flex',
+            hint.wide
+              ? 'hidden @[48rem]:inline-flex'
+              : hint.optional
+                ? 'hidden @[28rem]:inline-flex'
+                : 'inline-flex',
             hint.end && 'ml-auto',
           );
           return hint.onSelect ? (

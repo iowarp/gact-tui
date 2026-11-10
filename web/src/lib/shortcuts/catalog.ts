@@ -54,6 +54,9 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
+  def('model-picker', 'Open the model picker', 'anywhere', ["Ctrl+'"], {
+    when: 'In a conversation',
+  }),
   def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),
   def('new-conversation', 'New conversation', 'anywhere', ['Ctrl+N'], { host: 'desktop' }),
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
@@ -127,6 +130,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-open', 'Into a submenu', 'menu', ['Right']),
+  def('menu-back', 'Back out of a submenu', 'menu', ['Left']),
   def('menu-close', 'Close', 'menu', ['Esc']),
   def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
     joiner: 'pair',
@@ -140,6 +144,12 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   }),
   def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
   def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
+  def('menu-toggle', 'Toggle a filter', 'menu', ['Space'], { when: 'In the filters' }),
+  def('menu-next-group', 'Next filter group', 'menu', ['PageDown'], { when: 'In the filters' }),
+  def('menu-slide', 'Slide a filter', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+    when: 'In the filters',
+  }),
   def('menu-drop-filter', 'Drop the last filter', 'menu', ['Backspace'], {
     when: 'In an empty search',
   }),

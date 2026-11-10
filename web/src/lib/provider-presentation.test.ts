@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { providerLogoUrls } from '../components/ai-elements/provider-logo-svgs';
 import {
+  modelRouteName,
   providerDisplayName,
   providerLogoId,
   providerLogoIds,
@@ -148,5 +149,17 @@ describe('providerManagedClientVendor', () => {
     expect(providerManagedClientVendor('openai')).toBeUndefined();
     expect(providerManagedClientVendor('openrouter')).toBeUndefined();
     expect(providerManagedClientVendor(undefined)).toBeUndefined();
+  });
+});
+
+describe('modelRouteName', () => {
+  it('writes the route lowercase without the vendor its logo already shows', () => {
+    expect(modelRouteName('codex', 'OpenAI Codex')).toBe('codex');
+    expect(modelRouteName('copilot', 'GitHub Copilot')).toBe('copilot');
+    expect(modelRouteName('claude_code', 'Claude Code')).toBe('claude code');
+    expect(modelRouteName('openrouter', 'OpenRouter')).toBe('openrouter');
+    expect(modelRouteName('amsc_mag', 'AmSC Model Access Gateway')).toBe(
+      'amsc model access gateway',
+    );
   });
 });

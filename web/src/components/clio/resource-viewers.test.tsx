@@ -30,32 +30,6 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
-vi.mock('ace-builds/src-noconflict/mode-json', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-markdown', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-python', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-sh', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-text', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-toml', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-yaml', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-github', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-one_dark', () => ({}));
-vi.mock('react-ace', () => ({
-  default: ({
-    value,
-    onChange,
-    'aria-label': ariaLabel,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    'aria-label'?: string;
-  }) => (
-    <textarea
-      aria-label={ariaLabel}
-      onChange={(event) => onChange(event.target.value)}
-      value={value}
-    />
-  ),
-}));
 vi.mock('./document-workspace', () => ({
   ClioDocumentWorkspace: ({ fallbackPreview }: { fallbackPreview: ReactNode }) => (
     <>{fallbackPreview}</>

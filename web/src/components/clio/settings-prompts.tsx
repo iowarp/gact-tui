@@ -330,7 +330,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
 
   return (
     <div className="grid min-w-0">
-      <SettingsSectionHeading info={INFO} title="Prompts and commands" />
+      <SettingsSectionHeading info={INFO} title="Prompts & commands" />
       <div
         className={cn(
           'mb-1.5 flex min-w-0 items-center gap-2.5 whitespace-nowrap',

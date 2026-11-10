@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ContextControl, type ContextControlProps } from './context-control';
 import {
-  EMPTY_CONTEXT_DRAFT,
   contextDraftError,
   deploymentContextDraft,
   deploymentContextEntries,
@@ -14,6 +13,8 @@ import {
 } from './context-control-model';
 
 afterEach(cleanup);
+
+const EMPTY_CONTEXT_DRAFT: ContextDraft = { choice: '', tokens: '', strategy: '' };
 
 const strategies = [
   { id: 'fit_to_gpu', label: 'Largest that fits', description: 'Largest KV that fits' },

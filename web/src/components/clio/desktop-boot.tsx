@@ -1,10 +1,9 @@
 import { vocab } from '@/lib/brand-vocabulary';
 import { STARTUP_STEP_OF, type DesktopBootStage } from '@/lib/desktop-boot-stage';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { BrandStatusHeader } from './brand-status-header';
+import { BrandIcon } from './brand-icon';
 import { LocalStartupSteps } from './local-startup-steps';
 import { useStartupLog } from './use-startup-log';
-import { StateView } from './primitives/state-view';
 
 const STAGE_DETAIL: Record<DesktopBootStage, string> = {
   checking_existing: `Looking for a local ${vocab.agent} service`,
@@ -13,7 +12,10 @@ const STAGE_DETAIL: Record<DesktopBootStage, string> = {
   opening_workspace: 'Restoring your local workspace',
 };
 
-/** The local startup page: what is starting, the steps with their times, the details on request. */
+/**
+ * The local startup page: one heading row saying what is starting, the steps as status
+ * lines, and the tool output in Startup details on request.
+ */
 export function DesktopBoot({
   detail,
   stage,
@@ -26,14 +28,10 @@ export function DesktopBoot({
   return (
     <main className="relative grid h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
-        <BrandStatusHeader status={`${vocab.agent} local, starting`} />
-        <StateView
-          kind="loading"
-          className="min-h-0 py-0 pb-3"
-          title={
-            <h1 className="m-0 inline text-[length:inherit] font-[inherit]">{`Starting local ${vocab.agent}`}</h1>
-          }
-        />
+        <h1 className="m-0 mb-2.5 flex items-center gap-2.5 font-heading text-[16px] font-semibold">
+          <BrandIcon className="size-[22px] shrink-0 text-primary" />
+          {`Starting local ${vocab.agent}`}
+        </h1>
         <LocalStartupSteps
           current={STARTUP_STEP_OF[stage]}
           detail={detail ?? STAGE_DETAIL[stage]}

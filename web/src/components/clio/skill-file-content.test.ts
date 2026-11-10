@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { skillFileBlock, skillFileSection } from './skill-file-content';
+import {
+  skillFileBlock,
+  skillFileDownload,
+  skillFileSection,
+  skillFileTitle,
+  skillFileTrail,
+} from './skill-file-content';
 
 describe('skill file sections', () => {
   it('returns a single read as the file, without loader notes', () => {
@@ -49,5 +55,23 @@ describe('skill file sections', () => {
       language: 'py',
     });
     expect(skillFileBlock('notes.txt', 'plain').type).toBe('text');
+  });
+
+  it('names a skill file by its folders within the skill, keeping the install path supplemental', () => {
+    const root = 'C:\\Program Files\\CLIO\\skills\\work-with-ndp';
+    expect(skillFileTrail(`${root}\\references\\streams.md`, root)).toBe(
+      'work-with-ndp › references',
+    );
+    expect(skillFileTrail(`${root}/catalog.json`, root)).toBe('work-with-ndp');
+    expect(skillFileTrail('/opt/plugins/snap/shared/schemas/a.json', root)).toBe(
+      'shared › schemas',
+    );
+    expect(skillFileTitle('references/streams.md')).toBe('streams.md');
+    expect(skillFileTitle('catalog.json#/components/Chart')).toBe('catalog.json#/components/Chart');
+    expect(skillFileDownload('catalog.json#/components/Chart')).toEqual({
+      filename: 'catalog.json',
+      mimeType: 'application/json',
+    });
+    expect(skillFileDownload('references/streams.md').mimeType).toBe('text/markdown');
   });
 });

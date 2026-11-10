@@ -26,11 +26,15 @@ import { cn } from '@/lib/utils';
  * `data-frame-position`), then the modes folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
- * `useFrameModes`), then the group rules go and the gaps tighten. A name still cut
- * short of `FRAME_NAME_MIN` then goes too (`where`): the tab names it, and "o…"
- * says nothing. Last, a renderer's zoom icons (`zoom`, `data-slot="viewer-zoom-controls"`;
- * Ctrl or ⌘ with the wheel still zooms), so Download and … are never cut. Children
- * hide on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
+ * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
+ * group rules go: only the name, comments and the ? menu remain (Download stays
+ * so the original bytes are one click away). Modes and icons leave only a bar
+ * whose ? menu lists them (`data-frame-modes-menu`). Then the gaps tighten. A
+ * name still cut short of `FRAME_NAME_MIN` then goes too (`where`): the tab names
+ * it, and "o?" says nothing. Last, a renderer's zoom icons (`zoom`,
+ * `data-slot="viewer-zoom-controls"`; Ctrl or ? with the wheel still zooms, and
+ * the ? menu lists them), so Download and ? are never cut. Children hide on the
+ * bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
   'facts',
@@ -69,7 +73,8 @@ function frameOverflows(bar: HTMLElement) {
  * Format (modes) · Talk and Take (actions, last). 34px, one line. No fixed
  * breakpoints: it measures, and folds the next group only while something
  * would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
- * (`data-slot="frame-format-host"`) is empty, with no modes, hides with its rule.
+ * (`data-slot="frame-format-host"`) is empty, with no shown modes (a lone
+ * mode's tablist sits inside a `hidden` segment), hides with its rule.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -149,15 +154,15 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
-          <FrameDivider />
+          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           {format}
         </div>
       ) : null}
       {actions ? (
         <>
-          <FrameDivider />
+          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
         </>
       ) : null}

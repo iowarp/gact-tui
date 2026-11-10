@@ -8,9 +8,9 @@ import {
   Routes,
   UNSAFE_LocationContext as LocationContext,
   useNavigate,
-  useLocation,
   type Location,
 } from 'react-router-dom';
+import { useLiveLocation } from '@/lib/live-location';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
@@ -114,7 +114,7 @@ const BackgroundRoutes = memo(
 
 export default function App() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLiveLocation();
   const desktopHost = inTauri();
   const { credentialsReady, settings } = useConnectionSettings();
   const settingsReturnState = {
@@ -203,7 +203,7 @@ export default function App() {
         </div>
       </div>
       {isSettingsRoute(location.pathname) ? (
-        <Routes>
+        <Routes location={location}>
           <Route element={<SettingsWindow />} path="/settings/:section" />
         </Routes>
       ) : null}

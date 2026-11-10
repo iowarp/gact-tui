@@ -21,6 +21,7 @@ import { FileModeTrigger, FoldedFileModes, MODE_SEGMENT_CLASS } from './file-mod
 import {
   FileViewerModeSlotContext,
   isSourceMode,
+  keepFocusInFrame,
   type FileViewerModeSlot,
   type RendererModes,
 } from './file-viewer-modes';
@@ -40,7 +41,6 @@ import {
 import { fileViewerReference } from './file-viewer-location';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
-import { FileTypeIcon } from './file-type-icon';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
@@ -221,10 +221,13 @@ export function FileViewerShell({
       if (frameActive || renderer.value !== sourceMode.value) {
         renderer.onChange(sourceMode.value);
         showRenderer();
+        keepFocusInFrame(hostRef.current);
         return;
       }
       const rendered = renderer.modes.find((mode) => !isSourceMode(mode));
-      if (rendered) renderer.onChange(rendered.value);
+      if (!rendered) return;
+      renderer.onChange(rendered.value);
+      keepFocusInFrame(hostRef.current);
     },
     { enabled: Boolean(sourceMode), region: hostRef },
   );
@@ -233,6 +236,7 @@ export function FileViewerShell({
     () => {
       if (selectedValue === LINEAGE_VIEW) showRenderer();
       else selectValue(LINEAGE_VIEW);
+      keepFocusInFrame(hostRef.current);
     },
     { enabled: Boolean(lineage), region: hostRef },
   );
@@ -315,14 +319,6 @@ export function FileViewerShell({
                                       className="flex min-w-0 items-center gap-1.5"
                                       data-slot="viewer-identity"
                                     >
-                                      {/* A viewer that names itself (a dashboard) is not read as a file type. */}
-                                      {titled ? null : (
-                                        <FileTypeIcon
-                                          name={identity.name}
-                                          mediaType={identity.mediaType}
-                                          className="size-4 shrink-0"
-                                        />
-                                      )}
                                       <FrameCrumbs parts={crumbs} />
                                     </span>
                                   ) : (
