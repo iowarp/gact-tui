@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import { queryKeys } from '@/lib/query-keys';
 import type { MemoryEvent, Session, SessionMemoryStatistics } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
@@ -168,7 +169,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const workspaceNameById = new Map(
-    (workspaces.data ?? []).map((item) => [item.id, item.display_name]),
+    (workspaces.data ?? []).map((item) => [item.id, workspaceName(item)]),
   );
   const primarySessions = (sessions.data ?? []).filter(isPrimarySession);
   const sessionOptions: ScheduleSelectOption[] = primarySessions.map((session) => ({

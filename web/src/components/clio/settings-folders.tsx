@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { Workspace, WorkspaceSourceFolder } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, FolderIcon, LockIcon } from 'lucide-react';
@@ -61,8 +62,8 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
     pageScope && workspace
       ? {
           ...pageScope,
-          line: workspaceScopeLine(workspace.display_name),
-          place: workspace.display_name,
+          line: workspaceScopeLine(workspaceName(workspace)),
+          place: workspaceName(workspace),
         }
       : pageScope;
 
@@ -109,14 +110,14 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
                   id="folders-workspace"
                   placeholder="Choose a workspace"
                   title={workspace?.path}
-                  value={workspace?.display_name}
+                  value={workspace ? workspaceName(workspace) : undefined}
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-w-80">
                 <DropdownMenuRadioGroup onValueChange={setPickedId} value={workspaceId}>
                   {list.map((item) => (
                     <DropdownMenuRadioItem key={item.id} title={item.path} value={item.id}>
-                      <span className="truncate">{item.display_name}</span>
+                      <span className="truncate">{workspaceName(item)}</span>
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
