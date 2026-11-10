@@ -114,13 +114,14 @@ export const MemoryDocuments = forwardRef<
   return (
     <div className="grid min-w-0">
       <div className="py-2">
-        <InputGroup className="h-[1.875rem]">
-          <InputGroupAddon>
+        {/* The spec's search field (.xsr): 30 px, outlined, 12.5 px faint text, 14 px icon. */}
+        <InputGroup className="h-[1.875rem] rounded-[7px] dark:bg-transparent">
+          <InputGroupAddon className="[&>svg:not([class*='size-'])]:size-3.5">
             <SearchIcon aria-hidden="true" />
           </InputGroupAddon>
           <InputGroupInput
             aria-label="Search memories"
-            className="text-[12.5px]"
+            className="text-[12.5px] placeholder:text-faint md:text-[12.5px]"
             onChange={(event) => setFilter(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape' && filter) {
