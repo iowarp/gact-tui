@@ -26,6 +26,25 @@ export function settingsBackgroundRoute(
   return route === state.from && route.startsWith('/workspaces/') ? route : undefined;
 }
 
+/** React Router's position of the current entry in this tab's history, when it records one. */
+export function historyIndex(): number | undefined {
+  const state: unknown = window.history.state;
+  return state && typeof state === 'object' && 'idx' in state && typeof state.idx === 'number'
+    ? state.idx
+    : undefined;
+}
+
+/**
+ * How closing Settings returns: back over its own entries when the app opened it
+ * (so browser Forward can reopen it and no second copy of the page is pushed), or a
+ * replace when it was opened from a direct link with nothing of the app behind it.
+ */
+export function settingsCloseStep(openedAt: number | undefined, now: number | undefined) {
+  return openedAt !== undefined && openedAt > 0 && now !== undefined && now >= openedAt
+    ? openedAt - now - 1
+    : undefined;
+}
+
 /** A folded page (Helper models, Remote tools, Browser) highlights the page that hosts it. */
 export function hostSection(
   sections: readonly Pick<ApplicationDestination, 'id' | 'host'>[],

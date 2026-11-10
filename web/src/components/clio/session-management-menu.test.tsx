@@ -79,6 +79,10 @@ it('renames from the header using the shared resource dialog', async () => {
   await open();
   await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
   expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeVisible();
+  // The name is the point of the dialog: it takes focus with its text selected.
+  const name = screen.getByRole<HTMLInputElement>('textbox', { name: 'Name' });
+  await waitFor(() => expect(name).toHaveFocus());
+  expect([name.selectionStart, name.selectionEnd]).toEqual([0, name.value.length]);
   await user.clear(screen.getByRole('textbox', { name: 'Name' }));
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Renamed review');
   await user.click(screen.getByRole('button', { name: 'Save name' }));

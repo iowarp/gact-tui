@@ -148,7 +148,8 @@ async function expectWorkspaceRegions(
     header: { region: page.locator('[data-slot="workspace-header"]'), mask: [] },
     transcript: {
       region: page.locator('[data-slot="session-transcript"]'),
-      mask: [composerStack],
+      // The Thinking row counts seconds from mount, so its time differs per run.
+      mask: [composerStack, page.locator('[data-slot="turn-response-wait"]').getByText(/^\d+s$/)],
     },
     attention: { region: attention, mask: [] },
     composer: { region: composerStack, mask: [attention] },
@@ -467,8 +468,12 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
     .locator('[data-interaction-kind="question"]')
     .filter({ hasText: 'Which fallback should the review use?' });
   await expect(fallback).toContainText('The specialist could not answer this, so it needs you.');
-  await fallback.getByText('Technical details').click();
-  await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
+  // A decision card opens its technical details in a dialog so its facts stay in view.
+  await fallback.getByRole('button', { name: 'Technical details' }).click();
+  const fallbackDetails = page.getByRole('dialog', { name: /Technical details/ });
+  await expect(fallbackDetails.getByText('agent_answer_timeout')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(fallbackDetails).toHaveCount(0);
 
   await settleConversationAtLatest(page);
   const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
@@ -1209,7 +1214,9 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Short as well as narrow. The queue has its own 136 px bound and the
   // pending-response stack has a responsive viewport bound, so both must keep
   // wheel and keyboard scrolling local when they compete for composer space.
-  await page.setViewportSize({ height: 600, width: 848 });
+  // A card gives up body height before its options, so the stack itself only
+  // overflows once the header, options and details line exceed 45dvh.
+  await page.setViewportSize({ height: 400, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
@@ -1222,16 +1229,14 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   await expect(queue).toHaveCount(1);
   const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
-  // One compact page replaces the stack. Expand its real technical details to
-  // exercise overflow; the normal short permission correctly needs no scrolling.
-  await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
-
   for (const viewport of [responseViewport, queueViewport]) {
     await expect(viewport).toBeVisible();
     expect(
       await viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeGreaterThan(0);
-    await viewport.hover();
+    // Over the sticky header rather than the centre: a capped card body is its own
+    // scroller and would take the wheel.
+    await viewport.hover({ position: { x: 24, y: 8 } });
     await page.mouse.wheel(0, 500);
     await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await viewport.evaluate((element) => {
@@ -1255,6 +1260,14 @@ test('scrolls pending responses and queued messages independently at a narrow vi
       return settled;
     })
     .toBe(true);
+  // Park the responses a third of the way down: once the queue scrolls, the
+  // composer gives both panels a few more pixels, which would clamp an offset
+  // parked at the end without anything having chained into it.
+  previousResponseScroll = await responseViewport.evaluate((element) => {
+    element.scrollTop = Math.floor((element.scrollHeight - element.clientHeight) / 3);
+    return element.scrollTop;
+  });
+  expect(previousResponseScroll).toBeGreaterThan(0);
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
