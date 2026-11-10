@@ -51,7 +51,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
     queryFn: ({ signal }) => repository.policies(signal),
   });
   const workspaces = useQuery({
-    queryKey: queryKeys.key('workspaces', settings.endpoint, 'permission-settings'),
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const [staged, setStaged] = useState<StagedRule[] | null>(null);

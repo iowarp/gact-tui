@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from 'react';
 import { IconButton } from './primitives/icon-button';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 export type WorkbenchListView =
   | 'files'
@@ -67,6 +68,7 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       aria-label="Workbench lists"
       aria-orientation="vertical"
       data-slot="workbench-strip"
+      {...tourAnchor('workbench-lists')}
       className="flex w-11 shrink-0 flex-col items-center gap-0.5 border-l border-border bg-sidebar pt-1.5 pb-2"
     >
       {lists.map(button)}

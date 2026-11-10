@@ -1,5 +1,5 @@
 import type { Artifact, Session, SessionDiff, SubagentRun, WorkspaceResource } from '@clio/core/v3';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge-navigation';
 import { OPEN_VARIANT_TRY_EVENT, type OpenVariantTryDetail } from '@/lib/variant-try-tabs';
@@ -15,6 +15,7 @@ import { useRepository } from '@/hooks/use-repository';
 import {
   OPEN_BROWSER_PAGE_EVENT,
   OPEN_FILE_IN_BROWSER_EVENT,
+  browserFileFailure,
   type OpenBrowserPageDetail,
   type OpenFileInBrowserDetail,
 } from '@/lib/html-in-browser';
@@ -39,6 +40,13 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   // Requests live outside React state so opening a tab does not re-render the
   // page (conversation, composer, navigation); only their readers update.
   const [requestStore] = useState(createWorkbenchRequestStore);
+  // The session list refreshes on every streamed event. Read it when a
+  // navigation runs so these callbacks keep their identity and the memoized
+  // transcript rows they reach do not re-render.
+  const allSessionsRef = useRef(allSessions);
+  useLayoutEffect(() => {
+    allSessionsRef.current = allSessions;
+  }, [allSessions]);
 
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {
@@ -73,12 +81,12 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
         revealWorkbench({ kind: 'subagent', subagent });
         return;
       }
-      const child = allSessions.find((item) => item.id === subagent.child_session_id);
+      const child = allSessionsRef.current.find((item) => item.id === subagent.child_session_id);
       void navigate(
         `/workspaces/${encodeURIComponent(child?.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(subagent.child_session_id)}`,
       );
     },
-    [allSessions, navigate, revealWorkbench, workspaceId],
+    [navigate, revealWorkbench, workspaceId],
   );
 
   const revealSurfaceOwner = useCallback(
@@ -90,7 +98,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
         openSubagent(child, 'canvas');
         return true;
       }
-      const owner = allSessions.find((item) => item.id === ownerSessionId);
+      const owner = allSessionsRef.current.find((item) => item.id === ownerSessionId);
       if (owner) {
         void navigate(
           `/workspaces/${encodeURIComponent(owner.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(ownerSessionId)}`,
@@ -100,7 +108,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       toast.error('The linked conversation is not available yet. Try again.');
       return false;
     },
-    [allSessions, navigate, openSubagent, workspaceId],
+    [navigate, openSubagent, workspaceId],
   );
 
   useEffect(() => {
@@ -147,9 +155,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
           }),
         )
         .catch((error: unknown) => {
-          toast.error(
-            error instanceof Error ? error.message : 'Could not open the file in the browser.',
-          );
+          toast.error(browserFileFailure(error instanceof Error ? error.message : '', label));
         });
     };
     window.addEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
@@ -195,12 +201,14 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   const openParentSession = useCallback(
     (session: Session) => {
       if (!session.parent_session_id) return;
-      const parent = allSessions.find((candidate) => candidate.id === session.parent_session_id);
+      const parent = allSessionsRef.current.find(
+        (candidate) => candidate.id === session.parent_session_id,
+      );
       navigate(
         `/workspaces/${encodeURIComponent(parent?.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(session.parent_session_id)}`,
       );
     },
-    [allSessions, navigate, workspaceId],
+    [navigate, workspaceId],
   );
 
   const requests = useMemo<WorkbenchRequestSource>(

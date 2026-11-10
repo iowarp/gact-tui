@@ -1,9 +1,10 @@
 import type { MemoryDocument } from '@clio/core/v3';
 import { DownloadIcon, HistoryIcon, SearchIcon } from 'lucide-react';
-import { createElement, forwardRef, useState } from 'react';
+import { createElement, forwardRef, useEffect, useState, type Ref } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
+import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import {
   factCountLabel,
   liveFactCount,
@@ -71,6 +72,49 @@ function DocumentRow({
   );
 }
 
+function MemorySearchField({
+  inputRef,
+  onSearch,
+}: {
+  inputRef: Ref<HTMLInputElement>;
+  onSearch: (text: string) => void;
+}) {
+  // Keystrokes re-render only this field; the list filters once typing pauses.
+  const [text, setText] = useState('');
+  useEffect(() => {
+    const timer = window.setTimeout(() => onSearch(text), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [onSearch, text]);
+  return (
+    <div className="py-2">
+      {/* The spec's search field (.xsr): 30 px, outlined, 12.5 px faint text, 14 px icon. */}
+      <InputGroup className="h-[1.875rem] rounded-[7px] dark:bg-transparent">
+        <InputGroupAddon className="[&>svg:not([class*='size-'])]:size-3.5">
+          <SearchIcon aria-hidden="true" />
+        </InputGroupAddon>
+        <InputGroupInput
+          aria-label="Search memories"
+          className="text-[12.5px] placeholder:text-faint md:text-[12.5px]"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && text) {
+              event.stopPropagation();
+              setText('');
+              onSearch('');
+            }
+          }}
+          placeholder="Search memories"
+          ref={inputRef}
+          value={text}
+        />
+        <InputGroupAddon align="inline-end">
+          <ShortcutKeys id="memory-search" variant="inline" />
+        </InputGroupAddon>
+      </InputGroup>
+    </div>
+  );
+}
+
 /** The Memories tab list: a search field, then documents grouped by account and workspace. */
 export const MemoryDocuments = forwardRef<
   HTMLInputElement,
@@ -113,30 +157,7 @@ export const MemoryDocuments = forwardRef<
   );
   return (
     <div className="grid min-w-0">
-      <div className="py-2">
-        <InputGroup className="h-[1.875rem]">
-          <InputGroupAddon>
-            <SearchIcon aria-hidden="true" />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label="Search memories"
-            className="text-[12.5px]"
-            onChange={(event) => setFilter(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && filter) {
-                event.stopPropagation();
-                setFilter('');
-              }
-            }}
-            placeholder="Search memories"
-            ref={searchRef}
-            value={filter}
-          />
-          <InputGroupAddon align="inline-end">
-            <ShortcutKeys id="memory-search" variant="inline" />
-          </InputGroupAddon>
-        </InputGroup>
-      </div>
+      <MemorySearchField inputRef={searchRef} onSearch={setFilter} />
       {pending ? <Skeleton className="mt-2 h-32 w-full" /> : null}
       {error ? (
         <MemoryErrorLine error={error} onRetry={onRetry} what="Memories could not be loaded." />

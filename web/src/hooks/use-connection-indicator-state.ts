@@ -1,7 +1,14 @@
 import type { StreamState } from '@clio/core/v3';
+import { createContext, useContext } from 'react';
 import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
 import { CONNECTION_LOST_PROBE_POLL_MS, CONNECTION_PROBE_POLL_MS } from '@/lib/runtime-limits';
 import { useLiveStore } from '@/store/live-store';
+
+/**
+ * A fixed state for a scripted surface that has no stream of its own, such as the
+ * onboarding tour's practice composer. Real routes never provide it.
+ */
+export const ConnectionStateOverride = createContext<StreamState | undefined>(undefined);
 
 export type ServiceReachability = 'checking' | 'reachable' | 'unreachable';
 
@@ -26,6 +33,7 @@ export function connectionIndicatorState(input: {
 
 /** The indicator's state on the current route; polls the service while no stream is open. */
 export function useConnectionIndicatorState(): StreamState {
+  const override = useContext(ConnectionStateOverride);
   const streamOwned = useLiveStore((state) => state.streamOwners > 0);
   const stream = useLiveStore((state) => state.entities.stream);
   // Only a route without its own stream needs the probe to notice a drop; once it has,
@@ -40,5 +48,5 @@ export function useConnectionIndicatorState(): StreamState {
     : capabilities.isSuccess
       ? 'reachable'
       : 'checking';
-  return connectionIndicatorState({ streamOwned, stream, service });
+  return override ?? connectionIndicatorState({ streamOwned, stream, service });
 }

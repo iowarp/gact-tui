@@ -150,7 +150,7 @@ function readErrorDetail(error: string, where?: string): string {
 const BROWSER_READABLE = /^(?:application\/pdf|image\/|text\/|video\/|audio\/)/u;
 
 /**
- * Too large and No preview's ways out, as named icons (workbench-lineage 04): the
+ * Too large and No preview's ways out, as labelled small buttons (workbench-lineage 04): the
  * viewer's own way in (Show it anyway, or Source), Open, then Download of the original
  * bytes. Open appears only where it shows the file (the system app on the desktop, a
  * browser tab for a format the browser reads).

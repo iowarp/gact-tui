@@ -318,13 +318,14 @@ fn run_install(mut command: Command, log: &(impl Fn(&str) + Sync)) -> Result<(),
                 let Ok(line) = line else { break };
                 log(&line);
                 // Retain installer-command progress as well as Desktop's log.
-                println!("{line}");
+                crate::install_log::line(&line);
             }
         });
         scope.spawn(|| {
             for line in BufReader::new(stderr).lines() {
                 let Ok(line) = line else { break };
                 log(&line);
+                crate::install_log::record(&line);
                 if let Ok(mut detail) = tail.lock() {
                     detail.push_str(&line);
                     detail.push('\n');

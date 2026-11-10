@@ -26,6 +26,7 @@ export function HtmlFileInBrowser({
 }) {
   const open = useOpenFileInBrowser();
   const [opening, setOpening] = useState(false);
+  const [failure, setFailure] = useState<string>();
   const opened = useRef(false);
   const show = useCallback(() => {
     const target: BrowserFileTarget | undefined = artifactId
@@ -35,7 +36,9 @@ export function HtmlFileInBrowser({
         : undefined;
     if (!target) return;
     setOpening(true);
-    void open(target, name).finally(() => setOpening(false));
+    setFailure(undefined);
+    // A refusal reads in the bar, where the person is looking, not as a toast.
+    void open(target, name, setFailure).finally(() => setOpening(false));
   }, [artifactId, name, open, path]);
   useEffect(() => {
     if (!openOnShow || opened.current) return;
@@ -46,9 +49,16 @@ export function HtmlFileInBrowser({
     <div className="flex h-full min-h-0 flex-col" data-slot="html-file-in-browser">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 text-sm">
         <GlobeIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <span className="min-w-0 flex-1 text-muted-foreground">
-          HTML files open in the shared browser, where their scripts run.
-        </span>
+        {failure ? (
+          <span className="min-w-0 flex-1" role="alert">
+            <span className="font-medium">Couldn't open it in the browser.</span>{' '}
+            <span className="text-muted-foreground">{failure}</span>
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1 text-muted-foreground">
+            HTML files open in the shared browser, where their scripts run.
+          </span>
+        )}
         <Button disabled={opening} onClick={show} size="sm" variant="secondary">
           Open in browser
         </Button>

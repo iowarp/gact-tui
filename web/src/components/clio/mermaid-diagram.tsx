@@ -302,11 +302,12 @@ export function ClioMermaidDiagram({
             chart={diagram.source}
             className="min-h-0 flex-1"
             config={config}
-            controls={({ zoomIn, zoomOut, scalePercent }) => (
+            controls={({ zoomIn, zoomOut, centerView, scalePercent }) => (
               <FramedZoom
                 disabled={!svgOutput}
                 onIn={zoomIn}
                 onOut={zoomOut}
+                onReset={centerView}
                 percent={scalePercent}
               />
             )}
@@ -451,11 +452,13 @@ function FramedZoom({
   percent,
   onIn,
   onOut,
+  onReset,
   disabled,
 }: {
   percent: number;
   onIn: () => void;
   onOut: () => void;
+  onReset: () => void;
   disabled: boolean;
 }) {
   return (
@@ -463,6 +466,7 @@ function FramedZoom({
       label="Diagram zoom"
       onIn={onIn}
       onOut={onOut}
+      onReset={disabled ? undefined : onReset}
       disabledIn={disabled}
       disabledOut={disabled}
       readout={disabled ? undefined : `${Math.round(percent)}%`}

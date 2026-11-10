@@ -1,10 +1,17 @@
-import { memo, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react';
+import {
+  Fragment,
+  memo,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useKeysPresentation, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge, type HeldKeySide } from './key-chip';
-import { focusIsQuiet } from './quiet-focus';
+import { focusIsQuiet, focusMayRaiseName } from './quiet-focus';
 import { TOOLTIP_KEY } from './tooltip-key';
 
 interface NamedTooltipProps {
@@ -14,6 +21,8 @@ interface NamedTooltipProps {
   shortcut?: string;
   /** One key of a range shortcut (`strip-position` at 3). */
   shortcutPosition?: number;
+  /** Ad hoc keys in Windows form, for a key that is not in the catalog. */
+  keys?: readonly string[];
   side?: ComponentProps<typeof TooltipContent>['side'];
   children: ReactElement;
 }
@@ -26,10 +35,13 @@ export function NamedTooltip({
   label,
   shortcut,
   shortcutPosition,
+  keys,
   side = 'bottom',
   children,
 }: NamedTooltipProps) {
-  const presentation = useShortcutPresentation(shortcut, shortcutPosition);
+  const catalogued = useShortcutPresentation(shortcut, shortcutPosition);
+  const adHoc = useKeysPresentation(shortcut ? undefined : keys);
+  const presentation = catalogued ?? adHoc;
   const [open, setOpen] = useState(false);
   return (
     <Tooltip
@@ -39,7 +51,15 @@ export function NamedTooltip({
         setOpen(next);
       }}
     >
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger
+        asChild
+        onFocus={(event) => {
+          // Radix skips its focus-open when the event is default-prevented.
+          if (!focusMayRaiseName()) event.preventDefault();
+        }}
+      >
+        {children}
+      </TooltipTrigger>
       {/* A name is never interactive, so it must not block a click on what it covers. */}
       <TooltipContent
         side={side}
@@ -48,7 +68,16 @@ export function NamedTooltip({
         data-name-tooltip=""
       >
         <span>{label}</span>
-        {presentation ? <kbd className={TOOLTIP_KEY}>{presentation.text}</kbd> : null}
+        {presentation ? (
+          <span className="inline-flex shrink-0 items-center gap-1 justify-self-end">
+            {presentation.alternatives.map((text, index) => (
+              <Fragment key={text}>
+                {index > 0 ? <span className="text-[10.5px] opacity-70">or</span> : null}
+                <kbd className={TOOLTIP_KEY}>{text}</kbd>
+              </Fragment>
+            ))}
+          </span>
+        ) : null}
       </TooltipContent>
     </Tooltip>
   );

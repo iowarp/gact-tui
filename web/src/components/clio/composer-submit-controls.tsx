@@ -13,9 +13,10 @@ import { ClioStatus } from './status';
  * The 28px square the row ends with, filled so it reads as the primary action.
  * Its dark hover is restated: the ghost variant's `dark:hover:bg-muted/50`
  * would otherwise win in dark and the tile would fade out under the pointer.
+ * `ml-auto` keeps it at the row's end where a narrow row drops its spacer.
  */
 const SQUARE =
-  'size-7 rounded-[8px] border-0 bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground dark:hover:bg-foreground/15 disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
+  'ml-auto size-7 shrink-0 rounded-[8px] border-0 bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground dark:hover:bg-foreground/15 disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
 
 /**
  * The row's one square. With nothing typed while work runs it stops the run

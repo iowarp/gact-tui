@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { memo, useCallback, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { RegistryModel } from '@clio/core/v3';
 import { CheckIcon, LockIcon } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -59,6 +59,90 @@ function resultFacts(model: RepositoryModel) {
   return { meta, detail: detail.join(' · '), fullDetail: fullDetail.join(' · ') };
 }
 
+/** One result row; unchanged rows keep their render while the query is typed. */
+const ResultRow = memo(function ResultRow({
+  model,
+  chosen,
+  tabStop,
+  onPick,
+}: {
+  model: RepositoryModel;
+  chosen: boolean;
+  /** The list is one Tab stop; arrow keys move between rows. */
+  tabStop: boolean;
+  onPick: (model: RepositoryModel) => void;
+}) {
+  const { meta, detail, fullDetail } = resultFacts(model);
+  return (
+    <div
+      className={cn(
+        'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-[12.5px] whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
+        chosen ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-hover',
+      )}
+      title={fullDetail ? `${model.repository}\n${fullDetail}` : model.repository}
+    >
+      <ModelSelectorLogo
+        aria-hidden="true"
+        className={cn(
+          'size-[15px] rounded-none bg-transparent [&>span]:size-[15px]',
+          chosen ? 'text-accent-foreground' : 'text-muted-foreground',
+        )}
+        provider="huggingface"
+      />
+      <button
+        type="button"
+        aria-pressed={chosen}
+        data-repository={model.repository}
+        tabIndex={tabStop ? 0 : -1}
+        className="flex min-w-0 flex-1 flex-col overflow-hidden text-left leading-[1.3] outline-none after:absolute after:inset-0 after:rounded-[6px]"
+        onClick={() => onPick(model)}
+      >
+        <span className="truncate">{model.repository}</span>
+        {detail ? (
+          <small
+            className={cn('truncate text-[11px]', chosen ? 'text-accent-foreground' : 'text-faint')}
+          >
+            {detail}
+          </small>
+        ) : null}
+      </button>
+      {/* Fixed columns (size | access, chosen) so every row's edge lines up. */}
+      <span className="relative ml-auto grid shrink-0 grid-cols-[58px_34px] items-center gap-x-2 pl-2">
+        <span
+          className={cn(
+            'truncate text-right text-[11px] tabular-nums',
+            chosen ? 'text-accent-foreground' : 'text-faint',
+          )}
+        >
+          {meta}
+        </span>
+        <span className="-mr-1 flex items-center justify-end gap-0.5">
+          {model.gated ? (
+            <span
+              role="img"
+              aria-label="Requires access"
+              title="Requires access"
+              className="grid size-4 place-items-center"
+            >
+              <LockIcon aria-hidden="true" className="size-3.5" />
+            </span>
+          ) : null}
+          {chosen ? (
+            <span
+              role="img"
+              aria-label="Selected"
+              title="Selected"
+              className="grid size-4 place-items-center"
+            >
+              <CheckIcon aria-hidden="true" className="size-3.5" />
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </div>
+  );
+});
+
 /** Use the model picker's token field and facets with facts reported by the Hub. */
 export function ModelDownloadSearch({
   query,
@@ -94,44 +178,99 @@ export function ModelDownloadSearch({
 }) {
   const [localTokens, setLocalTokens] = useState<string[]>([]);
   const tokens = controlledTokens ?? localTokens;
-  const setTokens = (next: string[] | ((current: string[]) => string[])) => {
-    const value = typeof next === 'function' ? next(tokens) : next;
-    if (onTokensChange) onTokensChange(value);
-    else setLocalTokens(value);
-  };
-  const [facetsOpen, setFacetsOpen] = useState(false);
-  const entries = (models ?? []).map((model): FacetEntry => {
-    const organization = model.repository.split('/')[0];
-    const tags: ModelCapabilityTag[] = model.capability_tags
-      ? registryModelTags(model)
-      : model.task
-        ? [
-            {
-              axis: 'task',
-              value: model.task,
-              hubTasks: [model.task],
-              evidence: [{ source: 'hf_repo' }],
-            },
-          ]
-        : [];
-    const carried = modelFilterTokens(tags);
-    carried.add(providerFilterToken(organization));
-    return {
-      providerId: organization,
-      providerName: organization,
-      tags,
-      tokens: carried,
-      facts: modelFactSummary(model.model_facts),
-      matchesText: true,
-    };
-  });
-  const visible = (models ?? []).filter((_, index) =>
-    matchesFilterTokens(entries[index].tokens, tokens),
+  const setTokens = useCallback(
+    (value: string[]) => {
+      if (onTokensChange) onTokensChange(value);
+      else setLocalTokens(value);
+    },
+    [onTokensChange],
   );
-  const loadedFacets = buildModelFacets(entries, tokens)
-    .filter((tab) => tab.chipCount > 0)
-    .map((tab) => (tab.id === 'providers' ? { ...tab, label: 'Organizations' } : tab));
-  const facets = onTokensChange ? hubSearchFacets(loadedFacets, tokens) : loadedFacets;
+  const [facetsOpen, setFacetsOpen] = useState(false);
+  const entries = useMemo(
+    () =>
+      (models ?? []).map((model): FacetEntry => {
+        const organization = model.repository.split('/')[0];
+        const tags: ModelCapabilityTag[] = model.capability_tags
+          ? registryModelTags(model)
+          : model.task
+            ? [
+                {
+                  axis: 'task',
+                  value: model.task,
+                  hubTasks: [model.task],
+                  evidence: [{ source: 'hf_repo' }],
+                },
+              ]
+            : [];
+        const carried = modelFilterTokens(tags);
+        carried.add(providerFilterToken(organization));
+        return {
+          providerId: organization,
+          providerName: organization,
+          tags,
+          tokens: carried,
+          facts: modelFactSummary(model.model_facts),
+          matchesText: true,
+        };
+      }),
+    [models],
+  );
+  // Typing changes only the query, so the results, facets and choices are kept between keys.
+  const visible = useMemo(
+    () => (models ?? []).filter((_, index) => matchesFilterTokens(entries[index].tokens, tokens)),
+    [models, entries, tokens],
+  );
+  const hubFacets = Boolean(onTokensChange);
+  const facets = useMemo(() => {
+    const loadedFacets = buildModelFacets(entries, tokens)
+      .filter((tab) => tab.chipCount > 0)
+      .map((tab) => (tab.id === 'providers' ? { ...tab, label: 'Organizations' } : tab));
+    return hubFacets ? hubSearchFacets(loadedFacets, tokens) : loadedFacets;
+  }, [entries, tokens, hubFacets]);
+  const availableTokens = useMemo(
+    () =>
+      new Set([
+        ...entries.flatMap((entry) => [...entry.tokens]),
+        ...facets.flatMap((tab) =>
+          tab.groups.flatMap((group) => group.chips.map((chip) => chip.token)),
+        ),
+      ]),
+    [entries, facets],
+  );
+  const pick = useCallback(
+    (model: RepositoryModel) => {
+      setFacetsOpen(false);
+      onSelect(model);
+    },
+    [onSelect],
+  );
+  // Roving focus: the focused (else chosen, else first) row is the list's one Tab stop.
+  const [focusedRow, setFocusedRow] = useState<string>();
+  const tabStop = visible.some((model) => model.repository === focusedRow)
+    ? focusedRow
+    : visible.some((model) => model.repository === selected)
+      ? selected
+      : visible[0]?.repository;
+  const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    const rows = [
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('button[data-repository]'),
+    ];
+    const at = rows.indexOf(event.target as HTMLButtonElement);
+    if (at < 0) return;
+    const next =
+      event.key === 'ArrowDown'
+        ? Math.min(at + 1, rows.length - 1)
+        : event.key === 'ArrowUp'
+          ? Math.max(at - 1, 0)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? rows.length - 1
+              : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    rows[next].focus();
+  };
   return (
     <div
       className="flex min-h-0 min-w-0 flex-col gap-2.5"
@@ -155,14 +294,7 @@ export function ModelDownloadSearch({
           onSearch={onSearch}
           tokens={tokens}
           onTokensChange={setTokens}
-          availableTokens={
-            new Set([
-              ...entries.flatMap((entry) => [...entry.tokens]),
-              ...facets.flatMap((tab) =>
-                tab.groups.flatMap((group) => group.chips.map((chip) => chip.token)),
-              ),
-            ])
-          }
+          availableTokens={availableTokens}
           shown={visible.length}
           total={models?.length ?? 0}
           countScope="loaded"
@@ -195,6 +327,12 @@ export function ModelDownloadSearch({
           <div
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
             aria-label="Model search results"
+            onFocus={(event) => {
+              const repository = (event.target as HTMLElement).dataset.repository;
+              if (repository) setFocusedRow(repository);
+            }}
+            onKeyDown={moveFocus}
+            role="group"
           >
             {!visible.length ? (
               <StateView
@@ -203,85 +341,15 @@ export function ModelDownloadSearch({
                 title="No models match. Change the search or the filters."
               />
             ) : (
-              visible.map((model) => {
-                const chosen = selected === model.repository;
-                const { meta, detail, fullDetail } = resultFacts(model);
-                return (
-                  <div
-                    key={model.repository}
-                    className={cn(
-                      'relative flex min-h-[30px] min-w-0 shrink-0 items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-[12.5px] whitespace-nowrap has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
-                      chosen
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-foreground hover:bg-hover',
-                    )}
-                    title={fullDetail ? `${model.repository}\n${fullDetail}` : model.repository}
-                  >
-                    <ModelSelectorLogo
-                      aria-hidden="true"
-                      className={cn(
-                        'size-[15px] rounded-none bg-transparent [&>span]:size-[15px]',
-                        chosen ? 'text-accent-foreground' : 'text-muted-foreground',
-                      )}
-                      provider="huggingface"
-                    />
-                    <button
-                      type="button"
-                      aria-pressed={chosen}
-                      className="flex min-w-0 flex-1 flex-col overflow-hidden text-left leading-[1.3] outline-none after:absolute after:inset-0 after:rounded-[6px]"
-                      onClick={() => {
-                        setFacetsOpen(false);
-                        onSelect(model);
-                      }}
-                    >
-                      <span className="truncate">{model.repository}</span>
-                      {detail ? (
-                        <small
-                          className={cn(
-                            'truncate text-[11px]',
-                            chosen ? 'text-accent-foreground' : 'text-faint',
-                          )}
-                        >
-                          {detail}
-                        </small>
-                      ) : null}
-                    </button>
-                    {/* Fixed columns (size | access, chosen) so every row's edge lines up. */}
-                    <span className="relative ml-auto grid shrink-0 grid-cols-[58px_34px] items-center gap-x-2 pl-2">
-                      <span
-                        className={cn(
-                          'truncate text-right text-[11px] tabular-nums',
-                          chosen ? 'text-accent-foreground' : 'text-faint',
-                        )}
-                      >
-                        {meta}
-                      </span>
-                      <span className="-mr-1 flex items-center justify-end gap-0.5">
-                        {model.gated ? (
-                          <span
-                            role="img"
-                            aria-label="Requires access"
-                            title="Requires access"
-                            className="grid size-4 place-items-center"
-                          >
-                            <LockIcon aria-hidden="true" className="size-3.5" />
-                          </span>
-                        ) : null}
-                        {chosen ? (
-                          <span
-                            role="img"
-                            aria-label="Selected"
-                            title="Selected"
-                            className="grid size-4 place-items-center"
-                          >
-                            <CheckIcon aria-hidden="true" className="size-3.5" />
-                          </span>
-                        ) : null}
-                      </span>
-                    </span>
-                  </div>
-                );
-              })
+              visible.map((model) => (
+                <ResultRow
+                  chosen={selected === model.repository}
+                  key={model.repository}
+                  model={model}
+                  onPick={pick}
+                  tabStop={model.repository === tabStop}
+                />
+              ))
             )}
             {loadMore ? (
               <button

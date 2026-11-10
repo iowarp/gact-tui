@@ -38,7 +38,8 @@ import {
   getToolResultBlocks,
   isA2uiCatalogLookup,
 } from './tool-presentation';
-import { withQuestionPresentation } from './question-tool-presentation';
+import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
+import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
@@ -73,6 +74,16 @@ function ToolResultBody({
   const questionContext = useQuestionAnswer();
   const tool = withQuestionPresentation(recordedTool, questionContext?.interactions);
   const lines = useTranscriptPreviewLines();
+  const reading = answeredQuestionReading(recordedTool, questionContext?.interactions);
+  if (reading)
+    return (
+      <div
+        className="ml-7 min-w-0 overflow-hidden rounded-md border"
+        data-slot="tool-human-result"
+      >
+        <QuestionAnswerReader reading={reading} />
+      </div>
+    );
   if (INLINE_MEMORY_TOOLS.has(tool.name) && getToolStatus(tool) === 'succeeded')
     return <MemoryToolResult tool={tool} />;
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
@@ -109,10 +120,12 @@ function ToolResultBody({
   // and rendered after the document instead.
   const contentBlocks = blocks.filter((block) => !isProvenanceBlock(block));
   const provenanceBlocks = blocks.filter(isProvenanceBlock);
+  // An outcome (a stop or an error) is not the file's contents.
   const document =
     (subject?.target === 'file' || resourceDocument) &&
     contentBlocks.length > 0 &&
-    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
+    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type)) &&
+    !contentBlocks.some((block) => block.severity === 'error' || block.severity === 'warning');
   if (document) {
     const budget = lines;
     return (
@@ -372,7 +385,12 @@ function ToolResultBody({
           return (
             <div key={block.id} className="min-w-0">
               {block.label ? (
-                <p className="text-xs font-medium text-muted-foreground">{block.label}</p>
+                <p
+                  className="px-2 text-xs font-medium text-muted-foreground"
+                  data-slot="tool-result-label"
+                >
+                  {block.label}
+                </p>
               ) : null}
               <BoundedResult
                 lines={budget}

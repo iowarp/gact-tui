@@ -4,6 +4,8 @@ import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { TransportError } from '@clio/core/v3';
+import { retryRead } from '@/lib/connection-attempt';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
@@ -51,7 +53,7 @@ import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { useProviderCatalog } from './use-provider-catalog';
 import type { ModelCatalogStatus } from './use-model-catalog-status';
-import { useSessionLiveStream } from './use-session-live-stream';
+import { OUTSIDE_LIVE_STREAM, useSessionLiveStream } from './use-session-live-stream';
 import { useVariantRunHydration } from './use-variant-run-hydration';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
@@ -295,7 +297,10 @@ export function useWorkspaceData({
       repository.pendingInteractionProjection(attendedSessionId, true, signal),
     enabled:
       Boolean(attendedSessionId) && allSessions.data !== undefined && supportsUnifiedInteractions,
-    refetchInterval: interactionPollMs,
+    // A conversation the service no longer has stays missing: no retry burst and
+    // no 1.5 s poll of the 404. Opening it again or a live event refetches it.
+    retry: (failures, error) => !sessionMissing(error) && retryRead(failures, error),
+    refetchInterval: (query) => (sessionMissing(query.state.error) ? false : interactionPollMs),
   });
   const attentionRootSessionIds = useMemo(() => {
     if (!supportsUnifiedInteractions) return [];
@@ -315,6 +320,8 @@ export function useWorkspaceData({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
       queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+      // Another conversation's requests: the open session's stream never changes them.
+      meta: OUTSIDE_LIVE_STREAM,
       // No open conversation streams events that would refresh these; the
       // waiting-sessions list below re-reads them when it changes.
       refetchInterval: sessionId ? undefined : PENDING_INTERACTIONS_FANOUT_POLL_MS,
@@ -800,4 +807,9 @@ export function useWorkspaceData({
     workspaceResources,
     workspaces,
   };
+}
+
+/** The service answered that this conversation does not exist. */
+function sessionMissing(error: unknown): boolean {
+  return error instanceof TransportError && error.status === 404;
 }

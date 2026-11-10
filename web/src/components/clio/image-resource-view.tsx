@@ -1,6 +1,5 @@
 import { DownloadIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { OverlayContainer } from '@/components/ui/overlay-container';
 import { FileViewerInformationHost } from './file-viewer-context';
@@ -11,6 +10,7 @@ import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { ViewerZoomControls } from './viewer-zoom-controls';
 import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
+import { useElementFullscreen } from './use-element-fullscreen';
 
 const MAX_SCALE = 8;
 const STEP = 1.2;
@@ -50,8 +50,7 @@ export function ImageResourceView({
   const inheritedOverlay = useContext(OverlayContainer);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [fullscreenHost, setFullscreenHost] = useState<HTMLElement>();
-  const fullscreen = Boolean(fullscreenHost);
+  const { fullscreenHost, fullscreen, toggle: toggleFullscreen } = useElementFullscreen(hostRef);
   const [failedImageUrl, setFailedImageUrl] = useState<string>();
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [image, setImage] = useState<{ bytes?: Uint8Array; width: number; height: number }>({
@@ -68,14 +67,6 @@ export function ImageResourceView({
     observer.observe(host);
     return () => observer.disconnect();
   }, [url, error]);
-  useEffect(() => {
-    const update = () =>
-      setFullscreenHost(
-        document.fullscreenElement === hostRef.current ? (hostRef.current ?? undefined) : undefined,
-      );
-    document.addEventListener('fullscreenchange', update);
-    return () => document.removeEventListener('fullscreenchange', update);
-  }, []);
   const loaded = Boolean(url && bytes && image.bytes === bytes && image.width && image.height);
   const fit = loaded
     ? Math.min(
@@ -101,6 +92,10 @@ export function ImageResourceView({
       viewportRef.current?.scrollTo?.({ top: 0, left: 0 });
     } else setZoom({ bytes, scale: next });
   }, [bytes, fit, scale]);
+  const resetZoom = useCallback(() => {
+    setZoom(undefined);
+    viewportRef.current?.scrollTo?.({ top: 0, left: 0 });
+  }, []);
   useEffect(() => {
     const host = viewportRef.current;
     if (!host) return;
@@ -115,14 +110,6 @@ export function ImageResourceView({
     host.addEventListener('wheel', onWheel, { passive: false });
     return () => host.removeEventListener('wheel', onWheel);
   }, [url, error, zoomIn, zoomOut]);
-  const toggleFullscreen = async () => {
-    try {
-      if (fullscreen) await document.exitFullscreen();
-      else await hostRef.current?.requestFullscreen();
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : 'Could not open fullscreen.');
-    }
-  };
   if (error || (url && failedImageUrl === url))
     return (
       <ViewerReadError
@@ -152,6 +139,7 @@ export function ImageResourceView({
               label="Image zoom"
               onIn={zoomIn}
               onOut={zoomOut}
+              onReset={resetZoom}
               disabledIn={scale >= MAX_SCALE}
               disabledOut={!zoomed}
               readout={percent}
@@ -183,7 +171,7 @@ export function ImageResourceView({
             aria-label={`Zoomable image ${name}`}
             tabIndex={0}
             data-slot="image-viewport"
-            className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background"
+            className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
             <div className="grid min-h-full w-max min-w-full place-content-center place-items-center p-4">
               <img

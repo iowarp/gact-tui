@@ -34,6 +34,20 @@ export const ACTIVE_SESSION_POLL_MS = 1_500;
 export const LIVE_STREAM_FALLBACK_POLL_MS = 15_000;
 
 /**
+ * Shortest gap between execution-provenance refreshes driven by a streaming
+ * turn's events; the turn's completion always refreshes it. Unit: milliseconds.
+ */
+export const LIVE_PROVENANCE_REFRESH_MS = 10_000;
+
+/**
+ * Shortest gap between session-list and work-rail refreshes driven by a
+ * streaming turn's events; the turn's completion always refreshes them. The live
+ * stream carries the open session's own state, so these lists may trail by up
+ * to this long. Unit: milliseconds.
+ */
+export const LIVE_SESSION_LIST_REFRESH_MS = 2_000;
+
+/**
  * Refetch cadence for the active transcript page while a turn runs and no live
  * stream is connected. Unit: milliseconds.
  */
@@ -111,6 +125,13 @@ export const CONNECTION_PROBE_POLL_MS = 30_000;
 export const CONNECTION_LOST_PROBE_POLL_MS = 5_000;
 
 /**
+ * Delay before the connected service's probe tries once more. A single slow or
+ * dropped `/v1/capabilities` read under load is retried after this short pause
+ * before the line under CLIO says it can't reach the service. Unit: milliseconds.
+ */
+export const CONNECTION_LOST_PROBE_RETRY_MS = 750;
+
+/**
  * Re-probe cadence while a remembered service is starting, or has not answered yet
  * (it may have been started together with this page). Unit: milliseconds.
  */
@@ -178,6 +199,13 @@ export const STREAM_RECONNECT_BASE_MS = 250;
  * is down for long stretches.
  */
 export const STREAM_RECONNECT_MAX_MS = 8_000;
+
+/**
+ * How long a session stream may keep failing before each retry also probes
+ * `/v1/health`. Unit: milliseconds. A probe that cannot reach the service turns
+ * "Resuming updates" into "Can't reach …, retrying"; a short blip never probes.
+ */
+export const STREAM_OFFLINE_AFTER_MS = 5_000;
 
 /**
  * First wait between reads of a workspace resource that is still `uploading`
@@ -270,12 +298,17 @@ export const GACT_HTTP_TRANSFER_TIMEOUT_MS = 600_000;
 // How much history a surface holds or asks for.
 
 /**
- * Maximum provenance records requested for one execution-provenance view.
- * Unit: records. High because the view is a complete lineage audit and a
- * silently trimmed graph would be misleading; lower it only if large sessions
- * make the request itself the bottleneck.
+ * Most provenance records one execution-provenance view may ask for, after the
+ * user has loaded earlier pages. Unit: records.
  */
 export const EXECUTION_PROVENANCE_LIMIT = 10_000;
+
+/**
+ * Provenance records requested per page, newest first; "Load earlier" asks for
+ * one more page. Unit: records. A long session's full history is megabytes and
+ * seconds to read, and the Activity list shows the latest work first.
+ */
+export const EXECUTION_PROVENANCE_PAGE = 200;
 
 // ## Preview budgets
 // Ceilings on how much of an artifact the client will fetch and render inline.
@@ -287,6 +320,13 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
  * Unit: bytes. Above this the card explains the budget instead of fetching.
  */
 export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * How long a closed viewer's file bytes stay cached. Unit: milliseconds.
+ * Long enough that reopening or remounting (maximize, restore) doesn't refetch;
+ * short enough that closed PDFs, images and text don't sit in the tab's memory.
+ */
+export const VIEWER_BYTES_GC_TIME_MS = 30_000;
 
 /**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files

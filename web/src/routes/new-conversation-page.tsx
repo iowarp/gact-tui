@@ -1,9 +1,10 @@
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
+import { serviceUnreachable } from '@/lib/connection-attempt';
 import { ConnectedSourcePicker } from '@/components/clio/connected-source-picker';
 import type { ObsidianChoice } from '@/components/clio/obsidian-source-form';
 import { DraftAgentCompositionView } from '@/components/clio/agent-composition-view';
@@ -19,6 +20,7 @@ import {
   NewConversationDraft,
 } from '@/components/clio/new-conversation-draft';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { listState } from '@/lib/list-state';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { TopBarEnd } from '@/components/clio/top-bar-end';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
@@ -178,11 +180,16 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     defaults.data?.agent_ref,
   );
   // A warm-up that failed while the agent was unreachable is retried once it is
-  // back, rather than showing the outage's error until the next 60 s refresh.
+  // back, rather than showing the outage's error until the next 60 s refresh. Only
+  // the return to live re-runs it: a refetch with no data resets the query to
+  // pending, so retrying whenever it has failed would loop on a real failure.
   const warmupFailed = warmup.isError;
   const retryWarmup = warmup.refetch;
+  const wasLive = useRef(connection === 'live');
   useEffect(() => {
-    if (connection === 'live' && warmupFailed) void retryWarmup();
+    const back = connection === 'live' && !wasLive.current;
+    wasLive.current = connection === 'live';
+    if (back && warmupFailed) void retryWarmup();
   }, [connection, warmupFailed, retryWarmup]);
   const defaultRef = defaults.data?.default_agent_ref || defaults.data?.agent_ref || undefined;
   const draftRef = agentChoice || defaultRef || '';
@@ -218,6 +225,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
           workspaces={data.workspaces.data ?? []}
+          workspacesState={listState(data.workspaces)}
         />
       }
       contextBar={
@@ -295,9 +303,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           actionError={
             send.error?.message ??
             // While the agent is unreachable the left bar already says so; a warm-up
-            // that failed for the same reason is not a separate failure.
-            (warmup.error && connection === 'live' && !warmup.isFetching
-              ? `Tools could not be prepared in advance: ${warmup.error.message}. You can still send a message.`
+            // that failed for the same reason is not a separate failure. The probe can
+            // read live for a while after a drop, and for a frame before the re-run
+            // after recovery, so an unreachable failure never shows here.
+            (warmup.error &&
+            !serviceUnreachable(warmup.error) &&
+            connection === 'live' &&
+            !warmup.isFetching
+              ? `Tools could not be prepared in advance: ${warmup.error.message.replace(/\.+$/, '')}. You can still send a message.`
               : undefined)
           }
         />
@@ -342,6 +355,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
             capabilitiesPending={data.capabilities.isPending}
             disabled={send.isPending || runDraftCommand.isPending}
+            sending={send.isPending}
             connecting={!workspace || defaults.isPending}
             state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}
             commands={commands.commands}

@@ -258,6 +258,12 @@ function Sidebar({
             } as React.CSSProperties
           }
           side={side}
+          onCloseAutoFocus={(event) => {
+            // A dialog opened from the sheet closes it first; keep that dialog's focus.
+            const active = document.activeElement;
+            if (active && active !== document.body && active.closest('[role="dialog"],[role="alertdialog"]'))
+              event.preventDefault();
+          }}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>

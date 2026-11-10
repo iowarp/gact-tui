@@ -1,11 +1,12 @@
 import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import type { ObservabilityView } from '@/components/clio/observability-view-storage';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { listState } from '@/lib/list-state';
 import { WorkspaceComposer } from '@/components/clio/workspace-composer';
 import { WorkspaceContextBar } from '@/components/clio/workspace-context-bar';
 import { WorkspaceObservabilityDock } from '@/components/clio/workspace-observability';
@@ -163,9 +164,15 @@ export function WorkspacePage() {
     workspaceId,
   });
   // Stable, so a page render does not re-render every memoized transcript row.
+  // The navigation closes over artifacts and diffs that change while a reply
+  // streams; read the latest at click time instead of re-creating the callback.
+  const openComposerReferenceRef = useRef(openComposerReference);
+  useLayoutEffect(() => {
+    openComposerReferenceRef.current = openComposerReference;
+  }, [openComposerReference]);
   const openReference = useCallback(
-    (reference: WorkspaceReference) => void openComposerReference(reference),
-    [openComposerReference],
+    (reference: WorkspaceReference) => void openComposerReferenceRef.current(reference),
+    [],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
@@ -197,7 +204,7 @@ export function WorkspacePage() {
       endpoint: settings.endpoint,
       focusComposer: focusComposerForAnswer,
       respondInteraction: mutations.respondInteraction.mutateAsync,
-      send: mutations.send.mutateAsync,
+      send: mutations.sendMessage,
       revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
@@ -231,6 +238,7 @@ export function WorkspacePage() {
       onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
       sessions={navigationSessions}
       workspaces={workspaces.data ?? []}
+      workspacesState={listState(workspaces)}
     />
   );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;

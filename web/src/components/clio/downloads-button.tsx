@@ -2,7 +2,7 @@ import { DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { TOOLTIP_KEY } from '@/components/clio/primitives/tooltip-key';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { openDownloads } from '@/tauri/downloads';
@@ -19,14 +19,14 @@ function showDownloads() {
 export function ClioDownloadsButton() {
   const desktop = inTauri();
   useShortcut('downloads', showDownloads, { enabled: desktop });
-  const keys = useShortcutPresentation('downloads')?.aria;
+  const keys = useShortcutPresentation('downloads');
   if (!desktop) return null;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           aria-label="Open downloads"
-          aria-keyshortcuts={keys}
+          aria-keyshortcuts={keys?.aria}
           className="shrink-0"
           onClick={showDownloads}
           size="icon-xs"
@@ -37,7 +37,7 @@ export function ClioDownloadsButton() {
       </TooltipTrigger>
       <TooltipContent side="bottom" className="flex items-center gap-2">
         Downloads
-        <ShortcutKeys id="downloads" />
+        {keys ? <kbd className={TOOLTIP_KEY}>{keys.text}</kbd> : null}
       </TooltipContent>
     </Tooltip>
   );

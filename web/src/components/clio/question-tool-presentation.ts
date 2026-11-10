@@ -30,6 +30,94 @@ export function questionToolSummary(tool: ToolInvocation): string | undefined {
   return count ? `${count} ${count === 1 ? 'question' : 'questions'}` : undefined;
 }
 
+/** The questions this call asked, linked by `source.invocation_id` (or its receipt's task handle). */
+function questionLink(
+  tool: ToolInvocation,
+  interactions: readonly PendingInteraction[],
+): { accepted: boolean; matches: PendingInteraction[] } {
+  let output = tool.output;
+  if (Array.isArray(output) && output.length === 1) output = record(output[0])?.text;
+  if (typeof output === 'string') {
+    try {
+      output = JSON.parse(output);
+    } catch {
+      output = undefined;
+    }
+  }
+  const outer = record(output);
+  const receipt = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
+  // The server links a question to its call by `source.invocation_id`; older sessions
+  // only carry the task handle from the call's receipt.
+  const linked = interactions.filter(
+    (row) => row.source.invocation_id === tool.id && isCausalQuestionInteraction(row),
+  );
+  const accepted = linked.length > 0 || (receipt?.kind === 'Question' && receipt.accepted === true);
+  const matches = linked.length
+    ? linked
+    : accepted
+      ? interactions.filter((row) => row.task_id === receipt?.handle)
+      : [];
+  return { accepted, matches };
+}
+
+export interface AnsweredQuestion {
+  prompt: string;
+  options: { label: string; description?: string; chosen: boolean }[];
+}
+
+export interface QuestionReading {
+  framing?: string;
+  reason?: string;
+  questions: AnsweredQuestion[];
+  /** What the person wrote rather than picked. */
+  written: string[];
+}
+
+/** An answered ask, for its reader: each question, its options with the chosen ones, and any typed answer. */
+export function answeredQuestionReading(
+  tool: ToolInvocation,
+  interactions: readonly PendingInteraction[] = [],
+): QuestionReading | undefined {
+  const rows = questions(tool);
+  if (!rows.length || ['failed', 'denied', 'cancelled', 'unknown'].includes(tool.state)) return;
+  const answers = questionLink(tool, interactions)
+    .matches.filter((row) => row.status === 'answered')
+    .flatMap(interactionAnswerLabels);
+  if (!answers.length) return;
+  const picked = new Set(answers);
+  const questionsRead = rows.map((question): AnsweredQuestion => {
+    const options = Array.isArray(question.options)
+      ? question.options.flatMap((value) => {
+          const option = record(value);
+          return typeof option?.label === 'string'
+            ? [
+                {
+                  label: option.label,
+                  description:
+                    typeof option.description === 'string' && option.description.trim()
+                      ? option.description
+                      : undefined,
+                  chosen: picked.has(option.label),
+                },
+              ]
+            : [];
+        })
+      : question.kind === 'confirmation'
+        ? ['Yes', 'No'].map((label) => ({ label, chosen: picked.has(label) }))
+        : [];
+    return { prompt: String(question.question), options };
+  });
+  const offered = new Set(questionsRead.flatMap((question) => question.options.map((o) => o.label)));
+  const input = questionInput(tool);
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
+  return {
+    framing: Array.isArray(input?.questions) ? text(input?.question) : undefined,
+    reason: text(input?.reason),
+    questions: questionsRead,
+    written: answers.filter((answer) => !offered.has(answer)),
+  };
+}
+
 /** Present current and retained ask_user calls from their exact typed arguments. */
 export function withQuestionPresentation(
   tool: ToolInvocation,
@@ -93,28 +181,7 @@ export function withQuestionPresentation(
     blocks.unshift({ id: 'question-framing', type: 'text', text: framing });
   if (typeof reason === 'string' && reason.trim())
     blocks.push({ id: 'question-reason', type: 'text', label: 'Why I’m asking', text: reason });
-  let output = tool.output;
-  if (Array.isArray(output) && output.length === 1) output = record(output[0])?.text;
-  if (typeof output === 'string') {
-    try {
-      output = JSON.parse(output);
-    } catch {
-      output = undefined;
-    }
-  }
-  const outer = record(output);
-  const receipt = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
-  // The server links a question to its call by `source.invocation_id`; older sessions
-  // only carry the task handle from the call's receipt.
-  const linked = interactions.filter(
-    (row) => row.source.invocation_id === tool.id && isCausalQuestionInteraction(row),
-  );
-  const accepted = linked.length > 0 || (receipt?.kind === 'Question' && receipt.accepted === true);
-  const matches = linked.length
-    ? linked
-    : accepted
-      ? interactions.filter((row) => row.task_id === receipt?.handle)
-      : [];
+  const { accepted, matches } = questionLink(tool, interactions);
   const interaction = matches.find((row) => row.status === 'pending') ?? matches[0];
   // Once answered, the ask folds into the spec's decision row: "Answered · 2020–2023".
   const answers = matches
