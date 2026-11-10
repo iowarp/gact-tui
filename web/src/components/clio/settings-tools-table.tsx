@@ -209,7 +209,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
   const kind = toolKind(tool);
   const byRule = !tool.permission && savedRules(tool).length > 0;
   const permissionLabel = PERMISSION_TEXT[permission.value].label;
-  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Not known yet';
+  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Unknown';
   const permissionIcon = PERMISSION_ICON[permission.value];
   const callersIcon = callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon;
   const choosePermission = (value: ToolPermission) =>
@@ -363,7 +363,11 @@ function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
   return (
     <>
       <span className="font-mono text-foreground">{tool.name}</span>
-      {tool.description ? <span>{tool.description}</span> : null}
+      {tool.description ? (
+        <span className="line-clamp-2" title={tool.description}>
+          {tool.description}
+        </span>
+      ) : null}
       <span>
         {flagText(tool)}. {sourceText(tool)}.
       </span>
