@@ -40,4 +40,50 @@ describe('theme contract', () => {
   it('gives Light the bare :root so the page has values before the boot script runs', () => {
     expect(declared(':root')).toEqual(declared(":root[data-theme='light']"));
   });
+
+  // Destructive menu rows are 12.5px destructive-text: they need 4.5:1 at rest and when
+  // focused, where the row is tinted with destructive at 10% (light) or 20% (dark).
+  it.each([
+    { theme: 'light', focusTint: 0.1 },
+    { theme: 'dark', focusTint: 0.2 },
+  ])('keeps $theme destructive menu text at 4.5:1', ({ theme, focusTint }) => {
+    const raw = (token: string) => tokenValue(`:root[data-theme='${theme}']`, token);
+    const value = (token: string): number[] => {
+      const reference = /^var\(--([a-z-]+)\)$/u.exec(raw(token));
+      return reference ? value(reference[1]!) : hex(raw(token));
+    };
+    const text = value('destructive-text');
+    const focused = mix(value('destructive'), value('popover'), focusTint);
+    for (const surface of [value('popover'), value('menu-highlight'), focused]) {
+      expect(contrast(text, surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
+
+function tokenValue(selector: string, token: string): string {
+  const body = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/gu)].find(([, selectors]) =>
+    selectors!.split(',').some((part) => part.trim() === selector),
+  )?.[2];
+  const value = body?.match(new RegExp(`--${token}\\s*:\\s*([^;]+);`, 'u'))?.[1]?.trim();
+  if (!value) throw new Error(`${selector} does not declare --${token}`);
+  return value;
+}
+
+function hex(value: string): number[] {
+  const match = /^#([0-9a-f]{6})$/iu.exec(value);
+  if (!match) throw new Error(`expected a #rrggbb colour, got ${value}`);
+  return [0, 2, 4].map((offset) => parseInt(match[1]!.slice(offset, offset + 2), 16) / 255);
+}
+
+function mix(top: number[], bottom: number[], alpha: number): number[] {
+  return top.map((channel, index) => channel * alpha + bottom[index]! * (1 - alpha));
+}
+
+function contrast(a: number[], b: number[]): number {
+  const luminance = (rgb: number[]) => {
+    const [r, g, bl] = rgb.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (high! + 0.05) / (low! + 0.05);
+}

@@ -32,7 +32,12 @@ import {
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { publishActiveOption } from './composer-reference-controller-active-option';
 import { referenceKindIcon } from './composer-reference-presentation';
-import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
+import {
+  COMPOSER_GROUP_HEADING,
+  ComposerSuggestionPopup,
+  Highlighted,
+  MatchCount,
+} from './composer-suggestion-popup';
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -537,8 +542,7 @@ export function ClioComposerReferenceMenu({
               </span>
             </>
           );
-          const headingClass =
-            'flex w-full min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-left text-[11px] font-semibold whitespace-nowrap text-muted-foreground';
+          const headingClass = cn(COMPOSER_GROUP_HEADING, 'w-full text-left');
           return (
             <div aria-label={section.label} key={section.label} role="group">
               {section.collapsible ? (
