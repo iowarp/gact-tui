@@ -40,6 +40,7 @@ import {
 } from './plugin-tool-settings-text';
 import { IconButton } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
+import { statusWordClass } from './primitives/status-word-tone';
 import type { RowStatus, ToolEditor } from './settings-tools-editor';
 import {
   ChoicePicker,
@@ -109,7 +110,11 @@ function OutcomeMark({
 }) {
   return (
     <span className={cn('flex min-w-0', className)} title={OUTCOME_TITLE[value]}>
-      <StatusIndicator className="text-xs text-faint" label={text} tone={OUTCOME_TONE[value]} />
+      <StatusIndicator
+        className={cn('text-xs', !statusWordClass(OUTCOME_TONE[value]) && 'text-faint')}
+        label={text}
+        tone={OUTCOME_TONE[value]}
+      />
     </span>
   );
 }

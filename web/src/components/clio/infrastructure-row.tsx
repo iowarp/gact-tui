@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
+import { statusWordClass } from '@/components/clio/primitives/status-word-tone';
 import { cn } from '@/lib/utils';
 
 /**
@@ -137,7 +138,10 @@ export const InfraRow = memo(
         <span
           aria-hidden="true"
           data-label={status.label}
-          className="mr-2 hidden before:content-[attr(data-label)] @max-[480px]/infra:inline"
+          className={cn(
+            'mr-2 hidden before:content-[attr(data-label)] @max-[480px]/infra:inline',
+            statusWordClass(status.tone),
+          )}
         />
         {description}
       </>
