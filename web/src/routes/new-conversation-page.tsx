@@ -324,6 +324,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
             capabilitiesPending={data.capabilities.isPending}
             disabled={send.isPending || runDraftCommand.isPending}
+            sending={send.isPending}
             connecting={!workspace || defaults.isPending}
             state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}
             commands={commands.commands}

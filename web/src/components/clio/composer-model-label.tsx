@@ -1,3 +1,4 @@
+import { CircleAlertIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { TOOLTIP_KEY } from './primitives/tooltip-key';
 export function ComposerModelButton({
   option,
   placeholder = 'Choose a model',
+  problem,
   appearance = 'pill',
   shortcut,
   className,
@@ -27,6 +29,8 @@ export function ComposerModelButton({
 }: ComponentProps<typeof Button> & {
   option?: ClioModelOption;
   placeholder?: string;
+  /** Why no model is shown, as a short word and its sentence for the tooltip. */
+  problem?: { label: string; detail: string };
   appearance?: 'pill' | 'text';
   /** Catalog id of the key that opens the picker: its tooltip and held-key badge show it. */
   shortcut?: string;
@@ -36,14 +40,14 @@ export function ComposerModelButton({
   const route = option && !isVendorApi(option.providerId, option.id);
   const fullName = option
     ? `${option.providerName} / ${option.label}${option.label === option.id ? '' : ` (${option.id})`}`
-    : 'Choose the model this conversation uses';
+    : (problem?.detail ?? 'Choose the model this conversation uses');
   return (
     <TooltipProvider delayDuration={450}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             {...props}
-            aria-description={option ? fullName : undefined}
+            aria-description={option || problem ? fullName : undefined}
             aria-keyshortcuts={presentation?.aria}
             className={cn(
               shortcut && 'relative',
@@ -99,6 +103,11 @@ export function ComposerModelButton({
                     {compactModelName(option.id, option.label)}
                   </span>
                 </span>
+              </>
+            ) : problem ? (
+              <>
+                <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+                <span className="truncate">{problem.label}</span>
               </>
             ) : (
               <span className="truncate">{placeholder}</span>
