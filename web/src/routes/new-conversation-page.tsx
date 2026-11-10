@@ -322,6 +322,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             autoFocus
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
+            capabilitiesPending={data.capabilities.isPending}
             disabled={send.isPending || runDraftCommand.isPending}
             connecting={!workspace || defaults.isPending}
             state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}

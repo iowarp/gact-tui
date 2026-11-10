@@ -30,6 +30,7 @@ import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useRegionShortcuts } from '@/lib/shortcuts/regions';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { requestClioMenuOnMount } from '@/lib/clio-menu-request';
+import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
@@ -71,7 +72,7 @@ function PhoneClioMenuShortcut() {
       requestClioMenuOnMount();
       setOpenMobile(true);
     },
-    { enabled: !inTauri() && isMobile && !openMobile },
+    { enabled: !inTauri() && isMobile && !openMobile, when: () => !settingsWindowOpen() },
   );
   return null;
 }

@@ -18,6 +18,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { defineShortcuts } from '@/lib/shortcuts/registry';
 import { narrowerThan, useElementWidth } from '@/hooks/use-element-width';
+import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { MemoryCreate } from './memory-create';
 import { MemoryCreationLog } from './memory-creation-log';
@@ -48,18 +49,20 @@ function AccountMemoryRow({
   workspaceId,
   workspaceName,
 }: {
-  workspaceId: string;
+  workspaceId?: string;
   workspaceName: string;
 }) {
   const repository = useRepository();
   const client = useQueryClient();
   const key = ['memory', 'workspace-settings', workspaceId];
+  // Without a workspace yet (the list is still loading) the row waits in "Loading".
   const setting = useQuery({
     queryKey: key,
-    queryFn: ({ signal }) => repository.workspaceMemory(workspaceId, signal),
+    queryFn: ({ signal }) => repository.workspaceMemory(workspaceId!, signal),
+    enabled: Boolean(workspaceId),
   });
   const update = useMutation({
-    mutationFn: (next: boolean) => repository.setWorkspaceMemory(workspaceId, next),
+    mutationFn: (next: boolean) => repository.setWorkspaceMemory(workspaceId!, next),
     onSuccess: (result) => client.setQueryData(key, result),
     onError: (error) => toast.error(memoryErrorText(error)),
   });
@@ -77,12 +80,17 @@ function AccountMemoryRow({
       }
       title="Use account memory"
     >
-      <Switch
-        checked={checked}
-        disabled={setting.isPending || Boolean(setting.error) || update.isPending}
-        id="memory-use-account"
-        onCheckedChange={(next) => update.mutate(next)}
-      />
+      {setting.isPending ? (
+        // Never show "off" for a setting that hasn't been read yet.
+        <StatusIndicator label="Loading" tone="running" />
+      ) : (
+        <Switch
+          checked={checked}
+          disabled={Boolean(setting.error) || update.isPending}
+          id="memory-use-account"
+          onCheckedChange={(next) => update.mutate(next)}
+        />
+      )}
     </SettingsRow>
   );
 }
@@ -140,6 +148,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     queryKey: queryKeys.key('workspaces', settings.endpoint, 'memory'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
+  const openWorkspace = useSettingsWorkspaceName(workspaceId);
   // Sessions the memory views name, read by id as they are shown (never every session).
   const sessions = useSessionDirectory();
   const exportAll = useMutation({
@@ -177,11 +186,13 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     name.startsWith('user/') ? 'user' : name.split('/').slice(0, 2).join('/');
   const targetLabel = (name: string, description?: string) =>
     `${memoryScopeTitle(scopeOf(name), workspaceNames)}: ${description || name.split('/').at(-1)?.replaceAll('-', ' ')}`;
-  // The account-memory switch belongs to a workspace: the open one, else the
-  // first workspace that keeps memories.
+  // The account-memory switch belongs to a workspace: the open one (known before
+  // the workspace list arrives), else the first workspace that keeps memories.
   const candidates = (workspaces.data ?? []).filter((workspace) => workspace.id !== 'ws_global');
   const accountTarget =
-    candidates.find((workspace) => workspace.id === workspaceId) ??
+    (workspaceId && workspaceId !== 'ws_global'
+      ? { id: workspaceId, name: openWorkspace.label }
+      : undefined) ??
     candidates.find((workspace) =>
       documents.data?.some((document) => document.scope === `project/${workspace.id}`),
     ) ??
@@ -289,10 +300,13 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
           </span>
         </div>
       ) : null}
-      {tab === 'memories' && accountTarget ? (
+      {tab === 'memories' && (accountTarget || workspaces.isPending) ? (
         // The list's width, so the switch row lines up with the memory rows.
         <div className="@container min-w-0">
-          <AccountMemoryRow workspaceId={accountTarget.id} workspaceName={accountTarget.name} />
+          <AccountMemoryRow
+            workspaceId={accountTarget?.id}
+            workspaceName={accountTarget?.name ?? openWorkspace.label}
+          />
         </div>
       ) : null}
       <ListDetailLayout

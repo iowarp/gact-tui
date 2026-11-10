@@ -27,6 +27,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
 import { WaitingForYou } from './agent-answer-activity';
+import { withPermissionDecision } from './agent-answer-domain';
 import { ActivityInfoButton } from './activity-row';
 import { TechnicalDetailsLink, ToolTechnicalDetailsDialog } from './tool-technical-details';
 import { useToolDuration } from './use-tool-duration';
@@ -133,7 +134,13 @@ export function ClioToolInvocation({
         withMemoryPresentation(
           withResourcePresentation(
             withSkillPresentation(
-              withTaskWaitInterruption(withTodoPresentation(withStorageToolPresentation(tool))),
+              withTaskWaitInterruption(
+                withTodoPresentation(
+                  withStorageToolPresentation(
+                    withPermissionDecision(tool, questionContext?.interactions),
+                  ),
+                ),
+              ),
             ),
             navigation?.resources,
           ),
@@ -272,7 +279,7 @@ export function ClioToolInvocation({
               {failure && !declaredFailure ? (
                 <p
                   role="alert"
-                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
+                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
                 >
                   {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                 </p>
