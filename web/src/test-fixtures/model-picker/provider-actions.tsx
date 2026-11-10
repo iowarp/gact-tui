@@ -45,6 +45,8 @@ export const repository = {
   providerHandshake: vi.fn(),
   refreshProviderModels: vi.fn(),
   installProviderSupport: vi.fn(),
+  startProviderInstall: vi.fn(),
+  providerInstallJobs: vi.fn().mockResolvedValue([]),
   authenticateProvider: vi.fn(),
   completeProviderAuthentication: vi.fn(),
   providerAuthStatus: vi.fn(),
@@ -60,6 +62,7 @@ export const repository = {
   addSavedServer: vi.fn(),
 };
 beforeEach(() => {
+  repository.providerInstallJobs.mockResolvedValue([]);
   repository.providerComponents.mockResolvedValue({
     provider_id: 'codex',
     provider_kind: 'codex',
