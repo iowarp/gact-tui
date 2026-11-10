@@ -104,6 +104,10 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
   def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
   def('queue-delete', 'Delete the queued message', 'composer', ['Delete']),
+  def('save-draft', 'Save the draft for later', 'composer', ['Ctrl+S']),
+  def('restore-draft', 'Bring back the saved draft', 'composer', ['Up'], {
+    when: 'In an empty composer',
+  }),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],
