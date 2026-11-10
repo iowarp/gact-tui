@@ -180,7 +180,9 @@ it('exports the PDF copy, leaving the original download to the frame', async () 
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Open options' }));
   expect(await screen.findByRole('menuitem', { name: /^Export to PDF/u })).toBeVisible();
-  expect(screen.queryByRole('menuitem', { name: /^Download/u })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('menuitem', { name: /^Download(?! with evidence)/u }),
+  ).not.toBeInTheDocument();
   await user.click(screen.getByRole('menuitem', { name: /^Export to PDF/u }));
   await waitFor(() => expect(calls.onPdf).toHaveBeenCalledOnce());
 });
