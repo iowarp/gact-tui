@@ -74,19 +74,19 @@ export function FleetSettingsPanel() {
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <StateView kind="loading" size="row" title="Loading helper models" />
+        <StateView kind="loading" size="row" title="Loading helper models…" />
       </section>
     );
   if (fleet.error || !fleet.data)
     return (
       <section aria-labelledby="settings-helper-models">
         {heading}
-        <div className="w-full @3xl:w-[60%]">
+        <div className="w-full @3xl:w-[60%]" title={fleet.error?.message}>
           <StateView
             action={{ label: 'Retry', onClick: () => void fleet.refetch() }}
             kind="error"
             size="row"
-            title={fleet.error?.message || 'The agent could not load the helper models.'}
+            title="The agent could not load helper models."
           />
         </div>
       </section>
