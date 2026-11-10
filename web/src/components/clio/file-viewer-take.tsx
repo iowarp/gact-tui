@@ -72,6 +72,7 @@ export function TakeMenuRows({ rows }: { rows: readonly TakeRow[] }) {
             icon={row.icon}
             label={row.label}
             description={row.reason}
+            wrapDescription
             accelerator={row.accelerator}
             shortcut={row.shortcut}
           />
@@ -357,7 +358,12 @@ export function FrameTalkTake({
                     disabled={tool.disabled}
                     onSelect={() => tool.button.click()}
                   >
-                    <MenuRow icon={tool.icon} label={tool.label} description={tool.reason} />
+                    <MenuRow
+                      icon={tool.icon}
+                      label={tool.label}
+                      description={tool.reason}
+                      wrapDescription
+                    />
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuCheckboxItem
@@ -366,7 +372,12 @@ export function FrameTalkTake({
                     disabled={tool.disabled}
                     onSelect={() => tool.button.click()}
                   >
-                    <MenuRow icon={tool.icon} label={tool.label} description={tool.reason} />
+                    <MenuRow
+                      icon={tool.icon}
+                      label={tool.label}
+                      description={tool.reason}
+                      wrapDescription
+                    />
                   </DropdownMenuCheckboxItem>
                 ),
               )}
@@ -385,6 +396,7 @@ export function FrameTalkTake({
                 icon={<AtSignIcon />}
                 label="Add to message"
                 description={addToMessage.reason}
+                wrapDescription
                 accelerator="@"
                 shortcut="add-to-message"
               />

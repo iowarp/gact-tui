@@ -10,6 +10,12 @@ export interface MenuRowProps {
   label: string;
   /** Muted words after the label; cut with an ellipsis, full text on hover. */
   description?: string;
+  /**
+   * The description is a reason the row is unavailable and must be read whole:
+   * it stays after the label when it fits, else it wraps onto lines of its own
+   * under the label instead of being cut (a ⋯ menu on a phone).
+   */
+  wrapDescription?: boolean;
   /** A small muted second line under the label (a host, what a choice does). */
   detail?: string;
   /**
@@ -50,6 +56,7 @@ export const MenuRow = memo(function MenuRow({
   icon,
   label,
   description,
+  wrapDescription = false,
   detail,
   status,
   tag,
@@ -83,14 +90,22 @@ export const MenuRow = memo(function MenuRow({
           </span>
         </span>
       ) : (
-        <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
+        <span
+          className={cn(
+            'flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap',
+            wrapDescription && 'flex-wrap gap-y-0 py-0.5',
+          )}
+        >
           <span className={cn('max-w-full shrink-0 truncate', muted && 'text-muted-foreground')}>
             {label}
           </span>
           {description ? (
             <span
-              title={description}
-              className="min-w-0 truncate text-[12px] text-muted-foreground"
+              title={wrapDescription ? undefined : description}
+              className={cn(
+                'min-w-0 text-[12px] text-muted-foreground',
+                wrapDescription ? 'leading-[1.35] whitespace-normal' : 'truncate',
+              )}
             >
               {description}
             </span>
