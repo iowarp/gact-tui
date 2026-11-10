@@ -48,6 +48,13 @@ export function useExtensionsSupported(): boolean | undefined {
   return capabilities.data.capabilities.x_clio_extension_library === true;
 }
 
+/** Whether the connected service keeps a prompt registry; `undefined` until known. */
+export function usePromptRegistrySupported(): boolean | undefined {
+  const capabilities = useAgentCapabilities();
+  if (!capabilities.data) return notOffered(capabilities.error) ? false : undefined;
+  return capabilities.data.capabilities.x_clio_prompt_registry === true;
+}
+
 /**
  * The session's pinned agent resolution, and the one way to change it: send
  * the session's whole delta. The server reruns resolution and pins the result,
