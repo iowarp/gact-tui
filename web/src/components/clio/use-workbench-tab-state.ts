@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, type WorkbenchTab } from './workbench-shared';
-import type { WorkbenchListView } from './workbench-strip';
 import { restoredWorkbenchState, saveWorkbenchState } from './workbench-tab-storage';
 
 /**
@@ -20,7 +19,7 @@ export function useWorkbenchTabState(
   const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
   const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
   const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
-  const [listView, setListView] = useState<WorkbenchListView | undefined>(initialState.listView);
+  const [listView, setListView] = useState<'files' | undefined>(initialState.listView);
   const [pinnedIds, setPinnedIds] = useState<string[]>(initialState.pinnedIds);
 
   useEffect(() => {

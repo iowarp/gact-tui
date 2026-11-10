@@ -29,6 +29,7 @@ import { NamedTooltip } from './primitives/icon-button';
 import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
+import { fitWorkbenchWidthTo } from './workbench-list-fit';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -161,6 +162,14 @@ function workbenchWidth(share: number, windowWidth: number): number {
   return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
 }
 
+/**
+ * The panel's width: the stored share, or less when the active tab is a sparse
+ * list that needs less (never under the workbench minimum, never above the share).
+ */
+function fittedWorkbenchWidth(share: number, windowWidth: number, fit: number | undefined): number {
+  return fitWorkbenchWidthTo(workbenchWidth(share, windowWidth), fit, MIN_WORKBENCH_WIDTH);
+}
+
 /** Up to this the left bar folds whenever the workbench is open (spec "Laptop, 1280px"). */
 const LAPTOP_WIDTH = 1280;
 
@@ -219,14 +228,40 @@ export function ClioAppShell({
   const [workbenchDefaultSize] = useState(
     () => `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`,
   );
+  // A list tab's fitted width. The left bar still folds by the stored share, so
+  // switching tabs never folds or unfolds it. A drag while fitted overrides the
+  // fit until the next tab asks again.
+  const workbenchFitRef = useRef<{ pixels?: number; applied?: number; overridden: boolean }>({
+    overridden: false,
+  });
   const applyWorkbenchShare = useCallback(() => {
     const share = workbenchShareRef.current;
     const width = currentWindowWidth();
     setConversationCrowded(conversationNeedsFoldedNavigation(share, width));
+    const fit = workbenchFitRef.current;
+    const pixels = Math.round(
+      fittedWorkbenchWidth(share, width, fit.overridden ? undefined : fit.pixels),
+    );
+    fit.applied = fit.pixels !== undefined && !fit.overridden ? pixels : undefined;
     const panel = workbenchPanelRef.current;
-    if (panel && !panel.isCollapsed())
-      panel.resize(`${Math.round(workbenchWidth(share, width))}px`);
+    if (panel && !panel.isCollapsed()) panel.resize(`${pixels}px`);
   }, []);
+  const fitWorkbenchWidth = useCallback(
+    (pixels: number | undefined) => {
+      const fit = workbenchFitRef.current;
+      const next = pixels === undefined ? undefined : Math.ceil(pixels);
+      if (next === undefined) {
+        if (fit.pixels === undefined && !fit.overridden) return;
+        workbenchFitRef.current = { overridden: false };
+      } else {
+        if (fit.pixels === next) return;
+        fit.pixels = next;
+        if (fit.overridden) return;
+      }
+      applyWorkbenchShare();
+    },
+    [applyWorkbenchShare],
+  );
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
       setWorkbenchPreference(open);
@@ -245,8 +280,16 @@ export function ClioAppShell({
     const panel = workbenchPanelRef.current;
     if (!panel) return;
     const collapsed = panel.isCollapsed();
-    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
-      const share = Math.round((panel.getSize().inPixels / window.innerWidth) * 1000) / 1000;
+    const fit = workbenchFitRef.current;
+    const pixels = panel.getSize().inPixels;
+    // A click on the separator of a fitted panel is not a new preference.
+    const unchangedFit = fit.applied !== undefined && Math.abs(pixels - fit.applied) <= 1;
+    if (!collapsed && !unchangedFit && typeof window !== 'undefined' && window.innerWidth) {
+      if (fit.applied !== undefined) {
+        fit.overridden = true;
+        fit.applied = undefined;
+      }
+      const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
       if (share !== workbenchShareRef.current) {
         workbenchShareRef.current = share;
         window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
@@ -303,8 +346,9 @@ export function ClioAppShell({
       show: () => setWorkbenchOpen(true),
       pendingStripPosition,
       clearPendingStripPosition: () => setPendingStripPosition(undefined),
+      fitWidth: fitWorkbenchWidth,
     }),
-    [pendingStripPosition, setWorkbenchOpen],
+    [fitWorkbenchWidth, pendingStripPosition, setWorkbenchOpen],
   );
 
   const sessionSurface = (

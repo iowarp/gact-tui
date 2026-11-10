@@ -147,7 +147,7 @@ function mount(
 
 async function openActivity() {
   const user = userEvent.setup();
-  // A conversation's pocket opens on Activity; pressing it again would close the list.
+  // A conversation's pocket opens on its Activity tab; the lit icon again would leave it.
   const button = within(screen.getByRole('toolbar', { name: 'Workbench lists' })).getByRole(
     'button',
     { name: 'Activity' },
@@ -194,9 +194,14 @@ describe('Workbench Activity', () => {
       'aria-selected',
       'true',
     );
-    expect(change).toHaveAttribute('aria-current', 'true');
+    // Back on the Activity tab, the row it came from is the current one.
+    const back = await openActivity();
+    expect(within(back.list).getByRole('button', { name: /regrid_stations\.py/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
 
-    await user.click(within(list).getByRole('button', { name: /soil_sites\.csv/ }));
+    await user.click(within(back.list).getByRole('button', { name: /soil_sites\.csv/ }));
     expect(screen.getByRole('tab', { name: /^soil_sites\.csv/ })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -209,7 +214,6 @@ describe('Workbench Activity', () => {
     const row = within(list).getByRole('button', { name: /^ndp_fetch|^Fetch/ });
     await user.click(row);
     expect(screen.getByRole('tab', { name: 'ndp_fetch' })).toHaveAttribute('aria-selected', 'true');
-    expect(row).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('region', { name: 'Input' })).toHaveTextContent('"dataset": "smap_l3"');
     expect(screen.getByRole('region', { name: 'Output' })).toHaveTextContent('rows: 12');
     const ranBy = screen.getByRole('region', { name: 'Ran by' });

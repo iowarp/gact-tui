@@ -579,6 +579,13 @@ export async function workbenchJourney(r) {
       { control: activity, close: undefined },
     );
   }
+  const activityButton = strip.getByRole('button', { name: 'Activity', exact: true }).first();
+  // The Activity list is a tab: a row opened from it leaves it, so come back to it.
+  if (
+    (await r.visible(activityButton, 1000)) &&
+    (await activityButton.getAttribute('aria-pressed')) !== 'true'
+  )
+    await activityButton.click();
   const timeline = page
     .getByRole('region', { name: 'Activity list' })
     .getByRole('button', { name: 'Open timeline and context' });

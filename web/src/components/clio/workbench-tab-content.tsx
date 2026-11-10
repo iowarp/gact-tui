@@ -31,6 +31,7 @@ const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import type { WorkbenchTabListView } from './workbench-strip';
 import { ResourceLoading } from './resource-states';
 
 const ArtifactView = lazy(() =>
@@ -84,6 +85,8 @@ export interface WorkbenchTabContentProps {
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
+  /** A strip list opened as a tab (Sources, Artifacts, Activity, Terminal, Browser pages). */
+  renderList: (view: WorkbenchTabListView) => ReactNode;
 }
 
 // Extracted from ClioWorkbench (which still owns tab state and callbacks) so
@@ -121,6 +124,7 @@ export function WorkbenchTabContent({
   onReplaceTab,
   onSelectFilesPath,
   onSelectWorkspaceFilePath,
+  renderList,
 }: WorkbenchTabContentProps): ReactNode {
   switch (tab.kind) {
     case 'work':
@@ -367,6 +371,8 @@ export function WorkbenchTabContent({
           />
         </Suspense>
       );
+    case 'list':
+      return renderList(tab.view);
     default:
       return assertNever(tab);
   }

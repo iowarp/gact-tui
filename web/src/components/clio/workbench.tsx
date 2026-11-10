@@ -49,7 +49,12 @@ import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import type { CanvasResourceKind } from './canvas-launcher';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
-import { changedPathSet, fileName, loadResourceViewers } from './workbench-shared';
+import {
+  changedPathSet,
+  fileName,
+  loadResourceViewers,
+  type WorkbenchTab,
+} from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
 import {
   htmlBrowserTarget,
@@ -60,11 +65,16 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { useWorkbenchTabVisibility } from './use-workbench-tab-visibility';
 import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
-import { agentTab, sessionTab } from './workbench-tab-storage';
+import { agentTab, listTab, sessionTab } from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
 import { WorkbenchTabRow } from './workbench-tab-row';
-import { WorkbenchStrip, type WorkbenchListView, type WorkbenchStripItem } from './workbench-strip';
-import { WorkbenchListColumn } from './workbench-list-column';
+import {
+  WorkbenchStrip,
+  type WorkbenchListView,
+  type WorkbenchStripItem,
+  type WorkbenchTabListView,
+} from './workbench-strip';
+import { WorkbenchListColumn, type WorkbenchListColumnProps } from './workbench-list-column';
 import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
 
@@ -252,12 +262,26 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     useWorkbenchTabVisibility(tabStripRef, activeTabRef, activeTabId, orderedTabs, maximized);
 
+    // The tab shown before the current one: a strip icon clicked again returns there.
+    const [tabHistory, setTabHistory] = useState({ active: activeTabId, previous: '' });
+    if (tabHistory.active !== activeTabId)
+      setTabHistory({ active: activeTabId, previous: tabHistory.active });
+    const previousTab = orderedTabs.find(
+      (tab) => tab.id === tabHistory.previous && tab.id !== activeTabId,
+    );
+
+    /** Files is the column beside the tabs; every other strip list opens (or focuses) its tab. */
     const showList = useCallback(
       (view: WorkbenchListView) => {
-        setListView(view);
-        setOverlayOpen(true);
+        if (view === 'files') {
+          setListView(view);
+          setOverlayOpen(true);
+          return;
+        }
+        if (view === 'artifacts') void loadResourceViewers();
+        openTab(listTab(view));
       },
-      [setListView],
+      [openTab, setListView],
     );
     const afterListPick = useCallback(() => {
       if (narrow) setOverlayOpen(false);
@@ -265,6 +289,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const canvasVisible = useWorkspaceCanvasVisibility();
     const canvasControl = useWorkspaceCanvasControl();
+    const clearFit = canvasControl?.fitWidth;
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -276,7 +301,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             showList('sources');
             return;
           case 'artifacts':
-            void loadResourceViewers();
             showList('artifacts');
             return;
           case 'session':
@@ -361,6 +385,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     };
 
     const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
+    const listIsPressed = (id: WorkbenchListView) =>
+      id === 'files' ? listShown && listView === 'files' : activeTabId === listTab(id).id;
     const stripItems: WorkbenchStripItem[] = [];
     const listItem = (id: WorkbenchListView, label: string, icon: ReactNode, count?: number) =>
       stripItems.push({
@@ -368,7 +394,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         label,
         icon,
         position: stripItems.filter((item) => item.position).length + 1,
-        pressed: listShown && listView === id,
+        pressed: listIsPressed(id),
         count,
       });
     listItem('files', 'Files', <FolderIcon />);
@@ -392,9 +418,18 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     if (onOpenTerminal) listItem('terminal', 'Terminal', <TerminalSquareIcon />);
     listItem('browser', 'Browser pages', <GlobeIcon />);
 
+    /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */
+    const toggleTab = (tab: WorkbenchTab) => {
+      if (activeTabId !== tab.id) {
+        if (tab.kind === 'list' && tab.view === 'artifacts') void loadResourceViewers();
+        openTab(tab);
+      } else if (previousTab) setActiveTabId(previousTab.id);
+      else closeTab(tab.id);
+    };
+
     const selectStripItem = (id: WorkbenchStripItem['id']) => {
       if (id === 'agent') {
-        openTab(agentTab);
+        toggleTab(agentTab);
         return;
       }
       if (id === 'science-log') {
@@ -407,13 +442,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         openTab(scienceLogTab);
         return;
       }
-      if (listShown && listView === id) {
+      if (id !== 'files') {
+        toggleTab(listTab(id));
+        return;
+      }
+      if (listShown && listView === 'files') {
         setListView(undefined);
         setOverlayOpen(false);
         return;
       }
-      if (id === 'artifacts') void loadResourceViewers();
-      showList(id);
+      showList('files');
     };
 
     useShortcut('strip-position', (_event, position) => {
@@ -423,9 +461,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         selectStripItem(item.id);
         return;
       }
-      // Closed: open the pocket at this item rather than toggling its list off.
+      // Closed: open the pocket at this item rather than toggling it off.
       canvasControl?.show();
-      if (!(listShown && listView === item.id)) selectStripItem(item.id);
+      if (!item.pressed) selectStripItem(item.id);
     });
     // A chord pressed while the pocket was unmounted (closed Sheet) lands here.
     const takePendingStripPosition = (position: number) => {
@@ -441,89 +479,113 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       region: asideRef,
     });
 
-    const list = listShown ? (
+    const listProps: Omit<WorkbenchListColumnProps, 'view' | 'overlay'> = {
+      activeTabId,
+      artifacts,
+      artifactsError,
+      artifactsPending,
+      artifactsTruncated,
+      changedPaths,
+      directory: listDirectory,
+      files,
+      filesError,
+      filesFetching,
+      filesNextOffset,
+      filesPending,
+      filesTruncated,
+      finishedWorkHidden,
+      onClearDirectory: () => setListDirectory(''),
+      onOpenTab: (tab) => {
+        openTab(tab);
+        afterListPick();
+      },
+      onOpenArtifact: (artifact) => {
+        openRequest({ kind: 'artifact', artifact });
+        afterListPick();
+      },
+      onOpenBrowserPage: (page: BrowserPage) => {
+        openRequest({
+          kind: 'browser',
+          pageId: page.id,
+          sessionId: page.session_id,
+          label: page.label,
+        });
+        afterListPick();
+      },
+      onOpenFile: (path) => {
+        // A picked file always gets its tab, even HTML: its viewer opens the
+        // shared browser on show and keeps the source if that fails.
+        openTab(
+          tabForOpenRequest({ kind: 'workspace-file', path }, sessionId, workspaceId, workspaceId),
+        );
+        afterListPick();
+      },
+      onOpenResource: (resource) => {
+        openRequest({ kind: 'resource', resource, relatedResources: resources });
+        afterListPick();
+      },
+      onOpenSubagent: (subagent) => {
+        openSubagentTab(subagent);
+        afterListPick();
+      },
+      onOpenTerminal: onOpenTerminal
+        ? () => {
+            onOpenTerminal();
+            afterListPick();
+          }
+        : undefined,
+      onRefreshFiles,
+      onSelectTab: (tabId) => {
+        setActiveTabId(tabId);
+        afterListPick();
+      },
+      resources,
+      resourcesError,
+      resourcesPending,
+      sessionId,
+      subagents,
+      tabs: orderedTabs,
+      workspaceId,
+    };
+    const list =
+      listShown && listView === 'files' ? (
+        <WorkbenchListColumn
+          {...listProps}
+          fill={orderedTabs.length === 0}
+          onHide={() => {
+            setListView(undefined);
+            setOverlayOpen(false);
+          }}
+          overlay={narrow === true}
+          view="files"
+        />
+      ) : null;
+    const filesFill = list !== null && orderedTabs.length === 0;
+    // A list tab alone narrows the canvas to what its rows need; beside the
+    // Files column (a share of the canvas) it keeps the stored width.
+    const fitList = !maximized && list === null;
+    const fitting = fitList && activeTab?.kind === 'list';
+    useEffect(() => {
+      if (!fitting) clearFit?.(undefined);
+    }, [clearFit, fitting]);
+    useEffect(() => () => clearFit?.(undefined), [clearFit]);
+    const fitWidth = canvasControl?.fitWidth;
+    const fitListWidth = (pixels: number, listWidth: number) => {
+      const aside = asideRef.current;
+      if (!aside || !fitWidth) return;
+      fitWidth(pixels + aside.getBoundingClientRect().width - listWidth);
+    };
+    // A list in a tab marks the tab it was reached from, the one a row last opened.
+    const renderList = (view: WorkbenchTabListView) => (
       <WorkbenchListColumn
-        activeTabId={activeTabId}
-        artifacts={artifacts}
-        artifactsError={artifactsError}
-        artifactsPending={artifactsPending}
-        artifactsTruncated={artifactsTruncated}
-        changedPaths={changedPaths}
-        directory={listDirectory}
-        files={files}
-        filesError={filesError}
-        filesFetching={filesFetching}
-        filesNextOffset={filesNextOffset}
-        filesPending={filesPending}
-        filesTruncated={filesTruncated}
-        finishedWorkHidden={finishedWorkHidden}
-        onClearDirectory={() => setListDirectory('')}
-        onHide={() => {
-          setListView(undefined);
-          setOverlayOpen(false);
-        }}
-        onOpenTab={(tab) => {
-          openTab(tab);
-          afterListPick();
-        }}
-        onOpenArtifact={(artifact) => {
-          openRequest({ kind: 'artifact', artifact });
-          afterListPick();
-        }}
-        onOpenBrowserPage={(page: BrowserPage) => {
-          openRequest({
-            kind: 'browser',
-            pageId: page.id,
-            sessionId: page.session_id,
-            label: page.label,
-          });
-          afterListPick();
-        }}
-        onOpenFile={(path) => {
-          // A picked file always gets its tab, even HTML: its viewer opens the
-          // shared browser on show and keeps the source if that fails.
-          openTab(
-            tabForOpenRequest(
-              { kind: 'workspace-file', path },
-              sessionId,
-              workspaceId,
-              workspaceId,
-            ),
-          );
-          afterListPick();
-        }}
-        onOpenResource={(resource) => {
-          openRequest({ kind: 'resource', resource, relatedResources: resources });
-          afterListPick();
-        }}
-        onOpenSubagent={(subagent) => {
-          openSubagentTab(subagent);
-          afterListPick();
-        }}
-        onOpenTerminal={
-          onOpenTerminal
-            ? () => {
-                onOpenTerminal();
-                afterListPick();
-              }
-            : undefined
-        }
-        onRefreshFiles={onRefreshFiles}
-        onSelectTab={(tabId) => {
-          setActiveTabId(tabId);
-          afterListPick();
-        }}
-        overlay={narrow === true}
-        resources={resources}
-        resourcesError={resourcesError}
-        resourcesPending={resourcesPending}
-        sessionId={sessionId}
-        subagents={subagents}
-        tabs={orderedTabs}
-        view={listView}
-        workspaceId={workspaceId}
+        {...listProps}
+        activeTabId={previousTab?.id ?? ''}
+        asTab
+        onFitWidth={fitList ? fitListWidth : undefined}
+        overlay={false}
+        view={view}
       />
-    ) : null;
+    );
 
     const canvas = (
       <aside
@@ -540,147 +602,152 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       >
         <WorkbenchTabListProvider slot={tabList.slot}>
           <TooltipProvider delayDuration={450}>
-            <Tabs
-              className="min-h-0 min-w-0 flex-1 gap-0"
-              onValueChange={setActiveTabId}
-              value={activeTabId}
-            >
-              <WorkbenchTabRow
-                workspaceId={workspaceId}
-                activeTabId={activeTabId}
-                activeTabRef={activeTabRef}
-                changedPaths={changedPaths}
-                onClose={closeTab}
-                onCloseOthers={(tabId) =>
-                  closeTabs(
-                    orderedTabs
-                      .filter((tab) => tab.id !== tabId && !pinned.has(tab.id))
-                      .map((tab) => tab.id),
-                  )
-                }
-                onCloseToRight={(tabId) =>
-                  closeTabs(
-                    orderedTabs
-                      .slice(orderedTabs.findIndex((tab) => tab.id === tabId) + 1)
-                      .filter((tab) => !pinned.has(tab.id))
-                      .map((tab) => tab.id),
-                  )
-                }
-                onMove={moveTab}
-                onReorder={setTabs}
-                onSelect={setActiveTabId}
-                onShowInFiles={(tab) => {
-                  const path = workbenchTabPath(tab);
-                  if (path === undefined) return;
-                  openRequest({
-                    kind: 'workspace-folder',
-                    path: parentDirectory(path),
-                    workspaceId: 'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                  });
-                }}
-                onTogglePin={(tabId) =>
-                  setPinnedIds((current) =>
-                    current.includes(tabId)
-                      ? current.filter((id) => id !== tabId)
-                      : [...current, tabId],
-                  )
-                }
-                pinnedIds={pinned}
-                stripRef={tabStripRef}
-                tabs={orderedTabs}
-                trailing={
-                  <IconButton
-                    icon={maximized ? <Minimize2Icon /> : <Maximize2Icon />}
-                    label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
-                    onClick={(event) => toggleMaximized(event.currentTarget)}
-                    ref={maximizeButtonRef}
-                    shortcut="maximize"
-                    // Hugging its icon, clear of the file toolbar's More button under it.
-                    shortcutSide="under-icon"
-                    tooltipSide="bottom"
-                  />
-                }
-              />
-              {orderedTabs.map((tab) => (
-                // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
-                <TabsContent
-                  className="isolate m-0 min-h-0 overflow-hidden"
-                  key={tab.id}
-                  value={tab.id}
-                >
-                  {/* Only the active tab: Radix Presence renders an outgoing panel once more
+            {filesFill ? null : (
+              <Tabs
+                className="min-h-0 min-w-0 flex-1 gap-0"
+                onValueChange={setActiveTabId}
+                value={activeTabId}
+              >
+                <WorkbenchTabRow
+                  workspaceId={workspaceId}
+                  activeTabId={activeTabId}
+                  activeTabRef={activeTabRef}
+                  changedPaths={changedPaths}
+                  onClose={closeTab}
+                  onCloseOthers={(tabId) =>
+                    closeTabs(
+                      orderedTabs
+                        .filter((tab) => tab.id !== tabId && !pinned.has(tab.id))
+                        .map((tab) => tab.id),
+                    )
+                  }
+                  onCloseToRight={(tabId) =>
+                    closeTabs(
+                      orderedTabs
+                        .slice(orderedTabs.findIndex((tab) => tab.id === tabId) + 1)
+                        .filter((tab) => !pinned.has(tab.id))
+                        .map((tab) => tab.id),
+                    )
+                  }
+                  onMove={moveTab}
+                  onReorder={setTabs}
+                  onSelect={setActiveTabId}
+                  onShowInFiles={(tab) => {
+                    const path = workbenchTabPath(tab);
+                    if (path === undefined) return;
+                    openRequest({
+                      kind: 'workspace-folder',
+                      path: parentDirectory(path),
+                      workspaceId: 'workspaceId' in tab ? tab.workspaceId : workspaceId,
+                    });
+                  }}
+                  onTogglePin={(tabId) =>
+                    setPinnedIds((current) =>
+                      current.includes(tabId)
+                        ? current.filter((id) => id !== tabId)
+                        : [...current, tabId],
+                    )
+                  }
+                  pinnedIds={pinned}
+                  stripRef={tabStripRef}
+                  tabs={orderedTabs}
+                  trailing={
+                    <IconButton
+                      icon={maximized ? <Minimize2Icon /> : <Maximize2Icon />}
+                      label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
+                      onClick={(event) => toggleMaximized(event.currentTarget)}
+                      ref={maximizeButtonRef}
+                      shortcut="maximize"
+                      // Hugging its icon, clear of the file toolbar's More button under it.
+                      shortcutSide="under-icon"
+                      tooltipSide="bottom"
+                    />
+                  }
+                />
+                {orderedTabs.map((tab) => (
+                  // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
+                  <TabsContent
+                    className="isolate m-0 min-h-0 overflow-hidden"
+                    key={tab.id}
+                    value={tab.id}
+                  >
+                    {/* Only the active tab: Radix Presence renders an outgoing panel once more
                     before unmounting it, which would mount a tab that is being left. */}
-                  {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
-                    <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
-                      <PresentationNavigation.Provider
-                        value={{
-                          workspaceId: 'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                          sessionId,
-                          artifacts: Object.fromEntries(artifacts.map((item) => [item.id, item])),
-                          resources: Object.fromEntries(resources.map((item) => [item.id, item])),
-                          subagents: Object.fromEntries(subagents.map((item) => [item.id, item])),
-                          onOpenFile: (path) =>
-                            openRequest(
-                              { kind: 'workspace-file', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenFolder: (path) =>
-                            openRequest(
-                              { kind: 'workspace-folder', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenFileReference: (path, location) =>
-                            openRequest(
-                              { ...location, kind: 'workspace-file', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenArtifact: (artifact) => openRequest({ kind: 'artifact', artifact }),
-                          onOpenResource: (resource) => openRequest({ kind: 'resource', resource }),
-                          onOpenSubagent,
-                        }}
-                      >
-                        <WorkbenchTabContent
-                          artifacts={artifacts}
-                          artifactsError={artifactsError}
-                          artifactsPending={artifactsPending}
-                          artifactsTruncated={artifactsTruncated}
-                          diffActionError={diffActionError}
-                          diffActionPending={diffActionPending}
-                          diffs={diffs}
-                          files={files}
-                          filesError={filesError}
-                          filesFetching={filesFetching}
-                          filesPending={filesPending}
-                          filesTruncated={filesTruncated}
-                          filesNextOffset={filesNextOffset}
-                          maximized={maximized}
-                          onOpenSubagent={onOpenSubagent}
-                          onOpenTab={openTab}
-                          onRefreshFiles={onRefreshFiles}
-                          onShowFolder={showFolder}
-                          onUndoDiff={onUndoDiff}
-                          onReplaceTab={replaceTab}
-                          onSelectFilesPath={selectFilesPath}
-                          onSelectWorkspaceFilePath={selectWorkspaceFilePath}
-                          resources={resources}
-                          resourcesError={resourcesError}
-                          resourcesPending={resourcesPending}
-                          sessionId={sessionId}
-                          sessionView={sessionView}
-                          agentView={agentView}
-                          tab={tab}
-                          workspaceId={workspaceId}
-                        />
-                      </PresentationNavigation.Provider>
-                    </WorkbenchTabErrorBoundary>
-                  ) : null}
-                </TabsContent>
-              ))}
-              {orderedTabs.length === 0 ? (
-                // Spec states: icon and one line saying what isn't there (conversation-states).
-                <StateView className="h-full" kind="empty" size="panel" title="No tabs open" />
-              ) : null}
-            </Tabs>
+                    {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
+                      <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
+                        <PresentationNavigation.Provider
+                          value={{
+                            workspaceId: 'workspaceId' in tab ? tab.workspaceId : workspaceId,
+                            sessionId,
+                            artifacts: Object.fromEntries(artifacts.map((item) => [item.id, item])),
+                            resources: Object.fromEntries(resources.map((item) => [item.id, item])),
+                            subagents: Object.fromEntries(subagents.map((item) => [item.id, item])),
+                            onOpenFile: (path) =>
+                              openRequest(
+                                { kind: 'workspace-file', path },
+                                'workspaceId' in tab ? tab.workspaceId : workspaceId,
+                              ),
+                            onOpenFolder: (path) =>
+                              openRequest(
+                                { kind: 'workspace-folder', path },
+                                'workspaceId' in tab ? tab.workspaceId : workspaceId,
+                              ),
+                            onOpenFileReference: (path, location) =>
+                              openRequest(
+                                { ...location, kind: 'workspace-file', path },
+                                'workspaceId' in tab ? tab.workspaceId : workspaceId,
+                              ),
+                            onOpenArtifact: (artifact) =>
+                              openRequest({ kind: 'artifact', artifact }),
+                            onOpenResource: (resource) =>
+                              openRequest({ kind: 'resource', resource }),
+                            onOpenSubagent,
+                          }}
+                        >
+                          <WorkbenchTabContent
+                            artifacts={artifacts}
+                            artifactsError={artifactsError}
+                            artifactsPending={artifactsPending}
+                            artifactsTruncated={artifactsTruncated}
+                            diffActionError={diffActionError}
+                            diffActionPending={diffActionPending}
+                            diffs={diffs}
+                            files={files}
+                            filesError={filesError}
+                            filesFetching={filesFetching}
+                            filesPending={filesPending}
+                            filesTruncated={filesTruncated}
+                            filesNextOffset={filesNextOffset}
+                            maximized={maximized}
+                            onOpenSubagent={onOpenSubagent}
+                            onOpenTab={openTab}
+                            onRefreshFiles={onRefreshFiles}
+                            onShowFolder={showFolder}
+                            onUndoDiff={onUndoDiff}
+                            onReplaceTab={replaceTab}
+                            onSelectFilesPath={selectFilesPath}
+                            onSelectWorkspaceFilePath={selectWorkspaceFilePath}
+                            renderList={renderList}
+                            resources={resources}
+                            resourcesError={resourcesError}
+                            resourcesPending={resourcesPending}
+                            sessionId={sessionId}
+                            sessionView={sessionView}
+                            agentView={agentView}
+                            tab={tab}
+                            workspaceId={workspaceId}
+                          />
+                        </PresentationNavigation.Provider>
+                      </WorkbenchTabErrorBoundary>
+                    ) : null}
+                  </TabsContent>
+                ))}
+                {orderedTabs.length === 0 ? (
+                  // Spec states: icon and one line saying what isn't there (conversation-states).
+                  <StateView className="h-full" kind="empty" size="panel" title="No tabs open" />
+                ) : null}
+              </Tabs>
+            )}
             {list ?? tabList.column}
             <WorkbenchStrip items={stripItems} onSelect={selectStripItem} />
           </TooltipProvider>

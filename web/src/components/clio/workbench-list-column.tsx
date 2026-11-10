@@ -14,7 +14,7 @@ import {
   SearchIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { memo, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,24 +46,23 @@ import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkbenchListResizeHandle } from './workbench-list-resize';
+import { useListFitWidth } from './workbench-list-fit';
 import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
 import type { WorkbenchTab } from './workbench-shared';
-
-const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
-  files: 'Files',
-  sources: 'Sources',
-  artifacts: 'Artifacts',
-  activity: 'Activity',
-  terminal: 'Terminal',
-  browser: 'Browser pages',
-};
+import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 
 export interface WorkbenchListColumnProps {
   view: WorkbenchListView;
   /** Narrow panel: the list lies over the tab and hides after a pick. */
   overlay: boolean;
-  onHide: () => void;
+  /** The list fills a workbench tab instead of the column beside the tabs. */
+  asTab?: boolean;
+  /** In a tab: the width its rows need untruncated, and the width it has. */
+  onFitWidth?: (pixels: number, listWidth: number) => void;
+  /** As a column with no tabs open: it takes the whole workbench, without a handle. */
+  fill?: boolean;
+  onHide?: () => void;
   workspaceId: string;
   sessionId: string;
   tabs: readonly WorkbenchTab[];
@@ -104,60 +103,99 @@ export interface WorkbenchListColumnProps {
 }
 
 /**
- * The list beside the tabs, chosen on the strip. A row opens its item as a
- * tab; the list stays (or, over a narrow panel, steps aside).
+ * A strip's list: Files as the column beside the tabs, the others as a tab of
+ * their own. A row opens its item as a tab; the column stays (or, over a narrow
+ * panel, steps aside).
  */
 export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   props: WorkbenchListColumnProps,
 ) {
-  const { view, overlay, onHide } = props;
+  const { view, overlay, asTab = false, onHide } = props;
   const title = WORKBENCH_LIST_TITLES[view];
   const renderHeader = (actions: ReactNode) => (
     <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
   );
+  const body =
+    view === 'activity' ? (
+      <WorkbenchActivityList
+        activeTabId={props.activeTabId}
+        finishedWorkHidden={props.finishedWorkHidden}
+        onOpenArtifact={props.onOpenArtifact}
+        onOpenFile={props.onOpenFile}
+        onOpenSubagent={props.onOpenSubagent}
+        onOpenTab={props.onOpenTab}
+        renderHeader={renderHeader}
+        sessionId={props.sessionId}
+        subagents={props.subagents}
+        tabs={props.tabs}
+        workspaceId={props.workspaceId}
+      />
+    ) : view === 'files' ? (
+      <FilesList {...props} renderHeader={renderHeader} />
+    ) : view === 'artifacts' ? (
+      <ArtifactsList {...props} renderHeader={renderHeader} />
+    ) : view === 'sources' ? (
+      <SourcesList {...props} renderHeader={renderHeader} />
+    ) : (
+      <>
+        <WorkbenchListHeader onHide={onHide} title={title} />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ListBody {...props} />
+        </div>
+      </>
+    );
+  if (asTab)
+    return (
+      <WorkbenchListTabSection onFitWidth={props.onFitWidth} title={title}>
+        {body}
+      </WorkbenchListTabSection>
+    );
   return (
-    <WorkbenchListSection overlay={overlay} title={title} wide={view === 'activity'}>
-      {view === 'activity' ? (
-        <WorkbenchActivityList
-          activeTabId={props.activeTabId}
-          finishedWorkHidden={props.finishedWorkHidden}
-          onOpenArtifact={props.onOpenArtifact}
-          onOpenFile={props.onOpenFile}
-          onOpenSubagent={props.onOpenSubagent}
-          onOpenTab={props.onOpenTab}
-          renderHeader={renderHeader}
-          sessionId={props.sessionId}
-          subagents={props.subagents}
-          tabs={props.tabs}
-          workspaceId={props.workspaceId}
-        />
-      ) : view === 'files' ? (
-        <FilesList {...props} renderHeader={renderHeader} />
-      ) : view === 'artifacts' ? (
-        <ArtifactsList {...props} renderHeader={renderHeader} />
-      ) : view === 'sources' ? (
-        <SourcesList {...props} renderHeader={renderHeader} />
-      ) : (
-        <>
-          <WorkbenchListHeader onHide={onHide} title={title} />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ListBody {...props} />
-          </div>
-        </>
-      )}
+    <WorkbenchListSection
+      fill={props.fill}
+      overlay={overlay}
+      title={title}
+      wide={view === 'activity'}
+    >
+      {body}
     </WorkbenchListSection>
   );
 });
+
+function WorkbenchListTabSection({
+  title,
+  onFitWidth,
+  children,
+}: {
+  title: string;
+  onFitWidth?: (pixels: number, listWidth: number) => void;
+  children: ReactNode;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
+  useListFitWidth(sectionRef, onFitWidth);
+  return (
+    <section
+      aria-label={`${title} list`}
+      data-slot="workbench-list-tab"
+      ref={sectionRef}
+      className="flex h-full min-h-0 flex-col bg-background"
+    >
+      {children}
+    </section>
+  );
+}
 
 /** The column beside the tabs: a strip's list, or the open tab's own (a study tree). */
 export function WorkbenchListSection({
   title,
   overlay,
+  fill = false,
   wide = false,
   children,
 }: {
   title: string;
   overlay: boolean;
+  fill?: boolean;
   /** Activity's wider rows: spec `.bc.w`, 46% rather than `.bc`'s 36%. */
   wide?: boolean;
   children: ReactNode;
@@ -170,6 +208,7 @@ export function WorkbenchListSection({
       aria-label={`${title} list`}
       data-slot="workbench-list"
       data-overlay={overlay || undefined}
+      data-fill={(fill && !overlay) || undefined}
       ref={sectionRef}
       className={cn(
         'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
@@ -178,12 +217,15 @@ export function WorkbenchListSection({
         // tab), and a pick closes it.
         overlay
           ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : // The tabs keep 280 px beside the list and the 44 px strip.
-            'relative h-full max-w-[calc(100%-324px)] min-w-[180px]',
+          : fill
+            ? // Nothing open beside it: no empty pane, the list takes the workbench.
+              'relative h-full min-w-0 flex-1 border-l-0'
+            : // The tabs keep 280 px beside the list and the 44 px strip.
+              'relative h-full max-w-[calc(100%-324px)] min-w-[180px]',
       )}
-      style={overlay ? undefined : { width: `${Math.round(share * 1000) / 10}%` }}
+      style={overlay || fill ? undefined : { width: `${Math.round(share * 1000) / 10}%` }}
     >
-      {overlay ? null : (
+      {overlay || fill ? null : (
         <WorkbenchListResizeHandle
           commit={commit}
           reset={reset}
@@ -205,21 +247,27 @@ export function WorkbenchListHeader({
 }: {
   title: string;
   actions?: ReactNode;
-  onHide: () => void;
+  /** Absent for a list in a tab: its tab closes it. */
+  onHide?: () => void;
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5">
+    <div
+      data-slot="workbench-list-header"
+      className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
+    >
       <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
         {title}
       </h2>
       {actions}
-      <IconButton
-        icon={<PanelRightCloseIcon />}
-        label={`Hide ${title}`}
-        onClick={onHide}
-        size="sm"
-        tooltipSide="bottom"
-      />
+      {onHide ? (
+        <IconButton
+          icon={<PanelRightCloseIcon />}
+          label={`Hide ${title}`}
+          onClick={onHide}
+          size="sm"
+          tooltipSide="bottom"
+        />
+      ) : null}
     </div>
   );
 }

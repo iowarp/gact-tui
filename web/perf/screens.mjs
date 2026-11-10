@@ -115,7 +115,7 @@ async function openCanvas(page) {
   }
 }
 
-/** Show one of the workbench lists (Files, Sources, ?) from the strip. */
+/** Show a workbench list from the strip: Files as the column, the others as their tab. */
 async function stripList(page, name) {
   await openCanvas(page);
   const item = page
@@ -209,7 +209,7 @@ async function pickMode(page, names) {
   throw new Error(`no mode control named ${names.join(' or ')}`);
 }
 
-/** Hide the strip list a scenario opened from, and show the tab's own list if it has one. */
+/** Leave the strip list a scenario opened from, and show the tab's own list if it has one. */
 async function tabOnly(page, stripName, tabListTitle) {
   const item = page
     .getByRole('toolbar', { name: 'Workbench lists' })
@@ -259,7 +259,7 @@ async function openVault(page) {
   // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
   await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
   await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
-  // The vault opens as a tab under the Sources list; close the list to show it.
+  // The vault opens as its own tab; a Sources tab still lit goes back to it.
   const sources = page
     .getByRole('toolbar', { name: 'Workbench lists' })
     .getByRole('button', { name: 'Sources', exact: true })
@@ -885,12 +885,12 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
-    // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
-    // tab), the modes are a checked list in …. Where the list is a sheet over
+    // workbench-lineage "Step 6, … open": narrowest (the Files column beside the
+    // tab), the modes are a checked list in …. Where the column is a sheet over
     // the tab, it hides first.
     s('canvas', 'file-csv-more', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
-      await stripList(page, 'Activity');
+      await stripList(page, 'Files');
       const more = page
         .getByRole('toolbar', { name: 'File' })
         .filter({ visible: true })

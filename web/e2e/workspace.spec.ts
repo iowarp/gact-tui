@@ -219,11 +219,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     const rail = await openConversationRail(page);
     await rail.getByRole('button', { name: 'Open full view' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-    // Full details lands on the Activity list; the Gantt and Context are its Timeline tab.
+    // Full details lands on the Activity tab; the Gantt and Context are its Timeline tab.
     await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
-    // A 320px workbench shows its list as a sheet over the tab; this test reads the tab.
-    const hideActivity = canvas.getByRole('button', { name: 'Hide Activity', exact: true });
-    if (await hideActivity.isVisible()) await hideActivity.click();
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();
     if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
@@ -782,7 +779,7 @@ test('indexes the dense flat-NDP transcript in its minimap rail', async ({ page 
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
 });
 
-/** Open the canvas pocket on the dense session; it starts on the Activity list. */
+/** Open the canvas pocket on the dense session; it starts on the Activity tab. */
 async function openDenseFlatNdpCanvas(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openDenseFlatNdp(page);
@@ -799,7 +796,7 @@ test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ pa
     animations: 'allow',
     maxDiffPixels: desktopMaxDiffPixels,
   });
-  // A fresh pocket opens on the Activity list; Timeline is one button away.
+  // A fresh pocket opens on the Activity tab; Timeline is one button away.
   await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
   const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but

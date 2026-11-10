@@ -10,6 +10,7 @@ import {
   FolderIcon,
   GlobeIcon,
   ListChecksIcon,
+  ListIcon,
   PaperclipIcon,
   TerminalSquareIcon,
   WorkflowIcon,
@@ -17,6 +18,7 @@ import {
 import type { ComponentType } from 'react';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { isChangedPath, type WorkbenchTab } from './workbench-shared';
+import type { WorkbenchTabListView } from './workbench-strip';
 
 export const workbenchTabIcons = {
   knowledge: BookIcon,
@@ -36,10 +38,20 @@ export const workbenchTabIcons = {
   flow: WorkflowIcon,
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
+  list: ListIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
 >;
+
+/** A list tab wears its strip icon, so the tab and the icon that opened it match. */
+export const workbenchListTabIcons = {
+  sources: PaperclipIcon,
+  artifacts: BoxIcon,
+  activity: ActivityIcon,
+  terminal: TerminalSquareIcon,
+  browser: GlobeIcon,
+} satisfies Record<WorkbenchTabListView, ComponentType>;
 
 /** The workspace path a tab shows, when it shows one (Show in Files, Copy path). */
 export function workbenchTabPath(tab: WorkbenchTab): string | undefined {

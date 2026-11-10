@@ -14,6 +14,11 @@ export interface WorkspaceCanvasControl {
   show: () => void;
   pendingStripPosition?: number;
   clearPendingStripPosition: () => void;
+  /**
+   * A sparse list tab asks for only the pixels it needs; the rest goes back to
+   * the conversation. `undefined` returns to the stored width.
+   */
+  fitWidth?: (pixels: number | undefined) => void;
 }
 
 export const WorkspaceCanvasControlContext = createContext<WorkspaceCanvasControl | undefined>(

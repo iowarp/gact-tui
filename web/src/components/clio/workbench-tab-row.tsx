@@ -48,6 +48,7 @@ import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
   tabChanged,
+  workbenchListTabIcons,
   workbenchTabIcons,
   workbenchTabLabel,
   workbenchTabPath,
@@ -60,7 +61,7 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
     return <ArtifactTypeIcon artifact={tab.artifact} className="size-3.5" />;
   if (tab.kind === 'activity')
     return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
-  const Icon = workbenchTabIcons[tab.kind];
+  const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
 

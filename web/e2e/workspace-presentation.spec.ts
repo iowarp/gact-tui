@@ -175,7 +175,7 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   expect(canvasHeader!.height).toBe(40);
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  // The Activity list takes 46% of the pocket; the wide viewer is the tab alone.
+  // No Files column beside it: the wide viewer is the tab alone.
   await hideWorkbenchList(page);
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
   for (const name of ['Zoom in', 'Zoom out', 'Open options', 'File actions']) {

@@ -22,8 +22,8 @@ import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
 import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
-import type { WorkbenchListView } from './workbench-strip';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { WorkspaceCanvasControlContext } from './workspace-canvas-visibility-context';
 import { rangeReadsFromText } from '@/test/workspace-file-range';
 
 const { repository, useAppearancePreferences } = vi.hoisted(() => ({
@@ -103,15 +103,15 @@ function strip() {
   return within(screen.getByRole('toolbar', { name: 'Workbench lists' }));
 }
 
-/** A returning conversation: the pocket restores what it showed last time. A fresh one opens no tab. */
+/** A returning conversation: the pocket restores what it showed last time. */
 function restorePocket({
   timeline = true,
   listView = 'files',
-}: { timeline?: boolean; listView?: WorkbenchListView } = {}) {
+}: { timeline?: boolean; listView?: 'files' | null } = {}) {
   saveWorkbenchState('workspace_1', {
     tabs: timeline ? [sessionTab] : [],
     activeTabId: timeline ? sessionTab.id : '',
-    listView,
+    listView: listView ?? undefined,
     pinnedIds: [],
   });
 }
@@ -147,12 +147,13 @@ describe('ClioWorkbench canvas', () => {
         sessionView={<p>Send your first message to see session activity.</p>}
       />,
     );
-    // No conversation: no tabs, and the Files list stands beside the empty frame.
+    // No conversation: no tabs, and the Files list takes the whole workbench, no empty pane beside it.
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(strip().getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
-    expect(screen.getByText('No tabs open')).toBeVisible();
-    // Work folds into Activity: asking for it shows the Activity list, not a session tab.
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
+    expect(screen.queryByText('No tabs open')).not.toBeInTheDocument();
+    expect(screen.queryByRole('separator', { name: /Resize/ })).not.toBeInTheDocument();
+    // Work folds into Activity: asking for it opens the Activity tab, not a session tab.
     await act(async () => handle.current?.open({ kind: 'resources', section: 'work' }));
     expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
       'aria-pressed',
@@ -160,12 +161,14 @@ describe('ClioWorkbench canvas', () => {
     );
     const list = screen.getByRole('region', { name: 'Activity list' });
     expect(within(list).getByText('Activity starts with the first message')).toBeVisible();
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Activity']);
+    // Files drops back to the resizable column beside it.
+    expect(screen.getByRole('region', { name: 'Files list' })).not.toHaveAttribute('data-fill');
   });
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const user = userEvent.setup();
-    restorePocket();
+    restorePocket({ listView: null });
     const { container } = render(
       <ClioWorkbench
         artifacts={[]}
@@ -225,42 +228,141 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('Session intelligence')).toBeVisible();
   });
 
-  it('starts a conversation on its Activity list and switches the list beside the tabs from the strip', async () => {
+  it('starts a conversation on its Activity tab and launches each list as a tab from the strip', async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
-    // Activity replaces the old Observability tab: a fresh pocket opens no tab.
-    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // A fresh pocket opens on its Activity tab; no list column sits beside it.
+    const activityButton = strip().getByRole('button', { name: 'Activity' });
+    expect(activityButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
     const activity = screen.getByRole('region', { name: 'Activity list' });
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
-    expect(screen.getByText('No tabs open')).toBeVisible();
+    expect(activity).toHaveAttribute('data-slot', 'workbench-list-tab');
+    expect(within(activity).queryByRole('button', { name: /^Hide / })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="workbench-list"]')).toBeNull();
 
     await user.click(within(activity).getByRole('button', { name: 'Open timeline and context' }));
     expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Session intelligence')).toBeVisible();
     expect(screen.getByRole('tablist').parentElement).toHaveClass('no-scrollbar');
+    expect(activityButton).toHaveAttribute('aria-pressed', 'false');
 
     const artifacts = strip().getByRole('button', { name: 'Artifacts' });
     await user.click(artifacts);
     expect(artifacts).toHaveAttribute('aria-pressed', 'true');
-    expect(strip().getByRole('button', { name: 'Activity' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.queryByRole('region', { name: 'Activity list' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('region', { name: 'Artifacts list' })).toBeVisible();
     expect(screen.getByText('No artifacts in this conversation')).toBeVisible();
-    // The tab stays where it was: a list is not a tab.
-    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
 
-    // Pressing the lit item again hides the list.
+    // The lit icon again goes back to the tab shown before; the list tab stays for next time.
     await user.click(artifacts);
     expect(artifacts).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('region', { name: 'Artifacts list' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+
+    // A launcher focuses its tab rather than opening another.
+    await user.click(artifacts);
+    expect(screen.getAllByRole('tab', { name: 'Artifacts' })).toHaveLength(1);
+    await user.click(activityButton);
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    await user.click(activityButton);
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('toggles the Agent tab back to the previous tab, and closes a lone list tab', async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+    const agent = strip().getByRole('button', { name: 'Agent' });
+
+    await user.click(agent);
+    expect(agent).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Agent' })).toHaveAttribute('aria-selected', 'true');
+    await user.click(agent);
+    expect(agent).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+
+    act(() => screen.getByRole('tab', { name: 'Agent' }).focus());
+    await user.keyboard('{Delete}');
+    // With no tab to go back to, the lit icon closes its tab.
+    await user.click(strip().getByRole('button', { name: 'Activity' }));
+    expect(screen.queryByRole('tab', { name: 'Activity' })).not.toBeInTheDocument();
+    expect(screen.getByText('No tabs open')).toBeVisible();
+  });
+
+  it('keeps Files as the column beside the tabs', async () => {
+    const user = userEvent.setup();
+    restorePocket({ listView: null });
+    renderWorkbench();
+    const files = strip().getByRole('button', { name: 'Files' });
+
+    await user.click(files);
+    expect(files).toHaveAttribute('aria-pressed', 'true');
+    const column = screen.getByRole('region', { name: 'Files list' });
+    expect(column).toHaveAttribute('data-slot', 'workbench-list');
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
+
+    // A list tab opens beside the Files column, which stays.
+    await user.click(strip().getByRole('button', { name: 'Sources' }));
+    expect(screen.getByRole('tab', { name: 'Sources' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('region', { name: 'Files list' })).toBeVisible();
+
+    await user.click(files);
+    expect(screen.queryByRole('region', { name: 'Files list' })).not.toBeInTheDocument();
+  });
+
+  it('turns a list column saved by an older build into its tab', () => {
+    restorePocket({ listView: 'artifacts' as 'files' });
+    renderWorkbench();
+
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
+    expect(document.querySelector('[data-slot="workbench-list"]')).toBeNull();
+  });
+
+  it('lets the Files column fill the workbench once the last tab closes', async () => {
+    const user = userEvent.setup();
+    restorePocket();
+    const { container } = renderWorkbench();
+    const column = () => screen.getByRole('region', { name: 'Files list' });
+    expect(column()).not.toHaveAttribute('data-fill');
+
+    await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
+    expect(column()).toHaveAttribute('data-fill', 'true');
+    expect(screen.queryByText('No tabs open')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
+
+  it('returns the canvas to its stored width when a list tab is left', async () => {
+    const user = userEvent.setup();
+    const fitWidth = vi.fn();
+    restorePocket({ listView: null });
+    render(
+      <WorkspaceCanvasControlContext.Provider
+        value={{ show: vi.fn(), clearPendingStripPosition: vi.fn(), fitWidth }}
+      >
+        <ClioWorkbench
+          artifacts={[]}
+          diffs={[]}
+          files={[]}
+          onOpenSubagent={vi.fn()}
+          onUndoDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </WorkspaceCanvasControlContext.Provider>,
+    );
+    expect(fitWidth).toHaveBeenLastCalledWith(undefined);
+
+    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
+    fitWidth.mockClear();
+    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
+    expect(fitWidth).toHaveBeenLastCalledWith(undefined);
   });
 
   it('offers the terminal from the strip when the workspace terminal is available', async () => {
@@ -410,7 +512,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('tab', { name: /^report\.md/ })).toBeInTheDocument();
   });
 
-  it('opens an artifact from the Artifacts list and keeps the list beside it', async () => {
+  it('opens an artifact from the Artifacts tab and marks it there when the list is back', async () => {
     const user = userEvent.setup();
     render(
       <ClioWorkbench
@@ -459,16 +561,21 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByLabelText('Artifact view: report.md')).toBeVisible();
     expect(screen.queryByLabelText('Artifact view: stations.csv')).not.toBeInTheDocument();
-    // The list stays beside the opened artifact and marks it as the current one.
-    expect(within(list).getByRole('button', { name: /report\.md/ })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
+    // Back on the Artifacts tab, the list marks the artifact it came from.
+    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
+    expect(
+      within(screen.getByRole('region', { name: 'Artifacts list' })).getByRole('button', {
+        name: /report\.md/,
+      }),
+    ).toHaveAttribute('aria-current', 'true');
+    // ...and the icon again returns to it.
+    await user.click(strip().getByRole('button', { name: 'Artifacts' }));
+    expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('closes and reopens activity as a normal canvas tab', async () => {
     const user = userEvent.setup();
-    restorePocket();
+    restorePocket({ listView: null });
     renderWorkbench();
 
     const activityTab = screen.getByRole('tab', { name: 'Timeline' });

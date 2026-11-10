@@ -5,6 +5,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { ActivityKind } from './workbench-activity-model';
+import type { WorkbenchTabListView } from './workbench-strip';
 
 export type WorkbenchTab =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
@@ -33,6 +34,8 @@ export type WorkbenchTab =
   | { id: 'agent'; kind: 'agent'; label: 'Agent' }
   | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | { id: 'science-log'; kind: 'science-log'; label: 'Science log' }
+  /** A strip list (Sources, Artifacts, Activity, Terminal, Browser pages) as a tab. */
+  | { id: `list:${WorkbenchTabListView}`; kind: 'list'; label: string; view: WorkbenchTabListView }
   | {
       id: string;
       kind: 'workspace-file';
