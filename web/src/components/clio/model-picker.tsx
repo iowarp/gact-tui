@@ -196,7 +196,10 @@ export function ClioModelPicker({
   useShortcut(
     shortcut ?? 'model-picker',
     () => {
-      if (!triggerRef.current?.disabled) handleOpenChange(true);
+      const trigger = triggerRef.current;
+      if (!trigger?.disabled && trigger?.getAttribute('aria-disabled') !== 'true') {
+        handleOpenChange(true);
+      }
     },
     { enabled: Boolean(shortcut) && !open, allowInTextField: true },
   );
