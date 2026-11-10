@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useClioMenuConnections } from '@/hooks/use-clio-menu-connections';
 import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
+import { useRailKeyboard } from '@/hooks/use-rail-keyboard';
+import { useArchivedSessions } from '@/hooks/use-rail-sessions';
+import type { ListState } from '@/lib/list-state';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
@@ -31,6 +34,8 @@ export interface ClioNavigationProps {
   agents: readonly AgentEntry[];
   onOpenWorkspaceFiles?: () => void;
   attentions: Readonly<Record<string, SessionAttention>>;
+  /** The workspace list's loading or failure, while it lists none. */
+  workspacesState?: ListState;
 }
 
 export function ClioNavigation({
@@ -43,6 +48,7 @@ export function ClioNavigation({
   agents,
   onOpenWorkspaceFiles,
   attentions,
+  workspacesState,
 }: ClioNavigationProps) {
   const location = useLocation();
   const {
@@ -55,6 +61,7 @@ export function ClioNavigation({
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const archived = useArchivedSessions(sessions, archivedOpen);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
   const { isMobile, setOpenMobile } = useSidebar();
@@ -76,6 +83,8 @@ export function ClioNavigation({
     [closeSheet],
   );
   const importInputRef = useRef<HTMLInputElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  useRailKeyboard(navRef);
   // The workspace chosen by "Import conversation here"; the service files the
   // import there when the blob names an existing workspace.
   const importWorkspaceRef = useRef<string | undefined>(undefined);
@@ -136,6 +145,7 @@ export function ClioNavigation({
           <nav
             aria-label="Workspace navigation"
             data-keyboard-region=""
+            ref={navRef}
             {...tourAnchor('workspace-navigation')}
             className="flex h-full min-w-0 flex-1 flex-col"
           >
@@ -179,6 +189,7 @@ export function ClioNavigation({
                 onRename={withSheetClosed(setRenameTarget)}
                 sessions={sessions}
                 workspaces={workspaces}
+                workspacesState={workspacesState}
               />
             </SidebarContent>
             <NavigationFooter
@@ -230,7 +241,8 @@ export function ClioNavigation({
         onOpenChange={setArchivedOpen}
         onRestore={actions.restoreSession}
         open={archivedOpen}
-        sessions={sessions}
+        sessions={archived.sessions}
+        state={archived.state}
         workspaces={workspaces}
       />
       {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (
