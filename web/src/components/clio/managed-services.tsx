@@ -476,10 +476,50 @@ export function ManagedServices({
     setSelectedProvider('');
     setDeploying(true);
   };
+  const serviceVariants = (
+    <>
+      {onConnectExistingService ? (
+        <DropdownMenuItem onSelect={onConnectExistingService}>
+          <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
+        </DropdownMenuItem>
+      ) : null}
+      {onConnectExistingService ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
+        <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
+        <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
+      </DropdownMenuItem>
+    </>
+  );
 
   return (
     <section aria-label="Services" className="flex min-w-0 flex-col gap-3 pt-2">
-      <InfraTabActions>
+      <InfraTabActions
+        fold={{
+          label: 'More service actions',
+          verb: (
+            <SplitButton
+              icon={<AddIcon />}
+              label="Install service"
+              menuLabel="More ways to add a service"
+              onClick={startInstall}
+              showLabel
+              variant="default"
+            >
+              {serviceVariants}
+            </SplitButton>
+          ),
+          menu: (
+            <>
+              <DropdownMenuItem onSelect={startInstall}>
+                <MenuRow icon={<AddIcon />} label="Install service" />
+              </DropdownMenuItem>
+              {serviceVariants}
+            </>
+          ),
+        }}
+      >
         <ManagedServiceHostSelector
           targets={targets.data ?? []}
           targetId={targetId}
@@ -501,27 +541,6 @@ export function ManagedServices({
           }}
           onSshHost={connectComputer}
         />
-        <SplitButton
-          icon={<AddIcon />}
-          label="Install service"
-          menuLabel="More ways to add a service"
-          onClick={startInstall}
-          showLabel
-          variant="default"
-        >
-          {onConnectExistingService ? (
-            <DropdownMenuItem onSelect={onConnectExistingService}>
-              <MenuRow icon={<LinkIcon />} label="Connect an existing service" />
-            </DropdownMenuItem>
-          ) : null}
-          {onConnectExistingService ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onSelect={() => setMcpOpen(true)}>
-            <MenuRow icon={<PlugIcon />} label="MCP services" submenu />
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setHostDetailsOpen(true)}>
-            <MenuRow icon={<InfoIcon />} label="Computer details" submenu />
-          </DropdownMenuItem>
-        </SplitButton>
       </InfraTabActions>
       {target === 'ssh' && transportState !== 'connected' ? (
         <StateView

@@ -727,6 +727,11 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 0.875rem;
   line-height: 1.5rem;
 }
+/* The parent's assignment is a prompt: it reads at its bubble's size. */
+[data-slot='parent-delegation-bubble'] .tool-presentation-body {
+  font-size: inherit;
+  line-height: inherit;
+}
 /* A bounded preview measures its rendered lines to decide how much to show. A code
    block's content-visibility skip (rendering deferred while clipped) left nothing to
    measure, so a file change collapsed to its path; inside a preview it always renders. */
