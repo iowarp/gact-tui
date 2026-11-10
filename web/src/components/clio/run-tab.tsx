@@ -174,10 +174,13 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
       </div>
     );
   }
+  const settled = row.state === 'cancelled' || row.state === 'stopped' || row.state === 'paused';
   const headline =
     row.state === 'failed'
       ? (message && message !== row.statusDetail ? message : 'The run stopped with an error')
-      : (message ?? (RUNNING.includes(row.state) ? 'Working' : stateLabel));
+      : settled
+        ? stateLabel
+        : (message ?? (RUNNING.includes(row.state) ? 'Working' : stateLabel));
   const meta = progress && progress !== headline ? progress : undefined;
   return (
     <div className="grid gap-4 px-3.5 py-2.5">
@@ -278,7 +281,9 @@ export function RunTab({
         label="Run actions"
         what={
           <>
-            <RunStateWord row={row} stateLabel={stateLabel} />
+            <span className="shrink-0" data-frame-position="">
+              <RunStateWord row={row} stateLabel={stateLabel} />
+            </span>
             <span>{row.taskKind ?? sourceLabels[row.source]}</span>
           </>
         }
