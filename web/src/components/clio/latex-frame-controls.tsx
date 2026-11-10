@@ -64,7 +64,11 @@ function ProblemsButton({
             aria-hidden="true"
             className={cn('size-3.5 shrink-0', errors ? 'text-destructive' : 'text-warning')}
           />
-          {plural(problems.length, 'problem')}
+          {problems.length}
+          {/* Short of room the count stays, beside its mark and in the hover name. */}
+          <span className="group-data-[fold-where]/frame:hidden">
+            {problems.length === 1 ? ' problem' : ' problems'}
+          </span>
         </button>
       </NamedTooltip>
     </TooltipProvider>

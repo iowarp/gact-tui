@@ -10,8 +10,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { copyText } from '@/lib/clipboard';
+import { cn } from '@/lib/utils';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
+
+const EXPIRY_OPTIONS = [
+  { value: '3600', label: 'In 1 hour' },
+  { value: '86400', label: 'In 1 day' },
+  { value: '604800', label: 'In 7 days' },
+  { value: '2592000', label: 'In 30 days' },
+] as const;
 
 export interface ClioShareSessionDialogProps {
   open: boolean;
@@ -68,7 +76,6 @@ export function ClioShareSessionDialog({
 
   return (
     <DialogFrame
-      className="w-[clamp(460px,36vw,560px)]"
       open={open}
       onOpenChange={handleOpenChange}
       icon={<Share2Icon />}
@@ -77,7 +84,7 @@ export function ClioShareSessionDialog({
       cancelLabel={shareUrl ? null : 'Cancel'}
       confirm={
         shareUrl
-          ? { label: 'Done', onConfirm: () => handleOpenChange(false), keyboard: false }
+          ? { label: 'Done', onConfirm: () => handleOpenChange(false), key: 'Enter' }
           : {
               label: pending ? 'Creating link…' : 'Create share link',
               disabled: pending,
@@ -93,19 +100,28 @@ export function ClioShareSessionDialog({
           >
             Link expires
           </Label>
+          {/* The link is minted with its expiry: afterwards the field keeps its box and
+              chevron with muted text (spec "Share, after the link"). */}
           <Select
             disabled={Boolean(shareUrl) || pending}
             onValueChange={setTtlSeconds}
             value={ttlSeconds}
           >
-            <SelectTrigger className="h-[30px] w-full text-[12.5px]" id="session-share-expiry">
+            <SelectTrigger
+              className={cn(
+                'h-[30px] w-full text-[12.5px]',
+                shareUrl && 'disabled:cursor-default disabled:opacity-100 text-muted-foreground',
+              )}
+              id="session-share-expiry"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="3600">In 1 hour</SelectItem>
-              <SelectItem value="86400">In 1 day</SelectItem>
-              <SelectItem value="604800">In 7 days</SelectItem>
-              <SelectItem value="2592000">In 30 days</SelectItem>
+              {EXPIRY_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

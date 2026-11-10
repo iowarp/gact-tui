@@ -1,11 +1,4 @@
-import {
-  ActivityIcon,
-  CableIcon,
-  MonitorIcon,
-  MoonIcon,
-  NetworkIcon,
-  SunIcon,
-} from 'lucide-react';
+import { ActivityIcon, CableIcon, MonitorIcon, MoonIcon, NetworkIcon, SunIcon } from 'lucide-react';
 import type { ThemePreference } from '@/theme/contract';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
@@ -13,6 +6,11 @@ import {
   settingsDestinations,
   type ApplicationDestination,
 } from './application-destinations';
+import {
+  settingsRowHash,
+  settingsSearchRows,
+  type SettingsSearchValue,
+} from './settings-search-rows';
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
@@ -21,6 +19,8 @@ export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group
   shortcut?: string;
   /** Where the row lives, as muted trailing text: "Settings › App". */
   trail?: string;
+  /** One setting rather than a page: it shows only when typed, with its current value. */
+  setting?: { value?: SettingsSearchValue };
 }
 
 /** Match all typed terms across names, categories and aliases without a remote request. */
@@ -36,6 +36,23 @@ export function matchesGlobalSearch(query: string, ...fields: (string | undefine
 
 /** Application commands reuse the same destinations as their owning pages. */
 export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
+  const sections = settingsDestinations(desktop);
+  const settingRows = settingsSearchRows().flatMap((row): GlobalSearchCommand[] => {
+    const section = sections.find((item) => item.id === row.section);
+    if (!section) return [];
+    return [
+      {
+        id: `setting:${row.section}:${row.label}`,
+        label: row.label,
+        icon: section.icon,
+        group: 'Settings',
+        trail: `Settings › ${section.label}`,
+        keywords: `${section.label} ${row.keywords ?? ''}`,
+        action: { route: `/settings/${row.section}${settingsRowHash(row.label)}` },
+        setting: { value: row.value },
+      },
+    ];
+  });
   return [
     {
       id: 'connections',
@@ -70,7 +87,8 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       action: { route: '/settings/general' },
       shortcut: 'settings',
     },
-    ...settingsDestinations(desktop).map(
+    ...settingRows,
+    ...sections.map(
       (item): GlobalSearchCommand => ({
         ...item,
         id: `settings:${item.id}`,

@@ -144,9 +144,11 @@ function CascaderInput({
   // second ref into Base UI's input). SSR renders the "ltr" default and
   // corrects on hydration. `direction` is the only dep: a `dir` attribute and
   // the stylesheet are declarations, not state, so nothing to resubscribe to.
+  // A passive effect: `getComputedStyle` before paint forces a whole-document
+  // style recalc on every picker open; after paint the styles are already clean.
   const hintRef = React.useRef<HTMLSpanElement>(null);
   const [hintDir, setHintDir] = React.useState<'ltr' | 'rtl'>('ltr');
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     const hint = hintRef.current;
     if (!hint) return;
     setHintDir(isCascaderRtl(hint, direction) ? 'rtl' : 'ltr');
@@ -241,6 +243,19 @@ function CascaderInput({
     if (event.defaultPrevented) return;
 
     const field = event.currentTarget;
+
+    // Base UI picks the highlighted row on Enter only while `open`, which an
+    // inline panel never is, so Enter presses that row as a click would.
+    if (inline && event.key === 'Enter' && !event.nativeEvent.isComposing) {
+      const panel = field.closest<HTMLElement>('[data-slot="cascader-panel"]');
+      const row = panel?.querySelector<HTMLElement>('[role="option"][data-highlighted]');
+      if (row) {
+        event.preventDefault();
+        event.preventBaseUIHandler();
+        row.click();
+        return;
+      }
+    }
     const caretAtStart = field.selectionStart === 0 && field.selectionEnd === 0;
     const caretAtEnd = field.selectionStart === query.length && field.selectionEnd === query.length;
 
@@ -251,7 +266,9 @@ function CascaderInput({
     if (event.key === 'ArrowDown' && !event.altKey) {
       const rowCount = mode === 'tree' ? treeRows.length : renderedItems.length;
       const lastValue =
-        mode === 'tree' ? treeRows[rowCount - 1]?.node.value : renderedItems[rowCount - 1]?.value;
+        mode === 'tree'
+          ? treeRows[rowCount - 1]?.node.value
+          : renderedItems.findLast((node) => !node.static)?.value;
       const highlighted = getHighlighted();
       const atEnd = rowCount === 0 || (highlighted != null && highlighted.value === lastValue);
       if (atEnd) {

@@ -343,7 +343,7 @@ describe('SurfaceToolbar', () => {
     expect(names).toEqual(['Filters', 'Reference this', 'Full screen', 'More']);
   });
 
-  it('keeps the same relative order across two different REAL components declaring different subsets (controlled, not reordered)', () => {
+  it('keeps the same relative order across two different REAL components declaring different subsets (controlled, not reordered)', async () => {
     // A real `ClioChart` (declares Filters from its x/y/entity fields, plus
     // Reference this/Full screen/download) and a real
     // `ClioSelectableDataTable` (with its native Filters icon) rendered side by side, NOT two hand-built
@@ -362,6 +362,8 @@ describe('SurfaceToolbar', () => {
         )}
       </QueryClientProvider>,
     );
+    // Chart and grid each load as their own chunk; read the toolbar once they have mounted.
+    await within(first.container).findByRole('button', { name: 'Box select chart points' });
     const chartOrder = within(first.container)
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
@@ -375,6 +377,7 @@ describe('SurfaceToolbar', () => {
         )}
       </QueryClientProvider>,
     );
+    await within(second.container).findByRole('table');
     const tableOrder = within(second.container)
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))

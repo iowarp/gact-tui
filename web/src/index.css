@@ -76,6 +76,12 @@
   [data-slot='alert-dialog-content'][data-state] {
     z-index: 100;
   }
+  /* A dialog opened from another one (a frame inside the Settings window) dims
+     that window too: its scrim joins the content layer, after it in the host. */
+  :where([data-slot='dialog-content'][data-state], [data-slot='alert-dialog-content'][data-state])
+    ~ :is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay'])[data-state] {
+    z-index: 100;
+  }
   [data-slot='dropdown-menu-content'][data-state],
   [data-slot='dropdown-menu-sub-content'][data-state],
   [data-slot='context-menu-content'][data-state],
@@ -130,6 +136,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-action: var(--action);
+  --color-question: var(--question);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -152,6 +159,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-faint: var(--faint);
   --color-changed: var(--changed);
+  --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
   --color-key: var(--key);
@@ -253,6 +261,11 @@
       [data-disabled]:not([data-disabled='false'])
     ) {
     cursor: default;
+  }
+  /* A hover name is never interactive: a name held open by focus must not
+     block a click on what it covers. Radix positions it in a wrapper. */
+  [data-radix-popper-content-wrapper]:has(> [data-name-tooltip]) {
+    pointer-events: none;
   }
   input[type='file']:not(:disabled)::file-selector-button {
     cursor: pointer;

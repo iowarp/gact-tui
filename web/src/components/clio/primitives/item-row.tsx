@@ -14,6 +14,12 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
+  /**
+   * The last action is a ⋯ menu that holds every action. On a phone-width list
+   * the others fold into it and it stays visible in its own column; on a touch
+   * screen with room for the actions column, they stay visible there.
+   */
+  foldActions?: boolean;
   /** Right slot: one button (Use, Retry, Update, Trust) or a toggle. */
   slot?: ReactNode;
   /**
@@ -39,10 +45,10 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * (name, then muted meta that shrinks first). Every row of a list shares the
  * column widths, so status words and buttons line up. Below 42rem of list width
  * the status column narrows to at most 9.875rem (the spec's 158 px), enough for
- * "Update waits for trust" (still one width for every row), the slot keeps its
- * width, and hover actions float over the end of the name, left of the status,
- * instead of reserving a column, so the name keeps the room and the status word
- * stays visible.
+ * "Update waits for trust" (still one width for every row). Hover actions keep
+ * their own column after the status, as in the spec, so they never cover the
+ * name or meta. Below 36rem that column would squeeze the name under ~150 px, so
+ * the actions float over the end of the name instead, left of the status.
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -53,6 +59,7 @@ export const ItemRow = memo(
       status,
       actions,
       actionsVisible = false,
+      foldActions = false,
       slot,
       confirm,
       statusWidth = 158,
@@ -69,6 +76,7 @@ export const ItemRow = memo(
     // Below 24rem of list width a two-line row stacks, as setting rows do: the
     // status drops under the name, so a phone keeps the name readable.
     const stacks = size !== 'line';
+    const folds = stacks && foldActions && actions !== undefined;
     const columns: CSSProperties = {
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
       ['--item-actions' as string]: `${actions === undefined ? 0 : actionsWidth}px`,
@@ -87,13 +95,15 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
-          actionsVisible
-            ? '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]'
-            : '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+          '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
+          !actionsVisible &&
+            '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
           stacks &&
-            (actionsVisible
-              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
-              : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
+            (folds
+              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_1.625rem_var(--item-slot)]'
+              : actionsVisible
+                ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
+                : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]',
           size === 'line'
@@ -174,8 +184,10 @@ export const ItemRow = memo(
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-2xl:absolute @max-2xl:inset-y-0 @max-2xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-2xl:bg-hover @max-2xl:pl-1',
+                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
                 !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
+                folds &&
+                  '@xl:pointer-coarse:visible @max-sm:visible @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
               )}
               data-slot="item-row-actions"
             >
