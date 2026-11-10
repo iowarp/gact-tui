@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { ActivityBody, ActivityDisclosure, ActivityInfoButton, ActivityRow } from './activity-row';
 import { DialogFrame } from './primitives/dialog-frame';
-import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import type { KeyValueItem } from './primitives/key-value-grid';
+import { DetailsSection, TechnicalDetailsFacts } from './tool-technical-details';
 import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
 import { delegateTone } from './delegate-tone';
@@ -100,16 +101,12 @@ function TaskDetailsDialog({
       description="The task the agent tracked, its state, and what it reported."
       className="w-[clamp(360px,56vw,760px)]"
     >
-      <div className="grid max-h-[65dvh] min-w-0 gap-4 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
-        <KeyValueGrid
-          items={items}
-          className="grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-y-1.5 text-[12.5px] [&_dd]:text-left"
-        />
+      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
+        <TechnicalDetailsFacts items={items} />
         {task.detail ? (
-          <section className="space-y-1.5">
-            <h4 className="font-medium text-foreground">Detail</h4>
+          <DetailsSection title="Detail" copy={task.detail}>
             <p className="whitespace-pre-wrap text-muted-foreground">{task.detail}</p>
-          </section>
+          </DetailsSection>
         ) : null}
       </div>
     </DialogFrame>

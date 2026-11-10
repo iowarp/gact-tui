@@ -144,8 +144,8 @@ it('at a fifth of the window keeps why, where and folders short and moves who as
   expect(askedBy.closest('[data-narrow=drop]')).not.toBeNull();
   expect(screen.getByText(/including after restart/)).toHaveClass('@max-[420px]/ask:truncate');
   await userEvent.click(screen.getByRole('button', { name: /Technical details/ }));
-  expect(document.querySelector('[data-slot=ask-details-owner]')).toHaveTextContent(
-    'Asked by Station evidence specialist',
+  expect(document.querySelector('[data-slot=ask-details-facts]')).toHaveTextContent(
+    'Asked byStation evidence specialist',
   );
 });
 
