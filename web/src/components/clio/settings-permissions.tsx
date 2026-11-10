@@ -17,6 +17,7 @@ import {
   draftForPolicy,
   emptyDraft,
   policyFromDraft,
+  priorityChoices,
   priorityRanks,
   RULE_COLUMNS,
   type PolicyDraft,
@@ -69,6 +70,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
   const removed = staged ? saved.length - (rules.length - added) : 0;
   const count = added + changed + removed;
   const ranks = priorityRanks(rules.map((rule) => rule.policy));
+  const editorIndex = rules.findIndex((rule) => rule.id === editor.editingId);
 
   const stage = (next: StagedRule[]) => {
     setStaged(next);
@@ -181,6 +183,10 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
         onDraftChange={setDraft}
         onOpenChange={(open) => setEditor((current) => ({ ...current, open }))}
         open={editor.open}
+        priorities={priorityChoices(
+          rules.map((rule) => rule.policy),
+          editorIndex === -1 ? undefined : editorIndex,
+        )}
         workspaces={workspaces.data}
       />
     </section>

@@ -167,7 +167,13 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
       );
     case 'html':
       return (
-        <div className="min-w-0 overflow-x-auto px-3 py-1 [&_table]:text-[12px]">
+        <div
+          className={cn(
+            'min-w-0 overflow-x-auto py-1 [&_table]:text-[12px] [&_table]:tabular-nums',
+            // One hairline around the result table, flush with the code cell above it.
+            '[&_[data-streamdown=table-wrapper]]:!my-0 [&_[data-streamdown=table-wrapper]]:!rounded-none [&_[data-streamdown=table-wrapper]]:!border-0 [&_[data-streamdown=table-wrapper]]:!bg-transparent [&_[data-streamdown=table-wrapper]]:!p-0',
+          )}
+        >
           {/* Streamdown sanitizes raw HTML: scripts, styles and handlers are dropped. The
               frame bar owns copy and download, so an output table has no toolbar of its own. */}
           <ContentMarkdown

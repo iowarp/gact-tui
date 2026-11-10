@@ -109,7 +109,7 @@ it("lists each branch's views beside the log and opens one in place of it", asyn
 
 it('opens the view openView asked for, from the study graph too', async () => {
   draw();
-  await userEvent.click(screen.getByRole('tab', { name: 'Study graph' }));
+  await userEvent.click(screen.getByRole('tab', { name: 'Lineage' }));
   act(() => useStudyViewFocus.getState().focus('e_00000000000a'));
   expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true');
   expect(await screen.findByRole('region', { name: 'Overview' })).toBeInTheDocument();

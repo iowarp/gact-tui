@@ -22,6 +22,15 @@ import {
 } from '@/components/clio/run-presentation';
 import { sourceLabels, type RunRow, type RunSource } from '@/routes/runs-rows';
 
+/*
+ * Under 560px with a mouse, the hover actions take no column of their own: they
+ * sit over the time, which hides while they show. Touch keeps them visible.
+ */
+const NARROW_ACTIONS_OVERLAY =
+  'pointer-fine:@max-[559px]/runs:[&_[data-slot=list-row-actions]]:absolute pointer-fine:@max-[559px]/runs:[&_[data-slot=list-row-actions]]:inset-y-0 pointer-fine:@max-[559px]/runs:[&_[data-slot=list-row-actions]]:right-1.5 pointer-fine:@max-[559px]/runs:[&_[data-slot=list-row-actions]]:z-10';
+const NARROW_TIME_UNDER_ACTIONS =
+  'pointer-fine:@max-[559px]/runs:group-hover/list-row:invisible pointer-fine:@max-[559px]/runs:group-focus-within/list-row:invisible pointer-fine:@max-[559px]/runs:group-has-[[aria-haspopup][aria-expanded=true]]/list-row:invisible';
+
 const SOURCE_ICONS: Record<RunSource, typeof BotIcon> = {
   agent_task: BotIcon,
   mcp_task: WrenchIcon,
@@ -186,6 +195,8 @@ export const RunListRow = memo(function RunListRow({
         reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]',
         // The name's span truncates and would clip a ring drawn on the name itself.
         'has-[[data-run-title]:focus-visible]:ring-1 has-[[data-run-title]:focus-visible]:ring-ring has-[[data-run-title]:focus-visible]:ring-inset',
+        // A narrow list doesn't reserve the hover actions' column: they cover the time instead.
+        !rail && NARROW_ACTIONS_OVERLAY,
       )}
       data-run-state={row.state}
       layout={reason ? 'stacked' : 'inline'}
@@ -272,7 +283,10 @@ export const RunListRow = memo(function RunListRow({
             )
           ) : (
             <time
-              className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground"
+              className={cn(
+                'w-[30px] shrink-0 text-right text-[11px] text-muted-foreground',
+                !rail && NARROW_TIME_UNDER_ACTIONS,
+              )}
               dateTime={row.updatedAt}
               title={fullWhen(row.updatedAt)}
             >

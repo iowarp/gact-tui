@@ -113,7 +113,6 @@ export function SettingsLimitInput({
           if (Number(next) > 0) previous.current = next;
           onChange(next);
         }}
-        placeholder={unlimited ? 'Unlimited' : undefined}
         step={1}
         unit={unit}
         value={unlimited ? '' : value}
