@@ -1,16 +1,13 @@
 import type { GpuFact, ManagedServiceDefinition, ModelAcquisition } from '@clio/core/v3';
-import { useRef, useState, type ReactNode } from 'react';
-import { ServerIcon, ArrowLeftIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ArrowLeftIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { type ServiceActionFeedback } from './service-management-panel';
+import { ServiceFooterSlot } from './service-footer-slot';
 import { AddIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { DialogFrame } from './primitives/dialog-frame';
+import { KeyValueGrid } from './primitives/key-value-grid';
 import { ManagedServiceLogo } from './managed-service-identity';
 import { ServiceMethodAvailability } from './service-installation-method';
 import { AddInstanceForm } from './managed-service-instance';
@@ -77,7 +74,7 @@ export function ManagedServiceInventory({
   /** Set up a named instance (`<engine>@<name>`) of an engine that supports them. */
   onAddInstance?: (service: ManagedServiceDefinition, name: string) => void;
 }) {
-  const dialog = useRef<HTMLDivElement>(null);
+  const [footerSlot, setFooterSlot] = useState<HTMLElement | null>(null);
   // The engine whose "Add instance" name field is open, and where.
   const [naming, setNaming] = useState<{ id: string; where: 'inventory' | 'chooser' }>();
   const inventory = services.filter(
@@ -155,46 +152,76 @@ export function ManagedServiceInventory({
           </InfraList>
         );
       })}
-      <Dialog
-        open={deploying || Boolean(selected)}
+      <DialogFrame
+        cancelLabel={deploying ? 'Cancel' : 'Done'}
+        className="flex flex-col overflow-hidden [&>[data-slot=dialog-frame-body]]:min-h-0 [&>[data-slot=dialog-frame-body]]:flex-1 [&>[data-slot=dialog-frame-body]]:overflow-y-auto [&>[data-slot=dialog-frame-body]]:pl-[18px] [&>[data-slot=dialog-frame-footer]]:border-t [&>[data-slot=dialog-frame-footer]]:border-border [&>[data-slot=dialog-frame-footer]]:pt-3.5"
+        footerStart={
+          deploying ? (
+            current ? (
+              <Button className="-ml-2" onClick={() => onSelected('')} variant="ghost">
+                <ArrowLeftIcon />
+                Back
+              </Button>
+            ) : null
+          ) : (
+            <div className="-ml-1.5 flex items-center gap-0.5" ref={setFooterSlot} />
+          )
+        }
+        growDown
+        icon={
+          !current ? (
+            <PackageIcon />
+          ) : (
+            (() => {
+              const GroupIcon =
+                SERVICE_GROUPS.find((group) => group.id === groupFor(current))?.icon ?? ServerIcon;
+              return <GroupIcon />;
+            })()
+          )
+        }
         onOpenChange={(open) => {
           if (!open) close();
         }}
+        open={deploying || Boolean(selected)}
+        srDescription={`Computer: ${hostLabel}`}
+        title={
+          deploying
+            ? current
+              ? `Set up ${current.label}`
+              : 'Install a service'
+            : `${current?.label ?? 'Service'} on ${hostLabel}`
+        }
       >
-        <DialogContent
-          className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-2xl"
-          onOpenAutoFocus={(event) => {
-            if (!deploying) {
-              event.preventDefault();
-              dialog.current?.focus();
-            }
-          }}
-          ref={dialog}
-          tabIndex={-1}
-        >
-          <DialogHeader className="shrink-0">
-            <DialogTitle>
-              {deploying
-                ? current
-                  ? `Set up ${current.label}`
-                  : 'Install a service'
-                : `Manage ${current?.label ?? 'service'}`}
-            </DialogTitle>
-            <DialogDescription>Computer: {hostLabel}</DialogDescription>
-          </DialogHeader>
+        <ServiceFooterSlot.Provider value={deploying ? null : footerSlot}>
           {deploying ? (
-            <nav
-              aria-label="Deployment steps"
-              className="flex items-center gap-2 border-b pb-3 text-xs text-muted-foreground"
-            >
-              <span className={!current ? 'font-semibold text-foreground' : ''}>
-                Choose service
-              </span>
-              <span aria-hidden="true">›</span>
-              <span className={current ? 'font-semibold text-foreground' : ''}>Install</span>
-            </nav>
+            <>
+              <nav
+                aria-label="Deployment steps"
+                className="mb-2 flex h-6 items-center gap-2 text-[12px] text-muted-foreground"
+              >
+                <DeployStep done={Boolean(current)} on={!current} step={1}>
+                  Choose service
+                </DeployStep>
+                <span aria-hidden="true">›</span>
+                <DeployStep on={Boolean(current)} step={2}>
+                  Install
+                </DeployStep>
+              </nav>
+              <KeyValueGrid
+                className="-mx-2 mb-2"
+                items={[
+                  {
+                    label: 'Computer',
+                    icon: <ServerIcon aria-hidden="true" />,
+                    value: hostLabel,
+                    title: hostLabel,
+                  },
+                ]}
+                variant="card"
+              />
+            </>
           ) : null}
-          <div className="min-h-0 overflow-y-auto pr-1">
+          <div className="pb-1">
             {model && deploying ? (
               <p className="mb-4 text-sm">
                 Choose a runtime for <strong>{model.repository}</strong>. Model files stay on{' '}
@@ -321,33 +348,46 @@ export function ManagedServiceInventory({
                   ))}
               </div>
             ) : current ? (
-              <>
-                {deploying ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="w-fit"
-                    onClick={() => onSelected('')}
-                  >
-                    <ArrowLeftIcon />
-                    Choose another service
-                  </Button>
-                ) : null}
-                {renderService(current, deploying)}
-              </>
+              renderService(current, deploying)
             ) : (
               <p role="status">Loading service…</p>
             )}
           </div>
-          <div className="shrink-0 border-t pt-3">
-            <Button size="sm" variant="ghost" onClick={close}>
-              <ArrowLeftIcon />
-              Back to services
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </ServiceFooterSlot.Provider>
+      </DialogFrame>
     </section>
+  );
+}
+
+/** One numbered step of the install crumb: the current one in the text tone. */
+function DeployStep({
+  step,
+  on,
+  done = false,
+  children,
+}: {
+  step: number;
+  on: boolean;
+  done?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      aria-current={on ? 'step' : undefined}
+      className={cn('inline-flex items-center gap-1.5', on && 'font-medium text-foreground')}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'grid size-4 place-items-center rounded-full border text-[10px] tabular-nums',
+          on ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
+          done && 'border-primary/60 text-primary',
+        )}
+      >
+        {step}
+      </span>
+      {children}
+    </span>
   );
 }
 
