@@ -6,8 +6,16 @@
  *
  * `POST /__test/science-views` turns the study, vault and paper on; reset turns
  * them off. Saved dashboards and LaTeX reads answer for every artifact and
- * session (empty or `*_not_found`), as the service does.
+ * session (empty or `*_not_found`), as the service does. The workspace also gains
+ * three Jupyter notebooks for the notebook reader (mixed cells, cut off, empty).
  */
+
+import {
+  BROKEN_NOTEBOOK_PATH,
+  EMPTY_NOTEBOOK_PATH,
+  NOTEBOOK_PATH,
+  notebookFixture,
+} from './notebook-fixture.mjs';
 
 const CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 const DASHBOARD_ARTIFACT = 'artifact_opal_dashboard';
@@ -1026,6 +1034,7 @@ export function createScienceViewsFixture({
   const texBytes = Buffer.from(TEX, 'utf8');
   const sourcesBytes = Buffer.from(SOURCES_TEX, 'utf8');
   const pdfBytes = paperPdf();
+  const notebooks = notebookFixture();
   const { notes, links } = vault();
   const record = (id, name, kind, size, producer, path = '') => ({
     workspace_id: workspaceId,
@@ -1106,6 +1115,9 @@ export function createScienceViewsFixture({
     [TEX_PATH]: { type: 'text/x-tex', bytes: texBytes },
     [SOURCES_PATH]: { type: 'text/x-tex', bytes: sourcesBytes },
     [PDF_PATH]: { type: 'application/pdf', bytes: pdfBytes },
+    [NOTEBOOK_PATH]: { type: 'application/x-ipynb+json', bytes: notebooks.notebook },
+    [BROKEN_NOTEBOOK_PATH]: { type: 'application/x-ipynb+json', bytes: notebooks.broken },
+    [EMPTY_NOTEBOOK_PATH]: { type: 'application/x-ipynb+json', bytes: notebooks.empty },
   };
   const view = {
     entry: 'e_view',
@@ -1215,6 +1227,10 @@ export function createScienceViewsFixture({
             { path: TEX_PATH, type: 'file', size: texBytes.length },
             { path: SOURCES_PATH, type: 'file', size: sourcesBytes.length },
             { path: PDF_PATH, type: 'file', size: pdfBytes.length },
+            { path: 'analysis', type: 'dir' },
+            { path: NOTEBOOK_PATH, type: 'file', size: notebooks.notebook.length },
+            { path: BROKEN_NOTEBOOK_PATH, type: 'file', size: notebooks.broken.length },
+            { path: EMPTY_NOTEBOOK_PATH, type: 'file', size: notebooks.empty.length },
           ]
         : [];
     },

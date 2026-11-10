@@ -72,6 +72,12 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 import { useSummonTargets } from '@/hooks/use-summon-targets';
+import {
+  deleteSavedDraft,
+  saveDraft,
+  takeSavedDraft,
+  useSavedDrafts,
+} from '@/lib/composer-saved-drafts';
 
 export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
@@ -165,6 +171,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
    */
   placeholder?: string;
 }
+
+const noQueueAction = async () => undefined;
 
 export function ClioComposer({
   state,
@@ -337,6 +345,41 @@ export function ClioComposer({
     enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
     region: rootRef,
   });
+  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
+  // the newest back. Restoring over a draft puts that one aside first.
+  const savedDraftKey = sessionId ?? `new:${workspaceId}`;
+  const savedDrafts = useSavedDrafts(savedDraftKey);
+  const draftEmpty = !input.trim() && selectedReferences.length === 0;
+  const putDraftAside = () => {
+    const saved = saveDraft(savedDraftKey, {
+      text: latestInputRef.current,
+      references: selectedReferences,
+    });
+    if (!saved) return;
+    setInput('');
+    setSelectedReferences([]);
+  };
+  const restoreSavedDraft = (id?: string) => {
+    const draft = takeSavedDraft(savedDraftKey, id);
+    if (!draft) return;
+    saveDraft(savedDraftKey, { text: latestInputRef.current, references: selectedReferences });
+    setInput(draft.text);
+    setSelectedReferences(draft.references);
+    focusEditorSoon();
+  };
+  useShortcut('save-draft', putDraftAside, {
+    enabled: !disabled,
+    region: rootRef,
+    allowInTextField: true,
+  });
+  useShortcut('restore-draft', () => restoreSavedDraft(), {
+    enabled: !disabled && draftEmpty && savedDrafts.length > 0,
+    region: inputRef,
+    allowInTextField: true,
+  });
+  useShortcut('composer-focus', () => focusComposerEditor(inputRef.current), {
+    enabled: !disabled,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
@@ -449,22 +492,33 @@ export function ClioComposer({
       ) : null}
       {pendingInteractions}
       {connectedSources.picker}
-      {queuedMessages.length > 0 &&
-      onDeleteQueuedMessage &&
-      onPromoteQueuedMessage &&
-      onReorderQueuedMessages &&
-      onUpdateQueuedMessage ? (
+      {(queuedMessages.length > 0 &&
+        onDeleteQueuedMessage &&
+        onPromoteQueuedMessage &&
+        onReorderQueuedMessages &&
+        onUpdateQueuedMessage) ||
+      savedDrafts.length > 0 ? (
         <ClioComposerQueue
           busy={queueBusy}
           paused={queuePaused}
-          messages={queuedMessages}
-          onDelete={onDeleteQueuedMessage}
+          messages={
+            onDeleteQueuedMessage &&
+            onPromoteQueuedMessage &&
+            onReorderQueuedMessages &&
+            onUpdateQueuedMessage
+              ? queuedMessages
+              : []
+          }
+          onDelete={onDeleteQueuedMessage ?? noQueueAction}
+          onDeleteSavedDraft={(draft) => deleteSavedDraft(savedDraftKey, draft.id)}
           onOpenResource={onOpenResource}
-          onPromote={onPromoteQueuedMessage}
-          onReorder={onReorderQueuedMessages}
-          onUpdate={onUpdateQueuedMessage}
+          onPromote={onPromoteQueuedMessage ?? noQueueAction}
+          onReorder={onReorderQueuedMessages ?? noQueueAction}
+          onRestoreSavedDraft={(draft) => restoreSavedDraft(draft.id)}
+          onUpdate={onUpdateQueuedMessage ?? noQueueAction}
           promoteDelivery={state === 'running' ? 'steer' : 'start'}
           resources={resources}
+          savedDrafts={savedDrafts}
         />
       ) : null}
       <PromptInput

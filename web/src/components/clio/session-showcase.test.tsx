@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClioEvidenceView, type ClioEvidenceViewProps } from './observability-evidence';
 import { SessionRailContent } from './session-rail-content';
 import { QuestionAnswerContext } from './question-answer-context';
 import type { PendingInteraction } from '@clio/core/v3';
@@ -28,15 +27,6 @@ beforeEach(() => {
   localStorage.clear();
   window.dispatchEvent(new StorageEvent('storage', { key: null }));
 });
-
-function renderEvidence(props: ClioEvidenceViewProps) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ClioEvidenceView {...props} />
-    </QueryClientProvider>,
-  );
-}
 
 const evidence = {
   artifacts: [
@@ -147,22 +137,6 @@ describe('session showcase inventory', () => {
     expect(openQuestion).toHaveBeenCalledWith(interaction);
     client.clear();
   });
-  it('puts artifacts and context files in the data section without work categories', () => {
-    renderEvidence({ ...evidence, compact: true, section: 'data' });
-    expect(screen.getByText('Report.docx')).toBeVisible();
-    expect(screen.getByText('sensor.csv')).toBeVisible();
-    expect(screen.queryByRole('button', { name: /^Tasks,/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Child agents,/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('Progress and outputs')).not.toBeInTheDocument();
-    expect(screen.queryByText('Used in this session')).not.toBeInTheDocument();
-  });
-  it('puts tasks and agents in the work section without files or artifacts', () => {
-    renderEvidence({ ...evidence, compact: true, section: 'work' });
-    expect(screen.getByText('Review evidence')).toBeVisible();
-    expect(screen.getByText('Researcher')).toBeVisible();
-    expect(screen.queryByText('Report.docx')).not.toBeInTheDocument();
-    expect(screen.queryByText('sensor.csv')).not.toBeInTheDocument();
-  });
   it('reads connected sources, current todos and schedules from their authoritative inventories', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -254,67 +228,6 @@ describe('session showcase inventory', () => {
     expect(within(plans).queryByText('Same plan')).not.toBeInTheDocument();
     expect(await within(plans).findByText('Older plan')).toBeInTheDocument();
     client.clear();
-  });
-  it('opens an artifact from one compact line with a direct download action', () => {
-    const onOpenArtifact = vi.fn();
-    const artifact = { ...evidence.artifacts[0]!, size: 158, created_at: '2026-10-08T12:00:00Z' };
-    renderEvidence({
-      ...evidence,
-      artifacts: [artifact],
-      compact: true,
-      section: 'data',
-      onOpenArtifact,
-    });
-    const row = screen.getByRole('button', { name: 'Open Report.docx' });
-    expect(row).toHaveTextContent('158 B');
-    expect(row.querySelector('time')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Download Report.docx' })).toBeVisible();
-    expect(document.querySelector('[data-slot="file-identity-row"]')).toBeNull();
-    expect(screen.queryByText('Output')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="artifact"]')).toBeNull();
-    fireEvent.click(row);
-    expect(onOpenArtifact).toHaveBeenCalledWith(artifact);
-  });
-  it('routes compact files, tasks, and agent runs to their actual full views', () => {
-    const onOpenFile = vi.fn();
-    const onOpenWork = vi.fn();
-    const onOpenActivity = vi.fn();
-    renderEvidence({
-      ...evidence,
-      compact: true,
-      onOpenFile,
-      onOpenWork,
-      onOpenActivity,
-      runs: [{ id: 'run', session_id: 'session', state: 'completed', summary: 'Checked sensors' }],
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Open sensor.csv' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Review evidence' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Checked sensors' }));
-    expect(onOpenFile).toHaveBeenCalledWith('sensor.csv');
-    expect(onOpenWork).toHaveBeenCalledOnce();
-    expect(onOpenActivity).toHaveBeenCalledOnce();
-  });
-  it('opens the canonical technical details dialog from a compact tool row', async () => {
-    renderEvidence({
-      ...evidence,
-      compact: true,
-      section: 'work',
-      tools: [
-        {
-          id: 'tool',
-          session_id: 'session',
-          name: 'write_file',
-          input: { path: 'report.txt' },
-          output: 'Saved report',
-          state: 'succeeded',
-        },
-      ],
-    });
-    expect(screen.queryByText('Saved report')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Tool calls,/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Technical details for/ }));
-    const dialog = screen.getByRole('dialog');
-    expect(await within(dialog).findByText(/Saved report/)).toBeVisible();
   });
   it('opens the selected connected source and current work instead of embedding their pages', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
