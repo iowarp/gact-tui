@@ -52,7 +52,7 @@ import {
 } from './settings-connection-runtime';
 
 const SELECT_TRIGGER =
-  'w-full min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-[150px] min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 const TRANSPORTS = [
   { value: 'Direct', detail: 'A browser talks to the agent over HTTP.' },
@@ -130,7 +130,7 @@ export function ConnectionsSettings() {
           aria-invalid={Boolean(addressError) || undefined}
           autoCapitalize="off"
           autoCorrect="off"
-          className={cn(CONNECTION_FIELD, 'font-mono')}
+          className={cn(CONNECTION_FIELD, 'font-mono text-ellipsis')}
           disabled={readOnly || connectionSwitch.isPending}
           id="connection-address"
           inputMode="url"

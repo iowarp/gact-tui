@@ -210,8 +210,8 @@ export function priorityError(priority: string): string | undefined {
 /**
  * Each rule's rank among the rules' priorities, counted from the lowest (1), so
  * "Priority N" stays small and positive while higher still wins. The agent
- * places approved grants below every existing rule (0, -1, -2…); raw numbers
- * stay in the editor. Ties share a rank; a rule without a priority has none.
+ * places approved grants below every existing rule (0, -1, -2…). Ties share a
+ * rank; a rule without a priority has none.
  */
 export function priorityRanks(policies: readonly { priority?: number }[]) {
   const levels = [...new Set(policies.flatMap((policy) => policy.priority ?? []))].sort(
@@ -220,6 +220,58 @@ export function priorityRanks(policies: readonly { priority?: number }[]) {
   return policies.map((policy) =>
     policy.priority === undefined ? undefined : levels.indexOf(policy.priority) + 1,
   );
+}
+
+export interface PriorityChoice {
+  /** The raw priority the agent stores; '' leaves placement to the agent. */
+  value: string;
+  label: string;
+  hint?: string;
+}
+
+/**
+ * The editor's Priority choices in the rows' rank terms, so no raw number shows:
+ * tie with a rank's rules, or go above or below all of them. A rule without a
+ * priority (a new one) may stay "After existing rules", as the agent places it.
+ * `editing` is the edited rule's index in `policies`.
+ */
+export function priorityChoices(
+  policies: readonly PermissionPolicy[],
+  editing: number | undefined,
+): PriorityChoice[] {
+  const levels = [...new Set(policies.flatMap((policy) => policy.priority ?? []))].sort(
+    (left, right) => left - right,
+  );
+  const own = editing === undefined ? undefined : policies[editing]?.priority;
+  const alone = (level: number | undefined) =>
+    own !== undefined &&
+    own === level &&
+    policies.every((policy, index) => index === editing || policy.priority !== level);
+  const lowest = levels[0];
+  const highest = levels.at(-1);
+  const choices: PriorityChoice[] = [];
+  if (own === undefined) {
+    choices.push({ value: '', label: 'After existing rules', hint: 'The agent places it' });
+  } else if (lowest !== undefined && !alone(lowest)) {
+    choices.push({ value: String(lowest - 1), label: 'Below every rule' });
+  }
+  levels.forEach((level, index) => {
+    const others = policies.filter((policy, at) => at !== editing && policy.priority === level);
+    const names = others.map(ruleTarget);
+    choices.push({
+      value: String(level),
+      label: `Priority ${index + 1}`,
+      hint: names.length
+        ? names.length > 2
+          ? `Same as ${names.slice(0, 2).join(', ')} +${names.length - 2}`
+          : `Same as ${names.join(', ')}`
+        : 'This rule',
+    });
+  });
+  if (!alone(highest)) {
+    choices.push({ value: String((highest ?? 0) + 1), label: 'Above every rule' });
+  }
+  return choices;
 }
 
 /** "1 rule added, 2 rules removed" */
