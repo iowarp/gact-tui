@@ -39,6 +39,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { StateView } from './primitives/state-view';
+import { useShownByPage } from './infrastructure-reachability';
 import {
   configurationForVariant,
   modelRuntimeServer,
@@ -198,6 +199,7 @@ export function ManagedServices({
     retry: false,
     staleTime: 30_000,
   });
+  const catalogErrorShownByPage = useShownByPage(catalog.error);
   const action = useMutation({
     mutationFn: async ({ service_id, ...body }: ServiceActionInput & { service_id: string }) => {
       // The service id is the URL path; CLIO's action contract forbids extra body keys.
@@ -583,7 +585,7 @@ export function ManagedServices({
           title={`Connect ${executionHostLabel} through Desktop to inspect and manage its services.`}
         />
       ) : null}
-      {catalog.error ? (
+      {catalog.error && !catalogErrorShownByPage ? (
         <StateView
           action={{ label: 'Try again', onClick: () => void catalog.refetch() }}
           detail={catalog.error.message}

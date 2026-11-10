@@ -24,6 +24,9 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
 import { InfrastructureTools } from '@/components/clio/infrastructure-tools';
 import { InfraTabActionsProvider } from '@/components/clio/infrastructure-tab-actions';
+import { AgentUnansweredProvider } from '@/components/clio/infrastructure-reachability';
+import { agentIdentity } from '@/components/clio/connection-names';
+import { noAnswer } from '@/lib/connection-attempt';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -118,6 +121,7 @@ export function InfrastructurePage() {
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
         : (servers.error ?? webSearchConfiguration.error);
+  const agentUnanswered = noAnswer(error);
   const retrySection = () => {
     for (const query of [health, servers, tools, effectiveToolset, webSearchConfiguration]) {
       if (query.error) void query.refetch();
@@ -252,66 +256,72 @@ export function InfrastructurePage() {
         </div>
       </div>
       <InfraTabActionsProvider value={tabActions}>
-        <div className="mx-auto max-w-[840px] px-2 sm:px-3">
-          <section
-            aria-label={sectionDefinition.label}
-            className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
-          >
-            {error ? (
-              <StateView
-                className="mt-6 rounded-md border"
-                kind="error"
-                size="row"
-                icon={NetworkIcon}
-                title="This section could not load completely"
-                detail={error.message}
-                action={{ label: 'Retry', onClick: retrySection }}
-              />
-            ) : null}
+        <AgentUnansweredProvider value={agentUnanswered}>
+          <div className="mx-auto max-w-[840px] px-2 sm:px-3">
+            <section
+              aria-label={sectionDefinition.label}
+              className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
+            >
+              {error ? (
+                <StateView
+                  className="mt-6 rounded-md border"
+                  kind="error"
+                  size="row"
+                  icon={NetworkIcon}
+                  title={
+                    agentUnanswered
+                      ? `Can't reach ${agentIdentity(settings.endpoint, settings.label, settings.location).name}`
+                      : 'This section could not load completely'
+                  }
+                  detail={error.message}
+                  action={{ label: 'Retry', onClick: retrySection }}
+                />
+              ) : null}
 
-            {currentSection === 'overview' ||
-            currentSection === 'models' ||
-            currentSection === 'activity' ? (
-              <InfrastructureInventory
-                section={currentSection}
-                overview={{
-                  webSearch: webSearchConfiguration.data,
-                  webSearchConnected: webSearchReady,
-                  onManageWebSearch: () => setWebSearchOpen(true),
-                }}
-              />
-            ) : null}
+              {currentSection === 'overview' ||
+              currentSection === 'models' ||
+              currentSection === 'activity' ? (
+                <InfrastructureInventory
+                  section={currentSection}
+                  overview={{
+                    webSearch: webSearchConfiguration.data,
+                    webSearchConnected: webSearchReady,
+                    onManageWebSearch: () => setWebSearchOpen(true),
+                  }}
+                />
+              ) : null}
 
-            {currentSection === 'tools' ? (
-              <InfrastructureTools
-                sessionId={sessionId}
-                sessionScoped={sessionToolScope}
-                pending={toolsPending}
-                tools={displayedTools}
-                servers={servers.data ?? []}
-                onScope={setToolScope}
-              />
-            ) : null}
+              {currentSection === 'tools' ? (
+                <InfrastructureTools
+                  sessionId={sessionId}
+                  sessionScoped={sessionToolScope}
+                  pending={toolsPending}
+                  tools={displayedTools}
+                  servers={servers.data ?? []}
+                  onScope={setToolScope}
+                />
+              ) : null}
 
-            {currentSection === 'services' ? (
-              <InfrastructureServicesSection
-                webSearch={{
-                  connection: webSearchConfiguration.data,
-                  connected: webSearchReady,
-                  configured: webSearchConfigured,
-                  connecting: connectDetectedWebSearch.isPending,
-                  disconnecting: disconnectWebSearch.isPending,
-                  onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
-                  onDisconnect: () => disconnectWebSearch.mutate(),
-                }}
-              />
-            ) : null}
+              {currentSection === 'services' ? (
+                <InfrastructureServicesSection
+                  webSearch={{
+                    connection: webSearchConfiguration.data,
+                    connected: webSearchReady,
+                    configured: webSearchConfigured,
+                    connecting: connectDetectedWebSearch.isPending,
+                    disconnecting: disconnectWebSearch.isPending,
+                    onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
+                    onDisconnect: () => disconnectWebSearch.mutate(),
+                  }}
+                />
+              ) : null}
 
-            {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
+              {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
 
-            <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
-          </section>
-        </div>
+              <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
+            </section>
+          </div>
+        </AgentUnansweredProvider>
       </InfraTabActionsProvider>
     </main>
   );
