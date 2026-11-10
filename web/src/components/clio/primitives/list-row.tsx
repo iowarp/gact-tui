@@ -162,7 +162,7 @@ export const ListRow = memo(
           {meta !== undefined ? (
             <span
               className={cn(
-                'flex w-11 shrink-0 justify-end @max-[280px]/activity:hidden',
+                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[280px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
             >
