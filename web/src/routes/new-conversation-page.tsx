@@ -276,7 +276,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         <WorkspaceActionAlerts
           actionError={
             send.error?.message ??
-            (warmup.error
+            // While the agent is unreachable the left bar already says so; a warm-up
+            // that failed for the same reason is not a separate failure.
+            (warmup.error && connection === 'live'
               ? `Tools could not be prepared in advance: ${warmup.error.message}. You can still send a message.`
               : undefined)
           }
