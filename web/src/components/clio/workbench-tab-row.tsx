@@ -44,12 +44,14 @@ import { fileViewerReference } from './file-viewer-location';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
+import { focusEditorAtOffset } from './composer-editor-model';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
   overflowTabs,
   tabChanged,
+  workbenchListTabIcons,
   workbenchTabIcons,
   workbenchTabLabel,
   workbenchTabPath,
@@ -57,12 +59,17 @@ import {
 } from './workbench-tab-icons';
 import type { WorkbenchTab } from './workbench-shared';
 
+/** The tab list's gap (gap-0.5). */
+const TAB_GAP_PX = 2;
+/** The "N more tabs" button (px-1.5, count and chevron) and the header gap before it. */
+const OVERFLOW_BUTTON_PX = 44;
+
 export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'artifact' && tab.artifact)
     return <ArtifactTypeIcon artifact={tab.artifact} className="size-3.5" />;
   if (tab.kind === 'activity')
     return <ActivityKindIcon kind={tab.activityKind} className="size-3.5" />;
-  const Icon = workbenchTabIcons[tab.kind];
+  const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }
 
@@ -80,6 +87,27 @@ function workbenchTabReference(
   if (tab.kind === 'resource')
     return fileViewerReference({ kind: 'resource', resource: tab.resource, workspaceId });
   return undefined;
+}
+
+/**
+ * A tab shortcut that unmounts the focused tab or its body lands focus on the new
+ * active tab, or on the composer when the last tab closed the canvas.
+ */
+export function refocusActiveCanvasTab(region: Element | null) {
+  requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    const tab = region?.isConnected
+      ? region.querySelector<HTMLElement>(
+          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
+        )
+      : null;
+    if (tab) tab.focus();
+    else
+      focusEditorAtOffset(
+        document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
+      );
+  });
 }
 
 export interface WorkbenchTabRowProps {
@@ -171,20 +199,45 @@ export function WorkbenchTabRow({
     if (!host || host.scrollWidth <= host.clientWidth + 1) return;
     setMeasured((current) => {
       if (current.key !== fitKey) return current;
-      if (current.fit !== 'overflow') {
-        const next = nextTabRowFit(current.fit);
-        // Into the list: one tab first, then one more per pass while it overflows.
-        return { key: fitKey, fit: next, shown: Math.max(0, tabs.length - 2) };
+      if (current.fit === 'full') return { key: fitKey, fit: 'compact', shown: 0 };
+      if (current.fit === 'compact') {
+        // Into the list in one pass: the compact widths are the ones the
+        // shown tabs keep, so count how many fit beside the list button.
+        // The loop below still steps down if the estimate is short.
+        const widths = new Map<string, number>();
+        for (const node of host.querySelectorAll<HTMLElement>('[data-tab-id]'))
+          widths.set(node.dataset.tabId ?? '', node.offsetWidth + TAB_GAP_PX);
+        const room = host.clientWidth - OVERFLOW_BUTTON_PX;
+        let shown = Math.max(0, tabs.length - 2);
+        while (shown > 0) {
+          const listed = new Set(
+            overflowTabs(tabs, activeTabId, recency, shown).map((tab) => tab.id),
+          );
+          const used = tabs.reduce(
+            (sum, tab) => (listed.has(tab.id) ? sum : sum + (widths.get(tab.id) ?? 0)),
+            0,
+          );
+          if (used <= room) break;
+          shown -= 1;
+        }
+        return { key: fitKey, fit: nextTabRowFit(current.fit), shown };
       }
       return current.shown > 0 ? { ...current, shown: current.shown - 1 } : current;
     });
-  }, [fit, fitKey, measured.shown, tabs.length]);
+  }, [activeTabId, fit, fitKey, measured.shown, recency, tabs]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
-  useShortcut('close-tab', () => onClose(activeTabId), {
-    region: stripRef,
-    enabled: Boolean(activeTabId),
-  });
+  useShortcut(
+    'close-tab',
+    () => {
+      onClose(activeTabId);
+      refocusActiveCanvasTab(stripRef.current?.closest('aside') ?? null);
+    },
+    {
+      region: stripRef,
+      enabled: Boolean(activeTabId),
+    },
+  );
 
   const menuTab = tabs.find((tab) => tab.id === menuTabId);
   const menuIndex = menuTab ? tabs.indexOf(menuTab) : -1;

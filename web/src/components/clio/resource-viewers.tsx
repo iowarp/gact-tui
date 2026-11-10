@@ -13,7 +13,7 @@ import { EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
-import { textFileFormat } from '@/lib/file-presentation';
+import { NOTEBOOK_MEDIA_TYPE, textFileFormat } from '@/lib/file-presentation';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
@@ -485,7 +485,12 @@ function fileName(path: string): string {
 function isTextArtifact(mediaType: string, name: string): boolean {
   return (
     mediaType.startsWith('text/') ||
-    ['application/json', 'application/yaml', 'application/x-yaml'].includes(mediaType) ||
+    [
+      'application/json',
+      'application/yaml',
+      'application/x-yaml',
+      'application/x-ipynb+json',
+    ].includes(mediaType) ||
     [
       'c',
       'cpp',
@@ -494,6 +499,7 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'go',
       'html',
       'htm',
+      'ipynb',
       'java',
       'js',
       'json',
@@ -584,6 +590,7 @@ function inferredWorkspaceMediaType(path: string): string {
   if (extension === 'pdf') return 'application/pdf';
   if (isImagePath(path)) return imageMediaType(path);
   if (extension === 'json') return 'application/json';
+  if (extension === 'ipynb') return NOTEBOOK_MEDIA_TYPE;
   if (extension === 'xml') return 'application/xml';
   if (extension === 'mmd' || extension === 'mermaid') return 'text/vnd.mermaid';
   // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is

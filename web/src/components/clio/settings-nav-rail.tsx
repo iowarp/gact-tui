@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { focusQuietly } from '@/components/clio/primitives/quiet-focus';
 import { SettingsScopeIcon } from '@/components/clio/settings-scope-icon';
 import {
   DropdownMenu,
@@ -47,6 +48,10 @@ export function SettingsNavRail({
     }, 250);
   };
   const keep = () => window.clearTimeout(hoverTimer.current);
+  // Closing hands focus back to the scope's icon without popping its hover name: a name
+  // left open is the topmost layer and would take the Esc meant for Settings.
+  const triggers = useRef(new Map<string, HTMLButtonElement>());
+  const pressedOutside = useRef(false);
   const current = hostSection(sections, section);
   const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   return (
@@ -92,6 +97,9 @@ export function SettingsNavRail({
                   }}
                   onPointerEnter={() => (openScope === group ? keep() : hoverOpen(group))}
                   onPointerLeave={hoverClose}
+                  ref={(node: HTMLButtonElement | null) => {
+                    if (node) triggers.current.set(group, node);
+                  }}
                   tooltip={openScope !== group}
                   tooltipSide="right"
                 />
@@ -99,6 +107,15 @@ export function SettingsNavRail({
               <DropdownMenuContent
                 align="start"
                 className="max-h-[70dvh] w-60 overflow-y-auto"
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const outside = pressedOutside.current;
+                  pressedOutside.current = false;
+                  if (!outside) focusQuietly(triggers.current.get(group));
+                }}
+                onInteractOutside={() => {
+                  pressedOutside.current = true;
+                }}
                 onPointerEnter={keep}
                 onPointerLeave={hoverClose}
                 side="right"

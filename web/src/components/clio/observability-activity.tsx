@@ -27,7 +27,7 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeToolName } from './tool-presentation';
 import {
@@ -415,7 +415,7 @@ export function ClioActivityTimeline({
       </header>
       <div
         aria-label="Filter activity by agent"
-        className="flex flex-wrap items-center gap-1 border-b py-2"
+        className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 [&>*]:shrink-0"
         role="group"
       >
         <Button
@@ -444,7 +444,7 @@ export function ClioActivityTimeline({
         ))}
       </div>
       <div className="min-w-0 overflow-x-auto py-1">
-        <div className="w-full" style={{ minWidth: `${graphWidth + 280}px` }}>
+        <div className="w-full" style={{ minWidth: `${graphWidth + 168}px` }}>
           {filteredRows.map((item) => (
             <CausalActivityRow
               graphWidth={graphWidth}
@@ -482,7 +482,7 @@ function CausalActivityRow({
   const parentX = 12 + parent.index * laneSpacing;
   const target = Boolean(item.transcriptMessageId || item.onActivate || item.onOpen);
   const content = (
-    <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
+    <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
       <div className="relative min-h-11 shrink-0 self-stretch" style={{ width: graphWidth }}>
         <svg
           aria-hidden="true"
@@ -541,11 +541,29 @@ function CausalActivityRow({
         </span>
       </div>
       <div className="min-w-0 py-2">
-        <p className="truncate text-[0.625rem] leading-3 text-muted-foreground" title={lane.label}>
-          {lane.label}
+        <p className="flex min-w-0 items-center justify-between gap-2 text-[0.625rem] leading-3 text-muted-foreground">
+          <span className="truncate" title={lane.label}>
+            {lane.label}
+          </span>
+          <time
+            className="shrink-0 tabular-nums"
+            dateTime={item.at}
+            title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
+          >
+            {item.timing === 'turn'
+              ? 'In this turn'
+              : item.at
+                ? formatGraphTime(item.at)
+                : 'Time unavailable'}
+          </time>
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
           <span className="truncate">{item.label}</span>
+          {CAUSAL_ATTENTION_STATES.has(item.state) ? (
+            <span className={cn('shrink-0 font-medium', causalAttentionTone(item.state))}>
+              {clioStatusLabel(item.state)}
+            </span>
+          ) : null}
         </p>
         {item.detail ? (
           <p className="line-clamp-2 text-[0.6875rem] leading-4 text-muted-foreground">
@@ -553,17 +571,6 @@ function CausalActivityRow({
           </p>
         ) : null}
       </div>
-      <time
-        className="shrink-0 text-[0.625rem] tabular-nums text-muted-foreground"
-        dateTime={item.at}
-        title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
-      >
-        {item.timing === 'turn'
-          ? 'In this turn'
-          : item.at
-            ? formatGraphTime(item.at)
-            : 'Time unavailable'}
-      </time>
       <ClioStatus compact className="shrink-0" value={item.state} />
     </div>
   );
@@ -593,6 +600,24 @@ function CausalActivityRow({
       {content}
     </ClioInteractiveRow>
   );
+}
+
+// States a reader must notice without hovering: the word sits beside the label so it never
+// depends on the status icon's colour or tooltip, and stays visible on narrow tabs.
+const CAUSAL_ATTENTION_STATES: ReadonlySet<string> = new Set<ClioStatusValue>([
+  'failed',
+  'denied',
+  'interrupted',
+  'cancelled',
+  'waiting_permission',
+  'waiting_user',
+]);
+
+function causalAttentionTone(state: string): string {
+  if (state === 'failed' || state === 'denied') return 'text-destructive';
+  if (state === 'interrupted') return 'text-warning';
+  if (state === 'waiting_permission' || state === 'waiting_user') return 'text-action';
+  return 'text-muted-foreground';
 }
 
 function causalLaneId(item: ObservabilityActivityItem): string {

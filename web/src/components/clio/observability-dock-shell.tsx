@@ -63,10 +63,8 @@ import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 export interface ClioObservabilityDockProps {
   /** Opens a shared browser page in the workbench (the Work rail's Browser pages). */
   onOpenBrowser?: (request: Extract<ClioWorkbenchOpenRequest, { kind: 'browser' }>) => void;
+  /** The conversation family shown by the Relationships view. */
   sessions?: readonly Session[];
-  familyProvenance?: ExecutionProvenanceResult;
-  familyProvenancePending?: boolean;
-  onLoadFamilyProvenance?: () => void;
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   contextFrames: readonly ContextFrame[];
@@ -110,7 +108,7 @@ export interface ClioObservabilityDockProps {
   onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
-  /** The views offered; the workbench lists evidence and the timeline in Activity instead. */
+  /** The views offered; the workbench lists recorded work in its Activity list instead. */
   views?: readonly ObservabilityView[];
   onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;
@@ -369,8 +367,7 @@ function RailButton({
   if ((open || failedCount < seenFailed) && seenFailed !== failedCount) setSeenFailed(failedCount);
   const current = look(seenFailed);
   const describedBy = useId();
-  useShortcut('conversation-runs', () => {
-    if (open) return setOpen(false);
+  const openIntoRail = () => {
     setOpen(true);
     requestAnimationFrame(() => {
       const panel = panelRef.current;
@@ -384,7 +381,8 @@ function RailButton({
         panel?.querySelector<HTMLElement>('[data-rail-row]')
       )?.focus();
     });
-  });
+  };
+  useShortcut('conversation-runs', () => (open ? setOpen(false) : openIntoRail()));
   return (
     <Button
       ref={buttonRef}
@@ -392,7 +390,8 @@ function RailButton({
       aria-describedby={toolbar ? describedBy : undefined}
       aria-expanded={open}
       aria-controls={open ? panelId : undefined}
-      onClick={() => setOpen(!open)}
+      // The rail is portaled, so a keyboard opener (detail 0) would otherwise have no Tab path in.
+      onClick={(event) => (!open && event.detail === 0 ? openIntoRail() : setOpen(!open))}
       className={cn(
         'h-7 min-w-0 gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground',
         // Fixed slots, so the button keeps its width whatever it shows. A phone's

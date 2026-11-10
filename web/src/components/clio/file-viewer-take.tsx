@@ -10,6 +10,7 @@ import {
 import { Fragment, useRef, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -313,20 +314,27 @@ export function FrameTalkTake({
           {fold.tools.length > 0 ? (
             <>
               {fold.modes.length > 0 ? <DropdownMenuSeparator /> : null}
-              {fold.tools.map((tool, index) => (
-                <DropdownMenuItem
-                  key={`${index}:${tool.label}`}
-                  disabled={tool.disabled}
-                  onSelect={() => tool.button.click()}
-                >
-                  <MenuRow
-                    icon={tool.icon}
-                    label={tool.label}
-                    description={tool.reason}
+              {fold.tools.map((tool, index) =>
+                // A pressed toggle in the bar (Explorer) stays a checked toggle here.
+                tool.checked === undefined ? (
+                  <DropdownMenuItem
+                    key={`${index}:${tool.label}`}
+                    disabled={tool.disabled}
+                    onSelect={() => tool.button.click()}
+                  >
+                    <MenuRow icon={tool.icon} label={tool.label} description={tool.reason} />
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuCheckboxItem
+                    key={`${index}:${tool.label}`}
                     checked={tool.checked}
-                  />
-                </DropdownMenuItem>
-              ))}
+                    disabled={tool.disabled}
+                    onSelect={() => tool.button.click()}
+                  >
+                    <MenuRow icon={tool.icon} label={tool.label} description={tool.reason} />
+                  </DropdownMenuCheckboxItem>
+                ),
+              )}
             </>
           ) : null}
           {fold.modes.length + fold.tools.length > 0 && (anyFolded || menu) ? (

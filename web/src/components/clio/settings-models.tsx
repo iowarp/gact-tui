@@ -216,8 +216,8 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         >
           {marker('model')}
           <ModelSelectField
+            busy={save.isPending}
             catalogStatus={catalogStatus}
-            disabled={save.isPending}
             id="settings-default-model"
             modelId={configuration.model || undefined}
             onChange={chooseModel}

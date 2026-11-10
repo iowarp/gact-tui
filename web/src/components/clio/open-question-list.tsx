@@ -2,11 +2,8 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { ArrowUpRightIcon, ChevronDownIcon, MessageCircleQuestionIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Accordion } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useEvidenceSections } from '@/hooks/use-evidence-disclosures';
-import { followTranscriptLink, openHumanQuestions } from '@/lib/inline-question';
-import { EvidenceSection } from './observability-evidence-section';
+import { followTranscriptLink } from '@/lib/inline-question';
 import { useQuestionAnswer } from './question-answer-context';
 
 /** One compact row per question; preview, source and full-text disclosure stay separate. */
@@ -102,30 +99,5 @@ export function OpenQuestionList({
         );
       })}
     </ul>
-  );
-}
-
-/** Keep unanswered questions in the Work inventory, using the same list as its tracker. */
-export function OpenQuestionsSection({
-  interactions,
-}: {
-  interactions?: readonly PendingInteraction[];
-}) {
-  const answer = useQuestionAnswer();
-  const questions = openHumanQuestions(interactions ?? answer?.interactions ?? []);
-  const sections = useEvidenceSections('evidence-questions', ['questions']);
-  if (!questions.length || !answer?.openQuestion) return null;
-  return (
-    <Accordion type="multiple" {...sections}>
-      <EvidenceSection
-        compact
-        icon={MessageCircleQuestionIcon}
-        label="Open questions"
-        value="questions"
-        count={questions.length}
-      >
-        <OpenQuestionList questions={questions} />
-      </EvidenceSection>
-    </Accordion>
   );
 }
