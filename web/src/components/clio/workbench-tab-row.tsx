@@ -415,7 +415,7 @@ export function WorkbenchTabRow({
                 />
               </ContextMenuItem>
               <ContextMenuItem
-                data-accelerator="@"
+                data-accelerator="A"
                 disabled={addReason !== undefined}
                 onSelect={() => {
                   if (menuReference && addReferenceToComposer(menuReference, workspaceId))
@@ -423,7 +423,7 @@ export function WorkbenchTabRow({
                 }}
                 title={addReason}
               >
-                <MenuRow accelerator="@" icon={<AtSignIcon />} label="Add to message" />
+                <MenuRow accelerator="A" icon={<AtSignIcon />} label="Add to message" />
               </ContextMenuItem>
               <ContextMenuItem
                 data-accelerator="F"

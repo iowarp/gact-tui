@@ -23,7 +23,7 @@ import { MenuRow, assignJumpLetters } from './primitives/menu-row';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
 
 /** Jump letters of the … menu's own rows, and of @, Copy and Open once folded. */
-const FIXED_LETTERS = '@COIFWD';
+const FIXED_LETTERS = 'ACOIFWR';
 
 /**
  * The frame bar's Talk and Take for uploads, artifacts and workspace files:
@@ -161,14 +161,14 @@ export function FileViewerActions({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  data-accelerator="D"
+                  data-accelerator="R"
                   variant="destructive"
                   onSelect={() => setRemoveOpen(true)}
                 >
                   <MenuRow
                     icon={<DeleteIcon />}
                     label="Remove from this workspace"
-                    accelerator="D"
+                    accelerator="R"
                   />
                 </DropdownMenuItem>
               </>

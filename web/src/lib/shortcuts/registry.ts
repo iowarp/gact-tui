@@ -112,6 +112,19 @@ export function shortcutText(definition: ShortcutDefinition, platform: KeyPlatfo
 }
 
 /**
+ * The text of each alternative, one chip apiece, for a reader that puts an
+ * uncapped "or" between them. A `cap` or `pair` stays one chip.
+ */
+export function shortcutAlternatives(
+  definition: ShortcutDefinition,
+  platform: KeyPlatform,
+): string[] {
+  if (definition.joiner === 'cap' || definition.joiner === 'pair')
+    return [shortcutText(definition, platform)];
+  return shortcutChords(definition, platform).map((chord) => chordText(chord, platform));
+}
+
+/**
  * The held-key badge text: the first chord, without the held Ctrl on Windows.
  * A `pair` sharing its modifiers joins as one badge (`Alt ←→`).
  */

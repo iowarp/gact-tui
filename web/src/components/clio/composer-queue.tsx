@@ -4,6 +4,7 @@ import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifi
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { composerFailureReason } from './composer-failure';
 import { Sortable } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -147,10 +148,7 @@ export function ClioComposerQueue({
       setEditing(undefined);
     } catch (error) {
       toast.error('Queued message changed elsewhere', {
-        description:
-          error instanceof Error
-            ? `${error.message} Your draft is still here.`
-            : 'Your draft is still here. Review the service version and try again.',
+        description: `${composerFailureReason(error, 'It changed before your edit was saved.')} Your draft is still here.`,
       });
     }
   };
@@ -159,9 +157,7 @@ export function ClioComposerQueue({
     try {
       await action();
     } catch (error) {
-      toast.error(label, {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      toast.error(label, { description: composerFailureReason(error, 'The service refused it.') });
     }
   };
 
@@ -176,7 +172,7 @@ export function ClioComposerQueue({
         return;
       }
       toast.error('Unable to reorder queued messages', {
-        description: error instanceof Error ? error.message : undefined,
+        description: composerFailureReason(error, 'The service refused the new order.'),
       });
     }
   };
