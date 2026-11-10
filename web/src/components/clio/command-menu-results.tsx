@@ -1,5 +1,5 @@
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { BoxIcon, FileIcon, LayersIcon, MessageSquareTextIcon, ZapIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
@@ -87,6 +87,15 @@ export function useCommandMenuResults({
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const artifacts = useLiveStore((state) => state.entities.artifacts);
+  const queryClient = useQueryClient();
+  // The All results tab opens on the palette's pages while it reads its longer ones,
+  // so the moved list shows at once instead of filling in.
+  const fromPalette =
+    limits.key === COMMAND_MENU_LIMITS.key
+      ? undefined
+      : <T,>(key: QueryKey) =>
+          () =>
+            queryClient.getQueryData<T>(key);
   const workspaces = useQuery({
     enabled,
     queryKey: queryKeys.key('workspaces', settings.endpoint, scope),
@@ -108,6 +117,15 @@ export function useCommandMenuResults({
           signal,
         )
       ).sessions,
+    placeholderData: fromPalette?.(
+      queryKeys.key(
+        'session-pages',
+        settings.endpoint,
+        COMMAND_MENU_LIMITS.key,
+        scope,
+        serverQuery,
+      ),
+    ),
   });
   const files = useQuery({
     // The `@`-picker excludes ONLY CLIO's own .clio/.clio-* service storage
@@ -147,6 +165,16 @@ export function useCommandMenuResults({
       ),
     enabled: enabled && local && serverQuery.length >= 2,
     retry: retryUnlessMissing,
+    placeholderData: fromPalette?.(
+      queryKeys.key(
+        'workspace-memory-search',
+        settings.endpoint,
+        'all-workspaces',
+        scope,
+        serverQuery,
+        COMMAND_MENU_LIMITS.memoryHits,
+      ),
+    ),
   });
 
   const normalizedQuery = searchText.trim().toLocaleLowerCase();

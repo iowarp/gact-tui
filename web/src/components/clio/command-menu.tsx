@@ -120,6 +120,10 @@ export function ClioCommandMenu({
   useEffect(() => {
     if (open && !aiMode) searchInput.current?.focus();
   }, [open, aiMode]);
+  // Ctrl Enter may move the list into a tab: have its code ready before then.
+  useEffect(() => {
+    if (open) void import('./search-results-tab');
+  }, [open]);
 
   const searchWorkspaceId = workspaceId || workspaces.data?.[0]?.id;
 
