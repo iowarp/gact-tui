@@ -16,6 +16,7 @@ import {
   READ_TYPE_SCALE,
   normalizeConvertedMarkdown,
 } from '@/lib/document-markdown';
+import { TABLE_SCROLL_CUE_CLASS_NAME, useTableScrollCue } from '@/lib/use-table-scroll-cue';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -255,6 +256,8 @@ export function FileReadView({
 }) {
   const frontmatter = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)(?:\r?\n|$)/.exec(content);
   const body = frontmatter ? content.slice(frontmatter[0].length) : content;
+  const tables = useRef<HTMLDivElement>(null);
+  useTableScrollCue(tables);
   return (
     <ScrollArea
       className="h-full min-w-0"
@@ -268,9 +271,11 @@ export function FileReadView({
           </details>
         ) : null}
         <div ref={readingRef}>
-          <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}>
-            {normalizeConvertedMarkdown(body)}
-          </ContentMarkdown>
+          <div ref={tables} className={TABLE_SCROLL_CUE_CLASS_NAME}>
+            <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}>
+              {normalizeConvertedMarkdown(body)}
+            </ContentMarkdown>
+          </div>
         </div>
       </article>
     </ScrollArea>

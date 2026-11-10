@@ -20,3 +20,131 @@ body,
 .viewer-root [role='tablist'][aria-label='Visualization'] {
   display: none;
 }
+
+/*
+ * h5web's tree and data share a resizable split whose data side needs 500px
+ * and tree 150px. A workbench pane is usually narrower, so h5web sizes the tree
+ * to nothing (or collapses it) and the Explorer toggle cannot bring it back.
+ * While the host's Explorer toggle says open (modes.ts), keep the tree beside
+ * the data, as the workbench's Array view draws it. Wider panes keep h5web's
+ * own draggable split.
+ */
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar,
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar > * {
+  display: flex !important;
+}
+
+.viewer-root[data-explorer='open'] [data-sidebar-collapsed] > #h5w-sidebar {
+  flex: 0 0 min(16rem, 44%) !important;
+}
+
+.viewer-root[data-explorer='open'] #h5w-sidebar > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Closed means closed, even at widths where h5web would show its own sidebar. */
+.viewer-root[data-explorer='closed'] [data-fullscreen-root] > :not(#h5w-main-area) {
+  display: none !important;
+}
+
+.viewer-root[data-explorer='closed'] [data-fullscreen-root] > #h5w-main-area {
+  flex: 1 1 auto !important;
+}
+
+
+/*
+ * Below the width that fits the tree beside a plot (MIN_EXPLORER_PANE in
+ * modes.ts), an open Explorer takes the plot's place rather than splitting
+ * the pane; opening a dataset closes it again.
+ */
+@media (max-width: 719.98px) {
+  .viewer-root[data-explorer='open'] [data-fullscreen-root] > #h5w-sidebar {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .viewer-root[data-explorer='open'] [data-fullscreen-root] > :not(#h5w-sidebar) {
+    display: none !important;
+  }
+}
+
+/*
+ * The dimension mapper sits in a column beside the plot. Where the data area
+ * is narrow it moves above the plot as one or two rows: the size, the x and y
+ * pickers and a horizontal slice slider per sliced dimension (slicer.ts) wrap
+ * together, and h5web's vertical slider stays mounted but hidden.
+ */
+#h5w-main-area {
+  container: h5main / inline-size;
+}
+
+.viewer-slice,
+.viewer-slice-value {
+  display: none;
+}
+
+@container h5main (max-width: 719.98px) {
+  [class*='_visArea_'] {
+    grid-template: 'dimMapper' auto 'bar' auto 'vis' minmax(0, 1fr) / minmax(0, 1fr) !important;
+  }
+
+  [class*='_dimMapper_'] {
+    flex-flow: row wrap !important;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding: 0.25rem 0.5rem !important;
+    overflow: visible !important;
+  }
+
+  [class*='_dimMapper_'] > [class*='_axisMapperWrapper_'],
+  [class*='_dimMapper_'] > [class*='_sliders_'] {
+    display: contents !important;
+  }
+
+  [class*='_dimMapper_'] [class*='_dims_'] {
+    white-space: nowrap;
+  }
+
+  [class*='_dimMapper_'] [class*='_sliders_'] > div:has(> [id^='h5w-slider-']) {
+    position: relative;
+    display: flex;
+    flex: 1 1 7rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 7rem;
+    padding: 0;
+  }
+
+  [class*='_dimMapper_'] [id^='h5w-slider-'] {
+    margin: 0;
+  }
+
+  [class*='_dimMapper_'] [id^='h5w-slider-'] + span,
+  [class*='_dimMapper_'] div:has(> [role='slider']) {
+    display: none !important;
+  }
+
+  [class*='_colorBar_']:not([data-horizontal]) {
+    grid-template-columns: 1rem 3.25rem !important;
+  }
+
+  .viewer-slice {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 4rem;
+    margin: 0;
+    accent-color: var(--h5w-slicingSlider-track--color, currentColor);
+    cursor: pointer;
+  }
+
+  .viewer-slice-value {
+    display: block;
+    min-width: 2ch;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+}

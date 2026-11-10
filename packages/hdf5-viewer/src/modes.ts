@@ -1,4 +1,15 @@
-import { DTypeClass, EntityKind, ShapeClass, type DType, type ProvidedEntity } from '@h5web/app';
+import {
+  DTypeClass,
+  EntityKind,
+  ShapeClass,
+  hasArrayShape,
+  hasChildren,
+  hasNumericType,
+  isDataset,
+  isGroup,
+  type DType,
+  type ProvidedEntity,
+} from '@h5web/app';
 import { HDF5_MODES, type Hdf5Mode } from './protocol';
 
 /**
@@ -66,8 +77,33 @@ export function readView(root: ParentNode, previous?: ViewState): ViewState {
   return {
     modes: HDF5_MODES.filter((mode) => offered.has(mode)),
     mode: inspecting ? 'attributes' : selected ? modeOfVis(visName(selected)) : undefined,
-    explorer: root.querySelector(SIDEBAR_TOGGLE)?.getAttribute('aria-pressed') === 'true',
+    explorer: explorerOpen(root),
   };
+}
+
+/**
+ * The host's frame owns the object tree's toggle, kept as `data-explorer` on
+ * the viewer root. h5web collapses its tree whenever the page is narrower
+ * than its 500px main area plus a 150px tree, which a workbench pane usually
+ * is; viewer.css keeps the tree visible there while this says open.
+ */
+const EXPLORER = 'data-explorer';
+/**
+ * The narrowest pane, in CSS pixels, that fits the tree beside a plot: h5web
+ * keeps about 200px of a heatmap's width for its axis and colour bar, so a
+ * narrower split leaves the data a sliver. Below it the tree starts closed,
+ * and opening it shows the tree in the plot's place (viewer.css).
+ */
+export const MIN_EXPLORER_PANE = 720;
+
+function paneFitsExplorer(root: Element): boolean {
+  return (root.ownerDocument.defaultView?.innerWidth ?? Infinity) >= MIN_EXPLORER_PANE;
+}
+
+function explorerOpen(root: ParentNode): boolean {
+  const state = root instanceof Element ? root.getAttribute(EXPLORER) : null;
+  if (state) return state === 'open';
+  return root.querySelector(SIDEBAR_TOGGLE)?.getAttribute('aria-pressed') === 'true';
 }
 
 /**
@@ -92,6 +128,7 @@ export function selectMode(root: ParentNode, mode: Hdf5Mode): boolean {
 }
 
 export function setExplorer(root: ParentNode, open: boolean): void {
+  if (root instanceof Element) root.setAttribute(EXPLORER, open ? 'open' : 'closed');
   const toggle = root.querySelector<HTMLElement>(SIDEBAR_TOGGLE);
   if (toggle && (toggle.getAttribute('aria-pressed') === 'true') !== open) toggle.click();
 }
@@ -118,8 +155,21 @@ export function observeView(root: Element, onChange: (state: ViewState) => void)
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed'],
+    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', EXPLORER],
   });
+  // The tree opens beside the data, as the Array view draws it, unless the pane
+  // is too narrow to show both; the Explorer toggle opens it there, in the
+  // plot's place. Crossing that width while reading closes or reopens it.
+  let wide = paneFitsExplorer(root);
+  if (!root.hasAttribute(EXPLORER)) setExplorer(root, wide);
+  const win = root.ownerDocument.defaultView;
+  const onResize = () => {
+    const next = paneFitsExplorer(root);
+    if (next === wide) return;
+    wide = next;
+    setExplorer(root, next);
+  };
+  win?.addEventListener('resize', onResize);
   check();
   return {
     show({ mode, explorer }: { mode?: Hdf5Mode; explorer?: boolean }) {
@@ -127,7 +177,14 @@ export function observeView(root: Element, onChange: (state: ViewState) => void)
       if (mode) pending = selectMode(root, mode) ? undefined : mode;
       check();
     },
-    dispose: () => observer.disconnect(),
+    /** A dataset was opened: where the tree covers the plot, it steps aside. */
+    opened() {
+      if (!wide && explorerOpen(root)) setExplorer(root, false);
+    },
+    dispose: () => {
+      observer.disconnect();
+      win?.removeEventListener('resize', onResize);
+    },
   };
 }
 
@@ -164,4 +221,40 @@ export function entityKind(entity: ProvidedEntity): 'dataset' | 'group' | 'other
   if (entity.kind === EntityKind.Dataset) return 'dataset';
   if (entity.kind === EntityKind.Group) return 'group';
   return 'other';
+}
+
+/** Most groups read while looking for a file's first dataset. */
+const MAX_SEARCHED_GROUPS = 32;
+
+/**
+ * The path of the file's first array dataset, numeric ones first, searched
+ * breadth first; or `/` when the root names a NeXus default, has none, or
+ * cannot be read (h5web then shows why). `get` is h5web's suspending entity
+ * read, so this runs during render.
+ */
+export function firstArrayDataset(get: (path: string) => ProvidedEntity): string {
+  try {
+    const root = get('/');
+    if (!isGroup(root) || root.attributes.some((attr) => attr.name === 'default')) return '/';
+    const queue: ProvidedEntity[] = [root];
+    let fallback: string | undefined;
+    for (let searched = 0; queue.length && searched < MAX_SEARCHED_GROUPS; searched += 1) {
+      const group = queue.shift();
+      if (!group || !isGroup(group) || !hasChildren(group)) continue;
+      for (const child of group.children) {
+        if (!isDataset(child) || !hasArrayShape(child)) continue;
+        if (hasNumericType(child)) return child.path;
+        fallback ??= child.path;
+      }
+      for (const child of group.children) if (isGroup(child)) queue.push(get(child.path));
+    }
+    if (fallback) return fallback;
+  } catch (error) {
+    if (isThenable(error)) throw error;
+  }
+  return '/';
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof (value as PromiseLike<unknown> | undefined)?.then === 'function';
 }

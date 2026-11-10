@@ -1,8 +1,10 @@
 import {
+  HDF5_PALETTE_KEYS,
   HDF5_VIEWER_PROTOCOL,
   HOST_SOURCE,
   isViewerMessage,
   type Hdf5Mode,
+  type Hdf5Palette,
   type HostMessage,
   type ViewerMessage,
 } from '@clio/hdf5-viewer/protocol';
@@ -15,7 +17,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useThemeKey } from '@/theme/runtime';
+import { readThemeColor, useThemeKey } from '@/theme/runtime';
+import type { ColorToken } from '@/theme/contract';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { HDF5_LOCATOR_SEPARATOR } from './composer-hdf5-references';
@@ -81,7 +84,11 @@ export function Hdf5ViewerFrame({
 }) {
   const repository = useRepository();
   // The viewer takes light or dark; a named theme (e.g. Notebook) maps to its variant.
-  const theme = useThemeKey().endsWith(':dark') ? 'dark' : 'light';
+  const themeName = useThemeKey();
+  const theme = themeName.endsWith(':dark') ? 'dark' : 'light';
+  // themeName is the dependency: the palette is read from the theme it names.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const palette = useMemo(() => hostPalette(), [themeName]);
   const viewer = useMemo(() => currentViewerLocation(), []);
   const fileKey = `${workspaceId}\u0000${path}`;
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -91,6 +98,7 @@ export function Hdf5ViewerFrame({
     locator: startLocator(fileKey, locator),
     revision,
     theme,
+    palette,
   });
   const selectionRef = useRef({ fileKey, locator });
   const [entity, setEntity] = useState<ViewerEntity>();
@@ -184,11 +192,11 @@ export function Hdf5ViewerFrame({
 
   useEffect(() => {
     selectionRef.current = { fileKey, locator };
-    initRef.current = { path, locator: startLocator(fileKey, locator), revision, theme };
+    initRef.current = { path, locator: startLocator(fileKey, locator), revision, theme, palette };
     const target = iframeRef.current?.contentWindow;
     if (!target || !readyRef.current) return;
     target.postMessage(initMessage(initRef.current), viewer.origin);
-  }, [fileKey, path, locator, revision, theme, viewer.origin]);
+  }, [fileKey, path, locator, revision, theme, palette, viewer.origin]);
 
   const show = useCallback(
     (request: { mode?: Hdf5Mode; explorer?: boolean }) => {
@@ -337,7 +345,34 @@ function copiesValues(entity: ViewerEntity): boolean {
   return entity.shape.reduce((count, dim) => count * dim, 1) <= MAX_COPIED_VALUES;
 }
 
-type InitState = { path: string; locator?: string; revision: number; theme?: 'light' | 'dark' };
+type InitState = {
+  path: string;
+  locator?: string;
+  revision: number;
+  theme?: 'light' | 'dark';
+  palette?: Hdf5Palette;
+};
+
+const PALETTE_TOKENS: Record<keyof Hdf5Palette, ColorToken> = {
+  background: 'background',
+  foreground: 'foreground',
+  muted: 'muted-foreground',
+  border: 'border',
+  hover: 'hover',
+  selected: 'menu-highlight',
+  accent: 'primary',
+};
+
+/** The active theme's colors for the viewer, or none if one is not a solid `#rrggbb`. */
+function hostPalette(): Hdf5Palette | undefined {
+  const palette = {} as Hdf5Palette;
+  for (const key of HDF5_PALETTE_KEYS) {
+    const color = readThemeColor(PALETTE_TOKENS[key]);
+    if (!/^#[0-9a-f]{6}$/iu.test(color)) return undefined;
+    palette[key] = color;
+  }
+  return palette;
+}
 
 function initMessage(init: InitState): HostMessage {
   return {
@@ -348,6 +383,7 @@ function initMessage(init: InitState): HostMessage {
     locator: init.locator,
     revision: init.revision,
     theme: init.theme,
+    palette: init.palette,
   };
 }
 

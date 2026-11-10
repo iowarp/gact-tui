@@ -58,6 +58,30 @@ export type ViewerMessage =
 export const HDF5_MODES = ['table', 'plot', 'image', 'attributes'] as const;
 export type Hdf5Mode = (typeof HDF5_MODES)[number];
 
+/**
+ * The host theme's colors, as `#rrggbb`, that the viewer paints h5web's
+ * chrome with so the tree and tables read as part of the workbench.
+ */
+export const HDF5_PALETTE_KEYS = [
+  'background',
+  'foreground',
+  'muted',
+  'border',
+  'hover',
+  'selected',
+  'accent',
+] as const;
+export type Hdf5Palette = Record<(typeof HDF5_PALETTE_KEYS)[number], string>;
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/iu;
+
+function isPalette(value: unknown): value is Hdf5Palette {
+  return (
+    isRecord(value) &&
+    HDF5_PALETTE_KEYS.every((key) => typeof value[key] === 'string' && HEX_COLOR.test(value[key]))
+  );
+}
+
 function isMode(value: unknown): value is Hdf5Mode {
   return (HDF5_MODES as readonly unknown[]).includes(value);
 }
@@ -75,6 +99,8 @@ export type HostMessage =
       revision: number;
       /** The host's theme. Absent: the viewer follows the operating system. */
       theme?: 'light' | 'dark';
+      /** The host theme's colors for the viewer's chrome. Absent: h5web's own. */
+      palette?: Hdf5Palette;
     }
   /** Show the current object another way, or open or close the object tree. */
   | { source: typeof HOST_SOURCE; type: 'show'; mode?: Hdf5Mode; explorer?: boolean }
@@ -137,7 +163,8 @@ export function isHostMessage(value: unknown): value is HostMessage {
         typeof value.filepath === 'string' &&
         typeof value.revision === 'number' &&
         (value.locator === undefined || typeof value.locator === 'string') &&
-        (value.theme === undefined || value.theme === 'light' || value.theme === 'dark')
+        (value.theme === undefined || value.theme === 'light' || value.theme === 'dark') &&
+        (value.palette === undefined || isPalette(value.palette))
       );
     case 'response':
       return (
