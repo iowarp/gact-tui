@@ -3,9 +3,9 @@ import {
   BookOpenIcon,
   FileCode2Icon,
   FileDiffIcon,
-  GitBranchIcon,
   NotebookTextIcon,
   Table2Icon,
+  WorkflowIcon,
   WrapTextIcon,
 } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
@@ -133,7 +133,8 @@ export function FileTextView({
   );
   const modes: FileMode[] = [
     ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),
-    ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: GitBranchIcon }] : []),
+    // The branch icon is Lineage's; a diagram renders as a flow.
+    ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: WorkflowIcon }] : []),
     ...(changes ? [{ value: 'changes', label: 'Changes', icon: FileDiffIcon }] : []),
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
