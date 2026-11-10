@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { composerFailureReason } from './composer-failure';
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -138,7 +139,7 @@ export function ClioComposerAttachments({
             ...current,
             [file.id]: {
               filename: file.filename,
-              message: error instanceof Error ? error.message : 'The upload failed.',
+              message: composerFailureReason(error, 'The upload failed.'),
             },
           }));
         })
@@ -172,7 +173,7 @@ export function ClioComposerAttachments({
       attachments.remove(file.id);
     } catch (error) {
       toast.error('Could not remove attachment', {
-        description: error instanceof Error ? error.message : String(error),
+        description: composerFailureReason(error, 'The service did not remove it.'),
       });
     }
   };
