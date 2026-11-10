@@ -83,8 +83,7 @@ export function ScheduleSelect({
       <DropdownMenuTrigger asChild disabled={disabled}>
         <SettingsSelectField
           aria-label={label ? (shown ? `${label}: ${shown}` : label) : undefined}
-          // Light: the cream field every other settings select uses, not the tan fill.
-          className={cn('bg-transparent hover:bg-transparent', className)}
+          className={className}
           icon={icon}
           id={id}
           placeholder={placeholder}
