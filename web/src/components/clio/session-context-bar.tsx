@@ -4,7 +4,6 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { canForkSession } from '@/lib/session-state';
-import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
 import type { ClioSessionActionsProps } from './session-actions';
@@ -43,10 +42,6 @@ export function ClioSessionContextBar({
   onUndo,
 }: ClioSessionContextBarProps) {
   const title = session?.title ?? 'Session unavailable';
-  // Native window chrome shows the passive title on desktop, so there the
-  // conversation menu is the chevron alone.
-  const nativeTitle = inTauri();
-  const TitleElement = nativeTitle ? 'span' : 'h1';
   return (
     <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       {parentSession ? (
@@ -57,7 +52,7 @@ export function ClioSessionContextBar({
         />
       ) : null}
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-[13px]">
-        {workspaceLabel && !nativeTitle ? (
+        {workspaceLabel ? (
           <>
             <button
               className="flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28"
@@ -73,7 +68,7 @@ export function ClioSessionContextBar({
             <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-faint" />
           </>
         ) : null}
-        <TitleElement aria-label={nativeTitle ? undefined : title} className="flex min-w-0">
+        <h1 aria-label={title} className="flex min-w-0">
           <ClioSessionActions
             disabled={!session || actionsPending}
             management={management}
@@ -94,15 +89,12 @@ export function ClioSessionContextBar({
             trigger={({ disabled }) => (
               <button
                 aria-label={`Actions for ${session?.title ?? 'session'}`}
-                className={cn(
-                  'flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-semibold outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover',
-                  nativeTitle && 'w-7 justify-center px-0',
-                )}
+                className="flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1.5 font-semibold outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 aria-expanded:bg-hover"
                 disabled={disabled}
                 title={session?.branch ? `${title}\nBranch ${session.branch}` : title}
                 type="button"
               >
-                {nativeTitle ? null : <span className="min-w-0 truncate">{title}</span>}
+                <span className="min-w-0 truncate">{title}</span>
                 <ChevronDownIcon
                   aria-hidden="true"
                   className="size-3.5 shrink-0 text-muted-foreground"
@@ -110,7 +102,7 @@ export function ClioSessionContextBar({
               </button>
             )}
           />
-        </TitleElement>
+        </h1>
       </nav>
       <ClioDownloadsButton />
     </div>

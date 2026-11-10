@@ -2,7 +2,6 @@ import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
-  BellRingIcon,
   BrainCircuitIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -390,13 +389,11 @@ export function ClioAttentionCenter({
     >
       <PopoverTrigger asChild>
         <IconButton
-          className={cn(
-            'shrink-0',
-            responseCount > 0 && 'text-action hover:text-action',
-            responseCount === 0 && updateReady && 'text-info',
-          )}
+          // Spec `.nfbell`: the bell stays muted; the warning badge carries Needs you.
+          className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
           count={responseCount || undefined}
-          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
+          countTone="warning"
+          icon={<BellIcon />}
           label={label}
           shortcut="notifications"
           tooltipSide="bottom"
@@ -405,7 +402,7 @@ export function ClioAttentionCenter({
       <PopoverContent
         align="start"
         alignOffset={-6}
-        className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
         collisionPadding={8}
         onOpenAutoFocus={(event) => {
           // Start on the first notification, not the header's controls; an
