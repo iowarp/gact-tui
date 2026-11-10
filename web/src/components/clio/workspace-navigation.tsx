@@ -1,13 +1,27 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { ChevronRightIcon, LoaderCircleIcon } from 'lucide-react';
-import { AddIcon, MoreIcon, NewConversationIcon } from '@/lib/icon-vocabulary';
+import {
+  ChevronRightIcon,
+  CopyIcon,
+  FolderOpenIcon,
+  LoaderCircleIcon,
+  PinIcon,
+  PinOffIcon,
+  UploadIcon,
+} from 'lucide-react';
+import {
+  AddIcon,
+  EditIcon,
+  MoreIcon,
+  NewConversationIcon,
+  RemoveIcon,
+  SettingsIcon,
+} from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -30,6 +44,7 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { cn } from '@/lib/utils';
 import { WorkspaceMark } from './workspace-mark';
+import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { nestAgentForks } from './conversation-fork-origin';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
@@ -677,18 +692,23 @@ function WorkspaceActionsMenu({
         <IconButton icon={<MoreIcon />} label={`Workspace actions for ${labelText}`} size="sm" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[290px]">
-        <DropdownMenuItem menuKey="N" onSelect={() => onCreateSession(workspace.id)}>
-          New conversation here
-        </DropdownMenuItem>
-        <DropdownMenuItem
+        <KeyMenuItem
+          icon={NewConversationIcon}
+          label="New conversation here"
+          menuKey="N"
+          onSelect={() => onCreateSession(workspace.id)}
+        />
+        <KeyMenuItem
           disabled={!onImportSession}
+          icon={UploadIcon}
+          label="Import conversation here…"
           menuKey="I"
           onSelect={() => onImportSession?.(workspace.id)}
-        >
-          Import conversation here…
-        </DropdownMenuItem>
+        />
         <DropdownMenuSeparator />
-        <DropdownMenuItem
+        <KeyMenuItem
+          icon={workspace.pinned ? PinOffIcon : PinIcon}
+          label={workspace.pinned ? 'Unpin' : 'Pin'}
           menuKey="P"
           onSelect={() =>
             onAction(
@@ -696,37 +716,40 @@ function WorkspaceActionsMenu({
               workspace.pinned ? 'Workspace unpinned' : 'Workspace pinned',
             )
           }
-        >
-          {workspace.pinned ? 'Unpin' : 'Pin'}
-        </DropdownMenuItem>
-        <DropdownMenuItem
+        />
+        <KeyMenuItem
+          icon={EditIcon}
+          label="Rename"
           menuKey="R"
           onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
-        >
-          Rename
-        </DropdownMenuItem>
-        <DropdownMenuItem menuKey="S" onSelect={() => onEditWorkspace(workspace.id)}>
-          Workspace settings…
-        </DropdownMenuItem>
+        />
+        <KeyMenuItem
+          icon={SettingsIcon}
+          label="Workspace settings…"
+          menuKey="S"
+          onSelect={() => onEditWorkspace(workspace.id)}
+        />
         <DropdownMenuSeparator />
-        <DropdownMenuItem
+        <KeyMenuItem
           disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
+          icon={FolderOpenIcon}
+          label="Open folder"
           menuKey="O"
           onSelect={() => onOpenWorkspaceFiles?.()}
-        >
-          Open folder
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void copyText(workspace.path)}>
-          Copy folder path
-        </DropdownMenuItem>
+        />
+        <KeyMenuItem
+          icon={CopyIcon}
+          label="Copy folder path"
+          onSelect={() => void copyText(workspace.path)}
+        />
         <DropdownMenuSeparator />
-        <DropdownMenuItem
+        <KeyMenuItem
+          destructive
           disabled={workspace.id === DEFAULT_WORKSPACE_ID}
+          icon={RemoveIcon}
+          label="Remove workspace…"
           onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
-          variant="destructive"
-        >
-          Remove workspace…
-        </DropdownMenuItem>
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
