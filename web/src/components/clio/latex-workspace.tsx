@@ -1,4 +1,5 @@
-import { useContext, useMemo, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { HammerIcon } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ import {
 import { LatexSourcePane } from './latex-source-pane';
 import { ClioPdfPreview } from './pdf-preview';
 import { StateView } from './primitives/state-view';
+import { useFrameTool } from './primitives/frame-modes';
 import { ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { matchesListQuery, useWorkbenchListSearch } from './workbench-list-search';
@@ -383,6 +385,13 @@ export function LatexFileWorkspace({
     mutationFn: () => repository.createCommentTarget(workspaceId, { path, session_id: sessionId }),
     onError: (error) => toast.error('The paper could not be built', { description: error.message }),
   });
+  const build = useRef<HTMLButtonElement>(null);
+  const pending = register.isPending || target.isPending;
+  // Narrowest, Build leaves the bar for a row in the frame's … menu, as the renderer's icons do.
+  useFrameTool(
+    build,
+    sessionId ? { label: 'Build this paper', icon: <HammerIcon />, disabled: pending } : null,
+  );
   const artifactId = register.data?.artifact_id ?? target.data?.artifact_id;
   if (sessionId && artifactId)
     return <LatexWorkspace artifactId={artifactId} sessionId={sessionId} />;
@@ -392,8 +401,10 @@ export function LatexFileWorkspace({
         <ViewerToolbarContent>
           <Button
             className="h-7 px-2 text-[12px]"
-            disabled={register.isPending || target.isPending}
+            data-frame-tool=""
+            disabled={pending}
             onClick={() => register.mutate()}
+            ref={build}
             size="sm"
             variant="ghost"
           >
