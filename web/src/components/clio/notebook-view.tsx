@@ -1,13 +1,13 @@
 import type { Ref } from 'react';
 import type { BundledLanguage } from 'shiki';
-import { NotebookTextIcon } from 'lucide-react';
+import { FileCode2Icon, NotebookTextIcon } from 'lucide-react';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE } from '@/lib/document-markdown';
 import type { NotebookCell, NotebookOutput, NotebookRead } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
-import { ResourceUnavailable } from './resource-states';
+import { StateView } from './primitives/state-view';
 
 /** The code viewer's type: 11.5 px mono at 1.65. */
 const MONO = 'font-mono text-[11.5px] leading-[1.65]';
@@ -26,27 +26,36 @@ export function NotebookView({
   read,
   name,
   readingRef,
+  onShowSource,
 }: {
   read: NotebookRead;
   name: string;
   readingRef?: Ref<HTMLDivElement>;
+  /** The states' way out: switches the frame to Source, which the narrow bar folds into ⋯. */
+  onShowSource?: () => void;
 }) {
+  const showSource = onShowSource
+    ? { label: 'Show source', icon: <FileCode2Icon />, onClick: onShowSource }
+    : undefined;
   if (!read.ok)
     return (
-      <ResourceUnavailable
-        detail={`${read.reason} Source shows the file as written.`}
-        icon={NotebookTextIcon}
+      <StateView
+        action={showSource}
+        detail={read.reason}
         kind="error"
-        label="Couldn’t show this notebook"
+        size="viewer"
+        title="Couldn't read it"
       />
     );
   const { cells, language } = read.notebook;
   if (!cells.length)
     return (
-      <ResourceUnavailable
-        detail="Source shows the file as written."
+      <StateView
+        action={showSource}
         icon={NotebookTextIcon}
-        label="This notebook has no cells"
+        kind="empty"
+        size="viewer"
+        title="This notebook has no cells"
       />
     );
   return (
@@ -150,7 +159,12 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
         <pre className={TEXT_BLOCK}>{output.text}</pre>
       );
     case 'text':
-      return <pre className={TEXT_BLOCK}>{output.text}</pre>;
+      // A result's repr is laid out in columns (a DataFrame); it scrolls rather than wraps.
+      return (
+        <pre className={cn(MONO, 'm-0 max-h-96 overflow-auto px-3 py-1.5 whitespace-pre')}>
+          {output.text}
+        </pre>
+      );
     case 'html':
       return (
         <div className="min-w-0 overflow-x-auto px-3 py-1 [&_table]:text-[12px]">

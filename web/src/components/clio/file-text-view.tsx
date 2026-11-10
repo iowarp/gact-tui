@@ -170,7 +170,12 @@ export function FileTextView({
         {notebook ? (
           <TabsContent value="notebook" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
             <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
-              <NotebookView name={name} read={notebook} readingRef={reading} />
+              <NotebookView
+                name={name}
+                onShowSource={view ? undefined : () => setChosen('source')}
+                read={notebook}
+                readingRef={reading}
+              />
             </Suspense>
           </TabsContent>
         ) : null}

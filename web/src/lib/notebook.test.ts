@@ -71,6 +71,38 @@ describe('readNotebook', () => {
     ]);
   });
 
+  it('drops a pandas table’s scoped style so its rules never show as text', () => {
+    const html = [
+      '<div>',
+      '<style scoped>',
+      '    .dataframe tbody tr th:only-of-type { vertical-align: middle; }',
+      '</style>',
+      '<table border="1" class="dataframe"><tr><th>station</th></tr><tr><td>P395</td></tr></table>',
+      '</div>',
+    ];
+    const read = readNotebook(
+      notebook([
+        {
+          cell_type: 'code',
+          execution_count: 1,
+          source: 'summary',
+          outputs: [
+            {
+              output_type: 'execute_result',
+              data: { 'text/html': html, 'text/plain': '  station\n0    P395' },
+            },
+          ],
+        },
+      ]),
+    );
+    if (!read.ok || read.notebook.cells[0].kind !== 'code') throw new Error('not read');
+    const [output] = read.notebook.cells[0].outputs;
+    expect(output.kind).toBe('html');
+    if (output.kind !== 'html') return;
+    expect(output.html).not.toContain('vertical-align');
+    expect(output.html).toContain('<td>P395</td>');
+  });
+
   it('keeps an error’s name and value and strips colour from its traceback', () => {
     const read = readNotebook(
       notebook([

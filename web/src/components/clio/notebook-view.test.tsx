@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import '../ai-elements/markdown';
 import { FileTextView } from './file-text-view';
 
@@ -25,7 +26,7 @@ const notebook = JSON.stringify({
           data: {
             'text/plain': 'station P395',
             'text/html':
-              '<table><tr><th>station</th></tr><tr><td>P395</td></tr></table><img src="x" onerror="window.ran = true">',
+              '<style scoped>.dataframe th { vertical-align: middle; }</style><table><tr><th>station</th></tr><tr><td>P395</td></tr></table><img src="x" onerror="window.ran = true">',
           },
         },
         {
@@ -87,6 +88,7 @@ describe('notebook reader', { timeout: 30_000 }, () => {
     );
     expect(await within(summary).findByRole('cell', { name: 'P395' }, LAZY)).toBeVisible();
     expect(summary.querySelector('[onerror]')).toBeNull();
+    expect(summary.textContent).not.toContain('vertical-align');
     // Script-driven output shows its plain text instead of an empty sanitized shell.
     expect(within(summary).getByText('FloatSlider(value=0.5)')).toBeVisible();
     expect(summary.querySelector('script')).toBeNull();
@@ -104,17 +106,29 @@ describe('notebook reader', { timeout: 30_000 }, () => {
     );
   });
 
-  it('says why a cut-off notebook cannot be shown and keeps Source', async () => {
-    render(<FileTextView content={notebook.slice(0, 200)} name="draft.ipynb" />);
-    expect(await screen.findByText('Couldn’t show this notebook', {}, LAZY)).toBeVisible();
-    expect(
-      screen.getByText('The file isn’t complete JSON. Source shows the file as written.'),
-    ).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Source' })).toBeVisible();
+  it('says why a cut-off notebook cannot be read and shows its source', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <FileTextView content={notebook.slice(0, 200)} name="draft.ipynb" />
+      </TooltipProvider>,
+    );
+    expect(await screen.findByText("Couldn't read it", {}, LAZY)).toBeVisible();
+    expect(screen.getByText('The file isn’t complete JSON.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show source' }));
+    expect(screen.getByRole('tab', { name: 'Source' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('region', { name: 'Source of draft.ipynb' })).toBeVisible();
   });
 
-  it('names an empty notebook', async () => {
-    render(<FileTextView content='{"nbformat": 4, "cells": []}' name="untitled.ipynb" />);
+  it('names an empty notebook and shows its source', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <FileTextView content='{"nbformat": 4, "cells": []}' name="untitled.ipynb" />
+      </TooltipProvider>,
+    );
     expect(await screen.findByText('This notebook has no cells', {}, LAZY)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show source' }));
+    expect(await screen.findByRole('region', { name: 'Source of untitled.ipynb' })).toBeVisible();
   });
 });

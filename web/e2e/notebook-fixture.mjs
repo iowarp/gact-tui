@@ -112,8 +112,6 @@ const DATAFRAME_HTML = `<div>
   </tbody>
 </table>
 <p>4 rows × 5 columns</p>
-<script>console.log('dropped by the reader')</script>
-<img src="x" onerror="alert('dropped by the reader')">
 </div>`;
 
 const TRACEBACK = [

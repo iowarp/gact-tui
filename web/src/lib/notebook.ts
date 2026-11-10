@@ -90,7 +90,10 @@ function notebookLanguage(metadata: Json): BundledLanguage {
 /** Jupyter's display order: the richest representation the reader can show safely. */
 function richOutput(data: Json, cell: number): NotebookOutput | undefined {
   const plain = plainTerminalText(multiline(data['text/plain']));
-  const html = multiline(data['text/html']);
+  // The sanitizer drops a <style> tag but keeps its rules as text (pandas' scoped CSS).
+  const html = multiline(data['text/html'])
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/giu, '')
+    .trim();
   // Script-driven output (widgets, interactive plots) is empty once sanitized.
   if (html && !/<script\b/iu.test(html)) return { kind: 'html', html };
   const markdown = multiline(data['text/markdown']);
