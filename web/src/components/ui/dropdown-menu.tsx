@@ -1,7 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { ModalShield } from './modal-shield';
+import {
+  ModalShield,
+  useShieldFocusOutside,
+  useShieldFocusReturn,
+  useTriggerRef,
+} from './modal-shield';
 import { useOverlayContainer } from './overlay-container';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 
@@ -9,6 +14,9 @@ import { cn } from '@/lib/utils';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 
 const DropdownMenuModal = React.createContext(true);
+const DropdownMenuTriggerRef = React.createContext<React.RefObject<HTMLElement | null>>({
+  current: null,
+});
 
 /**
  * A single unmodified letter runs the item that shows it in its key column
@@ -66,13 +74,23 @@ function DropdownMenuKey({ children }: { children: string }) {
   );
 }
 
+/**
+ * `modal` (the default) blocks the page with a ModalShield. Radix itself always
+ * runs non-modal: its modal mode adds only aria-hidden on the app root and a
+ * scroll-lock `<style>` in `<head>`, each a document-wide restyle (~100 ms) on
+ * every open. The shield already stops outside presses, the overlay host
+ * already holds the body lock, and Radix menus keep Tab inside regardless.
+ */
 function DropdownMenu({
   modal = true,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  const trigger = React.useRef<HTMLElement | null>(null);
   return (
     <DropdownMenuModal.Provider value={modal}>
-      <DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={modal} {...props} />
+      <DropdownMenuTriggerRef.Provider value={trigger}>
+        <DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={false} {...props} />
+      </DropdownMenuTriggerRef.Provider>
     </DropdownMenuModal.Provider>
   );
 }
@@ -84,9 +102,13 @@ function DropdownMenuPortal({
 }
 
 function DropdownMenuTrigger({
+  ref,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
-  return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+  const triggerRef = useTriggerRef(React.useContext(DropdownMenuTriggerRef), ref);
+  return (
+    <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" ref={triggerRef} {...props} />
+  );
 }
 
 function DropdownMenuContent({
@@ -94,10 +116,15 @@ function DropdownMenuContent({
   align = 'start',
   sideOffset = 4,
   onKeyDown,
+  onCloseAutoFocus,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   const container = useOverlayContainer();
   const modal = React.useContext(DropdownMenuModal);
+  const trigger = React.useContext(DropdownMenuTriggerRef);
+  const closeFocus = useShieldFocusReturn(modal, trigger, onCloseAutoFocus);
+  const focusOutside = useShieldFocusOutside(modal, onFocusOutside);
   return (
     <>
       {modal ? (
@@ -118,6 +145,8 @@ function DropdownMenuContent({
             onKeyDown?.(event);
             runMenuKey(event);
           }}
+          onCloseAutoFocus={closeFocus}
+          onFocusOutside={focusOutside}
           {...props}
         />
       </DropdownMenuPrimitive.Portal>
