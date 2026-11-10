@@ -10,7 +10,6 @@ import type { SessionAttention } from '@/lib/session-attention';
 
 const actions: ResourceActions = {
   createWorkspace: vi.fn(),
-  createSession: vi.fn(),
   renameWorkspace: vi.fn(),
   updateWorkspace: vi.fn().mockResolvedValue(undefined),
   grantWorkspaceFolder: vi.fn(),

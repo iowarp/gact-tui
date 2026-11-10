@@ -36,7 +36,6 @@ afterEach(() => {
 function setup(pinned = false) {
   const actions: ResourceActions = {
     createWorkspace: vi.fn(),
-    createSession: vi.fn(),
     renameWorkspace: vi.fn(),
     updateWorkspace: vi.fn().mockResolvedValue(undefined),
     grantWorkspaceFolder: vi.fn(),

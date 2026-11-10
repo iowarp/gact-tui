@@ -21,7 +21,17 @@ const REDACTED_REASON_LABEL: Record<string, string> = {
 
 /** One flat row of a Files tree; folders and files are keyed by path. */
 export type FileTreeRow =
-  | { kind: 'dir'; path: string; name: string; depth: number; open: boolean }
+  | {
+      kind: 'dir';
+      path: string;
+      name: string;
+      depth: number;
+      open: boolean;
+      /** Replaces the folder glyph (an NDP organization or dataset). */
+      icon?: ReactNode;
+      /** One quiet trailing count ("38 datasets"). */
+      meta?: string;
+    }
   | {
       kind: 'file';
       path: string;
@@ -290,10 +300,15 @@ function TreeRowView({
                 className={cn('size-3 transition-transform', row.open && 'rotate-90')}
               />
             </span>
-            <FileTreeIcon>
-              <Icon className="size-3.5 text-muted-foreground" />
+            <FileTreeIcon className="[&_svg]:text-muted-foreground">
+              {row.icon ?? <Icon className="size-3.5" />}
             </FileTreeIcon>
             <FileTreeName>{row.name}</FileTreeName>
+            {row.meta ? (
+              <span className="ml-auto shrink-0 pl-2 text-[11.5px] font-normal text-faint tabular-nums">
+                {row.meta}
+              </span>
+            ) : null}
           </button>
         </div>
       );

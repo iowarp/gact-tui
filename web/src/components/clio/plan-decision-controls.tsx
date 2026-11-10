@@ -204,7 +204,7 @@ export function PlanDecisionControls({
         ))}
         {canClear ? (
           <label
-            className="ml-2 inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-[12px] text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:justify-center"
+            className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-[7px] text-[12px] text-muted-foreground has-disabled:cursor-default has-disabled:opacity-50 @max-[420px]/ask:ml-0 @max-[420px]/ask:px-2.5"
             data-slot="plan-clear-context"
           >
             <Checkbox
