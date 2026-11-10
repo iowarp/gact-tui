@@ -144,8 +144,8 @@ export const queryKeys = {
   /** Mutation key of a message being added to a session's queue. */
   queueSend: (endpoint: string, sessionId: string) => ['queue-send', endpoint, sessionId] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
-  executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
-    ['execution-provenance', endpoint, sessionId, provider] as const,
+  executionProvenance: (endpoint: string, sessionId: string, provider: string, limit: number) =>
+    ['execution-provenance', endpoint, sessionId, provider, limit] as const,
   sessionArtifacts: (endpoint: string, sessionId: string) =>
     ['session-artifacts', endpoint, sessionId] as const,
   sessionContext: (endpoint: string, sessionId: string) =>
