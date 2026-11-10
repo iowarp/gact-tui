@@ -13,10 +13,8 @@ import {
 import {
   ActivityIcon,
   BotIcon,
-  CircleCheckIcon,
-  LayersIcon,
+  CheckIcon,
   ListIcon,
-  LoaderCircleIcon,
   MessageCircleQuestionIcon,
   SearchIcon,
   TriangleAlertIcon,
@@ -26,7 +24,9 @@ import {
 import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { FilterChips } from '@/components/clio/primitives/filter-chips';
 import { FrameDivider } from '@/components/clio/primitives/frame-bar';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
@@ -69,6 +69,7 @@ import {
 } from '@/lib/workspace-route-memory';
 import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
+import { cn } from '@/lib/utils';
 
 const FLOW_SCAN_BATCH = 4;
 /** Conversations read per page for the flow index (a few scan batches). */
@@ -80,20 +81,24 @@ const RUN_ROW_STEP = 150;
 const RUN_GROUP_ORDER: readonly RunGroup[] = ['needs-you', 'running', 'queued', 'earlier'];
 const STATE_OPTIONS = [
   { value: 'all', label: 'All states', icon: <ListIcon aria-hidden="true" /> },
-  { value: 'active', label: 'Active', icon: <LoaderCircleIcon aria-hidden="true" /> },
+  {
+    value: 'active',
+    label: 'Active',
+    icon: <RingSpinner className="size-[9px]" />,
+  },
   {
     value: 'waiting_user',
     label: 'Waiting for you',
     icon: <MessageCircleQuestionIcon aria-hidden="true" />,
   },
   { value: 'attention', label: 'Needs attention', icon: <TriangleAlertIcon aria-hidden="true" /> },
-  { value: 'completed', label: 'Completed', icon: <CircleCheckIcon aria-hidden="true" /> },
+  { value: 'completed', label: 'Completed', icon: <CheckIcon aria-hidden="true" /> },
 ] as const;
-const SOURCE_OPTIONS = [
-  { value: 'all', label: 'All execution', icon: <LayersIcon aria-hidden="true" /> },
+/** The bar's execution-type chips; none chosen shows every type. */
+const SOURCE_CHIPS = [
   { value: 'agent_task', label: 'Agents', icon: <BotIcon aria-hidden="true" /> },
   { value: 'mcp_task', label: 'Tools', icon: <WrenchIcon aria-hidden="true" /> },
-] as const;
+];
 export function RunsPage() {
   const location = useLocation();
   const repository = useRepository();
@@ -363,6 +368,8 @@ export function RunsPage() {
   }));
   const currentState =
     stateOptions.find((option) => option.value === stateFilter) ?? stateOptions[0];
+  // The chips are the states themselves; no chip chosen shows all of them.
+  const stateChips = stateOptions.filter((option) => option.value !== 'all');
   const canIndexMore =
     category === 'flows' &&
     (flowScanLimit < orderedFlowSessions.length || Boolean(flowSessionPages.hasNextPage));
@@ -397,36 +404,35 @@ export function RunsPage() {
     Boolean(runs.hasNextPage && category === 'executions') ||
     (canIndexMore && filteredRows.length > 0);
 
+  const title = (
+    <h1 className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-foreground">
+      <ActivityIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      Runs
+    </h1>
+  );
+
   const bar = (
-    <div className="@container/runbar flex h-full min-w-0 items-center gap-2 whitespace-nowrap">
-      <h1 className="sr-only">Runs</h1>
+    <div
+      className="@container/runbar flex h-10 min-w-0 shrink-0 items-center gap-2 border-b border-border pr-2.5 pl-3.5 whitespace-nowrap"
+      data-slot="runs-list-bar"
+    >
       <SegmentedControl
+        className="mr-1"
         iconOnly
         label="Run categories"
         onValueChange={setCategory}
         options={[
-          {
-            value: 'executions',
-            label: 'Executions',
-            icon: <ActivityIcon aria-hidden="true" />,
-            count: executionRows.length,
-          },
-          {
-            value: 'flows',
-            label: 'Flows',
-            icon: <WorkflowIcon aria-hidden="true" />,
-            count: flowRows.length,
-          },
+          { value: 'executions', label: 'Executions', icon: <ActivityIcon aria-hidden="true" /> },
+          { value: 'flows', label: 'Flows', icon: <WorkflowIcon aria-hidden="true" /> },
         ]}
         value={category}
       />
-      <FrameDivider />
-      <SegmentedControl
+      <FilterChips
         className="hidden @[440px]/runbar:flex"
-        iconOnly
         label="Filter by state"
+        none="all"
         onValueChange={setStateFilter}
-        options={stateOptions}
+        options={stateChips}
         value={stateFilter}
       />
       <DropdownMenu modal={false}>
@@ -436,7 +442,10 @@ export function RunsPage() {
               aria-label={`Filter by state: ${currentState.label}${
                 currentState.count === undefined ? '' : `, ${currentState.count}`
               }`}
-              className="h-7 shrink-0 gap-1 rounded-[7px] bg-muted px-2 text-[12px] font-normal text-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-3.5"
+              className={cn(
+                'h-6 w-[46px] shrink-0 gap-1 rounded-[12px] border border-border px-0 text-[11.5px] font-medium text-muted-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-[13px]',
+                stateFilter !== 'all' && 'border-accent-border bg-accent text-accent-foreground',
+              )}
               size="sm"
               variant="ghost"
             >
@@ -461,17 +470,20 @@ export function RunsPage() {
         </DropdownMenuContent>
       </DropdownMenu>
       {category === 'executions' ? (
-        <SegmentedControl
-          className="hidden @[480px]/runbar:flex"
-          iconOnly
-          label="Filter by execution type"
-          onValueChange={setSourceFilter}
-          options={SOURCE_OPTIONS}
-          value={sourceFilter}
-        />
+        <>
+          <FrameDivider className="mx-1 hidden @[480px]/runbar:block" />
+          <FilterChips
+            className="hidden @[480px]/runbar:flex"
+            label="Filter by execution type"
+            none="all"
+            onValueChange={setSourceFilter}
+            options={SOURCE_CHIPS}
+            value={sourceFilter}
+          />
+        </>
       ) : null}
       <span aria-hidden="true" className="flex-1" />
-      <span className="hidden shrink-0 text-[11.5px] text-muted-foreground tabular-nums @[520px]/runbar:inline">
+      <span className="hidden shrink-0 text-[11.5px] text-faint tabular-nums @[520px]/runbar:inline">
         {filteredRows.length} {filteredRows.length === 1 ? noun.slice(0, -1) : noun}
       </span>
       {searchOpen || search ? (
@@ -515,7 +527,7 @@ export function RunsPage() {
   );
 
   const list = (
-    <div className="@container/runs clio-scrollbar h-full min-h-0 overflow-y-auto px-1.5 pt-1 pb-2">
+    <div className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-2">
       {error ? (
         <StateView
           action={{ label: 'Retry', onClick: () => void refreshRuns() }}
@@ -613,7 +625,7 @@ export function RunsPage() {
 
   return (
     <ClioAppShell
-      contextBar={bar}
+      contextBar={title}
       navigation={<RunsNavigation workspaceId={navigationWorkspaceId} />}
       statusStrip={null}
       workbench={
@@ -632,7 +644,10 @@ export function RunsPage() {
       }
       workbenchRevealKey={selectedRow ? `${selectedRow.handleId}:${revealCount}` : undefined}
     >
-      {list}
+      <div className="flex h-full min-h-0 flex-col">
+        {bar}
+        {list}
+      </div>
       <AlertDialog
         onOpenChange={(open) => !open && setConfirmedAction(undefined)}
         open={Boolean(confirmedAction)}
