@@ -952,9 +952,63 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // The former Work tab is now the Activity list's finished work.
+    // Activity leads with the causal timeline.
+    s(
+      'canvas',
+      'activity-finished',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { settleMs: 1200 },
+    ),
+    s(
+      'canvas',
+      'activity-relationships',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await pickMode(page, ['Relationships']);
+        await page.mouse.move(2, 2);
+      },
+      { settleMs: 1500 },
+    ),
+    // A pick in a list tab takes the tab's place, with Back to the list.
+    s('canvas', 'artifact-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
+      await page
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    // Shift opens the pick in a tab of its own and keeps the list.
+    s('canvas', 'artifact-shift-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
+      await page
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
+        .first()
+        .click({ modifiers: ['Shift'] });
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    s('canvas', 'file-picked', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page.mouse.move(2, 2);
+    }),
+    // The former Work tab is now Activity's Events view, with its finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
+      await pickMode(page, ['Events']);
       const show = page
         .getByRole('region', { name: 'Activity list' })
         .getByRole('button', { name: 'Show finished work' })
@@ -969,11 +1023,15 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(800);
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
-      await openCanvas(page);
-      // Under 900px the list is a sheet over the tab and covers the row's Maximize;
-      // opening a file closes the sheet, as a tap on a narrow window does.
-      if ((page.viewportSize()?.width ?? 1280) < 900) await openFile(page, 'results/stations.csv');
+      // Maximize a real tab at every width: the tabs fill the canvas.
+      await openFile(page, 'results/stations.csv');
       await press(page, 'button', 'Maximize canvas');
+      await page.waitForTimeout(600);
+    }),
+    s('canvas', 'maximized-activity', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await press(page, 'button', 'Maximize canvas');
+      await page.mouse.move(2, 2);
       await page.waitForTimeout(600);
     }),
     // The welcome title; the left bar's headings are folded away at narrow widths.

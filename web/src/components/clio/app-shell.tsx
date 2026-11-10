@@ -470,8 +470,9 @@ export function ClioAppShell({
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
-            // or less for a sparse list that needs less.
-            className="w-[var(--workbench-sheet-width,86vw)] p-0 data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // or less for a sparse list that needs less; the spec's shadow sets the
+            // conversation strip beside it underneath, not cut off.
+            className="w-[var(--workbench-sheet-width,86vw)] p-0 shadow-[-14px_0_30px_rgb(0_0_0/0.18)] data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_rgb(0_0_0/0.45)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
             style={
               sheetFit === undefined
                 ? undefined

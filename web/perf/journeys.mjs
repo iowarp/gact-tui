@@ -621,10 +621,25 @@ export async function workbenchJourney(r) {
       { close: 'Escape', control: activeTab },
     );
   }
-  const tabs = await page.locator('[aria-label="Workspace canvas"] [role="tab"]').all();
-  for (const tab of tabs.slice(0, 8)) {
-    const name = (await tab.textContent())?.trim() || 'tab';
-    if ((await tab.getAttribute('aria-selected')) === 'true') continue;
+  // Lists are tabs too, so a narrow canvas folds some into the overflow menu;
+  // re-query after every switch because activating a tab changes what fits.
+  const visibleTabs = page
+    .locator('[aria-label="Workspace canvas"] [role="tab"]')
+    .filter({ visible: true });
+  const switched = new Set();
+  for (let index = 0; index < 8; index += 1) {
+    let tab;
+    let name = '';
+    for (const candidate of await visibleTabs.all()) {
+      const text = (await candidate.textContent())?.trim() || 'tab';
+      if (switched.has(text) || (await candidate.getAttribute('aria-selected')) === 'true')
+        continue;
+      tab = candidate;
+      name = text;
+      break;
+    }
+    if (!tab) break;
+    switched.add(name);
     await r.measure(
       `switch canvas tab: ${name}`,
       'tab',

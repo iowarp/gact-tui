@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   forwardRef,
+  startTransition,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -266,8 +267,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const filesViewActive =
       activeTab?.kind === 'files' || (activeTab?.kind === 'list' && activeTab.view === 'files');
     useEffect(() => {
-      onFilesViewActiveChange?.(filesViewActive);
-      return () => onFilesViewActiveChange?.(false);
+      // The owner re-renders the page (and its transcript) on this change; a
+      // pick that replaces the Files tab must not pay for that in the click.
+      startTransition(() => onFilesViewActiveChange?.(filesViewActive));
+      return () => startTransition(() => onFilesViewActiveChange?.(false));
     }, [filesViewActive, onFilesViewActiveChange]);
 
     useWorkbenchTabVisibility(tabStripRef, activeTabRef, activeTabId, orderedTabs, maximized);
