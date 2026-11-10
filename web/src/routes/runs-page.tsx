@@ -21,7 +21,7 @@ import {
   WorkflowIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FilterChips } from '@/components/clio/primitives/filter-chips';
@@ -70,6 +70,7 @@ import {
 import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
 import { cn } from '@/lib/utils';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 
 const FLOW_SCAN_BATCH = 4;
 /** Conversations read per page for the flow index (a few scan batches). */
@@ -112,6 +113,18 @@ export function RunsPage() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedRunAction>();
   const [searchOpen, setSearchOpen] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  // `/` searches the list from anywhere on the page, including before anything has focus.
+  const searchRegion = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        const active = document.activeElement;
+        return !active || active === document.body ? document.body : pageRef.current;
+      },
+    }),
+    [],
+  );
+  useShortcut('list-search', () => setSearchOpen(true), { region: searchRegion });
   const [revealCount, setRevealCount] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaces = useQuery({
@@ -339,6 +352,11 @@ export function RunsPage() {
       ),
     [location.state, setSearchParams],
   );
+  const canStopRow = (row: RunRow) =>
+    row.cancellable &&
+    !row.cancelRequested &&
+    !requestedCancellation.has(row.handleId) &&
+    !(cancel.isPending && cancel.variables?.handleId === row.handleId);
   const runActions = (row: RunRow, part?: 'menu') => {
     const cancelRequested = Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId);
     return (
@@ -516,6 +534,7 @@ export function RunsPage() {
           icon={<SearchIcon aria-hidden="true" />}
           label="Search runs"
           onClick={() => setSearchOpen(true)}
+          shortcut="list-search"
           size="sm"
         />
       )}
@@ -523,7 +542,10 @@ export function RunsPage() {
   );
 
   const list = (
-    <div className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-2">
+    <div
+      className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-2"
+      data-run-list=""
+    >
       {error ? (
         <StateView
           action={{ label: 'Retry', onClick: () => void refreshRuns() }}
@@ -573,6 +595,11 @@ export function RunsPage() {
                 }
                 key={row.handleId}
                 onSelect={selectRun}
+                onTitleKeyDown={(event) => {
+                  if (event.key !== 'Delete' || !canStopRow(row)) return;
+                  event.preventDefault();
+                  setConfirmedAction({ kind: 'cancel', row });
+                }}
                 row={row}
                 selected={row.handleId === selectedHandle}
               />
@@ -650,7 +677,7 @@ export function RunsPage() {
       }
       workbenchRevealKey={selectedRow ? `${selectedRow.handleId}:${revealCount}` : undefined}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col" ref={pageRef}>
         {bar}
         {list}
       </div>

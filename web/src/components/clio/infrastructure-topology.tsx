@@ -55,8 +55,8 @@ interface MapEdge {
 const COLUMNS = [
   { left: 0, width: 17 },
   { left: 21, width: 20 },
-  { left: 45.5, width: 20.5 },
-  { left: 71, width: 29 },
+  { left: 45.5, width: 23.5 },
+  { left: 74, width: 26 },
 ] as const;
 const ROW = 50;
 const NODE_HEIGHT = 38;

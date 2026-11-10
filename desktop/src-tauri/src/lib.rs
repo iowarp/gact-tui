@@ -40,6 +40,7 @@ mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
+mod notifications;
 mod package_stamp;
 mod package_version;
 mod plugins;
@@ -286,9 +287,16 @@ pub fn run() {
             restart_clio,
             close_prompt_shown,
             quit_prompt_shown,
-            startup_window::reveal_startup_window
+            startup_window::reveal_startup_window,
+            notifications::notification_permission,
+            notifications::request_notification_permission,
+            notifications::show_notification,
+            notifications::take_notification_open,
+            notifications::set_attention_badge,
+            notifications::open_notification_settings
         ])
         .setup(move |app| {
+            notifications::install(app.handle());
             let version = app.package_info().version.to_string();
             let windows =
                 downloads::create_configured_windows(app, &startup_windows, |config, builder| {

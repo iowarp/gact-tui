@@ -313,6 +313,13 @@ export function ManagedServiceInventoryRow({
             event.stopPropagation();
             setExpanded((open) => !open);
           }}
+          onKeyDown={(event) => {
+            // Space starts or stops the service in focus; Enter still opens its details.
+            if (event.key !== ' ' || !onRun || working || !(canStop || status.action === 'start'))
+              return;
+            event.preventDefault();
+            onRun(canStop ? 'stop' : 'start');
+          }}
           type="button"
         >
           {service.label}
