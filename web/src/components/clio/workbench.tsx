@@ -43,6 +43,7 @@ import { focusQuietly } from './primitives/quiet-focus';
 import { FrameBackContext, type FrameBack } from './primitives/frame-back';
 import type { SubagentOpenTarget } from './subagent-card';
 import {
+  OPEN_TERMINAL_EVENT,
   useWorkspaceCanvasControl,
   useWorkspaceCanvasVisibility,
 } from './workspace-canvas-visibility-context';
@@ -506,13 +507,27 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       if (!item.pressed) selectStripItem(item.id);
     });
     // A chord pressed while the pocket was unmounted (closed Sheet) lands here.
-    const takePendingStripPosition = (position: number) => {
+    const takePendingStripPosition = (position: number | 'terminal') => {
       canvasControl?.clearPendingStripPosition();
-      const item = stripItems.find((candidate) => candidate.position === position);
+      const item = stripItems.find((candidate) =>
+        position === 'terminal' ? candidate.id === 'terminal' : candidate.position === position,
+      );
       if (item) selectStripItem(item.id);
     };
-    useShortcut('terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
-    useShortcut('new-terminal', () => onOpenTerminal?.(), { enabled: Boolean(onOpenTerminal) });
+    // Where no terminal can run, the chord still lands on Terminal's list, which says so.
+    const openTerminal = () => {
+      if (!canvasVisible) canvasControl?.show();
+      if (onOpenTerminal) void onOpenTerminal();
+      else openTab(listTab('terminal'));
+    };
+    useShortcut('terminal', openTerminal);
+    useShortcut('new-terminal', openTerminal, { enabled: Boolean(onOpenTerminal) });
+    const onOpenTerminalEvent = useEffectEvent(openTerminal);
+    useEffect(() => {
+      const open = () => onOpenTerminalEvent();
+      window.addEventListener(OPEN_TERMINAL_EVENT, open);
+      return () => window.removeEventListener(OPEN_TERMINAL_EVENT, open);
+    }, []);
     const stepTabByKey = (delta: -1 | 1) => {
       stepTab(delta);
       refocusActiveCanvasTab(asideRef.current);
@@ -644,6 +659,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       <aside
         aria-label="Workspace canvas"
         data-keyboard-region=""
+        data-workbench-pocket=""
         data-maximized={maximized || undefined}
         ref={asideRef}
         className={cn(
@@ -847,8 +863,8 @@ function PendingStripDispatcher({
   onTake,
   position,
 }: {
-  onTake: (position: number) => void;
-  position?: number;
+  onTake: (position: number | 'terminal') => void;
+  position?: number | 'terminal';
 }) {
   const take = useEffectEvent(onTake);
   useEffect(() => {
