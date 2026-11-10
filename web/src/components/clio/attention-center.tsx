@@ -1,11 +1,18 @@
-import type { PendingInteraction, Session } from '@clio/core/v3';
+import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import {
   BellIcon,
   BellRingIcon,
+  BrainCircuitIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  CircleAlertIcon,
+  CircleIcon,
   LayoutTemplateIcon,
   MessageCircleQuestionIcon,
   ShieldQuestionIcon,
   TextCursorInputIcon,
+  TriangleAlertIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -14,18 +21,28 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { useAttentionResponse } from '@/hooks/use-attention-response';
+import { useRepository } from '@/hooks/use-repository';
 import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
+import { queryKeys } from '@/lib/query-keys';
+import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
 import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import {
+  markAllNotificationsRead,
+  markConversationSeen,
+  useNotificationReads,
+} from '@/lib/notification-reads';
 import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
+import { type AwayTone, awayRows } from './attention-away';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { permissionCommand } from './permission-operation-labels';
@@ -36,6 +53,37 @@ interface AttentionProps {
   activeSessionId: string;
   attentions: Readonly<Record<string, SessionAttention>>;
   sessions: readonly Session[];
+  /** Names the place of a run that ended while away. */
+  workspaces?: readonly Workspace[];
+}
+
+/** Rows "While you were away" shows before folding the rest into "N earlier". */
+const AWAY_VISIBLE = 5;
+/** Recent conversations read for that group: enough to fill it and its fold. */
+const AWAY_PAGE = 30;
+
+const AWAY_ICON: Record<AwayTone, ReactNode> = {
+  success: <CheckIcon className="text-primary" />,
+  error: <CircleAlertIcon className="text-destructive" />,
+  warning: <TriangleAlertIcon className="text-warning" />,
+  stopped: <CircleIcon className="text-muted-foreground" />,
+};
+
+function sessionPath(session: Session): string {
+  return `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
+}
+
+/** "Suggested from A and B", from the conversations a proposal cites. */
+function suggestedFrom(sessionIds: readonly string[], sessions: readonly Session[]): string {
+  const titles = new Map(sessions.map((session) => [session.id, session.title]));
+  const named = [...new Set(sessionIds)].flatMap((id) => {
+    const title = titles.get(id);
+    return title ? [title] : [];
+  });
+  if (named.length === 0) return 'Suggested from your conversations';
+  if (named.length === 1) return `Suggested from ${named[0]}`;
+  if (named.length === 2) return `Suggested from ${named[0]} and ${named[1]}`;
+  return `Suggested from ${named[0]}, ${named[1]} and ${named.length - 2} more`;
 }
 
 const notifiedAttentionIds = new Set<string>();
@@ -200,11 +248,20 @@ function moveFocus(event: KeyboardEvent<HTMLElement>) {
   next?.focus();
 }
 
-export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
+export function ClioAttentionCenter({
+  activeSessionId,
+  attentions,
+  sessions,
+  workspaces,
+}: AttentionProps) {
   const navigate = useNavigate();
+  const repository = useRepository();
+  const settings = useConnectionSettings();
   const [open, setOpen] = useState(false);
+  const [showEarlier, setShowEarlier] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const versions = useSystemVersionStatus();
+  const reads = useNotificationReads();
   const entries = useMemo(
     () =>
       sessions
@@ -217,10 +274,44 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
     () => entries.flatMap(({ session, attention }) => needRows(session, attention)),
     [entries],
   );
+  // The page's sessions are the open conversation's family and those waiting on a
+  // person; runs that ended elsewhere come from one bounded newest-first page,
+  // read while the bell is open. The page's own copies are fresher, so they win.
+  const recent = useQuery({
+    queryKey: queryKeys.key('session-pages', settings.endpoint, 'bell-away'),
+    queryFn: ({ signal }) =>
+      repository.sessionPage({ kinds: PRIMARY_SESSION_KINDS, limit: AWAY_PAGE }, signal),
+    enabled: open,
+    staleTime: 15_000,
+    retry: false,
+  });
+  const known = useMemo(() => {
+    const byId = new Map<string, Session>();
+    for (const session of recent.data?.sessions ?? []) byId.set(session.id, session);
+    for (const session of sessions) byId.set(session.id, session);
+    return [...byId.values()];
+  }, [recent.data, sessions]);
+  const away = useMemo(
+    () => awayRows(known, attentions, activeSessionId, reads, workspaces),
+    [activeSessionId, attentions, known, reads, workspaces],
+  );
+  // Read only while the bell is open: the badge counts Needs you, not these.
+  const proposals = useQuery({
+    queryKey: ['memory', 'proposals', 'pending'],
+    queryFn: ({ signal }) => repository.memoryProposals('pending', signal),
+    enabled: open,
+    staleTime: 60_000,
+    retry: false,
+  });
   const respond = useAttentionResponse();
   useShortcut('notifications', () => setOpen((current) => !current));
 
   const updateReady = versions.state === 'available';
+  const memoryCount = proposals.data?.length ?? 0;
+  const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
+  const earlier = away.length - shownAway.length;
+  const unread = away.some((row) => !row.read);
+  const empty = rows.length === 0 && away.length === 0 && !updateReady && memoryCount === 0;
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
@@ -232,9 +323,17 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
             ? `${entries[0]!.session.title} needs your response`
             : `${entries.length} sessions need your response`
         }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
+  const groupLabel = 'px-2.5 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground';
+  const rowFrame = 'rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover';
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
+    <Popover
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setShowEarlier(false);
+      }}
+      open={open}
+    >
       <PopoverTrigger asChild>
         <IconButton
           className={cn(
@@ -255,7 +354,7 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
         className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
         collisionPadding={8}
         onOpenAutoFocus={(event) => {
-          // Start on the first notification, not the settings button; an
+          // Start on the first notification, not the header's controls; an
           // empty list keeps focus on the popover itself.
           event.preventDefault();
           const first = listRef.current?.querySelector<HTMLElement>('a[href]');
@@ -265,8 +364,21 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
       >
         <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
           <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <button
+            className="ml-auto rounded-[6px] px-1.5 py-0.5 text-[11.5px] font-semibold text-accent-foreground outline-none hover:underline focus-visible:ring-[1.5px] focus-visible:ring-ring disabled:text-faint disabled:no-underline"
+            disabled={!unread}
+            onClick={() =>
+              markAllNotificationsRead(
+                new Date(
+                  Math.max(Date.now(), ...away.map((row) => Date.parse(row.timestamp) || 0)),
+                ).toISOString(),
+              )
+            }
+            type="button"
+          >
+            Mark all read
+          </button>
           <IconButton
-            className="ml-auto"
             icon={<AdjustIcon />}
             label="Notification settings"
             onClick={() => {
@@ -276,147 +388,217 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
             size="sm"
           />
         </div>
-        {rows.length === 0 ? (
+        {empty ? (
           <p className="px-4 pt-4 pb-3 text-[12.5px] text-muted-foreground">Nothing needs you.</p>
         ) : null}
-        <section
-          aria-labelledby="attention-needs-you"
-          className="px-1.5 pb-2"
-          hidden={rows.length === 0}
+        <div
+          className="clio-scrollbar flex max-h-[min(30rem,70vh)] flex-col overflow-y-auto px-1.5 pb-2"
+          hidden={empty}
+          onKeyDown={moveFocus}
+          ref={listRef}
         >
-          <h3
-            className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
-            id="attention-needs-you"
-          >
-            <span>Needs you</span>
-            <span className="text-warning tabular-nums">{responseCount}</span>
-          </h3>
-          <div
-            className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
-            onKeyDown={moveFocus}
-            ref={listRef}
-          >
-            {rows.map((row) => {
-              const KindIcon = row.kind.icon;
-              const { session } = row;
-              const to = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
-              const deciding =
-                respond.isPending && respond.variables?.interaction.id === row.permission?.id;
-              const decide = (action: 'allow' | 'deny') => {
-                if (!row.permission) return;
-                respond.mutate(
-                  { interaction: row.permission, action },
-                  {
-                    onError: () =>
-                      toast.error("Couldn't send your answer", {
-                        description: `Open ${session.title} to answer it there.`,
-                      }),
-                  },
+          {rows.length > 0 ? (
+            <section aria-labelledby="attention-needs-you">
+              <h3 className={cn('flex items-center gap-1.5', groupLabel)} id="attention-needs-you">
+                <span>Needs you</span>
+                <span className="text-warning tabular-nums">{responseCount}</span>
+              </h3>
+              {rows.map((row) => {
+                const KindIcon = row.kind.icon;
+                const { session } = row;
+                const to = sessionPath(session);
+                const deciding =
+                  respond.isPending && respond.variables?.interaction.id === row.permission?.id;
+                const decide = (action: 'allow' | 'deny') => {
+                  if (!row.permission) return;
+                  respond.mutate(
+                    { interaction: row.permission, action },
+                    {
+                      onError: () =>
+                        toast.error("Couldn't send your answer", {
+                          description: `Open ${session.title} to answer it there.`,
+                        }),
+                    },
+                  );
+                };
+                return (
+                  <div className={rowFrame} data-slot="attention-request" key={row.key}>
+                    <Link
+                      aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                      className="block outline-none"
+                      onClick={() => setOpen(false)}
+                      to={to}
+                    >
+                      <ListRow
+                        description={<span title={row.detailText}>{row.detail}</span>}
+                        icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                        meta={
+                          <ClioRelativeTime
+                            className="text-[11px] text-faint"
+                            compact
+                            label="Asked"
+                            timestamp={row.timestamp}
+                          />
+                        }
+                        primaryAction={row.permission ? undefined : row.kind.action}
+                        title={
+                          <span title={`${session.title} ${row.kind.verb}`}>
+                            <span className="font-semibold text-foreground">{session.title}</span>{' '}
+                            {row.kind.verb}
+                          </span>
+                        }
+                        variant="notice"
+                      />
+                    </Link>
+                    {row.permission ? (
+                      <div
+                        aria-label={`Decide: ${session.title} ${row.kind.verb}`}
+                        className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
+                        role="group"
+                      >
+                        <Button
+                          className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
+                          disabled={deciding}
+                          onClick={() => decide('allow')}
+                          size="xs"
+                        >
+                          Allow
+                        </Button>
+                        <Button
+                          className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          disabled={deciding}
+                          onClick={() => decide('deny')}
+                          size="xs"
+                          variant="ghost"
+                        >
+                          Deny
+                        </Button>
+                        <Link
+                          aria-hidden="true"
+                          className="ml-auto font-medium text-accent-foreground hover:underline"
+                          data-duplicate-link=""
+                          onClick={() => setOpen(false)}
+                          tabIndex={-1}
+                          to={to}
+                        >
+                          {row.kind.action}
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
                 );
-              };
-              return (
+              })}
+            </section>
+          ) : null}
+          {away.length > 0 ? (
+            <section aria-labelledby="attention-away">
+              <h3 className={groupLabel} id="attention-away">
+                While you were away
+              </h3>
+              {shownAway.map((row) => (
                 <div
-                  className="rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover"
-                  data-slot="attention-request"
-                  key={row.key}
+                  className={cn(rowFrame, row.read && 'opacity-50')}
+                  data-read={row.read || undefined}
+                  data-slot="attention-away"
+                  key={row.session.id}
                 >
                   <Link
-                    aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                    aria-label={`${row.session.title} ${row.verb}: ${row.detail}`}
                     className="block outline-none"
                     onClick={() => setOpen(false)}
-                    to={to}
+                    to={sessionPath(row.session)}
                   >
                     <ListRow
-                      description={<span title={row.detailText}>{row.detail}</span>}
-                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                      description={<span title={row.detail}>{row.detail}</span>}
+                      icon={AWAY_ICON[row.tone]}
                       meta={
                         <ClioRelativeTime
                           className="text-[11px] text-faint"
                           compact
-                          label="Asked"
+                          label="Ended"
                           timestamp={row.timestamp}
                         />
                       }
-                      primaryAction={row.permission ? undefined : row.kind.action}
+                      primaryAction={row.action}
                       title={
-                        <span title={`${session.title} ${row.kind.verb}`}>
-                          <span className="font-semibold text-foreground">{session.title}</span>{' '}
-                          {row.kind.verb}
+                        <span title={`${row.session.title} ${row.verb}`}>
+                          <span className="font-semibold text-foreground">{row.session.title}</span>{' '}
+                          {row.verb}
                         </span>
                       }
                       variant="notice"
                     />
                   </Link>
-                  {row.permission ? (
-                    <div
-                      aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                      className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
-                      role="group"
-                    >
-                      <Button
-                        className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
-                        disabled={deciding}
-                        onClick={() => decide('allow')}
-                        size="xs"
-                      >
-                        Allow
-                      </Button>
-                      <Button
-                        className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
-                        disabled={deciding}
-                        onClick={() => decide('deny')}
-                        size="xs"
-                        variant="ghost"
-                      >
-                        Deny
-                      </Button>
-                      <Link
-                        aria-hidden="true"
-                        className="ml-auto font-medium text-accent-foreground hover:underline"
-                        data-duplicate-link=""
-                        onClick={() => setOpen(false)}
-                        tabIndex={-1}
-                        to={to}
-                      >
-                        {row.kind.action}
-                      </Link>
-                    </div>
-                  ) : null}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-        {updateReady ? (
-          <section aria-labelledby="attention-agent" className="px-1.5 pb-2">
-            <h3
-              className="px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
-              id="attention-agent"
+              ))}
+            </section>
+          ) : null}
+          {updateReady || memoryCount > 0 ? (
+            <section aria-labelledby="attention-agent">
+              <h3 className={groupLabel} id="attention-agent">
+                {vocab.agent}
+              </h3>
+              {updateReady ? (
+                <div className="rounded-[8px] px-2.5 py-2" data-slot="attention-update">
+                  <ListRow
+                    description={versions.message}
+                    icon={<ProductUpdateIcon state={versions.state} />}
+                    primaryAction={
+                      versions.desktopShell ? (
+                        <button
+                          className="hover:underline disabled:opacity-50"
+                          disabled={versions.updating}
+                          onClick={() => versions.updateAll()}
+                          type="button"
+                        >
+                          Update
+                        </button>
+                      ) : undefined
+                    }
+                    title={<span className="font-semibold text-foreground">Update ready</span>}
+                    variant="notice"
+                  />
+                </div>
+              ) : null}
+              {memoryCount > 0 ? (
+                <div className={rowFrame} data-slot="attention-memory">
+                  <Link
+                    className="block outline-none"
+                    onClick={() => setOpen(false)}
+                    to="/settings/memory?view=review"
+                  >
+                    <ListRow
+                      description={suggestedFrom(
+                        proposals.data!.flatMap((proposal) =>
+                          proposal.evidence.map((item) => item.session),
+                        ),
+                        sessions,
+                      )}
+                      icon={<BrainCircuitIcon />}
+                      primaryAction="Review"
+                      title={
+                        <span className="font-semibold text-foreground">
+                          {plural(memoryCount, 'memory', 'memories')} to review
+                        </span>
+                      }
+                      variant="notice"
+                    />
+                  </Link>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {earlier > 0 ? (
+            <button
+              className="flex h-7 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left text-[11.5px] text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
+              onClick={() => setShowEarlier(true)}
+              type="button"
             >
-              {vocab.agent}
-            </h3>
-            <div className="rounded-[8px] px-2.5 py-2" data-slot="attention-update">
-              <ListRow
-                description={versions.message}
-                icon={<ProductUpdateIcon state={versions.state} />}
-                primaryAction={
-                  versions.desktopShell ? (
-                    <button
-                      className="hover:underline disabled:opacity-50"
-                      disabled={versions.updating}
-                      onClick={() => versions.updateAll()}
-                      type="button"
-                    >
-                      Update
-                    </button>
-                  ) : undefined
-                }
-                title={<span className="font-semibold text-foreground">Update ready</span>}
-                variant="notice"
-              />
-            </div>
-          </section>
-        ) : null}
+              <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+              {earlier} earlier
+            </button>
+          ) : null}
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -426,6 +608,19 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
   const navigate = useNavigate();
   const { attentionSound, desktopNotifications } = useNotificationPreferences();
   const reportedSoundFailureFor = useRef<AttentionSoundMode | null>(null);
+  const activeUpdatedAt = sessions.find((session) => session.id === activeSessionId)?.updated_at;
+
+  // An open conversation is seen: how its run ends is not "while you were away".
+  useEffect(() => {
+    if (!activeSessionId) return;
+    // The later of now and the run's own time, so a server clock ahead of this one cannot bring it back.
+    const ended = Date.parse(activeUpdatedAt ?? '');
+    const now = Date.now();
+    markConversationSeen(
+      activeSessionId,
+      new Date(Number.isNaN(ended) ? now : Math.max(now, ended)).toISOString(),
+    );
+  }, [activeSessionId, activeUpdatedAt]);
 
   useEffect(() => {
     const currentIds = new Set<string>();
@@ -468,18 +663,8 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
         now - (lastAttentionNoticeAt.get(session.id) ?? 0) > ATTENTION_NOTICE_THROTTLE_MS;
       lastAttentionNoticeAt.set(session.id, now);
       shouldPlaySound ||= shouldInterrupt;
-      // The session already open shows this same attention inline (the
-      // pending-interactions surface); toasting on top of it is redundant.
-      if (session.id !== activeSessionId) {
-        toast.warning('Response needed', {
-          id: `clio-attention:${session.id}`,
-          description: session.title,
-          action: {
-            label: 'Open',
-            onClick: () => navigate(path),
-          },
-        });
-      }
+      // No toast: the bell's Needs you mirrors pending requests, and toasts
+      // are only for what the person just did (conversation-states spec).
       if (
         desktopNotifications &&
         shouldInterrupt &&
