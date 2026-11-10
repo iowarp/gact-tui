@@ -3,7 +3,7 @@ import { useSessionResourceLoading } from './use-session-resource-loading';
 import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
@@ -18,6 +18,7 @@ import {
   ACTIVE_TRANSCRIPT_POLL_MS,
   WAITING_SESSIONS_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
+  PENDING_INTERACTIONS_FANOUT_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
   TRANSCRIPT_PAGE_SIZE,
 } from '@/lib/runtime-limits';
@@ -314,14 +315,37 @@ export function useWorkspaceData({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
       queryFn: ({ signal }) => repository.pendingInteractionProjection(rootSessionId, true, signal),
       staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
-      // No open conversation streams events that would refresh these.
-      refetchInterval: sessionId ? undefined : WAITING_SESSIONS_POLL_MS,
+      // No open conversation streams events that would refresh these; the
+      // waiting-sessions list below re-reads them when it changes.
+      refetchInterval: sessionId ? undefined : PENDING_INTERACTIONS_FANOUT_POLL_MS,
     })),
     combine: (results) => ({
       error: results.find((query) => query.error)?.error,
       interactions: results.flatMap((query) => query.data?.interactions ?? []),
     }),
   });
+  // A session that starts or stops waiting, or a waiting one that moves on, changes
+  // this list: re-read the other roots' requests then, instead of on a fast timer.
+  const queryClient = useQueryClient();
+  const waitingSignature = useMemo(
+    () =>
+      (waitingSessions.data ?? [])
+        .map((item) => `${item.id}:${item.state}:${item.updated_at}`)
+        .toSorted()
+        .join('|'),
+    [waitingSessions.data],
+  );
+  const readWaitingSignature = useRef(waitingSignature);
+  useEffect(() => {
+    if (readWaitingSignature.current === waitingSignature) return;
+    readWaitingSignature.current = waitingSignature;
+    for (const rootSessionId of attentionRootSessionIds) {
+      void queryClient.invalidateQueries(
+        { queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId), exact: true },
+        { cancelRefetch: false },
+      );
+    }
+  }, [attentionRootSessionIds, queryClient, settings.endpoint, waitingSignature]);
   const attentionInteractionsError = attentionInteractionQueries.error;
   const legacyInteractions = useMemo(
     () => legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),

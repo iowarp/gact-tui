@@ -528,20 +528,32 @@ export async function runBackgroundUpdateCheck(now: number = Date.now()): Promis
   );
 }
 
+let backgroundCheck: Promise<void> | undefined;
+
+/** One background check at a time, and none while the window is hidden. */
+function runVisibleBackgroundUpdateCheck(): void {
+  if (document.visibilityState === 'hidden' || backgroundCheck) return;
+  backgroundCheck = runBackgroundUpdateCheck().finally(() => {
+    backgroundCheck = undefined;
+  });
+}
+
 /**
  * Schedules the recurring background update check: once immediately (subject
  * to the persisted minimum interval, so a fresh boot right after a manual
- * check does not re-check), then every `BACKGROUND_UPDATE_CHECK_INTERVAL_MS`.
+ * check does not re-check), then every `BACKGROUND_UPDATE_CHECK_INTERVAL_MS`
+ * while the window is visible, and when a hidden window is shown again.
  * A no-op outside the installed desktop app. Call once the app has a live
  * connection; call the returned cleanup on unmount so navigating away never
  * accumulates timers.
  */
 export function scheduleBackgroundUpdateCheck(): () => void {
   if (!inTauri()) return () => {};
-  void runBackgroundUpdateCheck();
-  const timer = setInterval(
-    () => void runBackgroundUpdateCheck(),
-    BACKGROUND_UPDATE_CHECK_INTERVAL_MS,
-  );
-  return () => clearInterval(timer);
+  runVisibleBackgroundUpdateCheck();
+  const timer = setInterval(runVisibleBackgroundUpdateCheck, BACKGROUND_UPDATE_CHECK_INTERVAL_MS);
+  document.addEventListener('visibilitychange', runVisibleBackgroundUpdateCheck);
+  return () => {
+    clearInterval(timer);
+    document.removeEventListener('visibilitychange', runVisibleBackgroundUpdateCheck);
+  };
 }

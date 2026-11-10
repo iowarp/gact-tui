@@ -88,7 +88,9 @@ export function useConnectionAvailabilities(
   connections: readonly SavedConnection[],
 ): ConnectionAvailabilityMap {
   const { resolveConnection } = useConnectionSettings();
-  const queries = useQueries({
+  // `combine` is structurally shared, so the answers keep their identity until a
+  // probe actually changes one and the menus reading them do not re-render per poll.
+  const answers = useQueries({
     queries: connections.map((connection) => ({
       queryKey: queryKeys.key('connection-availability', connection.endpoint),
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
@@ -96,33 +98,33 @@ export function useConnectionAvailabilities(
         return probeConnection(resolved, signal);
       },
       refetchInterval: connectionProbeInterval,
-      refetchOnMount: 'always' as const,
       retry: CONNECTION_PROBE_RETRIES,
       retryDelay: (attempt: number) =>
         Math.min(CONNECTION_PROBE_RETRY_BASE_MS * 2 ** attempt, CONNECTION_PROBE_RETRY_MAX_MS),
       staleTime: CONNECTION_PROBE_STALE_TIME_MS,
     })),
+    combine: (results) => results.map((query) => query.data ?? availabilityFromError(query.error)),
   });
 
   const fresh = useMemo(
     () =>
       connections.map((connection, index) => ({
         endpoint: connection.endpoint,
-        availability: queries[index]?.data ?? availabilityFromError(queries[index]?.error),
+        availability: answers[index] ?? CHECKING_CONNECTION,
       })),
-    [connections, queries],
+    [connections, answers],
   );
   // A re-probe of a service that never answered clears the query's error, so
   // keep showing the last settled answer instead of flashing back to Checking.
   const [settled, setSettled] = useState<ConnectionAvailabilityMap>({});
-  const answers = fresh.filter(
+  const changed = fresh.filter(
     ({ endpoint, availability }) =>
-      availability !== CHECKING_CONNECTION && !sameAvailability(settled[endpoint], availability),
+      !isChecking(availability) && !sameAvailability(settled[endpoint], availability),
   );
-  if (answers.length > 0) {
+  if (changed.length > 0) {
     setSettled({
       ...settled,
-      ...Object.fromEntries(answers.map(({ endpoint, availability }) => [endpoint, availability])),
+      ...Object.fromEntries(changed.map(({ endpoint, availability }) => [endpoint, availability])),
     });
   }
   return useMemo(
@@ -130,7 +132,7 @@ export function useConnectionAvailabilities(
       Object.fromEntries(
         fresh.map(({ endpoint, availability }) => [
           endpoint,
-          availability === CHECKING_CONNECTION ? (settled[endpoint] ?? availability) : availability,
+          isChecking(availability) ? (settled[endpoint] ?? availability) : availability,
         ]),
       ),
     [fresh, settled],
@@ -208,6 +210,11 @@ function rethrowCancelledProbe(
 ): void {
   if (requestSignal.aborted) throw error;
   if (probeSignal.aborted) throw new ServiceTimeoutError();
+}
+
+/** Not answered yet. Compared by value: structural sharing may copy the object. */
+function isChecking(availability: ConnectionAvailability): boolean {
+  return sameAvailability(CHECKING_CONNECTION, availability) && !availability.starting;
 }
 
 function sameAvailability(

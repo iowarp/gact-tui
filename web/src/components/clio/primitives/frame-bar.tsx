@@ -125,6 +125,7 @@ export const FrameBar = memo(function FrameBar({
   format,
   actions,
   label,
+  rule = true,
   className,
 }: {
   where: ReactNode;
@@ -134,6 +135,8 @@ export const FrameBar = memo(function FrameBar({
   actions?: ReactNode;
   /** Accessible name of the toolbar ("File actions"). */
   label: string;
+  /** The rule before the actions; off where the spec draws none (nothing for it to divide). */
+  rule?: boolean;
   className?: string;
 }) {
   const back = useContext(FrameBackContext);
@@ -225,7 +228,7 @@ export const FrameBar = memo(function FrameBar({
       ) : null}
       {actions ? (
         <>
-          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
+          {rule ? <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" /> : null}
           <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
         </>
       ) : null}

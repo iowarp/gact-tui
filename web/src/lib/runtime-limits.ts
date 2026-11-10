@@ -502,6 +502,14 @@ export const PENDING_INTERACTIONS_FANOUT_CAP = 20;
  */
 export const PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS = 5_000;
 
+/**
+ * Safety re-read of the other root sessions' requests when no conversation is open.
+ * They are re-read as soon as the waiting-sessions list changes (a session starts
+ * or stops waiting, or a waiting one moves on), so this only catches what that
+ * list cannot show. Unit: milliseconds.
+ */
+export const PENDING_INTERACTIONS_FANOUT_POLL_MS = 60_000;
+
 // ## Interaction
 // Values a person feels directly: input latency and how much of a list a
 // surface shows before it asks to expand.
