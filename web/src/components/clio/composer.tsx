@@ -116,6 +116,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
   /** Keep the draft editable while the first session catalog is registering. */
   catalogPreparing?: boolean;
   contextReferences?: boolean;
+  /**
+   * The service's capabilities are still loading, so `attachments` and
+   * `contextReferences` aren't known yet. `+` and `@` hold their place, disabled.
+   */
+  capabilitiesPending?: boolean;
   workspaceId?: string;
   sessionId?: string;
   commands?: CommandDefinition[];
@@ -195,6 +200,7 @@ export function ClioComposer({
   connecting = false,
   catalogPreparing = false,
   contextReferences = false,
+  capabilitiesPending = false,
   workspaceId = '',
   sessionId,
   commands = [],
@@ -713,10 +719,11 @@ export function ClioComposer({
             className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
             data-slot="composer-toolbar"
           >
-            {attachments || contextReferences ? (
+            {attachments || contextReferences || capabilitiesPending ? (
               <ComposerAddContextButtons
                 attachments={attachments}
                 contextReferences={contextReferences}
+                pending={capabilitiesPending}
                 disabled={controlsDisabled}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
