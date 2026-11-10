@@ -5,7 +5,16 @@ import { TransportError } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { queryKeys } from '@/lib/query-keys';
-import { ArrowLeftIcon, ArrowUpIcon, FileIcon, FolderIcon, UnplugIcon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  ArrowUpIcon,
+  DownloadIcon,
+  FileIcon,
+  FolderIcon,
+  LinkIcon,
+  ShieldCheckIcon,
+  UnplugIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Input } from '@/components/ui/input';
@@ -16,11 +25,13 @@ import { ConnectedSourceAuth } from './connected-source-auth';
 import { DownloadedSourceCopy } from './downloaded-source-copy';
 import {
   type DownloadAccess,
+  type LinkAccess,
   linkAccessNames,
   sourceBytes as bytes,
   sourceModeLinkAccess,
 } from './connected-source-labels';
 import { SourceProviderLogo } from './source-provider-logo';
+import { defaultSourceUse, rememberedSourceAccess, type SourceUse } from './source-access-intent';
 import { InfoTip } from './info-tip';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import { useSourceFileReference } from './use-source-file-reference';
@@ -69,10 +80,19 @@ export function ConnectedSourceDetail({
   const [offset, setOffset] = useState(0);
   const [review, setReview] = useState<SourceReview>();
   const [selected, setSelected] = useState<string[]>([]);
-  // Access is chosen when the source is connected; using the source follows that choice.
-  const mode = source.mode ?? 'read_only';
-  const linkAccess = sourceModeLinkAccess[mode];
-  const downloadAccess: DownloadAccess = mode === 'read_only' ? 'read_only' : 'editable';
+  // Access is chosen in the Connect dialog; using the source follows that choice.
+  const intent = rememberedSourceAccess(source.id);
+  const mode = intent?.mode ?? source.mode ?? 'read_only';
+  const linkAccess: LinkAccess = intent
+    ? sourceModeLinkAccess[intent.mode]
+    : source.linked
+      ? (source.link_access ?? sourceModeLinkAccess[mode])
+      : sourceModeLinkAccess[mode];
+  const downloadAccess: DownloadAccess = intent
+    ? intent.mode === 'read_only'
+      ? 'read_only'
+      : 'editable'
+    : (source.download_access ?? (mode === 'read_only' ? 'read_only' : 'editable'));
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [view, setView] = useState<'source' | 'downloads'>(
@@ -92,20 +112,27 @@ export function ConnectedSourceDetail({
       !source.connected ||
       !canAccessSource);
   const canDownload = source.download_available ?? source.capabilities.download;
-  const canLink = Boolean(source.link_available);
-  // An editable download prefers a working copy; the other modes prefer the originals.
-  const use: 'link' | 'transfer' | undefined =
-    mode === 'write_enabled'
-      ? canLink
+  const canLink = Boolean(source.link_available) && source.origin !== 'desktop_upload';
+  const uses: SourceUse[] = [
+    ...(canLink ? (['link'] as const) : []),
+    ...(canDownload && source.origin !== 'desktop_upload' ? (['transfer'] as const) : []),
+  ];
+  const use =
+    intent && uses.includes(intent.use)
+      ? intent.use
+      : source.linked && canLink
         ? 'link'
-        : undefined
-      : mode === 'working_copy' && canDownload
-        ? 'transfer'
-        : canLink
-          ? 'link'
-          : canDownload
-            ? 'transfer'
-            : undefined;
+        : defaultSourceUse(mode, uses);
+  const confirmRemote =
+    linkAccess === 'write_through' &&
+    (intent
+      ? intent.confirmed
+      : source.link_access === 'write_through' || mode === 'write_enabled');
+  // The files are not yet where the chosen Access puts them.
+  const pendingUse =
+    !ready &&
+    use !== undefined &&
+    !(use === 'link' && source.linked && source.link_access === linkAccess);
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: queryPrefix.slice(0, 2) });
     await queryClient.invalidateQueries({
@@ -116,9 +143,7 @@ export function ConnectedSourceDetail({
   const mapping = useQuery({
     queryKey: [...queryPrefix, source.id, 'mapping-options', source.authenticated],
     queryFn: ({ signal }) => repository.sourceMappingOptions(workspaceId, source.id, signal),
-    enabled: Boolean(
-      use === 'link' && linkAccess !== 'read_only' && source.connected && canAccessSource,
-    ),
+    enabled: Boolean(canLink && source.connected && canAccessSource),
     staleTime: 60_000,
     retry: false,
   });
@@ -233,9 +258,7 @@ export function ConnectedSourceDetail({
               source.id,
               kind === 'unlink',
               draftId,
-              kind === 'link'
-                ? { access: linkAccess, confirm_remote: linkAccess === 'write_through' }
-                : undefined,
+              kind === 'link' ? { access: linkAccess, confirm_remote: confirmRemote } : undefined,
               trackingSession,
             );
           if (kind === 'link' && onSelect) {
@@ -346,32 +369,33 @@ export function ConnectedSourceDetail({
       </div>
       {tracking.control}
       {onSelect && (ready || (source.connected && canAccessSource && (source.linked || use))) && (
-        <div className="space-y-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              ready || source.linked || !use
-                ? folderReference.mutate({
-                    source,
-                    linked: !browsingCopies && Boolean(source.linked),
-                    path: folder,
-                  })
-                : action.mutate(use)
-            }
-            disabled={
-              folderReference.isPending ||
-              action.isPending ||
-              Boolean(active) ||
-              (!ready && !source.linked && use === 'link' && !linkAllowed)
-            }
-          >
-            <FolderIcon aria-hidden="true" /> Add {folder ? 'this folder' : 'source'} to message
-          </Button>
-          {!ready && !source.linked && use === 'link' && !linkAllowed && linkReason && (
-            <p className="text-xs text-muted-foreground">{linkReason}</p>
-          )}
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            pendingUse && use
+              ? action.mutate(use)
+              : folderReference.mutate({
+                  source,
+                  linked: !browsingCopies && Boolean(source.linked),
+                  path: folder,
+                })
+          }
+          disabled={
+            folderReference.isPending ||
+            action.isPending ||
+            Boolean(active) ||
+            (pendingUse && use === 'link' && !linkAllowed)
+          }
+        >
+          <FolderIcon aria-hidden="true" /> Add {folder ? 'this folder' : 'source'} to message
+        </Button>
+      )}
+      {source.connected && canAccessSource && use === 'link' && linkReason && (
+        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+          <ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+          {linkReason}
+        </p>
       )}
       {source.provider === 'globus' ? (
         <GlobusReceivingStorageControl hostLabel={hostLabel} />
@@ -403,6 +427,38 @@ export function ConnectedSourceDetail({
             <ExternalLink href={source.account_url} className="self-center text-sm underline">
               Repository access
             </ExternalLink>
+          )}
+          {!onSelect && use && source.origin !== 'desktop_upload' && (
+            <Button
+              variant="outline"
+              disabled={
+                Boolean(active) ||
+                action.isPending ||
+                (use === 'link' &&
+                  (!linkAllowed || (source.linked && Boolean(source.pending_edits))))
+              }
+              title={
+                use === 'link' && source.linked && source.pending_edits
+                  ? 'Publish or discard local edits before changing this link'
+                  : undefined
+              }
+              onClick={() => action.mutate(use)}
+            >
+              {use === 'link' ? (
+                <LinkIcon aria-hidden="true" />
+              ) : (
+                <DownloadIcon aria-hidden="true" />
+              )}
+              {use === 'link'
+                ? source.linked
+                  ? 'Update link'
+                  : source.provider === 'ndp'
+                    ? 'Link selected files'
+                    : 'Link folder'
+                : source.provider === 'ndp'
+                  ? 'Download selected files'
+                  : 'Download all'}
+            </Button>
           )}
           {source.linked && (
             <Button

@@ -24,7 +24,6 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from './connected-source-picker';
-import { chooseTrackingConversation } from './connected-source-picker.test-helpers';
 import { sessionReads } from '@/test/session-reads';
 
 afterEach(cleanup);

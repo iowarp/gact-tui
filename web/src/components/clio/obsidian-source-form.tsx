@@ -6,7 +6,6 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { vocab } from '@/lib/brand-vocabulary';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -14,6 +13,9 @@ import { SourceProviderLogo } from './source-provider-logo';
 import { HostPathPicker } from './host-path-picker';
 import { ObsidianIntroduction } from './obsidian-introduction';
 import { ObsidianAccountSettings } from './obsidian-account-settings';
+import { ObsidianSyncDirection, type ObsidianSyncMode } from './obsidian-sync-direction';
+import { SourceAccessChoice } from './source-access-choice';
+import { vaultModes, vaultReasons } from './connected-source-labels';
 
 export type ObsidianChoice = 'new' | 'existing' | 'sync';
 
@@ -54,7 +56,7 @@ function ObsidianSourceEditor({
   );
   const [vaultId, setVaultId] = useState('');
   const [encryptionPassword, setEncryptionPassword] = useState('');
-  const [syncMode, setSyncMode] = useState<'pull-only' | 'bidirectional'>('pull-only');
+  const [syncMode, setSyncMode] = useState<ObsidianSyncMode>('pull-only');
   const account = useQuery({
     queryKey: ['obsidian-account', scope],
     queryFn: ({ signal }) => repository.obsidianStatus(signal),
@@ -244,15 +246,11 @@ function ObsidianSourceEditor({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor={`${id}-direction`}>Sync direction</FieldLabel>
-                  <select
+                  <ObsidianSyncDirection
                     id={`${id}-direction`}
-                    className="w-full rounded-md border bg-background p-2"
                     value={syncMode}
-                    onChange={(event) => setSyncMode(event.target.value as typeof syncMode)}
-                  >
-                    <option value="pull-only">Download remote changes</option>
-                    <option value="bidirectional">Sync changes both ways</option>
-                  </select>
+                    onChange={setSyncMode}
+                  />
                 </Field>
                 <p className="text-xs leading-5 text-muted-foreground">
                   {vocab.agent} stores and manages a dedicated copy on {hostLabel}. Sync direction
@@ -262,22 +260,13 @@ function ObsidianSourceEditor({
             ) : null}
           </div>
         )}
-        <label className="flex items-start gap-3 text-sm">
-          <Checkbox
-            checked={mode === 'write_enabled'}
-            onCheckedChange={(checked) => setMode(checked ? 'write_enabled' : 'read_only')}
-            aria-label={`Allow ${vocab.agent} to create and edit notes`}
-            className="mt-1"
-          />
-          <span>
-            Allow {vocab.agent} to create and edit notes
-            <span className="mt-1 block text-xs text-muted-foreground">
-              {mode === 'read_only'
-                ? 'This source will be read only.'
-                : 'Edits are written to this vault.'}
-            </span>
-          </span>
-        </label>
+        <SourceAccessChoice
+          value={mode}
+          onChange={setMode}
+          supported={vaultModes}
+          reasons={vaultReasons}
+          disabled={connect.isPending}
+        />
       </fieldset>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

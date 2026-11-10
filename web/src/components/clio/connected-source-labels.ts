@@ -36,3 +36,9 @@ export const sourceBytes = (value: number): string =>
       : value >= 1024
         ? `${(value / 1024).toFixed(1)} KB`
         : `${value} B`;
+
+/** A vault's notes are read, or edited in place; it has no separate copy to publish from. */
+export const vaultModes: readonly SourceMode[] = ['read_only', 'write_enabled'];
+export const vaultReasons: Partial<Record<SourceMode, string>> = {
+  working_copy: 'Vault notes are edited in place, so there is no copy to publish later.',
+};

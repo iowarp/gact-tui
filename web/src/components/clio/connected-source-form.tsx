@@ -21,6 +21,14 @@ import { SourceSshTarget } from './source-ssh-target';
 import { GitHubRevisionPicker } from './github-revision-picker';
 import { GlobusReceivingStorageControl } from './globus-receiving-storage';
 import { SourceAccessChoice } from './source-access-choice';
+import { ObsidianSyncDirection } from './obsidian-sync-direction';
+import { vaultModes, vaultReasons } from './connected-source-labels';
+import {
+  defaultSourceUse,
+  rememberSourceAccess,
+  rememberedSourceAccess,
+  type SourceUse,
+} from './source-access-intent';
 
 /** Node capabilities determine which real access modes can be offered. */
 export function ConnectedSourceForm({
@@ -54,10 +62,29 @@ export function ConnectedSourceForm({
       (supportedModes.includes('read_only') ? 'read_only' : (supportedModes[0] ?? 'read_only')),
   );
   const locationLocked = Boolean(source && !source.can_edit_location);
+  const [chosenUse, setChosenUse] = useState<SourceUse | undefined>(
+    source ? rememberedSourceAccess(source.id)?.use : undefined,
+  );
+  const [confirmed, setConfirmed] = useState(source?.mode === 'write_enabled');
   const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();
   const [configuration, setConfiguration] = useState<
     NonNullable<CreateSourceInput['configuration']>
   >(source?.configuration ?? {});
+  // An SSH target opened from Desktop only downloads; GitHub only links.
+  const uses: SourceUse[] = [
+    ...(provider.id === 'sftp' && configuration.target_id && configuration.ssh_origin !== 'clio'
+      ? []
+      : (['link'] as const)),
+    ...((provider.capabilities as { download?: boolean }).download === false
+      ? []
+      : (['transfer'] as const)),
+  ];
+  const use = chosenUse && uses.includes(chosenUse) ? chosenUse : defaultSourceUse(mode, uses);
+  const needsConfirmation = provider.id !== 'obsidian' && mode === 'write_enabled' && !confirmed;
+  const chooseMode = (next: SourceMode) => {
+    setMode(next);
+    if (next === 'write_enabled') setConfirmed(source?.mode === 'write_enabled');
+  };
   const connect = useMutation({
     mutationFn: () => {
       const input: CreateSourceInput = {
@@ -74,7 +101,8 @@ export function ConnectedSourceForm({
                 .pop() || provider.name
             : provider.name),
         root: root.trim(),
-        mode,
+        // A source with history keeps its mode; its link or copy takes the new Access.
+        mode: locationLocked && source?.mode ? source.mode : mode,
         configuration,
         ...(sftpCredentials ? { sftp_credentials: sftpCredentials } : {}),
       };
@@ -82,7 +110,10 @@ export function ConnectedSourceForm({
         ? repository.updateConnectedSource(workspaceId, source.id, input)
         : repository.createConnectedSource(workspaceId, input);
     },
-    onSuccess: onConnected,
+    onSuccess: (saved) => {
+      if (use) rememberSourceAccess(saved.id, { mode, use, confirmed });
+      onConnected(saved);
+    },
   });
   const configField = (key: keyof typeof configuration, name: string, placeholder: string) => (
     <Field>
@@ -161,20 +192,13 @@ export function ConnectedSourceForm({
                   </p>
                   <Field>
                     <FieldLabel htmlFor="vault-sync-mode">Sync direction</FieldLabel>
-                    <select
+                    <ObsidianSyncDirection
                       id="vault-sync-mode"
-                      className="w-full rounded-md border bg-background p-2"
                       value={configuration.obsidian_sync_mode ?? 'pull-only'}
-                      onChange={(event) =>
-                        setConfiguration((previous) => ({
-                          ...previous,
-                          obsidian_sync_mode: event.target.value as 'pull-only' | 'bidirectional',
-                        }))
+                      onChange={(obsidian_sync_mode) =>
+                        setConfiguration((previous) => ({ ...previous, obsidian_sync_mode }))
                       }
-                    >
-                      <option value="pull-only">Download remote changes</option>
-                      <option value="bidirectional">Sync changes both ways</option>
-                    </select>
+                    />
                   </Field>
                   <p className="text-xs text-muted-foreground">
                     Sync direction is separate from permission for the agent to edit notes.
@@ -300,21 +324,27 @@ export function ConnectedSourceForm({
               }
             />
           )}
-          {provider.id === 'obsidian' ? (
-            <p className="text-xs text-muted-foreground">
-              Connect this vault as a knowledge source. Notes open in the graph, file list, and
-              reader.
-            </p>
-          ) : (
-            <SourceAccessChoice
-              value={mode}
-              onChange={setMode}
-              supported={supportedModes}
-              reasons={provider.capabilities.unavailable_reasons}
-              disabled={locationLocked || connect.isPending}
-            />
-          )}
         </fieldset>
+        {provider.id === 'obsidian' && (
+          <p className="text-xs text-muted-foreground">
+            Connect this vault as a knowledge source. Notes open in the graph, file list, and
+            reader.
+          </p>
+        )}
+        <SourceAccessChoice
+          value={mode}
+          onChange={chooseMode}
+          supported={provider.id === 'obsidian' ? vaultModes : supportedModes}
+          reasons={
+            provider.id === 'obsidian' ? vaultReasons : provider.capabilities.unavailable_reasons
+          }
+          disabled={connect.isPending}
+          uses={uses}
+          use={use}
+          onUseChange={setChosenUse}
+          confirmed={confirmed}
+          onConfirmedChange={provider.id === 'obsidian' ? undefined : setConfirmed}
+        />
       </fieldset>
       {connect.error && (
         <p role="alert" className="text-sm text-destructive">
@@ -337,6 +367,7 @@ export function ConnectedSourceForm({
           type="submit"
           disabled={
             connect.isPending ||
+            needsConfirmation ||
             (provider.id === 'github' && !githubRevisionValid) ||
             ((provider.id === 'local' || provider.id === 'sftp' || provider.id === 'obsidian') &&
               !root.trim())
