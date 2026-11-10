@@ -73,9 +73,13 @@ const requiredImports = {
     '@/components/ui/button',
     '@/components/ui/tooltip',
   ],
-  // RC1 transcript: the ? dialog moved to its own module on the shared dialog frame;
-  // it keeps composing the ai-elements argument and result readers.
-  'web/src/components/clio/tool-technical-details.tsx': ['@/components/ai-elements/tool'],
+  // RC1 transcript: the ⓘ dialog follows the spec's technical-details layout on the shared
+  // dialog frame and facts grid: line-numbered code and a terminal tail for an error.
+  'web/src/components/clio/tool-technical-details.tsx': [
+    './primitives/dialog-frame',
+    './primitives/key-value-grid',
+    './json-line',
+  ],
   'web/src/components/clio/artifact-card.tsx': [
     '@/components/ai-elements/artifact',
     '@/components/ai-elements/attachments',

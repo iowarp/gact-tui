@@ -153,6 +153,8 @@ export function installPerfObservers() {
     state.armed = true;
     state.armTime = performance.now();
     state.lastInput = null;
+    // Without an input event (a history push), the measurement starts at arm.
+    state.armStart = spec.noInput ? state.armTime : null;
     state.spec = spec;
     state.result = null;
     state.before = new WeakSet(document.querySelectorAll(overlaySelector));

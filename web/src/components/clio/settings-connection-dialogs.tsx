@@ -51,6 +51,7 @@ export function AddAgentDialog({
   };
   return (
     <DialogFrame
+      className="w-[clamp(460px,44vw,600px)]"
       open={open}
       onOpenChange={close}
       icon={<ServerIcon className="size-4" />}
@@ -150,6 +151,7 @@ export function RenameAgentDialog({
       >
         <Input
           className={cn(CONNECTION_FIELD, DIALOG_FIELD)}
+          data-initial-focus=""
           id="rename-agent-name"
           onChange={(event) => setDraft(event.target.value)}
           value={value}
