@@ -50,6 +50,8 @@ export interface ClioPendingInteractionsProps {
   /** The session's artifacts, so a plan card can open its saved plan. */
   artifacts?: Readonly<Record<string, Artifact>>;
   onOpenArtifact?: (artifact: Artifact) => void;
+  /** Puts the caret back in the composer once the last card a person was in is answered. */
+  onFocusComposer?: () => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -68,6 +70,7 @@ export function ClioPendingInteractions({
   onOpenScript,
   artifacts = {},
   onOpenArtifact,
+  onFocusComposer,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
@@ -118,19 +121,44 @@ export function ClioPendingInteractions({
     }
     if (viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [selectedId, index, selection.id, selection.index, setSelection]);
-  // A new card takes focus when nothing else holds it (the composer is not in use).
+  // A new card takes focus when the composer is empty or nothing holds focus; while a person
+  // types, Shift Tab from the composer reaches it instead. When the card they were in is
+  // answered, focus moves to the next card, else back to the composer.
   const seenIds = useRef<ReadonlySet<string>>(new Set(pending.map((row) => row.id)));
   const pendingKey = pending.map((row) => row.id).join('\n');
+  const focusInDock = useRef(false);
+  const focusComposer = useRef(onFocusComposer);
+  focusComposer.current = onFocusComposer;
+  useEffect(() => {
+    const track = (event: FocusEvent) => {
+      focusInDock.current = Boolean(
+        event.target instanceof Node && dockRef.current?.contains(event.target),
+      );
+    };
+    document.addEventListener('focusin', track);
+    return () => document.removeEventListener('focusin', track);
+  }, []);
   useEffect(() => {
     const ids = pendingKey ? pendingKey.split('\n') : [];
     const arrived = ids.some((id) => !seenIds.current.has(id));
+    const departed = [...seenIds.current].some((id) => !ids.includes(id));
     seenIds.current = new Set(ids);
-    if (!arrived || !selectedId || document.activeElement !== document.body) return;
-    const card = document
-      .getElementById(pendingInteractionDomId(selectedId))
-      ?.closest<HTMLElement>('[data-slot="ask-card"]');
+    const active = document.activeElement;
+    const lost = !active || active === document.body || !active.isConnected;
+    const card = selectedId
+      ? document
+          .getElementById(pendingInteractionDomId(selectedId))
+          ?.closest<HTMLElement>('[data-slot="ask-card"]')
+      : undefined;
+    if (departed && focusInDock.current && (lost || !dockRef.current?.contains(active))) {
+      focusInDock.current = false;
+      if (card) card.focus({ preventScroll: true });
+      else focusComposer.current?.();
+      return;
+    }
+    if (!arrived || !card || !(lost || isEmptyComposer(active))) return;
     // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
-    card?.focus({ preventScroll: true, focusVisible: false });
+    card.focus({ preventScroll: true, focusVisible: false });
   }, [pendingKey, selectedId]);
   useEffect(() => {
     const reveal = (event: Event) => {
@@ -347,6 +375,11 @@ function announcement(interaction: PendingInteraction, index: number, total: num
   return [`${kind}: ${interaction.title}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
     .filter(Boolean)
     .join('. ');
+}
+
+function isEmptyComposer(element: Element | null): boolean {
+  const editor = element?.closest('[data-slot="clio-composer"] [contenteditable="true"]');
+  return Boolean(editor && !editor.textContent?.trim());
 }
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {

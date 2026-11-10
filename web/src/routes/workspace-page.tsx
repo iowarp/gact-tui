@@ -210,6 +210,7 @@ export function WorkspacePage() {
         actionLifecycles: entities.a2ui_action_lifecycles,
         artifacts: entities.artifacts,
         onOpenArtifact: openArtifact,
+        onFocusComposer: focusComposerForAnswer,
         capabilityError: data.interactionCapabilityError ?? undefined,
         error: data.interactionsError ?? undefined,
         onRefetchSurfaces: data.refetchInteractionSurfaces,
