@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { MemorySearchHit } from '@clio/core/v3';
 import { FolderIcon, MessageSquareTextIcon } from 'lucide-react';
 import { CommandGroup, CommandItem } from '@/components/ui/command';
@@ -158,7 +159,7 @@ export function CommandMenuResultGroups({
                 >
                   <FolderIcon aria-hidden="true" />
                   <span className="min-w-0 flex-[0_1_auto] truncate">
-                    <SearchHighlight text={item.display_name} query={searchText} />
+                    <SearchHighlight text={workspaceName(item)} query={searchText} />
                   </span>
                   <ResultTrail>Workspace</ResultTrail>
                 </CommandItem>

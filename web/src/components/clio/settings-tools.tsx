@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { McpServerDefinition, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FolderIcon, WrenchIcon } from 'lucide-react';
@@ -45,7 +46,7 @@ import { SchemaSection } from './tool-schema-section';
 import { humanizeToolName } from './tool-presentation';
 
 function workspaceTitle(workspace: Workspace) {
-  return workspace.display_name || workspace.name;
+  return workspaceName(workspace);
 }
 
 function matchesFilter(entry: McpServiceEntry, filter: string) {

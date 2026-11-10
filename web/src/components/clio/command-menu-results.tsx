@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { BoxIcon, FileIcon, LayersIcon, MessageSquareTextIcon, ZapIcon } from 'lucide-react';
@@ -205,7 +206,7 @@ export function useCommandMenuResults({
   );
   const workspaceNames = useMemo(
     () =>
-      new Map((workspaces.data ?? []).map((workspace) => [workspace.id, workspace.display_name])),
+      new Map((workspaces.data ?? []).map((workspace) => [workspace.id, workspaceName(workspace)])),
     [workspaces.data],
   );
   const visibleSessions = useMemo(() => {
@@ -237,7 +238,7 @@ export function useCommandMenuResults({
   const matchingWorkspaces = normalizedQuery
     ? (workspaces.data ?? [])
         .filter((item) =>
-          `${item.display_name} ${item.name} ${item.path}`
+          `${workspaceName(item)} ${item.display_name} ${item.name} ${item.path}`
             .toLocaleLowerCase()
             .includes(normalizedQuery),
         )
