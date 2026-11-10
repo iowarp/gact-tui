@@ -316,6 +316,7 @@ function AgentComposition({
               : undefined
           }
           title={title}
+          legend={!embedded || changed}
           titleShown={!embedded}
         />
       )}

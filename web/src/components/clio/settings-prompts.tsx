@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import { queryKeys } from '@/lib/query-keys';
 import { TransportError, type CommandDefinition, type PromptDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -217,7 +218,8 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const families = prompts.data?.filter((prompt) => !reminderMeta(prompt)) ?? [];
   // A service without prompt families has nothing to reload or add to.
   const promptsOffered = !unsupported(prompts.error);
-  const workspaceName = workspaces.data?.find((row) => row.id === workspaceId)?.display_name;
+  const selectedWorkspace = workspaces.data?.find((row) => row.id === workspaceId);
+  const selectedWorkspaceName = selectedWorkspace ? workspaceName(selectedWorkspace) : undefined;
 
   const promptRow = (prompt: PromptDefinition) => {
     const profiles = Object.keys(prompt.profiles).length;
@@ -370,7 +372,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
               tight ? 'order-last w-full' : 'w-44',
             )}
             size="sm"
-            title={workspaceName ?? 'No workspace'}
+            title={selectedWorkspaceName ?? 'No workspace'}
           >
             <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
             <SelectValue />
@@ -379,7 +381,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             <SelectItem value="all">No workspace</SelectItem>
             {workspaces.data?.map((workspace) => (
               <SelectItem key={workspace.id} value={workspace.id}>
-                {workspace.display_name}
+                {workspaceName(workspace)}
               </SelectItem>
             ))}
           </SelectContent>

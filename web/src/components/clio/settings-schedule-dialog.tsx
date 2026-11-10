@@ -127,7 +127,6 @@ export function ScheduleDialog({
 
   return (
     <DialogFrame
-      className="w-[clamp(500px,48vw,600px)]"
       confirm={{
         label: pending ? 'Saving…' : schedule ? 'Save changes' : 'Schedule work',
         onConfirm: submit,
