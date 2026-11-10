@@ -53,7 +53,7 @@ it('shows a held run honestly and resumes on the same task', async () => {
   const control = vi.fn(async () => {});
   const view = render(<AsyncTaskList processes={[paused]} onControlTask={control} />);
   expect(screen.getByText('Subagent: Paused')).toBeVisible();
-  expect(view.container.querySelector('.animate-spin')).toBeNull();
+  expect(view.container.querySelector('[class*="animate-spin"]')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: `resume Subagent: ${task.title}` }));
   expect(control).toHaveBeenCalledTimes(1);
   expect(control).toHaveBeenCalledWith(paused, 'resume');

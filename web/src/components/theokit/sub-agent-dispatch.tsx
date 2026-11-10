@@ -120,7 +120,9 @@ const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
               cfg.class,
             )}
           >
-            {isLive ? <Loader2 aria-hidden="true" className="size-3 animate-spin" /> : null}
+            {isLive ? (
+              <Loader2 aria-hidden="true" className="size-3 motion-safe:animate-spin-steps" />
+            ) : null}
             {cfg.label}
           </span>
         </header>
