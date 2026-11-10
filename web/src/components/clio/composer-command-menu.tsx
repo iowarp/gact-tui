@@ -92,6 +92,10 @@ const commandKey = (command: CommandDefinition) =>
 
 const NAMED_STATES = new Set(['command_shadowed', 'command_name_reserved']);
 
+/** A title that only repeats the command's name, as a skill named after its file has. */
+const namesItself = (command: CommandDefinition, text: string) =>
+  text === command.id || text === command.id.replace(/^\//u, '');
+
 /** The faint words after a command's id: its title, or what it does. */
 function commandDetail(command: CommandDefinition): string {
   // Shadowed and reserved rows say so in their tag, with the reason on hover;
@@ -100,7 +104,7 @@ function commandDetail(command: CommandDefinition): string {
     return NAMED_STATES.has(command.disabled_reason ?? '')
       ? ''
       : command.disabled_detail || command.disabled_reason || '';
-  if (command.title && command.title !== command.id) return command.title;
+  if (command.title && !namesItself(command, command.title)) return command.title;
   return command.description || command.argument_hint || '';
 }
 
@@ -108,7 +112,9 @@ function commandDetail(command: CommandDefinition): string {
 function commandSummaryParts(command: CommandDefinition): string[] {
   return [command.title, command.argument_hint, command.description]
     .map((part) => part?.trim() ?? '')
-    .filter((part, index, parts) => part && part !== command.id && parts.indexOf(part) === index);
+    .filter(
+      (part, index, parts) => part && !namesItself(command, part) && parts.indexOf(part) === index,
+    );
 }
 
 /** The parts as one line of prose: each ends as a sentence, with no decorative joins. */
