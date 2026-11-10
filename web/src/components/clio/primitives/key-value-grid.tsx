@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export interface KeyValueItem {
   label: string;
-  /** A 14px icon before the label. */
+  /** A 14px icon before the label (13px in `card`). */
   icon?: ReactNode;
   value: ReactNode;
   /** Monospace for addresses, versions and sizes. */
@@ -32,7 +32,8 @@ export interface KeyValueItem {
  * and a row may swap in its `narrow` value or drop out.
  *
  * `card` is the hover card's form (conversation-states `.hcd`): 25px rows inset
- * 8px, the label left and the value right.
+ * 8px, a 13px muted icon, the label in the text tone and the value right in the
+ * muted tone. Give every row an icon so the labels share one x.
  *
  * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
  * label, a left-aligned value, a separator under each row, and a row that
@@ -54,6 +55,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
 }) {
   const hasAction = actionColumn || items.some((item) => item.action);
   const facts = variant === 'facts';
+  const card = variant === 'card';
   if (variant === 'rows') {
     return (
       <dl
@@ -97,7 +99,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       className={cn(
         facts
           ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-[12.5px]'
-          : variant === 'card'
+          : card
             ? 'grid items-center gap-x-3 px-2 text-[12px] [&_dd]:leading-[25px] [&_dt]:h-[25px]'
             : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
         facts
@@ -124,7 +126,8 @@ export const KeyValueGrid = memo(function KeyValueGrid({
           <div className="contents" data-narrow={dropNarrow ? 'drop' : undefined} key={item.label}>
             <dt
               className={cn(
-                'flex min-w-0 items-center gap-2 whitespace-nowrap text-muted-foreground',
+                'flex min-w-0 items-center whitespace-nowrap',
+                card ? 'gap-2.5 text-foreground/85' : 'gap-2 text-muted-foreground',
                 facts && 'text-[12px]',
                 wrap && 'h-6 self-start',
                 dropNarrow && '@max-[420px]:hidden',
@@ -135,7 +138,9 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
+                    card
+                      ? 'grid size-[13px] shrink-0 place-items-center text-muted-foreground [&_[data-provider-logo]]:size-[13px] [&_[data-provider-logo]>span]:size-[13px] [&_svg]:size-[13px]'
+                      : "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
                     facts && 'hidden @max-[420px]:grid',
                   )}
                 >
@@ -153,7 +158,9 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                   : 'min-w-0 truncate whitespace-nowrap',
                 facts
                   ? 'flex items-center gap-[7px] text-left text-foreground/90'
-                  : 'text-right text-foreground/85',
+                  : card
+                    ? 'text-right text-muted-foreground'
+                    : 'text-right text-foreground/85',
                 item.mono && 'font-mono text-[11.5px] tabular-nums',
                 facts && item.mono && 'text-[12px]',
                 dropNarrow && '@max-[420px]:hidden',

@@ -1,6 +1,13 @@
 import type { AccountUsageWindow, FleetAccount, UsageSnapshot } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRightIcon, GaugeIcon, TriangleAlertIcon } from 'lucide-react';
+import {
+  ChevronRightIcon,
+  ClockIcon,
+  CoinsIcon,
+  GaugeIcon,
+  TriangleAlertIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
@@ -204,15 +211,24 @@ function UsageCardBody({
     ? [
         {
           label: 'Account',
-          icon: providerId ? replyModelIcon(providerId) : undefined,
+          icon: <UserRoundIcon />,
           value: account.label,
         },
-        ...(modelId ? [{ label: 'Model', value: modelId }] : []),
+        ...(modelId
+          ? [
+              {
+                label: 'Model',
+                icon: providerId ? replyModelIcon(providerId) : <GaugeIcon />,
+                value: modelId,
+              },
+            ]
+          : []),
         ...limitRows(account),
       ]
     : [
         {
           label: 'Account',
+          icon: <UserRoundIcon />,
           value: pending ? 'Reading usage…' : 'Not connected',
           title: pending ? undefined : 'The account this conversation runs on is not connected.',
         },
@@ -242,12 +258,12 @@ function UsageCardBody({
       ) : null}
       <div className="my-1 border-t border-border" role="separator" />
       <Link
-        className="flex h-[25px] items-center gap-2.5 rounded-[5px] px-2 text-[12px] outline-none hover:bg-hover focus-visible:bg-hover"
+        className="flex h-[25px] items-center gap-2.5 rounded-[5px] px-2 text-[12px] text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover"
         to="/settings/usage"
       >
-        <GaugeIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+        <GaugeIcon aria-hidden="true" className="size-[13px] shrink-0 text-muted-foreground" />
         Usage settings
-        <ChevronRightIcon aria-hidden="true" className="ml-auto size-3.5 text-faint" />
+        <ChevronRightIcon aria-hidden="true" className="ml-auto size-[13px] shrink-0 text-faint" />
       </Link>
     </>
   );
@@ -260,6 +276,7 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
     return [
       {
         label: 'Limits',
+        icon: <GaugeIcon />,
         value:
           account.usage_missing_reason === 'not_supported'
             ? 'Unavailable for this connection'
@@ -267,7 +284,8 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
       },
     ];
   }
-  if (snapshot.state === 'unmetered') return [{ label: 'Limits', value: 'No usage limits' }];
+  if (snapshot.state === 'unmetered')
+    return [{ label: 'Limits', icon: <GaugeIcon />, value: 'No usage limits' }];
   const rows: KeyValueItem[] = snapshot.windows.map((window) => {
     const used = usedPercent(window);
     const near = used >= NEAR_LIMIT_PERCENT;
@@ -276,10 +294,11 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
       .join(', ');
     return {
       label: window.name,
+      icon: <ClockIcon />,
       title: text,
       value: near ? (
         <span className="inline-flex items-center gap-1.5 text-warning-foreground">
-          <TriangleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <TriangleAlertIcon aria-hidden="true" className="size-[13px] shrink-0" />
           {text}
         </span>
       ) : (
@@ -295,11 +314,17 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
         : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
     rows.push({
       label: 'Balance',
+      icon: <CoinsIcon />,
       value: `${money(balance.remaining)} left${balance.limit !== null ? ` of ${money(balance.limit)}` : ''}`,
     });
   }
   if (snapshot.read_failure)
-    rows.push({ label: 'Last read', value: `Failed, ${observedAgo(snapshot.observed_at)}` });
-  if (!rows.length) rows.push({ label: 'Limits', value: 'No windows reported' });
+    rows.push({
+      label: 'Last read',
+      icon: <TriangleAlertIcon />,
+      value: `Failed, ${observedAgo(snapshot.observed_at)}`,
+    });
+  if (!rows.length)
+    rows.push({ label: 'Limits', icon: <GaugeIcon />, value: 'No windows reported' });
   return rows;
 }
