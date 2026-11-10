@@ -18,14 +18,18 @@ export function RouteErrorBoundary() {
   // route boundary and its own search owner underneath.
   const background = settingsBackgroundRoute(location, settings.endpoint);
   // The in-app connect dialog opens over the page it came from, so that page
-  // keeps its boundary too. A detached Settings window (no workspace behind it)
-  // is one page: moving between its sections or editing its query must not
-  // remount the app.
+  // keeps its boundary too. A page's own query (a selected run, an inventory
+  // filter) changes in place: keying on it would remount the whole app and drop
+  // that page's state. Only the connect screen's intent/mode starts it afresh. A
+  // detached Settings window (no workspace behind it) is one page: moving between
+  // its sections must not remount the app either.
   const page = {
     pathname: location.pathname,
     key: isSettingsRoute(location.pathname)
       ? '/settings'
-      : `${location.pathname}${location.search}`,
+      : location.pathname === '/'
+        ? `/${location.search}`
+        : location.pathname,
   };
   const [lastPage, setLastPage] = useState<typeof page | null>(null);
   const connecting =
