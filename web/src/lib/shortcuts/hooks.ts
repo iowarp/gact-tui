@@ -109,6 +109,8 @@ export interface UseShortcutOptions {
   region?: RefObject<Element | null>;
   allowInTextField?: boolean;
   overrideHandled?: boolean;
+  /** Fire only while this holds; otherwise the key does what it usually does. */
+  when?: (event: KeyboardEvent) => boolean;
 }
 
 /**
@@ -136,6 +138,7 @@ export function useShortcut(
         region: () => optionsRef.current.region?.current ?? null,
         allowInTextField: optionsRef.current.allowInTextField,
         overrideHandled: optionsRef.current.overrideHandled,
+        when: optionsRef.current.when,
       }),
     );
   }, [id, enabled]);

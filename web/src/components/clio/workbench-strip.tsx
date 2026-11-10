@@ -51,8 +51,9 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
       icon={item.icon}
       label={item.label}
       onClick={() => onSelect(item.id)}
-      shortcut={item.position ? 'strip-position' : undefined}
-      shortcutPosition={item.position}
+      // Terminal shows its own key (Ctrl+`), as the keyboard map draws it; its position still works.
+      shortcut={item.id === 'terminal' ? 'terminal' : item.position ? 'strip-position' : undefined}
+      shortcutPosition={item.id === 'terminal' ? undefined : item.position}
       // Under its icon, inside the rail: left of the rail is pocket content (tree labels).
       shortcutSide="under-icon"
       tooltipSide="left"
