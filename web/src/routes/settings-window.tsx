@@ -13,6 +13,7 @@ import {
 import { SettingsResults } from '@/components/clio/settings-results';
 import { useRepository } from '@/hooks/use-repository';
 import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
+import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
 import { useUnavailableSettingsSections } from '@/hooks/use-unavailable-settings-sections';
 import { settingsDestinations } from '@/lib/application-destinations';
 import { connectionScope } from '@/lib/connection-scope';
@@ -35,7 +36,6 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useLiveStore } from '@/store/live-store';
 
 // Only the sections load lazily. The window itself mounts once, with the
 // route, so a dialog opened over it (Ctrl K) is never covered by a window
@@ -97,13 +97,10 @@ export function SettingsWindow() {
   const fromSearch = arrivedFromSearch(location.state);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
-  const workspace = useLiveStore((state) =>
-    workspaceId ? state.entities.workspaces[workspaceId] : undefined,
-  );
-  const workspaceName = workspace?.display_name || workspace?.name || 'Workspace';
+  const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
+  const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'
@@ -113,7 +110,7 @@ export function SettingsWindow() {
       destination?.group === 'Agent'
         ? `${agentName}, applies to every conversation on this agent`
         : destination?.group === 'Workspace'
-          ? `${workspaceName}, applies to every conversation in this workspace`
+          ? workspaceName.line
           : 'App, applies to this computer',
     place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
   };

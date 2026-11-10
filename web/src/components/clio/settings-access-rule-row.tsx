@@ -101,11 +101,14 @@ export function AccessRuleRow({
   const details = ruleDetails(policy);
   // Planning and hook rules name their modes or events; an unscoped rule need not repeat "Any".
   const showScope = !details.length || policy.scope_id || kind === 'domain' || kind === 'fs_root';
+  // A path or key runs long, so it goes last, where truncation leaves the scope and priority readable.
+  const long = (part: string) => part.startsWith('in ') || part.startsWith('key ');
   const parts = [
     kindLabels[kind],
-    ...details,
+    ...details.filter((part) => !long(part)),
     ...(showScope ? [scope.label] : []),
     ...(policy.priority === undefined ? [] : [`Priority ${policy.priority}`]),
+    ...details.filter(long),
   ];
   const editable = !BROWSER_KINDS.has(kind);
   const meta = (

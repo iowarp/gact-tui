@@ -172,10 +172,7 @@ export function ClioComposerQueue({
     } catch (error) {
       setOrderOverride(undefined);
       if (error instanceof QueuedMessageReorderConflictError) {
-        toast.error('Queued messages changed on the service', {
-          description:
-            'The new order was not applied. The latest order from the service is shown here.',
-        });
+        toast.error('Queue changed elsewhere, so your new order was not applied');
         return;
       }
       toast.error('Unable to reorder queued messages', {

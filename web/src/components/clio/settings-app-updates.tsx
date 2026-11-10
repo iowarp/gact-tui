@@ -39,7 +39,6 @@ const STATUS: Record<UpdateKind, { label: string; tone: StatusTone }> = {
 
 /** Native app update rows, composed into General by the runtime gate. */
 export function AppUpdateSettings() {
-  const updateChannel = useUpdateChannel();
   const desktopInstalling = useSyncExternalStore(
     subscribeDesktopUpdate,
     isDesktopUpdateInstalling,
@@ -193,26 +192,43 @@ export function AppUpdateSettings() {
           </span>
         </SettingsRow>
       ) : null}
-      <SettingsRow
-        htmlFor="enable-beta-updates"
-        inlineControl
-        note={
-          <span id="beta-updates-warning">Include prereleases. Beta versions may be unstable.</span>
-        }
-        title="Beta updates"
-      >
-        <Switch
-          aria-describedby="beta-updates-warning"
-          checked={updateChannel === 'beta'}
-          disabled={updateInFlight || desktopInstalling || kind === 'checking'}
-          id="enable-beta-updates"
-          onCheckedChange={(enabled) => {
-            setUpdateChannel(enabled ? 'beta' : 'stable');
-            void checkUpdate();
-          }}
-        />
-      </SettingsRow>
+      <BetaUpdatesRow
+        disabled={updateInFlight || desktopInstalling || kind === 'checking'}
+        onChange={() => void checkUpdate()}
+      />
     </>
+  );
+}
+
+/** The release channel for app and agent update checks; the web app has no other place to set it. */
+export function BetaUpdatesRow({
+  disabled,
+  onChange,
+}: {
+  disabled?: boolean;
+  onChange?: () => void;
+}) {
+  const updateChannel = useUpdateChannel();
+  return (
+    <SettingsRow
+      htmlFor="enable-beta-updates"
+      inlineControl
+      note={
+        <span id="beta-updates-warning">Include prereleases. Beta versions may be unstable.</span>
+      }
+      title="Beta updates"
+    >
+      <Switch
+        aria-describedby="beta-updates-warning"
+        checked={updateChannel === 'beta'}
+        disabled={disabled}
+        id="enable-beta-updates"
+        onCheckedChange={(enabled) => {
+          setUpdateChannel(enabled ? 'beta' : 'stable');
+          onChange?.();
+        }}
+      />
+    </SettingsRow>
   );
 }
 
