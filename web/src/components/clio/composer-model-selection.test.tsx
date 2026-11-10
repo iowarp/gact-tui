@@ -108,7 +108,7 @@ describe('ClioComposer model selection', () => {
     const pill = screen.getByRole('button', { name: 'Change model' });
     expect(pill).toHaveAccessibleDescription(`${providerName} / ${model}`);
     expect(pill.querySelector('[data-slot="model-choice-provider"]')).toHaveTextContent(
-      providerName,
+      'amsc model access gateway',
     );
     expect(pill.querySelector('[data-slot="model-choice-model"]')).toHaveTextContent(model);
     await user.hover(pill);
@@ -132,7 +132,7 @@ describe('ClioComposer model selection', () => {
     });
 
     const pill = screen.getByRole('button', { name: 'Change model' });
-    expect(pill).toHaveTextContent('ALCF Metis / gpt-5.6-luna');
+    expect(pill).toHaveTextContent('alcf metis / luna 5.6');
     expect(pill).not.toHaveTextContent(/argonne/iu);
   });
 

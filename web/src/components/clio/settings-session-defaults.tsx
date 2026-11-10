@@ -47,7 +47,7 @@ const FIELDS =
 function SectionHeading() {
   return (
     <SettingsSectionHeading
-      title="New session defaults"
+      title="Session defaults"
       description="Choose how new sessions start."
     />
   );
@@ -112,7 +112,7 @@ export function SessionDefaultsSettings() {
   const selectedModel = catalogModel
     ? {
         ...catalogModel,
-        label: compactModelName(catalogModel.providerId, catalogModel.id, catalogModel.label),
+        label: compactModelName(catalogModel.id, catalogModel.label),
       }
     : undefined;
   const reasoning = useModelReasoningLevels(

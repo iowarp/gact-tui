@@ -29,8 +29,6 @@ export interface EffectiveContext {
   choice?: string;
 }
 
-export const EMPTY_CONTEXT_DRAFT: ContextDraft = { choice: '', tokens: '', strategy: '' };
-
 export function formatTokens(value: number): string {
   return value.toLocaleString('en-US');
 }

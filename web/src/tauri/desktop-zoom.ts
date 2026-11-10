@@ -75,11 +75,6 @@ export async function screenWidth(): Promise<number> {
   return monitor.size.width / monitor.scaleFactor;
 }
 
-/** The zoom this window should use now: the saved choice, else automatic. */
-export async function effectiveZoom(): Promise<number> {
-  return savedZoom() ?? automaticZoom(await screenWidth());
-}
-
 /** Apply `level` to this window's WebView. */
 export async function applyZoom(level: number): Promise<void> {
   const { getCurrentWebview } = await import('@tauri-apps/api/webview');

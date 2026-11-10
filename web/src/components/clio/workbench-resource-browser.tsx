@@ -56,11 +56,11 @@ import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 import { ResourceLoading } from './resource-states';
 import { WorkbenchFileTree } from './workbench-file-tree';
 import { buildFileTree } from './workbench-file-tree-model';
+import { LIST_HEADER_SECONDARY, type ChangeCounts } from './workbench-shared';
 
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
 );
-export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   directory?: string;
@@ -86,6 +86,8 @@ interface FileBrowserProps {
   mode?: 'split' | 'tree' | 'preview';
   /** Paths this conversation changed; their rows are teal and say so. */
   changedPaths?: ReadonlySet<string>;
+  /** Lines each changed path gained; a changed row shows `+N` instead of its size. */
+  changeCounts?: ChangeCounts;
   /**
    * `tree` only: the list column's header, which takes the search, filter and
    * refresh icons in place of a toolbar row.
@@ -127,6 +129,7 @@ export function FileBrowser({
   onSelectedPathChange,
   mode = 'split',
   changedPaths,
+  changeCounts,
   renderHeader,
   legend,
 }: FileBrowserProps) {
@@ -243,11 +246,13 @@ export function FileBrowser({
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <RefreshAction
-        label="Refresh files"
-        refreshing={Boolean(filesFetching)}
-        onRefresh={refreshFiles}
-      />
+      <span className={LIST_HEADER_SECONDARY}>
+        <RefreshAction
+          label="Refresh files"
+          refreshing={Boolean(filesFetching)}
+          onRefresh={refreshFiles}
+        />
+      </span>
     </>
   ) : null;
 
@@ -362,12 +367,14 @@ export function FileBrowser({
             onSelect={selectFile}
             filter={normalizedQuery}
             changedPaths={changedPaths}
+            changeCounts={changeCounts}
           />
         ) : filesPending ? (
           <LoadingRows label="Loading workspace files" />
         ) : files.length ? (
           filteredFiles.length ? (
             <WorkbenchFileTree
+              changeCounts={changeCounts}
               changedPaths={changedPaths}
               nodes={fileTree}
               onSelect={selectFile}

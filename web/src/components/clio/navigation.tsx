@@ -149,6 +149,7 @@ export function ClioNavigation({
                   activeSessionId={activeSessionId}
                   attentions={attentions}
                   sessions={sessions}
+                  workspaces={workspaces}
                 />
               </li>
             }

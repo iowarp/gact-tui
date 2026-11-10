@@ -41,7 +41,6 @@ import {
 import { fileViewerReference } from './file-viewer-location';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
-import { FileTypeIcon } from './file-type-icon';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
@@ -320,14 +319,6 @@ export function FileViewerShell({
                                       className="flex min-w-0 items-center gap-1.5"
                                       data-slot="viewer-identity"
                                     >
-                                      {/* A viewer that names itself (a dashboard) is not read as a file type. */}
-                                      {titled ? null : (
-                                        <FileTypeIcon
-                                          name={identity.name}
-                                          mediaType={identity.mediaType}
-                                          className="size-4 shrink-0"
-                                        />
-                                      )}
                                       <FrameCrumbs parts={crumbs} />
                                     </span>
                                   ) : (

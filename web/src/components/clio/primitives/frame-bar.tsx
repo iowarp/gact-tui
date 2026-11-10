@@ -74,7 +74,8 @@ function frameOverflows(bar: HTMLElement) {
  * the actions; the modes sit right-aligned beside them, as every spec bar draws
  * them. No fixed breakpoints: it measures, and folds the next group only while
  * something would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
- * (`data-slot="frame-format-host"`) is empty, with no modes, hides.
+ * (`data-slot="frame-format-host"`) is empty, with no shown modes (a lone mode's
+ * tablist sits inside a `hidden` segment), hides.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -154,7 +155,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
           {format}
         </div>

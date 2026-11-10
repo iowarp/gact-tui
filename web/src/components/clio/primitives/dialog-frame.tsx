@@ -365,7 +365,9 @@ export const WindowShell = memo(function WindowShell({
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-auto">{search}</div>
+              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%]">
+                {search}
+              </div>
               <span className="flex-1" />
             </>
           ) : null}

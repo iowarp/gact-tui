@@ -46,7 +46,7 @@ import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
 import type { WorkbenchListView } from './workbench-strip';
-import type { WorkbenchTab } from './workbench-shared';
+import { LIST_HEADER_SECONDARY, type ChangeCounts, type WorkbenchTab } from './workbench-shared';
 
 const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
   files: 'Files',
@@ -78,6 +78,7 @@ export interface WorkbenchListColumnProps {
   directory?: string;
   onClearDirectory: () => void;
   changedPaths: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
   onOpenFile: (path: string) => void;
   // Sources
   resources: readonly WorkspaceResource[];
@@ -190,18 +191,20 @@ export function WorkbenchListHeader({
   onHide: () => void;
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5">
+    <div className="group/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5">
       <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
         {title}
       </h2>
       {actions}
-      <IconButton
-        icon={<PanelRightCloseIcon />}
-        label={`Hide ${title}`}
-        onClick={onHide}
-        size="sm"
-        tooltipSide="bottom"
-      />
+      <span className={LIST_HEADER_SECONDARY}>
+        <IconButton
+          icon={<PanelRightCloseIcon />}
+          label={`Hide ${title}`}
+          onClick={onHide}
+          size="sm"
+          tooltipSide="bottom"
+        />
+      </span>
     </div>
   );
 }
@@ -233,6 +236,7 @@ function FilesList({
   directory,
   onClearDirectory,
   changedPaths,
+  changeCounts,
   onOpenFile,
   tabs,
   activeTabId,
@@ -248,6 +252,7 @@ function FilesList({
       <div className="min-h-0 flex-1">
         <FileBrowser
           key={directory ?? ''}
+          changeCounts={changeCounts}
           changedPaths={changedPaths}
           directory={directory}
           files={files}
