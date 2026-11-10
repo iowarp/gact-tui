@@ -362,15 +362,6 @@ export function runtimeFactLines(facts: TargetFacts): RuntimeFactLine[] {
   }));
 }
 
-/** Whether a running model runtime is already the saved address of its Models preset. */
-export function modelRuntimeInModels(
-  servers: SavedServer[] | undefined,
-  serviceId: string,
-  connectionUrl: string,
-): boolean {
-  return Boolean(modelRuntimeServer(servers, serviceId, connectionUrl));
-}
-
 /** Match a configured provider by preset and address, including additional saved instances. */
 export function modelRuntimeServer(
   servers: SavedServer[] | undefined,

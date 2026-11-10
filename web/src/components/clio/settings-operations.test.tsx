@@ -110,7 +110,7 @@ describe('administration settings', () => {
       ],
     });
     repository.runtimeMetrics.mockRejectedValueOnce(
-      Object.assign(new Error('Request failed with 404 Not Found'), { status: 404 }),
+      Object.assign(new Error('Request failed with 503 Service Unavailable'), { status: 503 }),
     );
     const user = userEvent.setup();
     renderQuery(<SystemSettings />);
@@ -122,9 +122,23 @@ describe('administration settings', () => {
     expect(screen.getByText('Blocked')).toBeInTheDocument();
     const failure = await screen.findByRole('alert');
     expect(failure).toHaveTextContent('Activity metrics unavailable.');
-    expect(failure).not.toHaveTextContent(/404|Request failed/);
+    expect(failure).not.toHaveTextContent(/503|Request failed/);
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('95% within 2m 5s')).toBeInTheDocument();
+  });
+
+  it('shows a feature the service does not offer as a neutral row without Retry', async () => {
+    repository.memoryStatistics.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with 404 Not Found'), { status: 404 }),
+    );
+    renderQuery(<SystemSettings />);
+
+    expect(
+      await screen.findByText('This service doesn’t offer storage statistics.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Storage statistics unavailable.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
 });

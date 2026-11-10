@@ -52,7 +52,8 @@ export const LINEAGE_NODE_HEIGHT = 40;
 const MIN_WIDTH = 96;
 const MAX_WIDTH = 116;
 const RANK_GAP = 22;
-const ROW_GAP = 40;
+// Spec row pitch is about 94px: a 40px node plus 54px between stacked nodes.
+const ROW_GAP = 54;
 const MARGIN = 10;
 
 const OK_STATES = new Set(['ok', 'success', 'succeeded', 'completed', 'done']);

@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
 import {
-  ChangedElsewhereState,
   ResourceLoading,
   ResourceUnavailable,
   ViewerNoPreview,
@@ -153,24 +152,5 @@ describe('viewer states', () => {
         .getAllByRole('button')
         .map((button) => button.ariaLabel),
     ).toEqual(['Open in a browser tab', 'Download']);
-  });
-
-  it('resolves a change made elsewhere with Keep current or Use mine', async () => {
-    const onKeepCurrent = vi.fn();
-    const onUseMine = vi.fn();
-    render(<ChangedElsewhereState onKeepCurrent={onKeepCurrent} onUseMine={onUseMine} />, {
-      wrapper: framed(),
-    });
-    const state = screen.getByRole('status');
-    expect(state).toHaveTextContent('Changed since you opened it');
-    expect(
-      within(state)
-        .getAllByRole('button')
-        .map((button) => button.textContent),
-    ).toEqual(['Keep current', 'Use mine']);
-    await userEvent.click(screen.getByRole('button', { name: 'Keep current' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Use mine' }));
-    expect(onKeepCurrent).toHaveBeenCalledTimes(1);
-    expect(onUseMine).toHaveBeenCalledTimes(1);
   });
 });

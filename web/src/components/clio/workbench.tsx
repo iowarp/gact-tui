@@ -46,9 +46,12 @@ import {
   useWorkspaceCanvasVisibility,
 } from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
-import type { CanvasResourceKind } from './canvas-launcher';
 import { WorkbenchTabContent } from './workbench-tab-content';
-import { tabForOpenRequest, type ClioWorkbenchOpenRequest } from './workbench-open-request';
+import {
+  tabForOpenRequest,
+  type CanvasResourceKind,
+  type ClioWorkbenchOpenRequest,
+} from './workbench-open-request';
 import { changedPathSet, fileName, loadResourceViewers } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
 import {

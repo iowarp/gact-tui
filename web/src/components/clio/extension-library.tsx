@@ -460,7 +460,7 @@ function ExtensionLibraryContents({
               busyAction="Removing…"
               onConfirm={() => removeSaved.mutateAsync(entry.saved!)}
               onKeep={() => setAskingRemove('')}
-              question="Remove this server?"
+              question={`Remove ${entry.title}?`}
             />
           ) : undefined
         }

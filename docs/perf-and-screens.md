@@ -72,6 +72,18 @@ Each budget is checked against the
 [baseline](perf/baseline/README.md); change a budget only with evidence from a
 report.
 
+### Menu and picker open cost
+
+A modal Radix menu or popover restyles the whole document on open: its
+scroll lock and `hideOthers` touch `<body>` and every sibling root, which
+forces a document-wide style recalculation. The shared `DropdownMenu`,
+`ContextMenu` and `Popover` primitives therefore always pass Radix
+`modal={false}`. Their own `modal` prop only decides whether the
+`ModalShield` blocks outside presses and returns focus to the trigger.
+Dialogs and Radix `Select` stay modal. Measure an open with a CDP trace
+(the `Recalculate Style` total) as well as `readyMs` before you add modal
+behaviour back.
+
 ### Memory cycles
 
 `node web/perf/cycles.mjs [--cycles 10] [--only settings,command-menu]` opens

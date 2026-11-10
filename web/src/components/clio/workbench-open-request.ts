@@ -9,8 +9,16 @@ import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import type { ObservabilityView } from './observability-view-storage';
 import { activityTab } from './workbench-activity-tab';
-import type { CanvasResourceKind } from './workbench-resource-browser';
 import { fileName, type WorkbenchTab } from './workbench-shared';
+
+export type CanvasResourceKind =
+  | 'session'
+  | 'work'
+  | 'files'
+  | 'resources'
+  | 'artifacts'
+  | 'agent'
+  | 'science-log';
 
 export type ClioWorkbenchOpenRequest =
   | { kind: 'knowledge'; sourceId: string; label: string }
