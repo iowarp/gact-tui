@@ -230,11 +230,14 @@ export function ClioDocumentPdfViewer({
     'pdf-page',
     (event) => {
       const container = scrollRef.current;
-      if (!container || !pageCount) return;
+      if (!container || !pageCount || pageStride <= 0) return;
+      // Step from the page at the scroll top: at the bottom the readout can show a
+      // later page than the one the top edge sits on.
+      const atTop = Math.min(pageCount, Math.floor((container.scrollTop + 4) / pageStride) + 1);
       // Back from partway down a page goes to its own top first.
-      const partway = container.scrollTop > (currentPage - 1) * pageStride + 4;
+      const partway = container.scrollTop > (atTop - 1) * pageStride + 4;
       const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
-      const target = Math.min(pageCount, Math.max(1, currentPage + step));
+      const target = Math.min(pageCount, Math.max(1, atTop + step));
       container.scrollTop = (target - 1) * pageStride;
       readScroll();
     },
