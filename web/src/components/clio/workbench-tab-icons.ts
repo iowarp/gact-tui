@@ -12,6 +12,7 @@ import {
   ListChecksIcon,
   ListIcon,
   PaperclipIcon,
+  SearchIcon,
   TerminalSquareIcon,
   WorkflowIcon,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ export const workbenchTabIcons = {
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
   list: ListIcon,
+  search: SearchIcon,
   'variant-try': BotIcon,
 } satisfies Record<
   WorkbenchTab['kind'],

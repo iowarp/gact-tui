@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { PermissionPolicy, Workspace } from '@clio/core/v3';
 import type { StatusTone } from './primitives/status-indicator';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -102,7 +103,7 @@ export function ruleScope(policy: PermissionPolicy, workspaces?: readonly Worksp
   if (!policy.scope_id) return { label: `Any ${policy.scope || vocab.workspace}` };
   const workspace = workspaces?.find((entry) => entry.id === policy.scope_id);
   return workspace
-    ? { label: workspace.display_name }
+    ? { label: workspaceName(workspace) }
     : { label: `Unregistered ${vocab.workspace}`, missingId: policy.scope_id };
 }
 

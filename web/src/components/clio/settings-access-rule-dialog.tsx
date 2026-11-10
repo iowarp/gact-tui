@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { Workspace } from '@clio/core/v3';
 import { Select as SelectPrimitive } from 'radix-ui';
 import {
@@ -251,7 +252,7 @@ export function AccessRuleDialog({
                 { value: 'any', label: `Any ${vocab.workspace}` },
                 ...(workspaces ?? []).map((workspace) => ({
                   value: workspace.id,
-                  label: workspace.display_name,
+                  label: workspaceName(workspace),
                 })),
               ]}
               value={draft.scopeId || 'any'}

@@ -62,6 +62,8 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     if (request?.kind === 'artifact' && request.artifact?.workspace_id === workspaceId)
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
+    if (request?.kind === 'search' && typeof request.query === 'string')
+      return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
   }, [location.key, location.state, scope, workspaceId, settings.endpoint]);
 
   const openSubagent = useCallback(
