@@ -283,6 +283,39 @@ describe('row menu', () => {
     expect(screen.queryByRole('menuitem', { name: /system terminal/u })).toBeNull();
   });
 
+  it('opens the same menu on right-click and hides the hover card while it is open', async () => {
+    const user = userEvent.setup();
+    renderMenuRow({ ...actions, forkSession: vi.fn(), shareSession: vi.fn() });
+    const link = screen.getByRole('link', { name: /Evidence review/u });
+
+    await user.hover(link);
+    expect(await screen.findByText('Work mode')).toBeVisible();
+
+    await user.pointer({ keys: '[MouseRight]', target: link });
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^Open/u),
+        expect.stringMatching(/^Fork into a new conversation/u),
+        expect.stringMatching(/^Share read-only link/u),
+        expect.stringMatching(/^Delete/u),
+      ]),
+    );
+    expect(screen.queryByText('Work mode')).toBeNull();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('hides the hover card while the ⋯ menu is open', async () => {
+    const user = userEvent.setup();
+    renderMenuRow(actions);
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+    expect(await screen.findByText('Work mode')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(screen.queryByText('Work mode')).toBeNull();
+  });
+
   it('offers the title menu’s Compact and Remove last after the terminal, each confirmed', async () => {
     const user = userEvent.setup();
     const compactSession = vi.fn().mockResolvedValue(undefined);
