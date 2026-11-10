@@ -15,6 +15,7 @@ import { useRepository } from '@/hooks/use-repository';
 import {
   OPEN_BROWSER_PAGE_EVENT,
   OPEN_FILE_IN_BROWSER_EVENT,
+  browserFileFailure,
   type OpenBrowserPageDetail,
   type OpenFileInBrowserDetail,
 } from '@/lib/html-in-browser';
@@ -147,9 +148,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
           }),
         )
         .catch((error: unknown) => {
-          toast.error(
-            error instanceof Error ? error.message : 'Could not open the file in the browser.',
-          );
+          toast.error(browserFileFailure(error instanceof Error ? error.message : '', label));
         });
     };
     window.addEventListener(OPEN_FILE_IN_BROWSER_EVENT, open);
