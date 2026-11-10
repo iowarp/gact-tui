@@ -39,6 +39,13 @@ import {
   settingsForChosenModel,
 } from './settings-models-form';
 import { SettingsProviderOptions } from './settings-provider-options';
+import {
+  ContextSizeUnavailableRow,
+  FastModelRow,
+  RequestTimeoutRow,
+  SHOW_DIFFUSION,
+  ShowDiffusionRow,
+} from './settings-models-rows';
 import { responseSettingError } from './settings-response-setting-error';
 import { SettingsResponseSettings } from './settings-response-settings';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
@@ -88,7 +95,7 @@ export function ModelsSettings() {
   );
 }
 
-type SavedRow = 'model' | 'effort' | 'values';
+type SavedRow = 'model' | 'effort' | 'values' | 'diffusion';
 
 function ModelsSettingsContent({ configuration }: { configuration: LanguageModelConfiguration }) {
   const { catalog, groups, options } = useProviderGroups();
@@ -188,6 +195,16 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     setDirty((current) => (current.has(key) ? current : new Set(current).add(key)));
   }
 
+  function chooseDiffusion(on: boolean) {
+    if (!activePreset) return;
+    const next = {
+      ...values,
+      providerOptions: { ...values.providerOptions, [SHOW_DIFFUSION]: on ? 'on' : 'off' },
+    };
+    setValues(next);
+    save.mutate('diffusion', { preset: activePreset, next });
+  }
+
   const catalogStatus =
     catalog.isPending && !catalog.data
       ? 'loading'
@@ -231,6 +248,14 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
           />
         </SettingsRow>
       </div>
+      <FastModelRow />
+      <ShowDiffusionRow
+        disabled={save.isPending}
+        marker={marker('diffusion')}
+        onChange={chooseDiffusion}
+        preset={activePreset}
+        value={values.providerOptions[SHOW_DIFFUSION]}
+      />
       {reasoning?.levels.length ? (
         <SettingsRow
           info="How hard the model thinks before it answers. Default is the model's own level."
@@ -246,6 +271,7 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
           />
         </SettingsRow>
       ) : null}
+      <RequestTimeoutRow />
       {providerId && catalogModel?.context_controls ? (
         <WorkingContextSection
           key={`${providerId}:${catalogModel.model_id}`}
@@ -332,11 +358,19 @@ function ModelsBody({
         ),
     ),
   );
+  const contextRow = context ? (
+    <WorkingContextRow state={context} />
+  ) : (
+    <ContextSizeUnavailableRow />
+  );
+  const providerFields = activePreset?.configuration_fields?.filter(
+    (field) => field.id !== SHOW_DIFFUSION,
+  );
   return (
     <>
       {responseSettingsVisible(catalogModel?.accepted_parameters, values.settings) ? (
         <SettingsResponseSettings
-          leading={context ? <WorkingContextRow state={context} /> : null}
+          leading={contextRow}
           dirty={dirty}
           disabled={save.isPending}
           onEdit={(name, value) => {
@@ -349,16 +383,16 @@ function ModelsBody({
           parameters={catalogModel?.accepted_parameters}
           settings={values.settings}
         />
-      ) : context ? (
+      ) : (
         <section aria-label="Response settings" data-slot="response-settings">
           <SettingsGroupLabel>Response</SettingsGroupLabel>
-          <WorkingContextRow state={context} />
+          {contextRow}
         </section>
-      ) : null}
-      {activePreset?.configuration_fields?.length ? (
+      )}
+      {providerFields?.length ? (
         <SettingsProviderOptions
           dirty={dirty}
-          fields={activePreset.configuration_fields}
+          fields={providerFields}
           onEdit={(id, value) => {
             markDirty(id);
             setValues((current) => ({

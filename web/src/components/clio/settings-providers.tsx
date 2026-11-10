@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useSavedServers } from '@/hooks/use-saved-servers';
+import { vocab } from '@/lib/brand-vocabulary';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
 import { ClioModelPicker } from './model-picker';
@@ -226,7 +227,10 @@ export function ProvidersSettings() {
 
   return (
     <div className="flex flex-col" data-slot="providers-settings">
-      <SettingsSectionHeading title="Providers" />
+      <SettingsSectionHeading
+        info={`Where ${vocab.agent}'s models come from: model servers you run, and cloud or subscription accounts.`}
+        title="Providers"
+      />
       {error ? (
         <div className="max-w-[760px]">
           <StateView

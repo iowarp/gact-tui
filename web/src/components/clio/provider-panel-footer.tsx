@@ -141,7 +141,7 @@ export function ProviderPanelFooter({
           data-slot="provider-bar-status"
         />
         {manage && !actions?.stage && !error && !(!busy && info) ? (
-          // Ready reads as its age alone ("● 2m"); anything else says what is wrong.
+          // Ready says so with its age ("● Ready, checked 2m ago"); anything else says what is wrong.
           <span
             className={cn('min-w-0 flex-1 truncate', !ready && status.color)}
             data-slot="provider-manage-status"
@@ -150,14 +150,13 @@ export function ProviderPanelFooter({
               (group.freshness ? `Checked ${formatFreshness(group.freshness)}` : group.detail)
             }
           >
+            {status.label}
             {ready && age ? (
-              <>
-                <span className="sr-only">{status.label}, checked </span>
-                {age}
-              </>
-            ) : (
-              status.label
-            )}
+              <span className="text-faint">
+                , checked {age}
+                {age === 'now' ? '' : ' ago'}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {age && !manage && !actions?.stage ? (

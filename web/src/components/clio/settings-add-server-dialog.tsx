@@ -2,7 +2,6 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { LoaderCircleIcon, ServerIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import {
   CUSTOM_SERVER_PRESET_ID,
@@ -10,7 +9,7 @@ import {
   savedCheckSentence,
 } from '@/lib/local-servers';
 import { DialogFrame } from './primitives/dialog-frame';
-import { SettingsChoice } from './settings-row';
+import { SettingsChoice, SettingsRow } from './settings-row';
 
 const OTHER = 'other';
 
@@ -67,27 +66,31 @@ export function SettingsAddServerDialog({
       confirm={
         added ? undefined : { label: 'Add', onConfirm: add, disabled: !address || save.isPending }
       }
-      description="On this computer, another machine or a cluster node."
       icon={<ServerIcon className="size-4" />}
       onOpenChange={close}
       open={open}
+      srDescription="Add a model server on this computer, another machine or a cluster node."
       title="Add server"
     >
       {added ? (
-        <p data-slot="add-server-result" role="status">
+        <p className="py-2" data-slot="add-server-result" role="status">
           {added.label} was added. {savedCheckSentence(added.check)}
         </p>
       ) : (
         <form
-          className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 text-[0.8125rem]"
+          // The spec's dialog rows (.xdb .xr): label 36%, control the rest, from a 20rem dialog.
+          className="[&_[data-slot=settings-row]]:@xs:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:@xs:justify-start [&_[data-slot=settings-control]>input]:flex-1"
           data-slot="add-server-dialog"
           onSubmit={(event) => {
             event.preventDefault();
             add();
           }}
         >
-          <span className="truncate">Kind</span>
-          <div className="min-w-0">
+          <SettingsRow
+            fullWidth
+            info="A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
+            title="Kind"
+          >
             <SettingsChoice
               id="add-server-kind"
               label="Server kind"
@@ -95,45 +98,41 @@ export function SettingsAddServerDialog({
               options={kinds}
               value={kind}
             />
-          </div>
+          </SettingsRow>
           {runtime ? null : (
-            <>
-              <Label className="truncate text-[0.8125rem] font-normal" htmlFor="add-server-name">
-                Name
-              </Label>
+            <SettingsRow fullWidth htmlFor="add-server-name" title="Name">
               <Input
-                className="h-[1.875rem] text-[0.78125rem] md:text-[0.78125rem]"
                 id="add-server-name"
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder="Optional"
                 value={label}
               />
-            </>
+            </SettingsRow>
           )}
-          <Label className="truncate text-[0.8125rem] font-normal" htmlFor="add-server-address">
-            Address
-          </Label>
-          <Input
-            aria-label="Server address"
-            autoComplete="url"
-            className="h-[1.875rem] font-mono text-[0.78125rem] md:text-[0.78125rem]"
-            data-initial-focus=""
-            id="add-server-address"
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={runtime?.api_base || 'http://my-server:8000/v1'}
-            value={draft}
-          />
+          <SettingsRow
+            fullWidth
+            htmlFor="add-server-address"
+            info="On this computer, another machine or a cluster node. It is checked as soon as it is added."
+            title="Address"
+          >
+            <Input
+              aria-label="Server address"
+              autoComplete="url"
+              className="font-mono"
+              data-initial-focus=""
+              id="add-server-address"
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={runtime?.api_base || 'http://my-server:8000/v1'}
+              value={draft}
+            />
+          </SettingsRow>
           {save.isPending ? (
-            <p className="col-span-2 flex items-center gap-1.5 text-muted-foreground" role="status">
+            <p className="flex items-center gap-1.5 pt-2 text-muted-foreground" role="status">
               <LoaderCircleIcon aria-hidden="true" className="size-4 motion-safe:animate-spin" />
               Adding and checking…
             </p>
           ) : save.error ? (
-            <p
-              className="col-span-2 truncate text-destructive"
-              role="alert"
-              title={save.error.message}
-            >
+            <p className="truncate pt-2 text-destructive" role="alert" title={save.error.message}>
               {save.error.message}
             </p>
           ) : null}

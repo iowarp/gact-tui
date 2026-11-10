@@ -311,10 +311,10 @@ export function UsageSettings() {
                 {totals ? (
                   <>
                     <SettingsGroupLabel>Total</SettingsGroupLabel>
-                    <SettingsRow title="Tokens">
+                    <SettingsRow fullWidth inlineControl title="Tokens">
                       <UsageTotal>{totals.tokens}</UsageTotal>
                     </SettingsRow>
-                    <SettingsRow title="Cost">
+                    <SettingsRow fullWidth inlineControl title="Cost">
                       <UsageTotal>{totals.cost ?? 'None recorded'}</UsageTotal>
                     </SettingsRow>
                   </>
