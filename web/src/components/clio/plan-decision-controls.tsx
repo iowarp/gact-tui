@@ -258,10 +258,22 @@ export function PlanDecisionControls({
 }
 
 function selectedOptions(interaction: PendingInteraction): string[] {
-  const raw = interaction.payload?.answer_metadata?.selected_options;
+  // Agents record the answer either in `answer_metadata` or at the payload's top level.
+  const payload = interaction.payload as
+    | (PendingInteraction['payload'] & { selected_options?: unknown })
+    | undefined;
+  const raw = payload?.answer_metadata?.selected_options ?? payload?.selected_options;
   return Array.isArray(raw)
     ? raw.filter((value): value is string => typeof value === 'string')
     : [];
+}
+
+function answerNote(interaction: PendingInteraction): string | undefined {
+  const payload = interaction.payload as
+    | (PendingInteraction['payload'] & { answer?: unknown })
+    | undefined;
+  const note = payload?.answer_metadata?.answer ?? payload?.answer;
+  return typeof note === 'string' && note.trim() ? note : undefined;
 }
 
 /** Once decided, the plan folds into one row: "Plan approved  Interactive, context cleared". */
@@ -283,10 +295,10 @@ export function PlanDecision({
   const selected = selectedOptions(interaction);
   const decision = selected.find((value) => value !== 'clear_context');
   const cleared = selected.includes('clear_context') ? 'context cleared' : undefined;
-  const note = interaction.payload?.answer_metadata?.answer;
+  const note = answerNote(interaction);
   const [verb, detail, tone]: [string, string | undefined, 'ok' | 'neutral'] =
     decision === 'reject'
-      ? ['Changes requested', typeof note === 'string' ? note : undefined, 'neutral']
+      ? ['Changes requested', note, 'neutral']
       : decision === 'exit_only'
         ? ['Left Plan mode', ['not executed', cleared].filter(Boolean).join(', '), 'ok']
         : decision
