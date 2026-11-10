@@ -66,8 +66,9 @@ export function workbenchTabPath(tab: WorkbenchTab): string | undefined {
 
 /**
  * How the tab row fits (workbench-lineage "The tab row, as it narrows"): every
- * name, then inactive tabs as icons, then the least recently used go into a
- * list at the end. Measured, one step at a time, from `full`.
+ * name, then inactive tabs as icons, the least recently used first and one at
+ * a time, then the least recently used go into a list at the end. Measured,
+ * one step at a time, from `full`.
  */
 export type TabRowFit = 'full' | 'compact' | 'overflow';
 

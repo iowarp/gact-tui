@@ -149,8 +149,13 @@ export function useGlobalSearchMatches(
     switching,
     counts: {
       actions: commands.Actions.length + commands.Navigation.length,
-      settings: commands.Settings.length + matchedAgents.length,
-      more: commands.Infrastructure.length + matchedConnections.length + matchedTargets.length,
+      // Agents sit under More: the filtered Settings window lists settings rows only.
+      settings: commands.Settings.length,
+      more:
+        commands.Infrastructure.length +
+        matchedAgents.length +
+        matchedConnections.length +
+        matchedTargets.length,
     },
   };
 }

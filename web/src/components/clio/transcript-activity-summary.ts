@@ -85,7 +85,7 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 export function transcriptRunSummary(
   iterations: readonly ConversationIteration[],
   subagentIdsOf: (tool: ToolInvocation) => readonly string[] = () => [],
-): { label: string; failed: number; interrupted: number } {
+): { label: string; failed: number; interrupted: number; denied: number } {
   const files = new Set<string>();
   const startedBy = new Set<string>();
   let edits = 0;
@@ -138,6 +138,7 @@ export function transcriptRunSummary(
     label: description[0]!.toUpperCase() + description.slice(1),
     failed: all.filter((tool) => getToolStatus(tool) === 'failed').length,
     interrupted: all.filter(isToolStopped).length,
+    denied: all.filter((tool) => getToolStatus(tool) === 'denied').length,
   };
 }
 

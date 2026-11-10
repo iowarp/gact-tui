@@ -223,6 +223,12 @@ function ExtensionLibraryContents({
   const discoverItems = [...curated, ...registryItems];
 
   const open = (next: Detail) => setDetail(next);
+  // The other view's list doesn't hold the open row, so its pane closes with it.
+  const changeView = (next: ExtensionView) => {
+    setView(next);
+    setCursor('');
+    setDetail(undefined);
+  };
   const close = () => setDetail(undefined);
   const isOpen = (next: Detail) =>
     Boolean(detail) && JSON.stringify(detail) === JSON.stringify(next);
@@ -570,7 +576,7 @@ function ExtensionLibraryContents({
     <StateView
       action={{ label: 'Add a marketplace', onClick: manager.openInstall }}
       kind="empty"
-      secondaryAction={{ label: 'Discover', onClick: () => setView('discover') }}
+      secondaryAction={{ label: 'Discover', onClick: () => changeView('discover') }}
       size="row"
       title="No extensions yet."
     />
@@ -671,10 +677,7 @@ function ExtensionLibraryContents({
           setCursor('');
         }}
         onTypeChange={changeType}
-        onViewChange={(next) => {
-          setView(next);
-          setCursor('');
-        }}
+        onViewChange={changeView}
         search={search}
         supported={supported}
         type={type}

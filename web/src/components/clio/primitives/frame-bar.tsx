@@ -60,6 +60,12 @@ const FRAME_FOLDS = [
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
 
+/**
+ * The name keeps its full width until facts, folders, Open, Copy, @ and the
+ * modes have folded (workbench-lineage step 2-4); only then may it truncate.
+ */
+const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('modes') + 1;
+
 /** Folded facts, read for the location's hover name. */
 const FrameFactsContext = createContext('');
 
@@ -68,7 +74,7 @@ const FrameFactsContext = createContext('');
  * truncates, or the name has truncated while a fact still shows or below
  * `FRAME_NAME_MIN`.
  */
-function frameOverflows(bar: HTMLElement) {
+function frameOverflows(bar: HTMLElement, fold: number) {
   if (bar.scrollWidth > bar.clientWidth + 1) return true;
   const facts = bar.querySelector<HTMLElement>('[data-slot=frame-facts]');
   const factShown = Array.from(facts?.children ?? []).some(
@@ -81,7 +87,13 @@ function frameOverflows(bar: HTMLElement) {
     range.selectNodeContents(part);
     const width = part.getBoundingClientRect().width;
     if (range.getBoundingClientRect().width <= width + 0.01) continue;
-    if (part.dataset.frameFit === 'name' && !factShown && width >= FRAME_NAME_MIN) continue;
+    if (
+      part.dataset.frameFit === 'name' &&
+      fold >= FRAME_NAME_KEEPS_UNTIL &&
+      !factShown &&
+      width >= FRAME_NAME_MIN
+    )
+      continue;
     return true;
   }
   return false;
@@ -151,7 +163,7 @@ export const FrameBar = memo(function FrameBar({
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
-    if (fold < FRAME_FOLDS.length && frameOverflows(bar)) {
+    if (fold < FRAME_FOLDS.length && frameOverflows(bar, fold)) {
       setMeasured((current) =>
         current.key === fitKey ? { key: fitKey, fold: current.fold + 1 } : current,
       );

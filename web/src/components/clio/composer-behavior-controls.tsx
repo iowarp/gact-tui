@@ -63,6 +63,11 @@ interface ClioComposerBehaviorControlsProps {
    * Empty hides the control: there is nothing a person could choose.
    */
   reasoningLevels: readonly ReasoningEffort[];
+  /**
+   * The model is not known yet. The effort control holds its place, disabled,
+   * so the row does not shift when the model's levels arrive.
+   */
+  reasoningPending?: boolean;
   /** What the control shows when no level was picked (it sends nothing then). */
   defaultEffortLabel?: string;
   /**
@@ -93,6 +98,7 @@ export function ClioComposerBehaviorControls({
   beforeModel,
   onChange,
   reasoningLevels,
+  reasoningPending = false,
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
   spotterAvailability,
@@ -270,6 +276,15 @@ export function ClioComposerBehaviorControls({
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : reasoningPending ? (
+        <IconButton
+          disabled
+          icon={<ReasoningBars filled={0} />}
+          label="Reasoning effort"
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
       ) : null}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>

@@ -107,7 +107,7 @@ it('saves Unlimited explicitly and restores the last finite limit without a rest
   await user.type(input, '6');
   await user.click(screen.getByRole('switch', { name: 'Unlimited concurrent subagents' }));
   expect(input).toBeDisabled();
-  expect(input).toHaveAttribute('placeholder', 'Unlimited');
+  expect(input).toHaveValue(null);
   await user.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() =>
     expect(repository.updateRuntimeSettings).toHaveBeenCalledWith({

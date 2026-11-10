@@ -24,10 +24,13 @@ export function ComposerAddContextButtons({
   disabled,
   onOpenReferences,
   onOpenSources,
+  pending = false,
 }: {
   attachments: boolean;
   contextReferences: boolean;
   disabled?: boolean;
+  /** Capabilities are still loading: both controls hold their place, disabled. */
+  pending?: boolean;
   onOpenReferences: () => void;
   onOpenSources?: () => void;
 }) {
@@ -37,9 +40,9 @@ export function ComposerAddContextButtons({
   const button = (
     <IconButton
       className="aria-expanded:bg-hover"
-      disabled={disabled}
+      disabled={disabled || pending}
       icon={<AddIcon />}
-      label={attach ? 'Attach files' : 'Add connected data'}
+      label={attach || pending ? 'Attach files' : 'Add connected data'}
       onClick={single}
       size="toolbar"
       tooltipSide="top"
@@ -48,7 +51,7 @@ export function ComposerAddContextButtons({
   );
   return (
     <>
-      {attach && onOpenSources ? (
+      {attach && onOpenSources && !pending ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64" side="top">
@@ -60,12 +63,12 @@ export function ComposerAddContextButtons({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : single ? (
+      ) : single || pending ? (
         button
       ) : null}
-      {contextReferences ? (
+      {contextReferences || pending ? (
         <IconButton
-          disabled={disabled}
+          disabled={disabled || pending}
           icon={<AtSignIcon />}
           label="Add a reference"
           onClick={onOpenReferences}
