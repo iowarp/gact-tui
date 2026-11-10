@@ -344,7 +344,13 @@ function ResourcePreview({
     // reads.
     return (
       <div className="size-full overflow-hidden">
-        <ClioPdfPreview bytes={bytes} error={error} name={resource.name} onRetry={onRetry} />
+        <ClioPdfPreview
+          bytes={bytes}
+          error={error}
+          name={resource.name}
+          onRetry={onRetry}
+          pageFacts
+        />
       </div>
     );
   }
