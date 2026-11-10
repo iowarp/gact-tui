@@ -200,7 +200,7 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
   const titleBounds = await row.locator('[data-slot="tool-action-text"]').boundingBox();
-  const statusBounds = await row.locator('[data-slot="tool-status"]').boundingBox();
+  const statusBounds = await row.locator('[data-slot="status-indicator"]').boundingBox();
   expect(titleBounds).not.toBeNull();
   expect(statusBounds).not.toBeNull();
   expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);

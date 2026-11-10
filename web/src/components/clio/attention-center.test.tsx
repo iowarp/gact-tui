@@ -1,4 +1,4 @@
-import type { Session } from '@clio/core/v3';
+import type { PendingInteraction, Session } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -10,8 +10,10 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 
-vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), warning: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
+const respond = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false, variables: undefined }));
+vi.mock('@/hooks/use-attention-response', () => ({ useAttentionResponse: () => respond }));
 vi.mock('@/hooks/use-system-version-status', () => ({
   useSystemVersionStatus: () => ({ state: 'current', desktopShell: false, updating: false }),
 }));
@@ -171,12 +173,14 @@ describe('ClioAttentionCenter', () => {
     );
   }
 
-  it('stays in the header without a count when no session needs a response', async () => {
+  it('keeps the bell with no badge when nothing needs a response', async () => {
     render(<Center attentions={{}} sessions={[baseSession]} />);
-    expect(screen.queryByRole('button', { name: /need.* your response/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+    expect(within(bell).queryByText(/\d/)).toBeNull();
+    fireEvent.click(bell);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Nothing is waiting for you.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nothing needs you.')).toBeInTheDocument();
+    expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
   });
 
   it('lists waiting sessions with their pending work and opens with its shortcut', async () => {
@@ -203,15 +207,85 @@ describe('ClioAttentionCenter', () => {
     // The badge, the trigger's name and the group all count responses, so they agree.
     expect(within(dialog).getByRole('heading', { name: /Needs you\s*4/ })).toBeInTheDocument();
     const second_row = within(dialog).getByRole('link', {
-      name: 'Session Two: 2 approvals, 1 question',
+      name: 'Session Two wants approval: 2 approvals, 1 question',
     });
     expect(second_row).toHaveAttribute('href', '/workspaces/ws_1/sessions/sess_2');
-    // The first pending kind names the row's action.
+    // A conversation with no request records yet keeps one summary row; its first kind names the action.
     expect(within(second_row).getByText('Review')).toBeInTheDocument();
     expect(
-      within(dialog).getByRole('link', { name: 'Session One: 1 question' }),
+      within(dialog).getByRole('link', { name: 'Session One asked a question: 1 question' }),
     ).toBeInTheDocument();
     // Opening starts on the first notification, so arrows move through the list.
     await waitFor(() => expect(within(dialog).getAllByRole('link')[0]).toHaveFocus());
+  });
+
+  it('gives each pending request its own row and decides a command in place', async () => {
+    const command: PendingInteraction = {
+      id: 'perm_1',
+      kind: 'permission',
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending',
+      title: 'Run a command',
+      source: { protocol: 'native', tool_name: 'bash' },
+      created_at: '2026-09-01T00:01:00Z',
+      payload: {
+        permission_id: 'perm_1',
+        tool_call: { tool_name: 'bash', input: { command: 'sbatch --nodes 4 align_grids.sh' } },
+        execution: { computer: 'ares', cwd: '/home/lab' },
+      },
+      actions: ['allow', 'deny', 'allow_session'],
+    };
+    const question: PendingInteraction = {
+      ...command,
+      id: 'question_1',
+      kind: 'question',
+      title: 'Question from agent',
+      prompt: 'Which baseline years should the comparison use?',
+      created_at: '2026-09-01T00:02:00Z',
+      payload: { question_id: 'question_1' },
+      actions: ['answer', 'cancel'],
+    };
+    render(
+      <Center
+        attentions={{
+          sess_1: {
+            sessionId: 'sess_1',
+            permissionIds: ['perm_1'],
+            questionIds: ['question_1'],
+            mcpTaskInputIds: [],
+            a2uiIds: [],
+            unknownIds: [],
+            requests: [command, question],
+            total: 2,
+          },
+        }}
+        sessions={[baseSession]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /needs your response/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('link', {
+        name: 'Session One wants to run a command: sbatch --nodes 4 align_grids.sh on ares',
+      }),
+    ).toBeInTheDocument();
+    const answer = within(dialog).getByRole('link', {
+      name: 'Session One asked a question: Which baseline years should the comparison use?',
+    });
+    expect(within(answer).getByText('Answer')).toBeInTheDocument();
+    // Only the permission is decided in place; the question opens its conversation.
+    const decide = within(dialog).getByRole('group', { name: /wants to run a command/ });
+    expect(within(dialog).getAllByRole('group')).toHaveLength(1);
+    fireEvent.click(within(decide).getByRole('button', { name: 'Allow' }));
+    expect(respond.mutate).toHaveBeenCalledWith(
+      { interaction: command, action: 'allow' },
+      expect.anything(),
+    );
+    fireEvent.click(within(decide).getByRole('button', { name: 'Deny' }));
+    expect(respond.mutate).toHaveBeenLastCalledWith(
+      { interaction: command, action: 'deny' },
+      expect.anything(),
+    );
   });
 });

@@ -61,29 +61,48 @@ function row(name: string): HTMLElement {
 }
 
 describe('ALCF provider family', () => {
-  it.each([true, false])(
-    'expands in the provider column and keeps the selected server identity (wide=%s)',
-    async (wide) => {
-      setWideViewport(wide);
-      const user = userEvent.setup();
-      const onChange = vi.fn();
-      renderPicker(
-        <ClioModelPicker onChange={onChange} options={options} trigger={<Button>Models</Button>} />,
-      );
-      await user.click(screen.getByRole('button', { name: 'Models' }));
-      expect(screen.queryByText('Minerva')).not.toBeInTheDocument();
-      expect(screen.getByRole('img', { name: 'ALCF inference status: Ready' })).toBeInTheDocument();
-      await user.click(row('ALCF inference'));
-      for (const name of Object.values(ALCF_SERVERS)) expect(row(name)).toBeVisible();
-      await user.click(row('Minerva'));
-      await user.click(
-        screen.getByText('nemotron-3-ultra', { selector: '[data-slot="model-row-name"]' }),
-      );
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({ providerId: 'argonne_minerva', id: 'nemotron-3-ultra' }),
-      );
-    },
-  );
+  it('expands in the provider column and keeps the selected server identity', async () => {
+    setWideViewport(true);
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker onChange={onChange} options={options} trigger={<Button>Models</Button>} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(screen.queryByText('Minerva')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'ALCF inference status: Ready' })).toBeInTheDocument();
+    await user.click(row('ALCF inference'));
+    for (const name of Object.values(ALCF_SERVERS)) expect(row(name)).toBeVisible();
+    await user.click(row('Minerva'));
+    await user.click(
+      screen.getByText('nemotron-3-ultra', { selector: '[data-slot="model-row-name"]' }),
+    );
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'argonne_minerva', id: 'nemotron-3-ultra' }),
+    );
+  });
+
+  it('lists each server as its own group in one column and keeps its identity', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker onChange={onChange} options={options} trigger={<Button>Models</Button>} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Models' }));
+    expect(screen.queryByText('ALCF inference', { selector: 'span' })).not.toBeInTheDocument();
+    for (const name of Object.values(ALCF_SERVERS)) expect(row(`ALCF ${name}`)).toBeVisible();
+    const rows = [...document.querySelectorAll<HTMLElement>('[data-slot="cascader-item"]')];
+    const minerva = rows.indexOf(row('ALCF Minerva'));
+    const model = rows
+      .slice(minerva + 1)
+      .find((item) => item.querySelector('[data-slot="model-row-name"]'));
+    expect(model).toHaveTextContent('nemotron-3-ultra');
+    await user.click(model!);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'argonne_minerva', id: 'nemotron-3-ultra' }),
+    );
+  });
 
   it('hides and restores all four servers atomically without changing another provider', async () => {
     const user = userEvent.setup();

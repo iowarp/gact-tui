@@ -10,6 +10,8 @@ import {
 
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
+export const MANAGE_NODE_PREFIX = 'manage:';
+export const MORE_NODE_PREFIX = 'more:';
 
 /**
  * The heartbeat follows the provider's LATEST check: `checking` while a probe
@@ -65,7 +67,25 @@ export interface ModelNodeData {
   choice: ClioModelOption;
 }
 
-export type PickerNodeData = ProviderNodeData | ProviderFamilyNodeData | ModelNodeData;
+/** One column: the row that ends a provider's group with its status and actions. */
+export interface ProviderManageNodeData {
+  kind: 'provider-manage';
+  group: ProviderGroup;
+}
+
+/** One column: "N more", the row that opens a provider's truncated group in full. */
+export interface ProviderMoreNodeData {
+  kind: 'provider-more';
+  group: ProviderGroup;
+  hidden: number;
+}
+
+export type PickerNodeData =
+  | ProviderNodeData
+  | ProviderFamilyNodeData
+  | ModelNodeData
+  | ProviderManageNodeData
+  | ProviderMoreNodeData;
 
 export function providerHealthPresentation(
   health: ProviderHealth,

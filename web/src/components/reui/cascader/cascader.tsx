@@ -1929,7 +1929,14 @@ function Cascader<T>({
   // that identity is the ONLY thing that re-runs Base UI's `listRef` sizing
   // effect. See `virtualSyncs`.
   const comboboxItems = React.useMemo(
-    () => (virtualized ? renderedItems.slice() : renderedItems),
+    () =>
+      virtualized
+        ? renderedItems.slice()
+        : // Static rows register no option, and Base UI indexes options in DOM
+          // order, so they would shift every highlight after them.
+          renderedItems.some((node) => node.static)
+          ? renderedItems.filter((node) => !node.static)
+          : renderedItems,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [renderedItems, virtualized, virtualSyncs],
   );

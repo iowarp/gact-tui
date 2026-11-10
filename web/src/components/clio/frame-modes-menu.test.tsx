@@ -1,9 +1,10 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CodeIcon, EyeIcon } from 'lucide-react';
+import { CodeIcon, EyeIcon, GitBranchIcon } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tabs } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { DocumentViewControls } from './document-view-controls';
 import { FileModeControls } from './file-mode-controls';
 import { FrameTalkTake } from './file-viewer-take';
@@ -11,15 +12,18 @@ import { FrameBar } from './primitives/frame-bar';
 
 const MODES = [
   { value: 'render', label: 'Render', icon: EyeIcon },
-  { value: 'source', label: 'Source', icon: CodeIcon },
+  { value: 'source', label: 'Source', icon: CodeIcon, shortcut: 'render-source' },
+  { value: 'lineage', label: 'Lineage', icon: GitBranchIcon, shortcut: 'lineage' },
 ];
 
 function Frame({
   onChange,
   document = false,
+  onAdd,
 }: {
   onChange: (value: string) => void;
   document?: boolean;
+  onAdd?: () => void;
 }) {
   const [mode, setMode] = useState('render');
   const [view, setView] = useState('preview');
@@ -42,7 +46,12 @@ function Frame({
             ) : null}
           </>
         }
-        actions={<FrameTalkTake menu={<span>Properties</span>} />}
+        actions={
+          <FrameTalkTake
+            addToMessage={onAdd ? { onSelect: onAdd } : undefined}
+            menu={<span>Properties</span>}
+          />
+        }
       />
     </Tabs>
   );
@@ -126,6 +135,73 @@ describe('frame bar modes at the narrowest fold', () => {
         inGroup('View').getByRole('menuitemradio', { name: 'Render' }).getAttribute('aria-checked'),
       ).toBe('true');
     } finally {
+      restore();
+    }
+  });
+
+  it('shows each mode\u2019s key in the \u2026 menu without adding it to the name', async () => {
+    const restore = narrowFrameBars();
+    try {
+      render(<Frame onChange={() => {}} />);
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      const source = screen.getByRole('menuitemradio', { name: 'Source' });
+      expect(source.getAttribute('aria-keyshortcuts')).toBe('Control+Shift+V');
+      expect(source.querySelector('[data-slot="shortcut-keys"]')?.textContent).toBe('Ctrl Shift V');
+      const lineage = screen.getByRole('menuitemradio', { name: 'Lineage' });
+      expect(lineage.querySelector('[data-slot="shortcut-keys"]')?.textContent).toBe(
+        'Ctrl Shift L',
+      );
+      const plain = screen.getByRole('menuitemradio', { name: 'Render' });
+      expect(plain.hasAttribute('aria-keyshortcuts')).toBe(false);
+      expect(plain.querySelector('[data-slot="shortcut-keys"]')).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('switches with the mode keys from inside the frame and back again', async () => {
+    const onChange = vi.fn();
+    render(
+      <>
+        <button type="button">Elsewhere</button>
+        <Frame onChange={onChange} />
+      </>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    expect(onChange).not.toHaveBeenCalled();
+    act(() => screen.getByRole('tab', { name: 'Render' }).focus());
+    await userEvent.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
+    expect(onChange).toHaveBeenLastCalledWith('lineage');
+    await userEvent.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
+    expect(onChange).toHaveBeenLastCalledWith('source');
+    await userEvent.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
+    expect(onChange).toHaveBeenLastCalledWith('lineage');
+  });
+
+  it('labels Add to message in … with @, its letter in the bar, and runs it on @', async () => {
+    const restore = narrowFrameBars();
+    // The app's CSS for the fold flag; jsdom has no Tailwind.
+    const style = document.createElement('style');
+    style.textContent =
+      '[data-fold-talk] .group-data-\\[fold-talk\\]\\/frame\\:hidden { display: none }';
+    document.head.append(style);
+    try {
+      const onAdd = vi.fn();
+      render(
+        <TooltipProvider>
+          <Frame onChange={() => {}} onAdd={onAdd} />
+        </TooltipProvider>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      const add = screen.getByRole('menuitem', { name: /Add to message/ });
+      expect(add.textContent).toContain('@');
+      expect(add.textContent).not.toMatch(/Ctrl|⌘/u);
+      await userEvent.keyboard('@');
+      expect(onAdd).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('menu')).toBeNull();
+    } finally {
+      style.remove();
       restore();
     }
   });

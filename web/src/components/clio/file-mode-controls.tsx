@@ -1,5 +1,14 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { useRef, type ComponentType } from 'react';
+import {
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  type ComponentType,
+  type RefObject,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -9,9 +18,17 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
+import { ShortcutKeys } from './primitives/key-chip';
 import { ToolbarAction } from './viewer-toolbar';
+import {
+  FileViewerModeSlotContext,
+  isSourceMode,
+  type FileViewerModeSlot,
+} from './file-viewer-modes';
 
 export interface FileMode {
   value: string;
@@ -19,6 +36,144 @@ export interface FileMode {
   /** A longer hover name than the label. */
   title?: string;
   icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+  /** Catalog id of the key that selects it. */
+  shortcut?: string;
+}
+
+/** The bordered segment that holds a file's modes. */
+export const MODE_SEGMENT_CLASS =
+  'inline-flex h-7 flex-none shrink-0 justify-start gap-px rounded-[7px] border border-input bg-transparent p-[2px]';
+const MODE_TRIGGER_CLASS =
+  'h-[22px] w-[26px] flex-none rounded-[5px] border-0 px-0 text-muted-foreground shadow-none hover:bg-hover hover:text-foreground data-[state=active]:bg-menu-highlight data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-menu-highlight';
+
+/** One mode: its icon, its hover name and its key. */
+export function FileModeTrigger({
+  mode,
+  inactive = false,
+  onClick,
+}: {
+  mode: FileMode;
+  /** The frame shows another view: the renderer's chosen mode is not the one shown. */
+  inactive?: boolean;
+  onClick?: () => void;
+}) {
+  const { value, label, title, icon: Icon, shortcut } = mode;
+  return (
+    <NamedTooltip label={title || label} shortcut={shortcut}>
+      {/* The tooltip trigger sets its own data-state; keep it off the tab. */}
+      <span className="inline-flex">
+        <TabsTrigger
+          className={MODE_TRIGGER_CLASS}
+          value={value}
+          aria-label={label}
+          onClick={onClick}
+          {...(inactive ? { 'aria-selected': false, 'data-state': 'inactive' } : {})}
+        >
+          <Icon aria-hidden="true" className="size-3.5" />
+        </TabsTrigger>
+      </span>
+    </NamedTooltip>
+  );
+}
+
+/**
+ * One mode as a checked menu row, with the key that works without the menu
+ * in the right column (workbench-keyboard, "Menus show the key that works
+ * anywhere"). Key and check share that column, as the spec's rows do: the
+ * active mode shows its check. The key is announced through `aria-keyshortcuts`,
+ * not the row's name.
+ */
+export function FileModeMenuItem({ mode }: { mode: FileMode }) {
+  const { value, label, icon: Icon, shortcut } = mode;
+  const keys = useShortcutPresentation(shortcut);
+  return (
+    <DropdownMenuRadioItem value={value} aria-keyshortcuts={keys?.aria} className="group/mode">
+      <Icon aria-hidden="true" />
+      {label}
+      {keys ? (
+        <span
+          aria-hidden="true"
+          className="-mr-6 ml-auto pl-4 group-data-[state=checked]/mode:hidden"
+        >
+          <ShortcutKeys id={shortcut} />
+        </span>
+      ) : null}
+    </DropdownMenuRadioItem>
+  );
+}
+
+/**
+ * A mode's key, focus anywhere in its frame (the bar and its body): it switches
+ * to the mode, and from the mode back to the one it came from.
+ */
+function FileModeShortcut({
+  id,
+  target,
+  modes,
+  value,
+  onChange,
+  region,
+}: {
+  id: string;
+  target: string;
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  region: RefObject<Element | null>;
+}) {
+  const cameFrom = useRef<string | undefined>(undefined);
+  useShortcut(
+    id,
+    () => {
+      if (value !== target) {
+        cameFrom.current = value;
+        onChange(target);
+        return;
+      }
+      const back =
+        modes.find((mode) => mode.value === cameFrom.current && mode.value !== target) ??
+        modes.find((mode) => mode.value !== target);
+      if (back) onChange(back.value);
+    },
+    { region },
+  );
+  return null;
+}
+
+/** The modes folded into the active icon with a chevron that lists them all. */
+export function FoldedFileModes({
+  modes,
+  value,
+  onChange,
+  label,
+}: {
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const ActiveIcon = modes.find((mode) => mode.value === value)?.icon ?? modes[0].icon;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <ToolbarAction
+          label={label}
+          data-modes-folded=""
+          className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex [[data-fold-modes-menu]:has([data-frame-modes-menu])_&]:hidden"
+        >
+          <ActiveIcon aria-hidden="true" />
+          <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
+        </ToolbarAction>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuRadioGroup aria-label={label} value={value} onValueChange={onChange}>
+          {modes.map((mode) => (
+            <FileModeMenuItem key={mode.value} mode={mode} />
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 /**
@@ -26,7 +181,8 @@ export interface FileMode {
  * named icons. When the frame bar folds @ away it folds too, to the active
  * icon with a chevron that lists them all; narrowest, they move into the
  * frame's … menu as a checked list (workbench-lineage step 6), when it has one
- * (`data-frame-modes-menu`).
+ * (`data-frame-modes-menu`). Inside a file viewer the renderer's modes join the
+ * frame's segment, beside the frame's own Lineage, and fold with it.
  */
 export function FileModeControls({
   modes,
@@ -39,56 +195,115 @@ export function FileModeControls({
   onChange: (value: string) => void;
   label?: string;
 }) {
+  const slot = useContext(FileViewerModeSlotContext);
+  if (slot)
+    return (
+      <LiftedModes slot={slot} modes={modes} value={value} onChange={onChange} label={label} />
+    );
+  return <FrameFileModes modes={modes} value={value} onChange={onChange} label={label} />;
+}
+
+/** A file's own modes in a frame bar without a file viewer's segment. */
+function FrameFileModes({
+  modes,
+  value,
+  onChange,
+  label,
+}: {
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
   const anchor = useRef<HTMLSpanElement>(null);
+  // The frame is the bar and its body: the bar's parent.
+  const region = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        return anchor.current?.closest('[data-slot="frame-bar"]')?.parentElement ?? null;
+      },
+    }),
+    [],
+  );
   useFrameModes(anchor, modes.length < 2 ? null : { modes, value, onChange, label });
   if (modes.length < 2) return null;
-  const ActiveIcon = modes.find((mode) => mode.value === value)?.icon ?? modes[0].icon;
   return (
     <span ref={anchor} className="contents">
+      {modes.map((mode) =>
+        mode.shortcut ? (
+          <FileModeShortcut
+            key={mode.value}
+            id={mode.shortcut}
+            target={mode.value}
+            modes={modes}
+            value={value}
+            onChange={onChange}
+            region={region}
+          />
+        ) : null,
+      )}
       <TooltipProvider delayDuration={200}>
         <TabsList
           aria-label={label}
           data-slot="viewer-modes"
-          className="inline-flex h-7 flex-none shrink-0 justify-start gap-px rounded-[7px] border border-input bg-transparent p-[2px] group-data-horizontal/tabs:h-7 group-data-[fold-modes]/frame:hidden"
+          className={cn(
+            MODE_SEGMENT_CLASS,
+            'group-data-horizontal/tabs:h-7 group-data-[fold-modes]/frame:hidden',
+          )}
         >
-          {modes.map(({ value: mode, label: modeLabel, title, icon: Icon }) => (
-            <NamedTooltip key={mode} label={title || modeLabel}>
-              {/* The tooltip trigger sets its own data-state; keep it off the tab. */}
-              <span className="inline-flex">
-                <TabsTrigger
-                  className="h-[22px] w-[26px] flex-none rounded-[5px] border-0 px-0 text-muted-foreground shadow-none hover:bg-hover hover:text-foreground data-[state=active]:bg-menu-highlight data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-menu-highlight"
-                  value={mode}
-                  aria-label={modeLabel}
-                >
-                  <Icon aria-hidden="true" className="size-3.5" />
-                </TabsTrigger>
-              </span>
-            </NamedTooltip>
+          {modes.map((mode) => (
+            <FileModeTrigger key={mode.value} mode={mode} />
           ))}
         </TabsList>
       </TooltipProvider>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <ToolbarAction
-            label={label}
-            data-modes-folded=""
-            className="hidden w-9 gap-0.5 group-data-[fold-modes]/frame:inline-flex [[data-fold-modes-menu]:has([data-frame-modes-menu])_&]:hidden"
-          >
-            <ActiveIcon aria-hidden="true" />
-            <ChevronDownIcon aria-hidden="true" className="!size-2.5" />
-          </ToolbarAction>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-            {modes.map(({ value: mode, label: modeLabel, icon: Icon }) => (
-              <DropdownMenuRadioItem key={mode} value={mode}>
-                <Icon aria-hidden="true" />
-                {modeLabel}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <FoldedFileModes modes={modes} value={value} onChange={onChange} label={label} />
     </span>
+  );
+}
+
+/** The renderer's tabs, drawn inside the frame's segment and listed in its fold. */
+function LiftedModes({
+  slot,
+  modes,
+  value,
+  onChange,
+  label,
+}: {
+  slot: FileViewerModeSlot;
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const id = useId();
+  const { register, host, frameActive, showRenderer } = slot;
+  // Source answers to the frame's Render/Source key.
+  const keyed = useMemo(
+    () =>
+      modes.map((mode) =>
+        isSourceMode(mode) && !mode.shortcut ? { ...mode, shortcut: 'render-source' } : mode,
+      ),
+    [modes],
+  );
+  const entry = useMemo(() => ({ modes: keyed, value, onChange }), [keyed, value, onChange]);
+  useEffect(() => register(id, entry), [register, id, entry]);
+  useEffect(() => () => register(id), [register, id]);
+  if (!host) return null;
+  return createPortal(
+    <TabsList
+      aria-label={label}
+      data-slot="renderer-modes"
+      className="inline-flex h-auto gap-px bg-transparent p-0 group-data-horizontal/tabs:h-auto"
+    >
+      {keyed.map((mode) => (
+        <FileModeTrigger
+          key={mode.value}
+          mode={mode}
+          inactive={frameActive}
+          onClick={showRenderer}
+        />
+      ))}
+    </TabsList>,
+    host,
   );
 }

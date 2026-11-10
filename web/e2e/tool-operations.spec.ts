@@ -11,6 +11,51 @@ const tool = (id: string, name: string, input: unknown, output: unknown): ToolIn
   session_id: 'parent',
   state: 'succeeded',
 });
+// A batch of installed skill files: they live with the app, outside every workspace.
+const skillRoot =
+  '/Applications/CLIO Desktop.app/Contents/Resources/gact-runtime/clio_schemas/skills/work-with-ndp';
+const skillFiles = Array.from({ length: 12 }, (_, i) =>
+  i % 3 === 2
+    ? `catalog.json#/components/Widget${i + 1}`
+    : `references/observation-guide-${i + 1}.md`,
+);
+const skillBatch: ToolInvocation = {
+  id: 'skill',
+  name: 'load_skill',
+  session_id: 'parent',
+  state: 'succeeded',
+  input: { skill_id: 'work-with-ndp', files: skillFiles },
+  presentation: {
+    action: 'Read skill references',
+    subject: 'skill-reference',
+    summary: 'Work with NDP',
+    blocks: [
+      { id: 'skill-reference', type: 'text', text: `${skillFiles.length} reference files` },
+      { id: 'skill-identity', type: 'text', label: 'Skill', text: 'work-with-ndp' },
+      { id: 'skill-directory', type: 'text', label: 'Skill directory', text: skillRoot },
+      ...skillFiles.map((file, i) => ({
+        id: `skill-file-${i}`,
+        type: 'link' as const,
+        target: 'file' as const,
+        uri: `${skillRoot}/${file.split('#')[0]}`,
+        label: file,
+      })),
+      {
+        id: 'content',
+        type: 'markdown',
+        text: skillFiles
+          .map(
+            (file, i) =>
+              `=== File ${i + 1}/${skillFiles.length}: ${file} ===\n` +
+              (file.startsWith('catalog')
+                ? JSON.stringify({ title: `Widget ${i + 1}`, properties: { data: 'ref' } }, null, 2)
+                : `# Observation guide ${i + 1}\n\n${'Compare each station window with its calibration record. '.repeat(40)}`),
+          )
+          .join('\n\n'),
+      },
+    ],
+  },
+};
 const fixture = {
   subagents: {
     build: {
@@ -83,6 +128,21 @@ const fixture = {
         })),
       },
     ),
+    skillBatch,
+    {
+      ...tool('skill-running', 'load_skill', { skill_id: 'work-with-ndp' }, null),
+      state: 'running',
+    },
+    {
+      ...tool(
+        'skill-failed',
+        'load_skill',
+        { skill_id: 'work-with-ndp', file: 'missing.md' },
+        null,
+      ),
+      state: 'failed',
+      error: "bundled file 'missing.md' not found in skill 'work-with-ndp'",
+    },
   ],
 };
 
@@ -144,6 +204,24 @@ for (const width of [1440, 390]) {
     await expect(row('models').getByText('Model 13', { exact: true })).toHaveCount(0);
     await row('models').getByRole('button', { name: 'Next', exact: true }).click();
     await expect(row('models').getByText('Model 13', { exact: true })).toBeVisible();
+    // Installed skill files open from the text this call loaded, not the workspace reader.
+    await opener('skill', 'Read skill references').click();
+    await row('skill').getByText('Source', { exact: true }).click();
+    await row('skill').getByRole('button', { name: 'catalog.json#/components/Widget6' }).click();
+    const skillFile = page.getByRole('dialog', { name: 'catalog.json#/components/Widget6' });
+    await expect(skillFile).toContainText('"title": "Widget 6"');
+    await expect(skillFile).not.toContainText('Widget 9');
+    await page.keyboard.press('Escape');
+    await row('skill').getByRole('button', { name: 'references/observation-guide-11.md' }).click();
+    const guide = page.getByRole('dialog', { name: 'references/observation-guide-11.md' });
+    await expect(guide.getByRole('heading', { name: 'Observation guide 11' })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`skill-file-${width}.png`) });
+    expect(await guide.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
+    await opener('skill-failed', 'Load skill').click();
+    await expect(row('skill-failed')).toContainText("bundled file 'missing.md' not found");
+    await expect(row('skill-running')).toContainText('Load skill');
     const info = row('returned').getByRole('button', { name: 'Technical details for Wait for' });
     await info.click();
     await expect(page.getByRole('dialog')).toContainText('"tasks"');
