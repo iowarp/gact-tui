@@ -44,6 +44,8 @@ import { StateView } from './primitives/state-view';
 import { SourceStatusLine, sourceInputClass } from './source-form-parts';
 
 const initial: ModelDownloadInput = { repository: '', revision: 'main', destination: '' };
+// A module constant: a state setter stays stable only while its initial value does.
+const noFilters: string[] = [];
 
 /** The runtime that serves a model's files on this computer, or the one it lacks. */
 function modelRuntime(
@@ -421,7 +423,7 @@ function ModelChooser({
   const [searchFilters, setSearchFilters] = useInfrastructureState<string[]>(
     settings.endpoint,
     `${targetId}:model-search-filters`,
-    [],
+    noFilters,
   );
   useEffect(() => {
     const timer = window.setTimeout(() => setSubmittedSearch(search.trim()), 300);
