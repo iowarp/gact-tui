@@ -168,11 +168,18 @@ export function useTranscriptWidth({
     let width = Math.round(element.getBoundingClientRect().width);
     setConversationViewportWidth(width);
     let frame = 0;
+    let observed = false;
     const observer = new ResizeObserver(([entry]) => {
       const nextWidth = Math.round(entry?.contentRect.width ?? 0);
+      // The first observation reports the content box, which excludes the
+      // scrollbar that the border box above includes. It is not a resize: rows
+      // mounted in this commit were measured at this width already.
+      const initial = !observed;
+      observed = true;
       if (!nextWidth || nextWidth === width) return;
       width = nextWidth;
       setConversationViewportWidth(nextWidth);
+      if (initial) return;
       const resizeAnchor = readingAnchorRef.current;
       const intentVersion = scrollIntentVersionRef.current;
       // Only mounted rows carry a live ResizeObserver, so every off-screen row

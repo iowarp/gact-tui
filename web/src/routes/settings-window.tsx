@@ -19,7 +19,9 @@ import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   arrivedFromSearch,
+  historyIndex,
   settingsBackgroundRoute,
+  settingsCloseStep,
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
 import { settingFromHash } from '@/lib/settings-search-rows';
@@ -69,6 +71,8 @@ export function SettingsWindow() {
   const location = useLocation();
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
+  // The history entry the window opened on; closing goes back past it.
+  const [openedAt] = useState(historyIndex);
   const destinations = settingsDestinations(inTauri());
   const repository = useRepository();
   const memory = useQuery({
@@ -187,13 +191,16 @@ export function SettingsWindow() {
       icon={<SettingsIcon />}
       navigation={<SettingsNavigation {...navigation} />}
       onOpenChange={(open) => {
-        if (!open) void navigate(background ?? workspaceRoute);
+        if (open) return;
+        const step = settingsCloseStep(openedAt, historyIndex());
+        if (step !== undefined) void navigate(step);
+        else void navigate(background ?? workspaceRoute, { replace: true });
       }}
       open
+      picker={<SettingsSectionPicker {...navigation} />}
       rail={<SettingsNavRail {...navigation} />}
       search={<SettingsSearchButton />}
       title="Settings"
-      toolbar={<SettingsSectionPicker {...navigation} />}
     >
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">
