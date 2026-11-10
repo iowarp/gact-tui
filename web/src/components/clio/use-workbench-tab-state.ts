@@ -4,6 +4,7 @@ import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
 import { restoredWorkbenchState, saveWorkbenchState } from './workbench-tab-storage';
+import { useReleaseClosedTabData } from './workbench-tab-release';
 
 /**
  * The workbench's open tabs and pins: restored per workspace,
@@ -24,6 +25,7 @@ export function useWorkbenchTabState(
   useEffect(() => {
     saveWorkbenchState(workspaceId, { activeTabId, tabs, pinnedIds });
   }, [activeTabId, pinnedIds, tabs, workspaceId]);
+  useReleaseClosedTabData(tabs);
 
   const shown = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
   const shownActiveTabId = shown.activeTabId;

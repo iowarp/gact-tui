@@ -217,6 +217,15 @@ function ConversationBody({
       ),
     [messages],
   );
+  // A reopened session that is already waiting has no turn.started event yet;
+  // its run is the latest prompt's, as currentTurnAssistantMessages assumes.
+  const sessionLive = ['running', 'queued', 'waiting_permission', 'waiting_user'].includes(
+    preparation?.sessionState ?? '',
+  );
+  const latestPrompt = messages.findLast((message) => message.role === 'user');
+  const activeRunId = sessionLive
+    ? (preparation?.activeTurnId ?? latestPrompt?.run_id ?? latestPrompt?.turn_id)
+    : undefined;
   const liveActivityId = useMemo(
     () =>
       liveActivityIterationId({
@@ -736,12 +745,7 @@ function ConversationBody({
                     )}
                     turnPresentation={activityPlacement.get(message.id)}
                     active={
-                      (preparation?.sessionState === 'running' ||
-                        preparation?.sessionState === 'queued' ||
-                        preparation?.sessionState === 'waiting_permission' ||
-                        preparation?.sessionState === 'waiting_user') &&
-                      (message.run_id ?? message.turn_id) === preparation?.activeTurnId &&
-                      Boolean(preparation?.activeTurnId)
+                      Boolean(activeRunId) && (message.run_id ?? message.turn_id) === activeRunId
                     }
                     {...entities}
                     activeMcpAppId={activeMcpAppId}

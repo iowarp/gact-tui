@@ -38,7 +38,8 @@ import { withTaskWaitInterruption } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
-import { withQuestionPresentation } from './question-tool-presentation';
+import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
+import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
 import {
   agentMessageName,
@@ -249,6 +250,10 @@ export function ClioToolInvocation({
     !declaredFailure &&
     contentBlocks.length > 0 &&
     contentBlocks.every((block) => block.type === 'code');
+  const questionReading =
+    surface !== 'evidence'
+      ? answeredQuestionReading(tool, questionContext?.interactions)
+      : undefined;
   const gateSource = (node: ReactNode) =>
     sourceOnly ? <UnlessNestedCalls parentId={tool.id}>{node}</UnlessNestedCalls> : node;
   return (
@@ -287,7 +292,11 @@ export function ClioToolInvocation({
             />
           }
         />
-        {expanded && compactBody ? (
+        {expanded && questionReading ? (
+          <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
+            <QuestionAnswerReader reading={questionReading} />
+          </ToolDetailsContent>
+        ) : expanded && compactBody ? (
           <ToolDetailsContent inline flush title={`${actionLabel}: Result`}>
             {compactBody.kind === 'diff' ? (
               <TranscriptDiffBody block={compactBody.block} subject={subject} />
