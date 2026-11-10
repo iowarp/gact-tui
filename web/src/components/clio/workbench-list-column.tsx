@@ -153,6 +153,7 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   return (
     <WorkbenchListSection
       fill={props.fill}
+      onFitWidth={props.onFitWidth}
       overlay={overlay}
       title={title}
       wide={view === 'activity'}
@@ -190,12 +191,15 @@ export function WorkbenchListSection({
   title,
   overlay,
   fill = false,
+  onFitWidth,
   wide = false,
   children,
 }: {
   title: string;
   overlay: boolean;
   fill?: boolean;
+  /** Filling the workbench: the width its rows need, as for a list tab. */
+  onFitWidth?: (pixels: number, listWidth: number) => void;
   /** Activity's wider rows: spec `.bc.w`, 46% rather than `.bc`'s 36%. */
   wide?: boolean;
   children: ReactNode;
@@ -203,6 +207,7 @@ export function WorkbenchListSection({
   const { share, sectionRef, resizeTo, commit, reset } = useWorkbenchListWidth(
     wide ? 'wide' : 'list',
   );
+  useListFitWidth(sectionRef, fill && !overlay ? onFitWidth : undefined);
   return (
     <section
       aria-label={`${title} list`}

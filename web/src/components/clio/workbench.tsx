@@ -241,6 +241,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     // An empty narrow panel shows its list rather than nothing.
     const listShown = listView !== undefined && (!narrow || overlayOpen || !activeTab);
+    // An empty canvas shows Files rather than an empty pane; hiding Files then
+    // closes the canvas (`hideFiles`).
+    const canvasEmpty = orderedTabs.length === 0;
+    useLayoutEffect(() => {
+      if (canvasEmpty) setListView((current) => current ?? 'files');
+    }, [canvasEmpty, setListView]);
     const hideStripList = useCallback(() => setListView(undefined), [setListView]);
     const tabList = useWorkbenchTabListSlot({
       narrow,
@@ -279,9 +285,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           return;
         }
         if (view === 'artifacts') void loadResourceViewers();
+        // Files filling an empty canvas yields: the list opens as the only, full-width tab.
+        if (canvasEmpty) setListView(undefined);
         openTab(listTab(view));
       },
-      [openTab, setListView],
+      [canvasEmpty, openTab, setListView],
     );
     const afterListPick = useCallback(() => {
       if (narrow) setOverlayOpen(false);
@@ -290,6 +298,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const canvasVisible = useWorkspaceCanvasVisibility();
     const canvasControl = useWorkspaceCanvasControl();
     const clearFit = canvasControl?.fitWidth;
+    /** Files off: with nothing else open there is nothing to show, so the canvas closes. */
+    const hideFiles = () => {
+      setOverlayOpen(false);
+      if (canvasEmpty && canvasControl?.hide) canvasControl.hide();
+      else setListView(undefined);
+    };
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -447,8 +461,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         return;
       }
       if (listShown && listView === 'files') {
-        setListView(undefined);
-        setOverlayOpen(false);
+        hideFiles();
         return;
       }
       showList('files');
@@ -547,34 +560,38 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       tabs: orderedTabs,
       workspaceId,
     };
-    const list =
-      listShown && listView === 'files' ? (
-        <WorkbenchListColumn
-          {...listProps}
-          fill={orderedTabs.length === 0}
-          onHide={() => {
-            setListView(undefined);
-            setOverlayOpen(false);
-          }}
-          overlay={narrow === true}
-          view="files"
-        />
-      ) : null;
-    const filesFill = list !== null && orderedTabs.length === 0;
-    // A list tab alone narrows the canvas to what its rows need; beside the
-    // Files column (a share of the canvas) it keeps the stored width.
-    const fitList = !maximized && list === null;
-    const fitting = fitList && activeTab?.kind === 'list';
-    useEffect(() => {
-      if (!fitting) clearFit?.(undefined);
-    }, [clearFit, fitting]);
-    useEffect(() => () => clearFit?.(undefined), [clearFit]);
+    const filesFill = listShown && listView === 'files' && orderedTabs.length === 0;
     const fitWidth = canvasControl?.fitWidth;
     const fitListWidth = (pixels: number, listWidth: number) => {
       const aside = asideRef.current;
       if (!aside || !fitWidth) return;
       fitWidth(pixels + aside.getBoundingClientRect().width - listWidth);
     };
+    const list =
+      listShown && listView === 'files' ? (
+        <WorkbenchListColumn
+          {...listProps}
+          fill={filesFill}
+          onFitWidth={filesFill && !maximized ? fitListWidth : undefined}
+          onHide={hideFiles}
+          // With nothing open there is nothing to lay over: the list fills, and a
+          // canvas fitted to it is never too narrow for it.
+          overlay={narrow === true && !filesFill}
+          view="files"
+        />
+      ) : null;
+    // A list alone (a list tab, or Files with nothing open) narrows the canvas to
+    // what its rows need; beside the Files column (a share of the canvas) a list
+    // tab keeps the stored width.
+    const fitList = !maximized && list === null;
+    const fitting = !maximized && (filesFill || (fitList && activeTab?.kind === 'list'));
+    useEffect(() => {
+      if (!fitting) clearFit?.(undefined);
+    }, [clearFit, fitting]);
+    useEffect(() => () => clearFit?.(undefined), [clearFit]);
+    // Nothing open: there is nothing to maximize, and the restore control lives in
+    // the tab row the filling list replaces.
+    if (maximized && filesFill) setMaximized(false);
     // A list in a tab marks the tab it was reached from, the one a row last opened.
     const renderList = (view: WorkbenchTabListView) => (
       <WorkbenchListColumn

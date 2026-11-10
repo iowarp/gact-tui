@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
-import { fitWorkbenchWidthTo, listNaturalWidth, naturalWidth } from './workbench-list-fit';
+import { renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  fitWorkbenchWidthTo,
+  listNaturalWidth,
+  naturalWidth,
+  useListFitWidth,
+} from './workbench-list-fit';
 
 /** jsdom does no layout: give an element the box a browser would. */
 function box(
@@ -69,12 +75,38 @@ describe('workbench list fit', () => {
   });
 
   it('takes the widest rendered row plus its inset in the list', () => {
-    const narrow = box(element('div', { flexShrink: '0' }), { offset: 200, rect: 600 });
-    narrow.dataset.slot = 'list-row';
-    const wide = box(element('div', { flexShrink: '0' }), { offset: 300, rect: 600 });
-    wide.dataset.slot = 'list-row';
-    const list = box(element('section', {}, [narrow, wide]), { rect: 616 });
+    const row = (content: number) => {
+      const node = box(
+        element('div', { display: 'flex' }, [
+          box(element('span', { flexShrink: '0' }), { offset: content }),
+        ]),
+        { offset: 600 },
+      );
+      node.dataset.slot = 'list-row';
+      return node;
+    };
+    const list = box(element('section', {}, [row(200), row(300)]), { rect: 616 });
     document.body.append(list);
     expect(listNaturalWidth(list)).toBe(316);
+  });
+
+  it('reports nothing for a list in a hidden tab', () => {
+    const onFit = vi.fn();
+    const list = box(element('section', {}, [box(element('div', {}), { offset: 0 })]));
+    document.body.append(list);
+    renderHook(() => useListFitWidth({ current: list }, onFit));
+    expect(onFit).not.toHaveBeenCalled();
+    const shown = box(element('section', {}), { rect: 400 });
+    const row = box(
+      element('div', { display: 'flex' }, [
+        box(element('span', { flexShrink: '0' }), { offset: 180 }),
+      ]),
+      { offset: 400 },
+    );
+    row.dataset.slot = 'list-row';
+    shown.append(row);
+    document.body.append(shown);
+    renderHook(() => useListFitWidth({ current: shown }, onFit));
+    expect(onFit).toHaveBeenCalledWith(180, 400);
   });
 });

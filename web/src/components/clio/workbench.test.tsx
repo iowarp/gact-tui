@@ -162,8 +162,9 @@ describe('ClioWorkbench canvas', () => {
     const list = screen.getByRole('region', { name: 'Activity list' });
     expect(within(list).getByText('Activity starts with the first message')).toBeVisible();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Activity']);
-    // Files drops back to the resizable column beside it.
-    expect(screen.getByRole('region', { name: 'Files list' })).not.toHaveAttribute('data-fill');
+    // Files filling the empty canvas yields: Activity is the only, full-width tab.
+    expect(screen.queryByRole('region', { name: 'Files list' })).not.toBeInTheDocument();
+    expect(strip().getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false');
   });
   it('contains a broken canvas item without replacing the workspace', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -185,7 +186,8 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not open Timeline');
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
     await user.click(container.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
-    expect(screen.getByText('No tabs open')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
+    expect(screen.queryByText('No tabs open')).not.toBeInTheDocument();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
   });
@@ -287,10 +289,11 @@ describe('ClioWorkbench canvas', () => {
 
     act(() => screen.getByRole('tab', { name: 'Agent' }).focus());
     await user.keyboard('{Delete}');
-    // With no tab to go back to, the lit icon closes its tab.
+    // With no tab to go back to, the lit icon closes its tab; the empty canvas shows Files.
     await user.click(strip().getByRole('button', { name: 'Activity' }));
     expect(screen.queryByRole('tab', { name: 'Activity' })).not.toBeInTheDocument();
-    expect(screen.getByText('No tabs open')).toBeVisible();
+    expect(screen.queryByText('No tabs open')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
   });
 
   it('keeps Files as the column beside the tabs', async () => {
@@ -336,6 +339,23 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 
+  it('leaves maximize when the last tab closes, so Files never fills a maximized canvas', async () => {
+    const user = userEvent.setup();
+    restorePocket();
+    renderWorkbench();
+    await user.click(screen.getByRole('button', { name: 'Maximize canvas' }));
+    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toHaveAttribute(
+      'data-maximized',
+      'true',
+    );
+
+    await user.click(document.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
+    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).not.toHaveAttribute(
+      'data-maximized',
+    );
+  });
+
   it('returns the canvas to its stored width when a list tab is left', async () => {
     const user = userEvent.setup();
     const fitWidth = vi.fn();
@@ -363,6 +383,40 @@ describe('ClioWorkbench canvas', () => {
     await user.click(strip().getByRole('button', { name: 'Artifacts' }));
     expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(fitWidth).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('closes the canvas when Files is hidden with nothing else open', async () => {
+    const user = userEvent.setup();
+    const hide = vi.fn();
+    restorePocket();
+    render(
+      <WorkspaceCanvasControlContext.Provider
+        value={{ show: vi.fn(), clearPendingStripPosition: vi.fn(), hide }}
+      >
+        <ClioWorkbench
+          artifacts={[]}
+          diffs={[]}
+          files={[]}
+          onOpenSubagent={vi.fn()}
+          onUndoDiff={vi.fn()}
+          sessionId="session_parent"
+          sessionView={<p>Session intelligence</p>}
+          workspaceId="workspace_1"
+        />
+      </WorkspaceCanvasControlContext.Provider>,
+    );
+    const files = strip().getByRole('button', { name: 'Files' });
+    // Beside a tab, Files toggles off as a column.
+    await user.click(files);
+    expect(screen.queryByRole('region', { name: 'Files list' })).not.toBeInTheDocument();
+    expect(hide).not.toHaveBeenCalled();
+    await user.click(files);
+
+    await user.click(document.querySelector('[data-slot="frame-tab-close"]') as HTMLElement);
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
+    await user.click(files);
+    expect(hide).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('region', { name: 'Files list' })).toBeInTheDocument();
   });
 
   it('offers the terminal from the strip when the workspace terminal is available', async () => {
@@ -582,7 +636,7 @@ describe('ClioWorkbench canvas', () => {
     act(() => activityTab.focus());
     await user.keyboard('{Delete}');
     expect(screen.queryByRole('tab', { name: 'Timeline' })).not.toBeInTheDocument();
-    expect(screen.getByText('No tabs open')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Files list' })).toHaveAttribute('data-fill', 'true');
 
     await user.click(strip().getByRole('button', { name: 'Activity' }));
     const list = screen.getByRole('region', { name: 'Activity list' });

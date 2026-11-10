@@ -20,6 +20,13 @@ vi.mock('./resource-viewers', () => ({
     <article aria-label={`Artifact view: ${artifact.name}`}>{artifact.name}</article>
   ),
 }));
+// An empty canvas shows the Files list until the first tab opens.
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
+vi.mock('@/providers/appearance-provider', () => ({
+  useAppearancePreferences: () => ({ hideDotFiles: false }),
+}));
 
 /** The Files list beside the tabs reads through the real workspace's query context. */
 function render(ui: ReactElement) {

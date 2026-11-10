@@ -1,5 +1,13 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -246,14 +254,17 @@ export function ClioAppShell({
     const panel = workbenchPanelRef.current;
     if (panel && !panel.isCollapsed()) panel.resize(`${pixels}px`);
   }, []);
+  const [sheetFit, setSheetFit] = useState<number>();
   const fitWorkbenchWidth = useCallback(
     (pixels: number | undefined) => {
       const fit = workbenchFitRef.current;
       const next = pixels === undefined ? undefined : Math.ceil(pixels);
       if (next === undefined) {
+        setSheetFit(undefined);
         if (fit.pixels === undefined && !fit.overridden) return;
         workbenchFitRef.current = { overridden: false };
       } else {
+        setSheetFit(Math.max(MIN_WORKBENCH_WIDTH, next));
         if (fit.pixels === next) return;
         fit.pixels = next;
         if (fit.overridden) return;
@@ -344,6 +355,7 @@ export function ClioAppShell({
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),
+      hide: () => setWorkbenchOpen(false),
       pendingStripPosition,
       clearPendingStripPosition: () => setPendingStripPosition(undefined),
       fitWidth: fitWorkbenchWidth,
@@ -452,8 +464,14 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            // Under the split breakpoint the workbench slides over the conversation at 86%.
-            className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Under the split breakpoint the workbench slides over the conversation at 86%,
+            // or less for a sparse list that needs less.
+            className="w-[var(--workbench-sheet-width,86vw)] p-0 data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            style={
+              sheetFit === undefined
+                ? undefined
+                : ({ '--workbench-sheet-width': `min(86vw, ${sheetFit}px)` } as CSSProperties)
+            }
             // Land on the sheet itself, announced by its title, rather than on whichever icon
             // button comes first (which would also pop its tooltip).
             onOpenAutoFocus={(event) => {

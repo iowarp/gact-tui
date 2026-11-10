@@ -19,6 +19,8 @@ export interface WorkspaceCanvasControl {
    * the conversation. `undefined` returns to the stored width.
    */
   fitWidth?: (pixels: number | undefined) => void;
+  /** Closes the pocket from inside it (Files hidden with nothing else open). */
+  hide?: () => void;
 }
 
 export const WorkspaceCanvasControlContext = createContext<WorkspaceCanvasControl | undefined>(
