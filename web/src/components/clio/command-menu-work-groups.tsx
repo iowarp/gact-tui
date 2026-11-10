@@ -48,8 +48,14 @@ export function MessageHitGroup({
         >
           <MessageSquareTextIcon aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">
-              <SearchHighlight text={hit.session_title || 'Untitled session'} query={query} />
+            {/* The role sits on the title line, so the snippet keeps the row's width when narrow. */}
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate font-medium">
+                <SearchHighlight text={hit.session_title || 'Untitled session'} query={query} />
+              </span>
+              <span className="shrink-0 text-[11px] whitespace-nowrap text-faint">
+                {roleLabel(hit.role)}
+              </span>
             </span>
             <span className="mt-1 line-clamp-3 text-xs leading-5 text-muted-foreground">
               <SearchHighlight
@@ -62,7 +68,7 @@ export function MessageHitGroup({
               {workspaceNames.get(hit.workspace_id) ?? hit.workspace_id} → Open matching passage
             </span>
           </span>
-          <ResultTrail>{roleLabel(hit.role)}</ResultTrail>
+          <ResultTrail />
         </CommandItem>
       ))}
       <MoreResultsItem hidden={hits.hidden} noun="messages" onMore={onMore} scope="conversations" />
