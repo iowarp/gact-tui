@@ -16,8 +16,8 @@ function PreferenceProbe() {
       <button onClick={() => setAttentionSound('always')} type="button">
         Always
       </button>
-      <button onClick={() => setDesktopNotifications(true)} type="button">
-        Desktop
+      <button onClick={() => setDesktopNotifications(false)} type="button">
+        No desktop
       </button>
     </>
   );
@@ -39,15 +39,43 @@ describe('notification preferences', () => {
       </NotificationPreferencesProvider>,
     );
 
-    expect(screen.getByText('off:false')).toBeVisible();
+    expect(screen.getByText('background:true')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Always' }));
-    await user.click(screen.getByRole('button', { name: 'Desktop' }));
+    await user.click(screen.getByRole('button', { name: 'No desktop' }));
 
-    expect(screen.getByText('always:true')).toBeVisible();
-    expect(JSON.parse(window.localStorage.getItem('clio.notifications.v1') ?? '{}')).toEqual({
+    expect(screen.getByText('always:false')).toBeVisible();
+    expect(JSON.parse(window.localStorage.getItem('clio.notifications.v2') ?? '{}')).toEqual({
       attentionSound: 'always',
-      desktopNotifications: true,
+      desktopNotifications: false,
+      finishedWork: 'desktop',
     });
+  });
+
+  it('turns notifications on for a person who never chose, keeping an earlier choice', () => {
+    // Version 1 wrote its all-off defaults on every first run.
+    window.localStorage.setItem(
+      'clio.notifications.v1',
+      JSON.stringify({ attentionSound: 'off', desktopNotifications: false, finishedWork: 'bell' }),
+    );
+    render(
+      <NotificationPreferencesProvider>
+        <PreferenceProbe />
+      </NotificationPreferencesProvider>,
+    );
+    expect(screen.getByText('background:true')).toBeVisible();
+    cleanup();
+
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      'clio.notifications.v1',
+      JSON.stringify({ attentionSound: 'always', desktopNotifications: false, finishedWork: 'bell' }),
+    );
+    render(
+      <NotificationPreferencesProvider>
+        <PreferenceProbe />
+      </NotificationPreferencesProvider>,
+    );
+    expect(screen.getByText('always:false')).toBeVisible();
   });
 
   it('writes localStorage once per change, not twice under StrictMode updater double-invocation', async () => {

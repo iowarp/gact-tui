@@ -1,8 +1,10 @@
 import { BellIcon, Volume2Icon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading } from '@/components/clio/settings-section-heading';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -13,6 +15,13 @@ import {
 import { playAttentionSound } from '@/lib/attention-sound';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
+import {
+  notificationPermission,
+  openNotificationSettings,
+  requestNotificationPermission,
+  type SystemNotificationPermission,
+} from '@/lib/system-notifications';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   type AttentionSoundMode,
   type FinishedWorkMode,
@@ -32,22 +41,37 @@ export function NotificationSettings() {
     setDesktopNotifications,
     setFinishedWork,
   } = useNotificationPreferences();
-  const supported = typeof Notification !== 'undefined';
-  const blocked = supported && Notification.permission === 'denied';
+  const [permission, setPermission] = useState<SystemNotificationPermission>('default');
+  useEffect(() => {
+    let current = true;
+    const read = () =>
+      void notificationPermission().then((value) => {
+        if (current) setPermission(value);
+      });
+    read();
+    // The person may change it in the system's settings and come back.
+    window.addEventListener('focus', read);
+    return () => {
+      current = false;
+      window.removeEventListener('focus', read);
+    };
+  }, []);
+  const supported = permission !== 'unsupported';
+  const blocked = permission === 'denied';
 
-  // Both desktop choices need the browser's permission before they are kept.
+  // Both desktop choices need the system's permission before they are kept.
   const allowDesktopAlerts = async () => {
     if (!supported) {
-      toast.error('Desktop notifications are not available in this browser');
+      toast.error('Desktop notifications are not available here');
       return false;
     }
-    const permission =
-      Notification.permission === 'default'
-        ? await Notification.requestPermission()
-        : Notification.permission;
-    if (permission !== 'granted') {
+    const answer = await requestNotificationPermission();
+    setPermission(answer);
+    if (answer !== 'granted') {
       toast.error('Desktop notifications were not enabled', {
-        description: 'Allow notifications for this app in your browser or operating system.',
+        description: inTauri()
+          ? 'Allow notifications for this app in System Settings › Notifications.'
+          : 'Allow notifications for this site in your browser settings.',
       });
       return false;
     }
@@ -59,6 +83,15 @@ export function NotificationSettings() {
   const updateFinishedWork = async (mode: FinishedWorkMode) => {
     if (mode !== 'desktop' || (await allowDesktopAlerts())) setFinishedWork(mode);
   };
+  const permissionNote = !supported
+    ? 'Not available here'
+    : blocked
+      ? inTauri()
+        ? 'Turned off in system settings'
+        : 'Blocked in browser settings'
+      : permission === 'default' && (desktopNotifications || finishedWork === 'desktop')
+        ? 'Not allowed yet'
+        : undefined;
 
   return (
     <div>
@@ -95,15 +128,23 @@ export function NotificationSettings() {
       <SettingsRow
         title="Desktop alerts"
         htmlFor="desktop-attention-notifications"
-        info="When to show a system notice while the app is in the background. Your browser may ask for permission."
-        note={
-          !supported
-            ? 'Not available in this browser'
-            : blocked
-              ? 'Blocked in browser settings'
-              : undefined
-        }
+        info="When to show a system notice while the app is in the background. The system asks for permission the first time."
+        note={permissionNote}
       >
+        {permission === 'default' && (desktopNotifications || finishedWork === 'desktop') ? (
+          <Button onClick={() => void allowDesktopAlerts()} size="sm" variant="outline">
+            Allow
+          </Button>
+        ) : null}
+        {blocked && inTauri() ? (
+          <Button
+            onClick={() => void openNotificationSettings()}
+            size="sm"
+            variant="outline"
+          >
+            Open System Settings
+          </Button>
+        ) : null}
         <Select
           disabled={!supported}
           value={desktopNotifications ? 'needs-you' : 'off'}

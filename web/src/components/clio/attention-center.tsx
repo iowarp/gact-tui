@@ -14,7 +14,15 @@ import {
   XIcon,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -32,9 +40,17 @@ import {
   markConversationSeen,
   useNotificationReads,
 } from '@/lib/notification-reads';
-import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
+import { ATTENTION_NOTICE_THROTTLE_MS, WAITING_SESSIONS_POLL_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import {
+  listenForNotificationOpen,
+  notificationPermission,
+  requestNotificationPermission,
+  setAttentionBadge,
+  showSystemNotice,
+  type SystemNoticeResult,
+} from '@/lib/system-notifications';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import {
@@ -691,6 +707,8 @@ export function ClioAttentionCenter({
 
 export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const { attentionSound, desktopNotifications, finishedWork } = useNotificationPreferences();
   const reportedSoundFailureFor = useRef<AttentionSoundMode | null>(null);
   const activeUpdatedAt = sessions.find((session) => session.id === activeSessionId)?.updated_at;
@@ -707,14 +725,60 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
     );
   }, [activeSessionId, activeUpdatedAt]);
 
+  // A clicked banner opens its conversation, even one that started the app.
+  useEffect(() => listenForNotificationOpen((path) => void navigate(path)), [navigate]);
+
+  useAskForNotifications(desktopNotifications || finishedWork === 'desktop');
+
+  // The Dock badge counts the conversations waiting on the person.
+  const waitingCount = sessions.filter(
+    (session) => !session.archived && (attentions[session.id]?.total ?? 0) > 0,
+  ).length;
+  useEffect(() => setAttentionBadge(waitingCount), [waitingCount]);
+
+  /** Sound the chime under the person's setting, reporting a blocked one once per setting. */
+  const chime = useCallback(
+    (appFocused: boolean) => {
+      if (attentionSound === 'off' || (attentionSound === 'background' && appFocused)) return;
+      void playAttentionSound().then((played) => {
+        // Surface a blocked chime at least once per preference change
+        // instead of leaving a permanently-muted sound invisible. The ref
+        // resets the report the moment the preference itself changes.
+        if (played || reportedSoundFailureFor.current === attentionSound) return;
+        reportedSoundFailureFor.current = attentionSound;
+        toast.warning('Attention sound is muted', {
+          description: 'The browser blocked the chime. Interact with the page once to allow it.',
+        });
+      });
+    },
+    [attentionSound],
+  );
+
   const runStates = useRef(new Map<string, Session['state']>());
+  // Runs seen active that left the list this notifier is given (the person
+  // opened another conversation): read by id until they end, so how they end
+  // still reaches the person.
+  const [watchedIds, setWatchedIds] = useState<readonly string[]>([]);
+  const watched = useQuery({
+    queryKey: queryKeys.key('session-directory', settings.endpoint, ...watchedIds),
+    queryFn: ({ signal }) => repository.sessionsById([...watchedIds], signal),
+    enabled: watchedIds.length > 0,
+    refetchInterval: WAITING_SESSIONS_POLL_MS,
+  });
+  const observed = useMemo(() => {
+    const listed = new Set(sessions.map((session) => session.id));
+    const extra = (watched.data ?? []).filter(
+      (session) => watchedIds.includes(session.id) && !listed.has(session.id),
+    );
+    return [...sessions, ...extra];
+  }, [sessions, watched.data, watchedIds]);
 
   // Finished work: a desktop alert when a run ends while the app is in the background.
   useEffect(() => {
     const previous = runStates.current;
     const next = new Map<string, Session['state']>();
     const appFocused = document.visibilityState === 'visible' && document.hasFocus();
-    for (const session of sessions) {
+    for (const session of observed) {
       if (session.archived) continue;
       next.set(session.id, session.state);
       const before = previous.get(session.id);
@@ -724,24 +788,35 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
         !before ||
         !ACTIVE_RUN_STATES.has(before) ||
         finishedWork !== 'desktop' ||
-        appFocused ||
-        typeof Notification === 'undefined' ||
-        Notification.permission !== 'granted'
+        appFocused
       ) {
         continue;
       }
-      const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
-      const notification = new Notification(`${session.title} ${verb}`, {
-        tag: `clio-finished:${session.id}`,
-      });
-      notification.addEventListener('click', () => {
-        window.focus();
-        navigate(path);
-        notification.close();
+      void showSystemNotice({
+        id: `clio-finished:${session.id}`,
+        title: `${session.title} ${verb}`,
+        path: sessionPath(session),
+        sound: attentionSound !== 'off',
+      }).then((shown) => {
+        if (!shown.sound) chime(appFocused);
       });
     }
+    // Keep reading the runs still active that this list no longer holds.
+    for (const [id, state] of previous) {
+      if (!next.has(id) && ACTIVE_RUN_STATES.has(state)) next.set(id, state);
+    }
     runStates.current = next;
-  }, [finishedWork, navigate, sessions]);
+    const listed = new Set(sessions.map((session) => session.id));
+    const stillWatched = [...next]
+      .filter(([id, state]) => !listed.has(id) && ACTIVE_RUN_STATES.has(state))
+      .map(([id]) => id)
+      .sort();
+    setWatchedIds((current) =>
+      current.length === stillWatched.length && current.every((id, i) => id === stillWatched[i])
+        ? current
+        : stillWatched,
+    );
+  }, [attentionSound, chime, finishedWork, observed, sessions]);
 
   useEffect(() => {
     const currentIds = new Set<string>();
@@ -776,9 +851,11 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
     if (newSessions.length === 0) return;
 
     const appFocused = document.visibilityState === 'visible' && document.hasFocus();
+    const wantsSound =
+      attentionSound === 'always' || (attentionSound === 'background' && !appFocused);
+    const banners: Promise<SystemNoticeResult>[] = [];
     let shouldPlaySound = false;
     for (const session of newSessions) {
-      const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
       const now = Date.now();
       const shouldInterrupt =
         now - (lastAttentionNoticeAt.get(session.id) ?? 0) > ATTENTION_NOTICE_THROTTLE_MS;
@@ -786,40 +863,92 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
       shouldPlaySound ||= shouldInterrupt;
       // No toast: the bell's Needs you mirrors pending requests, and toasts
       // are only for what the person just did (conversation-states spec).
-      if (
-        desktopNotifications &&
-        shouldInterrupt &&
-        !appFocused &&
-        typeof Notification !== 'undefined' &&
-        Notification.permission === 'granted'
-      ) {
-        const notification = new Notification('Response needed', {
-          body: session.title,
-          tag: `clio-attention:${session.id}`,
-        });
-        notification.addEventListener('click', () => {
-          window.focus();
-          navigate(path);
-          notification.close();
-        });
+      if (desktopNotifications && shouldInterrupt && !appFocused) {
+        banners.push(
+          showSystemNotice({
+            id: `clio-attention:${session.id}`,
+            title: attentionTitle(attentions[session.id]),
+            body: session.title,
+            path: sessionPath(session),
+            sound: wantsSound,
+          }),
+        );
       }
     }
-    if (
-      shouldPlaySound &&
-      (attentionSound === 'always' || (attentionSound === 'background' && !appFocused))
-    ) {
-      void playAttentionSound().then((played) => {
-        // Surface a blocked chime at least once per preference change
-        // instead of leaving a permanently-muted sound invisible. The ref
-        // resets the report the moment the preference itself changes.
-        if (played || reportedSoundFailureFor.current === attentionSound) return;
-        reportedSoundFailureFor.current = attentionSound;
-        toast.warning('Attention sound is muted', {
-          description: 'The browser blocked the chime. Interact with the page once to allow it.',
-        });
-      });
-    }
-  }, [activeSessionId, attentionSound, attentions, desktopNotifications, navigate, sessions]);
+    if (!shouldPlaySound || !wantsSound) return;
+    // A banner that carries the system sound (which follows Focus and Do Not
+    // Disturb) replaces the chime; otherwise the chime plays.
+    void Promise.all(banners).then((results) => {
+      if (!results.some((result) => result.sound)) chime(appFocused);
+    });
+  }, [activeSessionId, attentionSound, attentions, chime, desktopNotifications, sessions]);
 
   return null;
+}
+
+/** What a needs-you banner leads with: the kind of answer the conversation waits for. */
+function attentionTitle(attention: SessionAttention | undefined): string {
+  if (!attention) return 'Response needed';
+  const approvals = attention.permissionIds.length;
+  const questions = attention.questionIds.length + attention.mcpTaskInputIds.length;
+  if (approvals > 0 && questions === 0) return 'Approval needed';
+  if (questions > 0 && approvals === 0) return 'Question for you';
+  return 'Response needed';
+}
+
+const ASKED_KEY = 'clio.notifications.asked';
+
+/**
+ * Asks once, on first run, whether the person wants system notices. The
+ * system's own prompt follows their click, so the browser allows it and the
+ * desktop app shows up in the system's notification settings.
+ */
+function useAskForNotifications(wanted: boolean) {
+  useEffect(() => {
+    if (!wanted) return;
+    try {
+      if (window.localStorage.getItem(ASKED_KEY)) return;
+    } catch {
+      return;
+    }
+    const remember = () => {
+      try {
+        window.localStorage.setItem(ASKED_KEY, new Date().toISOString());
+      } catch {
+        // Asked again next launch when storage is unavailable.
+      }
+    };
+    let cancelled = false;
+    void notificationPermission().then((permission) => {
+      if (cancelled) return;
+      if (permission !== 'default') {
+        remember();
+        return;
+      }
+      toast(`Get notified when ${vocab.agent} needs you`, {
+        id: 'clio-notification-ask',
+        description:
+          'A system notice and sound when a conversation needs your answer or approval, or finishes while you are away.',
+        duration: Infinity,
+        action: {
+          label: 'Allow',
+          onClick: () => {
+            remember();
+            void requestNotificationPermission().then((answer) => {
+              if (answer === 'denied') {
+                toast('Notifications are off', {
+                  description: 'Turn them on in Settings › Notifications at any time.',
+                });
+              }
+            });
+          },
+        },
+        cancel: { label: 'Not now', onClick: remember },
+        onDismiss: remember,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [wanted]);
 }
