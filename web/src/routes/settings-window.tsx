@@ -11,6 +11,7 @@ import {
 } from '@/components/clio/settings-navigation';
 import { useRepository } from '@/hooks/use-repository';
 import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
+import { useUnavailableSettingsSections } from '@/hooks/use-unavailable-settings-sections';
 import { settingsDestinations } from '@/lib/application-destinations';
 import { connectionScope } from '@/lib/connection-scope';
 import { SettingsWindowIcon } from '@/lib/icon-vocabulary';
@@ -66,6 +67,7 @@ export function SettingsWindow() {
     retry: false,
   });
   const inbox = memory.data?.inbox ?? 0;
+  const unavailable = useUnavailableSettingsSections();
   const content = useRef<HTMLDivElement>(null);
   // A prefetched chunk renders at once; otherwise the section suspends.
   const [SettingsSection] = useState(
@@ -170,6 +172,7 @@ export function SettingsWindow() {
     linkState,
     scopeLabels,
     badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+    unavailable,
     filter,
     onClearFilter: () =>
       void navigate(
