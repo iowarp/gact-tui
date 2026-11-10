@@ -665,8 +665,6 @@ function catalogue({ settings, infrastructure }) {
         await press(page, 'button', 'Open transcript outline');
         await overlay(page);
       },
-      // Wider layouts show the transcript minimap instead of the outline button.
-      { maxWidth: 1024 },
     ),
     // Hold Ctrl (⌘ with `platform: 'mac'`): every keyed control shows its key.
     ...['windows', 'mac'].flatMap((platform) => [

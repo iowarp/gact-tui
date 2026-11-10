@@ -514,51 +514,6 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
 });
 
-test('grows transcript landmarks only within the available margin', async ({ page }, testInfo) => {
-  await page.goto(workspaceUrl);
-  const conversation = page.getByRole('log', { name: 'Conversation' });
-  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
-  const previous = minimap.getByRole('button', { exact: true, name: 'Jump to user message 1000' });
-  const marker = previous.locator('[data-slot="transcript-minimap-landmark"]');
-  for (const width of [1280, 1920]) {
-    await page.setViewportSize({ width, height: 900 });
-    await settleConversationAtLatest(page);
-    await page.mouse.move(width - 40, 20);
-    await expect(previous).toBeVisible();
-    const column = page.locator('[data-slot="transcript-column"]');
-    const before = await column.boundingBox();
-    const resting = await marker.boundingBox();
-    expect(resting!.width).toBeGreaterThan(12);
-    expect(resting!.width).toBeLessThanOrEqual(18);
-    if (width === 1920)
-      await page.screenshot({ path: testInfo.outputPath('minimap-wide-rest.png') });
-    await previous.hover();
-    const railWidth = (await minimap.boundingBox())!.width;
-    await expect(marker).toHaveCSS('width', `${railWidth - 4}px`);
-    expect(railWidth).toBeGreaterThan(28);
-    expect(railWidth).toBeLessThanOrEqual(60);
-    const hovered = await marker.boundingBox();
-    expect(hovered!.x + hovered!.width).toBeLessThan(before!.x);
-    const after = await column.boundingBox();
-    expect(after!.x).toBe(before!.x);
-    expect(after!.width).toBe(before!.width);
-    if (width === 1920)
-      await page.screenshot({ path: testInfo.outputPath('minimap-wide-hover.png') });
-  }
-  // The wider text preference leaves less spare margin at this viewport.
-  await page.evaluate(() =>
-    localStorage.setItem('clio.appearance.v1', JSON.stringify({ conversationWidth: 'wide' })),
-  );
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.reload();
-  await settleConversationAtLatest(page);
-  await expect(minimap).toHaveCSS('width', '28px');
-  await page.setViewportSize({ width: 390, height: 900 });
-  await expect(minimap).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Open transcript outline' })).toBeVisible();
-  await expect(conversation).toBeVisible();
-});
-
 async function openDenseFlatNdp(page: Page) {
   await page.goto(workspaceUrl);
   await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
@@ -637,9 +592,14 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   // attachment and Activity rows above it.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await settleConversationAtLatest(page);
+  // The outline is a popover now; open it to confirm the reader is at the latest turn.
+  await page.getByRole('button', { name: 'Open transcript outline' }).click();
+  const outline = page.getByRole('dialog', { name: 'Transcript outline' });
   await expect(
-    page.getByRole('button', { name: 'Jump to assistant message 1001' }),
+    outline.getByRole('button', { name: 'Jump to assistant message 1001' }),
   ).toHaveAttribute('aria-current', 'location');
+  await page.keyboard.press('Escape');
+  await expect(outline).toHaveCount(0);
   await alignLatestActivityAtTop(page);
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
@@ -666,128 +626,34 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
   await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
-test('indexes the dense flat-NDP transcript in its minimap rail', async ({ page }) => {
+test('indexes the dense flat-NDP transcript in its outline', async ({ page }) => {
   await openDenseFlatNdp(page);
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
-  // The minimap is a landmark index, not a scrollbar — it has no drag and no
-  // proportional thumb — so the native scrollbar stays even while it is shown.
   await expect(conversation).toHaveCSS('scrollbar-width', 'thin');
-  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
-  const conversationBounds = await conversation.boundingBox();
-  const expandedMinimapBounds = await minimap.boundingBox();
-  expect(conversationBounds).not.toBeNull();
-  expect(expandedMinimapBounds).not.toBeNull();
-  expect(
-    Math.abs(
-      (expandedMinimapBounds?.y ?? 0) +
-        (expandedMinimapBounds?.height ?? 0) -
-        ((conversationBounds?.y ?? 0) + (conversationBounds?.height ?? 0)),
-    ),
-  ).toBeLessThanOrEqual(16);
-  // #1339 appended a compaction checkpoint message to the shared fixture
-  // transcript, shifting every landmark after it by one (999 -> the
-  // checkpoint itself, 1000 -> the fixture request, 1001 -> the active
-  // streaming turn).
-  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1001' });
-  await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
-  await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(minimap).toHaveCSS('box-shadow', 'none');
-  const railWidth = (await minimap.boundingBox())!.width;
-  expect(railWidth).toBeGreaterThan(28);
-  expect(railWidth).toBeLessThanOrEqual(60);
+  // The spec has no landmark strip beside the transcript; the outline is its index.
+  await expect(page.getByRole('complementary', { name: 'Transcript minimap' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open transcript outline' }).click();
+  const outline = page.getByRole('dialog', { name: 'Transcript outline' });
+  // #1339's compaction checkpoint makes the active streaming turn message 1001.
+  await expect(
+    outline.getByRole('button', { name: 'Jump to assistant message 1001' }),
+  ).toHaveAttribute('aria-current', 'location');
+  await outline
+    .locator('[data-slot="transcript-outline-list"]')
+    .evaluate((element) => element.scrollTo({ top: 0 }));
+  const first = outline.getByRole('button', { exact: true, name: 'Jump to user message 1' });
+  await first.hover();
+  const preview = page.getByRole('region', { name: 'user message 1 preview' });
+  await expect(preview.locator('p.font-semibold')).toHaveText('Sanitized evidence ledger entry 1.');
+  await expect(preview.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
+  await first.click();
+  await expect(outline).toHaveCount(0);
   await expect
-    .poll(async () => {
-      const rail = await minimap.boundingBox();
-      const landmark = await activeLandmark.boundingBox();
-      if (!rail || !landmark) return false;
-      return Math.abs(rail.y + rail.height - (landmark.y + landmark.height)) <= 2;
-    })
-    .toBe(true);
-  const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  await expect.poll(async () => (await activeMarker.boundingBox())!.width).toBeGreaterThan(12);
-  await expect
-    .poll(async () => (await activeMarker.boundingBox())!.width)
-    .toBeLessThanOrEqual(railWidth / 2);
-  await expect(activeMarker).toHaveCSS('height', '4px');
-  await expect(activeMarker).toHaveCSS('opacity', '1');
-  const previousLandmark = minimap.getByRole('button', {
-    exact: true,
-    name: 'Jump to user message 1000',
-  });
-  const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
-  expect((await previousMarker.boundingBox())!.width).toBeGreaterThan(12);
-  expect((await previousMarker.boundingBox())!.width).toBeLessThanOrEqual(18);
-  await expect(previousMarker).toHaveCSS('height', '3px');
-  await expect(previousMarker).toHaveCSS('opacity', '0.6');
-  await previousLandmark.hover();
-  await expect(previousMarker).toHaveCSS('width', `${railWidth - 4}px`);
-  await expect(previousMarker).toHaveCSS('height', '5px');
-  await expect(previousMarker).toHaveCSS('opacity', '1');
-  const previousBounds = await previousLandmark.boundingBox();
-  const activeBounds = await activeLandmark.boundingBox();
-  expect(previousBounds).not.toBeNull();
-  expect(activeBounds).not.toBeNull();
-  expect(
-    Math.abs((previousBounds?.y ?? 0) + (previousBounds?.height ?? 0) - (activeBounds?.y ?? 0)),
-  ).toBeLessThanOrEqual(1);
-
-  const minimapBounds = await minimap.boundingBox();
-  expect(minimapBounds).not.toBeNull();
-  // Rail input must not move the reader. Measure the reader's distance from the
-  // latest edge rather than raw scrollTop: a dense row re-measuring above the
-  // viewport, or the latest-anchored log growing, shifts scrollTop by tens of
-  // pixels without the reader moving (CI saw 177897 -> 177941), whereas a leaked
-  // wheel or a landmark jump moves it by thousands.
-  const readerOffsetFromLatest = () =>
-    conversation.evaluate((element) =>
-      Math.round(element.scrollHeight - element.clientHeight - element.scrollTop),
-    );
-  let settledOffset = Number.NaN;
-  await expect
-    .poll(async () => {
-      const previous = settledOffset;
-      settledOffset = await readerOffsetFromLatest();
-      return settledOffset === previous;
-    })
-    .toBe(true);
-  const conversationOffsetFromLatest = settledOffset;
-  if (minimapBounds) {
-    await page.mouse.move(
-      minimapBounds.x + minimapBounds.width / 2,
-      minimapBounds.y + minimapBounds.height / 2,
-    );
-    await page.mouse.wheel(0, -50_000);
-  }
-  const firstRailLandmark = minimap.getByRole('button', {
-    exact: true,
-    name: 'Jump to user message 1',
-  });
-  await expect(firstRailLandmark).toBeVisible();
-  const railPreview = page.locator('[data-slot="hover-card-content"]');
-  // Scrolling across the rail can open another preview. Close it before the
-  // next hover: count=1 alone can match that old card before the new one opens.
-  await page.mouse.move(0, 0);
-  await expect(railPreview).toHaveCount(0);
-  await firstRailLandmark.hover();
-  await expect(railPreview).toHaveCount(1);
-  const railPreviewTitle = railPreview.locator('p.font-semibold');
-  await expect(railPreviewTitle).toHaveText('Sanitized evidence ledger entry 1.');
-  await expect(railPreviewTitle).toHaveCSS('font-weight', '600');
-  await expect(railPreview).toContainText('Sanitized evidence ledger entry 2.');
-  await expect(railPreview.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
-  await expect.poll(readerOffsetFromLatest).toBe(conversationOffsetFromLatest);
-  if (minimapBounds) await page.mouse.wheel(0, 50_000);
-  // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
-  // marker only proves that the minimap itself is present; re-settle the
-  // native scroll container before checking the rail returned to the latest
-  // turn.
-  await settleConversationAtLatest(page);
-  await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+    .poll(() => conversation.evaluate((element) => element.scrollTop))
+    .toBeLessThan(2_000);
 });
-
-/** Open the canvas pocket on the dense session; it starts on the Activity tab. */
+/** Open the canvas pocket on the dense session; it starts on the Activity list. */
 async function openDenseFlatNdpCanvas(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openDenseFlatNdp(page);
