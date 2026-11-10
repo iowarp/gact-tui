@@ -29,6 +29,8 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useRegionShortcuts } from '@/lib/shortcuts/regions';
 import { useMenuAction } from '@/tauri/menu-actions';
+import { requestClioMenuOnMount } from '@/lib/clio-menu-request';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
@@ -57,6 +59,20 @@ function TopBarSidebarTrigger() {
       <HeldKeyBadge id="left-pocket" />
     </span>
   );
+}
+
+/** On a phone the CLIO menu sits in the closed left sheet: its key opens the sheet, then the menu. */
+function PhoneClioMenuShortcut() {
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+  useShortcut(
+    'app-menu',
+    () => {
+      requestClioMenuOnMount();
+      setOpenMobile(true);
+    },
+    { enabled: !inTauri() && isMobile && !openMobile },
+  );
+  return null;
 }
 
 export interface ClioAppShellProps {
@@ -483,6 +499,7 @@ export function ClioAppShell({
   return (
     // The route can remount the shell (a draft, a new workspace); keep the bar as left.
     <SidebarProvider defaultOpen={storedSidebarOpen()}>
+      <PhoneClioMenuShortcut />
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}

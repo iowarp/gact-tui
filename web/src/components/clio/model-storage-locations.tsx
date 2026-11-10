@@ -19,6 +19,7 @@ import {
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { ListGroupLabel } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
+import { MiddleTruncate } from './primitives/truncate';
 import { HostStorageSettings } from './host-storage-settings';
 
 const locations: { key: keyof HostStorageLocations; label: string; root?: boolean }[] = [
@@ -77,12 +78,16 @@ export function ModelStorageLocations({
           className="px-2"
           items={locations
             .filter(({ key }) => effective[key])
-            .map(({ key, label, root }) => ({
-              label,
-              icon: root ? <HardDriveIcon /> : <FolderIcon />,
-              value: displayHostPath(effective[key] ?? ''),
-              mono: true,
-            }))}
+            .map(({ key, label, root }) => {
+              const path = displayHostPath(effective[key] ?? '');
+              return {
+                label,
+                icon: root ? <HardDriveIcon /> : <FolderIcon />,
+                value: <MiddleTruncate className="justify-end">{path}</MiddleTruncate>,
+                title: path,
+                mono: true,
+              };
+            })}
         />
       )}
       <Dialog open={editing} onOpenChange={setEditing}>
