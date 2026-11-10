@@ -13,6 +13,11 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
 import { deleteProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { useOwnedState } from './provider-owned-state';
+import {
+  upsertProviderInstallJob,
+  useProviderInstall,
+  useSettleProviderInstall,
+} from './provider-install-jobs';
 import { refreshModelsWithClient } from './provider-model-refresh';
 import { verifySignedInProvider } from './provider-sign-in-verify';
 import { toast } from 'sonner';
@@ -26,6 +31,7 @@ export type ProviderActionStage =
   | 'Client update failed.'
   | 'Checking…'
   | 'Finding models…'
+  | 'Waiting to install…'
   | 'Installing…'
   | 'Saving your key…'
   | 'Removing key…'
@@ -76,11 +82,17 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   // produced for: an action still running when the person moves to another
   // provider settles into its own slot, never the new provider's.
   const owner = presetId;
+  // A support install is a job on the agent, not this hook's: it keeps going
+  // when the person moves to another provider or closes the panel, and every
+  // surface reads its progress and outcome from the app-wide install store.
+  const install = useProviderInstall(presetId);
+  const settleInstall = useSettleProviderInstall();
   const [refreshResult, setRefreshResult, clearRefreshResults] =
     useOwnedState<ProviderModelRefreshResult>(owner);
   const [refreshNotice, setRefreshNotice, clearRefreshNotices] = useOwnedState<string>(owner);
-  const [handshakeResult, setHandshakeResult, clearHandshakeResults] =
+  const [ownedHandshakeResult, setHandshakeResult, clearHandshakeResults] =
     useOwnedState<ProviderHandshake>(owner);
+  const handshakeResult = ownedHandshakeResult ?? install.check;
   const [authFlow, setAuthFlow, clearAuthFlows] = useOwnedState<ProviderAuthStart>(owner);
   const [authPasteValue, setAuthPasteValue, clearAuthPastes] = useOwnedState<string>(owner);
   const [authLaunchErrorValue, setAuthLaunchErrorValue, clearAuthLaunchErrors] =
@@ -97,7 +109,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   // models…", "Saving your key…"): the picker turns the provider's heartbeat
   // yellow and shows this text in its action strip and bottom bar until the
   // action settles. Cleared by every mutation's `onSettled`.
-  const [stage, setStage, clearStages] = useOwnedState<ProviderActionStage>(owner);
+  const [ownedStage, setStage, clearStages] = useOwnedState<ProviderActionStage>(owner);
   const settle = { onSettled: () => setStage(undefined) };
   // Each action's mutation is keyed by its owner. When the provider changes,
   // TanStack detaches the running mutation from this observer (a changed
@@ -219,17 +231,23 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     onSuccess: adoptCheck,
     ...settle,
   });
+  // Starts the install job and returns: the app-wide install monitor follows
+  // it and runs the provider check once it finishes. A click while the
+  // provider's install runs joins that job on the agent.
   const installProvider = useMutation({
     mutationKey: actionKey('installProvider'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Installing…');
-      await repository.installProviderSupport(presetId);
-      return checkProvider();
+      install.clear();
+      setHandshakeResult(undefined);
+      const job = await repository.startProviderInstall(presetId);
+      upsertProviderInstallJob(queryClient, settings.endpoint, job);
+      // An agent that predates install jobs answers when the install is done.
+      if (!job.running) await settleInstall(job);
     },
-    onSuccess: adoptCheck,
-    ...settle,
   });
+  const stage: ProviderActionStage | undefined =
+    ownedStage ?? (installProvider.isPending ? 'Installing…' : install.stage);
   const authenticate = useMutation({
     mutationKey: actionKey('authenticate'),
     mutationFn: async (method: 'browser' | 'device' = 'browser') => {
@@ -441,6 +459,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     handshake,
     handshakeResult,
     installProvider,
+    installFailure: install.failure,
     logout,
     refreshModels,
     refreshResult,

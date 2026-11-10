@@ -50,6 +50,8 @@ import { useProviderPanel } from './model-picker-provider-panel';
 import { ModelPickerHighlightSeed } from './model-picker-highlight-seed';
 import { ProviderManageRow } from './model-picker-manage-row';
 import { ModelPickerSearch } from './model-picker-search';
+import { ModelPickerNoMatch } from './model-picker-no-match';
+import { quickFilters } from '@/lib/model-quick-filters';
 import { PickerRowLabel } from './model-picker-row-label';
 import { useModelPickerTree } from './model-picker-tree';
 import {
@@ -60,6 +62,7 @@ import {
 } from './model-picker-provider-families';
 import { ProviderFamilyRow } from './model-picker-provider-family-row';
 import { useModelPickerFacets } from './use-model-picker-facets';
+import { useProviderInstallStages } from './provider-install-jobs';
 import { useModelPickerSearchView } from './use-model-picker-search-view';
 
 interface ModelPickerCatalogProps {
@@ -281,6 +284,25 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     searching,
     matchesText,
   );
+  // Every provider searched and none matched: say why and offer the way out.
+  const noMatch =
+    searching && search.matches === 0 && !loading && prepared.size >= visibleProviders.length;
+  const noMatchFilters = useMemo(
+    () => (noMatch ? quickFilters(facetTabs, tokens, maxInputPrice !== undefined, hasSizes) : []),
+    [noMatch, facetTabs, tokens, maxInputPrice, hasSizes],
+  );
+  const noMatchPanel = noMatch ? (
+    <ModelPickerNoMatch
+      entries={tree.entries}
+      keyboard={!facetsOpen}
+      onQueryChange={handleQueryChange}
+      onTokensChange={setTokens}
+      query={query}
+      quickFilters={noMatchFilters}
+      quietTokens={DEFAULT_FILTER_TOKENS}
+      tokens={tokens}
+    />
+  ) : null;
   // A press on a results group header drills in (the cascader's own branch
   // behaviour, which also clears the query); in search results it folds the
   // group instead, so the clear that follows is dropped.
@@ -296,6 +318,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     onClose: onOpenSettings,
   });
   const activeStage = panel.stage;
+  // Installs keep running on the agent while another provider is in view.
+  const installStages = useProviderInstallStages();
 
   function hideProvider(group: ProviderGroup): void {
     const nextHidden = setProviderHidden(group.id, true);
@@ -434,8 +458,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         <PickerRowLabel
           flush={grouped}
           stage={
-            node.data?.kind === 'provider' && node.data.group.id === activeGroup?.id
-              ? activeStage
+            node.data?.kind === 'provider'
+              ? node.data.group.id === activeGroup?.id
+                ? activeStage
+                : installStages.get(node.data.group.id)
               : undefined
           }
           eyeAsStaticElement={providerRowsAreTrailButtons}
@@ -538,11 +564,19 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 column.active &&
                 activeGroup !== undefined &&
                 column.parent?.value === providerNodeValue(activeGroup.id);
+              const noMatchColumn =
+                column.active && column.parent?.value === SEARCH_ALL_VALUE && noMatch;
               return (
                 <CascaderVirtualColumn
                   column={column}
                   empty={
-                    providerColumn ? (loadingModels ? loadingPanel : panel.column.empty) : undefined
+                    noMatchColumn
+                      ? noMatchPanel
+                      : providerColumn
+                        ? loadingModels
+                          ? loadingPanel
+                          : panel.column.empty
+                        : undefined
                   }
                   // The provider bar sits under the providers, as the spec's two columns do.
                   footer={column.depth === 0 && activeGroup ? panel.column.footer : undefined}
@@ -561,6 +595,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               <CascaderVirtualItems />
             </CascaderList>
             <ModelPickerHighlightSeed />
+            {noMatch ? noMatchPanel : null}
             {/* Each group's manage row carries its actions and, for a provider
                 that is not usable yet, its fix. */}
             {activeGroup && loadingModels ? loadingPanel : null}

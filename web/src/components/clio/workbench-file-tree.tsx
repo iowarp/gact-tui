@@ -7,6 +7,7 @@ import { formatBytes, formatCompactBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { MetaValue } from './primitives/tag';
 import { ResourceLoading } from './resource-states';
+import { StateView } from './primitives/state-view';
 import { changeCountFor, isChangedPath, type ChangeCounts } from './workbench-shared';
 import { sortedNodes, type WorkspaceFileNode } from './workbench-file-tree-model';
 
@@ -50,6 +51,15 @@ export type FileTreeRow =
     }
   | { kind: 'note'; key: string; depth: number; label: string; tone?: 'muted' | 'error' }
   | { kind: 'loading'; key: string; depth: number; label: string }
+  /** A folder that couldn't be listed: what failed, why on hover, and Retry. */
+  | {
+      kind: 'error';
+      key: string;
+      depth: number;
+      label: string;
+      detail?: string;
+      onRetry: () => void;
+    }
   | {
       kind: 'more';
       key: string;
@@ -264,6 +274,18 @@ function TreeRowView({
       return (
         <div className="flex h-7 items-center pr-2" style={style}>
           <ResourceLoading label={row.label} variant="line" />
+        </div>
+      );
+    case 'error':
+      return (
+        <div className="pr-1" style={style}>
+          <StateView
+            action={{ label: 'Retry', onClick: row.onRetry }}
+            className="px-0"
+            kind="error"
+            size="row"
+            title={<span title={row.detail}>{row.label}</span>}
+          />
         </div>
       );
     case 'more':

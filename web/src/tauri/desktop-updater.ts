@@ -60,6 +60,7 @@ export type DesktopUpdateFailure =
   | 'version_mismatch'
   | 'manifest_not_published'
   | 'platform_not_published'
+  | 'release_not_published'
   | 'signature_mismatch'
   | 'rate_limited'
   | 'unreachable';
@@ -68,6 +69,22 @@ export type DesktopUpdateSnapshot =
   | { status: 'unknown' | 'checking' | 'current' }
   | { status: 'available'; update: DesktopUpdateInfo }
   | { status: 'error'; message: string; reason: DesktopUpdateFailure };
+
+/**
+ * The runtime differs from this app and no signed release of this app's own
+ * version exists to restore it from -- a development build, or a version that
+ * was never released. Not "still being published": nothing newer is pending.
+ */
+export class AppReleaseNotPublished extends Error {
+  constructor(tag: string, runtime: string | undefined) {
+    super(
+      runtime
+        ? `This app's release ${tag} is not published, so the runtime (${runtime}) cannot be restored to match it.`
+        : `This app's release ${tag} is not published, so the runtime cannot be restored to match it.`,
+    );
+    this.name = 'AppReleaseNotPublished';
+  }
+}
 
 let availableUpdate: Update | null = null;
 let installingUpdate: Update | null = null;
@@ -145,6 +162,7 @@ export function classifyUpdateError(error: unknown): {
 } {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof ReleaseFeedRateLimited) return { reason: 'rate_limited', message };
+  if (error instanceof AppReleaseNotPublished) return { reason: 'release_not_published', message };
   const normalized = message.toLowerCase();
   if (normalized.startsWith('components differ:')) {
     return { reason: 'version_mismatch', message };
@@ -264,12 +282,21 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
         };
         if ((await managedRuntimeUpdateMode()) === 'bundled') {
           const { invoke } = await import('@tauri-apps/api/core');
-          const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>(
-            'check_release_update',
-            { tag: releaseTag(currentVersion), repair: true },
-          );
-          if (!metadata)
-            throw new Error('The signed installer for this app version is unavailable.');
+          const tag = releaseTag(currentVersion);
+          let metadata: ConstructorParameters<typeof Update>[0] | null;
+          try {
+            metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>(
+              'check_release_update',
+              { tag, repair: true },
+            );
+          } catch (error) {
+            // A missing manifest for this app's OWN tag is not a newer release
+            // being published; that wording made a failed check read as one.
+            if (classifyUpdateError(error).reason === 'manifest_not_published')
+              throw new AppReleaseNotPublished(tag, runtime);
+            throw error;
+          }
+          if (!metadata) throw new AppReleaseNotPublished(tag, runtime);
           candidate = new Update(metadata);
         }
       }
