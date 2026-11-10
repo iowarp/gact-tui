@@ -114,7 +114,9 @@ function ResultBlock({
       <SettingsResultsContext.Provider value={{ query, labels }}>
         {rows.length ? (
           <>
-            <div data-settings-filter>{renderSection(section.id)}</div>
+            <div className="clio-settings-filter" data-settings-filter>
+              {renderSection(section.id)}
+            </div>
             <div data-settings-fallback>{rows.map((row) => opener(row.label))}</div>
           </>
         ) : null}
