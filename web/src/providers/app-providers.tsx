@@ -4,6 +4,7 @@ import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
 import { ShortcutSheetLauncher } from '@/components/clio/primitives/shortcut-sheet';
 import { TruncationHints } from '@/components/clio/primitives/truncated-text';
+import { ProviderInstallMonitor } from '@/components/clio/provider-install-jobs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { readRetryDelayMs, retryRead } from '@/lib/connection-attempt';
 import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
@@ -39,6 +40,7 @@ export function AppProviders({ children }: PropsWithChildren) {
                   {children}
                   <ShortcutSheetLauncher />
                   <TruncationHints />
+                  <ProviderInstallMonitor />
                 </TooltipProvider>
               </ClioMotionProvider>
             </ConversationDisplayProvider>

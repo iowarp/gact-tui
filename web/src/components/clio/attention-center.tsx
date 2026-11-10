@@ -14,15 +14,7 @@ import {
   XIcon,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type HTMLAttributes,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -50,11 +42,12 @@ import {
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
 import { type AwayTone, awayRows } from './attention-away';
+import { NoticeFrame } from './attention-notice-frame';
+import { AttentionUpdateRows } from './attention-update-rows';
+import { attentionUpdate } from './version-check-issue';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
-import { useHasTruncatedText } from './primitives/truncated-text';
 import { permissionCommand } from './permission-operation-labels';
-import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
@@ -257,48 +250,6 @@ function needRows(session: Session, attention: SessionAttention): NeedRow[] {
   return rows;
 }
 
-interface NoticeFrameProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
-  /** What the notice is about, for the expand control's name. */
-  subject: string;
-  children: (expanded: boolean) => ReactNode;
-}
-
-/**
- * A notification's frame. Its cut title and description read whole on hover
- * (the app-wide truncation hint); while anything is cut, a chevron under the
- * icon also opens the whole notice in place, and closes it again.
- */
-function NoticeFrame({ subject, children, className, ...rest }: NoticeFrameProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const cut = useHasTruncatedText(ref, expanded);
-  return (
-    <div
-      className={cn('relative', className)}
-      data-expanded={expanded || undefined}
-      ref={ref}
-      {...rest}
-    >
-      {children(expanded)}
-      {expanded || cut ? (
-        <IconButton
-          aria-expanded={expanded}
-          className="absolute top-[25px] left-[5px] size-5 text-faint hover:bg-menu-highlight"
-          icon={
-            <ChevronDownIcon
-              className={cn('size-3.5 motion-safe:transition-transform', expanded && 'rotate-180')}
-            />
-          }
-          label={expanded ? `Show less of ${subject}` : `Show all of ${subject}`}
-          onClick={() => setExpanded((open) => !open)}
-          size="sm"
-          tooltipSide="left"
-        />
-      ) : null}
-    </div>
-  );
-}
-
 function moveFocus(event: KeyboardEvent<HTMLElement>) {
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
   const links = [
@@ -408,7 +359,7 @@ export function ClioAttentionCenter({
   const respond = useAttentionResponse();
   useShortcut('notifications', () => setOpen((current) => !current));
 
-  const updateReady = versions.state === 'available';
+  const { updateReady, shown: updateShown } = attentionUpdate(versions);
   const memoryCount = proposals.data?.length ?? 0;
   const memorySources = suggestedFrom(
     (proposals.data ?? []).flatMap((proposal) => proposal.evidence.map((item) => item.session)),
@@ -417,7 +368,7 @@ export function ClioAttentionCenter({
   const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
   const earlier = away.length - shownAway.length;
   const unread = away.some((row) => !row.read);
-  const empty = rows.length === 0 && away.length === 0 && !updateReady && memoryCount === 0;
+  const empty = rows.length === 0 && away.length === 0 && !updateShown && memoryCount === 0;
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
@@ -448,9 +399,7 @@ export function ClioAttentionCenter({
           className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
           count={responseCount || undefined}
           countTone="warning"
-          hoverLabel={
-            responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`
-          }
+          hoverLabel={responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`}
           icon={<BellIcon />}
           label={label}
           shortcut="notifications"
@@ -689,41 +638,12 @@ export function ClioAttentionCenter({
               ))}
             </section>
           ) : null}
-          {updateReady || memoryCount > 0 ? (
+          {updateShown || memoryCount > 0 ? (
             <section aria-labelledby="attention-agent">
               <h3 className={groupLabel} id="attention-agent">
                 {vocab.agent}
               </h3>
-              {updateReady ? (
-                <NoticeFrame
-                  className="min-h-[46px] rounded-[6px] px-2 py-1.5"
-                  data-slot="attention-update"
-                  subject="the update notice"
-                >
-                  {(expanded) => (
-                    <ListRow
-                      description={versions.message}
-                      expanded={expanded}
-                      hoverText={{ description: versions.message }}
-                      icon={<ProductUpdateIcon state={versions.state} />}
-                      primaryAction={
-                        versions.desktopShell ? (
-                          <button
-                            className="hover:underline disabled:opacity-50"
-                            disabled={versions.updating}
-                            onClick={() => versions.updateAll()}
-                            type="button"
-                          >
-                            Update
-                          </button>
-                        ) : undefined
-                      }
-                      title={<span className="font-semibold text-foreground">Update ready</span>}
-                      variant="notice"
-                    />
-                  )}
-                </NoticeFrame>
-              ) : null}
+              <AttentionUpdateRows versions={versions} />
               {memoryCount > 0 ? (
                 <NoticeFrame
                   className={rowFrame}

@@ -103,9 +103,23 @@ export function SearchResultsTab({
   }));
   const loading = !counts.all && (refreshing || results.sessions.isPending);
   const listRef = useRef<HTMLDivElement>(null);
-  // Arrive ready for ↑ ↓ and Enter, as the palette was.
+  // Arrive ready for ↑ ↓ and Enter, as the palette was. The palette is still
+  // closing when the tab mounts, and its focus trap holds focus until it goes
+  // (later on a busy machine), so the list takes focus again whenever it lands
+  // on nothing, until the user puts it somewhere else.
   useEffect(() => {
-    listRef.current?.focus({ preventScroll: true });
+    const list = listRef.current;
+    list?.focus({ preventScroll: true });
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      const active = document.activeElement;
+      const lost = !active || active === document.body;
+      if (list?.isConnected && lost) list.focus({ preventScroll: true });
+      const elsewhere = !lost && !list?.contains(active) && !active?.closest('[role=dialog]');
+      if (tries >= 60 || elsewhere) window.clearInterval(timer);
+    }, 50);
+    return () => window.clearInterval(timer);
   }, [tab.id]);
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" ref={frameRef}>

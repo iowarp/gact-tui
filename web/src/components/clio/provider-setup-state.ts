@@ -113,6 +113,7 @@ export function providerActionError(
   return (
     actions.saveApiKey.error?.message ??
     actions.installProvider.error?.message ??
+    actions.installFailure ??
     actions.authenticate.error?.message ??
     (actions.authFailedReason || undefined) ??
     actions.handshake.error?.message ??

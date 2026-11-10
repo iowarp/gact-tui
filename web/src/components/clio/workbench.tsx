@@ -63,6 +63,7 @@ import { scienceLogTab } from './science-log-tab-state';
 import { workbenchTabPath } from './workbench-tab-icons';
 import { agentTab, listTab, WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 import { useWorkbenchTabState } from './use-workbench-tab-state';
+import { focusListRow, focusOpenedFrame } from './workbench-focus';
 import { refocusActiveCanvasTab, WorkbenchTabRow } from './workbench-tab-row';
 import {
   WorkbenchStrip,
@@ -424,6 +425,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       const shift = pickShiftRef.current;
       pickShiftRef.current = false;
       const host = activeTab?.kind === 'list' ? activeTab : undefined;
+      focusOpenedFrame(asideRef.current);
       if (!host || shift || pinned.has(host.id) || !REPLACING_KINDS.has(tab.kind)) {
         openTab(tab);
         return;
@@ -443,7 +445,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       if (!backTo) return undefined;
       return {
         label: WORKBENCH_LIST_TITLES[backTo],
-        onBack: () => replaceTab(tab.id, listTab(backTo)),
+        onBack: () => {
+          replaceTab(tab.id, listTab(backTo));
+          focusListRow(
+            asideRef.current,
+            'path' in tab && tab.path ? tab.path.split(/[\\/]/u).at(-1) : tab.label,
+          );
+        },
       };
     };
 
@@ -614,9 +622,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               />
               {orderedTabs.map((tab) => (
                 // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
+                // Every tab holds its own controls, so the panel itself is not a stop.
                 <TabsContent
                   className="isolate m-0 min-h-0 overflow-hidden"
                   key={tab.id}
+                  tabIndex={-1}
                   value={tab.id}
                 >
                   {/* Only the active tab: Radix Presence renders an outgoing panel once more

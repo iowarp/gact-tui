@@ -42,6 +42,9 @@ const AUTHENTICATION = {
 } as const;
 type Authentication = keyof typeof AUTHENTICATION;
 
+const TRANSPORT = { http: 'Streamable HTTP', sse: 'SSE (legacy)' } as const;
+type Transport = keyof typeof TRANSPORT;
+
 const FIELD = 'h-[1.875rem] text-[0.78125rem]';
 
 const slug = (text: string) =>
@@ -179,7 +182,13 @@ export function McpConnectionDialog({
         toast.success(`Connected ${name}`, {
           description: `${result.tools_count} ${result.tools_count === 1 ? 'tool' : 'tools'} available. Compose a plugin to add it to an agent.`,
         });
-      else toast.warning('Connection saved; check failed', { description: result.error });
+      else
+        toast.warning(`Saved ${name}, but it couldn’t connect`, {
+          description:
+            remote && /connect|refused|unreachable|timed? ?out/iu.test(result.error ?? '')
+              ? `Nothing answered at ${url.trim()}. Check the address in its details.`
+              : 'Check its settings in its details.',
+        });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not add the connection');
     } finally {
@@ -331,16 +340,34 @@ export function McpConnectionDialog({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </SettingsRow>
-                <SettingsRow title="Transport">
-                  <SegmentedControl
-                    label="Transport"
-                    onValueChange={setTransport}
-                    options={[
-                      { value: 'http', label: 'Streamable HTTP' },
-                      { value: 'sse', label: 'SSE (legacy)' },
-                    ]}
-                    value={transport}
-                  />
+                {/* Spec Transport (settings.html connection): a 150px select, so the
+                    two long names never push past a 340px frame. */}
+                <SettingsRow htmlFor={`${ids}-transport`} title="Transport">
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <SettingsSelectField
+                        aria-label={`Transport: ${TRANSPORT[transport]}`}
+                        className="w-[150px] max-w-full flex-none"
+                        id={`${ids}-transport`}
+                        value={TRANSPORT[transport]}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
+                    >
+                      <DropdownMenuRadioGroup
+                        onValueChange={(value) => setTransport(value as Transport)}
+                        value={transport}
+                      >
+                        {(Object.keys(TRANSPORT) as Transport[]).map((value) => (
+                          <DropdownMenuRadioItem key={value} value={value}>
+                            {TRANSPORT[value]}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </SettingsRow>
                 <HeaderRows
                   onAdd={addHeader}
