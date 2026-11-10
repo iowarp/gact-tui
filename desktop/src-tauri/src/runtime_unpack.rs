@@ -1,20 +1,27 @@
 //! Bounded extraction of Windows runtime packs into a new staging directory.
 //!
+//! The archive is read once: its SHA-256 is computed from the bytes the
+//! decompressor reads, so checking the pack costs no second pass over it. The
+//! caller compares that hash before activating anything it extracted.
+//!
 //! Packs contain only ordinary files and directories. One reader decompresses
 //! the stream while a bounded worker pool creates files. Small entries use
 //! bounded queues; large entries stream directly, never becoming a large Vec.
 //! Build timestamps and Unix modes have no runtime meaning on Windows: Python
 //! startup bytecode uses checked hashes, and executable extensions select apps.
 
+use sha2::{Digest, Sha256};
 use std::{
+    cell::{Cell, RefCell},
     collections::HashSet,
     fs::{self, File, OpenOptions},
-    io::{self, BufReader, Read, Write},
+    io::{self, Read, Seek, SeekFrom, Write},
     path::{Component, Path, PathBuf},
     sync::{
         atomic::{AtomicU64, Ordering},
         mpsc, Arc, Mutex,
     },
+    rc::Rc,
     thread,
     time::{Duration, Instant},
 };
@@ -35,6 +42,44 @@ struct PendingFile {
 pub(crate) struct UnpackReport {
     pub files: u64,
     pub bytes: u64,
+    /// SHA-256 of the whole archive file, lowercase hex.
+    pub sha256: String,
+}
+
+/// Hashes every byte the decompressor reads from the archive file.
+struct HashingReader {
+    inner: File,
+    hasher: Rc<RefCell<Sha256>>,
+    consumed: Rc<Cell<u64>>,
+}
+
+impl Read for HashingReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read = self.inner.read(buf)?;
+        self.hasher.borrow_mut().update(&buf[..read]);
+        self.consumed.set(self.consumed.get() + read as u64);
+        Ok(read)
+    }
+}
+
+/// Hash what the decompressor left unread (the tar and zstd trailers).
+fn finish_hash(path: &Path, hasher: &RefCell<Sha256>, consumed: u64) -> Result<String, String> {
+    let mut file =
+        File::open(path).map_err(|e| format!("reopen runtime archive {path:?}: {e}"))?;
+    file.seek(SeekFrom::Start(consumed))
+        .map_err(|e| format!("seek runtime archive {path:?}: {e}"))?;
+    let mut hasher = hasher.borrow().clone();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|e| format!("hash runtime archive {path:?}: {e}"))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 /// Extract a verified Windows pack. The staging directory must be newly made
@@ -67,11 +112,20 @@ pub(crate) fn unpack_runtime_with_workers(
     }
     let file = File::open(archive_path)
         .map_err(|error| format!("open runtime archive {archive_path:?}: {error}"))?;
-    let decoder = zstd::stream::read::Decoder::new(BufReader::new(file))
+    let archive_bytes = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+    let hasher = Rc::new(RefCell::new(Sha256::new()));
+    let consumed = Rc::new(Cell::new(0_u64));
+    let reader = HashingReader {
+        inner: file,
+        hasher: Rc::clone(&hasher),
+        consumed: Rc::clone(&consumed),
+    };
+    // Decoder::new adds its own buffer, below which every read is hashed.
+    let decoder = zstd::stream::read::Decoder::new(reader)
         .map_err(|error| format!("open compressed runtime archive: {error}"))?;
     let mut archive = tar::Archive::new(decoder);
     let completed = AtomicU64::new(0);
-    thread::scope(|scope| {
+    let (files, bytes) = thread::scope(|scope| {
         let (sender, receiver) = mpsc::sync_channel::<PendingFile>(workers * 2);
         let receiver = Arc::new(Mutex::new(receiver));
         let mut writers = Vec::new();
@@ -160,11 +214,17 @@ pub(crate) fn unpack_runtime_with_workers(
                 bytes += size;
                 if last_progress.elapsed() >= Duration::from_secs(3) {
                     let done = completed.load(Ordering::Relaxed);
+                    let read_mb = consumed.get() / (1024 * 1024);
+                    let total_mb = archive_bytes / (1024 * 1024);
                     progress(&match expected_files {
-                        Some(total) => {
-                            format!("Unpacking CLIO runtime: {done} of {total} files...")
-                        }
-                        None => format!("Unpacking CLIO runtime: {done} files..."),
+                        Some(total) => format!(
+                            "Unpacking and checking CLIO runtime: {done} of {total} files, \
+                             {read_mb} of {total_mb} MB read..."
+                        ),
+                        None => format!(
+                            "Unpacking and checking CLIO runtime: {done} files, \
+                             {read_mb} of {total_mb} MB read..."
+                        ),
                     });
                     last_progress = Instant::now();
                 }
@@ -174,7 +234,7 @@ pub(crate) fn unpack_runtime_with_workers(
                     "runtime pack file count mismatch: expected {expected_files:?}, read {files}"
                 ));
             }
-            Ok(UnpackReport { files, bytes })
+            Ok((files, bytes))
         })();
         // Always close and join ALL writers, including on a malformed archive
         // or I/O error, before the caller can remove the staging directory.
@@ -195,6 +255,13 @@ pub(crate) fn unpack_runtime_with_workers(
             return Err(error);
         }
         result
+    })?;
+    drop(archive);
+    let sha256 = finish_hash(archive_path, &hasher, consumed.get())?;
+    Ok(UnpackReport {
+        files,
+        bytes,
+        sha256,
     })
 }
 

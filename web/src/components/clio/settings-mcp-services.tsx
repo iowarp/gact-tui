@@ -259,7 +259,7 @@ function McpServiceRow({
                 {onDetails ? (
                   <DropdownMenuItem onSelect={onDetails}>
                     <MenuRow icon={<InfoIcon />} label="Details" />
-                    <ShortcutKeys className="shrink-0 pl-2" keys={['Enter']} variant="text" />
+                    <ShortcutKeys className="pl-2" keys={['Enter']} variant="menu" />
                   </DropdownMenuItem>
                 ) : null}
                 {onReconnect ? (

@@ -95,7 +95,11 @@ export function RailRuns({
   };
 
   return (
-    <div className="@container/runs min-w-0" aria-label="Runs in this conversation">
+    <div
+      className="@container/runs min-w-0"
+      aria-label="Runs in this conversation"
+      data-run-list=""
+    >
       {shown.map((run) => (
         <RunListRow
           key={run.row.taskId}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   findHeldModelOption,
   findSelectedModelOption,
+  matchesConfiguredModel,
   type ClioModelOption,
 } from '@/lib/model-options';
 import { useHeldProviderRecheck } from './use-held-provider-recheck';
@@ -71,5 +72,21 @@ export function useComposerModelSelection(
       pinned: connecting,
     });
 
-  return { selectedOption, selectModel };
+  // The pick (or session default) the catalog can't run now, with the catalog's reason when it gives one.
+  const unavailable =
+    !selectedOption && selectedProvider && selectedModel
+      ? modelOptions.find(
+          (option) =>
+            option.providerId === selectedProvider && matchesConfiguredModel(option, selectedModel),
+        )
+      : undefined;
+  const missing =
+    !selectedOption && selectedProvider && selectedModel
+      ? {
+          providerId: selectedProvider,
+          modelId: selectedModel,
+          reason: unavailable?.availabilityDetail,
+        }
+      : undefined;
+  return { missing, selectedOption, selectModel };
 }

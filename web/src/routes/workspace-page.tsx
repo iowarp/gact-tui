@@ -6,6 +6,7 @@ import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioMoreDetails } from '@/components/clio/more-details';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { listState } from '@/lib/list-state';
 import { WorkspaceComposer } from '@/components/clio/workspace-composer';
 import { WorkspaceContextBar } from '@/components/clio/workspace-context-bar';
 import { WorkspaceObservabilityDock } from '@/components/clio/workspace-observability';
@@ -231,6 +232,7 @@ export function WorkspacePage() {
       onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
       sessions={navigationSessions}
       workspaces={workspaces.data ?? []}
+      workspacesState={listState(workspaces)}
     />
   );
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;

@@ -131,6 +131,14 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('close-tab', 'Close the tab', 'tab', ['Delete'], { mac: ['Cmd+Backspace'] }),
   def('focused-menu', 'Its menu', 'tab', ['Shift+F10'], { mac: ['Ctrl+Enter'] }),
   def('split-menu', 'A chevron', 'tab', ['Alt+Down']),
+  def('list-search', 'Search the list', 'tab', ['/'], { when: 'On the Runs list' }),
+  def('view-zoom-in', 'Zoom in', 'tab', ['Plus'], { when: 'On an image, PDF or diagram' }),
+  def('view-zoom-out', 'Zoom out', 'tab', ['-'], { when: 'On an image, PDF or diagram' }),
+  def('view-zoom-fit', 'Fit', 'tab', ['0'], { when: 'On an image, PDF or diagram' }),
+  def('pdf-page', 'Previous, next page', 'tab', ['PageUp', 'PageDown'], {
+    joiner: 'pair',
+    when: 'On a PDF',
+  }),
 
   def('menu-move', 'Move', 'menu', ['Up', 'Down'], { joiner: 'cap' }),
   def('menu-pick', 'Pick', 'menu', ['Enter']),
@@ -165,5 +173,6 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
     joiner: 'pair',
   }),
   def('graph-open', 'Open the node', 'graph', ['Enter']),
+  def('graph-zoom', 'Zoom in, out', 'graph', ['Plus', '-'], { joiner: 'pair' }),
   def('graph-fit', 'Fit the graph', 'graph', ['0']),
 ];

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { cn } from '@/lib/utils';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { NamedTooltip } from './primitives/icon-button';
@@ -191,8 +192,10 @@ export function WorkspaceStatusStrip({
         : activeWorkCount === 0
           ? 'No active work'
           : `${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}`;
-  const recoveryLabel =
-    stream === 'reconnecting'
+  const offline = stream === 'offline';
+  const recoveryLabel = offline
+    ? `Can't reach ${vocab.agent}, retrying`
+    : stream === 'reconnecting'
       ? 'Resuming updates'
       : stream === 'gapped'
         ? 'Checking for missed updates'
@@ -206,9 +209,18 @@ export function WorkspaceStatusStrip({
       data-slot="top-bar-status"
     >
       {recoveryLabel ? (
-        <span className="flex items-center gap-1 px-1" title={recoveryDetail}>
-          <StatusIndicator display="column" label={recoveryLabel} tone="waiting" />
+        <span
+          className={cn('flex items-center gap-1 px-1', offline && 'text-destructive')}
+          title={offline ? recoveryLabel : recoveryDetail}
+        >
+          <StatusIndicator
+            display="column"
+            label={recoveryLabel}
+            tone={offline ? 'error' : 'waiting'}
+          />
           <span className="hidden md:inline">{recoveryLabel}</span>
+          {/* A phone keeps the outage in words, not only the glyph. */}
+          {offline ? <span className="md:hidden">Offline</span> : null}
         </span>
       ) : null}
       {unresolvedWorkCount > 0 && onInspectTasks ? (

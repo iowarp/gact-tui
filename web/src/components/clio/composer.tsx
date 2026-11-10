@@ -35,6 +35,10 @@ import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { useSpotterModelSelection } from '@/hooks/use-spotter-model-selection';
 import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
+import { formatBytes } from '@/lib/format';
+import { compactModelName } from '@/lib/model-options';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { composerFailureReason, humanFailureText } from './composer-failure';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
@@ -108,6 +112,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
     aliases?: readonly string[];
   }>;
   disabled?: boolean;
+  /** A send is out and the service hasn't taken it yet; a slow one says so in the row. */
+  sending?: boolean;
   /**
    * The connection's defaults are still loading. The draft stays editable; the
    * controls and the send wait, and an Enter pressed meanwhile sends once ready.
@@ -202,6 +208,7 @@ export function ClioComposer({
   confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
+  sending = false,
   connecting = false,
   catalogPreparing = false,
   contextReferences = false,
@@ -250,12 +257,24 @@ export function ClioComposer({
       : 'Reply',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectModel } = useComposerModelSelection(
-    modelOptions,
-    provider,
-    model,
-    connecting,
-  );
+  const {
+    missing: missingModel,
+    selectedOption,
+    selectModel,
+  } = useComposerModelSelection(modelOptions, provider, model, connecting);
+  // Never a bare "Choose a model" when we know why there is none.
+  const modelProblem =
+    modelCatalogStatus === 'error' && !selectedOption
+      ? {
+          label: 'Models unavailable',
+          detail: "The model list couldn't be loaded. Open the picker to retry.",
+        }
+      : modelCatalogStatus === 'ready' && missingModel
+        ? {
+            label: `${compactModelName(missingModel.modelId, missingModel.modelId)} unavailable`,
+            detail: `${humanFailureText(missingModel.reason) ?? `${missingModel.modelId} isn't available right now.`} Choose another model.`,
+          }
+        : undefined;
   useEffect(() => {
     setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
   }, [selectedOption?.modalities]);
@@ -328,7 +347,52 @@ export function ClioComposer({
   useCommentSessionAttachment(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const heldSend = useComposerHeldSend(connecting, rootRef, nextDeliveryRef);
+  // While the service can't be reached or the stream is opening, resuming or catching up,
+  // the draft stays editable and Enter holds the send until it is live again, like a send
+  // typed while connecting. The run state is only current on a live stream, so a send
+  // never picks its delivery from a stale one.
+  const stream = useConnectionIndicatorState();
+  // A send the service is slow to take greys the draft; the row says why. The flag comes
+  // from the send itself, so it survives the welcome composer handing off to the docked one.
+  const [sendingSlow, setSendingSlow] = useState(false);
+  useEffect(() => {
+    if (!sending) {
+      setSendingSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSendingSlow(true), 700);
+    return () => window.clearTimeout(timer);
+  }, [sending]);
+  const offline = stream === 'offline' || stream === 'reconnecting' || stream === 'gapped';
+  const streamOpening = stream === 'connecting';
+  const awaitingService = connecting || offline || streamOpening;
+  const heldSend = useComposerHeldSend(awaitingService, rootRef, nextDeliveryRef);
+  const retrySend = (delivery: MessageDelivery | 'queued' | undefined) => {
+    const form = rootRef.current?.querySelector('form');
+    const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!form || !submit) return;
+    if (submit.disabled) {
+      if (awaitingService) heldSend.hold(delivery ?? composerDelivery(state, false));
+      return;
+    }
+    nextDeliveryRef.current = delivery;
+    form.requestSubmit();
+  };
+  const attachmentRefused = (error: { code: string; message: string; files?: string[] }) => {
+    if (error.code === 'max_file_size') {
+      const [first, ...rest] = error.files ?? [];
+      toast.error(
+        first && rest.length === 0
+          ? `${first} is too large`
+          : `${error.files?.length ?? 'Some'} files are too large`,
+        {
+          description: `Files up to ${formatBytes(COMPOSER_ATTACHMENT_MAX_BYTES)} can be attached.`,
+        },
+      );
+      return;
+    }
+    toast.error('Attachment was not added', { description: error.message });
+  };
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
   const focusEditorSoon = useCallback((offset?: number) => {
@@ -567,7 +631,7 @@ export function ClioComposer({
         className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[14px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[8px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
         maxFileSize={COMPOSER_ATTACHMENT_MAX_BYTES}
         multiple
-        onError={(error) => toast.error('Attachment was not added', { description: error.message })}
+        onError={(error) => attachmentRefused(error)}
         onSubmit={async ({ files, text }) => {
           if (connectedSources.pending)
             throw new Error('Wait for the folder attachment or remove it before sending.');
@@ -602,7 +666,7 @@ export function ClioComposer({
                 // PromptInput swallows a rejected submit so the draft survives;
                 // without this the refusal would never reach the person.
                 toast.error(`${command.title} was not run`, {
-                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                  description: composerFailureReason(error, 'The service rejected it.'),
                 });
                 throw error;
               } finally {
@@ -617,7 +681,13 @@ export function ClioComposer({
             try {
               await onSubmit({
                 behavior: messageBehavior,
-                delivery: state === 'running' ? (nextDeliveryRef.current ?? 'queued') : 'start',
+                delivery:
+                  state !== 'running'
+                    ? 'start'
+                    : // A send held from before the run began queues behind it.
+                      nextDeliveryRef.current && nextDeliveryRef.current !== 'start'
+                      ? nextDeliveryRef.current
+                      : 'queued',
                 files,
                 references: [
                   ...picked,
@@ -641,15 +711,20 @@ export function ClioComposer({
                   : {}),
               });
             } catch (error) {
+              const reason = composerFailureReason(error, 'The service rejected it.');
+              const failedFile = uploadingFilenameRef.current;
+              const retryDelivery = nextDeliveryRef.current;
               setUploadProgress(undefined);
-              setUploadFailure({
-                filename: uploadingFilenameRef.current,
-                message: error instanceof Error ? error.message : 'The service rejected it.',
-              });
+              setUploadFailure({ filename: failedFile, message: reason });
               toast.error(
-                state === 'running' ? 'Message was not accepted' : 'Message was not sent',
+                failedFile
+                  ? `${failedFile} could not be uploaded`
+                  : state === 'running'
+                    ? 'Message was not accepted'
+                    : 'Message was not sent',
                 {
-                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                  description: `${reason} Your message is still here.`,
+                  action: { label: 'Retry', onClick: () => retrySend(retryDelivery) },
                 },
               );
               throw error;
@@ -725,7 +800,7 @@ export function ClioComposer({
             // No submit square (Stop shows while work runs with nothing typed): nothing to send.
             if (!submit || submit.disabled) {
               const delivery = composerDelivery(state, event.ctrlKey || event.metaKey);
-              if (submit && connecting && !draftEmpty) heldSend.hold(delivery);
+              if (submit && awaitingService && !draftEmpty) heldSend.hold(delivery);
               return;
             }
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
@@ -787,6 +862,7 @@ export function ClioComposer({
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
+                  problem={modelProblem}
                   returnFocus={focusEditorSoon}
                   selected={selectedOption}
                 />
@@ -796,8 +872,10 @@ export function ClioComposer({
               unrecognizedEffort={unrecognizedEffort}
             />
             <ComposerToolbarStatus
-              connecting={connecting}
+              connecting={connecting || (streamOpening && heldSend.held)}
               held={heldSend.held}
+              offline={offline}
+              sending={sendingSlow && !uploadProgress}
               preparing={catalogPreparing && state !== 'running'}
             />
             <ComposerSubmitControls
@@ -805,6 +883,8 @@ export function ClioComposer({
               hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
               disabled={
                 controlsDisabled ||
+                offline ||
+                streamOpening ||
                 (catalogPreparing && state !== 'running') ||
                 connectedSources.pending
               }
