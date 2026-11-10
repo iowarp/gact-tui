@@ -359,6 +359,10 @@ export function ClioAttentionCenter({
 
   const updateReady = versions.state === 'available';
   const memoryCount = proposals.data?.length ?? 0;
+  const memorySources = suggestedFrom(
+    (proposals.data ?? []).flatMap((proposal) => proposal.evidence.map((item) => item.session)),
+    sessions,
+  );
   const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
   const earlier = away.length - shownAway.length;
   const unread = away.some((row) => !row.read);
@@ -481,7 +485,11 @@ export function ClioAttentionCenter({
                       to={to}
                     >
                       <ListRow
-                        description={<span title={row.detailText}>{row.detail}</span>}
+                        description={row.detail}
+                        hoverText={{
+                          title: `${session.title} ${row.kind.verb}`,
+                          description: row.detailText,
+                        }}
                         icon={<KindIcon aria-hidden="true" className="text-warning" />}
                         meta={
                           <ClioRelativeTime
@@ -493,10 +501,10 @@ export function ClioAttentionCenter({
                         }
                         primaryAction={row.permission ? undefined : row.kind.action}
                         title={
-                          <span title={`${session.title} ${row.kind.verb}`}>
+                          <>
                             <span className="font-semibold text-foreground">{session.title}</span>{' '}
                             {row.kind.verb}
-                          </span>
+                          </>
                         }
                         variant="notice"
                       />
@@ -560,7 +568,11 @@ export function ClioAttentionCenter({
                     to={sessionPath(row.session)}
                   >
                     <ListRow
-                      description={<span title={row.detail}>{row.detail}</span>}
+                      description={row.detail}
+                      hoverText={{
+                        title: `${row.session.title} ${row.verb}`,
+                        description: row.detail,
+                      }}
                       icon={AWAY_ICON[row.tone]}
                       meta={
                         <ClioRelativeTime
@@ -580,10 +592,10 @@ export function ClioAttentionCenter({
                         )
                       }
                       title={
-                        <span title={`${row.session.title} ${row.verb}`}>
+                        <>
                           <span className="font-semibold text-foreground">{row.session.title}</span>{' '}
                           {row.verb}
-                        </span>
+                        </>
                       }
                       variant="notice"
                     />
@@ -615,6 +627,7 @@ export function ClioAttentionCenter({
                 >
                   <ListRow
                     description={versions.message}
+                    hoverText={{ description: versions.message }}
                     icon={<ProductUpdateIcon state={versions.state} />}
                     primaryAction={
                       versions.desktopShell ? (
@@ -641,12 +654,8 @@ export function ClioAttentionCenter({
                     to="/settings/memory?view=review"
                   >
                     <ListRow
-                      description={suggestedFrom(
-                        proposals.data!.flatMap((proposal) =>
-                          proposal.evidence.map((item) => item.session),
-                        ),
-                        sessions,
-                      )}
+                      description={memorySources}
+                      hoverText={{ description: memorySources }}
                       icon={<BrainCircuitIcon />}
                       primaryAction="Review"
                       title={
