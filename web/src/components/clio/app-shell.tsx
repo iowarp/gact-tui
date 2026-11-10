@@ -359,6 +359,15 @@ export function ClioAppShell({
     } else workbenchPanelRef.current?.collapse();
   }, [applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
 
+  // Under the split breakpoint the canvas is a sheet over the conversation, so
+  // the floating conversation rail hides under it: one sheet at a time.
+  const workbenchSheetOpen = workbenchOpen && !desktopWorkbench;
+  useEffect(() => {
+    if (!workbenchSheetOpen) return;
+    document.body.setAttribute('data-canvas-sheet', '');
+    return () => document.body.removeAttribute('data-canvas-sheet');
+  }, [workbenchSheetOpen]);
+
   // The width is a share of the window, so a window resize re-applies it.
   useEffect(() => {
     if (!hasWorkbench) return;

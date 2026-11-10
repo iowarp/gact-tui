@@ -16,18 +16,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
 import { useComposerBehavior } from '@/hooks/use-composer-behavior';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { brand } from '@brand';
-import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-input';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { ComposerSubmitControls } from './composer-submit-controls';
+import { PromptInput } from '@/components/ai-elements/prompt-input';
+import { useStableCallback } from '@/hooks/use-stable-callback';
+import { ComposerToolbar } from './composer-toolbar';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
-import { ComposerModelControl } from './composer-model-control';
-import { ComposerToolbarStatus } from './composer-toolbar-status';
 import { useComposerHeldSend } from './use-composer-held-send';
 import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
@@ -37,8 +36,6 @@ import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
-import { ClioComposerBehaviorControls } from './composer-behavior-controls';
-import { ComposerSpotterModel } from './composer-spotter-model';
 import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type {
   ResourceUploadProgress,
@@ -64,8 +61,6 @@ import { commentSessionParts } from '@/lib/composer-annotations';
 import type { CommentAttachment } from '@clio/core/v3';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
-import { ComposerAddContextButtons } from './composer-add-context-button';
-import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
 import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import {
@@ -189,6 +184,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
 }
 
 const noQueueAction = async () => undefined;
+const NO_MODEL_OPTIONS: NonNullable<ClioComposerProps['modelOptions']> = [];
+const NO_REASONING_LEVELS: ModelReasoningLevels['levels'] = [];
 
 export function ClioComposer({
   state,
@@ -200,7 +197,7 @@ export function ClioComposer({
   configuredEffort,
   executionMode = 'execute',
   confirmationPolicy = 'ask',
-  modelOptions = [],
+  modelOptions = NO_MODEL_OPTIONS,
   disabled,
   connecting = false,
   catalogPreparing = false,
@@ -462,6 +459,23 @@ export function ClioComposer({
       focusComposerEditor(element);
     });
   };
+
+  // The toolbar is memoized apart from the editor; its handlers keep one identity.
+  const openSources = useStableCallback(() => connectedSources.open?.());
+  const openReferences = useStableCallback(() => composerReferences.openPicker());
+  const setSpotterModel = useStableCallback((ref: string) => spotter.set(ref));
+  const retryModelCatalog = useStableCallback((providerId?: string) =>
+    onRetryModelCatalog?.(providerId),
+  );
+  const pickModel = useStableCallback((option: NonNullable<typeof selectedOption>) => {
+    selectModel(option);
+    keepOfferedEffort(option.reasoning);
+  });
+  const chooseBehavior = useStableCallback((next: MessageBehavior) => choose(next));
+  const markSubmitDelivery = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
+    nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
+  });
+  const stop = useStableCallback(() => onStop?.());
 
   useLayoutEffect(() => {
     const element = rootRef.current;
@@ -732,89 +746,47 @@ export function ClioComposer({
             form?.requestSubmit();
           }}
         />
-        <TooltipProvider delayDuration={450}>
-          <PromptInputFooter
-            className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
-            data-slot="composer-toolbar"
-          >
-            {attachments || contextReferences || capabilitiesPending ? (
-              <ComposerAddContextButtons
-                attachments={attachments}
-                contextReferences={contextReferences}
-                pending={capabilitiesPending}
-                sourcesPending={connectedSources.probing}
-                disabled={controlsDisabled}
-                onOpenSources={connectedSources.open}
-                onOpenReferences={composerReferences.openPicker}
-                onReturnFocus={focusEditorSoon}
-              />
-            ) : null}
-            <ClioComposerBehaviorControls
-              behavior={messageBehavior}
-              beforeModel={
-                <ClioComposerEvidenceControls
-                  activityControl={activityControl}
-                  workSummary={workSummary}
-                />
-              }
-              spotterAvailability={spotterAvailability}
-              spotterModelControl={
-                <ComposerSpotterModel
-                  catalogStatus={modelCatalogStatus}
-                  disabled={controlsDisabled}
-                  onChange={spotter.set}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  value={spotter.value}
-                />
-              }
-              reasoningLevels={selectedOption?.reasoning?.levels ?? []}
-              reasoningPending={
-                (connecting || modelCatalogStatus === 'loading') &&
-                !selectedOption?.reasoning?.levels?.length
-              }
-              defaultEffortLabel={defaultReasoningLabel(
-                configuredEffort,
-                selectedOption?.reasoning,
-              )}
-              disabled={controlsDisabled}
-              modelControl={
-                <ComposerModelControl
-                  catalogStatus={modelCatalogStatus}
-                  onChange={(option) => {
-                    selectModel(option);
-                    keepOfferedEffort(option.reasoning);
-                  }}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  returnFocus={focusEditorSoon}
-                  selected={selectedOption}
-                />
-              }
-              onChange={choose}
-              onReturnFocus={focusEditorSoon}
-              unrecognizedEffort={unrecognizedEffort}
-            />
-            <ComposerToolbarStatus
-              connecting={connecting}
-              held={heldSend.held}
-              preparing={catalogPreparing && state !== 'running'}
-            />
-            <ComposerSubmitControls
-              state={state}
-              hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
-              disabled={
-                controlsDisabled ||
-                (catalogPreparing && state !== 'running') ||
-                connectedSources.pending
-              }
-              onSubmit={(event) => {
-                nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
-              }}
-              onStop={onStop}
-            />
-          </PromptInputFooter>
-        </TooltipProvider>{' '}
+        <ComposerToolbar
+          attachments={attachments}
+          contextReferences={contextReferences}
+          capabilitiesPending={capabilitiesPending}
+          sourcesPending={connectedSources.probing}
+          controlsDisabled={Boolean(controlsDisabled)}
+          onOpenSources={connectedSources.open ? openSources : undefined}
+          onOpenReferences={openReferences}
+          onReturnFocus={focusEditorSoon}
+          behavior={messageBehavior}
+          activityControl={activityControl}
+          workSummary={workSummary}
+          spotterAvailability={spotterAvailability}
+          spotterModel={spotter.value}
+          onSpotterModelChange={setSpotterModel}
+          catalogStatus={modelCatalogStatus}
+          onRetryCatalog={onRetryModelCatalog ? retryModelCatalog : undefined}
+          modelOptions={modelOptions}
+          selectedModel={selectedOption}
+          onSelectModel={pickModel}
+          reasoningLevels={selectedOption?.reasoning?.levels ?? NO_REASONING_LEVELS}
+          reasoningPending={
+            (connecting || modelCatalogStatus === 'loading') &&
+            !selectedOption?.reasoning?.levels?.length
+          }
+          defaultEffortLabel={defaultReasoningLabel(configuredEffort, selectedOption?.reasoning)}
+          onBehaviorChange={chooseBehavior}
+          unrecognizedEffort={unrecognizedEffort}
+          connecting={connecting}
+          held={heldSend.held}
+          preparing={catalogPreparing && state !== 'running'}
+          state={state}
+          hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
+          submitDisabled={Boolean(
+            controlsDisabled ||
+              (catalogPreparing && state !== 'running') ||
+              connectedSources.pending,
+          )}
+          onSubmitClick={markSubmitDelivery}
+          onStop={onStop ? stop : undefined}
+        />{' '}
       </PromptInput>
     </div>
   );

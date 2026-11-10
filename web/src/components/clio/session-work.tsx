@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { WorkRecord, WorkScheduleHistory, WorkTodo, WorkTodoSnapshot } from '@clio/core/v3';
 import {
   ChevronDownIcon,
@@ -29,6 +29,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useSessionWork } from './use-session-work';
+import { useSessionSchedules } from './session-inventory-queries';
 import { WorkRecordControls } from './work-record-controls';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import { todoCurrentSummary } from './todo-list-summary';
@@ -342,12 +343,8 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const schedules = useSessionSchedules(sessionId);
   const scheduleKey = ['session-work-schedules', settings.endpoint, sessionId] as const;
-  const schedules = useQuery({
-    queryKey: scheduleKey,
-    queryFn: ({ signal }) => repository.scheduledTurns(sessionId, signal),
-    refetchInterval: 5000,
-  });
   const removeSchedule = useMutation({
     mutationFn: (scheduleId: string) => repository.deleteScheduledTurn(scheduleId),
     onSuccess: async () => {
