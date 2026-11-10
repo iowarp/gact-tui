@@ -63,6 +63,7 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ScheduleSettings } from './settings-schedules';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { sessionReads } from '@/test/session-reads';
 
 afterEach(() => {
@@ -77,7 +78,15 @@ function renderSettings(initialSessionId?: string) {
   return render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-        <ScheduleSettings initialSessionId={initialSessionId} />
+        <SettingsScopeContext.Provider
+          value={{
+            group: 'Agent',
+            line: 'CLIO local, applies to every conversation on this agent',
+            place: 'CLIO local',
+          }}
+        >
+          <ScheduleSettings initialSessionId={initialSessionId} />
+        </SettingsScopeContext.Provider>
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -103,6 +112,8 @@ describe('scheduled work settings', { timeout: 30_000 }, () => {
     expect(within(row).getByText('Scheduled')).toBeVisible();
     expect(screen.getByText('Upcoming')).toBeVisible();
     expect(screen.queryByText(/D:\\/u)).not.toBeInTheDocument();
+    expect(screen.getByText('CLIO local, applies to the selected conversation')).toBeVisible();
+    expect(screen.queryByText(/every conversation on this agent/u)).not.toBeInTheDocument();
   });
 
   it('submits a typed repeating time in the service time zone only on Schedule work', async () => {

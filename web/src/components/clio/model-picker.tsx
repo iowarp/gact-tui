@@ -19,6 +19,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { modelPickerCatalog } from './model-picker-catalog-loader';
 import { LARGE_MODEL_CATALOG } from './use-progressive-model-catalog';
 import { RefreshButton } from './refresh-button';
@@ -37,6 +38,8 @@ interface ClioModelPickerProps {
    * that box; `trigger` opens under the trigger at the picker's own width.
    */
   placement?: 'composer' | 'trigger';
+  /** Catalog id of an app-wide key that opens this picker (the composer's `Ctrl '`). */
+  shortcut?: string;
 }
 
 /** The composer box around a trigger: the picker's anchor and width. */
@@ -101,6 +104,7 @@ export function ClioModelPicker({
   title = 'Choose a model',
   trigger,
   placement = 'trigger',
+  shortcut,
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -189,6 +193,13 @@ export function ClioModelPicker({
     [provider, options.length, placement],
   );
   const close = useCallback(() => handleOpenChange(false), [handleOpenChange]);
+  useShortcut(
+    shortcut ?? 'model-picker',
+    () => {
+      if (!triggerRef.current?.disabled) handleOpenChange(true);
+    },
+    { enabled: Boolean(shortcut) && !open, allowInTextField: true },
+  );
   const openSettings = useCallback(() => {
     closingForSettings.current = true;
     close();
