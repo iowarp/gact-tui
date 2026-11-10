@@ -47,6 +47,7 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
+import { workspaceName } from '@/lib/workspace-labels';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
@@ -199,7 +200,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
       contextBar={
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
-            <NewConversationBreadcrumb workspaceLabel={workspace?.display_name} />
+            <NewConversationBreadcrumb
+              workspaceLabel={workspace ? workspaceName(workspace) : undefined}
+            />
           </div>
           <ClioDraftActions
             disabled={!workspace || send.isPending}

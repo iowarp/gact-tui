@@ -16,6 +16,7 @@ import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from './primitives/icon-button';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { cn } from '@/lib/utils';
+import { workspaceName } from '@/lib/workspace-labels';
 import { ListGroupLabel } from './primitives/list-row';
 import { MenuRow } from './primitives/menu-row';
 
@@ -64,7 +65,7 @@ export function DraftWorkspaceChip({
   onSelect: (workspaceId: string) => void;
 }) {
   const current = workspaces.find((item) => item.id === workspaceId);
-  const label = current?.display_name || workspaceId;
+  const label = current ? workspaceName(current) : workspaceId;
   const groupId = useId();
   return (
     <DropdownMenu modal={false}>
@@ -89,7 +90,7 @@ export function DraftWorkspaceChip({
           >
             {workspaces.map((item) => (
               <DropdownMenuRadioItem key={item.id} value={item.id}>
-                <MenuRow icon={<FolderIcon />} label={item.display_name || item.id} />
+                <MenuRow icon={<FolderIcon />} label={workspaceName(item)} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
