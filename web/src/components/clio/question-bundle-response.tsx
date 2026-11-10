@@ -83,11 +83,12 @@ export function QuestionBundleResponse(props: {
       {...props}
       disabled={disabled}
       heading={question.question}
-      meta={
-        <span role="status">
-          Question {index + 1} of {questions.length}
-        </span>
-      }
+      pager={{
+        index,
+        total: questions.length,
+        onPrevious: () => setIndex(Math.max(0, index - 1)),
+        onNext: () => setIndex(Math.min(questions.length - 1, index + 1)),
+      }}
     >
       {choices.length ? (
         <QuestionChoiceRows
@@ -128,13 +129,21 @@ export function QuestionBundleResponse(props: {
             {sending ? 'Sending…' : 'Submit all answers'}
           </AskButton>
         ) : (
-          <AskButton disabled={disabled} hint="Enter" onClick={() => setIndex(index + 1)} primary>
+          // Filled, and on ↵, once this page has an answer; before that it only skips ahead.
+          <AskButton
+            disabled={disabled}
+            hint={isComplete(question) ? 'Enter' : undefined}
+            onClick={() => setIndex(index + 1)}
+            primary={isComplete(question)}
+          >
             Next question
           </AskButton>
         )}
-        <AskButton disabled={disabled || index === 0} onClick={() => setIndex(index - 1)}>
-          Back
-        </AskButton>
+        {index > 0 ? (
+          <AskButton disabled={disabled} onClick={() => setIndex(index - 1)}>
+            Back
+          </AskButton>
+        ) : null}
       </AskOptions>
     </QuestionResponseFrame>
   );

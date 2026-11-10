@@ -1,48 +1,64 @@
-import { FileCodeIcon } from 'lucide-react';
+import { FileCodeIcon, ShieldAlertIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { fileName, flowTrustAuthor, type FlowTrustRequest } from '@/lib/plugin-review';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { PluginReviewDialog } from './plugin-review-dialog';
 
 /**
  * The compact facts of a flow-trust permission, under its "Running flow …"
- * title: who wrote the plugin and its file, which opens the plugin's review.
+ * title, in the card's facts rows: who wrote the plugin, and its file, which
+ * opens the plugin's review.
  */
 export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
   const [open, setOpen] = useState(false);
   const file = fileName(request.file);
-  return (
-    <div className="grid min-w-0 justify-items-start gap-0.5 text-sm" data-slot="flow-trust">
-      <p className="text-muted-foreground">{`${flowTrustAuthor(request)}, not trusted yet`}</p>
-      {request.reviewUrl ? (
+  const items: KeyValueItem[] = [
+    {
+      label: 'Trust',
+      icon: <ShieldAlertIcon />,
+      value: `${flowTrustAuthor(request)}, not trusted yet`,
+    },
+  ];
+  if (request.reviewUrl) {
+    items.push({
+      label: 'Flow',
+      icon: <FileCodeIcon />,
+      mono: true,
+      title: request.file
+        ? `Review ${request.file} and its plugin`
+        : `Review the ${request.plugin} plugin`,
+      value: (
+        <button
+          aria-haspopup="dialog"
+          className="min-w-0 truncate rounded-sm text-accent-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => setOpen(true)}
+          type="button"
+        >
+          {file || `Review the ${request.plugin} plugin`}
+        </button>
+      ),
+    });
+  } else if (file) {
+    items.push({
+      label: 'Flow',
+      icon: <FileCodeIcon />,
+      mono: true,
+      title: request.file,
+      value: (
         <>
-          <Button
-            aria-haspopup="dialog"
-            className="h-auto max-w-full gap-1 p-0 font-mono text-sm"
-            onClick={() => setOpen(true)}
-            title={
-              request.file
-                ? `Review ${request.file} and its plugin`
-                : `Review the ${request.plugin} plugin`
-            }
-            type="button"
-            variant="link"
-          >
-            <FileCodeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="min-w-0 truncate">
-              {file || `Review the ${request.plugin} plugin`}
-            </span>
-          </Button>
-          <PluginReviewDialog onOpenChange={setOpen} open={open} request={request} />
-        </>
-      ) : file ? (
-        <p className="flex min-w-0 items-center gap-1 font-mono">
-          <FileCodeIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 truncate">{file}</span>
-          <span className="shrink-0 font-sans text-xs text-muted-foreground">
+          <span className="shrink-0 font-sans text-[12px] text-muted-foreground">
             No review available
           </span>
-        </p>
+        </>
+      ),
+    });
+  }
+  return (
+    <div className="min-w-0" data-slot="flow-trust">
+      <KeyValueGrid items={items} variant="facts" />
+      {request.reviewUrl ? (
+        <PluginReviewDialog onOpenChange={setOpen} open={open} request={request} />
       ) : null}
     </div>
   );

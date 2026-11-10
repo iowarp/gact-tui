@@ -18,6 +18,8 @@ export interface KeyValueItem {
    * `false` to drop the row (its content then lives behind the card's details).
    */
   narrow?: ReactNode | false;
+  /** `facts` only: `false` shows the row only in a narrow container (where `narrow: false` left it). */
+  wide?: false;
   /** `facts` only: wrap onto more lines instead of an ellipsis (a path being approved). */
   wrap?: boolean;
 }
@@ -114,6 +116,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
     >
       {items.map((item) => {
         const dropNarrow = facts && item.narrow === false;
+        const narrowOnly = facts && item.wide === false;
         const narrowValue = facts && item.narrow ? item.narrow : null;
         const wrap = facts && item.wrap;
         const wideValue =
@@ -131,6 +134,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                 facts && 'text-[12px]',
                 wrap && 'h-6 self-start',
                 dropNarrow && '@max-[420px]:hidden',
+                narrowOnly && 'hidden @max-[420px]:flex',
               )}
               title={facts ? item.label : undefined}
             >
@@ -164,6 +168,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                 item.mono && 'font-mono text-[11.5px] tabular-nums',
                 facts && item.mono && 'text-[12px]',
                 dropNarrow && '@max-[420px]:hidden',
+                narrowOnly && (wrap ? 'hidden @max-[420px]:block' : 'hidden @max-[420px]:flex'),
               )}
               title={item.title ?? (typeof item.value === 'string' ? item.value : undefined)}
             >
@@ -179,7 +184,13 @@ export const KeyValueGrid = memo(function KeyValueGrid({
               )}
             </dd>
             {hasAction ? (
-              <dd className={cn('flex justify-end', dropNarrow && '@max-[420px]:hidden')}>
+              <dd
+                className={cn(
+                  'flex justify-end',
+                  dropNarrow && '@max-[420px]:hidden',
+                  narrowOnly && 'hidden @max-[420px]:flex',
+                )}
+              >
                 {item.action}
               </dd>
             ) : null}
