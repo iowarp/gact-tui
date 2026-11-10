@@ -126,7 +126,7 @@ describe('source attachments in the composer', () => {
     repository.attachSourceFolder.mockRejectedValueOnce(new Error('Folder unavailable'));
     const { user } = renderComposer();
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await waitFor(() =>
       expect(repository.finishSourceDraft).toHaveBeenCalledWith(
         'w',
@@ -141,7 +141,7 @@ describe('source attachments in the composer', () => {
   it('withdraws the server draft when a linked folder is removed before sending', async () => {
     const { user, onSubmit } = renderComposer();
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await user.click(
       await screen.findByRole('button', { name: 'Remove attachment Research inputs' }),
     );
@@ -161,7 +161,7 @@ describe('source attachments in the composer', () => {
     const { user, onSubmit } = renderComposer();
     onSubmit.mockRejectedValueOnce(new Error('Message rejected'));
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await screen.findByRole('group', { name: 'Attached sources' });
     await user.type(screen.getByRole('combobox', { name: /^Ask / }), 'Inspect this{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
@@ -224,7 +224,7 @@ describe('source attachments in the composer', () => {
       source.id,
       ['data.csv'],
       'draft_test',
-      'editable',
+      'read_only',
       'sess_attachments',
     );
     repository.sourceOperations.mockResolvedValue([
@@ -255,7 +255,7 @@ describe('source attachments in the composer', () => {
   it('shows a linked folder in the attachment tray and sends its resource identity to the agent', async () => {
     const { user, onSubmit } = renderComposer();
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     const tray = await screen.findByRole('group', { name: 'Attached sources' });
     expect(within(tray).getByText('Research inputs')).toBeVisible();
     expect(within(tray).getByText('Linked folder')).toBeVisible();
@@ -284,8 +284,9 @@ describe('source attachments in the composer', () => {
 
   it('keeps a download visible after closing Attach, preserves typed text, and sends only when ready', async () => {
     const { user, client, onSubmit } = renderComposer();
+    repository.connectedSources.mockResolvedValue([{ ...source, mode: 'working_copy' }]);
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(await screen.findByRole('button', { name: 'Add source to message' }));
     expect(
       await screen.findByRole('group', { name: 'Preparing source attachments' }),
     ).toHaveTextContent('Research inputs');
@@ -321,8 +322,9 @@ describe('source attachments in the composer', () => {
           finish = resolve;
         }),
     );
+    repository.connectedSources.mockResolvedValue([{ ...source, mode: 'working_copy' }]);
     await openSource(user);
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await user.click(await screen.findByRole('button', { name: 'Add source to message' }));
     await screen.findByRole('group', { name: 'Preparing source attachments' });
     repository.sourceOperations.mockResolvedValue([{ ...running, state: 'completed' }]);
     await client.invalidateQueries();

@@ -41,7 +41,6 @@ test('rail rows open source, tool, Context and Todo details', async ({ page }) =
   const sources = page.getByRole('dialog', { name: 'Sources', exact: true });
   await expect(sources.getByRole('heading', { name: 'Sensor repository' })).toBeVisible();
   await expect(sources.getByText('sensor.csv', { exact: true })).toBeVisible();
-  await expect(sources.getByRole('button', { name: 'Link folder' })).toBeEnabled();
   await sources.getByRole('button', { name: 'Close and keep setup' }).click();
   await expect(panel).toBeVisible();
   await panel.getByRole('button', { name: 'Expand Tool calls', exact: true }).click();

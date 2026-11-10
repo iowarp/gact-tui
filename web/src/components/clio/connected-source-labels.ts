@@ -14,6 +14,19 @@ export const linkAccessNames: Record<LinkAccess, string> = {
   publish_later: 'Edit locally, publish later',
   write_through: 'Update originals on save',
 };
+
+export const sourceModeDescriptions: Record<SourceMode, string | undefined> = {
+  read_only: undefined,
+  working_copy: linkAccessNames.publish_later,
+  write_enabled: linkAccessNames.write_through,
+};
+
+/** The link access a source's chosen mode maps to when it is linked. */
+export const sourceModeLinkAccess: Record<SourceMode, LinkAccess> = {
+  read_only: 'read_only',
+  working_copy: 'publish_later',
+  write_enabled: 'write_through',
+};
 /** Format a source entry's size consistently in the source browser. */
 export const sourceBytes = (value: number): string =>
   value >= 1024 ** 3

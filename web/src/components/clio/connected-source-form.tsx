@@ -5,6 +5,7 @@ import type {
   SourceProvider,
   ConnectedSourceState,
   SftpCredentials,
+  SourceMode,
 } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -19,6 +20,7 @@ import { ObsidianSourceForm, type ObsidianChoice } from './obsidian-source-form'
 import { SourceSshTarget } from './source-ssh-target';
 import { GitHubRevisionPicker } from './github-revision-picker';
 import { GlobusReceivingStorageControl } from './globus-receiving-storage';
+import { SourceAccessChoice } from './source-access-choice';
 
 /** Node capabilities determine which real access modes can be offered. */
 export function ConnectedSourceForm({
@@ -46,7 +48,11 @@ export function ConnectedSourceForm({
   const [label, setLabel] = useState(source?.label ?? '');
   const [root, setRoot] = useState(source?.root ?? '');
   const [githubRevisionValid, setGithubRevisionValid] = useState(provider.id !== 'github');
-  const mode = source?.mode ?? 'read_only';
+  const supportedModes = provider.capabilities.supported_modes;
+  const [mode, setMode] = useState<SourceMode>(
+    source?.mode ??
+      (supportedModes.includes('read_only') ? 'read_only' : (supportedModes[0] ?? 'read_only')),
+  );
   const locationLocked = Boolean(source && !source.can_edit_location);
   const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();
   const [configuration, setConfiguration] = useState<
@@ -294,11 +300,20 @@ export function ConnectedSourceForm({
               }
             />
           )}
-          <p className="text-xs text-muted-foreground">
-            {provider.id === 'obsidian'
-              ? 'Connect this vault as a knowledge source. Notes open in the graph, file list, and reader.'
-              : 'Choose Download or Link and how edits are handled after connecting.'}
-          </p>
+          {provider.id === 'obsidian' ? (
+            <p className="text-xs text-muted-foreground">
+              Connect this vault as a knowledge source. Notes open in the graph, file list, and
+              reader.
+            </p>
+          ) : (
+            <SourceAccessChoice
+              value={mode}
+              onChange={setMode}
+              supported={supportedModes}
+              reasons={provider.capabilities.unavailable_reasons}
+              disabled={locationLocked || connect.isPending}
+            />
+          )}
         </fieldset>
       </fieldset>
       {connect.error && (

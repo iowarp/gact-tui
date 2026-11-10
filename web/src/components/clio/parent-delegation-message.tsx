@@ -11,7 +11,7 @@ import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { BoundedResult } from './bounded-result';
 import { delegationPrompt, isParentDelegation } from './parent-delegation';
 import { IconButton } from './primitives/icon-button';
-import { ToolDetailsContent } from './tool-details-content';
+import { ResultDialogContent } from './result-dialog-content';
 
 type DelegationBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -80,11 +80,14 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
               </div>
             </TooltipProvider>
           </div>
-          <ToolDetailsContent inline={false} title="Parent assignment: Technical details">
+          <ResultDialogContent
+            title="Parent assignment: Technical details"
+            description="The parent's original assignment."
+          >
             <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-6 [overflow-wrap:anywhere]">
               {block.text}
             </pre>
-          </ToolDetailsContent>
+          </ResultDialogContent>
         </Dialog>
       </div>
     </Message>

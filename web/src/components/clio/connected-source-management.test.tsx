@@ -95,35 +95,6 @@ const source = {
   download_available: true,
 };
 
-it('relinks an existing unlinked source from Files without a composer draft', async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
-    </QueryClientProvider>,
-  );
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-  await user.click(await screen.findByRole('button', { name: 'Link folder' }));
-  expect(await screen.findByText('Choose a conversation to track this work.')).toBeVisible();
-  expect(repository.linkConnectedSource).not.toHaveBeenCalled();
-  await chooseTrackingConversation(user, 'Source work');
-  await user.click(screen.getByRole('button', { name: 'Link folder' }));
-  await waitFor(() =>
-    expect(repository.linkConnectedSource).toHaveBeenCalledWith(
-      'w',
-      's1',
-      false,
-      undefined,
-      { access: 'read_only', confirm_remote: false },
-      'session_sources',
-    ),
-  );
-  expect(repository.linkConnectedSource).toHaveBeenCalledTimes(1);
-  expect(repository.beginSourceDraft).not.toHaveBeenCalled();
-  expect(repository.attachSourceFolder).not.toHaveBeenCalled();
-});
-
 it.each([1, 2])(
   'Files opens the source list independently and offers existing-source downloads (%s sources)',
   async (count) => {
@@ -152,7 +123,6 @@ it.each([1, 2])(
     expect(screen.queryByRole('button', { name: 'Connect' })).toBeNull();
     await user.click(screen.getByRole('button', { name: /^Inputs 1/ }));
     expect(await screen.findByRole('heading', { name: 'Inputs 1' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Download file' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Add this folder to message' })).toBeNull();
     rendered.rerender(view(false));
@@ -182,7 +152,6 @@ it('opens a summary-selected source directly without changing the composer selec
     </QueryClientProvider>,
   );
   expect(await screen.findByRole('heading', { name: 'OPAL inputs' })).toBeVisible();
-  expect(await screen.findByRole('button', { name: 'Link folder' })).toBeEnabled();
   expect(await screen.findByText('input.csv')).toBeVisible();
   expect(client.getQueryData(key)).toBe('some-other-source');
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
@@ -204,14 +173,25 @@ describe('with no conversations in the workspace', () => {
       created_at: '2026-11-09',
     });
   });
-  const open = async () => {
+  const open = async (mode: 'read_only' | 'working_copy') => {
+    repository.connectedSources.mockResolvedValue([
+      {
+        ...source,
+        mode,
+        materialization: 'not_materialized',
+        local_path: null,
+        linked: false,
+        link_available: true,
+      },
+    ]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <ConnectedSourcePicker workspaceId="w" manageOnly open onOpenChange={vi.fn()} />
+        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={vi.fn()} />
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
     const track = await screen.findByRole('combobox', { name: 'Track work in' });
     await waitFor(() => expect(track).toHaveTextContent('New conversation'));
@@ -220,14 +200,14 @@ describe('with no conversations in the workspace', () => {
   };
 
   it('links a folder by starting a conversation named after the source', async () => {
-    const { user, track } = await open();
-    await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+    const { user, track } = await open('read_only');
+    await user.click(await screen.findByRole('button', { name: 'Add source to message' }));
     await waitFor(() =>
       expect(repository.linkConnectedSource).toHaveBeenCalledWith(
         'w',
         's1',
         false,
-        undefined,
+        'draft_test',
         { access: 'read_only', confirm_remote: false },
         'session_new',
       ),
@@ -242,14 +222,14 @@ describe('with no conversations in the workspace', () => {
   });
 
   it('downloads into the started conversation and reuses it for later work', async () => {
-    const { user } = await open();
-    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    const { user } = await open('working_copy');
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await waitFor(() =>
       expect(repository.transferConnectedSource).toHaveBeenCalledWith(
         'w',
         's1',
         undefined,
-        undefined,
+        'draft_test',
         'editable',
         'session_new',
       ),
@@ -260,7 +240,7 @@ describe('with no conversations in the workspace', () => {
         'w',
         's1',
         ['input.csv'],
-        undefined,
+        'draft_test',
         'editable',
         'session_new',
       ),
@@ -270,17 +250,17 @@ describe('with no conversations in the workspace', () => {
 
   it('retries starting the conversation after a failure', async () => {
     repository.createSession.mockRejectedValueOnce(new Error('service unavailable'));
-    const { user } = await open();
-    await user.click(await screen.findByRole('button', { name: 'Link folder' }));
+    const { user } = await open('read_only');
+    await user.click(await screen.findByRole('button', { name: 'Add source to message' }));
     expect(await screen.findByText(/service unavailable/)).toBeVisible();
     expect(repository.linkConnectedSource).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Link folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await waitFor(() =>
       expect(repository.linkConnectedSource).toHaveBeenCalledWith(
         'w',
         's1',
         false,
-        undefined,
+        'draft_test',
         { access: 'read_only', confirm_remote: false },
         'session_new',
       ),

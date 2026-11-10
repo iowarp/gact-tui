@@ -327,10 +327,7 @@ test('fixture catalog filtering, selection and the shared source review render i
   expect(fixture.selections).toEqual([]);
   expect(fixture.isLinked()).toBe(false);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'How do you want to use these files?' }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Download selected files' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add source to message' })).toBeVisible();
   await expect(page.getByText('stations.csv', { exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(fixture.selections).toEqual([
@@ -341,7 +338,7 @@ test('fixture catalog filtering, selection and the shared source review render i
     path: testInfo.outputPath('fixture-ndp-source-review.png'),
     fullPage: true,
   });
-  await page.getByRole('button', { name: 'Link selected files' }).click();
+  await page.getByRole('button', { name: 'Add source to message' }).click();
   await expect(page.getByText('Attached: Coastal sea observations')).toBeVisible();
   expect(fixture.isLinked()).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -365,9 +362,7 @@ test('fixture selections survive filtering and remote result changes', async ({ 
   await expect(page.getByRole('button', { name: /Coastal sea observations/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Historical surface temperatures/ })).toBeVisible();
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'How do you want to use these files?' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add source to message' })).toBeVisible();
   expect(
     fixture.selections.map((selection) => [selection.dataset_id, selection.resource_ids]),
   ).toEqual([
