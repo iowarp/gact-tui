@@ -187,7 +187,12 @@ export const StateView = memo(function StateView({
       >
         <span
           title={typeof title === 'string' ? title : undefined}
-          className={cn('min-w-0 max-w-full truncate', !row && 'text-foreground')}
+          className={cn(
+            'min-w-0 max-w-full truncate',
+            // A row's title says what failed; its technical detail gives way first.
+            row && 'shrink-0',
+            !row && 'text-foreground',
+          )}
         >
           {title}
         </span>
@@ -196,7 +201,7 @@ export const StateView = memo(function StateView({
             title={row ? detail : undefined}
             className={cn(
               row
-                ? 'min-w-0 max-w-full shrink-0 truncate font-mono text-[11px] text-muted-foreground tabular-nums'
+                ? 'min-w-0 max-w-full truncate font-mono text-[11px] text-muted-foreground tabular-nums'
                 : // A panel's explanation is a sentence: it wraps rather than hide its end.
                   'max-w-[36ch] text-[12px] leading-[1.4] text-balance',
             )}

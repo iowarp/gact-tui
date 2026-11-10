@@ -15,6 +15,7 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
+import { useShownByPage } from './infrastructure-reachability';
 import { StateView } from './primitives/state-view';
 import { TechnicalDetails } from './technical-details';
 import { ManagedServiceLogo } from './managed-service-identity';
@@ -50,9 +51,10 @@ export function ProvenanceConnections({
     refetchInterval: 15_000,
   });
   const refresh = () => client.invalidateQueries({ queryKey: key });
+  const errorShownByPage = useShownByPage(query.error);
   return (
     <section aria-label="Connected provenance services" className="min-w-0 pt-3 empty:hidden">
-      {query.error ? (
+      {query.error && !errorShownByPage ? (
         <StateView
           action={{ label: 'Retry', onClick: () => void query.refetch() }}
           detail={query.error.message}
