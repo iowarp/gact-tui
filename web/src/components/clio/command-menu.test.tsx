@@ -351,6 +351,10 @@ describe('ClioCommandMenu workspace search', () => {
     const files = screen.getByRole('tab', { name: /^Files/u });
     expect(files).toHaveTextContent(/^Files$/u);
     expect(files).toHaveAccessibleName('Files');
+    expect(files).toHaveClass('text-faint');
+    expect(files).toHaveAttribute('data-empty', 'true');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).not.toHaveClass('text-faint');
+    expect(screen.getByRole('tab', { name: /^More/u })).not.toHaveClass('text-faint');
   });
 
   it('opens Settings filtered to the search when every result is a setting', async () => {

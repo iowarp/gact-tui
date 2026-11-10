@@ -58,6 +58,9 @@ function TextTabsImpl<Value extends string>({
         const selected = tab.value === value;
         // A count shows only where there are results.
         const count = tab.count === 0 ? undefined : tab.count;
+        // A tab without results fades its name until it is pointed at, focused or chosen.
+        // "More" gathers other kinds and keeps its tone.
+        const empty = tab.count === 0 && !selected && !tab.gathers;
         const name = count === undefined ? tab.label : `${tab.label}, ${count}`;
         const button = (
           <button
@@ -67,9 +70,11 @@ function TextTabsImpl<Value extends string>({
             className={cn(
               'relative inline-flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
               'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:opacity-0',
+              empty && 'text-faint focus-visible:text-muted-foreground',
               selected && 'font-medium text-foreground after:opacity-100',
               '[&_svg]:size-3.5 [&_svg]:shrink-0',
             )}
+            data-empty={empty || undefined}
             data-state={selected ? 'active' : 'inactive'}
             key={tab.value}
             onClick={() => onValueChange(tab.value)}
