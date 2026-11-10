@@ -24,6 +24,7 @@ export function SettingsRow({
   children,
   htmlFor,
   inlineControl = false,
+  wideControl = false,
   fullWidth = false,
   dirty = false,
 }: {
@@ -40,6 +41,12 @@ export function SettingsRow({
   htmlFor?: string;
   /** Small controls such as switches stay beside their label at every width. */
   inlineControl?: boolean;
+  /**
+   * A control wider than the value column (a segmented choice with many
+   * options) sits beside the label while both fit and drops under it when
+   * they don't, so it never covers the label.
+   */
+  wideControl?: boolean;
   /** Use the page's whole width instead of 60% of a wide page. */
   fullWidth?: boolean;
   /** A typed value waiting in the save bar. */
@@ -64,20 +71,36 @@ export function SettingsRow({
         data-setting={title}
         data-dirty={dirty || undefined}
         className={cn(
-          'relative grid min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
-          inlineControl
-            ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : // Two columns from a 20rem row, as the spec's 322 px dialog rows are. In the
-              // Settings window the rows stack before the nav folds to a rail (< 1024 px).
-              'grid-cols-1 @xs:grid-cols-[minmax(6rem,1fr)_minmax(52%,max-content)] max-[1023px]:in-data-window-content:grid-cols-1!',
+          'relative min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
+          wideControl
+            ? // A wrapped control is alone on its line, so space-between starts it under the label.
+              'flex flex-wrap justify-between'
+            : 'grid',
+          wideControl
+            ? null
+            : inlineControl
+              ? 'grid-cols-[minmax(0,1fr)_auto]'
+              : // Two columns from a 20rem row, as the spec's 322 px dialog rows are. In the
+                // Settings window the rows stack before the nav folds to a rail (< 1024 px).
+                'grid-cols-1 @xs:grid-cols-[minmax(6rem,1fr)_minmax(52%,max-content)] max-[1023px]:in-data-window-content:grid-cols-1!',
           dirty &&
             'before:absolute before:top-[1.1875rem] before:-left-3.5 before:size-1.5 before:rounded-full before:bg-primary',
         )}
       >
-        <div className="min-w-0">
+        <div
+          className={cn(
+            'min-w-0',
+            // In the folded window every row stacks, so this one does too.
+            wideControl && 'flex-auto max-[1023px]:in-data-window-content:basis-full',
+          )}
+        >
           <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
             {htmlFor ? (
-              <Label htmlFor={htmlFor} className="min-w-0 truncate text-[0.8125rem] font-normal">
+              // Block, not the label's flex, so a long name ends in an ellipsis.
+              <Label
+                htmlFor={htmlFor}
+                className="block min-w-0 truncate text-[0.8125rem] leading-normal font-normal"
+              >
                 {title}
               </Label>
             ) : (
@@ -111,6 +134,7 @@ export function SettingsRow({
             // Number fields keep their own padding, so an in-field unit never covers the digits.
             '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-[0.78125rem] dark:[&_input:not([aria-hidden])]:bg-sidebar',
             '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-[0.75rem]',
+            wideControl && 'w-auto max-w-full',
           )}
         >
           {children}

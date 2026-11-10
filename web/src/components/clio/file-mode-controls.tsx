@@ -1,5 +1,13 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { useContext, useEffect, useId, useMemo, useRef, type ComponentType } from 'react';
+import {
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  type ComponentType,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -8,13 +16,13 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
+import { ShortcutKeys } from './primitives/key-chip';
 import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
@@ -68,19 +76,68 @@ export function FileModeTrigger({
   );
 }
 
-/** A folded mode row: its name, with its key shown beside it and announced as a shortcut. */
-function FoldedModeItem({ mode }: { mode: FileMode }) {
+/**
+ * One mode as a checked menu row, with the key that works without the menu
+ * in the right column (workbench-keyboard, "Menus show the key that works
+ * anywhere"). Key and check share that column, as the spec's rows do: the
+ * active mode shows its check. The key is announced through `aria-keyshortcuts`,
+ * not the row's name.
+ */
+export function FileModeMenuItem({ mode }: { mode: FileMode }) {
   const { value, label, icon: Icon, shortcut } = mode;
-  const presentation = useShortcutPresentation(shortcut);
+  const keys = useShortcutPresentation(shortcut);
   return (
-    <DropdownMenuRadioItem value={value} aria-keyshortcuts={presentation?.aria}>
+    <DropdownMenuRadioItem value={value} aria-keyshortcuts={keys?.aria} className="group/mode">
       <Icon aria-hidden="true" />
       {label}
-      {presentation ? (
-        <DropdownMenuShortcut aria-hidden="true">{presentation.text}</DropdownMenuShortcut>
+      {keys ? (
+        <span
+          aria-hidden="true"
+          className="-mr-6 ml-auto pl-4 group-data-[state=checked]/mode:hidden"
+        >
+          <ShortcutKeys id={shortcut} />
+        </span>
       ) : null}
     </DropdownMenuRadioItem>
   );
+}
+
+/**
+ * A mode's key, focus anywhere in its frame (the bar and its body): it switches
+ * to the mode, and from the mode back to the one it came from.
+ */
+function FileModeShortcut({
+  id,
+  target,
+  modes,
+  value,
+  onChange,
+  region,
+}: {
+  id: string;
+  target: string;
+  modes: readonly FileMode[];
+  value: string;
+  onChange: (value: string) => void;
+  region: RefObject<Element | null>;
+}) {
+  const cameFrom = useRef<string | undefined>(undefined);
+  useShortcut(
+    id,
+    () => {
+      if (value !== target) {
+        cameFrom.current = value;
+        onChange(target);
+        return;
+      }
+      const back =
+        modes.find((mode) => mode.value === cameFrom.current && mode.value !== target) ??
+        modes.find((mode) => mode.value !== target);
+      if (back) onChange(back.value);
+    },
+    { region },
+  );
+  return null;
 }
 
 /** The modes folded into the active icon with a chevron that lists them all. */
@@ -111,7 +168,7 @@ export function FoldedFileModes({
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup aria-label={label} value={value} onValueChange={onChange}>
           {modes.map((mode) => (
-            <FoldedModeItem key={mode.value} mode={mode} />
+            <FileModeMenuItem key={mode.value} mode={mode} />
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
@@ -159,10 +216,32 @@ function FrameFileModes({
   label: string;
 }) {
   const anchor = useRef<HTMLSpanElement>(null);
+  // The frame is the bar and its body: the bar's parent.
+  const region = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        return anchor.current?.closest('[data-slot="frame-bar"]')?.parentElement ?? null;
+      },
+    }),
+    [],
+  );
   useFrameModes(anchor, modes.length < 2 ? null : { modes, value, onChange, label });
   if (modes.length < 2) return null;
   return (
     <span ref={anchor} className="contents">
+      {modes.map((mode) =>
+        mode.shortcut ? (
+          <FileModeShortcut
+            key={mode.value}
+            id={mode.shortcut}
+            target={mode.value}
+            modes={modes}
+            value={value}
+            onChange={onChange}
+            region={region}
+          />
+        ) : null,
+      )}
       <TooltipProvider delayDuration={200}>
         <TabsList
           aria-label={label}
