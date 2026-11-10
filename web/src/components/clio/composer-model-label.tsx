@@ -3,7 +3,7 @@ import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { type ClioModelOption, compactModelName, isVendorApi } from '@/lib/model-options';
-import { providerLogoId } from '@/lib/provider-presentation';
+import { modelRouteName, providerLogoId } from '@/lib/provider-presentation';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge } from './primitives/key-chip';
@@ -11,9 +11,10 @@ import { TOOLTIP_KEY } from './primitives/tooltip-key';
 
 /**
  * The route and the model, with the full selection on hover or keyboard focus.
- * The route is named only when it isn't the model maker's own API (Codex / luna 6.1,
+ * The route is named only when it isn't the model maker's own API (codex / luna 6.1,
  * but luna 6.1 through OpenAI). The `text` appearance is the composer row's bare
- * button: under 400px the composer drops the route, under 270px it keeps the logo.
+ * button: the route drops when it doesn't fit beside the model, and under 270px
+ * only the logo stays.
  */
 export function ComposerModelButton({
   option,
@@ -57,33 +58,42 @@ export function ComposerModelButton({
                   className={text ? 'size-3.5 rounded-none bg-transparent' : undefined}
                   provider={providerLogoId(option.providerId)}
                 />
-                {/* The provider takes only its own width; when both names overflow they
-                    shrink in proportion, so a long provider never hides the model. */}
+                {/* One line: the model sits first and the route wraps off the line
+                    (clipped) when both don't fit, so a short route stays at narrow
+                    widths and a long one never squeezes the model. Order keeps the
+                    reading order route → model for assistive technology. */}
                 <span
-                  className="flex min-w-0 flex-1 items-center gap-1 text-left"
+                  className={cn(
+                    'flex min-w-0 flex-1 items-center text-left',
+                    text
+                      ? 'h-4 flex-row-reverse flex-wrap justify-end overflow-hidden leading-4'
+                      : 'gap-1',
+                  )}
                   data-slot="model-choice-label"
                 >
                   {route ? (
-                    <>
+                    <span
+                      className={cn(
+                        'min-w-0',
+                        text
+                          ? 'order-2 shrink-0 whitespace-pre @max-[270px]/composer:hidden'
+                          : 'flex max-w-32 items-center gap-1',
+                      )}
+                    >
                       <span
-                        className={cn(
-                          'max-w-32 min-w-0 truncate',
-                          text && '@max-[400px]/composer:hidden',
-                        )}
+                        className={cn(!text && 'min-w-0 truncate')}
                         data-slot="model-choice-provider"
                       >
-                        {option.providerName}
+                        {modelRouteName(option.providerId, option.providerName)}
                       </span>
-                      <span
-                        aria-hidden="true"
-                        className={cn('shrink-0', text && '@max-[400px]/composer:hidden')}
-                      >
-                        {' / '}
-                      </span>
-                    </>
+                      <span aria-hidden="true">{' / '}</span>
+                    </span>
                   ) : null}
                   <span
-                    className={cn('min-w-0 grow truncate', text && '@max-[270px]/composer:hidden')}
+                    className={cn(
+                      'min-w-0 grow truncate',
+                      text && 'order-1 grow-0 @max-[270px]/composer:hidden',
+                    )}
                     data-slot="model-choice-model"
                   >
                     {compactModelName(option.id, option.label)}
