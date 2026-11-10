@@ -1,9 +1,10 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Sidebar, SidebarContent, SidebarRail } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
+import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
 import { useKnownConnections } from '@/hooks/use-known-connections';
@@ -66,6 +67,25 @@ export function ClioNavigation({
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
+  // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeSheet = useCallback(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [isMobile, setOpenMobile]);
+  const withSheetClosed =
+    <T,>(open: (value: T) => void) =>
+    (value: T) => {
+      closeSheet();
+      open(value);
+    };
+  const [rowDialog, setRowDialog] = useState<ReactNode>(null);
+  const presentRowDialog = useCallback(
+    (dialog: ReactNode) => {
+      if (dialog) closeSheet();
+      setRowDialog(dialog);
+    },
+    [closeSheet],
+  );
   const importInputRef = useRef<HTMLInputElement>(null);
   // The workspace chosen by "Import conversation here"; the service files the
   // import there when the blob names an existing workspace.
@@ -132,63 +152,66 @@ export function ClioNavigation({
         attentions={attentions}
         sessions={sessions}
       />
-      <Sidebar collapsible="icon" contained>
-        <nav
-          aria-label="Workspace navigation"
-          data-keyboard-region=""
-          className="flex h-full min-w-0 flex-1 flex-col"
-        >
-          <NavigationHeader
-            activeLabel={settings.label}
-            activeLocation={settings.location}
-            attentionControl={
-              <li className="shrink-0">
-                <ClioAttentionCenter
-                  activeSessionId={activeSessionId}
-                  attentions={attentions}
-                  sessions={sessions}
-                  workspaces={workspaces}
-                />
-              </li>
-            }
-            currentPath={location.pathname}
-            connectionAvailabilities={connectionAvailabilities}
-            endpoint={endpoint}
-            onConnect={switchService}
-            onImportSession={() => importSession()}
-            onNewSession={() => openNewSession()}
-            connections={knownConnections}
-          />
-          <SidebarContent className="gap-0">
-            <WorkspaceNavigation
-              actions={actions}
-              attentions={attentions}
-              activeSessionId={activeSessionId}
-              activeWorkspaceId={activeWorkspaceId}
-              agents={agents}
-              draftWorkspaceId={draftMatch?.params.workspaceId}
-              onAction={runNavigationAction}
-              onCreateSession={openNewSession}
-              onDelete={setDeleteTarget}
-              onDownloadSession={downloadSession}
-              onEditWorkspace={setWorkspaceEditorId}
-              onImportSession={importSession}
-              onNewWorkspace={() => setCreateWorkspaceOpen(true)}
-              onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-              onRename={setRenameTarget}
-              sessions={sessions}
-              workspaces={workspaces}
+      <LeftBarDialogContext.Provider value={presentRowDialog}>
+          <Sidebar collapsible="icon" contained>
+          <nav
+            aria-label="Workspace navigation"
+            data-keyboard-region=""
+            className="flex h-full min-w-0 flex-1 flex-col"
+          >
+            <NavigationHeader
+              activeLabel={settings.label}
+              activeLocation={settings.location}
+              attentionControl={
+                <li className="shrink-0">
+                  <ClioAttentionCenter
+                    activeSessionId={activeSessionId}
+                    attentions={attentions}
+                    sessions={sessions}
+                    workspaces={workspaces}
+                  />
+                </li>
+              }
+              currentPath={location.pathname}
+              connectionAvailabilities={connectionAvailabilities}
+              endpoint={endpoint}
+              onConnect={switchService}
+              onImportSession={() => importSession()}
+              onNewSession={() => openNewSession()}
+              connections={knownConnections}
             />
-          </SidebarContent>
-          <NavigationFooter
-            availability={activeAvailability[endpoint]}
-            endpoint={endpoint}
-            from={location.pathname}
-            onOpenArchived={() => setArchivedOpen(true)}
-          />
-        </nav>
-        <SidebarRail />
-      </Sidebar>
+            <SidebarContent className="gap-0">
+              <WorkspaceNavigation
+                actions={actions}
+                attentions={attentions}
+                activeSessionId={activeSessionId}
+                activeWorkspaceId={activeWorkspaceId}
+                agents={agents}
+                draftWorkspaceId={draftMatch?.params.workspaceId}
+                onAction={runNavigationAction}
+                onCreateSession={openNewSession}
+                onDelete={withSheetClosed(setDeleteTarget)}
+                onDownloadSession={downloadSession}
+                onEditWorkspace={withSheetClosed(setWorkspaceEditorId)}
+                onImportSession={importSession}
+                onNewWorkspace={() => withSheetClosed(setCreateWorkspaceOpen)(true)}
+                onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+                onRename={withSheetClosed(setRenameTarget)}
+                sessions={sessions}
+                workspaces={workspaces}
+              />
+            </SidebarContent>
+            <NavigationFooter
+              availability={activeAvailability[endpoint]}
+              endpoint={endpoint}
+              from={location.pathname}
+              onOpenArchived={() => withSheetClosed(setArchivedOpen)(true)}
+            />
+          </nav>
+          <SidebarRail />
+        </Sidebar>
+      </LeftBarDialogContext.Provider>
+      {rowDialog}
       <StableInput
         accept="application/json,.json"
         aria-label="Import session file"

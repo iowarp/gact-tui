@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLeftBarDialog } from '@/hooks/use-left-bar-dialog';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { canForkSession, isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
@@ -154,34 +155,45 @@ function SessionRow({
     seenRevision !== sessionInteractionAt(session);
   const active = session.id === activeSessionId;
   const navigate = useNavigate();
-  const [sharing, setSharing] = useState(false);
+  // Share and history confirmations open outside the phone sheet, which closes first.
+  const [dialog, presentDialog] = useLeftBarDialog();
+  const closeDialog = () => presentDialog(null);
   // One menu for ⋯ and right-click; the hover card stays out of its way while open.
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
   // The phone sheet leaves no room beside it for the preview, and touch has no hover.
   const isMobile = useIsMobile();
-  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
-  const [historyPending, setHistoryPending] = useState(false);
   const { forkSession, shareSession, openSystemTerminal, compactSession, undoSession } = actions;
   const hasHistoryActions = Boolean(compactSession && undoSession);
-  const confirmHistory = async () => {
-    const action = confirmation === 'compact' ? compactSession : undoSession;
-    if (!action) return;
-    setHistoryPending(true);
-    try {
-      await action(session.id);
-      setConfirmation(undefined);
-    } catch (error) {
-      toast.error(
-        confirmation === 'compact'
-          ? 'Unable to compact this conversation'
-          : 'Unable to remove the last message',
-        { description: error instanceof Error ? error.message : String(error) },
-      );
-    } finally {
-      setHistoryPending(false);
-    }
-  };
+  const openShare = (share: NonNullable<ResourceActions['shareSession']>) =>
+    presentDialog(
+      <ClioShareSessionDialog
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
+        onShare={async (ttlSeconds) => {
+          try {
+            return await share(session.id, ttlSeconds);
+          } catch (error) {
+            toast.error('Unable to create a share link', {
+              description: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+          }
+        }}
+        open
+        title={session.title || 'Untitled session'}
+      />,
+    );
+  const openHistoryConfirm = (confirmation: SessionHistoryConfirmation) =>
+    presentDialog(
+      <HistoryConfirm
+        action={confirmation === 'compact' ? compactSession : undoSession}
+        confirmation={confirmation}
+        onClose={closeDialog}
+        sessionId={session.id}
+      />,
+    );
   const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <>
@@ -242,7 +254,9 @@ function SessionRow({
                       }
                     />
                   ) : null}
-                  {shareSession ? <SessionShareMenuItem onSelect={() => setSharing(true)} /> : null}
+                  {shareSession ? (
+                    <SessionShareMenuItem onSelect={() => openShare(shareSession)} />
+                  ) : null}
                   <SessionExportMenu
                     onExport={(mode) =>
                       onAction(
@@ -263,7 +277,7 @@ function SessionRow({
                     />
                   ) : null}
                   {hasHistoryActions ? (
-                    <SessionHistoryMenuItems onConfirm={setConfirmation} />
+                    <SessionHistoryMenuItems onConfirm={openHistoryConfirm} />
                   ) : null}
                   <DropdownMenuSeparator />
                   <SessionLifecycleMenuItems
@@ -415,32 +429,48 @@ function SessionRow({
           </div>
         </HoverCardContent>
       </HoverCard>
-      {sharing && shareSession ? (
-        <ClioShareSessionDialog
-          onOpenChange={setSharing}
-          onShare={async (ttlSeconds) => {
-            try {
-              return await shareSession(session.id, ttlSeconds);
-            } catch (error) {
-              toast.error('Unable to create a share link', {
-                description: error instanceof Error ? error.message : String(error),
-              });
-              throw error;
-            }
-          }}
-          open
-          title={session.title || 'Untitled session'}
-        />
-      ) : null}
-      {hasHistoryActions ? (
-        <SessionHistoryConfirmDialog
-          confirmation={confirmation}
-          onCancel={() => setConfirmation(undefined)}
-          onConfirm={() => void confirmHistory()}
-          pending={historyPending}
-        />
-      ) : null}
+      {dialog}
     </>
+  );
+}
+
+/** Compact or remove-last confirmation; it owns its pending state so it outlives the row. */
+function HistoryConfirm({
+  action,
+  confirmation,
+  sessionId,
+  onClose,
+}: {
+  action: ((sessionId: string) => Promise<unknown>) | undefined;
+  confirmation: SessionHistoryConfirmation;
+  sessionId: string;
+  onClose: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const confirm = async () => {
+    if (!action) return;
+    setPending(true);
+    try {
+      await action(sessionId);
+      onClose();
+    } catch (error) {
+      toast.error(
+        confirmation === 'compact'
+          ? 'Unable to compact this conversation'
+          : 'Unable to remove the last message',
+        { description: error instanceof Error ? error.message : String(error) },
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <SessionHistoryConfirmDialog
+      confirmation={confirmation}
+      onCancel={onClose}
+      onConfirm={() => void confirm()}
+      pending={pending}
+    />
   );
 }
 
