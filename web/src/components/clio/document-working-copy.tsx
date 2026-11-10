@@ -1,5 +1,13 @@
+import { brand } from '@brand';
 import type { DocumentWorkingCopy } from '@clio/core/v3';
 import { StateView } from './primitives/state-view';
+
+/** "CLIO saved version 5 while you were editing. Keep its version, or save yours as version 6." */
+function conflictDetail(headVersion: number | undefined) {
+  return headVersion === undefined
+    ? `${brand.agentName} saved a newer version while you were editing. Keep its version, or save yours as the next one.`
+    : `${brand.agentName} saved version ${headVersion} while you were editing. Keep its version, or save yours as version ${headVersion + 1}.`;
+}
 
 /**
  * A working copy that needs a decision replaces the document body: Changed
@@ -8,11 +16,14 @@ import { StateView } from './primitives/state-view';
  */
 export function WorkingCopyState({
   copy,
+  headVersion,
   pending,
   onResolve,
   onDismiss,
 }: {
   copy: DocumentWorkingCopy;
+  /** The version that moved on, once its manifest is known. */
+  headVersion?: number;
   pending: boolean;
   onResolve: (resolution: 'keep-current' | 'use-working-copy') => void;
   onDismiss: () => void;
@@ -25,6 +36,7 @@ export function WorkingCopyState({
           disabled: pending,
           onClick: () => onResolve('use-working-copy'),
         }}
+        detail={conflictDetail(headVersion)}
         kind="changed-elsewhere"
         secondaryAction={{
           label: 'Keep current',

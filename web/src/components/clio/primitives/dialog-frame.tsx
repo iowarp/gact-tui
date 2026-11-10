@@ -175,6 +175,8 @@ export const DialogFrame = memo(function DialogFrame({
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
       if (event.key !== 'Enter') return;
+      // Ctrl+Shift+Enter is a dialog's Test key (SSH host, NDP endpoint), never its confirm.
+      if (event.shiftKey) return;
       const plain =
         confirm.key === 'Enter' &&
         !(event.target as Element).closest('input, textarea, select, button, a, [contenteditable]');

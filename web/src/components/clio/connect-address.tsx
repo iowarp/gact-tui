@@ -100,6 +100,23 @@ export function ConnectAddressFields({
 }
 
 /**
+ * The reason a connect attempt failed, in the spec's plain words, for the causes the
+ * person can act on: nothing answered, or the agent wants a (different) access token.
+ * Anything else keeps the service's own message.
+ */
+export function connectFailureReason(error: Error, tokenSent = false): string {
+  if (!(error instanceof TransportError)) return error.message;
+  if (error.code === 'network_unavailable') return 'no CLIO answered at that address.';
+  if (error.status === 401) {
+    return tokenSent
+      ? 'the agent did not accept that access token.'
+      : 'this agent needs an access token.';
+  }
+  if (error.status === 403) return 'that access token is not allowed on this agent.';
+  return error.message;
+}
+
+/**
  * A failure as one status line: what failed, why, and the next step. Raw
  * diagnostics, including an unexpected exception's own text, stay behind the
  * Diagnostic details button. Without a title the line gives only the reason,
@@ -110,17 +127,29 @@ export function ConnectErrorLine({
   title,
   onRetry,
   recovery,
+  tokenSent,
 }: {
   error: Error;
   title?: string;
+  tokenSent?: boolean;
   onRetry?: () => void;
   recovery?: ReactNode;
 }) {
   const internal = internalException(error);
+  const reason = internal ? undefined : connectFailureReason(error, tokenSent);
+  const replaced = reason !== undefined && reason !== error.message;
   const details = internal
     ? { error: internal }
     : error instanceof TransportError || error instanceof ServiceVersionError
-      ? error.details
+      ? replaced
+        ? {
+            message: error.message,
+            ...(error instanceof TransportError && error.status !== undefined
+              ? { status: error.status }
+              : {}),
+            ...(error.details ? { details: error.details } : {}),
+          }
+        : error.details
       : undefined;
   return (
     <ConnectStatusLine
@@ -167,7 +196,7 @@ export function ConnectErrorLine({
         </>
       ) : null}
       <span>
-        {internal ? (title ? UNEXPECTED_CONNECT_ERROR : 'Unexpected error') : error.message}
+        {internal ? (title ? UNEXPECTED_CONNECT_ERROR : 'Unexpected error') : reason}
       </span>
     </ConnectStatusLine>
   );

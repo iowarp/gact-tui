@@ -3,9 +3,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 
 const MODEL_DEFAULT = '__model_default__';
-/** The segmented control (spec .xsg): the chosen level is the raised segment. */
+/**
+ * The segmented control (spec .xsg): the chosen level is the raised segment.
+ * Seven levels fit a phone column only with tighter segments.
+ */
 const ITEM =
-  'h-6 rounded-[0.3125rem] border-0 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground';
+  'h-6 rounded-[0.3125rem] border-0 px-2.5 max-[25rem]:px-1! text-xs font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground';
 
 interface ReasoningLevelSegmentedProps {
   reasoning: ModelReasoningLevels | undefined;

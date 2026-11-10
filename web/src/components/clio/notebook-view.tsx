@@ -168,8 +168,12 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
     case 'html':
       return (
         <div className="min-w-0 overflow-x-auto px-3 py-1 [&_table]:text-[12px]">
-          {/* Streamdown sanitizes raw HTML: scripts, styles and handlers are dropped. */}
-          <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-[12.5px]')}>
+          {/* Streamdown sanitizes raw HTML: scripts, styles and handlers are dropped. The
+              frame bar owns copy and download, so an output table has no toolbar of its own. */}
+          <ContentMarkdown
+            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, 'text-[12.5px]')}
+            controls={{ table: false }}
+          >
             {htmlBlock(output.html)}
           </ContentMarkdown>
         </div>
@@ -177,7 +181,10 @@ function NotebookOutputView({ output }: { output: NotebookOutput }) {
     case 'markdown':
       return (
         <div className="min-w-0 px-3 py-1">
-          <ContentMarkdown className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}>
+          <ContentMarkdown
+            className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}
+            controls={{ table: false }}
+          >
             {output.markdown}
           </ContentMarkdown>
         </div>

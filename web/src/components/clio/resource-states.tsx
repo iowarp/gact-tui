@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { ArrowUpToLineIcon, BoxIcon, CodeIcon, DownloadIcon, EyeIcon } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import {
   Empty,
   EmptyDescription,
@@ -11,6 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatBytes } from '@/lib/format';
 import { INLINE_PREVIEW_MAX_BYTES, TEXT_WINDOW_CHUNK_BYTES } from '@/lib/runtime-limits';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { FileViewerFactsRegistry, useFileViewerFacts } from './file-viewer-facts';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
@@ -206,7 +207,7 @@ export function ViewerTooLarge({
   const actions = useViewerFileActions(
     source,
     onShowEnd
-      ? { label: `Show ${tail}`, icon: <EyeIcon />, onClick: onShowEnd }
+      ? { label: `Show ${tail}`, icon: <EyeIcon />, onClick: onShowEnd, shortcut: 'show-end' }
       : onPreview
         ? { label: 'Show it anyway', icon: <EyeIcon />, onClick: onPreview }
         : undefined,
@@ -214,11 +215,20 @@ export function ViewerTooLarge({
       ? { label: 'Show the beginning', icon: <ArrowUpToLineIcon />, onClick: onPreview }
       : undefined,
   );
-  const ways = onShowEnd
-    ? `Show ${tail}, or open`
-    : onPreview
-      ? 'Show it anyway, or open'
-      : 'Open';
+  // L shows the last part while focus is anywhere in this file's viewer (workbench-lineage 04).
+  const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
+  const region = useMemo(
+    () => ({
+      current: anchor?.closest('[data-slot="file-viewer"]') ?? anchor?.parentElement ?? null,
+    }),
+    [anchor],
+  );
+  const showEnd = actions.find((entry) => entry.shortcut === 'show-end');
+  useShortcut('show-end', () => showEnd?.onClick(), {
+    enabled: Boolean(showEnd && !showEnd.disabled),
+    region,
+  });
+  const ways = onShowEnd ? `Show ${tail}, or open` : onPreview ? 'Show it anyway, or open' : 'Open';
   return (
     <StateView
       actions={actions}
@@ -241,7 +251,9 @@ export function ViewerTooLarge({
           ? "It's too large to show here"
           : `${formatBytes(bytes)} is too large to show here`
       }
-    />
+    >
+      <span ref={setAnchor} hidden />
+    </StateView>
   );
 }
 
@@ -252,10 +264,16 @@ export function ViewerTooLarge({
 export function ViewerNoPreview({
   source,
   onShowText,
+  format,
+  reason,
 }: {
   source: FileViewerSource;
   /** Read the file as text in this viewer. */
   onShowText?: () => void;
+  /** Names the format when its extension alone would mislead (classic NetCDF is a .nc). */
+  format?: string;
+  /** Why this file has no viewer, a sentence before what still works. */
+  reason?: string;
 }) {
   const identity = fileViewerIdentity(source);
   const extension = fileExtension(identity.name);
@@ -267,13 +285,15 @@ export function ViewerNoPreview({
   return (
     <StateView
       actions={actions}
-      detail={`You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`}
+      detail={`${reason ? `${reason} ` : ''}You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`}
       kind="no-preview"
       size="viewer"
       title={
-        extension
-          ? `No viewer for ${extension} yet`
-          : `No viewer for ${identity.mediaType || 'this format'} yet`
+        format
+          ? `No viewer for ${format} yet`
+          : extension
+            ? `No viewer for ${extension} yet`
+            : `No viewer for ${identity.mediaType || 'this format'} yet`
       }
     />
   );

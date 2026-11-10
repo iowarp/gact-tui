@@ -173,7 +173,6 @@ export function PromptEditorDialog({
 
   return (
     <DialogFrame
-      className="w-[clamp(min(560px,calc(100vw-2rem)),44vw,720px)]"
       confirm={{
         label: save.isPending
           ? 'Saving…'
