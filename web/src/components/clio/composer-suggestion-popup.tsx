@@ -10,6 +10,14 @@ const POPUP_GAP_PX = 6;
 /** Below this window width the menu spans the window instead of the composer. */
 const NARROW_WINDOW_PX = 480;
 
+/**
+ * A menu group heading, as the pickers spec renders `.pgh` (:1115): 42px tall with the 11px
+ * label centred below 9px of padding. The spec's height comes from its 30px count cell, so
+ * the last row of one group sits about 40px above the next label.
+ */
+export const COMPOSER_GROUP_HEADING =
+  'flex h-[42px] min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-[11px] leading-[1.4] font-semibold whitespace-nowrap text-muted-foreground';
+
 /** The typed text inside a row's name, in the accent. */
 export function Highlighted({ text, query }: { text: string; query: string }): ReactNode {
   const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;

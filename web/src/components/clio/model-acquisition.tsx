@@ -19,6 +19,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { InfoTip } from './info-tip';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { MenuRow } from './primitives/menu-row';
 import { HostPathPicker } from './host-path-picker';
 import { InstallExpectation } from './install-expectation';
 import { ModelDownloadSearch } from './model-download-search';
@@ -172,23 +174,38 @@ export function ModelAcquisitions({
   const error = inventory.error ?? acquire.error ?? action.error;
   const unavailable = inventory.data?.unavailable_reason;
   const models = inventory.data?.models ?? [];
+  const startDownload = () => {
+    acquire.reset();
+    setOpen(true);
+  };
+  const downloadDisabled = !inventory.data || Boolean(unavailable);
   return (
     <div className="flex min-w-0 flex-col">
-      <InfraTabActions>
+      <InfraTabActions
+        fold={{
+          label: 'More model actions',
+          verb: (
+            <>
+              <Button size="sm" disabled={downloadDisabled} onClick={startDownload}>
+                <DownloadIcon /> Download model
+              </Button>
+              {unavailable ? (
+                <InfoTip label="Why downloading is unavailable">{unavailable}</InfoTip>
+              ) : null}
+            </>
+          ),
+          menu: (
+            <DropdownMenuItem disabled={downloadDisabled} onSelect={startDownload}>
+              <MenuRow
+                description={unavailable ?? undefined}
+                icon={<DownloadIcon />}
+                label="Download model"
+              />
+            </DropdownMenuItem>
+          ),
+        }}
+      >
         {hostSelector}
-        <Button
-          size="sm"
-          disabled={!inventory.data || Boolean(unavailable)}
-          onClick={() => {
-            acquire.reset();
-            setOpen(true);
-          }}
-        >
-          <DownloadIcon /> Download model
-        </Button>
-        {unavailable ? (
-          <InfoTip label="Why downloading is unavailable">{unavailable}</InfoTip>
-        ) : null}
       </InfraTabActions>
       {error ? (
         <StateView

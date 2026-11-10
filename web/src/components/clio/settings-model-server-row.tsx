@@ -380,6 +380,7 @@ export function ModelServerRow({
       actionsWidth={104}
       actions={actions}
       actionsVisible={mode !== 'view' || menuOpen}
+      foldActions
       confirm={confirm}
       aria-label={`${label}, ${state.label}`}
       data-provider-id={saved?.id ?? preset.id}

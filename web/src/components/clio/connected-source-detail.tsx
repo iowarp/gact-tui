@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { recentSessionsWith } from '@/lib/session-pages';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceAuth } from './connected-source-auth';
@@ -30,6 +29,7 @@ import type { SourceDownloadSelection } from './source-download-selection';
 import { SourceOperationStatus } from './source-operation-status';
 import { useStorageAttachment } from './use-storage-attachment';
 import { GlobusReceivingStorageControl } from './globus-receiving-storage';
+import { useSourceTrackingSession } from './use-source-tracking-session';
 
 /** Management of one source keeps refresh, reviewed writeback and disconnect explicit. */
 export function ConnectedSourceDetail({
@@ -63,13 +63,7 @@ export function ConnectedSourceDetail({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const [selectedSession, setSelectedSession] = useState('');
-  const trackingSession = sessionId || selectedSession;
-  const trackingSessions = useQuery({
-    queryKey: ['source-task-sessions', settings.endpoint, workspaceId],
-    enabled: !sessionId,
-    queryFn: ({signal}) => recentSessionsWith(repository, {workspaceId}, signal),
-  });
+  const tracking = useSourceTrackingSession({ workspaceId, sessionId, sourceLabel: source.label });
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState(initialFolder);
   const [search, setSearch] = useState('');
@@ -195,9 +189,10 @@ export function ConnectedSourceDetail({
         | 'unlink'
         | 'discard-edits',
     ) => {
-      if ((kind === 'transfer' || kind === 'link') && !trackingSession) {
-        throw new Error('Choose a conversation to track this work.');
-      }
+      const relink =
+        kind === 'unlink' || !source.linked || manageOnly || linkAccess !== source.link_access;
+      const trackingSession =
+        kind === 'transfer' || (kind === 'link' && relink) ? await tracking.resolve() : undefined;
       if (kind === 'transfer') {
         const draftId = onSelect
           ? (await repository.beginSourceDraft(workspaceId, source.id)).id
@@ -227,12 +222,7 @@ export function ConnectedSourceDetail({
             : undefined;
         try {
           let linked = source;
-          if (
-            kind === 'unlink' ||
-            !source.linked ||
-            manageOnly ||
-            linkAccess !== source.link_access
-          )
+          if (relink)
             linked = await repository.linkConnectedSource(
               workspaceId,
               source.id,
@@ -284,12 +274,19 @@ export function ConnectedSourceDetail({
   });
   const download = useMutation({
     mutationFn: async (path: string) => {
-      if (!trackingSession) throw new Error('Choose a conversation to track this work.');
+      const trackingSession = await tracking.resolve();
       const draftId = onSelect
         ? (await repository.beginSourceDraft(workspaceId, source.id)).id
         : undefined;
       const operation = await repository
-        .transferConnectedSource(workspaceId, source.id, [path], draftId, downloadAccess, trackingSession)
+        .transferConnectedSource(
+          workspaceId,
+          source.id,
+          [path],
+          draftId,
+          downloadAccess,
+          trackingSession,
+        )
         .catch(async (error: unknown) => {
           if (draftId) await repository.finishSourceDraft(workspaceId, source.id, draftId, false);
           throw error;
@@ -310,15 +307,6 @@ export function ConnectedSourceDetail({
   };
   return (
     <div className="space-y-4">
-      {!sessionId && <label className="grid gap-1 text-sm">
-        <span>Track work in</span>
-        <select className="h-9 rounded-md border bg-background px-2" value={selectedSession}
-          onChange={(event) => setSelectedSession(event.target.value)}>
-          <option value="">Choose a conversation</option>
-          {trackingSessions.data?.map((session) => <option key={session.id} value={session.id}>{session.title}</option>)}
-        </select>
-        {trackingSessions.error && <span role="alert">{trackingSessions.error.message}</span>}
-      </label>}
       <Button variant="ghost" size="sm" onClick={onBack}>
         <ArrowLeftIcon aria-hidden="true" />
         Back
@@ -349,6 +337,7 @@ export function ConnectedSourceDetail({
           </div>
         </div>
       </div>
+      {tracking.control}
       {onSelect && (ready || (source.linked && source.connected && canAccessSource)) && (
         <Button
           variant="outline"

@@ -132,7 +132,7 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting local ${brand.agentName}` })).toBeVisible();
   expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(
     'Starting the local service',
   );
@@ -198,7 +198,7 @@ it('defers an in-flight startup navigation until global search closes', async ()
     finishConnection({ endpoint: 'http://127.0.0.1:8788' });
   });
   // The landing form returns only after the mutation has finished successfully.
-  expect(await screen.findByRole('button', { name: 'Add a service' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Add an agent…' })).toBeVisible();
   expect(mocks.connect).toHaveBeenCalledOnce();
   expect(screen.queryByText('Workspace opened')).not.toBeInTheDocument();
   await act(async () => useCommandMenuVisibility.getState().setOpen(false));
@@ -267,11 +267,12 @@ it('separates saved services from new connection fields and exposes the endpoint
     </QueryClientProvider>,
   );
 
-  expect(screen.getByText('http://127.0.0.1:8788')).toBeVisible();
+  expect(screen.getByText('Contained campaign qualification')).toBeVisible();
+  expect(screen.getByText('127.0.0.1:8788')).toBeVisible();
   expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
   expect(await screen.findAllByText('Ready')).not.toHaveLength(0);
 
-  await user.click(screen.getByRole('button', { name: 'Add a service' }));
+  await user.click(screen.getByRole('button', { name: 'Add an agent…' }));
 
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
@@ -296,8 +297,8 @@ it('shows the manual form directly when nothing is known yet', () => {
 
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
-  expect(screen.queryByText('Known services', { selector: 'legend' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Add a service' })).not.toBeInTheDocument();
+  expect(screen.queryByText('Switch to', { selector: 'legend' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add an agent…' })).not.toBeInTheDocument();
 });
 
 it('lists the desktop-managed local service as a known connection, ahead of the manual form', () => {
@@ -317,7 +318,7 @@ it('lists the desktop-managed local service as a known connection, ahead of the 
     </QueryClientProvider>,
   );
 
-  expect(screen.getByText('This computer')).toBeVisible();
+  expect(screen.getByText(`${brand.agentName} local`)).toBeVisible();
   expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
 });
 
@@ -351,7 +352,7 @@ it('connects after clicking a known CLIO in the default list', async () => {
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
 });
 
-it('opens only the manual form from "Add a service" -- never a deploy action', async () => {
+it('opens only the manual form from "Add an agent…" -- never a deploy action', async () => {
   mocks.inTauri = true;
   mocks.recents = [{ endpoint: 'http://127.0.0.1:8788', label: 'Contained' }];
   const user = userEvent.setup();
@@ -368,7 +369,7 @@ it('opens only the manual form from "Add a service" -- never a deploy action', a
     </QueryClientProvider>,
   );
 
-  await user.click(screen.getByRole('button', { name: 'Add a service' }));
+  await user.click(screen.getByRole('button', { name: 'Add an agent…' }));
 
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
@@ -376,11 +377,11 @@ it('opens only the manual form from "Add a service" -- never a deploy action', a
   expect(mocks.repository.infrastructureTargets).not.toHaveBeenCalled();
 });
 
-it('shows the manual form -- never a reconnect screen -- after "Add a service" once auto-connect has settled', async () => {
+it('shows the manual form -- never a reconnect screen -- after "Add an agent…" once auto-connect has settled', async () => {
   // No `intent=connect`: this is the real flow the owner hit live. CLIO
   // auto-connects to the one remembered service on plain load, that
   // connection fails (the service is offline), and only THEN does the
-  // person reach for "Add a service".
+  // person reach for "Add an agent…".
   mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
   mocks.repository.capabilities.mockRejectedValue(
     new Error('Unable to reach the service at http://127.0.0.1:17999'),
@@ -401,7 +402,7 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
 
   expect(await screen.findByText("Can't connect")).toBeVisible();
 
-  await user.click(screen.getByRole('button', { name: 'Add a service' }));
+  await user.click(screen.getByRole('button', { name: 'Add an agent…' }));
 
   // `mutation.reset()` (fired by that click, to clear the stale error) used
   // to return `mutation.status` to 'idle', which a boot-screen gate read as
@@ -411,13 +412,13 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
   expect(
-    screen.queryByRole('heading', { name: `Starting ${brand.agentName} local` }),
+    screen.queryByRole('heading', { name: `Starting local ${brand.agentName}` }),
   ).not.toBeInTheDocument();
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 
 it('marks a known service that does not answer as failed, with Retry, as soon as connecting to it fails', async () => {
-  mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:17999' }];
   mocks.repository.capabilities.mockRejectedValue(
     new TransportError(
       'Unable to reach the service at http://127.0.0.1:17999',
@@ -452,6 +453,11 @@ it('marks a known service that does not answer as failed, with Retry, as soon as
       expect(screen.getByText("Can't connect: no answer from 127.0.0.1:17999")).toBeInTheDocument(),
     { timeout: 200 },
   );
+  // The row leads with the agent's name, even unnamed; the address is in the error line.
+  expect(
+    screen.getByRole('button', { name: `${brand.agentName} local`, pressed: true }),
+  ).toBeVisible();
+  expect(screen.queryByText('127.0.0.1:17999')).not.toBeInTheDocument();
   // The row says why and offers Retry; the form does not repeat it, and the
   // service cannot be opened until it answers.
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();

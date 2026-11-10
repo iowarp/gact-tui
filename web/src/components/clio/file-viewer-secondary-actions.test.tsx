@@ -104,7 +104,7 @@ it('opens secondary file views with accessible names and returns to the preview'
   await user.keyboard('{Escape}');
   await user.click(screen.getByRole('tab', { name: 'Lineage' }));
   expect(screen.getByRole('tabpanel', { name: 'Lineage' })).toHaveTextContent('Recorded lineage');
-  await user.click(screen.getByRole('tab', { name: 'Preview' }));
+  await user.click(screen.getByRole('tab', { name: 'Read document' }));
   expect(screen.getByText('Rendered file')).toBeVisible();
 });
 

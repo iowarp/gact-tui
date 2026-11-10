@@ -8,6 +8,8 @@ for (const width of [1280, 390]) {
     await page.goto('/tests/review/model-wait.html');
     const pill = page.getByRole('button', { name: 'Change model', exact: true });
     const fullName = 'AmSC Model Access Gateway / inkling-small-xhigh@cborg';
+    // The hover name ends with the picker's key chip (Ctrl ' off a Mac).
+    const hoverName = `${fullName}Ctrl '`;
     await expect(pill).toBeVisible();
     await expect(pill).toHaveAccessibleDescription(fullName);
     const provider = pill.locator('[data-slot="model-choice-provider"]');
@@ -29,14 +31,14 @@ for (const width of [1280, 390]) {
         ),
       ).toBe(true);
     await pill.hover();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await page.screenshot({ path: test.info().outputPath(`model-label-hover-${width}.png`) });
     // Radix keeps a grace corridor from the trigger to its hoverable tooltip;
     // move through it instead of teleporting to the final pointer coordinate.
     await page.mouse.move(0, 0, { steps: 3 });
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await pill.focus();
-    await expect(page.getByRole('tooltip')).toHaveText(fullName);
+    await expect(page.getByRole('tooltip')).toHaveText(hoverName);
     await pill.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Choose a model' })).toBeVisible();
     await page.keyboard.press('Escape');

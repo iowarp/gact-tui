@@ -10,7 +10,7 @@ afterEach(() => {
   mocks.invoke.mockReset();
 });
 
-it('shows the native package output and elapsed time while startup is pending', async () => {
+it('keeps the native package output in Startup details and times the current step', async () => {
   vi.useFakeTimers();
   mocks.invoke.mockResolvedValue(
     '=== backend boot log ===\nPreparing sandbox read/execute access: bundled_runtime...',
@@ -23,11 +23,9 @@ it('shows the native package output and elapsed time while startup is pending', 
   const current = screen.getByRole('listitem', { current: 'step' });
   expect(current).toHaveTextContent('Preparing the runtime and packages');
   expect(current).toHaveTextContent('2s');
-  expect(
-    screen.getByRole('list', { name: 'Startup progress' }).nextElementSibling,
-  ).toHaveTextContent(/Preparing sandbox read\/execute access/u);
+  expect(screen.queryByText(/Preparing sandbox read\/execute access/u)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Startup details' }));
-  expect(screen.getAllByText(/Preparing sandbox read\/execute access/u)).toHaveLength(2);
+  expect(screen.getByText(/Preparing sandbox read\/execute access/u)).toBeVisible();
   expect(mocks.invoke).toHaveBeenCalledWith('read_logs');
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);

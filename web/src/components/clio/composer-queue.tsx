@@ -46,9 +46,16 @@ function smoothScroll(): ScrollBehavior {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 }
 
+interface RowsBelow {
+  below: number;
+  /** The rows overflow the viewport, so the "more" line keeps its slot even at the end. */
+  overflowing: boolean;
+}
+
 /** How many rows sit below the viewport's visible edge, so a scrolled queue names what it hides. */
-function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
+function useRowsBelow(viewport: HTMLElement | null, rowCount: number): RowsBelow {
   const [below, setBelow] = useState(0);
+  const [overflowing, setOverflowing] = useState(false);
   useEffect(() => {
     if (!viewport) return;
     const measure = () => {
@@ -60,6 +67,7 @@ function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
         if (rect.top + rect.height / 2 > edge) hidden += 1;
       }
       setBelow(hidden);
+      setOverflowing(viewport.scrollHeight - viewport.clientHeight > 1);
     };
     measure();
     viewport.addEventListener('scroll', measure, { passive: true });
@@ -72,7 +80,7 @@ function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
       observer?.disconnect();
     };
   }, [viewport, rowCount]);
-  return below;
+  return { below, overflowing };
 }
 
 /**
@@ -104,7 +112,7 @@ export function ClioComposerQueue({
   const [editing, setEditing] = useState<{ id: string; text: string }>();
   const [collapsedPreference, setCollapsedPreference] = useState(false);
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
-  const below = useRowsBelow(viewport, ordered.length);
+  const { below, overflowing } = useRowsBelow(viewport, ordered.length);
 
   const resourceById = useMemo(
     () => new Map(resources.map((resource) => [resource.id, resource])),
@@ -256,7 +264,7 @@ export function ClioComposerQueue({
       )}
       {!collapsed && below > 0 ? (
         <button
-          className="mx-1 mt-0.5 flex h-[22px] items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+          className="mx-1 mt-0.5 flex h-[22px] shrink-0 items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
           onClick={() =>
             viewport?.scrollBy({ top: viewport.clientHeight, behavior: smoothScroll() })
           }
@@ -265,6 +273,10 @@ export function ClioComposerQueue({
           {below} more
           <ChevronDownIcon aria-hidden="true" className="size-3.5" />
         </button>
+      ) : !collapsed && overflowing ? (
+        // Scrolled to the end: hold the line's height so the strip, and the
+        // pending responses sharing the composer's height, do not resize.
+        <span aria-hidden="true" className="mt-0.5 h-[22px] shrink-0" />
       ) : null}
     </section>
   );

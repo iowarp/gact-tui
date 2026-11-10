@@ -15,7 +15,8 @@ export interface NavTab {
 /**
  * Places within one page, as links: icon only, and the open tab adds its
  * name over a 2px primary underline; tabs fill the bar's height. Every closed tab keeps its name on hover and as its accessible name,
- * so the strip never wraps and nothing is unexplained. Pair it with the
+ * so the strip never wraps and nothing is unexplained. When the strip is squeezed,
+ * the open tab's name truncates; its icon and every other tab stay. Pair it with the
  * catalog's previous-tab and next-tab keys on the page that owns it.
  */
 export const NavTabs = memo(function NavTabs({
@@ -48,7 +49,7 @@ export const NavTabs = memo(function NavTabs({
             className={cn(
               'relative flex shrink-0 items-center gap-1.5 rounded-sm px-[7px] text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
               current &&
-                'pr-2.5 font-medium text-foreground after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary',
+                'min-w-0 shrink pr-2.5 font-medium text-foreground after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary',
             )}
             key={id}
             state={state}

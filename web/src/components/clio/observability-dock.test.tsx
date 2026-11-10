@@ -267,7 +267,7 @@ describe('ClioObservabilityView', () => {
     expect(badge).not.toHaveTextContent('Up to date');
     expect(badge).toHaveClass('border-action/30');
     expect(badge).not.toHaveClass('border-info/30');
-    expect(badge?.querySelector('svg')).not.toHaveClass('motion-safe:animate-spin');
+    expect(badge?.querySelector('svg[class*="animate-spin"]')).toBeNull();
   });
 
   it('labels a failed session truthfully, never a red "Up to date" (rel18)', () => {

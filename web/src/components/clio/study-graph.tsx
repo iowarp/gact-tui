@@ -17,7 +17,8 @@ import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { EntryKindIcon, ScienceStatus } from './science-log-icons';
 import { ENTRY_TYPE_LABELS } from './science-log-model';
-import { fitColumns, topLeftViewport, usePaneSize } from './graph-fit';
+import { fitColumns, fitHeight, topLeftViewport, usePaneSize } from './graph-fit';
+import { GraphEdgeFade } from './graph-edge-fade';
 import {
   STUDY_GRAPH_NODE,
   studyGraphColumns,
@@ -44,13 +45,16 @@ export interface StudyGraphProps {
 /**
  * The study's recorded links, left to right from the question to its conclusions,
  * full-bleed and laid out from the top-left. The column gap and then the scale
- * shrink to fit the pane, never below a readable size; the rest is a pan away.
+ * shrink to fit the pane, never below a readable size; past that the reader pans,
+ * an edge fade shows where the study continues and fit gives the overview.
  */
 export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphProps) {
   const container = useRef<HTMLDivElement>(null);
   const size = usePaneSize(container);
   const fit = fitColumns(size?.w, studyGraphColumns(graph.nodes), width);
   const placed = withColumnGap(graph.nodes, fit.gap);
+  const wide = placed.length ? Math.max(...placed.map((node) => node.position.x)) + width : 0;
+  const tall = placed.length ? Math.max(...placed.map((node) => node.position.y)) + height : 0;
   const nodes: EntryNode[] = placed.map(({ entry, ...node }) => ({
     ...node,
     data: {
@@ -61,7 +65,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
       onSelect: onSelectEntry,
     },
   }));
-  const viewport = topLeftViewport(fit.zoom);
+  const viewport = topLeftViewport(fitHeight(fit, size?.h, tall));
   return (
     <section
       aria-label="Study relationship graph"
@@ -82,6 +86,7 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         proOptions={{ hideAttribution: true }}
       >
         <ApplyViewport viewport={viewport} />
+        <GraphEdgeFade width={wide} height={tall} />
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
         <Controls
           aria-label="Study graph controls"

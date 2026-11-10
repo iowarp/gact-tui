@@ -12,11 +12,14 @@ const END_REACHED_ROWS = 200;
 export function VirtualSourceLines({
   content,
   wrap,
+  headerRow = false,
   className,
   ...props
 }: {
   content: string;
   wrap: boolean;
+  /** The first line names the columns and reads faint. */
+  headerRow?: boolean;
   className?: string;
   role?: string;
   'aria-label'?: string;
@@ -74,7 +77,12 @@ export function VirtualSourceLines({
               >
                 {item.index + 1}
               </span>
-              <span className="min-w-0">{lines[item.index]}</span>
+              <span
+                className={cn('min-w-0', headerRow && item.index === 0 && 'text-faint')}
+                data-source-header={headerRow && item.index === 0 ? '' : undefined}
+              >
+                {lines[item.index]}
+              </span>
             </div>
           ))}
         </div>
