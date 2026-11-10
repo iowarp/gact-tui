@@ -247,7 +247,15 @@ export function ModelPickerSearch({
                       'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                   data-slot="model-filters-button"
-                  onClick={() => onFacetsOpenChange(!facetsOpen)}
+                  // The panel answers keys through the search field, so a press
+                  // leaves focus there and a key press on the button returns it.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onFacetsOpenChange(!facetsOpen);
+                    rootRef.current
+                      ?.querySelector<HTMLInputElement>('input')
+                      ?.focus({ preventScroll: true });
+                  }}
                   type="button"
                 >
                   <span className="grid w-6 place-items-center">
