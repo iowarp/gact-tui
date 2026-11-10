@@ -16,6 +16,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { InfoIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
+import { ROW_STATE_WRAP } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSelectField } from './model-select-field';
 import { IconButton } from './primitives/icon-button';
@@ -60,6 +61,7 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
     body = (
       <StateView
         action={{ label: 'Retry', onClick: () => void workspaces.refetch() }}
+        className={ROW_STATE_WRAP}
         kind="error"
         size="row"
         title={
@@ -327,6 +329,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
             })
           ) : (
             <StateView
+              className={ROW_STATE_WRAP}
               kind="empty"
               size="row"
               title="No additional folders. Commands write only in the primary folder."

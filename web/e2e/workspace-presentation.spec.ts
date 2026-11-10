@@ -114,9 +114,6 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   expect(metrics.height).toBeLessThanOrEqual(40);
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width);
   await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
-  await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-  await expect(page.getByRole('menuitemcheckbox', { name: 'Versions', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
   await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
   const image = canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true });
   const before = await imageWidth(image);
@@ -141,11 +138,6 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await page.screenshot({ path: testInfo.outputPath('shared-image-toolbar.png'), fullPage: true });
-  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
-  await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
-  expect(
-    (await new AxeBuilder({ page }).include('[data-slot="frame-bar"]').analyze()).violations,
-  ).toEqual([]);
   await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Lineage');
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
   await expect(

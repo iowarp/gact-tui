@@ -1,4 +1,4 @@
-import type { Session } from '@clio/core/v3';
+import type { PendingInteraction, Session } from '@clio/core/v3';
 import {
   BellIcon,
   BellRingIcon,
@@ -8,12 +8,13 @@ import {
   TextCursorInputIcon,
   type LucideIcon,
 } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { IconButton } from '@/components/clio/primitives/icon-button';
-import { ListRow } from '@/components/clio/primitives/list-row';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
+import { useAttentionResponse } from '@/hooks/use-attention-response';
+import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
@@ -25,7 +26,9 @@ import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
-import { useSystemVersionStatus } from '@/hooks/use-system-version-status';
+import { IconButton } from './primitives/icon-button';
+import { ListRow } from './primitives/list-row';
+import { permissionCommand } from './permission-operation-labels';
 import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
 
@@ -37,190 +40,6 @@ interface AttentionProps {
 
 const notifiedAttentionIds = new Set<string>();
 const lastAttentionNoticeAt = new Map<string, number>();
-
-function moveFocus(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-  const links = [...event.currentTarget.querySelectorAll<HTMLElement>('a[href], button')];
-  if (links.length === 0) return;
-  event.preventDefault();
-  const index = links.indexOf(document.activeElement as HTMLElement);
-  const next =
-    event.key === 'ArrowDown'
-      ? links[(index + 1) % links.length]
-      : links[(index - 1 + links.length) % links.length];
-  next?.focus();
-}
-
-/**
- * The bell: always in the left bar's header, counting what needs a response.
- * It opens one surface with a fixed group order. "Needs you" mirrors pending
- * requests and the agent group holds a ready update. Things that happened
- * while you were away need a background-finish event the runtime does not
- * send yet.
- */
-export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
-  const versions = useSystemVersionStatus();
-  const entries = useMemo(
-    () =>
-      sessions
-        .filter((session) => !session.archived && attentions[session.id]?.total)
-        .map((session) => ({ session, attention: attentions[session.id]! })),
-    [attentions, sessions],
-  );
-  const responseCount = entries.reduce((total, entry) => total + entry.attention.total, 0);
-  const updateReady = versions.state === 'available';
-  useShortcut('notifications', () => setOpen((current) => !current));
-  const label =
-    responseCount === 0
-      ? updateReady
-        ? 'Notifications: update ready'
-        : 'Notifications'
-      : `${
-          entries.length === 1
-            ? `${entries[0]!.session.title} needs your response`
-            : `${entries.length} sessions need your response`
-        }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
-
-  return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger asChild>
-        <IconButton
-          className={cn(
-            'shrink-0',
-            responseCount > 0 && 'text-action hover:text-action',
-            responseCount === 0 && updateReady && 'text-info',
-          )}
-          count={responseCount || undefined}
-          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
-          label={label}
-          shortcut="notifications"
-          tooltipSide="bottom"
-        />
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        alignOffset={-6}
-        className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
-        collisionPadding={8}
-        onOpenAutoFocus={(event) => {
-          // Start on the first notification, not the settings button.
-          const first = listRef.current?.querySelector<HTMLElement>('a[href], button');
-          if (!first) return;
-          event.preventDefault();
-          first.focus();
-        }}
-        side="bottom"
-      >
-        <div className="flex h-9 items-center gap-2 border-b border-border/70 pr-1.5 pl-3">
-          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
-          <IconButton
-            className="ml-auto"
-            icon={<AdjustIcon />}
-            label="Notification settings"
-            onClick={() => {
-              setOpen(false);
-              navigate('/settings/notifications');
-            }}
-            size="sm"
-          />
-        </div>
-        <div
-          className="clio-scrollbar max-h-[min(420px,70vh)] overflow-y-auto p-1"
-          onKeyDown={moveFocus}
-          ref={listRef}
-        >
-          <section aria-labelledby="attention-needs-you">
-            <h3
-              className="flex h-6 items-center gap-2 px-1.5 text-[11px] font-semibold text-muted-foreground"
-              id="attention-needs-you"
-            >
-              <span>Needs you</span>
-              <span className="text-warning tabular-nums">{responseCount}</span>
-            </h3>
-            {entries.length ? (
-              entries.map(({ session, attention }) => {
-                const summary = attentionSummary(attention);
-                const KindIcon = summary.kind.icon;
-                return (
-                  <Link
-                    aria-label={`${session.title}: ${summary.words}`}
-                    className="block rounded-[6px] outline-none focus-visible:bg-menu-highlight [&:is(:focus-visible,:has([data-selected]))_.text-link]:text-accent-foreground [&:is(:focus-visible,:has([data-selected]))_.text-muted-foreground]:text-foreground"
-                    key={session.id}
-                    onClick={() => setOpen(false)}
-                    to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
-                  >
-                    <ListRow
-                      description={summary.words}
-                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
-                      layout="stacked"
-                      meta={
-                        <span className="flex flex-col items-end leading-[1.3]">
-                          <ClioRelativeTime
-                            className="text-[11px] text-muted-foreground"
-                            compact
-                            label="Updated"
-                            timestamp={session.last_interaction_at ?? session.updated_at}
-                          />
-                          <span className="text-[12px] font-medium text-link">
-                            {summary.kind.action}
-                          </span>
-                        </span>
-                      }
-                      selected={session.id === activeSessionId}
-                      title={
-                        <span title={`${session.title} ${summary.kind.verb}`}>
-                          <span className="font-semibold">{session.title}</span>{' '}
-                          <span className="text-muted-foreground">{summary.kind.verb}</span>
-                        </span>
-                      }
-                    />
-                  </Link>
-                );
-              })
-            ) : (
-              <p className="px-1.5 pb-1 text-[12px] text-muted-foreground">
-                Nothing is waiting for you.
-              </p>
-            )}
-          </section>
-          {updateReady ? (
-            <>
-              <GroupLabel>{vocab.agent}</GroupLabel>
-              <ListRow
-                description={versions.message}
-                icon={<ProductUpdateIcon state={versions.state} />}
-                meta={
-                  versions.desktopShell ? (
-                    <button
-                      className="text-[12px] text-primary hover:underline disabled:opacity-50"
-                      disabled={versions.updating}
-                      onClick={() => versions.updateAll()}
-                      type="button"
-                    >
-                      Update
-                    </button>
-                  ) : undefined
-                }
-                title="Update ready"
-              />
-            </>
-          ) : null}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function GroupLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-1.5 pb-0.5 pt-1.5 text-[11px] font-medium text-muted-foreground first:pt-0.5">
-      {children}
-    </p>
-  );
-}
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -275,6 +94,330 @@ function attentionSummary(attention: SessionAttention): { words: string; kind: A
     words: parts.join(', '),
     kind: kind ?? { icon: InfoIcon, verb: 'needs you', action: 'Open' },
   };
+}
+
+const REQUEST_KINDS: Readonly<Record<string, AttentionKind>> = {
+  permission: { icon: ShieldQuestionIcon, verb: 'wants approval', action: 'Open' },
+  question: { icon: MessageCircleQuestionIcon, verb: 'asked a question', action: 'Answer' },
+  mcp_task_input: { icon: TextCursorInputIcon, verb: 'needs a value', action: 'Open' },
+  a2ui: { icon: LayoutTemplateIcon, verb: 'shows a form', action: 'Open' },
+};
+
+interface NeedRow {
+  key: string;
+  session: Session;
+  kind: AttentionKind;
+  detail: ReactNode;
+  /** The detail as words, for the hover name and the link's accessible name. */
+  detailText: string;
+  timestamp: string;
+  /** A permission this row can allow or deny in place. */
+  permission?: PendingInteraction;
+}
+
+/** One row for one pending request: its own verb, what it asks, and its action. */
+function requestRow(session: Session, request: PendingInteraction): NeedRow {
+  const row = { key: request.id, session, timestamp: request.created_at };
+  const kind = REQUEST_KINDS[request.kind];
+  if (!kind) {
+    const detail = "This version can't show it.";
+    return {
+      ...row,
+      kind: { icon: InfoIcon, verb: 'sent a request', action: 'Open' },
+      detail,
+      detailText: detail,
+    };
+  }
+  if (request.kind === 'permission') {
+    const actions = request.actions ?? [];
+    const permission = actions.includes('allow') && actions.includes('deny') ? request : undefined;
+    const { command, computer } = permissionCommand(request);
+    if (command) {
+      const where = computer ? ` on ${computer}` : '';
+      return {
+        ...row,
+        kind: { ...kind, verb: 'wants to run a command' },
+        detail: (
+          <>
+            <code className="font-mono text-[11px] text-foreground/85">{command}</code>
+            {where}
+          </>
+        ),
+        detailText: `${command}${where}`,
+        permission,
+      };
+    }
+    const detail = request.title || request.prompt || '';
+    return { ...row, kind, detail, detailText: detail, permission };
+  }
+  const detail = request.prompt || request.title;
+  return { ...row, kind, detail, detailText: detail };
+}
+
+/**
+ * Every pending request of a conversation as its own row. A conversation that
+ * only reports a waiting state (no request record yet) keeps one summary row.
+ */
+function needRows(session: Session, attention: SessionAttention): NeedRow[] {
+  const requests = attention.requests ?? [];
+  const known = new Set(requests.map((request) => request.id));
+  const rest = (ids: readonly string[]) => ids.filter((id) => !known.has(id));
+  const remainder: SessionAttention = {
+    ...attention,
+    permissionIds: rest(attention.permissionIds),
+    questionIds: rest(attention.questionIds),
+    mcpTaskInputIds: rest(attention.mcpTaskInputIds),
+    a2uiIds: rest(attention.a2uiIds),
+    unknownIds: rest(attention.unknownIds),
+  };
+  const rows = requests.map((request) => requestRow(session, request));
+  if (attention.total > requests.length) {
+    const summary = attentionSummary(remainder);
+    rows.push({
+      key: `${session.id}:waiting`,
+      session,
+      kind: summary.kind,
+      detail: summary.words,
+      detailText: summary.words,
+      timestamp: session.last_interaction_at ?? session.updated_at,
+    });
+  }
+  return rows;
+}
+
+function moveFocus(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  const links = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>('a[href]:not([data-duplicate-link])'),
+  ];
+  if (links.length === 0) return;
+  event.preventDefault();
+  const index = links.indexOf(document.activeElement as HTMLElement);
+  const next =
+    event.key === 'ArrowDown'
+      ? links[(index + 1) % links.length]
+      : links[(index - 1 + links.length) % links.length];
+  next?.focus();
+}
+
+export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const versions = useSystemVersionStatus();
+  const entries = useMemo(
+    () =>
+      sessions
+        .filter((session) => !session.archived && attentions[session.id]?.total)
+        .map((session) => ({ session, attention: attentions[session.id]! })),
+    [attentions, sessions],
+  );
+  const responseCount = entries.reduce((total, entry) => total + entry.attention.total, 0);
+  const rows = useMemo(
+    () => entries.flatMap(({ session, attention }) => needRows(session, attention)),
+    [entries],
+  );
+  const respond = useAttentionResponse();
+  useShortcut('notifications', () => setOpen((current) => !current));
+
+  const updateReady = versions.state === 'available';
+  // The bell is always there; its badge counts Needs you.
+  const label =
+    responseCount === 0
+      ? updateReady
+        ? 'Notifications: update ready'
+        : 'Notifications'
+      : `${
+          entries.length === 1
+            ? `${entries[0]!.session.title} needs your response`
+            : `${entries.length} sessions need your response`
+        }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <IconButton
+          className={cn(
+            'shrink-0',
+            responseCount > 0 && 'text-action hover:text-action',
+            responseCount === 0 && updateReady && 'text-info',
+          )}
+          count={responseCount || undefined}
+          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
+          label={label}
+          shortcut="notifications"
+          tooltipSide="bottom"
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        alignOffset={-6}
+        className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        collisionPadding={8}
+        onOpenAutoFocus={(event) => {
+          // Start on the first notification, not the settings button; an
+          // empty list keeps focus on the popover itself.
+          event.preventDefault();
+          const first = listRef.current?.querySelector<HTMLElement>('a[href]');
+          (first ?? (event.currentTarget as HTMLElement | null))?.focus();
+        }}
+        side="bottom"
+      >
+        <div className="flex h-[38px] items-center gap-2 pr-1.5 pl-3.5">
+          <PopoverTitle className="text-[13.5px] font-semibold">Notifications</PopoverTitle>
+          <IconButton
+            className="ml-auto"
+            icon={<AdjustIcon />}
+            label="Notification settings"
+            onClick={() => {
+              setOpen(false);
+              navigate('/settings/notifications');
+            }}
+            size="sm"
+          />
+        </div>
+        <section aria-labelledby="attention-needs-you" className="px-1.5 pb-2">
+          <h3
+            className="flex items-center gap-1.5 px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
+            id="attention-needs-you"
+          >
+            <span>Needs you</span>
+            {responseCount > 0 ? (
+              <span className="text-warning tabular-nums">{responseCount}</span>
+            ) : null}
+          </h3>
+          {rows.length === 0 ? (
+            <p className="px-2.5 pt-0.5 pb-1 text-[12px] text-faint">Nothing needs you.</p>
+          ) : null}
+          <div
+            className="clio-scrollbar flex max-h-96 flex-col overflow-y-auto"
+            onKeyDown={moveFocus}
+            ref={listRef}
+          >
+            {rows.map((row) => {
+              const KindIcon = row.kind.icon;
+              const { session } = row;
+              const to = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
+              const deciding =
+                respond.isPending && respond.variables?.interaction.id === row.permission?.id;
+              const decide = (action: 'allow' | 'deny') => {
+                if (!row.permission) return;
+                respond.mutate(
+                  { interaction: row.permission, action },
+                  {
+                    onError: () =>
+                      toast.error("Couldn't send your answer", {
+                        description: `Open ${session.title} to answer it there.`,
+                      }),
+                  },
+                );
+              };
+              return (
+                <div
+                  className="rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover"
+                  data-slot="attention-request"
+                  key={row.key}
+                >
+                  <Link
+                    aria-label={`${session.title} ${row.kind.verb}: ${row.detailText}`}
+                    className="block outline-none"
+                    onClick={() => setOpen(false)}
+                    to={to}
+                  >
+                    <ListRow
+                      description={<span title={row.detailText}>{row.detail}</span>}
+                      icon={<KindIcon aria-hidden="true" className="text-warning" />}
+                      meta={
+                        <ClioRelativeTime
+                          className="text-[11px] text-faint"
+                          compact
+                          label="Asked"
+                          timestamp={row.timestamp}
+                        />
+                      }
+                      primaryAction={row.permission ? undefined : row.kind.action}
+                      title={
+                        <span title={`${session.title} ${row.kind.verb}`}>
+                          <span className="font-semibold text-foreground">{session.title}</span>{' '}
+                          {row.kind.verb}
+                        </span>
+                      }
+                      variant="notice"
+                    />
+                  </Link>
+                  {row.permission ? (
+                    <div
+                      aria-label={`Decide: ${session.title} ${row.kind.verb}`}
+                      className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
+                      role="group"
+                    >
+                      <Button
+                        className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
+                        disabled={deciding}
+                        onClick={() => decide('allow')}
+                        size="xs"
+                      >
+                        Allow
+                      </Button>
+                      <Button
+                        className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                        disabled={deciding}
+                        onClick={() => decide('deny')}
+                        size="xs"
+                        variant="ghost"
+                      >
+                        Deny
+                      </Button>
+                      <Link
+                        aria-hidden="true"
+                        className="ml-auto font-medium text-accent-foreground hover:underline"
+                        data-duplicate-link=""
+                        onClick={() => setOpen(false)}
+                        tabIndex={-1}
+                        to={to}
+                      >
+                        {row.kind.action}
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        {updateReady ? (
+          <section aria-labelledby="attention-agent" className="px-1.5 pb-2">
+            <h3
+              className="px-2.5 pt-1 pb-1 text-[11px] font-semibold text-muted-foreground"
+              id="attention-agent"
+            >
+              {vocab.agent}
+            </h3>
+            <div className="rounded-[8px] px-2.5 py-2" data-slot="attention-update">
+              <ListRow
+                description={versions.message}
+                icon={<ProductUpdateIcon state={versions.state} />}
+                primaryAction={
+                  versions.desktopShell ? (
+                    <button
+                      className="hover:underline disabled:opacity-50"
+                      disabled={versions.updating}
+                      onClick={() => versions.updateAll()}
+                      type="button"
+                    >
+                      Update
+                    </button>
+                  ) : undefined
+                }
+                title={<span className="font-semibold text-foreground">Update ready</span>}
+                variant="notice"
+              />
+            </div>
+          </section>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }: AttentionProps) {

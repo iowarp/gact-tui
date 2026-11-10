@@ -13,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -29,6 +28,7 @@ import {
   type OpenTake,
   type TakeRow,
 } from './file-viewer-take-hooks';
+import { FileModeMenuItem } from './file-mode-controls';
 import { foldedFrameModes, type FrameModesEntry } from './primitives/frame-modes';
 import { IconButton } from './primitives/icon-button';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
@@ -297,11 +297,8 @@ export function FrameTalkTake({
                 value={group.value}
                 onValueChange={group.onChange}
               >
-                {group.modes.map(({ value, label, icon: Icon }) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    <Icon aria-hidden="true" />
-                    {label}
-                  </DropdownMenuRadioItem>
+                {group.modes.map((mode) => (
+                  <FileModeMenuItem key={mode.value} mode={mode} />
                 ))}
               </DropdownMenuRadioGroup>
             </Fragment>
