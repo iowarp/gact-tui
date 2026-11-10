@@ -71,7 +71,7 @@ import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import { isMacOS } from '@/lib/platform';
-import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { cn } from '@/lib/utils';
 import { countRunningSessions } from '@/lib/running-sessions';
@@ -162,8 +162,10 @@ function MenuActionItem({
   shortcut?: string;
 }) {
   const available = useMenuActionAvailable(action);
+  const keys = useShortcutPresentation(shortcut);
   return (
     <DropdownMenuItem
+      aria-keyshortcuts={keys?.aria}
       disabled={!available}
       onSelect={(event) => {
         if (keepOpen) event.preventDefault();
@@ -173,7 +175,7 @@ function MenuActionItem({
       {children}
       {shortcut ? (
         <DropdownMenuShortcut>
-          <ShortcutKeys id={shortcut} />
+          <ShortcutKeys id={shortcut} variant="menu" />
         </DropdownMenuShortcut>
       ) : null}
     </DropdownMenuItem>
@@ -220,6 +222,7 @@ export function DesktopTitleBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
   const desktopZoom = useDesktopZoom();
+  const fullscreenKeys = useShortcutPresentation('fullscreen');
   const queryClient = useQueryClient();
 
   // macOS quits like a Mac app: at once, unless a conversation is still
@@ -389,11 +392,14 @@ export function DesktopTitleBar() {
                   Zoom out
                 </MenuActionItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => void runWindowAction('toggleFullscreen')}>
+                <DropdownMenuItem
+                  aria-keyshortcuts={fullscreenKeys?.aria}
+                  onSelect={() => void runWindowAction('toggleFullscreen')}
+                >
                   <PanelTopIcon aria-hidden="true" />
                   Toggle fullscreen
                   <DropdownMenuShortcut>
-                    <ShortcutKeys id="fullscreen" />
+                    <ShortcutKeys id="fullscreen" variant="menu" />
                   </DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>

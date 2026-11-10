@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { DIALOG_FULL_WINDOW_LAYOUT, DIALOG_SHEET_CLASS } from '@/lib/dialog-sheet';
+import { useKeysAria } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
+
+const CLOSE_KEYS = ['Esc'] as const;
 
 /**
  * Focus goes to the first element marked with this attribute when a frame opens:
@@ -193,6 +196,9 @@ export const DialogFrame = memo(function DialogFrame({
   const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
   const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
+  const confirmKey = confirm?.key === 'Enter' ? 'Enter' : 'Ctrl+Enter';
+  const confirmAria = useKeysAria(confirmKeys ? [confirmKey] : undefined);
+  const closeAria = useKeysAria(CLOSE_KEYS);
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
@@ -296,11 +302,16 @@ export const DialogFrame = memo(function DialogFrame({
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
-              <Button className="border-border gap-[7px]" variant="ghost" data-initial-focus="">
+              <Button
+                aria-keyshortcuts={closeAria}
+                className="border-border gap-[7px]"
+                variant="ghost"
+                data-initial-focus=""
+              >
                 {cancelLabel ?? 'Close'}
                 <FooterKey
                   className="border-muted-foreground/45 text-muted-foreground"
-                  keys={['Esc']}
+                  keys={CLOSE_KEYS}
                 />
               </Button>
             </DialogPrimitive.Close>
@@ -308,6 +319,7 @@ export const DialogFrame = memo(function DialogFrame({
           {confirm ? (
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
+              aria-keyshortcuts={confirmAria}
               variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
               // The face fills the whole 28 px, under the border too.
               className="gap-[7px] bg-clip-border"
@@ -317,12 +329,7 @@ export const DialogFrame = memo(function DialogFrame({
               ref={confirmOnly ? focusOnMount : undefined}
             >
               {confirm.label}
-              {confirmKeys ? (
-                <FooterKey
-                  className="border-current/45"
-                  keys={[confirm.key === 'Enter' ? 'Enter' : 'Ctrl+Enter']}
-                />
-              ) : null}
+              {confirmKeys ? <FooterKey className="border-current/45" keys={[confirmKey]} /> : null}
             </Button>
           ) : null}
         </div>
