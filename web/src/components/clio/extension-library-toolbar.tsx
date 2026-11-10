@@ -1,5 +1,5 @@
 import { BoxIcon, LayersIcon, ListIcon, PlugIcon, SearchIcon, SparklesIcon } from 'lucide-react';
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { startTransition, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,29 +96,13 @@ export function ExtensionToolbar({
       />
       <span className="min-w-0 flex-1" />
       {searching ? (
-        <form
-          className="flex min-w-0 basis-[30%] items-center"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSearchSubmit(search);
-          }}
-          role="search"
-        >
-          <Input
-            aria-label="Search extensions"
-            autoFocus
-            className="h-7 min-w-0 text-xs"
-            onChange={(event) => onSearchChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.stopPropagation();
-              closeSearch();
-            }}
-            placeholder={view === 'discover' ? 'Search, Enter for the registry' : 'Search'}
-            value={search}
-          />
-          <IconButton icon={<CloseIcon />} label="Close search" onClick={closeSearch} />
-        </form>
+        <ExtensionSearchField
+          onClose={closeSearch}
+          onSearchChange={onSearchChange}
+          onSearchSubmit={onSearchSubmit}
+          placeholder={view === 'discover' ? 'Search, Enter for the registry' : 'Search'}
+          search={search}
+        />
       ) : (
         <IconButton
           icon={<SearchIcon />}
@@ -165,6 +149,55 @@ export function ExtensionToolbar({
         </SplitButton>
       </span>
     </div>
+  );
+}
+
+/**
+ * The open search field. It keeps what is typed and hands it to the list as a
+ * transition, so each key repaints the field at once and the list follows.
+ */
+function ExtensionSearchField({
+  search,
+  placeholder,
+  onSearchChange,
+  onSearchSubmit,
+  onClose,
+}: {
+  search: string;
+  placeholder: string;
+  onSearchChange: (search: string) => void;
+  onSearchSubmit: (search: string) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(search);
+  return (
+    <form
+      className="flex min-w-0 basis-[30%] items-center"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSearchSubmit(draft);
+      }}
+      role="search"
+    >
+      <Input
+        aria-label="Search extensions"
+        autoFocus
+        className="h-7 min-w-0 text-xs"
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          startTransition(() => onSearchChange(next));
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.stopPropagation();
+          onClose();
+        }}
+        placeholder={placeholder}
+        value={draft}
+      />
+      <IconButton icon={<CloseIcon />} label="Close search" onClick={onClose} />
+    </form>
   );
 }
 
