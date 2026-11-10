@@ -22,8 +22,8 @@
 //! `<action-id>` is one of the [`crate::menu_spec::Item::Action`] ids in
 //! [`crate::menu_spec::MENU_SPEC`]. Predefined items (Edit, and the app
 //! menu's hide group) carry native OS behavior and emit no event. Quit is
-//! actionable but handled entirely natively — via `crate::request_quit` —
-//! and never emitted to the JS bridge at all (see `handle_menu_event`).
+//! actionable but handled natively — via `crate::request_user_quit` — and
+//! never emitted as a menu action (see `handle_menu_event`).
 //!
 //! ## Why a declarative spec
 //!
@@ -182,13 +182,13 @@ pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
         return;
     };
 
-    // The macOS app-menu Quit (and its Cmd+Q accelerator) is one of the quit
-    // entry points `crate::request_quit` guards against double teardown for.
-    // It runs the same native hide+reap+exit as the tray Quit item, bypassing
-    // the frontend close prompt entirely — matching prior native-Quit
-    // behavior — so it must never fall through to the generic emit below.
+    // The macOS app-menu Quit (and its Cmd+Q accelerator) quits through
+    // `crate::request_user_quit`: the frontend confirms only while a
+    // conversation is still running, then the guarded `crate::request_quit`
+    // reaps the owned process tree. It must never fall through to the
+    // generic emit below.
     if action == "quit" {
-        crate::request_quit(app);
+        crate::request_user_quit(app);
         return;
     }
 
