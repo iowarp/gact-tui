@@ -157,6 +157,7 @@ export function SandboxBoundaryNotice({
         icon={<FolderCheckIcon />}
         onOpenChange={(open) => !open && setAsking(undefined)}
         open={Boolean(asking)}
+        className="w-[490px]"
         title={`Allow writing to ${asking ?? ''}?`}
       >
         <div data-dialog="allow-folder">
@@ -166,18 +167,20 @@ export function SandboxBoundaryNotice({
                 label: 'What you allow',
                 title: `Read and write in ${asking ?? ''}`,
                 value: (
-                  <span className="min-w-0 truncate">
+                  <span className="min-w-0">
                     Read and write in <span className="font-mono text-[12px]">{asking}</span>
                   </span>
                 ),
+                wrap: true,
               },
               {
                 label: 'For',
                 value: folders.workspace?.name
                   ? `This workspace, ${folders.workspace.name}`
                   : 'This workspace',
+                wrap: true,
               },
-              { label: 'Until', value: 'You remove it in Settings, Permissions' },
+              { label: 'Until', value: 'You remove it in Settings, Permissions', wrap: true },
             ]}
             variant="facts"
           />

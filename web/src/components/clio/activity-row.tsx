@@ -2,14 +2,18 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useState,
+  type FocusEvent,
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type ReactNode,
 } from 'react';
 import { ChevronRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { canDeferHoverControls } from '@/lib/hover-deferral';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
@@ -93,10 +97,30 @@ export const ActivityRow = memo(
       className,
       onKeyDown,
       onClick,
+      onPointerEnter,
+      onFocus,
       ...rest
     },
     ref,
   ) {
+    // Hover actions mount when the pointer or focus first reaches the row, so a long
+    // transcript does not carry every row's hidden buttons. Focus arms them before a
+    // key press, so Ctrl+C and Alt+Enter still find them.
+    const [armed, setArmed] = useState(() => !canDeferHoverControls());
+    const handlePointerEnter = useCallback(
+      (event: PointerEvent<HTMLDivElement>) => {
+        onPointerEnter?.(event);
+        setArmed(true);
+      },
+      [onPointerEnter],
+    );
+    const handleFocus = useCallback(
+      (event: FocusEvent<HTMLDivElement>) => {
+        onFocus?.(event);
+        setArmed(true);
+      },
+      [onFocus],
+    );
     const handleKeyDown = useCallback(
       (event: KeyboardEvent<HTMLDivElement>) => {
         onKeyDown?.(event);
@@ -199,7 +223,10 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-outcome"
                   title={outcomeTitle}
-                  className={cn('shrink-0 text-[11.5px]', OUTCOME_TONE[outcomeTone])}
+                  className={cn(
+                    'flex shrink-0 items-center gap-2 text-[11.5px]',
+                    OUTCOME_TONE[outcomeTone],
+                  )}
                 >
                   {outcome}
                 </span>
@@ -210,18 +237,14 @@ export const ActivityRow = memo(
             marks ? <span className="flex shrink-0 items-center gap-1">{marks}</span> : undefined
           }
           badge={badge ?? null}
-          actions={actions ?? null}
-          meta={
-            elapsed !== undefined && elapsed !== null ? (
-              <span className="w-11 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                {elapsed}
-              </span>
-            ) : null
-          }
+          actions={armed ? (actions ?? null) : null}
+          meta={elapsed ?? null}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}
           onClick={handleClick}
+          onPointerEnter={actions && !armed ? handlePointerEnter : onPointerEnter}
+          onFocus={actions && !armed ? handleFocus : onFocus}
           className={cn(onOpenChange && 'cursor-pointer', className)}
           {...rest}
         />
@@ -254,7 +277,7 @@ export function ActivityDisclosure({
       disabled={disabled}
       onClick={onClick}
       data-slot="activity-disclosure"
-      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground disabled:opacity-0"
+      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground disabled:opacity-0 aria-expanded:bg-transparent aria-expanded:text-faint aria-expanded:hover:text-foreground dark:hover:bg-transparent"
     >
       <ChevronRightIcon
         aria-hidden="true"
@@ -284,7 +307,7 @@ export const ActivityInfoButton = forwardRef<
         className="size-[26px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-3.5"
         {...rest}
       >
-        <InfoIcon aria-hidden="true" />
+        <InfoIcon aria-hidden="true" className="size-3.5" />
       </Button>
     </NamedTooltip>
   );

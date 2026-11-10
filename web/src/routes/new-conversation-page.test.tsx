@@ -137,11 +137,7 @@ vi.mock('@/components/clio/workbench', () => ({ ClioWorkbench: () => null }));
 vi.mock('@/components/clio/workspace-route-surfaces', () => ({
   WorkspaceActionAlerts: () => null,
   WorkspaceUnavailable: () => null,
-  WorkspaceStatusStrip: ({ tokens, stream }: { tokens: number; stream: string }) => (
-    <span>
-      {stream} · Tokens: {tokens}
-    </span>
-  ),
+  WorkspaceStatusStrip: ({ stream }: { stream: string }) => <span>status {stream}</span>,
 }));
 vi.mock('@/components/clio/composer', () => ({
   ClioComposer: ({ onOpenReference }: ClioComposerProps) => (
@@ -213,7 +209,7 @@ describe('new conversation reference navigation', () => {
     );
     expect(screen.queryByRole('dialog', { name: 'Source connection' })).not.toBeInTheDocument();
   });
-  it('keeps the header menu and bottom status available before sending', async () => {
+  it('keeps the header menu and top-bar status available before sending', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <TooltipProvider>
@@ -221,7 +217,7 @@ describe('new conversation reference navigation', () => {
         </TooltipProvider>
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('live · Tokens: 0')).toBeVisible();
+    expect(await screen.findByText('status live')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'New conversation actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Workspace files' }));
     expect(mocks.revealWorkbench).toHaveBeenCalledWith({ kind: 'resources', section: 'files' });
