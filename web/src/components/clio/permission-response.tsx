@@ -58,6 +58,21 @@ function permissionTitle(interaction: PendingInteraction, toolName: string | und
   return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
 }
 
+/**
+ * The script the decision is about: the script a tool was called from, or run_code's own code
+ * (spec 04, "A whole script"). Only a script already running has a call to open as a tab.
+ */
+function permissionScript(
+  interaction: PendingInteraction,
+  toolName: string | undefined,
+): { code: string; call_id?: string } | undefined {
+  if (interaction.payload?.script) return interaction.payload.script;
+  const input = interaction.payload?.tool_call?.input;
+  if (toolName !== 'run_code' || !input || typeof input !== 'object') return undefined;
+  const code = (input as Record<string, unknown>).code;
+  return typeof code === 'string' && code.trim() ? { code } : undefined;
+}
+
 /** Who asked, when it is not the conversation on screen. */
 function askedBy(
   interaction: PendingInteraction,
@@ -111,10 +126,15 @@ export function PermissionResponse({
   );
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
+  const script = permissionScript(interaction, toolName);
+  const scriptCallId = script?.call_id;
+  // The script block carries the lines run_code's own title summarises ("Run a Python script
+  // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const title = flowTrust
     ? `Running flow ${flowTrust.flow}`
-    : permissionTitle(interaction, toolName);
-  const script = interaction.payload?.script;
+    : script && !interaction.payload?.script
+      ? 'Run script'
+      : permissionTitle(interaction, toolName);
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
   const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
   const owner = askedBy(interaction, ownerLabel, showOwner);
@@ -174,7 +194,11 @@ export function PermissionResponse({
           language="python"
           meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
           name="Script"
-          onOpen={onOpenScript ? () => onOpenScript(interaction, script.call_id) : undefined}
+          onOpen={
+            onOpenScript && scriptCallId
+              ? () => onOpenScript(interaction, scriptCallId)
+              : undefined
+          }
           wrapToggle
         />
       ) : null}
@@ -207,7 +231,7 @@ export function PermissionResponse({
         ) : null}
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
-        <AskDetails description="The tool's arguments, as the agent sent them.">
+        <AskDetails hint="raw arguments, as the agent sent them">
           <div className="grid gap-2.5">
             {detailFacts.length ? (
               <div data-slot="ask-details-facts">
@@ -217,7 +241,7 @@ export function PermissionResponse({
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
             {toolCall?.input === undefined ? null : (
               <AskCode
-                className="mt-0 ml-0"
+                className="mt-1 ml-0"
                 code={JSON.stringify(agentArguments(toolCall.input), null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
