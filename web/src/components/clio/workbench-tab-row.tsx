@@ -38,6 +38,7 @@ import {
   useComposerReferenceAvailable,
 } from '@/lib/composer-reference-requests';
 import { CloseIcon } from '@/lib/icon-vocabulary';
+import { useVariantTryTabLabels } from '@/lib/variant-try-tabs';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
@@ -181,8 +182,10 @@ export function WorkbenchTabRow({
     return () => observer.disconnect();
   }, []);
   const pinnedKey = tabs.map((tab) => (pinnedIds.has(tab.id) ? '1' : '0')).join('');
+  const tryLabels = useVariantTryTabLabels(tabs);
+  const tabLabel = (tab: WorkbenchTab) => tryLabels?.get(tab.id) ?? workbenchTabLabel(tab);
   const fitKey = `${width}|${activeTabId}|${pinnedKey}|${tabs
-    .map((tab) => `${tab.id}:${workbenchTabLabel(tab)}`)
+    .map((tab) => `${tab.id}:${tabLabel(tab)}`)
     .join('|')}`;
   const [measured, setMeasured] = useState<{ key: string; fit: TabRowFit; shown: number }>({
     key: fitKey,
@@ -309,7 +312,7 @@ export function WorkbenchTabRow({
               >
                 {shownTabs.map((tab) => {
                   const active = tab.id === activeTabId;
-                  const label = workbenchTabLabel(tab);
+                  const label = tabLabel(tab);
                   const path = workbenchTabPath(tab);
                   return (
                     // dnd-kit's {...attributes} would give this wrapper role="button",
@@ -461,7 +464,7 @@ export function WorkbenchTabRow({
           <DropdownMenuContent align="end" className="max-h-80 w-64 overflow-y-auto">
             {hidden.map((tab) => (
               <DropdownMenuItem key={tab.id} onSelect={() => onSelect(tab.id)}>
-                <MenuRow icon={<WorkbenchTabIcon tab={tab} />} label={workbenchTabLabel(tab)} />
+                <MenuRow icon={<WorkbenchTabIcon tab={tab} />} label={tabLabel(tab)} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

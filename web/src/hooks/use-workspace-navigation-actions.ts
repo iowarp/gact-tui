@@ -111,27 +111,6 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await repository.createWorkspace({ name, root_path: rootPath });
         await refreshNavigation();
       },
-      createSession: async ({
-        title,
-        workspaceId: targetWorkspaceId,
-        agentRef,
-        mode,
-        routingMode,
-        approvalMode,
-      }) => {
-        const created = await repository.createSession({
-          workspace_id: targetWorkspaceId,
-          title,
-          mode,
-          routing_mode: routingMode,
-          approval_mode: approvalMode,
-          agent_ref: agentRef,
-        });
-        await refreshNavigation(targetWorkspaceId);
-        await navigate(
-          `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(created.id)}`,
-        );
-      },
       renameWorkspace: async (targetWorkspaceId, name) => {
         await repository.updateWorkspace(targetWorkspaceId, { name });
         await refreshNavigation(targetWorkspaceId);

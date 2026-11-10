@@ -3,10 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ClioRepository, PendingInteraction } from '@clio/core/v3';
 import {
-  ClipboardCheckIcon,
   MessageCircleQuestionIcon,
-  ShieldCheckIcon,
-  ShieldXIcon,
+  NotebookTextIcon,
+  ShieldQuestionIcon,
 } from 'lucide-react';
 import '../../src/index.css';
 import { ForcedTheme } from '../../src/theme/forced-theme';
@@ -14,12 +13,14 @@ import { ArchiveConnectionProvider } from '../../src/providers/connection-provid
 import { RepositoryOverride } from '../../src/providers/repository-override-context';
 import { ClioPendingInteractions } from '../../src/components/clio/pending-interactions';
 import { AskAnsweredRow } from '../../src/components/clio/ask-card';
+import { PlanDecision } from '../../src/components/clio/plan-decision-controls';
 import { QuestionAnswerContext } from '../../src/components/clio/question-answer-context';
 import { TooltipProvider } from '../../src/components/ui/tooltip';
 import { A2uiSessionRegistryOwner } from '../../src/test-fixtures/a2ui/v0_9_1/test-harness';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '../../src/test-fixtures/a2ui/v0_9_1/fixtures';
 import {
   ANSWERED_COMMAND,
+  CANCELLED_PLAN,
   REVIEW_SESSION,
   SCENARIOS,
   type CardScenario,
@@ -100,23 +101,22 @@ function Transcript() {
 function AnsweredRows() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-0.5" data-review-capture="">
-      <AskAnsweredRow detail={ANSWERED_COMMAND} icon={ShieldCheckIcon} mono verb="Allowed once" />
+      <AskAnsweredRow detail={ANSWERED_COMMAND} icon={ShieldQuestionIcon} mono verb="Allowed once" />
       <AskAnsweredRow detail="2020–2023" icon={MessageCircleQuestionIcon} verb="Answered" />
       <AskAnsweredRow
         detail="Interactive, context cleared"
-        icon={ClipboardCheckIcon}
+        icon={NotebookTextIcon}
         verb="Plan approved"
       />
       <AskAnsweredRow
-        detail={
-          <>
-            <span className="font-mono text-[11.5px]">rm -rf out/</span> you denied it
-          </>
-        }
-        icon={ShieldXIcon}
+        detail="rm -rf out/"
+        icon={ShieldQuestionIcon}
+        mono
+        outcome="you denied it"
         tone="denied"
         verb="Denied"
       />
+      <PlanDecision interaction={CANCELLED_PLAN} />
     </div>
   );
 }
@@ -143,6 +143,10 @@ function Dock({ scenario }: { scenario: CardScenario }) {
       >
         <ClioPendingInteractions
           interactions={interactions}
+          // As the workspace does: a script with a running call opens as a workbench tab.
+          onOpenScript={() => undefined}
+          // As the workspace does: a question surface opens in its own view.
+          onOpenSurfaceQuestion={() => undefined}
           ownerLabels={scenario.ownerLabels}
           surfaces={scenario.surfaces}
           viewedSessionId={REVIEW_SESSION}

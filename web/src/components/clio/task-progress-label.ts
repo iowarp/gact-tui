@@ -12,7 +12,13 @@ export function taskProgressLabel(
       return `${formatBytes(progress.completed)}${total === undefined ? (kind === 'Shell' ? ' output' : '') : ` / ${formatBytes(total)}`}`;
     if (progress.unit === 'entries')
       return `${progress.completed}${total === undefined ? '' : ` / ${total}`} entries${kind === 'Indexing' ? ' indexed' : ''}`;
-    return `${progress.completed}${total === undefined ? '' : ` / ${total}`}${typeof progress.unit === 'string' && progress.unit ? ` ${progress.unit}` : ''}`;
+    const unit =
+      typeof progress.unit === 'string' && progress.unit
+        ? progress.completed === 1 && total === undefined
+          ? progress.unit.replace(/s$/, '')
+          : progress.unit
+        : '';
+    return `${progress.completed}${total === undefined ? '' : ` / ${total}`}${unit ? ` ${unit}` : ''}`;
   }
   if (kind === 'Indexing' && typeof progress?.entries_done === 'number')
     return `${progress.entries_done} entries indexed`;

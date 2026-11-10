@@ -56,13 +56,19 @@ export function QuestionResponse(props: {
   const actions = interaction.actions ?? [];
   const canAnswer = actions.includes('answer');
   const allowsWriting = choices.length === 0 || interaction.payload?.allow_freeform === true;
-  const writesHere = allowsWriting && (choices.length === 0 || !composer.available);
+  // A written answer goes in the composer; the card keeps its own field only
+  // where no composer can carry it.
+  const writesHere = allowsWriting && !composer.available;
   const unknown = actions.filter((action) => !QUESTION_ACTIONS.has(action));
   const respond = (response: PendingInteractionResponse) =>
     respondFromControl(onResponse(interaction, response));
   const label = interaction.prompt ?? interaction.title;
   return (
-    <QuestionResponseFrame {...props} allowsComposer={allowsWriting && choices.length > 0}>
+    <QuestionResponseFrame
+      {...props}
+      allowsComposer={canAnswer && allowsWriting}
+      composerOnly={choices.length === 0}
+    >
       <QuestionSurface interaction={interaction} />
       <AskError error={responseError} />
       {!canAnswer ? (

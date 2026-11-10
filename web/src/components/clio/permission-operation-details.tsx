@@ -27,6 +27,8 @@ const SOURCE_ACCESS: Record<string, string> = {
   write_enabled: 'Read and write originals',
 };
 
+const ACCESS_NOTE = `${vocab.agent} can change files here, including after restart, until you remove these folders. Conversations on the primary folder share this access.`;
+
 export interface PermissionOperation {
   facts: AskFact[];
   command: string;
@@ -104,13 +106,15 @@ function permissionOperation(
     ...(action && action !== title && action !== (call?.tool_name ?? interaction.source.tool_name)
       ? fact('Action', <ZapIcon />, action)
       : []),
-    ...(name === 'web_fetch' ? fact('Source', <GlobeIcon />, text('target') || text('url')) : []),
+    ...(name === 'web_fetch'
+      ? fact('Source', <GlobeIcon />, text('target') || text('url'), true)
+      : []),
     ...(name === 'web_search' ? fact('Query', <SearchIcon />, text('query')) : []),
     ...(name === 'browser_host'
       ? [
-          ...fact('Site', <GlobeIcon />, text('host')),
+          ...fact('Site', <GlobeIcon />, text('host'), true),
           ...fact('Page', <FileIcon />, text('label')),
-          ...fact('Address', <LinkIcon />, text('url')),
+          ...fact('Address', <LinkIcon />, text('url'), true),
         ]
       : []),
     ...(isSourceConnection
@@ -121,7 +125,7 @@ function permissionOperation(
             <DatabaseIcon />,
             text('provider') === 'ndp' ? 'National Data Platform' : text('provider'),
           ),
-          ...fact('Endpoint', <PlugIcon />, text('endpoint')),
+          ...fact('Endpoint', <PlugIcon />, text('endpoint'), true),
           ...fact('Access', <KeyRoundIcon />, SOURCE_ACCESS[text('mode')] ?? text('mode')),
           ...fact('Resources', <FilesIcon />, resources.join(', ')),
         ]
@@ -135,7 +139,7 @@ function permissionOperation(
             value: (
               <>
                 {computer ? (
-                  <Place fixed icon={<ServerIcon />}>
+                  <Place fixed icon={<ServerIcon />} mono>
                     {computer}
                   </Place>
                 ) : null}
@@ -150,7 +154,9 @@ function permissionOperation(
             narrow:
               computer && folder ? (
                 <>
-                  <Place fixed>{computer}</Place>
+                  <Place fixed mono>
+                    {computer}
+                  </Place>
                   <Place icon={<FolderIcon />} mono>
                     {folder}
                   </Place>
@@ -170,19 +176,31 @@ function permissionOperation(
           {
             label: access.folders.length > 1 ? 'Folders' : 'Folder',
             icon: <FolderIcon />,
-            title: access.folders.join('\n'),
+            title: `${access.folders.join('\n')}\n${ACCESS_NOTE}`,
+            // The lasting-access note sits under the folders it is about, on one line.
+            wrap: true,
             value: (
-              <>
-                {access.folders.map((entry) => (
-                  <span className="min-w-0 truncate font-mono text-[12px]" key={entry}>
-                    {entry}
-                  </span>
-                ))}
-              </>
+              <span className="grid w-full min-w-0">
+                <span className="flex min-w-0 gap-[7px]">
+                  {access.folders.map((entry) => (
+                    <span className="min-w-0 truncate font-mono text-[12px]" key={entry}>
+                      {entry}
+                    </span>
+                  ))}
+                </span>
+                <span className="truncate text-[11.5px] text-muted-foreground">{ACCESS_NOTE}</span>
+              </span>
             ),
             narrow:
               access.folders.length > 1 ? (
-                <span className="min-w-0 truncate">writes to {access.folders.length} folders</span>
+                <span className="grid w-full min-w-0">
+                  <span className="min-w-0 truncate">
+                    writes to {access.folders.length} folders
+                  </span>
+                  <span className="truncate text-[11.5px] text-muted-foreground">
+                    {ACCESS_NOTE}
+                  </span>
+                </span>
               ) : undefined,
           },
         ]
@@ -225,20 +243,10 @@ export function PermissionOperationDetails({
   /** Off when the card shows the whole script instead of the command that runs it. */
   showCommand?: boolean;
 }) {
-  const { facts, command, folders, paths } = permissionOperation(interaction, { title });
+  const { facts, command, paths } = permissionOperation(interaction, { title });
   return (
     <div className="contents" data-slot="permission-operation-details">
       <AskFacts facts={[...facts, ...extraFacts]} />
-      {folders.length ? (
-        // Nothing wraps at a fifth of the window; hover keeps the whole sentence.
-        <AskSection
-          className="mt-1 text-[11.5px] text-muted-foreground @max-[420px]/ask:truncate"
-          title={`${vocab.agent} can change files here, including after restart, until you remove these folders. Conversations on the primary folder share this access.`}
-        >
-          {vocab.agent} can change files here, including after restart, until you remove these
-          folders. Conversations on the primary folder share this access.
-        </AskSection>
-      ) : null}
       {showCommand && command ? <AskCode code={command} label="Command to run" /> : null}
       {pathsInline && paths.length ? (
         <AskSection>

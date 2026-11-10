@@ -119,6 +119,27 @@ const runScript = base('permission:run-script', {
   },
 });
 
+// run_code's own code is the card's Script; its arguments name it rather than repeat it.
+const runCode = base('permission:run-code', {
+  title: 'tool call: run_code',
+  source: { protocol: 'native', tool_name: 'run_code' },
+  actions: ['allow', 'allow_session', 'allow_workspace', 'deny'],
+  payload: {
+    permission_id: 'run-code',
+    execution: EXECUTION,
+    tool_call: {
+      tool_name: 'run_code',
+      input: {
+        code: SCRIPT,
+        language: 'python',
+        timeout_s: 600,
+        _clio_task_description:
+          'Match every SCAN and USCRN site to its SMAP granules, then flag outliers',
+      },
+    },
+  },
+});
+
 const folderAccess = base('permission:folder-access', {
   title: 'Allow writing to /scratch/jc/opal?',
   source: { protocol: 'native', tool_name: 'shell_bash' },
@@ -297,6 +318,7 @@ const surface: A2UISurface = {
   protocol_version: '0.9.1',
   revision: 1,
   state: 'ready',
+  message_revisions: [1, 1],
   messages: [
     {
       version: 'v0.9.1',
@@ -314,6 +336,7 @@ const surface: A2UISurface = {
             id: 'action',
             component: 'Button',
             child: 'label',
+            variant: 'primary',
             action: { event: { name: 'form.submit', context: { years: '2020-2023' } } },
           },
         ],
@@ -395,6 +418,27 @@ export const SCENARIOS: Record<string, CardScenario> = {
     ownerLabels: OWNERS,
   },
   'permission-access': { spec: 'Permission', closest: true, interactions: [folderAccess] },
+  'permission-run-code': {
+    spec: 'A whole script',
+    closest: true,
+    interactions: [runCode],
+    open: 'Technical details',
+  },
+  'permission-run-code-short': {
+    spec: 'A whole script',
+    closest: true,
+    interactions: [
+      {
+        ...runCode,
+        id: 'permission:run-code-short',
+        payload: {
+          ...runCode.payload,
+          tool_call: { tool_name: 'run_code', input: { code: 'print(2+2)' } },
+        },
+      },
+    ],
+    open: 'Technical details',
+  },
   'permission-facts': {
     spec: 'Permission',
     closest: true,
@@ -462,3 +506,4 @@ export const SCENARIOS: Record<string, CardScenario> = {
 
 export const REVIEW_SESSION = ROOT;
 export const ANSWERED_COMMAND = COMMAND;
+export const CANCELLED_PLAN: PendingInteraction = { ...plan('complete'), status: 'cancelled' };

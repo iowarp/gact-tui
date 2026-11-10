@@ -70,6 +70,7 @@ export function QuestionCard({
       }
       title={title}
       titleText={title}
+      wrapTitle
       {...props}
     >
       {body ? (
@@ -104,6 +105,7 @@ export function QuestionCard({
 export function QuestionFooter({
   interaction,
   allowsComposer,
+  composerOnly,
   disabled,
   onDismiss,
   children,
@@ -111,6 +113,8 @@ export function QuestionFooter({
   interaction: PendingInteraction;
   /** The question takes a written answer the composer can carry. */
   allowsComposer?: boolean;
+  /** The written answer is the only answer (no choices to pick instead). */
+  composerOnly?: boolean;
   disabled?: boolean;
   onDismiss?: () => void;
   children?: ReactNode;
@@ -130,7 +134,7 @@ export function QuestionFooter({
         ) : (
           <AskHint disabled={disabled} onClick={composer.start}>
             <EditIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-3px]" />
-            Or type your own answer below
+            {composerOnly ? 'Type your answer below' : 'Or type your own answer below'}
           </AskHint>
         )
       ) : null}
