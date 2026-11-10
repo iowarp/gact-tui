@@ -50,7 +50,9 @@ alternatives, which has a right-aligned arrow.
 
 **`SettingsChoice`** (same file)
 `{ id, label, value, onChange, options: { value, label, description?, icon? }[] }`.
-A choice that applies at once, so it never reaches the save bar.
+A choice that applies at once, so it never reaches the save bar. In a row narrower than
+28rem, options with an icon show only the icon, with the name on hover and as the
+accessible name (Appearance → Theme at 390 px).
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
 `ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, foldActions?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
@@ -98,12 +100,12 @@ The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px c
 full-width bottom sheet below 600 px. Narrowing drops the chips first (spec: dialogs "drop the
 key hints before anything else"): the footer is a container and the chips hide once it is
 under 28.5rem, the spec frame's ~460 px, which at 44% is a window under about 1036 px, before
-the window's 1024 px fold. They stay hidden in the sheet. A section that needs a wider dialog
-passes its own `w-[clamp(...)]`; one whose floor is 460 px or more keeps its chips until the
-sheet. With `keyboard: false` or a disabled confirm, the confirm button has no chip.
-Acknowledgement dialogs such as What's new pass `cancelLabel={null}` (no Cancel; focus starts
-on the confirm), `confirm.key: 'Enter'` (plain ↵ confirms, and the button's chip shows ↵) and
-`footerStart` (a quiet link on the left). The body is marked
+the window's 1024 px fold. They stay hidden in the sheet. A section that needs a wider dialog passes its own `w-[clamp(...)]`; one whose
+floor is 460 px or more keeps its chips until the sheet. With `keyboard: false` or a disabled
+confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
+`cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
+confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The
+body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
@@ -130,6 +132,13 @@ the viewport thresholds are ours:
 | < 1024 px | notes and ⓘ hide, rows stack (`NARROW_HIDDEN` in `lib/settings-fold.ts`)                                                                      |
 | < 880 px  | `rail` replaces `navigation`                                                                                                                  |
 | < 600 px  | the window fills the screen, the rail hides and `picker` takes the title's place (the title stays for screen readers); search becomes an icon |
+
+Below 600 px a `DialogFrame` is a bottom sheet, so `NARROW_HIDDEN` hides notes and ⓘ in
+its body as well; above that, dialogs keep them (they portal outside the window content).
+Below 600 px a one-line `StateView size="row"` in a settings body takes `ROW_STATE_WRAP`
+(same file) so its sentence wraps instead of ellipsizing, and a list wrapper in a section
+body uses `grid-cols-1` (not a bare `grid`) so wide item rows never widen the column
+past the window.
 
 Without a `rail`, `navigation` shows from 600 px. `toolbar` holds other title-row
 controls before the ×.
