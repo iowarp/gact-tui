@@ -142,7 +142,7 @@ describe('new session defaults settings', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    expect(await screen.findByRole('heading', { name: 'New session defaults' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Session defaults' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Change default model' })).toHaveTextContent(
       /OpenAI Codex\s*\/\s*Luna/u,
     );

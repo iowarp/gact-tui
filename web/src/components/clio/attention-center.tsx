@@ -41,6 +41,22 @@ interface AttentionProps {
 const notifiedAttentionIds = new Set<string>();
 const lastAttentionNoticeAt = new Map<string, number>();
 
+/** A run in one of these states can still finish. */
+const ACTIVE_RUN_STATES = new Set<Session['state']>([
+  'queued',
+  'running',
+  'stopping',
+  'recovering',
+  'waiting_permission',
+  'waiting_user',
+]);
+/** How a run that ended reads in its alert; other end states (cancelled) were your own doing. */
+const ENDED_RUN_VERBS: Partial<Record<Session['state'], string>> = {
+  completed: 'finished',
+  failed: 'stopped',
+  interrupted: 'stopped',
+};
+
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -422,8 +438,43 @@ export function ClioAttentionCenter({ attentions, sessions }: AttentionProps) {
 
 export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
-  const { attentionSound, desktopNotifications } = useNotificationPreferences();
+  const { attentionSound, desktopNotifications, finishedWork } = useNotificationPreferences();
   const reportedSoundFailureFor = useRef<AttentionSoundMode | null>(null);
+  const runStates = useRef(new Map<string, Session['state']>());
+
+  // Finished work: a desktop alert when a run ends while the app is in the background.
+  useEffect(() => {
+    const previous = runStates.current;
+    const next = new Map<string, Session['state']>();
+    const appFocused = document.visibilityState === 'visible' && document.hasFocus();
+    for (const session of sessions) {
+      if (session.archived) continue;
+      next.set(session.id, session.state);
+      const before = previous.get(session.id);
+      const verb = ENDED_RUN_VERBS[session.state];
+      if (
+        !verb ||
+        !before ||
+        !ACTIVE_RUN_STATES.has(before) ||
+        finishedWork !== 'desktop' ||
+        appFocused ||
+        typeof Notification === 'undefined' ||
+        Notification.permission !== 'granted'
+      ) {
+        continue;
+      }
+      const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
+      const notification = new Notification(`${session.title} ${verb}`, {
+        tag: `clio-finished:${session.id}`,
+      });
+      notification.addEventListener('click', () => {
+        window.focus();
+        navigate(path);
+        notification.close();
+      });
+    }
+    runStates.current = next;
+  }, [finishedWork, navigate, sessions]);
 
   useEffect(() => {
     const currentIds = new Set<string>();

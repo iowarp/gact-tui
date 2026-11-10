@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const preferences = vi.hoisted(() => ({
   attentionSound: 'background' as 'off' | 'background' | 'always',
   desktopNotifications: false,
+  finishedWork: 'bell' as 'bell' | 'desktop' | 'off',
   setAttentionSound: vi.fn(),
   setDesktopNotifications: vi.fn(),
+  setFinishedWork: vi.fn(),
 }));
 const sound = vi.hoisted(() => ({ playAttentionSound: vi.fn() }));
 const toast = vi.hoisted(() => ({ dismiss: vi.fn(), error: vi.fn(), success: vi.fn() }));
@@ -40,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   preferences.attentionSound = 'background';
   preferences.desktopNotifications = false;
+  preferences.finishedWork = 'bell';
 });
 afterEach(() => {
   cleanup();
@@ -62,6 +65,30 @@ describe('NotificationSettings', () => {
     );
     expect(screen.getByText(/opens this page/)).toBeVisible();
     expect(screen.getByRole('img', { name: 'Notification settings' })).toBeInTheDocument();
+  });
+
+  it('keeps finished work in the bell by default and asks before adding desktop alerts', async () => {
+    const requestPermission = stubNotification('default', 'granted');
+    renderNotifications();
+
+    const finished = screen.getByRole('combobox', { name: 'Finished work' });
+    expect(finished).toHaveTextContent('Bell only');
+    fireEvent.click(finished);
+    fireEvent.click(await screen.findByRole('option', { name: 'Desktop alert' }));
+
+    await waitFor(() => expect(preferences.setFinishedWork).toHaveBeenCalledWith('desktop'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('turns finished work off without asking for permission', async () => {
+    const requestPermission = stubNotification('default');
+    renderNotifications();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Finished work' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Off' }));
+
+    expect(preferences.setFinishedWork).toHaveBeenCalledWith('off');
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it('asks for permission before turning desktop alerts on', async () => {
