@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { searchMatchRanges } from '@/lib/search-matches';
 
-/** The typed match reads as emphasised text (weight and full contrast), never a filled box. */
+/** The typed match reads as emphasised text (weight and the accent ink), never a filled box. */
 export function SearchHighlight({
   text,
   query,
@@ -21,7 +21,7 @@ export function SearchHighlight({
         return (
           <Fragment key={start}>
             {before}
-            <mark className="bg-transparent font-semibold text-foreground">
+            <mark className="bg-transparent font-semibold text-accent-foreground">
               {text.slice(start, end)}
             </mark>
           </Fragment>
