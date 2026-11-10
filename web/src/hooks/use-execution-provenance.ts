@@ -38,13 +38,13 @@ export function useExecutionProvenance(sessionId: string, loading: SessionResour
     // A large optional graph must not evict the small log/work cache on departure.
     meta: { sessionCache: 'supplementary' },
     queryKey: queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
+    // Its own lane: one slow graph read (seconds on a long session) must not hold
+    // a shared-queue slot that the quick work, diff and context reads wait on.
     queryFn: ({ signal }) =>
-      loadSessionResource(loading, signal, () =>
-        repository.executionProvenance(
-          sessionId,
-          { provider, limit: EXECUTION_PROVENANCE_LIMIT },
-          signal,
-        ),
+      repository.executionProvenance(
+        sessionId,
+        { provider, limit: EXECUTION_PROVENANCE_LIMIT },
+        signal,
       ),
     enabled: canQuery,
   });

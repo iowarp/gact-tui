@@ -316,7 +316,7 @@ export function PromptEditorDialog({
                 </SelectContent>
               </Select>
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-provider`} title="Provider preference">
+            <SettingsRow htmlFor={`${ids}-provider`} title="Provider">
               <Input
                 className={FIELD}
                 id={`${ids}-provider`}
@@ -325,7 +325,7 @@ export function PromptEditorDialog({
                 value={draft.provider}
               />
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-model`} title="Model preference">
+            <SettingsRow htmlFor={`${ids}-model`} title="Model">
               <Input
                 className={FIELD}
                 id={`${ids}-model`}

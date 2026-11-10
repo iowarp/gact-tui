@@ -61,18 +61,21 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * the text keeps room.
    *
    * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (one
-   * line, cut with … per `.d-nm`; callers give its full text in `hoverText`) and a faint 11px `meta` age in a
-   * 52px column on the first line; the faint 11.5px `description` under the title
+   * line, cut with … per `.d-nm`) and a faint 11px `meta` age in a 52px column
+   * on the first line; the faint 11.5px `description` under the title
    * runs to the row's right edge, or stops before a `primaryAction` word pinned to
    * the bottom right. It carries no padding or fill; its container owns both,
    * so actions under it share the row.
    */
   variant?: 'list' | 'activity' | 'notice';
   /**
-   * `notice` rows: the full title and description shown on hover, set on the
-   * elements that cut them with … so the whole line answers the pointer.
+   * `notice` rows: the full title and description, when the shown content is
+   * not the plain text. The app-wide truncation hint shows them on hover or
+   * focus while the line is cut with ….
    */
   hoverText?: { title?: string; description?: string };
+  /** `notice` rows: the title and description wrap whole instead of cutting. */
+  expanded?: boolean;
   /**
    * The 12px column before the icon (an expand chevron) in `activity` rows. In
    * `list` rows it is the first column and sizes itself, the same width on
@@ -120,6 +123,7 @@ export const ListRow = memo(
       layout = 'inline',
       variant = 'list',
       hoverText,
+      expanded = false,
       leading,
       titleCollapses = true,
       selected = false,
@@ -150,8 +154,11 @@ export const ListRow = memo(
             {icon}
           </span>
           <span
-            className="min-w-0 truncate leading-[18px] text-muted-foreground"
-            title={hoverText?.title}
+            className={cn(
+              'min-w-0 leading-[18px] text-muted-foreground',
+              expanded ? 'break-words whitespace-normal' : 'truncate',
+            )}
+            data-full-text={hoverText?.title}
           >
             {title}
           </span>
@@ -161,10 +168,11 @@ export const ListRow = memo(
           {description ? (
             <span
               className={cn(
-                'col-start-2 mt-0.5 min-w-0 truncate text-[11.5px] leading-[18px] text-faint',
+                'col-start-2 mt-0.5 min-w-0 text-[11.5px] leading-[18px] text-faint',
+                expanded ? 'break-words whitespace-normal' : 'truncate',
                 primaryAction === undefined && 'col-span-2',
               )}
-              title={hoverText?.description}
+              data-full-text={hoverText?.description}
             >
               {description}
             </span>
