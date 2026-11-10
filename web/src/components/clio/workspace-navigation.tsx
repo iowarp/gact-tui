@@ -1,32 +1,10 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import {
-  ChevronRightIcon,
-  CopyIcon,
-  FolderOpenIcon,
-  LoaderCircleIcon,
-  PinIcon,
-  PinOffIcon,
-  UploadIcon,
-} from 'lucide-react';
-import {
-  AddIcon,
-  EditIcon,
-  MoreIcon,
-  NewConversationIcon,
-  RemoveIcon,
-  SettingsIcon,
-} from '@/lib/icon-vocabulary';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronRightIcon, LoaderCircleIcon } from 'lucide-react';
+import { AddIcon, NewConversationIcon, SettingsIcon } from '@/lib/icon-vocabulary';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
-import { copyText } from '@/lib/clipboard';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import {
   isPrimarySession,
@@ -35,6 +13,7 @@ import {
 } from '@/lib/recent-sessions';
 import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
 import type { SessionAttention } from '@/lib/session-attention';
+import { isSessionRunning } from '@/lib/session-state';
 import {
   workspaceLabels,
   workspaceLabelText,
@@ -44,8 +23,15 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { cn } from '@/lib/utils';
 import { WorkspaceMark } from './workspace-mark';
-import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import { DEFAULT_WORKSPACE_ID, WorkspaceActionsMenu } from './workspace-actions-menu';
+import {
+  ConversationDayLabel,
+  ConversationFilterMenu,
+  NoMatchingConversations,
+  type ConversationFilter,
+} from './conversation-list-groups';
+import { groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
 import { useRailSessions } from '@/hooks/use-rail-sessions';
@@ -166,6 +152,22 @@ export function WorkspaceNavigation({
     }
     return [...visible.slice(0, VISIBLE_WORKSPACE_LIMIT - 1), activeWorkspace];
   }, [activeWorkspaceId, showAllWorkspaces, workspaces]);
+
+  // The same states each row marks: waiting on the user, working, or changed since last seen.
+  const matchesFilter = (session: Session, filter: ConversationFilter) => {
+    const needsYou = Boolean(attentions[session.id]?.total);
+    const running = isSessionRunning(session.state);
+    if (filter === 'attention') return needsYou;
+    if (filter === 'running') return running;
+    if (filter === 'unseen')
+      return (
+        !running &&
+        !needsYou &&
+        session.id !== activeSessionId &&
+        effectiveSeenSessionRevisions[session.id] !== sessionInteractionAt(session)
+      );
+    return true;
+  };
 
   const visitSession = (session: Session) => {
     setSeenSessionRevisions((current) => ({
@@ -309,6 +311,7 @@ export function WorkspaceNavigation({
               qualifiers: [],
             }
           }
+          matchesFilter={matchesFilter}
           onAction={onAction}
           onCreateSession={onCreateSession}
           onImportSession={onImportSession}
@@ -327,9 +330,6 @@ export function WorkspaceNavigation({
     </>
   );
 }
-
-/** Conversations started outside a project folder live in the default workspace. */
-const DEFAULT_WORKSPACE_ID = 'ws_default';
 
 /** The fold row under a list: "Show 12 more", quiet and aligned with the titles. */
 function ShowMoreRow({
@@ -404,6 +404,7 @@ interface LooseConversationsProps {
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
+  matchesFilter: (session: Session, filter: ConversationFilter) => boolean;
   draft: boolean;
 }
 
@@ -425,45 +426,72 @@ function LooseConversations({
   onOpenWorkspaceFiles,
   onAction,
   renderSession,
+  matchesFilter,
   draft,
 }: LooseConversationsProps) {
+  const [filter, setFilter] = useState<ConversationFilter>('all');
+  const filtering = filter !== 'all';
+  // A filter looks through every loaded row, not only the first eight.
   const { rail, total, visible } = useConversationList(
     workspace.id,
     sessions,
     true,
-    expanded,
+    expanded || filtering,
     excludedSessionIds,
   );
   if (total === 0 && !draft) return null;
+  const shown = filtering ? visible.filter((session) => matchesFilter(session, filter)) : visible;
+  const groups = groupConversationsByDay(nestAgentForks(shown));
+  // The unsent draft is always new, so it opens the Today group.
+  const draftOpensToday = draft && groups[0]?.label === 'Today';
   return (
     <SidebarGroup className="py-0 group-data-[collapsible=icon]:hidden">
       <ListGroupLabel
         action={
-          <WorkspaceActionsMenu
-            activeWorkspaceId={activeWorkspaceId}
-            actions={actions}
-            label={label}
-            onAction={onAction}
-            onCreateSession={onCreateSession}
-            onImportSession={onImportSession}
-            onDelete={onDelete}
-            onEditWorkspace={onEditWorkspace}
-            onOpenWorkspaceFiles={onOpenWorkspaceFiles}
-            onRename={onRename}
-            workspace={workspace}
-          />
+          <>
+            <ConversationFilterMenu onChange={setFilter} value={filter} />
+            <WorkspaceActionsMenu
+              activeWorkspaceId={activeWorkspaceId}
+              actions={actions}
+              label={label}
+              onAction={onAction}
+              onCreateSession={onCreateSession}
+              onImportSession={onImportSession}
+              onDelete={onDelete}
+              onEditWorkspace={onEditWorkspace}
+              onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+              onRename={onRename}
+              triggerIcon={<SettingsIcon />}
+              triggerLabel="Conversation settings"
+              workspace={workspace}
+            />
+          </>
         }
         className="mt-2.5 h-[26px] items-center pb-0 pr-1"
       >
         Conversations
       </ListGroupLabel>
       <SidebarGroupContent className="grid min-w-0 gap-px">
-        {draft ? <DraftConversationRow topLevel /> : null}
-        {nestAgentForks(visible).map(({ session, depth }) => renderSession(session, true, depth))}
-        {expanded && (rail.hasMore || rail.loadingMore) ? (
+        {draft && !draftOpensToday ? (
+          <>
+            <ConversationDayLabel>Today</ConversationDayLabel>
+            <DraftConversationRow topLevel />
+          </>
+        ) : null}
+        {groups.map((group, index) => (
+          <Fragment key={group.label}>
+            <ConversationDayLabel>{group.label}</ConversationDayLabel>
+            {index === 0 && draftOpensToday ? <DraftConversationRow topLevel /> : null}
+            {group.rows.map(({ session, depth }) => renderSession(session, true, depth))}
+          </Fragment>
+        ))}
+        {filtering && shown.length === 0 ? (
+          <NoMatchingConversations onShowAll={() => setFilter('all')} />
+        ) : null}
+        {expanded && !filtering && (rail.hasMore || rail.loadingMore) ? (
           <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
         ) : null}
-        {total > 8 ? (
+        {total > 8 && !filtering ? (
           <ShowMoreRow
             expanded={expanded}
             label={
@@ -655,103 +683,6 @@ function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: (
       {loading ? <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" /> : null}
       {loading ? 'Loading more sessions…' : 'Load more sessions'}
     </Button>
-  );
-}
-
-interface WorkspaceActionsMenuProps {
-  workspace: Workspace;
-  label: WorkspaceDisplayLabel;
-  activeWorkspaceId: string;
-  actions: ResourceActions;
-  onCreateSession: (workspaceId: string) => void;
-  onImportSession?: (workspaceId: string) => void;
-  onRename: (target: ResourceTarget) => void;
-  onDelete: (target: ResourceTarget) => void;
-  onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
-  onAction: (action: () => Promise<void>, success: string) => void;
-}
-
-function WorkspaceActionsMenu({
-  workspace,
-  label,
-  activeWorkspaceId,
-  actions,
-  onCreateSession,
-  onImportSession,
-  onRename,
-  onDelete,
-  onEditWorkspace,
-  onOpenWorkspaceFiles,
-  onAction,
-}: WorkspaceActionsMenuProps) {
-  const labelText = workspaceLabelText(label);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <IconButton icon={<MoreIcon />} label={`Workspace actions for ${labelText}`} size="sm" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[290px]">
-        <KeyMenuItem
-          icon={NewConversationIcon}
-          label="New conversation here"
-          menuKey="N"
-          onSelect={() => onCreateSession(workspace.id)}
-        />
-        <KeyMenuItem
-          disabled={!onImportSession}
-          icon={UploadIcon}
-          label="Import conversation here…"
-          menuKey="I"
-          onSelect={() => onImportSession?.(workspace.id)}
-        />
-        <DropdownMenuSeparator />
-        <KeyMenuItem
-          icon={workspace.pinned ? PinOffIcon : PinIcon}
-          label={workspace.pinned ? 'Unpin' : 'Pin'}
-          menuKey="P"
-          onSelect={() =>
-            onAction(
-              () => actions.setWorkspacePinned(workspace.id, !workspace.pinned),
-              workspace.pinned ? 'Workspace unpinned' : 'Workspace pinned',
-            )
-          }
-        />
-        <KeyMenuItem
-          icon={EditIcon}
-          label="Rename"
-          menuKey="R"
-          onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
-        />
-        <KeyMenuItem
-          icon={SettingsIcon}
-          label="Workspace settings…"
-          menuKey="S"
-          onSelect={() => onEditWorkspace(workspace.id)}
-        />
-        <DropdownMenuSeparator />
-        <KeyMenuItem
-          disabled={!onOpenWorkspaceFiles || workspace.id !== activeWorkspaceId}
-          icon={FolderOpenIcon}
-          label="Open folder"
-          menuKey="O"
-          onSelect={() => onOpenWorkspaceFiles?.()}
-        />
-        <KeyMenuItem
-          icon={CopyIcon}
-          label="Copy folder path"
-          onSelect={() => void copyText(workspace.path)}
-        />
-        <DropdownMenuSeparator />
-        <KeyMenuItem
-          destructive
-          disabled={workspace.id === DEFAULT_WORKSPACE_ID}
-          icon={RemoveIcon}
-          label="Remove workspace…"
-          onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

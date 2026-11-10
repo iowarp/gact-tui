@@ -1,6 +1,6 @@
 import type { PluginEntry, ToolSettings } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
@@ -73,29 +73,117 @@ function pluginSection(
   return undefined;
 }
 
-/** Settings ??? Tools and MCP servers ??? Tools: every installed plugin's tools in one table. */
+/** What the catalog already says about a plugin's tools, before its settings are read. */
+function catalogMeta(plugin: PluginEntry): string {
+  const parts: string[] = [];
+  if (plugin.mcp_servers.length)
+    parts.push(
+      `${plugin.mcp_servers.join(', ')} ${plugin.mcp_servers.length === 1 ? 'server' : 'servers'}`,
+    );
+  if (plugin.tools.length) parts.push(plural(plugin.tools.length, 'tool'));
+  return parts.join(', ');
+}
+
+/** How far beyond the visible part of the page a group's tools are read ahead of scrolling. */
+const READ_AHEAD_MARGIN = '600px 0px';
+
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+  }
+  return null;
+}
+
+/**
+ * The tool groups (`data-tool-group`) that have come near the visible part of the page.
+ * Once seen, a group stays seen, so its settings are read once and kept.
+ */
+function useSeenGroups(
+  container: RefObject<HTMLElement | null>,
+  groups: readonly string[],
+  /** Changes whenever the rendered groups may have been replaced (a new filter). */
+  layout: string,
+): ReadonlySet<string> {
+  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  const key = groups.join('\n');
+  const observable = typeof IntersectionObserver !== 'undefined';
+  useEffect(() => {
+    const root = container.current;
+    if (!root || !key || !observable) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const hits = entries.flatMap((entry) =>
+          entry.isIntersecting ? [(entry.target as HTMLElement).dataset.toolGroup ?? ''] : [],
+        );
+        setSeen((current) =>
+          hits.every((hit) => !hit || current.has(hit))
+            ? current
+            : new Set([...current, ...hits.filter(Boolean)]),
+        );
+      },
+      { root: scrollParent(root), rootMargin: READ_AHEAD_MARGIN },
+    );
+    root.querySelectorAll<HTMLElement>('[data-tool-group]').forEach((group) => {
+      observer.observe(group);
+    });
+    return () => observer.disconnect();
+  }, [container, key, layout, observable]);
+  // Without an observer (non-browser renderers), every group counts as seen.
+  return observable ? seen : new Set(groups);
+}
+
+/**
+ * Settings › Tools and MCP servers › Tools: every installed plugin's tools in one table.
+ * The catalog lays the table out at once; a plugin's tool settings are read when its
+ * group comes into view, or for every plugin while a filter searches tool names.
+ */
 export function ToolPermissionsSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const supported = useAgentPluginsSupported();
   const catalog = usePluginCatalog();
-  const plugins = catalog.data?.plugins ?? [];
-  const results = useQueries({
-    queries: plugins.map((plugin) => ({
-      queryKey: ['tool-settings', scope, plugin.ref],
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
-    })),
-  });
+  // A plugin with neither tools nor MCP servers has nothing to list here.
+  const plugins = (catalog.data?.plugins ?? []).filter(
+    (plugin) => plugin.tools.length || plugin.mcp_servers.length,
+  );
   const editor = useToolSettingsEditor();
   const [filter, setFilter] = useState('');
   const [mode, setMode] = useState('');
   const term = filter.trim().toLocaleLowerCase();
+  const container = useRef<HTMLDivElement>(null);
+  const seen = useSeenGroups(
+    container,
+    plugins.map((plugin) => plugin.ref),
+    term,
+  );
+  const results = useQueries({
+    queries: plugins.map((plugin) => ({
+      queryKey: ['tool-settings', scope, plugin.ref],
+      queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
+      enabled: Boolean(term) || seen.has(plugin.ref),
+    })),
+  });
   const loaded = results.flatMap((result) => (result.data ? [result.data] : []));
   const modes = loaded[0]?.approval_modes ?? ['ask'];
   const shown = mode && modes.includes(mode) ? mode : (modes[0] ?? 'ask');
   const sections = plugins.flatMap((plugin, index): ToolTableSection[] => {
     const result = results[index];
+    if (result && !result.data && !result.error) {
+      // Not read yet: while filtering, only a plugin whose name matches holds its place.
+      if (term && !matches(plugin.id, term)) return [];
+      return [
+        {
+          id: plugin.ref,
+          title: plugin.id,
+          hint: plugin.description || plugin.ref,
+          bulkLabel: `All ${plugin.id} tools`,
+          tools: [],
+          notice: { text: catalogMeta(plugin), status: 'Loading', tone: 'running' },
+          reserveRows: plugin.tools.length,
+        },
+      ];
+    }
     if (result?.error) {
       if (term && !matches(plugin.id, term)) return [];
       return [
@@ -140,8 +228,11 @@ export function ToolPermissionsSettings() {
         />
       </div>
     );
-  } else if (catalog.isPending || results.some((result) => result.isPending)) {
+  } else if (catalog.isPending) {
     body = <StateView kind="loading" size="row" title="Loading plugin tools…" />;
+  } else if (term && !sections.length && results.some((result) => result.isPending)) {
+    toolbar = true;
+    body = <StateView kind="loading" size="row" title="Searching plugin tools…" />;
   } else if (!anyTools && !sections.length) {
     body = (
       <StateView
@@ -170,7 +261,11 @@ export function ToolPermissionsSettings() {
     );
   }
   return (
-    <div className="@container/page grid min-w-0 gap-3" data-slot="tool-permissions">
+    <div
+      className="@container/page grid min-w-0 gap-3"
+      data-slot="tool-permissions"
+      ref={container}
+    >
       {toolbar ? (
         <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField
