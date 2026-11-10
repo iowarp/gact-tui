@@ -508,7 +508,44 @@ function ConversationBody({
     if (followingRef.current && messages.length > 0) scrollToBottom('instant');
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
-  const jumpVisible = !autoscroll.engaged && autoscroll.scrollable && messages.length > 0;
+  // Pressing a disclosure disengages on pointerdown. Mounting the jump lane
+  // right then would slide it over a control in the last 40px, and the
+  // pointerup and click would land on the lane. Hold it until the press ends.
+  const [pressHold, setPressHold] = useState(false);
+  const pressedRef = useRef<Element | null>(null);
+  useEffect(() => {
+    if (!pressHold) return undefined;
+    let timer = 0;
+    // A task later than pointerup, so the click has been dispatched.
+    const release = () => {
+      timer = window.setTimeout(() => setPressHold(false), 0);
+    };
+    window.addEventListener('pointerup', release, { once: true });
+    window.addEventListener('pointercancel', release, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [pressHold]);
+
+  const jumpVisible =
+    !autoscroll.engaged && autoscroll.scrollable && messages.length > 0 && !pressHold;
+
+  // When the lane appears under the control the reader just pressed, lift the
+  // view by the overlap so that control stays visible and clickable.
+  useLayoutEffect(() => {
+    if (!jumpVisible) return;
+    const pressed = pressedRef.current;
+    pressedRef.current = null;
+    const element = scrollRef.current;
+    const lane = element?.querySelector('[data-slot="transcript-control-lane"]');
+    if (!pressed?.isConnected || !element || !lane) return;
+    const overlap = pressed.getBoundingClientRect().bottom - lane.getBoundingClientRect().top;
+    if (overlap <= 0) return;
+    element.scrollTop += overlap;
+    captureReadingAnchor(pressed);
+  }, [jumpVisible, captureReadingAnchor]);
 
   // An empty list is only "no messages" once the transcript actually arrived.
   // A load error outranks everything, including a running turn's preparation.
@@ -573,7 +610,13 @@ function ConversationBody({
         }}
         onScroll={handleScroll}
         onPointerDown={(event) => {
-          if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
+          const disclosure =
+            event.target instanceof Element ? event.target.closest('button[aria-expanded]') : null;
+          if (disclosure) {
+            if (autoscroll.engaged) {
+              pressedRef.current = disclosure;
+              setPressHold(true);
+            }
             markUserScrollIntent();
             disengage();
             // A streaming row can finish before a native scroll event fires.

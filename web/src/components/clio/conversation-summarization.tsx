@@ -92,7 +92,7 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         name="Summary"
         framed={false}
       >
-        <div className="min-w-0 break-words text-sm">
+        <div className="min-w-0 break-words text-sm" data-slot="compaction-summary">
           <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
         </div>
       </CompactionSection>

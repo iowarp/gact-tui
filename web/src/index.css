@@ -758,12 +758,14 @@ html[data-clio-motion='reduced'] *::after {
 .tool-presentation-body [data-language] {
   content-visibility: visible !important;
 }
-[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6),
+[data-slot='compaction-summary'] :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1rem;
   line-height: 1.5rem;
   margin-block: 0.5rem 0.25rem;
 }
-[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child {
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child,
+[data-slot='compaction-summary'] :is(h1, h2, h3, h4, h5, h6):first-child {
   margin-top: 0;
 }
 .tool-presentation-body pre {
