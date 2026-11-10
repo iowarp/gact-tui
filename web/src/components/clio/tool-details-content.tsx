@@ -32,6 +32,9 @@ export function ToolDetailsContent({
           flush
             ? 'p-0'
             : 'space-y-3 px-3 py-2.5 [&_[data-slot=terminal]]:-mx-3 [&_[data-slot=terminal]]:rounded-none [&_[data-slot=terminal]]:border-x-0',
+          // The row's frame is the only box: a result's own panel sits flush inside it.
+          !flush &&
+            '[&_[data-slot=tool-human-result]]:ml-0 [&_[data-slot=tool-result-panel]]:rounded-none [&_[data-slot=tool-result-panel]]:border-0 [&_[data-slot=tool-result-panel]]:bg-transparent',
           // Prose keeps a reading measure; code, output and tables use the full width.
           bounded && !flush && '[&_p]:max-w-[72ch]',
         )}
