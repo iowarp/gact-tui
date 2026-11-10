@@ -194,7 +194,11 @@ export function SettingsQueryField({
         <SettingsWindowIcon aria-hidden="true" className="mr-1 inline size-3 align-[-0.125rem]" />
         Settings
       </Tag>
-      <span className="shrink-0 font-mono text-[0.6875rem] text-faint tabular-nums" role="status">
+      {/* A phone's title row keeps its width for the query; the count stays announced. */}
+      <span
+        className="shrink-0 font-mono text-[0.6875rem] text-faint tabular-nums max-[599px]:sr-only"
+        role="status"
+      >
         {count === 1 ? '1 row' : `${count} rows`}
       </span>
       <ShortcutKeys id="menu-close" variant="inline" className="max-[599px]:hidden" />
@@ -229,7 +233,7 @@ export function SettingsSectionPicker({
   const current = counts ? undefined : hostSection(sections, section);
   const active = sections.find((item) => item.id === current);
   const ActiveIcon = counts ? SearchIcon : active?.icon;
-  const activeLabel = counts ? 'Search results' : (active?.label ?? 'Sections');
+  const activeLabel = counts ? 'Results' : (active?.label ?? 'Sections');
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

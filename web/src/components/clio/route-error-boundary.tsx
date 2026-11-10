@@ -1,7 +1,7 @@
 import { matchPath } from 'react-router-dom';
 import App from '@/App';
 import { useLiveLocation } from '@/lib/live-location';
-import { settingsBackgroundRoute } from '@/lib/settings-window-route';
+import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ComposerDraftSessionBoundary } from '@/components/ai-elements/composer-draft-session-boundary';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -16,7 +16,11 @@ export function RouteErrorBoundary() {
   // Settings opens as a window over the workspace: the workspace keeps its
   // route boundary and its own search owner underneath.
   const background = settingsBackgroundRoute(location, settings.endpoint);
-  const resetKey = background ?? `${location.pathname}${location.search}`;
+  // A detached Settings window (no workspace behind it) is one route too: moving
+  // between its sections or editing its query must not remount the app.
+  const resetKey =
+    background ??
+    (isSettingsRoute(location.pathname) ? '/settings' : `${location.pathname}${location.search}`);
   const pathname = background ?? location.pathname;
   return (
     // Outer boundary is UNKEYED: it must stay mounted across navigation, or the
