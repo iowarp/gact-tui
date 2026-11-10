@@ -3,6 +3,7 @@ import {
   BookIcon,
   BotIcon,
   BoxIcon,
+  DatabaseIcon,
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
@@ -21,6 +22,7 @@ import type { WorkbenchTabListView } from './workbench-strip';
 
 export const workbenchTabIcons = {
   knowledge: BookIcon,
+  ndp: DatabaseIcon,
   work: ListChecksIcon,
   activity: ActivityIcon,
   files: FolderIcon,

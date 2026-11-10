@@ -31,6 +31,9 @@ const BrowserSurface = lazy(() =>
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
+const NdpBrowserTab = lazy(() =>
+  import('./ndp-browser-tab').then((module) => ({ default: module.NdpBrowserTab })),
+);
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchTabListView } from './workbench-strip';
 import { ResourceLoading } from './resource-states';
@@ -377,6 +380,12 @@ export function WorkbenchTabContent({
             pageId={tab.pageId}
             sessionId={tab.sessionId}
           />
+        </Suspense>
+      );
+    case 'ndp':
+      return (
+        <Suspense fallback={<CanvasLoading label="Loading the catalog" />}>
+          <NdpBrowserTab label={tab.label} workspaceId={tab.workspaceId} />
         </Suspense>
       );
     case 'list':
