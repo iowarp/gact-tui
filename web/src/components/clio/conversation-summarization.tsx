@@ -30,7 +30,7 @@ export function SummarizationInjection({
   const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
   return (
     <section
-      className="min-w-0 max-w-full"
+      className="my-px min-w-0 max-w-full"
       data-slot="harness-injection"
       data-source="summarization"
     >
@@ -89,7 +89,7 @@ function CompactionFailure({
   ].filter(Boolean);
   return (
     <div
-      className="w-fit min-w-0 max-w-full"
+      className="my-px w-fit min-w-0 max-w-full"
       data-slot="compaction-failed"
       title={facts.join(' ? ')}
     >
@@ -118,7 +118,7 @@ export function TranscriptNotice({ block }: { block: NoticeBlock }) {
   }
   const source = humanizeProtocolValue(block.source);
   return (
-    <div className="min-w-0 max-w-full" data-slot="transcript-notice" title={block.text}>
+    <div className="my-px min-w-0 max-w-full" data-slot="transcript-notice" title={block.text}>
       <StateView
         kind="marker"
         size="row"
@@ -148,7 +148,7 @@ export function ClioCompactionProgress({ compaction }: { compaction: PendingComp
   }
   return (
     <div
-      className="w-fit min-w-0 max-w-full"
+      className="my-px w-fit min-w-0 max-w-full"
       data-slot="compaction-progress"
       title={compactionTriggerHint(compaction.trigger)}
     >

@@ -29,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import type { WorkspaceReference } from '@clio/core/v3';
@@ -42,11 +43,12 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileViewerReference } from './file-viewer-location';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import { FrameTab } from './primitives/frame-bar';
-import { IconButton } from './primitives/icon-button';
+import { NamedTooltip } from './primitives/icon-button';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import {
   nextTabRowFit,
+  overflowTabs,
   tabChanged,
   workbenchListTabIcons,
   workbenchTabIcons,
@@ -128,7 +130,7 @@ export function WorkbenchTabRow({
   workspaceId,
 }: WorkbenchTabRowProps) {
   const hostRef = useRef<HTMLDivElement>(null);
-  // The header, not the scroller: the "All N tabs" button narrows the
+  // The header, not the scroller: the "N more tabs" list button narrows the
   // scroller, and measuring that would undo the fit it caused.
   const headerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -146,22 +148,38 @@ export function WorkbenchTabRow({
   const fitKey = `${width}|${activeTabId}|${pinnedKey}|${tabs
     .map((tab) => `${tab.id}:${workbenchTabLabel(tab)}`)
     .join('|')}`;
-  const [measured, setMeasured] = useState<{ key: string; fit: TabRowFit }>({
+  const [measured, setMeasured] = useState<{ key: string; fit: TabRowFit; shown: number }>({
     key: fitKey,
     fit: 'full',
+    shown: 0,
   });
   // Any change starts again from full names; the layout effect below then
   // steps down while the row still overflows, before the browser paints.
-  if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full' });
+  if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full', shown: 0 });
   const fit = measured.key === fitKey ? measured.fit : 'full';
+  // Tab ids, the most recently open first: the list at the end takes the least recent.
+  const [recency, setRecency] = useState<string[]>([]);
+  if (activeTabId && recency[0] !== activeTabId)
+    setRecency([
+      activeTabId,
+      ...recency.filter((id) => id !== activeTabId && tabs.some((tab) => tab.id === id)),
+    ]);
+  const hidden = fit === 'overflow' ? overflowTabs(tabs, activeTabId, recency, measured.shown) : [];
+  const hiddenIds = new Set(hidden.map((tab) => tab.id));
+  const shownTabs = hidden.length ? tabs.filter((tab) => !hiddenIds.has(tab.id)) : tabs;
   useLayoutEffect(() => {
     const host = hostRef.current;
-    if (!host || fit === 'overflow') return;
-    if (host.scrollWidth > host.clientWidth + 1)
-      setMeasured((current) =>
-        current.key === fitKey ? { key: fitKey, fit: nextTabRowFit(current.fit) } : current,
-      );
-  }, [fit, fitKey]);
+    if (!host || host.scrollWidth <= host.clientWidth + 1) return;
+    setMeasured((current) => {
+      if (current.key !== fitKey) return current;
+      if (current.fit !== 'overflow') {
+        const next = nextTabRowFit(current.fit);
+        // Into the list: one tab first, then one more per pass while it overflows.
+        return { key: fitKey, fit: next, shown: Math.max(0, tabs.length - 2) };
+      }
+      return current.shown > 0 ? { ...current, shown: current.shown - 1 } : current;
+    });
+  }, [fit, fitKey, measured.shown, tabs.length]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
   useShortcut('close-tab', () => onClose(activeTabId), {
@@ -213,15 +231,22 @@ export function WorkbenchTabRow({
             <Sortable
               asChild
               getItemValue={(tab: WorkbenchTab) => tab.id}
-              onValueChange={onReorder}
+              // Only the shown tabs move; the listed ones keep their places.
+              onValueChange={(next: WorkbenchTab[]) => {
+                if (!hidden.length) return onReorder(next);
+                let shownIndex = 0;
+                onReorder(
+                  tabs.map((tab) => (hiddenIds.has(tab.id) ? tab : (next[shownIndex++] ?? tab))),
+                );
+              }}
               strategy="horizontal"
-              value={tabs as WorkbenchTab[]}
+              value={shownTabs as WorkbenchTab[]}
             >
               <TabsList
                 className="h-full w-max items-stretch justify-start gap-0.5 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-full"
                 variant="line"
               >
-                {tabs.map((tab) => {
+                {shownTabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   const label = workbenchTabLabel(tab);
                   const path = workbenchTabPath(tab);
@@ -352,23 +377,25 @@ export function WorkbenchTabRow({
           ) : null}
         </ContextMenuContent>
       </ContextMenu>
-      {fit === 'overflow' ? (
+      {hidden.length ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              icon={<ChevronDownIcon />}
-              label={`All ${tabs.length} tabs`}
-              tooltipSide="bottom"
-            />
-          </DropdownMenuTrigger>
+          <NamedTooltip label={`${hidden.length} more tabs`}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={`${hidden.length} more tabs`}
+                className="h-7 shrink-0 gap-0.5 rounded-[6px] px-1.5 font-mono text-[11.5px] text-muted-foreground tabular-nums hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
+                data-slot="tab-overflow"
+                variant="ghost"
+              >
+                {hidden.length}
+                <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </NamedTooltip>
           <DropdownMenuContent align="end" className="max-h-80 w-64 overflow-y-auto">
-            {tabs.map((tab) => (
+            {hidden.map((tab) => (
               <DropdownMenuItem key={tab.id} onSelect={() => onSelect(tab.id)}>
-                <MenuRow
-                  checked={tab.id === activeTabId}
-                  icon={<WorkbenchTabIcon tab={tab} />}
-                  label={workbenchTabLabel(tab)}
-                />
+                <MenuRow icon={<WorkbenchTabIcon tab={tab} />} label={workbenchTabLabel(tab)} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

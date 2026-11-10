@@ -51,6 +51,7 @@ export function AddAgentDialog({
   };
   return (
     <DialogFrame
+      className="w-[clamp(460px,44vw,600px)]"
       open={open}
       onOpenChange={close}
       icon={<ServerIcon className="size-4" />}
