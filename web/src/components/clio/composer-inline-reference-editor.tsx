@@ -83,7 +83,7 @@ function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection):
     'aria-label',
     `Open ${referenceKindLabel(selection.reference.kind)} ${selection.reference.label}`,
   );
-  open.title = selection.reference.detail;
+  open.title = [selection.reference.label, selection.reference.detail].filter(Boolean).join(' — ');
   open.type = 'button';
   open.textContent = `@${selection.reference.label}`;
 

@@ -404,7 +404,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           setNotice(surrogateChatReason(modelTypeOf(choice)));
           return;
         }
-        onChange(choice);
+        // Enter or a click on the current model confirms it: just close.
+        if (details.reason !== 'reselect') onChange(choice);
         onClose();
       }}
       path={grouped ? EMPTY_PATH : path}
@@ -551,7 +552,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             }}
           </CascaderColumns>
         ) : null}
-        {showColumns && searchColumns ? <ModelPickerHighlightSeed /> : null}
+        {/* Browsing columns too: Base UI opens on the chosen row without showing
+            it, so the first arrow press otherwise only reveals it. */}
+        {showColumns ? <ModelPickerHighlightSeed /> : null}
         {showColumns ? null : (
           <>
             <CascaderList className="w-full flex-1" maxHeight="100%">

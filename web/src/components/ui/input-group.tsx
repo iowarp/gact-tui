@@ -52,6 +52,9 @@ function InputGroupAddon({
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
       onClick={(e) => {
+        // A portalled popup (a picker opened from this addon) bubbles its clicks
+        // here through React; only a press on the addon itself focuses the field.
+        if (!e.currentTarget.contains(e.target as Node)) return;
         if ((e.target as HTMLElement).closest('button')) {
           return;
         }

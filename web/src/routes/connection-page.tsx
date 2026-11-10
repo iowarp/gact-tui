@@ -380,12 +380,12 @@ export function ConnectionPage() {
     setManualModeRequested(false);
     mutation.reset();
   };
-  const submitLabel =
-    mutation.isPending || connectingInRow
+  // In the list, progress shows only in the connecting row; the manual form has no row.
+  const submitLabel = showManualForm
+    ? mutation.isPending
       ? 'Connecting…'
-      : showManualForm
-        ? 'Connect'
-        : 'Open workspace';
+      : 'Connect'
+    : 'Open workspace';
   // A known service that does not answer cannot be opened; its row says so and offers Retry.
   const selectedFailed =
     knownMode &&

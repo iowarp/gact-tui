@@ -136,8 +136,9 @@ export function FleetSettingsPanel() {
           />
         ) : null}
         <ModelSelectField
+          busy={save.isPending}
           catalogStatus={catalogStatus}
-          disabled={save.isPending || disabled}
+          disabled={disabled}
           id={id}
           label={title}
           modelId={choice?.model_id}
