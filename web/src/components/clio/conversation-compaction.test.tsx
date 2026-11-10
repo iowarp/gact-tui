@@ -246,6 +246,22 @@ describe('ClioConversation summarization injection', () => {
     expect(line).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText(/unique-marker-tail/u)).toBeInTheDocument();
   });
+
+  it('counts the summarized messages and opens to the prompt, summary and kept turns', () => {
+    render(
+      <SummarizationInjection
+        block={{ ...summaryBlock, metadata: { compacted_message_ids: ['m1', 'm2', 'm3'] } }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compacted here, 3 messages summarized' }));
+    const record = screen.getByRole('group', { name: 'What the agent kept' });
+    // The summary opens with the record; parts the record lacks say so instead.
+    expect(within(record).getByText(/unique-marker-tail/u)).toBeInTheDocument();
+    expect(within(record).getByText('System prompt')).toBeInTheDocument();
+    expect(within(record).getByText('Unchanged')).toBeInTheDocument();
+    expect(within(record).getByText('Recent turns kept verbatim')).toBeInTheDocument();
+    expect(within(record).getByText('Not recorded')).toBeInTheDocument();
+  });
 });
 
 describe('ClioConversation compaction progress', () => {

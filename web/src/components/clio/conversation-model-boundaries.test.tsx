@@ -81,7 +81,7 @@ describe('recorded model segments', () => {
     expect(conversationModelBoundaries(JSON.parse(JSON.stringify(messages)))).toEqual(original);
   });
 
-  it('draws no line between model segments', () => {
+  it('draws a divider where the model changed, not before the first model', () => {
     render(
       <AppearanceProvider>
         <ClioConversation
@@ -99,8 +99,12 @@ describe('recorded model segments', () => {
         />
       </AppearanceProvider>,
     );
-    expect(document.querySelector('[data-slot="model-checkpoint"]')).toBeNull();
-    expect(screen.queryByText(/Switched to|Model not recorded/)).not.toBeInTheDocument();
+    const lines = document.querySelectorAll('[data-slot="model-checkpoint"]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toHaveAttribute('role', 'separator');
+    expect(lines[0]).toHaveTextContent(/^Switched to .+, claude-sonnet-5$/);
+    expect(lines[0].getAttribute('aria-label')).toMatch(/Previous model: .+, gpt-6-luna$/);
+    expect(document.getElementById('message-next')).toContainElement(lines[0] as HTMLElement);
     expect(screen.getByText('Content for answer.')).toBeInTheDocument();
     expect(screen.getByText('Content for reply.')).toBeInTheDocument();
   });

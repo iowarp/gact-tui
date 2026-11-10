@@ -26,6 +26,7 @@ import { ClioTurnWaitFeedback } from './turn-wait-feedback';
 import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
+import { TranscriptMessagesContext } from './transcript-messages-context';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
 import { ClioTranscriptOutline } from './transcript-outline';
@@ -82,7 +83,9 @@ export function ClioConversation(props: ClioConversationProps) {
   return (
     <PresentationNavigation.Provider value={navigation}>
       <TranscriptDisclosures sessionId={props.sessionId ?? props.messages[0]?.session_id}>
-        {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        <TranscriptMessagesContext.Provider value={props.messages}>
+          {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        </TranscriptMessagesContext.Provider>
       </TranscriptDisclosures>
     </PresentationNavigation.Provider>
   );
@@ -679,6 +682,7 @@ function ConversationBody({
                     message={message}
                     mcpAppResponse={mcpAppResponses.get(message.id)}
                     messageCompactions={compactionPlacement.byMessage.get(message.id)}
+                    modelBoundary={modelBoundaries.get(message.id)}
                     onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                     recent={index >= messages.length - 2}
                     start={start}

@@ -1,11 +1,16 @@
 import type { CompactionTrigger, MessageBlock, PendingCompaction } from '@clio/core/v3';
-import { ChevronRightIcon, PackageIcon, TriangleAlertIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { MessagesSquareIcon, PackageIcon, ScrollTextIcon, TriangleAlertIcon } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
+import { transcriptMessagePreviews } from '@/lib/transcript-message-preview';
+import { ActivityBody, ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { humanizeProtocolValue } from './presentation-labels';
 import { GoalNotice } from './goal-notice';
 import { StateView } from './primitives/state-view';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { TranscriptDivider } from './transcript-divider';
+import { TranscriptMessagePreview } from './transcript-message-preview';
+import { useTranscriptMessages } from './transcript-messages-context';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
@@ -16,9 +21,12 @@ function compactionTriggerHint(trigger: CompactionTrigger | undefined) {
 }
 
 /**
- * The record of a compaction, where it happened: one quiet 28px line,
- * "Compacted here, earlier messages summarized". Pressing it discloses the
- * summary exactly as the agent received it; who started it is its hover name.
+ * The record of a compaction, where it happened: a divider across the
+ * transcript, "Compacted here, 61 messages summarized", with a chevron that
+ * always shows it opens. Open, it reads as what the agent works from now: its
+ * system prompt, the summary (open) and the turns it kept verbatim. Parts the
+ * record does not carry say so instead of opening. Who started it is its hover
+ * name.
  */
 export function SummarizationInjection({
   block,
@@ -28,44 +36,151 @@ export function SummarizationInjection({
   label?: string;
 }) {
   const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
+  const compacted = stringList(block.metadata?.compacted_message_ids);
+  const line = compacted.length
+    ? `Compacted here, ${compacted.length} ${compacted.length === 1 ? 'message' : 'messages'} summarized`
+    : 'Compacted here, earlier messages summarized';
   return (
     <section
       className="my-px min-w-0 max-w-full"
       data-slot="harness-injection"
       data-source="summarization"
     >
-      <StateView
-        className="w-fit max-w-full"
-        kind="marker"
-        size="row"
+      <TranscriptDivider
+        data-slot="compaction-divider"
         icon={PackageIcon}
-        title={
-          <button
-            aria-expanded={expanded}
-            className="group/compaction inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-            onClick={() => setExpanded(!expanded)}
-            title={compactionTriggerHint(block.trigger)}
-            type="button"
-          >
-            <span className="min-w-0 truncate">Compacted here, earlier messages summarized</span>
-            <ChevronRightIcon
-              aria-hidden="true"
-              className={cn(
-                'size-3 shrink-0 motion-safe:transition-[transform,opacity]',
-                expanded
-                  ? 'rotate-90'
-                  : 'opacity-0 group-hover/compaction:opacity-100 group-focus-visible/compaction:opacity-100',
-              )}
-            />
-          </button>
-        }
-      />
-      {expanded ? (
-        <div className="mt-1 mb-2 ml-[11px] min-w-0 max-w-full border-l border-border pl-[19px] break-words text-sm">
+        onOpenChange={setExpanded}
+        open={expanded}
+        title={compactionTriggerHint(block.trigger)}
+      >
+        {line}
+      </TranscriptDivider>
+      {expanded ? <CompactionRecord block={block} /> : null}
+    </section>
+  );
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+function CompactionRecord({ block }: { block: SummarizationBlock }) {
+  const systemPrompt =
+    typeof block.metadata?.system_prompt === 'string' ? block.metadata.system_prompt : '';
+  const keptIds = stringList(block.metadata?.kept_message_ids);
+  return (
+    <ActivityNest label="What the agent kept">
+      <CompactionSection
+        id={`${block.id}:system`}
+        icon={<ScrollTextIcon aria-hidden="true" />}
+        name="System prompt"
+        absent="Unchanged"
+        absentTitle="A compaction does not change the system prompt; this record does not carry its text"
+      >
+        {systemPrompt ? (
+          <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">
+            {systemPrompt}
+          </pre>
+        ) : null}
+      </CompactionSection>
+      <CompactionSection
+        id={`${block.id}:summary`}
+        icon={<PackageIcon aria-hidden="true" />}
+        initiallyOpen
+        name="Summary"
+        framed={false}
+      >
+        <div className="min-w-0 break-words text-sm">
           <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
         </div>
+      </CompactionSection>
+      <CompactionSection
+        id={`${block.id}:kept`}
+        icon={<MessagesSquareIcon aria-hidden="true" />}
+        name="Recent turns kept verbatim"
+        meta={keptIds.length ? `${keptIds.length} messages` : undefined}
+        absent="Not recorded"
+        absentTitle="This agent does not record which turns it kept"
+      >
+        {keptIds.length ? <KeptTurns ids={keptIds} /> : null}
+      </CompactionSection>
+    </ActivityNest>
+  );
+}
+
+function CompactionSection({
+  id,
+  icon,
+  name,
+  meta,
+  absent,
+  absentTitle,
+  initiallyOpen = false,
+  framed = true,
+  children,
+}: {
+  id: string;
+  icon: ReactNode;
+  name: string;
+  meta?: string;
+  /** What the row says when the record does not carry this part. */
+  absent?: string;
+  absentTitle?: string;
+  initiallyOpen?: boolean;
+  framed?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useTranscriptDisclosure(`compaction:${id}`, initiallyOpen);
+  const available = Boolean(children);
+  return (
+    <>
+      <ActivityRow
+        data-slot="compaction-section"
+        disclosure={
+          <ActivityDisclosure
+            disabled={!available}
+            label={`${open ? 'Collapse' : 'Expand'} ${name}`}
+            open={available && open}
+            onClick={() => setOpen(!open)}
+          />
+        }
+        icon={icon}
+        name={name}
+        onOpenChange={available ? setOpen : undefined}
+        open={available && open}
+        outcome={available ? meta : absent}
+        outcomeTitle={available ? undefined : absentTitle}
+        outcomeTone="muted"
+      />
+      {available && open ? (
+        <ActivityBody framed={framed} label={name}>
+          {children}
+        </ActivityBody>
       ) : null}
-    </section>
+    </>
+  );
+}
+
+function KeptTurns({ ids }: { ids: readonly string[] }) {
+  const messages = useTranscriptMessages();
+  const previews = useMemo(() => transcriptMessagePreviews(messages), [messages]);
+  return (
+    <ul className="divide-y divide-border">
+      {ids.map((id) => {
+        const preview = previews.get(id);
+        return (
+          <li className="px-3 py-2" key={id}>
+            {preview ? (
+              <TranscriptMessagePreview marked={false} preview={preview} />
+            ) : (
+              <span className="text-xs text-muted-foreground">Not in this view</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -191,6 +191,15 @@ const injectionMessageBlockSchema = additivelyTolerant(
       call_id: z.string().optional(),
       trigger: z.enum(['auto', 'manual']).optional(),
       compaction_id: z.string().optional(),
+      // TODO(clio-schemas): InjectionMessageBlock lacks `metadata`; clio-agent
+      // already sends a summarization's `compacted_message_ids` there.
+      metadata: z
+        .object({
+          compacted_message_ids: z.array(z.string()).optional(),
+          derived_from: z.array(z.string()).optional(),
+        })
+        .passthrough()
+        .optional(),
       variants_id: z.string().optional(),
       try_index: z.number().int().nonnegative().optional(),
       agent_id: z.string().optional(),

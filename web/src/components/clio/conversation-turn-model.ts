@@ -193,7 +193,12 @@ function fallbackIterations(
       segments.push({ kind: 'block', block });
       continue;
     }
-    if (block.type === 'notice' && block.source === 'compaction_failed') {
+    // A compaction is a transcript boundary, drawn as a divider at its place,
+    // never one call inside a folded run.
+    if (
+      (block.type === 'notice' && block.source === 'compaction_failed') ||
+      (block.type === 'injection' && block.source === 'summarization')
+    ) {
       flush();
       compactionRecords.push({ afterIteration: iterations.length, block });
       consumed.add(block.id);
@@ -211,10 +216,6 @@ function fallbackIterations(
     // Harness additions belong to the same activity lane as thinking and tools,
     // including reminders and delivered results without an owning tool call.
     if (block.type === 'injection') {
-      if (block.source === 'summarization') {
-        flush();
-        compactionRecords.push({ afterIteration: iterations.length, block });
-      }
       if (!alreadyInLane(current, 'injection', block.id)) {
         current.activity.push({ kind: 'injection', id: block.id, block });
       }

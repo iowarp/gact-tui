@@ -24,7 +24,7 @@ const turn: Message = {
 };
 
 describe('conversationTurnPresentation compaction records', () => {
-  it('keeps a mid-turn summary at its step, between the iterations around it', () => {
+  it('keeps a mid-turn summary at its step, as a divider between the iterations around it', () => {
     const presentation = conversationTurnPresentation(turn, {});
 
     expect(
@@ -32,7 +32,12 @@ describe('conversationTurnPresentation compaction records', () => {
     ).toEqual(['r1', 'r2']);
     expect(
       presentation.iterations.flatMap((iteration) => iteration.activity.map((entry) => entry.id)),
-    ).toEqual(['part_summary']);
+    ).toEqual([]);
+    expect(
+      presentation.segments.map((segment) =>
+        segment.kind === 'block' ? segment.block.id : segment.kind,
+      ),
+    ).toEqual(['iterations', 'part_summary', 'iterations', 'answer']);
     expect(presentation.compactionRecords).toEqual([{ afterIteration: 1, block: turn.blocks[1] }]);
     expect(presentation.residualBlocks.map((block) => block.id)).toEqual(['answer']);
   });

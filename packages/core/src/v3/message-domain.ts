@@ -52,6 +52,15 @@ export type MessageBlock = MessageBlockContext &
         call_id?: string;
         trigger?: 'auto' | 'manual';
         compaction_id?: string;
+        /**
+         * A summarization's `compacted_message_ids` are the messages its summary
+         * replaced; `derived_from` names the summaries it folded in.
+         */
+        metadata?: {
+          compacted_message_ids?: string[];
+          derived_from?: string[];
+          [key: string]: unknown;
+        };
         /** Set when a variant try received it: the block belongs to that try's tab. */
         variants_id?: string;
         try_index?: number;
