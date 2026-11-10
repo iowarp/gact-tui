@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from './refresh-button';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { ConnectField, ConnectInput } from './connect-frame';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
@@ -71,12 +70,11 @@ export function GitHubRevisionPicker({
   const label = kind === 'branch' ? 'Branch' : kind === 'tag' ? 'Tag' : 'Commit';
   const selection = kind === 'tag' && value.startsWith('refs/tags/') ? value.slice(10) : value;
   const selectClass =
-    'h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50';
+    'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sidebar';
   return (
     <div className="space-y-2">
-      <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] gap-3">
-        <Field>
-          <FieldLabel htmlFor={`${formId}-revision-kind`}>Revision</FieldLabel>
+      <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] gap-2.5">
+        <ConnectField htmlFor={`${formId}-revision-kind`} label="Revision">
           <select
             id={`${formId}-revision-kind`}
             className={selectClass}
@@ -92,9 +90,8 @@ export function GitHubRevisionPicker({
             <option value="tag">Tag</option>
             <option value="commit">Commit</option>
           </select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={`${formId}-revision`}>{label}</FieldLabel>
+        </ConnectField>
+        <ConnectField htmlFor={`${formId}-revision`} label={label}>
           <select
             id={`${formId}-revision`}
             form={formId}
@@ -133,12 +130,12 @@ export function GitHubRevisionPicker({
             ))}
             {kind === 'commit' && <option value="__manual__">Enter a commit ID…</option>}
           </select>
-        </Field>
+        </ConnectField>
       </div>
       {manual && (
-        <Field>
-          <FieldLabel htmlFor={`${formId}-commit`}>Commit ID</FieldLabel>
-          <Input
+        <ConnectField htmlFor={`${formId}-commit`} label="Commit ID">
+          <ConnectInput
+            mono
             id={`${formId}-commit`}
             form={formId}
             value={value}
@@ -148,7 +145,7 @@ export function GitHubRevisionPicker({
             placeholder="Paste the commit ID"
             onChange={(event) => onChange(event.target.value.trim())}
           />
-        </Field>
+        </ConnectField>
       )}
       {!repoUrl && (
         <p className="text-xs text-muted-foreground">

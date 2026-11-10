@@ -10,9 +10,8 @@ import type {
 import { useMutation } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { useRepository } from '@/hooks/use-repository';
+import { ChosenFolder, ConnectField, ConnectInput } from './connect-frame';
 import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
 import { SourceProviderLogo } from './source-provider-logo';
@@ -29,6 +28,14 @@ import {
   rememberedSourceAccess,
   type SourceUse,
 } from './source-access-intent';
+
+/** The last segment of a folder path or link: what a person calls the folder. */
+const rootName = (root: string) =>
+  root
+    .trim()
+    .replace(/[/\\]+$/, '')
+    .split(/[/\\]/)
+    .pop() ?? '';
 
 /** Node capabilities determine which real access modes can be offered. */
 export function ConnectedSourceForm({
@@ -87,21 +94,15 @@ export function ConnectedSourceForm({
     setMode(next);
     if (next === 'write_enabled') setConfirmed(source?.mode === 'write_enabled');
   };
+  const defaultLabel =
+    provider.id === 'local' || provider.id === 'obsidian' || (provider.id === 'sftp' && inTauri())
+      ? rootName(root) || provider.name
+      : provider.name;
   const connect = useMutation({
     mutationFn: () => {
       const input: CreateSourceInput = {
         provider: provider.id,
-        label:
-          label.trim() ||
-          (provider.id === 'local' ||
-          provider.id === 'obsidian' ||
-          (provider.id === 'sftp' && inTauri())
-            ? root
-                .trim()
-                .replace(/[/\\]+$/, '')
-                .split(/[/\\]/)
-                .pop() || provider.name
-            : provider.name),
+        label: label.trim() || defaultLabel,
         root: root.trim(),
         // A source with history keeps its mode; its link or copy takes the new Access.
         mode: locationLocked && source?.mode ? source.mode : mode,
@@ -118,9 +119,8 @@ export function ConnectedSourceForm({
     },
   });
   const configField = (key: keyof typeof configuration, name: string, placeholder: string) => (
-    <Field>
-      <FieldLabel htmlFor={`source-${key}`}>{name}</FieldLabel>
-      <Input
+    <ConnectField htmlFor={`source-${key}`} label={name}>
+      <ConnectInput
         form={formId}
         id={`source-${key}`}
         value={
@@ -131,7 +131,7 @@ export function ConnectedSourceForm({
         placeholder={placeholder}
         onChange={(e) => setConfiguration((previous) => ({ ...previous, [key]: e.target.value }))}
       />
-    </Field>
+    </ConnectField>
   );
   return provider.id === 'obsidian' && !source ? (
     <ObsidianSourceForm
@@ -158,18 +158,15 @@ export function ConnectedSourceForm({
         </div>
       </div>
       <fieldset disabled={connect.isPending} className="space-y-4">
-        <Field>
-          <FieldLabel htmlFor="source-label">
-            Name <span className="text-muted-foreground">(optional)</span>
-          </FieldLabel>
-          <Input
+        <ConnectField htmlFor="source-label" label="Name" optional>
+          <ConnectInput
             form={formId}
             id="source-label"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Optional name"
+            placeholder={defaultLabel}
           />
-        </Field>
+        </ConnectField>
         <fieldset disabled={locationLocked} className="space-y-4">
           {locationLocked && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -192,8 +189,7 @@ export function ConnectedSourceForm({
                     {vocab.agent} manages this synced copy on {hostLabel}. Manage the official Sync
                     client and its account in Settings → Data sources → Obsidian.
                   </p>
-                  <Field>
-                    <FieldLabel htmlFor="vault-sync-mode">Sync direction</FieldLabel>
+                  <ConnectField htmlFor="vault-sync-mode" label="Sync direction">
                     <ObsidianSyncDirection
                       id="vault-sync-mode"
                       value={configuration.obsidian_sync_mode ?? 'pull-only'}
@@ -201,7 +197,7 @@ export function ConnectedSourceForm({
                         setConfiguration((previous) => ({ ...previous, obsidian_sync_mode }))
                       }
                     />
-                  </Field>
+                  </ConnectField>
                   <p className="text-xs text-muted-foreground">
                     Sync direction is separate from permission for the agent to edit notes.
                   </p>
@@ -233,28 +229,30 @@ export function ConnectedSourceForm({
           )}
           {provider.id === 'globus' &&
             configField('collection_id', 'Source collection ID', 'Collection UUID')}
-          <Field>
-            <div className="flex items-center gap-2">
-              <FieldLabel htmlFor="source-root">
-                {provider.id === 'google_drive'
-                  ? 'Google Drive folder link'
-                  : provider.id === 'github'
-                    ? 'Repository or folder link'
-                    : provider.id === 'ndp'
-                      ? 'Dataset'
-                      : 'Source folder'}
-              </FieldLabel>
-              {provider.id === 'google_drive' && (
+          <ConnectField
+            htmlFor="source-root"
+            label={
+              provider.id === 'google_drive'
+                ? 'Google Drive folder link'
+                : provider.id === 'github'
+                  ? 'Repository or folder link'
+                  : provider.id === 'ndp'
+                    ? 'Dataset'
+                    : 'Source folder'
+            }
+            aside={
+              provider.id === 'google_drive' ? (
                 <InfoTip label="How to choose a Google Drive folder">
                   Open your folder in Google Drive, copy the address from your browser, and paste it
                   here. You can also paste a folder ID. The link does not change sharing
                   permissions.
                 </InfoTip>
-              )}
-            </div>
-            <div className="flex gap-2">
+              ) : null
+            }
+          >
+            <div className="flex min-w-0 gap-2">
               {provider.id !== 'local' && provider.id !== 'sftp' && provider.id !== 'obsidian' && (
-                <Input
+                <ConnectInput
                   form={formId}
                   id="source-root"
                   required
@@ -276,7 +274,7 @@ export function ConnectedSourceForm({
               {(provider.id === 'local' ||
                 provider.id === 'sftp' ||
                 provider.id === 'obsidian') && (
-                <div className="flex min-w-0 w-full items-center gap-3 rounded-md border p-2">
+                <div className="flex w-full min-w-0 items-center gap-2">
                   <HostPathPicker
                     targetId={provider.id === 'sftp' ? configuration.target_id || '' : 'local'}
                     hostLabel={
@@ -306,13 +304,11 @@ export function ConnectedSourceForm({
                       connect.isPending || (provider.id === 'sftp' && !configuration.target_id)
                     }
                   />
-                  <span role="status" className="min-w-0 break-all text-sm text-muted-foreground">
-                    {root || 'No folder chosen'}
-                  </span>
+                  <ChosenFolder path={root} />
                 </div>
               )}
             </div>
-          </Field>
+          </ConnectField>
           {provider.id === 'github' && (
             <GitHubRevisionPicker
               key={root.trim()}

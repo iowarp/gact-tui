@@ -5,7 +5,6 @@ import type { InfrastructureTarget, SftpCredentials } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FieldLabel } from '@/components/ui/field';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { ConfigureIcon } from '@/lib/icon-vocabulary';
@@ -88,7 +87,7 @@ function DesktopSourceSshTarget({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <FieldLabel>SSH host</FieldLabel>
+        <span className="text-[11.5px] whitespace-nowrap text-muted-foreground">SSH host</span>
         <Button
           aria-label="Manage SSH hosts"
           disabled={connecting}

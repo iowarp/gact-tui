@@ -2,12 +2,11 @@ import type { GlobusDestination } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ConnectField, ConnectInput } from './connect-frame';
 import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
 import { SourceProviderLogo } from './source-provider-logo';
@@ -94,34 +93,35 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
             save.mutate(current);
           }}
         >
-          <Field>
-            <FieldLabel htmlFor="receiving-collection">Collection ID</FieldLabel>
-            <Input
+          <ConnectField htmlFor="receiving-collection" label="Collection ID">
+            <ConnectInput
+              mono
               id="receiving-collection"
               value={current.collection_id}
               required
               onChange={(e) => change('collection_id', e.target.value)}
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="receiving-collection-root">Collection folder</FieldLabel>
-            <Input
+          </ConnectField>
+          <ConnectField htmlFor="receiving-collection-root" label="Collection folder">
+            <ConnectInput
               id="receiving-collection-root"
               value={current.collection_root}
               required
               onChange={(e) => change('collection_root', e.target.value)}
             />
-          </Field>
-          <Field>
-            <div className="flex items-center gap-2">
-              <FieldLabel htmlFor="receiving-local-root">Same folder on {hostLabel}</FieldLabel>
+          </ConnectField>
+          <ConnectField
+            htmlFor="receiving-local-root"
+            label={`Same folder on ${hostLabel}`}
+            aside={
               <InfoTip label="About the receiving folder">
                 This maps the collection folder to the same directory on this host. It must contain
                 the source storage folder shown below. Sign-in stays in each source's trusted setup.
               </InfoTip>
-            </div>
+            }
+          >
             <div className="flex gap-2">
-              <Input
+              <ConnectInput
                 id="receiving-local-root"
                 value={current.local_root}
                 required
@@ -135,7 +135,7 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
                 onChoose={(path) => change('local_root', path)}
               />
             </div>
-          </Field>
+          </ConnectField>
           <p className="break-all text-xs text-muted-foreground">
             Source storage: {query.data?.storage_root}
           </p>

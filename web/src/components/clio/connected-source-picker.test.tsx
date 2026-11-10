@@ -562,7 +562,7 @@ describe('connected source picker', () => {
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    expect(screen.getByPlaceholderText('Optional name')).toBeEnabled();
+    expect(screen.getByLabelText('Name')).toBeEnabled();
     const folder = screen.getByLabelText('Google Drive folder link');
     expect(folder).toBeEnabled();
     const button = screen.getByRole('button', { name: 'Connect folder' });

@@ -5,11 +5,10 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { vocab } from '@/lib/brand-vocabulary';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { SourceProviderLogo } from './source-provider-logo';
+import { ChosenFolder, ConnectField, ConnectInput } from './connect-frame';
 import { HostPathPicker } from './host-path-picker';
 import { ObsidianIntroduction } from './obsidian-introduction';
 import { ObsidianAccountSettings } from './obsidian-account-settings';
@@ -169,26 +168,22 @@ function ObsidianSourceEditor({
             </label>
           ))}
         </RadioGroup>
-        <Field>
-          <FieldLabel htmlFor={`${id}-name`}>
-            Vault name <span className="text-muted-foreground">(optional)</span>
-          </FieldLabel>
-          <Input
+        <ConnectField htmlFor={`${id}-name`} label="Vault name" optional>
+          <ConnectInput
             id={`${id}-name`}
             placeholder={choice === 'new' ? 'My knowledge' : 'Use the folder or vault name'}
             value={label}
             onChange={(event) => setLabel(event.target.value)}
           />
-        </Field>
+        </ConnectField>
         {choice === 'new' ? (
           <p className="text-sm leading-6 text-muted-foreground">
             {vocab.agent} creates an empty vault on {hostLabel}. You can add notes and follow their
             links here, and open the same folder in Obsidian later.
           </p>
         ) : choice === 'existing' ? (
-          <Field>
-            <FieldLabel>Vault or notes folder on {hostLabel}</FieldLabel>
-            <div className="flex min-w-0 items-center gap-3 rounded-md border p-2">
+          <ConnectField label={`Vault or notes folder on ${hostLabel}`}>
+            <div className="flex min-w-0 items-center gap-2">
               <HostPathPicker
                 targetId="local"
                 hostLabel={hostLabel}
@@ -199,25 +194,22 @@ function ObsidianSourceEditor({
                 onChoose={setRoot}
                 disabled={connect.isPending}
               />
-              <span role="status" className="min-w-0 break-all text-sm text-muted-foreground">
-                {root || 'No folder chosen'}
-              </span>
+              <ChosenFolder path={root} />
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
               Only this folder is available to knowledge tools. Existing notes and settings stay
               intact; hidden files and Obsidian settings are excluded.
             </p>
-          </Field>
+          </ConnectField>
         ) : (
           <div className="grid gap-4">
             <ObsidianAccountSettings />
             {account.data?.authenticated ? (
               <>
-                <Field>
-                  <FieldLabel htmlFor={`${id}-vault`}>Obsidian Sync vault</FieldLabel>
+                <ConnectField htmlFor={`${id}-vault`} label="Obsidian Sync vault">
                   <select
                     id={`${id}-vault`}
-                    className="w-full rounded-md border bg-background p-2"
+                    className="h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-sidebar"
                     value={vaultId}
                     onChange={(event) => setVaultId(event.target.value)}
                   >
@@ -230,28 +222,26 @@ function ObsidianSourceEditor({
                       </option>
                     ))}
                   </select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`${id}-encryption`}>
-                    Vault encryption password{' '}
-                    <span className="text-muted-foreground">(if required)</span>
-                  </FieldLabel>
-                  <Input
+                </ConnectField>
+                <ConnectField
+                  htmlFor={`${id}-encryption`}
+                  label="Vault encryption password, if required"
+                >
+                  <ConnectInput
                     id={`${id}-encryption`}
                     type="password"
                     autoComplete="off"
                     value={encryptionPassword}
                     onChange={(event) => setEncryptionPassword(event.target.value)}
                   />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`${id}-direction`}>Sync direction</FieldLabel>
+                </ConnectField>
+                <ConnectField htmlFor={`${id}-direction`} label="Sync direction">
                   <ObsidianSyncDirection
                     id={`${id}-direction`}
                     value={syncMode}
                     onChange={setSyncMode}
                   />
-                </Field>
+                </ConnectField>
                 <p className="text-xs leading-5 text-muted-foreground">
                   {vocab.agent} stores and manages a dedicated copy on {hostLabel}. Sync direction
                   is separate from permission to edit notes.
