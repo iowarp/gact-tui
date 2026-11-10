@@ -315,15 +315,22 @@ export function variantRunView(
     };
   });
   // A pick opens on the newest refined draft (what the comment asked for),
-  // otherwise on the first draft offered.
+  // otherwise on the best-scored draft offered, otherwise the first.
   const candidates = pick?.candidates ?? [];
   const refined = candidates.filter(
     (candidate) =>
       run.tries.find((item) => item.try_index === candidate.try_index)?.forked_from !== undefined,
   );
+  const scoreOf = (tryIndex: number) =>
+    run.tries.find((item) => item.try_index === tryIndex)?.score ?? -Infinity;
+  const best = candidates.reduce<(typeof candidates)[number] | undefined>(
+    (top, candidate) =>
+      !top || scoreOf(candidate.try_index) > scoreOf(top.try_index) ? candidate : top,
+    undefined,
+  );
   const defaultTab =
     run.selection?.selected_index ??
-    (refined.at(-1) ?? candidates[0])?.try_index ??
+    (refined.at(-1) ?? best)?.try_index ??
     run.tries.find((item) => item.state === 'running')?.try_index ??
     run.tries[0]?.try_index ??
     0;

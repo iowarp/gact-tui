@@ -69,8 +69,10 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const commentRef = useRef<HTMLInputElement>(null);
 
-  // A new pick brings its tries into the workbench once; never again after the user closes them.
+  // A new pick brings its tries into the workbench once, beside the conversation;
+  // on a phone the workbench would cover this card, so its steps and [ ] open them.
   useEffect(() => {
+    if (window.matchMedia?.('(max-width: 767px)').matches) return;
     if (claimVariantTriesOpen(view.variantsId))
       openTries(view, current?.tryIndex ?? view.defaultTab);
     // Only the run's first pick opens them.
@@ -170,7 +172,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
             <ChevronRightIcon
               aria-hidden="true"
               className={cn(
-                'size-[13px] shrink-0 motion-safe:transition-transform',
+                'mr-1.5 inline size-[13px] align-[-2px] motion-safe:transition-transform',
                 criteriaOpen && 'rotate-90',
               )}
             />
@@ -182,7 +184,7 @@ function VariantPickCard({ view, onPick }: { view: VariantRunView; onPick: Varia
             onClick={() => openTries(view, current.tryIndex)}
             title={`Open ${current.label} in the workbench`}
           >
-            <ListTreeIcon aria-hidden="true" className="size-[13px] shrink-0" />
+            <ListTreeIcon aria-hidden="true" className="mr-1.5 inline size-[13px] align-[-2px]" />
             {steps === 1 ? '1 step' : `${steps} steps`}
           </AskHint>
         ) : null}

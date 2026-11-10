@@ -390,10 +390,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
             return;
           case 'variant-try':
-            // Every try gets its tab; the asked-for one ends in front.
+            // Every try gets its tab, in try order; the asked-for one is then shown.
             for (const item of request.tries)
-              if (item.tryIndex !== request.tryIndex)
-                openTab(variantTryTab(request, item.tryIndex, sessionId, workspaceId));
+              openTab(variantTryTab(request, item.tryIndex, sessionId, workspaceId));
             openTab(variantTryTab(request, request.tryIndex, sessionId, workspaceId));
             return;
           default: {
