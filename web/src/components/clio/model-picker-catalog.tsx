@@ -397,11 +397,6 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       }}
       onValueChange={(_value, details) => {
         if (details.node?.data?.kind !== 'model') return;
-        // Choosing the current model again confirms it: close without a redundant write.
-        if (details.reason === 'reselect') {
-          onClose();
-          return;
-        }
         const choice = details.node.data.choice;
         // A specialist model is a first-class row, but it cannot be the
         // chat model: say why instead of selecting it.
