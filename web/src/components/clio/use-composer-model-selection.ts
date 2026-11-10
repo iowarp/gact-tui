@@ -37,7 +37,7 @@ export function useComposerModelSelection(
   const selectedModel = selection.authoritativeModel === model ? selection.model : model;
   // A pick whose provider only needs its sign-in re-checked stays picked: the
   // service re-asks that provider when the message is sent (#1455), so stale
-  // sign-in state never turns the composer back to "Choose model".
+  // sign-in state never turns the composer back to "Choose a model".
   const availableOption = findSelectedModelOption(modelOptions, selectedProvider, selectedModel);
   const heldOption = availableOption
     ? undefined
