@@ -68,6 +68,7 @@ export function WorkspaceTranscript({
     | 'subagents'
     | 'transcript'
     | 'transcriptError'
+    | 'transcriptKey'
   >;
   mutations: Pick<
     SessionMutations,
@@ -94,6 +95,7 @@ export function WorkspaceTranscript({
   onInteractionResponse: ReturnType<typeof useWorkspaceQuestions>['handleInteractionResponse'];
 }) {
   const { transcript, transcriptError } = data;
+
   const { actionCard, cancelPendingSteer, retry } = mutations;
   const { pendingMessageIds, cancellablePendingMessageIds } =
     workspaceRouteState.pendingSteerMessageIds(mutations.pendingSteers.data ?? []);
@@ -148,7 +150,7 @@ export function WorkspaceTranscript({
                 onReload={() => void transcript.refetch()}
                 hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
                 awaitingFirstPage={transcript.isPending}
-                loading={transcript.isFetching}
+                loadingQueryKey={data.transcriptKey}
                 onActionCardAction={actionCard.mutateAsync}
                 {...navigation.conversationNavigation}
                 onOpenWork={openWork}

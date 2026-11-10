@@ -2,6 +2,7 @@ import { useSessionCacheRetention } from './use-session-cache-retention';
 import { useSessionResourceLoading } from './use-session-resource-loading';
 import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
+import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
@@ -49,6 +50,7 @@ import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { conversationFamily } from '@/components/clio/conversation-relationships-model';
 import { useProviderCatalog } from './use-provider-catalog';
+import type { ModelCatalogStatus } from './use-model-catalog-status';
 import { useSessionLiveStream } from './use-session-live-stream';
 import { useVariantRunHydration } from './use-variant-run-hydration';
 import { useSessionObservability } from './use-session-observability';
@@ -206,13 +208,20 @@ export function useWorkspaceData({
     [hierarchySessions, sessionId],
   );
   const attendedSessionId = attendedSessionRoot.id;
+  const transcriptKey = useMemo(
+    () => queryKeys.transcriptPage(settings.endpoint, sessionId),
+    [settings.endpoint, sessionId],
+  );
   const transcript = useQuery({
-    queryKey: queryKeys.transcriptPage(settings.endpoint, sessionId),
+    queryKey: transcriptKey,
     // The newest page only: older messages load on scroll (useEarlierMessages).
     queryFn: ({ signal }) =>
       repository.transcript(sessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
     enabled: Boolean(sessionId),
     placeholderData: reloadTranscript,
+    // The fetch flag is read by the components that show it (useQueryFetching), so
+    // a background refetch does not re-render the whole page.
+    notifyOnChangeProps: [...QUERY_RESULT_FIELDS, 'isPlaceholderData'],
     // A provider can finish without emitting visible stream chunks. Keep the
     // active transcript current even if the SSE completion frame is missed.
     refetchInterval: () => {
@@ -478,6 +487,19 @@ export function useWorkspaceData({
   );
   const contextObservability = useSessionObservability(contextTargetId, surrounding);
   const { hideDotFiles } = useAppearancePreferences();
+  const filesScope = connectionScope(settings);
+  const workspaceFilesKey = useMemo(
+    () =>
+      queryKeys.key(
+        'workspace-files',
+        settings.endpoint,
+        workspaceId,
+        `include_hidden=${!hideDotFiles}`,
+        'directory=',
+        filesScope,
+      ),
+    [settings.endpoint, workspaceId, hideDotFiles, filesScope],
+  );
   const workspaceFiles = useQuery({
     // The Files-view-only "Hide dot files and folders" toggle is part of the
     // cache identity: it changes what the SERVER sends (include_hidden), not a
@@ -489,14 +511,7 @@ export function useWorkspaceData({
     // ['workspace-files', endpoint, workspaceId] prefix stays intact so the
     // live-stream invalidation map's broader invalidateQueries call still
     // matches every variant (react-query prefix matching).
-    queryKey: queryKeys.key(
-      'workspace-files',
-      settings.endpoint,
-      workspaceId,
-      `include_hidden=${!hideDotFiles}`,
-      'directory=',
-      connectionScope(settings),
-    ),
+    queryKey: workspaceFilesKey,
     queryFn: ({ signal }) =>
       loadSessionResource(surrounding, signal, () =>
         repository.workspaceFiles(workspaceId, signal, {
@@ -515,6 +530,8 @@ export function useWorkspaceData({
     // document is hidden -- a backgrounded/minimized tab doesn't poll either.
     refetchInterval: filesViewActive ? 5_000 : false,
     refetchIntervalInBackground: false,
+    // Each 5 s poll flips the fetch flag; only the Files view reads it.
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
   });
   const workspaceResources = useQuery({
     queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
@@ -642,10 +659,15 @@ export function useWorkspaceData({
     (preset) => preset.id === activeProvider,
   );
   const activeCatalogProvider = activePreset?.id ?? activeProvider ?? '';
+  const modelCatalogKey = useMemo(
+    () => queryKeys.key('provider-models', settings.endpoint, activeCatalogProvider),
+    [settings.endpoint, activeCatalogProvider],
+  );
   const modelCatalog = useQuery({
-    queryKey: queryKeys.key('provider-models', settings.endpoint, activeCatalogProvider),
+    queryKey: modelCatalogKey,
     queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
     enabled: Boolean(activeCatalogProvider),
+    notifyOnChangeProps: ['data'],
   });
   const providerCatalog = useProviderCatalog();
   const modelOptions = useMemo(
@@ -672,14 +694,21 @@ export function useWorkspaceData({
     const timer = window.setTimeout(() => selected.forEach(cachedModelFacts), 0);
     return () => clearTimeout(timer);
   }, [modelOptions, activeProvider]);
-  const modelCatalogStatus: 'error' | 'loading' | 'ready' =
-    providerCatalog.isRefreshing ||
-    modelCatalog.isFetching ||
-    (providerCatalog.isPending && !providerCatalog.data)
+  // Background fetches are added by useModelCatalogStatus in the picker's owner.
+  const settledCatalogStatus =
+    providerCatalog.refreshPending || (providerCatalog.isPending && !providerCatalog.data)
       ? 'loading'
       : providerCatalog.isError && !providerCatalog.data
         ? 'error'
         : 'ready';
+  const providerCatalogKey = useMemo(
+    () => queryKeys.providerCatalog(settings.endpoint),
+    [settings.endpoint],
+  );
+  const modelCatalogStatus = useMemo<ModelCatalogStatus>(
+    () => ({ settled: settledCatalogStatus, queryKeys: [providerCatalogKey, modelCatalogKey] }),
+    [settledCatalogStatus, providerCatalogKey, modelCatalogKey],
+  );
 
   return {
     agentLabel,
@@ -762,9 +791,11 @@ export function useWorkspaceData({
     tasks,
     tools,
     transcript,
+    transcriptKey,
     transcriptError,
     visibleApprovals,
     workspaceFiles,
+    workspaceFilesKey,
     workspaceResources,
     workspaces,
   };
