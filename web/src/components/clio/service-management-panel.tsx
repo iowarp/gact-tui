@@ -6,7 +6,7 @@ import type {
 } from '@clio/core/v3';
 import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ServiceFooterSlot } from './service-footer-slot';
+import { ServiceConfirmSlot, ServiceFooterSlot } from './service-footer-slot';
 import { Link } from 'react-router-dom';
 import {
   ActivityIcon,
@@ -305,6 +305,21 @@ export function ManagedServiceCard({
     (missing && action === 'start' && (llama || !installed));
   const run = (action: ServiceAction) =>
     ['uninstall', 'delete_data', 'reinstall'].includes(action) ? confirm(action) : onAction(action);
+  // Setup's Install sits in the hosting dialog's footer, right of Cancel, as in the spec.
+  const setFooterConfirm = useContext(ServiceConfirmSlot);
+  const runInstall = useRef(run);
+  runInstall.current = run;
+  const installLabel = activeAction === 'install' ? progressLabels.install : labels.install;
+  const installDisabled = disabledFor('install');
+  useEffect(() => {
+    if (!setFooterConfirm || !editing) return;
+    setFooterConfirm({
+      label: installLabel,
+      disabled: installDisabled,
+      onConfirm: () => runInstall.current('install'),
+    });
+    return () => setFooterConfirm(undefined);
+  }, [setFooterConfirm, editing, installLabel, installDisabled]);
   /** A lifecycle verb as an icon with its name on hover, a spinner while it runs. */
   const actIcon = (action: ServiceAction, icon: ReactNode, label = labels[action]) => (
     <IconButton
@@ -445,7 +460,7 @@ export function ManagedServiceCard({
           {compatible && modelProblem && !llama ? (
             <p className="text-sm text-muted-foreground">{modelProblem}</p>
           ) : null}
-          <div className="flex gap-2">{act('install')}</div>
+          {setFooterConfirm ? null : <div className="flex gap-2">{act('install')}</div>}
         </>
       ) : (
         <>
