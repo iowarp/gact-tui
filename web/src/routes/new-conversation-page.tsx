@@ -20,6 +20,7 @@ import {
   NewConversationDraft,
 } from '@/components/clio/new-conversation-draft';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { listState } from '@/lib/list-state';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { TopBarEnd } from '@/components/clio/top-bar-end';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
@@ -213,6 +214,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
           workspaces={data.workspaces.data ?? []}
+          workspacesState={listState(data.workspaces)}
         />
       }
       contextBar={
@@ -342,6 +344,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
             capabilitiesPending={data.capabilities.isPending}
             disabled={send.isPending || runDraftCommand.isPending}
+            sending={send.isPending}
             connecting={!workspace || defaults.isPending}
             state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}
             commands={commands.commands}

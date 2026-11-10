@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProviderLogoMark } from './provider-logo-mark';
-import type { ProviderFamilyNodeData } from './model-picker-model';
+import { providerGroupStatus, type ProviderFamilyNodeData } from './model-picker-model';
 import { ProviderEyeToggle } from './provider-eye-toggle';
 import { ProviderHeartbeat } from './provider-heartbeat';
 
@@ -21,6 +21,13 @@ export function ProviderFamilyRow({
     <>
       <ProviderLogoMark provider="argonne" />
       <span className="min-w-0 flex-1 truncate text-start">{data.group.name}</span>
+      <span
+        className="shrink-0 text-[11px] text-muted-foreground"
+        data-slot="provider-row-status"
+        title={data.group.detail}
+      >
+        {providerGroupStatus(data.group).label}
+      </span>
       {onToggleVisibility ? (
         <ProviderEyeToggle
           asStaticElement={eyeAsStaticElement}

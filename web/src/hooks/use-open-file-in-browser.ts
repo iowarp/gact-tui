@@ -4,21 +4,27 @@ import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import {
   OPEN_BROWSER_PAGE_EVENT,
+  browserFileFailure,
   type BrowserFileTarget,
   type OpenBrowserPageDetail,
 } from '@/lib/html-in-browser';
 
-/** Open an HTML file in the conversation's shared browser and show its tab. */
+/**
+ * Open an HTML file in the conversation's shared browser and show its tab. A failure is
+ * one plain sentence: handed to `onError` when given, else a toast.
+ */
 export function useOpenFileInBrowser(): (
   target: BrowserFileTarget,
   label: string,
+  onError?: (message: string) => void,
 ) => Promise<void> {
   const repository = useRepository();
   const { sessionId = '' } = useParams();
   return useCallback(
-    async (target, label) => {
+    async (target, label, onError) => {
+      const fail = onError ?? ((message: string) => toast.error(message));
       if (!sessionId) {
-        toast.error('Open a conversation to view HTML files in its browser.');
+        fail('Open a conversation to view HTML files in its browser.');
         return;
       }
       try {
@@ -29,9 +35,7 @@ export function useOpenFileInBrowser(): (
           }),
         );
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'Could not open the file in the browser.',
-        );
+        fail(browserFileFailure(error instanceof Error ? error.message : '', label));
       }
     },
     [repository, sessionId],
