@@ -6,7 +6,7 @@ import type {
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { PermissionResponse } from './permission-response';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,6 +21,7 @@ import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
 import { planArtifact } from './plan-artifact';
+import { plainQuestionText, questionPrompt } from './question-card-model';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -365,6 +366,9 @@ const KIND_NAMES: Record<string, string> = {
   mcp_task_input: 'Input',
 };
 
+/** The dock as the workspace mounts it: it renders again only when its props change. */
+export const ClioPendingInteractionsDock = memo(ClioPendingInteractions);
+
 /** Read once, politely: kind, title, why, place in the queue. */
 function announcement(interaction: PendingInteraction, index: number, total: number): string {
   const kind =
@@ -372,7 +376,12 @@ function announcement(interaction: PendingInteraction, index: number, total: num
       ? 'Plan'
       : (KIND_NAMES[interaction.kind] ?? 'Request');
   const why = interaction.payload?.access?.reason;
-  return [`${kind}: ${interaction.title}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
+  // A question is announced by its words, not a generic "Question" title.
+  const words =
+    interaction.kind === 'question'
+      ? plainQuestionText(questionPrompt(interaction))
+      : interaction.title;
+  return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
     .filter(Boolean)
     .join('. ');
 }
