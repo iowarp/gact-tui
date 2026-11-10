@@ -14,6 +14,8 @@ export function renderConversation(element: ReactElement) {
 
 export function stubViewport(width = 800) {
   const observers: ResizeObserverCallback[] = [];
+  const observed = new Set<ResizeObserverCallback>();
+  let current = width;
   class ResizeObserverMock implements ResizeObserver {
     private readonly callback: ResizeObserverCallback;
 
@@ -41,11 +43,35 @@ export function stubViewport(width = 800) {
     toJSON: () => ({}),
   });
   return {
+    /** Deliver each observer's initial observation, at a content-box width. */
+    observe(contentWidth: number) {
+      act(() => {
+        for (const onResize of [...observers]) {
+          if (observed.has(onResize)) continue;
+          observed.add(onResize);
+          onResize(
+            [{ contentRect: { width: contentWidth } } as ResizeObserverEntry],
+            {} as ResizeObserver,
+          );
+        }
+      });
+      current = contentWidth;
+    },
     resizeTo(next: number) {
       act(() => {
-        for (const onResize of observers)
+        for (const onResize of [...observers]) {
+          // A browser delivers an initial observation before any later resize.
+          if (!observed.has(onResize)) {
+            observed.add(onResize);
+            onResize(
+              [{ contentRect: { width: current } } as ResizeObserverEntry],
+              {} as ResizeObserver,
+            );
+          }
           onResize([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
+        }
       });
+      current = next;
     },
   };
 }

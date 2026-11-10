@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { playAttentionSound } from '@/lib/attention-sound';
 import {
   NOTIFICATION_READS_STORAGE_KEY,
@@ -19,7 +19,7 @@ vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), error: vi.fn(), warning: v
 vi.mock('@/lib/attention-sound', () => ({ playAttentionSound: vi.fn(async () => true) }));
 const respond = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false, variables: undefined }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ endpoint: 'http://127.0.0.1:8100' }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8100' } }),
 }));
 vi.mock('@/hooks/use-attention-response', () => ({ useAttentionResponse: () => respond }));
 const proposals = vi.hoisted(() => ({ list: [] as unknown[], recent: [] as unknown[] }));
@@ -162,6 +162,72 @@ describe('ClioAttentionNotifier', () => {
       ).toBe(true),
     );
   });
+
+  describe('finished work', () => {
+    const notices: { title: string; options?: NotificationOptions }[] = [];
+    let hasFocus: MockInstance<() => boolean>;
+    beforeEach(() => {
+      notices.length = 0;
+      vi.stubGlobal(
+        'Notification',
+        Object.assign(
+          function Notification(title: string, options?: NotificationOptions) {
+            notices.push({ title, options });
+            return { addEventListener: vi.fn(), close: vi.fn() };
+          },
+          { permission: 'granted' },
+        ),
+      );
+      hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      hasFocus.mockRestore();
+    });
+
+    function runTo(finishedWork: string, from: Session['state'], to: Session['state']) {
+      window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork }));
+      const session: Session = { ...baseSession, id: 'sess_run', state: from };
+      const { rerender } = render(
+        <Notifier activeSessionId="other" attentions={{}} sessions={[session]} />,
+      );
+      rerender(
+        <Notifier activeSessionId="other" attentions={{}} sessions={[{ ...session, state: to }]} />,
+      );
+    }
+
+    it('alerts on the desktop when a background run finishes or stops', async () => {
+      runTo('desktop', 'running', 'completed');
+      await waitFor(() =>
+        expect(notices.map((notice) => notice.title)).toEqual(['Session One finished']),
+      );
+      cleanup();
+      runTo('desktop', 'running', 'failed');
+      await waitFor(() =>
+        expect(notices.map((notice) => notice.title)).toEqual([
+          'Session One finished',
+          'Session One stopped',
+        ]),
+      );
+    });
+
+    it('stays in the bell by default and says nothing for a run you cancelled', async () => {
+      runTo('bell', 'running', 'completed');
+      cleanup();
+      runTo('desktop', 'running', 'cancelled');
+      cleanup();
+      runTo('desktop', 'completed', 'completed');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(notices).toEqual([]);
+    });
+
+    it('says nothing while the app has focus', async () => {
+      hasFocus.mockReturnValue(true);
+      runTo('desktop', 'running', 'completed');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(notices).toEqual([]);
+    });
+  });
 });
 
 describe('ClioAttentionCenter', () => {
@@ -187,7 +253,9 @@ describe('ClioAttentionCenter', () => {
         <MemoryRouter>
           <TooltipProvider>
             <SidebarProvider>
-              <ClioAttentionCenter activeSessionId="sess_1" {...props} />
+              <NotificationPreferencesProvider>
+                <ClioAttentionCenter activeSessionId="sess_1" {...props} />
+              </NotificationPreferencesProvider>
             </SidebarProvider>
           </TooltipProvider>
         </MemoryRouter>
@@ -259,6 +327,22 @@ describe('ClioAttentionCenter', () => {
       await within(dialog).findByRole('link', { name: /^Run elsewhere finished/ }),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole('link', { name: /^Run done failed/ })).toBeInTheDocument();
+  });
+  it('leaves finished and stopped runs out with Finished work off, keeping paused ones', async () => {
+    window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork: 'off' }));
+    const sessions = [
+      ended('done', 'completed', 8),
+      ended('halted', 'cancelled', 7),
+      ended('broke', 'failed', 6),
+      ended('held', 'paused', 5),
+    ];
+    render(<Center attentions={{}} sessions={sessions} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('link', { name: /^Run held paused/ })).toBeInTheDocument();
+    expect(within(dialog).queryByText('Run done')).toBeNull();
+    expect(within(dialog).queryByText('Run halted')).toBeNull();
+    expect(within(dialog).queryByText('Run broke')).toBeNull();
   });
   it('shows memories to review under CLIO, naming the conversations they came from', async () => {
     proposals.list = [

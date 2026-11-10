@@ -212,7 +212,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
           />
         ) : null}
         {scheduledTurns.data && !schedules.length ? (
-          <StateView kind="empty" size="row" title="Nothing is scheduled for this session" />
+          <StateView
+            kind="empty"
+            size="row"
+            title={`Nothing is scheduled in ${selectedSession?.title || 'Untitled session'}`}
+          />
         ) : null}
         {schedules.map((schedule) => (
           <ScheduleRow

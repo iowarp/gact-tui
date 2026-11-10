@@ -12,32 +12,43 @@ interface AwayKind {
   tone: AwayTone;
   /** The row's one action word; a finished run needs none. */
   action?: string;
+  /** The run is over: Finished work "Off" leaves these out. Paused and recovery wait on a person. */
+  ended: boolean;
 }
 
 /** How a run ended while the person was elsewhere. Running and waiting states are not news here. */
 const AWAY_KINDS: Partial<Record<RunState, AwayKind>> = {
-  completed: { verb: 'finished', tone: 'success' },
-  failed: { verb: 'failed', detail: 'The run ended with an error', tone: 'error', action: 'Open' },
+  completed: { verb: 'finished', tone: 'success', ended: true },
+  failed: {
+    verb: 'failed',
+    detail: 'The run ended with an error',
+    tone: 'error',
+    action: 'Open',
+    ended: true,
+  },
   interrupted: {
     verb: 'was interrupted',
     detail: 'The run stopped before it finished',
     tone: 'warning',
     action: 'Open',
+    ended: true,
   },
   recovery_required: {
     verb: 'needs recovery',
     detail: 'Open it to recover the run',
     tone: 'warning',
     action: 'Open',
+    ended: false,
   },
   paused: {
     verb: 'paused',
     detail: 'The run is waiting to continue',
     tone: 'warning',
     action: 'Review',
+    ended: false,
   },
-  stopped: { verb: 'stopped', detail: 'The run was stopped', tone: 'stopped' },
-  cancelled: { verb: 'stopped', detail: 'The run was cancelled', tone: 'stopped' },
+  stopped: { verb: 'stopped', detail: 'The run was stopped', tone: 'stopped', ended: true },
+  cancelled: { verb: 'stopped', detail: 'The run was cancelled', tone: 'stopped', ended: true },
 };
 
 export interface AwayRow {
@@ -46,6 +57,7 @@ export interface AwayRow {
   detail: string;
   tone: AwayTone;
   action?: string;
+  ended: boolean;
   timestamp: string;
   /** Before "Mark all read": shown faint. */
   read: boolean;
@@ -95,6 +107,7 @@ export function awayRows(
       detail,
       tone: kind.tone,
       action: kind.action,
+      ended: kind.ended,
       timestamp: session.updated_at,
       read: ended <= readThrough,
     });
