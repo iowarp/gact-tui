@@ -749,6 +749,7 @@ export function ClioComposer({
                 />
               }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
+              reasoningPending={connecting && !selectedOption}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
                 selectedOption?.reasoning,
