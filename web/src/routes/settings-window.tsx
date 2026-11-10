@@ -197,10 +197,10 @@ export function SettingsWindow() {
         else void navigate(background ?? workspaceRoute, { replace: true });
       }}
       open
+      picker={<SettingsSectionPicker {...navigation} />}
       rail={<SettingsNavRail {...navigation} />}
       search={<SettingsSearchButton />}
       title="Settings"
-      toolbar={<SettingsSectionPicker {...navigation} />}
     >
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">
