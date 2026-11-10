@@ -37,8 +37,22 @@ function asText(value: unknown): { text: string; json: boolean } {
   return { text: JSON.stringify(value, null, 2) ?? String(value), json: true };
 }
 
+/**
+ * A Technical details dialog's facts (spec `.tdg`): 118px keys, a 10px gap and
+ * 24px rows. The keys stay words at every width; the dialog has room for them.
+ */
+export function TechnicalDetailsFacts({ items }: { items: readonly KeyValueItem[] }) {
+  return (
+    <KeyValueGrid
+      items={items}
+      variant="facts"
+      className="grid-cols-[118px_minmax(0,1fr)] @max-[420px]:grid-cols-[118px_minmax(0,1fr)]"
+    />
+  );
+}
+
 /** A dialog section: a quiet 28px heading, an optional aside and copy, then its block. */
-function DetailsSection({
+export function DetailsSection({
   title,
   aside,
   copy,
@@ -317,11 +331,7 @@ export function ToolTechnicalDetailsDialog({
         data-slot="tool-technical-details"
       >
         <TooltipProvider delayDuration={200}>
-          <KeyValueGrid
-            items={items}
-            variant="facts"
-            className="grid-cols-[118px_minmax(0,1fr)] @max-[420px]:grid-cols-[118px_minmax(0,1fr)]"
-          />
+          <TechnicalDetailsFacts items={items} />
           {link}
           {catalogContent.length ? (
             <DetailsSection title="Loaded content" label="Loaded widget catalog">

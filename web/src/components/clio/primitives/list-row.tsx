@@ -59,8 +59,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * the time it explains. Empty columns keep their width; below 600px the row
    * drops its hover actions, elapsed and an empty badge so the text keeps room.
    *
-   * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (it
-   * wraps, so a narrow popover keeps its verb) and a faint 11px `meta` age in a
+   * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (one
+   * line, cut with … per `.d-nm`; callers give it a `title`) and a faint 11px `meta` age in a
    * 52px column on the first line; the faint 11.5px `description` under the title
    * runs to the row's right edge, or stops before a `primaryAction` word pinned to
    * the bottom right. It carries no padding or fill; its container owns both,
@@ -142,9 +142,7 @@ export const ListRow = memo(
           >
             {icon}
           </span>
-          <span className="min-w-0 leading-[18px] whitespace-normal text-muted-foreground [overflow-wrap:anywhere]">
-            {title}
-          </span>
+          <span className="min-w-0 truncate leading-[18px] text-muted-foreground">{title}</span>
           <span className="justify-self-end pt-px text-right text-[11px] leading-4 text-faint tabular-nums">
             {meta}
           </span>

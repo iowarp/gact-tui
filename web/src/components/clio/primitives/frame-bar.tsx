@@ -74,10 +74,14 @@ function frameOverflows(bar: HTMLElement) {
   const factShown = Array.from(facts?.children ?? []).some(
     (fact) => (fact as HTMLElement).offsetParent !== null,
   );
+  const range = document.createRange();
   for (const part of bar.querySelectorAll<HTMLElement>('[data-frame-fit]')) {
-    if (part.offsetParent === null || part.scrollWidth <= part.clientWidth + 1) continue;
-    if (part.dataset.frameFit === 'name' && !factShown && part.clientWidth >= FRAME_NAME_MIN)
-      continue;
+    if (part.offsetParent === null || part.scrollWidth < part.clientWidth) continue;
+    // scrollWidth/clientWidth round, so a sub-pixel cut (an ellipsis) reads as fitting.
+    range.selectNodeContents(part);
+    const width = part.getBoundingClientRect().width;
+    if (range.getBoundingClientRect().width <= width + 0.01) continue;
+    if (part.dataset.frameFit === 'name' && !factShown && width >= FRAME_NAME_MIN) continue;
     return true;
   }
   return false;

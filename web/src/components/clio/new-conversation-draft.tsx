@@ -49,14 +49,14 @@ export function NewConversationDraft({
       aria-label={`${brand.name} new conversation`}
       className="@container/draft mx-auto flex w-full max-w-2xl flex-col items-center"
     >
-      <BrandIcon className="size-9 text-primary" />
-      <h1 className="mt-4 text-center font-heading text-[26px] leading-tight font-semibold tracking-[-0.01em] text-balance">
+      <BrandIcon className="size-[22px] text-muted-foreground" />
+      <h1 className="mt-2.5 text-center font-heading text-[18px] leading-6 font-medium text-balance">
         {brand.workspace.greeting}
       </h1>
-      <div className="mt-5 flex max-w-full min-w-0 items-center gap-1.5 text-[13px] whitespace-nowrap text-muted-foreground">
+      <div className="mt-3 flex max-w-full min-w-0 items-center gap-1.5 text-[12.5px] whitespace-nowrap text-muted-foreground">
         {setup}
       </div>
-      <div className="mt-4 w-full">{children}</div>
+      <div className="mt-3.5 w-full">{children}</div>
     </section>
   );
 }

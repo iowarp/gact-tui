@@ -11,7 +11,11 @@ import { useWorkspaceTextWindow } from '@/hooks/use-workspace-text-window';
 import { textFileFormat } from '@/lib/file-presentation';
 import { formatBytes } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
-import { TEXT_FULL_READ_MAX_BYTES, TEXT_WINDOW_CHUNK_BYTES } from '@/lib/runtime-limits';
+import {
+  PREVIEW_ROW_LIMIT,
+  TEXT_FULL_READ_MAX_BYTES,
+  TEXT_WINDOW_CHUNK_BYTES,
+} from '@/lib/runtime-limits';
 import { SourceWindowContext } from '@/lib/source-window';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
@@ -30,6 +34,7 @@ export function WorkspaceTextView({
   size,
   mediaType,
   html,
+  startAtEnd = false,
 }: {
   workspaceId: string;
   path: string;
@@ -37,6 +42,8 @@ export function WorkspaceTextView({
   mediaType?: string;
   /** An HTML file: shown as its source, and opened in the shared browser. */
   html?: { openOnShow: boolean };
+  /** A large file opens on its last window (the too-large state's Show the last). */
+  startAtEnd?: boolean;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -54,6 +61,7 @@ export function WorkspaceTextView({
         mediaType={mediaType}
         path={path}
         size={size}
+        startAtEnd={startAtEnd}
         workspaceId={workspaceId}
       />
     );
@@ -134,21 +142,34 @@ function WorkspaceTextWindowView({
   size,
   mediaType,
   html,
+  startAtEnd,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
   mediaType?: string;
   html?: { openOnShow: boolean };
+  startAtEnd: boolean;
 }) {
-  const [showEnd, setShowEnd] = useState(false);
+  const [showEnd, setShowEnd] = useState(startAtEnd);
   const textWindow = useWorkspaceTextWindow(workspaceId, path, { tail: showEnd });
   const sourceWindow = useMemo(
     () => ({ onEndReached: textWindow.loadMore }),
     [textWindow.loadMore],
   );
   const head = textWindow.head;
-  if (!head || head.complete)
+  // A table's end keeps the file's header and shows its last rows, not the end's first ones.
+  const table = textFileFormat(path, mediaType) === 'csv';
+  const tail = useMemo(() => {
+    if (textWindow.tail === undefined || !table) return textWindow.tail;
+    if (!head && !textWindow.headError) return undefined;
+    const lines = textWindow.tail.replace(/\r?\n$/u, '').split('\n');
+    const rows = lines.slice(-PREVIEW_ROW_LIMIT).join('\n');
+    const header = head?.text.split('\n', 1)[0];
+    return header === undefined ? rows : `${header.replace(/\r$/u, '')}\n${rows}`;
+  }, [head, table, textWindow.headError, textWindow.tail]);
+  // The end opens without waiting on the head; a file whose head is all of it shows whole.
+  if (head?.complete || (!showEnd && !head))
     return (
       <WorkspaceTextContent
         content={head?.text}
@@ -161,21 +182,26 @@ function WorkspaceTextWindowView({
     );
   const name = fileName(path);
   const total = size === undefined ? '' : ` of ${formatBytes(size)}`;
-  const status = showEnd
-    ? textWindow.tailError
-      ? `The end of ${name} could not be read: ${textWindow.tailError.message}`
-      : `Showing the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}${total}.`
-    : head.capped
-      ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
-      : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
+  const status =
+    showEnd || !head
+      ? textWindow.tailError
+        ? `The end of ${name} couldn't be read.`
+        : table
+          ? `Showing the last ${PREVIEW_ROW_LIMIT.toLocaleString()} rows${total}.`
+          : `Showing the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}${total}.`
+      : head.capped
+        ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
+        : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="text-file-window">
       <div className="min-h-0 flex-1">
-        {showEnd ? (
-          textWindow.tail === undefined && !textWindow.tailError ? (
+        {showEnd || !head ? (
+          textWindow.tailError ? (
+            <ViewerReadError error={textWindow.tailError.message} where={path} />
+          ) : tail === undefined ? (
             <ResourceLoading className="p-4" label={`Loading the end of ${name}`} />
           ) : (
-            <FileTextView content={textWindow.tail ?? ''} mediaType={mediaType} name={name} />
+            <FileTextView content={tail} mediaType={mediaType} name={name} />
           )
         ) : (
           <SourceWindowContext.Provider value={sourceWindow}>
@@ -185,7 +211,7 @@ function WorkspaceTextWindowView({
       </div>
       <StateView
         action={{
-          label: showEnd ? 'Show beginning' : 'Show end',
+          label: showEnd ? 'Show beginning' : `Show the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`,
           onClick: () => setShowEnd(!showEnd),
         }}
         className="shrink-0 border-t px-3"
@@ -217,6 +243,6 @@ export function TextResourceView({
 }) {
   if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
-  if (error) return <ViewerReadError error={error} onRetry={onRetry} />;
+  if (error) return <ViewerReadError error={error} onRetry={onRetry} where={path} />;
   return <FileTextView name={fileName(path)} content={content ?? ''} mediaType={mediaType} />;
 }

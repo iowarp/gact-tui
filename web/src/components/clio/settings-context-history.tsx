@@ -1,5 +1,3 @@
-import { SETTINGS_COLUMN } from '@/lib/settings-fold';
-import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-keys';
 import type { MemoryEvent, Session, SessionMemoryStatistics } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
@@ -8,13 +6,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { isPrimarySession } from '@/lib/recent-sessions';
 import { recentSessionsWith } from '@/lib/session-pages';
@@ -23,7 +14,9 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { SettingsLoadError } from './settings-health-load-error';
+import { notOffered } from './settings-health-reason';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { ScheduleSelect, type ScheduleSelectOption } from './settings-schedule-fields';
 
 function number(value: number) {
   return value.toLocaleString();
@@ -170,7 +163,19 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
     ),
     queryFn: ({ signal }) => recentSessionsWith(repository, { ids: [initialSessionId] }, signal),
   });
+  const workspaces = useQuery({
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
+    queryFn: ({ signal }) => repository.workspaces(signal),
+  });
+  const workspaceNameById = new Map(
+    (workspaces.data ?? []).map((item) => [item.id, item.display_name]),
+  );
   const primarySessions = (sessions.data ?? []).filter(isPrimarySession);
+  const sessionOptions: ScheduleSelectOption[] = primarySessions.map((session) => ({
+    value: session.id,
+    label: sessionLabel(session),
+    hint: workspaceNameById.get(session.workspace_id),
+  }));
   const selectedSessionId = primarySessions.some((session) => session.id === sessionId)
     ? sessionId
     : (primarySessions[0]?.id ?? '');
@@ -185,33 +190,32 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
     enabled: Boolean(selectedSessionId),
   });
 
+  // A part the agent lacks drops its label and control; the page names it on one line.
+  const retentionOffered = !notOffered(statistics.error);
+  const compactionOffered = !notOffered(events.error);
+
   return (
     <section aria-label="Context & compaction">
-      <SettingsGroupLabel
-        actions={
-          <Select onValueChange={setSessionId} value={selectedSessionId}>
-            <SelectTrigger
-              aria-label="Session"
-              className="w-[clamp(10rem,45%,16rem)] min-w-0 py-0 text-[0.78125rem] text-foreground data-[size=sm]:h-6"
-              id="context-session"
-              size="sm"
-            >
-              <SelectValue placeholder="Choose a session" />
-            </SelectTrigger>
-            <SelectContent>
-              {primarySessions.map((session) => (
-                <SelectItem key={session.id} value={session.id}>
-                  <span className="min-w-0 truncate">{sessionLabel(session)}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        className={cn('w-full', SETTINGS_COLUMN)}
-        info="Context usage, retention and compaction for one conversation, as the service reports them."
-      >
-        Session retention
-      </SettingsGroupLabel>
+      {retentionOffered ? (
+        <>
+          <SettingsGroupLabel info="Context usage, retention and compaction for one conversation, as the service reports them.">
+            Session retention
+          </SettingsGroupLabel>
+          {sessionOptions.length ? (
+            <SettingsRow htmlFor="context-session" title="Conversation">
+              <ScheduleSelect
+                className="w-[clamp(10rem,100%,16rem)]"
+                id="context-session"
+                label="Session"
+                onChange={setSessionId}
+                options={sessionOptions}
+                placeholder="Choose a session"
+                value={selectedSessionId}
+              />
+            </SettingsRow>
+          ) : null}
+        </>
+      ) : null}
       {statistics.data?.session ? (
         <RetentionSummary statistics={statistics.data.session} />
       ) : statistics.isPending ? (
@@ -232,7 +236,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           title="Session retention unavailable"
         />
       )}
-      <SettingsGroupLabel>Compaction history</SettingsGroupLabel>
+      {compactionOffered ? <SettingsGroupLabel>Compaction history</SettingsGroupLabel> : null}
       {events.data?.length ? (
         <ItemList label="Compaction history">
           {[...events.data].reverse().map((event) => (
@@ -241,14 +245,9 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
         </ItemList>
       ) : null}
       {events.data && !events.data.length && !events.error ? (
-        <StateView
-          detail="The service has not recorded a transcript compaction for this session."
-          kind="empty"
-          size="row"
-          title="No compaction history"
-        />
+        <StateView kind="empty" size="row" title="No compactions in this conversation yet" />
       ) : null}
-      {!selectedSessionId && !sessions.isPending ? (
+      {!selectedSessionId && !sessions.isPending && (retentionOffered || compactionOffered) ? (
         <StateView kind="empty" size="row" title="No conversations yet" />
       ) : null}
       {events.isPending && selectedSessionId ? (

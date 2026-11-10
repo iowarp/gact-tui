@@ -76,7 +76,7 @@ export function ClioPathPicker({
           </InputGroupAddon>
           <InputGroupInput
             aria-label={inputId ? undefined : inputLabel}
-            className={className ? 'text-[12.5px] md:text-[12.5px]' : undefined}
+            className={cn('h-full', className && 'text-[12.5px] md:text-[12.5px]')}
             disabled={disabled}
             id={inputId}
             onChange={(event) => onChange(event.target.value)}
@@ -86,6 +86,7 @@ export function ClioPathPicker({
           />
         </InputGroup>
         <Button
+          className="h-auto self-stretch"
           disabled={disabled}
           onClick={() => void chooseFolder()}
           type="button"
