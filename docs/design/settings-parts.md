@@ -23,9 +23,11 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, wideControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
+switch. Use `wideControl` for a control that can outgrow the 52% column, such as a
+segmented choice with many options: it sits beside the label while both fit and drops
+under it, left-aligned, when they don't, so it never covers the label. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
 with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
 (group labels with a control, a save bar under rows) use the same `SETTINGS_COLUMN` class
 from `lib/settings-fold.ts`. It applies 60% from a 36rem container, so the 41rem content
