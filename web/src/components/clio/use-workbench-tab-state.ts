@@ -16,7 +16,7 @@ export function useWorkbenchTabState(
 ) {
   // Lazy useState initializer (not useRef().current, which reads a ref
   // during render) computes the restored state exactly once.
-  const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
+  const [initialState] = useState(() => restoredWorkbenchState(workspaceId));
   const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
   const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
   const [pinnedIds, setPinnedIds] = useState<string[]>(initialState.pinnedIds);

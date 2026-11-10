@@ -60,14 +60,23 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * drops its hover actions, elapsed and an empty badge so the text keeps room.
    *
    * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (one
-   * line, cut with … per `.d-nm`; callers give it a `title`) and a faint 11px `meta` age in a
+   * line, cut with … per `.d-nm`; callers give its full text in `hoverText`) and a faint 11px `meta` age in a
    * 52px column on the first line; the faint 11.5px `description` under the title
    * runs to the row's right edge, or stops before a `primaryAction` word pinned to
    * the bottom right. It carries no padding or fill; its container owns both,
    * so actions under it share the row.
    */
   variant?: 'list' | 'activity' | 'notice';
-  /** The 12px column before the icon (an expand chevron) in `activity` rows. */
+  /**
+   * `notice` rows: the full title and description shown on hover, set on the
+   * elements that cut them with … so the whole line answers the pointer.
+   */
+  hoverText?: { title?: string; description?: string };
+  /**
+   * The 12px column before the icon (an expand chevron) in `activity` rows. In
+   * `list` rows it is the first column and sizes itself, the same width on
+   * every row (the Activity timeline's agent strands).
+   */
   leading?: ReactNode;
   /**
    * In a narrow `activity` row (below 280px) the name becomes the icon's hover
@@ -109,6 +118,7 @@ export const ListRow = memo(
       info,
       layout = 'inline',
       variant = 'list',
+      hoverText,
       leading,
       titleCollapses = true,
       selected = false,
@@ -138,7 +148,12 @@ export const ListRow = memo(
           >
             {icon}
           </span>
-          <span className="min-w-0 truncate leading-[18px] text-muted-foreground">{title}</span>
+          <span
+            className="min-w-0 truncate leading-[18px] text-muted-foreground"
+            title={hoverText?.title}
+          >
+            {title}
+          </span>
           <span className="justify-self-end pt-px text-right text-[11px] leading-4 text-faint tabular-nums">
             {meta}
           </span>
@@ -148,6 +163,7 @@ export const ListRow = memo(
                 'col-start-2 mt-0.5 min-w-0 truncate text-[11.5px] leading-[18px] text-faint',
                 primaryAction === undefined && 'col-span-2',
               )}
+              title={hoverText?.description}
             >
               {description}
             </span>
@@ -269,6 +285,7 @@ export const ListRow = memo(
         )}
         {...rest}
       >
+        {leading}
         {status !== undefined ? (
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
         ) : null}

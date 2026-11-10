@@ -5,10 +5,12 @@ import { ConnectField, ConnectStatusLine, ConnectInput } from '@/components/clio
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { internalException, UNEXPECTED_CONNECT_ERROR } from '@/hooks/use-connection-availability';
-import { defaultEndpoint } from '@/lib/connection';
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+
+/** The spec's example address; the field itself starts empty. */
+const ADDRESS_EXAMPLE = 'https://homelab.example.org:8100';
 
 /** Connect by address: the address first, then an optional name and token. */
 export function ConnectAddressFields({
@@ -43,14 +45,14 @@ export function ConnectAddressFields({
           mono
           id="endpoint"
           onChange={(event) => onEndpointChange(event.target.value)}
-          placeholder={defaultEndpoint()}
+          placeholder={ADDRESS_EXAMPLE}
           ref={address}
           required
           value={endpoint}
         />
         <span className="sr-only" id="endpoint-hint">
-          Use the agent service address, for example {defaultEndpoint()}. It can differ from this
-          web page's address.
+          Use the agent service address, for example {ADDRESS_EXAMPLE}. It can differ from this web
+          page's address.
         </span>
       </ConnectField>
       <div className="grid min-w-0 grid-cols-2 gap-2.5">

@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { useCommandKeyHeld, useKeyPlatform, useShortcutPresentation } from '@/lib/shortcuts/hooks';
@@ -44,7 +44,7 @@ export function KeyCap({
   );
 }
 
-export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row';
+export type ShortcutKeysVariant = 'caps' | 'text' | 'inline' | 'row' | 'menu';
 
 interface ShortcutKeysProps {
   /** A catalog id; the key follows the catalog everywhere it is shown. */
@@ -56,7 +56,8 @@ interface ShortcutKeysProps {
   /**
    * `caps`: one cap per key (the shortcut sheet). `text`: one quiet line (a
    * menu's right column, a tooltip). `inline`: one small chip inside a button.
-   * `row`: one full cap at the end of a menu's highlighted row.
+   * `row`: one full cap at the end of a menu's highlighted row. `menu`: a menu's
+   * key column, 10.5px mono and faint (workbench-keyboard, "Menus show the key").
    */
   variant?: ShortcutKeysVariant;
   /** Cap size for `caps`. */
@@ -110,6 +111,19 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     );
   }
   const text = shortcutText(definition, platform);
+  if (variant === 'menu') {
+    return (
+      <kbd
+        data-slot="shortcut-keys"
+        className={cn(
+          'shrink-0 font-mono text-[10.5px] font-normal whitespace-nowrap text-faint',
+          className,
+        )}
+      >
+        {text}
+      </kbd>
+    );
+  }
   if (variant === 'row') {
     return (
       <KeyCap size="row" className={className}>
@@ -150,14 +164,19 @@ export const ShortcutKeys = memo(function ShortcutKeys({
  * icon, centred on it, inside a tight column (the pocket rail) where left would cover the
  * pocket and below the button would reach the next icon. `above-icon` sits just over the
  * icon at the control's centre line, so a toolbar row's badges share one baseline (the
- * composer, in the gap between the text and its toolbar).
+ * composer, in the gap between the text and its toolbar). `end` sits just right of the
+ * control, outside it (the collapsed left rail, whose icons leave no room inside).
+ * `bottom-edge` straddles the control's bottom edge, between its label and the row under
+ * it (the active tab at the window's top, where above has no room).
  */
 export type HeldKeySide =
   | 'below'
   | 'above'
   | 'top-edge'
+  | 'bottom-edge'
   | 'start'
   | 'inside-end'
+  | 'end'
   | 'cover'
   | 'under-icon'
   | 'above-icon';
@@ -241,6 +260,10 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     left = target.right - width - GAP * 1.5;
     top = centreY - height / 2;
   }
+  if (side === 'end') {
+    left = target.right + GAP * 2;
+    top = centreY - height / 2;
+  }
   if (placement === 'cover') {
     left = centreX - width / 2;
     top = centreY - height / 2;
@@ -257,6 +280,7 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   }
   // Mostly above the edge, clear of the label inside the control and the text above it.
   if (side === 'top-edge') top = target.top - height / 2 - 3;
+  if (side === 'bottom-edge') top = target.bottom - height / 2 - 1;
   const clamp = () => {
     left = Math.min(Math.max(left, EDGE), viewportWidth - width - EDGE);
     top = Math.min(Math.max(top, EDGE), viewportHeight - height - EDGE);
@@ -269,7 +293,9 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
   // A top-edge pair (Esc beside Cmd+Return) stacks instead, one badge per control.
   if (
     blocking &&
-    !['start', 'inside-end', 'top-edge', 'under-icon', 'above-icon'].includes(placement)
+    !['start', 'inside-end', 'end', 'top-edge', 'bottom-edge', 'under-icon', 'above-icon'].includes(
+      placement,
+    )
   ) {
     const slid =
       blocking.left + blocking.width / 2 <= left + width / 2
@@ -285,6 +311,7 @@ function placeBadge(control: Element, badge: HTMLElement, side: HeldKeySide, slo
     if (vertical === 'above' || vertical === 'top-edge' || vertical === 'above-icon')
       top -= height + GAP + 1;
     else if (vertical === 'below' || vertical === 'under-icon') top += height + GAP + 1;
+    else if (vertical === 'end') left += width + GAP + 1;
     else left -= width + GAP + 1;
     clamp();
   }
@@ -304,6 +331,8 @@ interface HeldKeyBadgeProps {
   pairId?: string;
   /** Where it sits against the control: under it (default), over it, to its left, inside its right end, or on it. */
   side?: HeldKeySide;
+  /** The control it labels, when that isn't its parent (the active one of a row). */
+  anchor?: RefObject<Element | null>;
   className?: string;
 }
 
@@ -319,6 +348,7 @@ export function HeldKeyBadge({
   position,
   pairId,
   side = 'below',
+  anchor,
   className,
 }: HeldKeyBadgeProps) {
   const held = useCommandKeyHeld();
@@ -336,14 +366,14 @@ export function HeldKeyBadge({
       ? heldShortcutText(definition, platform, pair?.definition)
       : undefined;
   useLayoutEffect(() => {
-    const control = anchorRef.current?.parentElement;
+    const control = anchor?.current ?? anchorRef.current?.parentElement;
     const badge = badgeRef.current;
     if (!text || !control || !badge) return undefined;
     placeBadge(control, badge, side, slot);
     return () => {
       placedBadges.delete(slot);
     };
-  }, [text, side, slot]);
+  }, [text, side, slot, anchor]);
   if (!text) return null;
   return (
     <>

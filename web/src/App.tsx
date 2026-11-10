@@ -68,6 +68,9 @@ function lazyRoute<Name extends RouteChunk>(
 }
 
 const ConnectionPage = lazyRoute('connection', (module) => module.ConnectionPage);
+const ConnectionDialog = lazy(() =>
+  loadRouteChunk('connection').then((module) => ({ default: module.ConnectionDialog })),
+);
 const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
 const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
 
@@ -127,11 +130,19 @@ export default function App() {
   // While Settings is open the page behind it keeps its last location object,
   // so moving between settings sections never re-renders the workspace.
   const [behindSettings, setBehindSettings] = useState<Location>(location);
+  // The in-app ways to connect open over the page they came from; the full-page
+  // connect screen is only for a first visit with nothing behind it.
+  const connectOverPage =
+    location.pathname === '/' &&
+    new URLSearchParams(location.search).get('intent') === 'connect' &&
+    behindSettings.pathname !== '/';
   const routesLocation = settingsBackground
     ? behindSettings.pathname === settingsBackground
       ? behindSettings
       : { ...location, pathname: settingsBackground, search: '', hash: '' }
-    : location;
+    : connectOverPage
+      ? behindSettings
+      : location;
   if (routesLocation !== behindSettings) setBehindSettings(routesLocation);
   useNativeMenuBridge();
   // Secondary routes load on idle or link hover, not on their first visit.
@@ -206,6 +217,13 @@ export default function App() {
         <Routes location={location}>
           <Route element={<SettingsWindow />} path="/settings/:section" />
         </Routes>
+      ) : null}
+      {connectOverPage ? (
+        <Suspense fallback={null}>
+          <ConnectionDialog
+            background={`${behindSettings.pathname}${behindSettings.search}${behindSettings.hash}`}
+          />
+        </Suspense>
       ) : null}
       <Toaster />
       {/* The update page where no app shell hosts it in its content pane. */}

@@ -85,8 +85,18 @@ export function NavigationHeader({
           >
             <NewConversationIcon aria-hidden="true" className="text-primary" />
             <span className="truncate">New conversation</span>
-            <HeldKeyBadge id="new-conversation" />
-            <HeldKeyBadge id="new-conversation-browser" />
+            {sidebarState === 'expanded' ? (
+              // The row's end, left of Import: its keys sit there, not under the row.
+              <span aria-hidden="true" className="min-w-0 flex-1 self-stretch">
+                <HeldKeyBadge id="new-conversation" side="inside-end" />
+                <HeldKeyBadge id="new-conversation-browser" side="inside-end" />
+              </span>
+            ) : (
+              <>
+                <HeldKeyBadge id="new-conversation" side="end" />
+                <HeldKeyBadge id="new-conversation-browser" side="end" />
+              </>
+            )}
           </SidebarMenuButton>
           <IconButton
             className="absolute right-1 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden"
@@ -115,7 +125,7 @@ export function NavigationHeader({
               )}
               id="search"
             />
-            <HeldKeyBadge id="search" side="inside-end" />
+            <HeldKeyBadge id="search" side={sidebarState === 'expanded' ? 'inside-end' : 'end'} />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
