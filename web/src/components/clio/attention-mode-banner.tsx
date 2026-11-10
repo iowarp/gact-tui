@@ -47,7 +47,10 @@ export function AttentionModeBanner({
   const dominant = shown?.flags.some((flag) => flag.kind === 'tool_result_dominant');
   const quote = `“${truncate(state.selection.text, QUOTE_TRUNCATE_CHARS)}”`;
   return (
-    <div className="sticky top-0 z-20 shrink-0 bg-background" data-slot="attention-mode-banner">
+    <div
+      className="@container/attention sticky top-0 z-20 shrink-0 bg-background"
+      data-slot="attention-mode-banner"
+    >
       <FrameBar
         label="Attention mode"
         where={
@@ -56,7 +59,10 @@ export function AttentionModeBanner({
             title={`Attention mode: ${quote}`}
           >
             <RadarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-            <b className="font-medium text-foreground">Attention mode</b>
+            {/* A phone keeps the radar (its name on hover) so the heat segments fit whole. */}
+            <b className="font-medium whitespace-nowrap text-foreground @max-[460px]/attention:sr-only">
+              Attention mode
+            </b>
             {state.status === 'loading' ? <RingSpinner /> : null}
           </span>
         }

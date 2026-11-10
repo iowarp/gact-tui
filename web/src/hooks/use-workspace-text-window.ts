@@ -132,8 +132,11 @@ export function useWorkspaceTextWindow(
     enabled: enabled && tail,
     // A refusal (the file is past the server's read cap) won't change on retry.
     retry: (failures, error) =>
-      !(error instanceof TransportError && (error.status ?? 0) >= 400 && (error.status ?? 0) < 500) &&
-      retryRead(failures, error),
+      !(
+        error instanceof TransportError &&
+        (error.status ?? 0) >= 400 &&
+        (error.status ?? 0) < 500
+      ) && retryRead(failures, error),
     gcTime: TEXT_WINDOW_GC_TIME_MS,
     staleTime: Number.POSITIVE_INFINITY,
   });
