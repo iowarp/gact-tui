@@ -66,6 +66,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useCommandMenuVisibility } from '@/store/command-menu-visibility';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { historyIndex, settingsCloseStep } from '@/lib/settings-window-route';
+import { DIALOG_FULL_WINDOW_LAYOUT } from '@/lib/dialog-sheet';
 import { cn } from '@/lib/utils';
 
 /** The spec's row glyphs: this computer, a CLIO reached over SSH, or a service by address. */
@@ -412,11 +413,12 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
         <ConnectFrame
           className={
             dialog
-              ? 'max-h-[calc(100dvh-2rem)] w-full overflow-y-auto max-[599px]:max-h-[85dvh] max-[599px]:rounded-t-[14px] max-[599px]:rounded-b-none max-[599px]:border-x-0 max-[599px]:border-b-0'
+              ? 'max-h-[calc(100dvh-2rem)] w-full overflow-y-auto max-[599px]:max-h-none'
               : undefined
           }
           closeLabel={dialog ? 'Close' : 'Back to the agent list'}
           dialog={dialog !== undefined}
+          narrow="window"
           footer={
             emptyService ? undefined : (
               <>
@@ -718,7 +720,11 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
       <Dialog open onOpenChange={(open) => (open ? undefined : dialog.onClose())}>
         <DialogContent
           aria-describedby={undefined}
-          className="top-1/2 w-[clamp(340px,36vw,640px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 overflow-visible rounded-[12px] bg-transparent p-0 ring-0 sm:max-w-[calc(100%-2rem)] max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-b-none"
+          className={cn(
+            'top-1/2 w-[clamp(340px,36vw,640px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 overflow-visible rounded-[12px] bg-transparent p-0 ring-0 sm:max-w-[calc(100%-2rem)]',
+            // Spec connect-infrastructure "Dialogs … Under 600 px, full window".
+            DIALOG_FULL_WINDOW_LAYOUT,
+          )}
           showCloseButton={false}
           // Start in the content (the address field or the first agent), not on
           // the close button, so Esc closes the dialog on the first press.

@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 /**
  * The connect dialog frame: header, body and footer. On a page (first run) it is
  * 460 px, drawn in place without a scrim; over the app (`dialog`) it fills the
- * modal (36% of the window, 340 to 640 px) and is a bottom sheet with a grab
- * handle below 600 px.
+ * modal (36% of the window, 340 to 640 px). Below 600 px it is a bottom sheet
+ * with a grab handle, or the full window with `narrow="window"`.
  */
 export function ConnectFrame({
   icon,
@@ -21,6 +21,7 @@ export function ConnectFrame({
   footer,
   className,
   dialog = false,
+  narrow = 'sheet',
 }: {
   icon: ReactNode;
   title: string;
@@ -32,7 +33,10 @@ export function ConnectFrame({
   className?: string;
   /** Rendered inside a modal dialog, which this frame's title names. */
   dialog?: boolean;
+  /** As a dialog under 600 px: a bottom `sheet`, or the full `window` (no handle, footer at the bottom). */
+  narrow?: 'sheet' | 'window';
 }) {
+  const fullWindow = dialog && narrow === 'window';
   const heading = (
     <h1
       className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground"
@@ -46,17 +50,19 @@ export function ConnectFrame({
       aria-labelledby="connect-frame-title"
       className={cn(
         'w-[460px] max-w-full rounded-[12px] border border-border bg-popover text-[12.5px] text-popover-foreground shadow-[0_20px_60px_color-mix(in_oklab,var(--shadow-color)_50%,transparent)]',
+        fullWindow &&
+          'max-[599px]:flex max-[599px]:min-h-0 max-[599px]:flex-1 max-[599px]:flex-col max-[599px]:rounded-none max-[599px]:border-0 max-[599px]:shadow-none',
         className,
       )}
       data-frame="connect"
     >
-      {dialog ? (
+      {dialog && !fullWindow ? (
         <span
           aria-hidden="true"
           className="mx-auto mt-2 hidden h-1 w-9 rounded-full bg-border max-[599px]:block"
         />
       ) : null}
-      <header className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
+      <header className="flex h-12 min-w-0 shrink-0 items-center gap-2.5 pr-2.5 pl-4">
         <span
           aria-hidden="true"
           className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4"
@@ -68,9 +74,16 @@ export function ConnectFrame({
           <IconButton icon={<CloseIcon />} label={closeLabel} onClick={onClose} type="button" />
         ) : null}
       </header>
-      <div className="flex min-w-0 flex-col gap-[13px] px-4 pb-3.5">{children}</div>
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-[13px] px-4 pb-3.5',
+          fullWindow && 'max-[599px]:flex-1',
+        )}
+      >
+        {children}
+      </div>
       {footer ? (
-        <div className="flex min-w-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-4">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-4">
           {footer}
         </div>
       ) : null}

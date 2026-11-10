@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
 import { ConnectedSourcePicker } from '@/components/clio/connected-source-picker';
@@ -166,6 +166,13 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     ),
     defaults.data?.agent_ref,
   );
+  // A warm-up that failed while the agent was unreachable is retried once it is
+  // back, rather than showing the outage's error until the next 60 s refresh.
+  const warmupFailed = warmup.isError;
+  const retryWarmup = warmup.refetch;
+  useEffect(() => {
+    if (connection === 'live' && warmupFailed) void retryWarmup();
+  }, [connection, warmupFailed, retryWarmup]);
   const defaultRef = defaults.data?.default_agent_ref || defaults.data?.agent_ref || undefined;
   const draftRef = agentChoice || defaultRef || '';
   const openAgent = () => revealWorkbench({ kind: 'resources', section: 'agent' });
@@ -278,7 +285,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             send.error?.message ??
             // While the agent is unreachable the left bar already says so; a warm-up
             // that failed for the same reason is not a separate failure.
-            (warmup.error && connection === 'live'
+            (warmup.error && connection === 'live' && !warmup.isFetching
               ? `Tools could not be prepared in advance: ${warmup.error.message}. You can still send a message.`
               : undefined)
           }
