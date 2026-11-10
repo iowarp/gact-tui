@@ -27,7 +27,9 @@ test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'Agent Workspace');
   assert.equal(cfg.identifier, 'ai.iowarp.gact.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/workspace build/);
+  // Type-checking gates CI on Linux; repeating it here needs a >2 GB heap,
+  // which exceeds Node's default on 7 GB macOS runners.
+  assert.equal(cfg.build.beforeBuildCommand, 'pnpm --filter @clio/workspace build:bundle');
   assert.match(cfg.build.beforeDevCommand, /@clio\/workspace dev/);
   assert.equal(cfg.build.frontendDist, '../../web/dist');
 });
@@ -36,7 +38,7 @@ test('explicit GACT overlay uses the shared configurable workspace build', () =>
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'GACT Desktop');
   assert.equal(cfg.identifier, 'land.charm.gact.desktop');
-  assert.match(cfg.build.beforeBuildCommand, /@clio\/workspace build/);
+  assert.equal(cfg.build.beforeBuildCommand, 'pnpm --filter @clio/workspace build:bundle');
   assert.match(cfg.build.beforeDevCommand, /@clio\/workspace dev/);
   assert.equal(cfg.app.windows[0].title, 'GACT Desktop');
   assert.equal(cfg.app.windows[0].width, 1440);

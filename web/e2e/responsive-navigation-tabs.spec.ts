@@ -24,7 +24,11 @@ for (const width of [1100, 1600]) {
       }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-    if (width === 1600) await page.locator('[data-slot="sidebar-trigger"]').click();
+    if (width === 1600) {
+      await page.locator('[data-slot="sidebar-trigger"]').click();
+      // The hide control lives in the strip; collapsing it must not preview it back open.
+      await page.mouse.move(width - 20, 850);
+    }
     const sidebar = page
       .locator('[data-slot="sidebar"]')
       .filter({ has: page.getByRole('navigation', { name: 'Workspace navigation' }) });
@@ -49,7 +53,7 @@ for (const width of [1100, 1600]) {
       exact: true,
     });
     await actions.click();
-    const edit = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const edit = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await expect(edit).toBeVisible();
     await edit.hover();
     await expect(sidebar).toHaveAttribute('data-preview', 'true');
@@ -107,7 +111,8 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
         return bounds.x + bounds.width / 2;
       }),
   );
-  expect(centers.length).toBeGreaterThanOrEqual(6);
+  // The mark, New conversation, Search and a workspace; Files and Runs left the bar.
+  expect(centers.length).toBeGreaterThanOrEqual(4);
   expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: testInfo.outputPath('collapsed-alignment.png') });
   const cookie = await page.evaluate(() => document.cookie);
@@ -119,7 +124,7 @@ test('sidebar clicks stay temporary and collapsed icons share one center line', 
   expect(await page.evaluate(() => document.cookie)).toBe(cookie);
   const controls = [
     sidebar.getByRole('button', { name: 'Search work', exact: true }),
-    sidebar.getByRole('button', { name: 'Create or import', exact: true }),
+    sidebar.getByRole('button', { name: 'New conversation', exact: true }),
     sidebar.locator('[data-slot="sidebar-header"] [data-sidebar="menu-button"]').first(),
   ];
   for (const control of controls) {

@@ -12,8 +12,25 @@ pub enum Item {
     },
     /// A predefined OS item (native clipboard/undo behavior, no event).
     Predefined(Predefined),
+    /// A nested submenu.
+    Submenu {
+        title: &'static str,
+        items: &'static [Item],
+    },
     /// A visual separator.
     Separator,
+}
+
+/// Every [`Item::Action`] id in `items`, nested submenus included, in menu order.
+pub fn action_ids(items: &'static [Item]) -> Vec<&'static str> {
+    items
+        .iter()
+        .flat_map(|item| match item {
+            Item::Action { id, .. } => vec![*id],
+            Item::Submenu { items, .. } => action_ids(items),
+            _ => Vec::new(),
+        })
+        .collect()
 }
 
 /// The subset of Tauri predefined menu items this menu uses.
@@ -184,7 +201,8 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
     },
     SubmenuSpec {
         // The CLIO menu's agent actions: the connection, the saved agents and
-        // adding one. The agent list itself stays in the in-app CLIO menu.
+        // adding one. A native menu is static, so Switch To opens the in-app
+        // CLIO menu, which lists the saved agents.
         title: "Agent",
         items: &[
             Item::Action {
@@ -193,20 +211,37 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
                 accel: None,
             },
             Item::Action {
+                id: "switch-agent",
+                label: "Switch To…",
+                accel: None,
+            },
+            Item::Action {
                 id: "manage-agents",
                 label: "Manage Agents",
                 accel: None,
             },
             Item::Separator,
-            Item::Action {
-                id: "connect-by-address",
-                label: "Connect by Address…",
-                accel: None,
-            },
-            Item::Action {
-                id: "manage-agent-services",
-                label: "Connect over SSH…",
-                accel: None,
+            Item::Submenu {
+                title: "Add an Agent",
+                items: &[
+                    Item::Action {
+                        id: "connect-by-address",
+                        label: "Connect by Address…",
+                        accel: None,
+                    },
+                    Item::Action {
+                        id: "manage-agent-services",
+                        label: "Connect over SSH…",
+                        accel: None,
+                    },
+                    // Dynamic label ("Install <App> on a Computer…"), built in
+                    // `build_menu`.
+                    Item::Action {
+                        id: "install-agent",
+                        label: "Install on a Computer…",
+                        accel: None,
+                    },
+                ],
             },
             Item::Separator,
             Item::Action {
@@ -261,11 +296,8 @@ pub const HELP_MENU_TITLE: &str = "Help";
 pub fn action_for_id(id: &str) -> Option<&'static str> {
     MENU_SPEC
         .iter()
-        .flat_map(|s| s.items.iter())
-        .find_map(|item| match item {
-            Item::Action { id: aid, .. } if *aid == id => Some(*aid),
-            _ => None,
-        })
+        .flat_map(|s| action_ids(s.items))
+        .find(|aid| *aid == id)
 }
 
 #[cfg(test)]

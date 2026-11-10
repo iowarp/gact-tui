@@ -1,3 +1,5 @@
+import { prefetchDeferredChunks } from './deferred-chunk';
+
 /** Lazily loaded route modules, shared by the router and its prefetcher so each loads once. */
 const routeModules = {
   connection: () => import('@/routes/connection-page'),
@@ -49,7 +51,8 @@ const IDLE_PREFETCH: readonly RouteChunk[] = ['runs', 'settings', 'infrastructur
 /**
  * Warm the secondary routes: when a link to one is hovered, focused or touched,
  * and once the app has been idle for a moment. Their modules are a few hundred
- * KB in all; data is still fetched only on navigation.
+ * KB in all; data is still fetched only on navigation. The idle pass also warms
+ * the deferred in-page chunks (math, the Gantt and the science log).
  */
 export function installRoutePrefetch(target: Document = document): () => void {
   const prefetchLink = (event: Event) => {
@@ -71,6 +74,7 @@ export function installRoutePrefetch(target: Document = document): () => void {
     : view?.setTimeout(() => {
         const prefetch = () => {
           for (const chunk of IDLE_PREFETCH) void loadRouteChunk(chunk).catch(() => undefined);
+          prefetchDeferredChunks();
         };
         idle = view.requestIdleCallback
           ? view.requestIdleCallback(prefetch, { timeout: 5_000 })
