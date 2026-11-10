@@ -1,5 +1,5 @@
 import type { AgentEntry } from '@clio/core/v3';
-import { BotIcon, ChevronDownIcon, FolderIcon } from 'lucide-react';
+import { BotIcon, ChevronDownIcon, MessageSquareIcon } from 'lucide-react';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,9 +16,10 @@ import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from './primitives/icon-button';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { cn } from '@/lib/utils';
-import { workspaceName } from '@/lib/workspace-labels';
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { ListGroupLabel } from './primitives/list-row';
 import { MenuRow } from './primitives/menu-row';
+import { WorkspaceMark } from './workspace-mark';
 
 const chipClass =
   'h-7 min-w-0 gap-1.5 rounded-md bg-hover/60 px-2 text-[13px] font-normal text-foreground hover:bg-hover aria-expanded:bg-hover';
@@ -52,6 +53,11 @@ export interface DraftWorkspaceOption {
   display_name: string;
 }
 
+/** The same mark the left bar shows: a chat bubble for Conversations. */
+function draftWorkspaceIcon(id: string) {
+  return id === DEFAULT_WORKSPACE_ID ? <MessageSquareIcon /> : <WorkspaceMark id={id} />;
+}
+
 /** Where the draft will be created; choosing another workspace moves the draft there. */
 export function DraftWorkspaceChip({
   workspaces,
@@ -74,7 +80,7 @@ export function DraftWorkspaceChip({
           aria-label={`Conversation workspace: ${label}`}
           className="max-w-44 shrink"
           disabled={disabled}
-          icon={<FolderIcon />}
+          icon={draftWorkspaceIcon(workspaceId)}
           label={label}
           title={label}
         />
@@ -90,7 +96,7 @@ export function DraftWorkspaceChip({
           >
             {workspaces.map((item) => (
               <DropdownMenuRadioItem key={item.id} value={item.id}>
-                <MenuRow icon={<FolderIcon />} label={workspaceName(item)} />
+                <MenuRow icon={draftWorkspaceIcon(item.id)} label={workspaceName(item)} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
