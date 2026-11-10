@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CollapsibleContent } from '@/components/ui/collapsible';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { ResultDialogContent } from './result-dialog-content';
 import { ActivityBody } from './activity-row';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ export function ToolDetailsContent({
     </CollapsibleContent>
   ) : (
     <ResultDialogContent
+      icon={<InfoIcon />}
       title={title}
       description="Original tool arguments, result, and diagnostics."
     >
