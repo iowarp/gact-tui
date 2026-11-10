@@ -7,14 +7,14 @@ Paths are under `web/src/`.
 
 ## Window and navigation (owned by S3)
 
-| Part            | Path                                                                                | Notes                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc. Sections load lazily.                            |
-| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                         |
-| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter. |
-| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                    |
-| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                          |
-| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.               |
+| Part            | Path                                                                                | Notes                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc or browser Back. It is one history entry: sections replace it, and closing goes back past it. Sections load lazily. |
+| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                                                                                           |
+| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter.                                                                   |
+| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                                                                                      |
+| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                                                                                            |
+| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.                                                                                 |
 
 ## Page parts
 
