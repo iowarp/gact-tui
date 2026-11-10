@@ -237,6 +237,13 @@ export function ClioDocumentWorkspace({
   useFileViewerFacts(previewOnly ? [previewOnly] : undefined);
   const decision =
     workingCopy?.status === 'conflict' || workingCopy?.status === 'error' ? workingCopy : undefined;
+  // The version that moved on while the copy was open, so the conflict can name it.
+  const conflictHeadId = decision?.status === 'conflict' ? decision.conflict_head_artifact_id : undefined;
+  const conflictHead = useQuery({
+    queryKey: queryKeys.key('document-manifest', settings.endpoint, conflictHeadId),
+    queryFn: ({ signal }) => repository.documentManifest(conflictHeadId!, signal),
+    enabled: conflictHeadId !== undefined,
+  });
 
   const copy = copyable ? (
     <TextFileCopyAction
@@ -342,6 +349,7 @@ export function ClioDocumentWorkspace({
           {decision ? (
             <WorkingCopyState
               copy={decision}
+              headVersion={conflictHead.data?.version}
               pending={resolveConflict.isPending}
               onResolve={(resolution) => resolveConflict.mutate(resolution)}
               onDismiss={() => setWorkingCopy(undefined)}

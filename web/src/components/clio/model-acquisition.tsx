@@ -7,6 +7,8 @@ import { useRepository } from '@/hooks/use-repository';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { formatBytes } from '@/lib/format';
+import { DIALOG_FULL_WINDOW_CLASS } from '@/lib/dialog-sheet';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -283,7 +285,20 @@ export function ModelAcquisitions({
           if (!acquire.isPending) setOpen(value);
         }}
       >
-        <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-5xl">
+        <DialogContent
+          className={cn(
+            // Spec: 56% of the window; the details go below the list under 900 px.
+            'flex max-h-[90dvh] flex-col overflow-hidden sm:w-[clamp(560px,56vw,1040px)] sm:max-w-[calc(100%-2rem)]',
+            DIALOG_FULL_WINDOW_CLASS,
+          )}
+          // Search first, as the spec pickers do, rather than the title's info tip.
+          onOpenAutoFocus={(event) => {
+            const search = (event.currentTarget as HTMLElement).querySelector('input');
+            if (!search) return;
+            event.preventDefault();
+            search.focus();
+          }}
+        >
           <DialogHeader>
             <div className="flex items-center gap-2">
               <DialogTitle>{acquire.data ? 'Model download' : 'Find a model'}</DialogTitle>
@@ -330,7 +345,7 @@ export function ModelAcquisitions({
                 acquire.mutate();
               }}
             >
-              <div className="grid min-h-0 gap-6 overflow-y-auto pr-1 md:grid-cols-2 md:overflow-hidden">
+              <div className="grid min-h-0 gap-6 overflow-y-auto pr-1 min-[900px]:grid-cols-2 min-[900px]:overflow-hidden">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <p>
@@ -390,7 +405,7 @@ export function ModelAcquisitions({
                     </Button>
                   ) : null}
                 </div>
-                <div className="min-h-0 space-y-4 md:max-h-[65dvh] md:overflow-y-auto md:border-l md:pl-6">
+                <div className="min-h-0 space-y-4 min-[900px]:max-h-[65dvh] min-[900px]:overflow-y-auto min-[900px]:border-l min-[900px]:pl-6">
                   {draft.repository ? (
                     <>
                       <p className="break-all font-semibold">{draft.repository}</p>

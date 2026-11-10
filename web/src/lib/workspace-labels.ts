@@ -1,5 +1,18 @@
 import type { Workspace } from '@clio/core/v3';
 
+/** Conversations started outside a project folder live in the default workspace. */
+export const DEFAULT_WORKSPACE_ID = 'ws_default';
+
+/** The default workspace is shown as "Conversations" wherever a workspace is named. */
+export function workspaceName(workspace: {
+  id: string;
+  display_name?: string;
+  name?: string;
+}): string {
+  if (workspace.id === DEFAULT_WORKSPACE_ID) return 'Conversations';
+  return workspace.display_name || workspace.name || workspace.id;
+}
+
 function parentName(path: string): string | undefined {
   const parts = path.split(/[\\/]+/).filter(Boolean);
   return parts.length > 1 ? parts.at(-2) : undefined;
@@ -39,9 +52,7 @@ export function workspaceLabels(
     for (const workspace of group) {
       const parent = parentName(workspace.path) ?? workspace.connection_id;
       const qualifiers =
-        (parentCounts.get(parent) ?? 0) > 1
-          ? [parent, workspace.connection_id]
-          : [parent];
+        (parentCounts.get(parent) ?? 0) > 1 ? [parent, workspace.connection_id] : [parent];
       labels.set(workspace.id, { name, qualifiers });
     }
   }

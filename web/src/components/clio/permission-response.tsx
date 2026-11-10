@@ -1,6 +1,7 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
+import { cn } from '@/lib/utils';
 import {
   AskBody,
   AskButton,
@@ -17,8 +18,7 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionOperationLabel } from './permission-operation-labels';
-import type { KeyValueItem } from './primitives/key-value-grid';
-import { TechnicalDetailsFacts } from './tool-technical-details';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 
 const SCOPES = [
   { action: 'allow', label: 'Allow once', name: 'Allow once' },
@@ -41,24 +41,36 @@ function agentArguments(input: unknown): unknown {
 
 /**
  * Arguments that carry code (run_code's `code`) read as code with its real lines, and the
- * rest as key-values. Arguments without a multi-line string stay one JSON block.
+ * rest as key-values. Arguments without a multi-line string stay one JSON block. Code the
+ * card already shows as its Script is named, not repeated.
  */
 function argumentParts(
   input: unknown,
+  script: string | undefined,
 ): { blocks: [string, string][]; facts: KeyValueItem[] } | undefined {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
   const entries = Object.entries(input as Record<string, unknown>);
   const multiline = (value: unknown): value is string =>
     typeof value === 'string' && value.includes('\n');
-  const blocks = entries.filter((entry): entry is [string, string] => multiline(entry[1]));
-  if (!blocks.length) return undefined;
+  const shown = (value: unknown) => script !== undefined && value === script;
+  if (!entries.some(([, value]) => multiline(value) || shown(value))) return undefined;
+  const blocks = entries.filter(
+    (entry): entry is [string, string] => multiline(entry[1]) && !shown(entry[1]),
+  );
   const facts = entries
-    .filter(([, value]) => !multiline(value))
-    .map(([key, value]) => ({
-      label: key,
-      mono: true,
-      value: typeof value === 'string' ? value : JSON.stringify(value),
-    }));
+    .filter(([, value]) => !multiline(value) || shown(value))
+    .map(([key, value]): KeyValueItem =>
+      shown(value)
+        ? {
+            label: key,
+            value: <span className="text-muted-foreground">same as Script above</span>,
+          }
+        : {
+            label: key,
+            mono: true,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          },
+    );
   return { blocks, facts };
 }
 
@@ -163,7 +175,7 @@ export function PermissionResponse({
   const owner = askedBy(interaction, ownerLabel, showOwner);
   const cwd = interaction.payload?.execution?.cwd;
   const args = toolCall?.input === undefined ? undefined : agentArguments(toolCall.input);
-  const parts = argumentParts(args);
+  const parts = argumentParts(args, script?.code);
   const argsLanguage = (args as { language?: unknown } | undefined)?.language;
   const codeLanguage =
     argsLanguage === 'python' || (toolName === 'run_code' && argsLanguage === undefined)
@@ -175,6 +187,8 @@ export function PermissionResponse({
           {
             label: 'Asked by',
             title: owner[0]?.title,
+            // Beside the facts while they show it; here once they give it up, at a fifth.
+            wide: false as const,
             value: (
               <span className="min-w-0 truncate text-accent-foreground">
                 {ownerLabel ?? `session ${interaction.owner_session_id}`}
@@ -216,8 +230,9 @@ export function PermissionResponse({
       {script ? (
         // Under a cap the script gives up height first, down to two lines with its fade and
         // footer, so the facts above stay whole. The script stands in for the command line.
+        // A script of one or two lines keeps its own height: the floor would only pad it.
         <AskCode
-          className="flex min-h-20 shrink-[100] flex-col"
+          className={cn('flex flex-col', scriptLines > 2 && 'min-h-20 shrink-[100]')}
           code={script.code}
           copyLabel="Copy script"
           icon={FileCode2Icon}
@@ -266,7 +281,13 @@ export function PermissionResponse({
           <div className="grid gap-2.5">
             {detailFacts.length ? (
               <div data-slot="ask-details-facts">
-                <TechnicalDetailsFacts items={detailFacts} />
+                {/* The facts' own 110px label column, so details values share their x;
+                    labels stay as words when narrow (details rows carry no icons). */}
+                <KeyValueGrid
+                  className="@max-[420px]:grid-cols-[110px_minmax(0,1fr)]"
+                  items={detailFacts}
+                  variant="facts"
+                />
               </div>
             ) : null}
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />

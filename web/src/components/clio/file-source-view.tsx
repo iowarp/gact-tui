@@ -88,7 +88,7 @@ export function FileSourceView({
         data-header-row={headerRow ? '' : undefined}
         className={cn(
           // Flush on the page, as the frame spec draws source: no filled panel.
-          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-[11.5px] [&_pre]:leading-[1.65]',
+          'h-full min-h-0 min-w-0 rounded-none border-0 bg-transparent [&_pre]:bg-transparent! [&_:is(pre,code)]:text-[11.5px] [&_:is(pre,code)]:leading-[1.65]',
           options?.wrap
             ? // Wrapped lines hang past the line numbers, so a number marks only its own line.
               '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:pl-12 [&_pre_code>span]:-indent-12 [&_pre_code>span]:before:indent-0'

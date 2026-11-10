@@ -12,6 +12,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  MinusIcon,
+  OctagonMinusIcon,
   PanelRightIcon,
   WrapTextIcon,
   type LucideIcon,
@@ -24,7 +26,13 @@ import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
-import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
+import {
+  AskPagerContext,
+  askKeyAttributes,
+  handleAskCardKeys,
+  type AskKey,
+  type AskPager,
+} from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
 
@@ -62,21 +70,31 @@ export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: 
   );
 }
 
-function AskPagerControls() {
-  const pager = useContext(AskPagerContext);
+/**
+ * ‹ 1/2 › in the header: the queue's position, or a card's own pages (a question bundle).
+ * [ ] step the queue; a card's own pages take them only when there is no queue.
+ */
+export function AskPagerControls({
+  pager: own,
+  label = 'Pending requests',
+  noun = 'request',
+}: { pager?: AskPager; label?: string; noun?: string } = {}) {
+  const queue = useContext(AskPagerContext);
+  const pager = own ?? queue;
   if (!pager || pager.total < 2) return null;
+  const keyed = !own || !queue || queue.total < 2;
   return (
     <TooltipProvider>
       <nav
-        aria-label="Pending requests"
+        aria-label={label}
         className="ml-auto flex shrink-0 items-center font-mono text-[11px] text-muted-foreground"
         data-slot="ask-pager"
       >
         <IconButton
-          {...askKeyAttributes(['['])}
+          {...askKeyAttributes(keyed ? ['['] : [])}
           disabled={pager.index === 0}
           icon={<ChevronLeftIcon aria-hidden="true" />}
-          label="Previous request"
+          label={`Previous ${noun}`}
           onClick={pager.onPrevious}
           size="sm"
         />
@@ -84,10 +102,10 @@ function AskPagerControls() {
           {pager.index + 1}/{pager.total}
         </span>
         <IconButton
-          {...askKeyAttributes([']'])}
+          {...askKeyAttributes(keyed ? [']'] : [])}
           disabled={pager.index === pager.total - 1}
           icon={<ChevronRightIcon aria-hidden="true" />}
-          label="Next request"
+          label={`Next ${noun}`}
           onClick={pager.onNext}
           size="sm"
         />
@@ -102,6 +120,8 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   title: ReactNode;
   /** Full title on hover when it is cut. */
   titleText?: string;
+  /** Let the title take two lines when the card is narrow (questions). */
+  wrapTitle?: boolean;
   /** Muted, one line after the title: a tool id or a file. */
   meta?: ReactNode;
   metaMono?: boolean;
@@ -117,6 +137,7 @@ export function AskCard({
   icon: Icon,
   title,
   titleText,
+  wrapTitle,
   meta,
   metaMono,
   owner,
@@ -156,7 +177,11 @@ export function AskCard({
       >
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
-          className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
+          className={cn(
+            'min-w-0 shrink truncate text-[13.5px] leading-5 font-medium',
+            // A question reads whole: at a fifth of the window it takes a second line.
+            wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
+          )}
           data-slot="pending-interaction-title"
           title={titleText}
         >
@@ -314,6 +339,8 @@ export function AskButton({
       className={cn(
         'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
         !primary && 'border-input bg-transparent text-foreground',
+        // A filled button waiting on a choice keeps the 1px edge of every other option.
+        primary && 'disabled:border-input',
         className,
       )}
       data-slot="ask-button"
@@ -442,19 +469,53 @@ export function AskDetails({
   hint?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Its own height when that is less than the floor, so short details never leave a gap.
+  const [natural, setNatural] = useState<number>();
+  // Under the cap the details scroll; their foot fades so the cut reads as "more below".
+  const [clipped, setClipped] = useState(false);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const section = body?.closest<HTMLElement>('[data-slot="ask-details"]');
+    if (!open || !body || !section) return;
+    let scroller: HTMLElement = body;
+    while (scroller.parentElement && scroller !== section) {
+      scroller = scroller.parentElement;
+      if (getComputedStyle(scroller).overflowY === 'auto') break;
+    }
+    const update = () => {
+      const top = scroller.getBoundingClientRect().top - section.getBoundingClientRect().top;
+      setNatural(Math.ceil(top + scroller.scrollHeight));
+      setClipped(
+        scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop > 1 &&
+          scroller.clientHeight > 0,
+      );
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(body);
+    observer?.observe(scroller);
+    scroller.addEventListener('scroll', update, { passive: true });
+    return () => {
+      observer?.disconnect();
+      scroller.removeEventListener('scroll', update);
+    };
+  }, [open]);
   return (
     <AskSection
       // Open, the raw arguments give up height first (down to a few lines that scroll), then
       // a script, so the facts and options stay whole under the cap.
       className={cn(
         'mt-2.5 flex min-h-0 flex-col text-[11.5px] text-muted-foreground',
-        open ? 'min-h-32 shrink-[1000]' : 'shrink-0',
+        open ? 'shrink-[1000]' : 'shrink-0',
       )}
       data-slot="ask-details"
+      data-details-clipped={open && clipped ? '' : undefined}
+      style={open ? { minHeight: natural ? `min(8rem, ${natural}px)` : '8rem' } : undefined}
     >
       <TechnicalDetails
         className="flex min-h-0 flex-col"
-        contentClassName="clio-scrollbar min-h-0 overflow-y-auto overscroll-contain"
+        contentClassName="clio-scrollbar min-h-0 overflow-y-auto overscroll-contain in-data-details-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]"
         hint={open ? hint : undefined}
         // The spec's 16px between the line and its caption; the caption goes first when narrow.
         hintClassName="ml-2 @max-[420px]/ask:hidden"
@@ -468,6 +529,7 @@ export function AskDetails({
           aria-label={title}
           className="grid min-w-0 gap-1.5 pt-1 [overflow-wrap:anywhere]"
           data-slot="ask-details-body"
+          ref={bodyRef}
           role="region"
         >
           {children}
@@ -575,9 +637,9 @@ export function AskCode({
   const highlighted = useHighlightedLines(code, language);
   const lineContent = (line: string, index: number): ReactNode => {
     if (!line) return ' ';
-    if (language === 'json') return jsonLine(line);
+    // Every block shares the highlighter's palette; JSON reads in its own tones until it loads.
     const tokens = highlighted?.[index];
-    if (!tokens) return line;
+    if (!tokens) return language === 'json' ? jsonLine(line) : line;
     return tokens.map((token, at) => (
       <span key={at} style={{ color: token.color }}>
         {token.content}
@@ -688,12 +750,13 @@ export function AskError({ error, className }: { error?: Error; className?: stri
   );
 }
 
-/** Once answered, the card folds into one activity row. */
+/** Once answered, the card folds into one activity row: icon, verb, detail, then the outcome. */
 export function AskAnsweredRow({
   icon: Icon,
   verb,
   detail,
   mono,
+  outcome,
   tone = 'ok',
   className,
   ...props
@@ -702,40 +765,52 @@ export function AskAnsweredRow({
   verb: string;
   detail?: ReactNode;
   mono?: boolean;
+  /** Who decided, beside the detail ("you denied it"); warning-toned when denied. */
+  outcome?: string;
   tone?: 'ok' | 'denied' | 'neutral';
 }) {
+  const Status = tone === 'ok' ? CheckIcon : tone === 'denied' ? OctagonMinusIcon : MinusIcon;
   return (
     <div
       className={cn(
-        'flex h-7 min-w-0 items-center gap-2 rounded-md pl-2 text-[12.5px] whitespace-nowrap text-foreground/85',
+        'flex h-7 min-w-0 items-center gap-2 rounded-md pr-[22px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85',
         className,
       )}
       data-slot="ask-answered"
       role="status"
       {...props}
     >
-      <Icon
-        aria-hidden="true"
-        className={cn(
-          'size-3.5 shrink-0',
-          tone === 'ok'
-            ? 'text-primary'
-            : tone === 'denied'
-              ? 'text-destructive'
-              : 'text-muted-foreground',
-        )}
-      />
+      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0 text-foreground">{verb}</span>
       {detail ? (
         <span
           className={cn(
-            'min-w-0 truncate text-muted-foreground',
-            mono ? 'font-mono text-[11.5px]' : 'text-[12.5px]',
+            'min-w-0 truncate',
+            mono ? 'font-mono text-[11.5px] text-muted-foreground' : 'text-[12.5px]',
           )}
         >
           {detail}
         </span>
       ) : null}
+      {outcome ? (
+        <span
+          className={cn(
+            'shrink-0 text-[11.5px]',
+            tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
+          )}
+        >
+          {outcome}
+        </span>
+      ) : null}
+      <span aria-hidden="true" className="min-w-1.5 flex-1" />
+      <Status
+        aria-hidden="true"
+        className={cn(
+          'size-3.5 shrink-0',
+          tone === 'ok' ? 'text-primary' : tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
+        )}
+        data-slot="ask-answered-status"
+      />
     </div>
   );
 }
