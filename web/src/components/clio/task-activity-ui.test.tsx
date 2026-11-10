@@ -2,7 +2,6 @@ import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import { ClioEvidenceView } from './observability-evidence';
 import { AsyncTaskList } from './async-task-list';
 import { asyncProcessDetail } from './observability-activity';
 import { useWorkTaskFocus } from './work-task-focus';
@@ -170,20 +169,7 @@ it('shows a question waiting for its answer and reveals the stored answer on dem
 
 it('shows one compact task row and discloses complete assignments and technical identity by keyboard', async () => {
   const user = userEvent.setup();
-  render(
-    <ClioEvidenceView
-      compact
-      section="work"
-      artifacts={[]}
-      contextFiles={[]}
-      diffs={[]}
-      messages={[]}
-      processes={[task]}
-      subagents={[child]}
-    />,
-  );
-  expect(screen.getByRole('button', { name: 'Running, 1 recorded' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
+  render(<AsyncTaskList compact processes={[task]} subagents={[child]} />);
   const row = screen.getByRole('button', { name: 'Task details: Worker #1' });
   expect(row).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByRole('region', { name: 'Assignment: Worker #1' })).toBeNull();
@@ -311,32 +297,6 @@ it('identifies missing older assignments explicitly only when details are opened
   expect(screen.queryByText('Description unavailable for this older task')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: 'Task details: Worker #1' }));
   expect(screen.getByText('Description unavailable for this older task')).toBeVisible();
-});
-
-it('retains one navigable durable child row in the full evidence view', async () => {
-  const open = vi.fn();
-  render(
-    <ClioEvidenceView
-      artifacts={[]}
-      contextFiles={[]}
-      diffs={[]}
-      messages={[]}
-      processes={[task]}
-      subagents={[child]}
-      onOpenSubagent={open}
-    />,
-  );
-  expect(screen.queryByRole('button', { name: /^Child agents,/ })).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: 'Background tasks, 1 recorded' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Task details: Worker #1' }));
-  await userEvent.click(screen.getByRole('button', { name: 'Open child conversation Worker #1' }));
-  expect(open).toHaveBeenLastCalledWith(child, 'canvas');
-  const user = userEvent.setup();
-  await user.keyboard('{Shift>}');
-  await user.click(screen.getByRole('button', { name: 'Open child conversation Worker #1' }));
-  await user.keyboard('{/Shift}');
-  expect(open).toHaveBeenLastCalledWith(child, 'conversation');
-  expect(open).toHaveBeenCalledTimes(2);
 });
 
 it('names a task that runs a flow as that run and opens the run view', async () => {

@@ -45,7 +45,7 @@ export function ConversationRelationships({
 }: {
   sessions: readonly Session[];
   sessionId: string;
-  header: ReactNode;
+  header?: ReactNode;
   onOpenArtifact?: (artifact: Artifact) => void;
   selectedId?: string;
   onSelect: (id: string) => void;

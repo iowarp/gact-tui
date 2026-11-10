@@ -4,9 +4,8 @@ The transcript and composer load first. Pending questions and permission request
 immediate. After the transcript paints, optional reads for the current session share a
 two-request queue: artifacts, context, work, evidence and workspace files. Opening a panel
 uses the same query and any read already in flight. Work history warms only its first
-25 direct tasks; further pages load explicitly. The family-wide execution graph loads when
-the Gantt view is opened. Session summaries support navigation without loading every
-conversation body.
+25 direct tasks; further pages load explicitly. Session summaries support navigation
+without loading every conversation body.
 
 Flow responses include task timestamps, avoiding a full task-detail request for every
 node. Older servers retain the legacy fallback. Offscreen flow cards pause reads and

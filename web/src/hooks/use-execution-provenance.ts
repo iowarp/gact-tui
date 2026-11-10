@@ -12,14 +12,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
 
 /** Owns provider discovery and the selected session execution-provenance snapshot. */
-export function useExecutionProvenance(
-  sessionId: string,
-  inheritedProvider?: string,
-  {
-    includeChildren = false,
-    ...loading
-  }: { includeChildren?: boolean } & SessionResourceLoading = {},
-) {
+export function useExecutionProvenance(sessionId: string, loading: SessionResourceLoading = {}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [requestedProvider, setRequestedProvider] = useState<string>();
@@ -30,7 +23,7 @@ export function useExecutionProvenance(
     enabled: loading.enabled !== false,
   });
   const provider = selectProvenanceProvider(
-    requestedProvider ?? inheritedProvider,
+    requestedProvider,
     providers.data?.default_provider,
     providers.data?.providers,
   );
@@ -44,15 +37,12 @@ export function useExecutionProvenance(
   const execution = useQuery({
     // A large optional graph must not evict the small log/work cache on departure.
     meta: { sessionCache: 'supplementary' },
-    queryKey: [
-      ...queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
-      includeChildren ? 'family' : 'session',
-    ],
+    queryKey: queryKeys.executionProvenance(settings.endpoint, sessionId, provider),
     queryFn: ({ signal }) =>
       loadSessionResource(loading, signal, () =>
         repository.executionProvenance(
           sessionId,
-          { provider, includeChildren, limit: EXECUTION_PROVENANCE_LIMIT },
+          { provider, limit: EXECUTION_PROVENANCE_LIMIT },
           signal,
         ),
       ),

@@ -1,5 +1,5 @@
 import type { Artifact, SessionDiff, SubagentRun } from '@clio/core/v3';
-import { ChartNoAxesGanttIcon, ListFilterIcon, SearchIcon } from 'lucide-react';
+import { ListFilterIcon, SearchIcon } from 'lucide-react';
 import {
   memo,
   useCallback,
@@ -46,7 +46,7 @@ import {
 import { activityTab } from './workbench-activity-tab';
 import { tabForOpenRequest } from './workbench-open-request';
 import type { WorkbenchTab } from './workbench-shared';
-import { sessionTab, workTab } from './workbench-tab-storage';
+import { workTab } from './workbench-tab-storage';
 
 export interface WorkbenchActivityListProps {
   sessionId: string;
@@ -225,15 +225,6 @@ function ActivityColumn({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {sessionId ? (
-        <IconButton
-          icon={<ChartNoAxesGanttIcon />}
-          label="Open timeline and context"
-          onClick={() => onOpenTab(sessionTab)}
-          size="sm"
-          tooltipSide="bottom"
-        />
-      ) : null}
     </>,
   );
 

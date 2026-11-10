@@ -16,7 +16,7 @@ import {
   WaypointsIcon,
 } from 'lucide-react';
 import { formatBytes, formatDuration } from '@/lib/format';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import type { EvidenceFile, EvidencePlan } from './session-evidence-projection';
 import { diffStatus, friendlyStatus, type EvidenceSource } from './observability-evidence-sources';
 import { SessionSummaryRow } from './session-summary-row';
@@ -39,7 +39,7 @@ export function changedLines(diffs: readonly SessionDiff[]): string | undefined 
 }
 
 export type SessionEvidenceSummaryProps = Pick<
-  ClioEvidenceViewProps,
+  SessionEvidenceActions,
   | 'onOpenArtifact'
   | 'onOpenFile'
   | 'onOpenDiff'
