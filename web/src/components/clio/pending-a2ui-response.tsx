@@ -31,13 +31,14 @@ import { cn } from '@/lib/utils';
 import { useConversationWidth } from '@/providers/appearance-provider';
 import {
   clampViewportHeight,
-  initialViewportHeight,
   maxViewportHeight,
   MIN_VIEWPORT_HEIGHT,
   persistViewportHeight,
+  readPersistedViewportHeight,
 } from './a2ui-response-viewport-resize';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
-import { AskError } from './ask-card';
+import { AskError, AskSection } from './ask-card';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { respondFromControl } from './interaction-control';
 import { QuestionCard, QuestionFooter } from './interaction-frame-header';
 import { canDismissQuestion } from './question-card-model';
@@ -55,6 +56,8 @@ interface PendingA2UIResponseProps {
   renderBody?: (viewport: 'inline' | 'fullscreen') => ReactNode;
   /** The answer may be written in the composer instead. */
   allowsComposer?: boolean;
+  /** The composer is the only way to answer (a written-answer question). */
+  composerOnly?: boolean;
   showFullPrompt?: boolean;
   actionLifecycle?: A2UIActionLifecycle;
   disabled?: boolean;
@@ -71,6 +74,7 @@ interface PendingA2UIResponseProps {
 /** A pending interactive surface inside the question card, resizable and openable full screen. */
 export function PendingA2UIResponse({
   allowsComposer,
+  composerOnly,
   renderBody,
   showFullPrompt,
   actionLifecycle,
@@ -99,9 +103,14 @@ export function PendingA2UIResponse({
   // sessions that happen to reuse the same one must never read or clobber
   // each other's remembered height.
   const surfaceKey = `${interaction.owner_session_id}:${interaction.source.surface_id ?? interaction.id}`;
-  const [viewportHeight, setViewportHeight] = useState(() =>
-    initialViewportHeight(surfaceKey, window.innerHeight),
-  );
+  // The card fits its content until the reader resizes it; a remembered
+  // resize for this surface is restored.
+  const [viewportHeight, setViewportHeight] = useState<number | undefined>(() => {
+    const persisted = readPersistedViewportHeight(surfaceKey);
+    return persisted === undefined ? undefined : clampViewportHeight(persisted, window.innerHeight);
+  });
+  const viewport = useRef<HTMLDivElement>(null);
+  const currentHeight = () => viewportHeight ?? viewport.current?.clientHeight ?? MIN_VIEWPORT_HEIGHT;
   const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
   const suppressResizeClick = useRef(false);
   // The one persistent instance of the interactive surface. `host` is a
@@ -135,7 +144,7 @@ export function PendingA2UIResponse({
     if (target && host.parentElement !== target) target.appendChild(host);
   }, [fullscreen, inlineHost, dialogHost, host]);
   const beginResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
+    resizeStart.current = { y: event.clientY, height: currentHeight(), moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const updateResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -153,6 +162,9 @@ export function PendingA2UIResponse({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
+  const dismiss = canDismissQuestion(interaction)
+    ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
+    : undefined;
   const controls = (
     <TooltipProvider>
       <IconButton
@@ -164,12 +176,10 @@ export function PendingA2UIResponse({
             suppressResizeClick.current = false;
             return;
           }
-          setViewportHeight((current) => {
-            const max = maxViewportHeight(window.innerHeight);
-            const next = current < max ? max : MIN_VIEWPORT_HEIGHT;
-            persistViewportHeight(surfaceKey, next);
-            return next;
-          });
+          const max = maxViewportHeight(window.innerHeight);
+          const next = currentHeight() < max ? max : MIN_VIEWPORT_HEIGHT;
+          persistViewportHeight(surfaceKey, next);
+          setViewportHeight(next);
         }}
         onPointerCancel={endResize}
         onPointerDown={beginResize}
@@ -185,6 +195,16 @@ export function PendingA2UIResponse({
         size="sm"
         type="button"
       />
+      {dismiss ? (
+        <IconButton
+          disabled={disabled}
+          icon={<CloseIcon aria-hidden="true" />}
+          label="Close question"
+          onClick={dismiss}
+          size="sm"
+          type="button"
+        />
+      ) : null}
     </TooltipProvider>
   );
   return (
@@ -198,17 +218,20 @@ export function PendingA2UIResponse({
         showOwner={showOwner}
       >
         <AskError error={responseError} />
-        <div className="relative mt-2 min-w-0" data-slot="a2ui-response-viewport-wrapper">
+        <AskSection className="group/viewport relative" data-slot="a2ui-response-viewport-wrapper">
           <div
             className={cn(
-              'min-h-24 min-w-0 max-h-[calc(100dvh-17rem)] overflow-auto overscroll-contain',
+              'min-w-0 max-h-[calc(100dvh-17rem)] overflow-auto overscroll-contain',
               // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
               // dimmed-but-readable disabled surface (see reui/sortable.tsx).
               disabled && 'pointer-events-none opacity-70',
             )}
             data-slot="a2ui-response-viewport"
+            ref={viewport}
             style={
-              {
+              viewportHeight === undefined
+                ? undefined
+                : ({
                 height: viewportHeight,
                 // A catalog component that wants to fill this card (the map)
                 // cannot reach its own height with a CSS percentage — every
@@ -219,7 +242,7 @@ export function PendingA2UIResponse({
                 // same way the fullscreen dialog already sizes the map off
                 // 100dvh instead of a percentage.
                 '--a2ui-inline-surface-height': `${viewportHeight}px`,
-              } as CSSProperties
+              } as CSSProperties)
             }
           >
             {/* Portal host for the inline placement — see `surfaceBody` below. */}
@@ -227,7 +250,7 @@ export function PendingA2UIResponse({
           </div>
           <button
             aria-label="Corner resize handle"
-            className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted/70 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 group-hover/viewport:opacity-70 hover:opacity-100! hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary motion-safe:transition-opacity"
             data-slot="a2ui-response-corner-resize"
             onPointerCancel={endResize}
             onPointerDown={beginResize}
@@ -243,16 +266,13 @@ export function PendingA2UIResponse({
           >
             <MoveDiagonal2Icon aria-hidden="true" className="size-3.5" />
           </button>
-        </div>
+        </AskSection>
         <QuestionFooter
           allowsComposer={allowsComposer}
+          composerOnly={composerOnly}
           disabled={disabled}
           interaction={interaction}
-          onDismiss={
-            canDismissQuestion(interaction)
-              ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-              : undefined
-          }
+          onDismiss={dismiss}
         />
       </QuestionCard>
       <Dialog onOpenChange={setFullscreen} open={fullscreen}>
