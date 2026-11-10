@@ -1,6 +1,7 @@
 import type {
   ContextFile,
   ContextFrame,
+  ContextFrameItem,
   ContextSnapshot,
   Message,
   WorkspaceResource,
@@ -8,7 +9,9 @@ import type {
 } from '@clio/core/v3';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import type { ClioContextTarget } from '@/lib/context-targets';
+import { formatBytes } from '@/lib/format';
 import { ContextCompactionControls } from './context-compaction-controls';
 import { contextTokens } from './context-composition-model';
 import { ContextDisclosure } from './context-disclosure';
@@ -99,33 +102,25 @@ export function ClioContextCanvasPanel({
           <ContextDisclosure label="Latest context snapshot" count={latest?.items.length ?? 0}>
             {latest ? (
               <ul className="grid gap-2 text-xs">
-                {latest.items.map((item, index) => (
-                  <li key={index} className="min-w-0">
-                    {item.path && onOpenFile ? (
-                      <button
-                        className="break-words text-left hover:underline"
-                        onClick={() => onOpenFile(item.path!)}
-                      >
-                        {item.display_path ?? item.path}
-                      </button>
-                    ) : (
-                      <p>
-                        {item.role === 'user'
-                          ? 'User request'
-                          : item.role === 'assistant'
-                            ? 'Assistant response'
-                            : item.kind === 'injection' && item.source_id === 'memory'
-                              ? 'Memory'
-                              : humanizeProtocolValue(item.kind)}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground">
-                      {item.included ? 'Included' : 'Excluded'}, ≈
-                      {contextTokens(item.tokens_estimated)} tokens
-                      {item.reason ? `, ${humanizeProtocolValue(item.reason)}` : ''}
-                    </p>
-                  </li>
-                ))}
+                {latest.items.map((item, index) => {
+                  const row = frameItemRow(item);
+                  return (
+                    <li key={index} className="min-w-0" title={row.title}>
+                      {item.path && onOpenFile ? (
+                        <button
+                          className="break-words text-left hover:underline"
+                          onClick={() => onOpenFile(item.path!)}
+                        >
+                          {row.name}
+                        </button>
+                      ) : (
+                        <p className="break-words">{row.name}</p>
+                      )}
+                      {row.kind ? <p className="text-muted-foreground">{row.kind}</p> : null}
+                      <p className="text-muted-foreground">{row.inclusion}</p>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -147,4 +142,74 @@ export function ClioContextCanvasPanel({
       ) : null}
     </div>
   );
+}
+
+const REFERENCE_DELIVERY: Record<string, string> = {
+  metadata: 'details only',
+  summary: 'summary',
+  workspace_path: 'path only',
+};
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function capitalize(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+/**
+ * One snapshot row as a reader names it: what it is, what kind of thing, how
+ * big, and whether it reached the model. `display_path` is newer than some
+ * backends, so a reference falls back to its label, its workspace path and its
+ * id before the protocol kind is ever shown.
+ */
+function frameItemRow(item: ContextFrameItem): {
+  name: string;
+  kind?: string;
+  inclusion: string;
+  title: string;
+} {
+  const tokens = `≈${contextTokens(item.tokens_estimated)} tokens`;
+  if (item.kind === 'context_ref') {
+    const delivery = (item.metadata.delivery ?? {}) as Record<string, unknown>;
+    const refKind = text(item.metadata.ref_kind);
+    const name =
+      text(item.display_path) ||
+      text(item.metadata.label) ||
+      text(delivery.workspace_path) ||
+      text(item.source_id) ||
+      capitalize(refKind ? referenceKindLabel(refKind) : 'reference');
+    const size =
+      typeof delivery.size_bytes === 'number' && delivery.size_bytes > 0
+        ? formatBytes(delivery.size_bytes)
+        : '';
+    const mode = 'summary' in delivery ? 'summary' : text(delivery.mode);
+    const kind = [
+      capitalize(refKind ? referenceKindLabel(refKind) : 'reference'),
+      size,
+      REFERENCE_DELIVERY[mode] ? `sent as ${REFERENCE_DELIVERY[mode]}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+    const inclusion = `${item.included ? 'Included' : 'Excluded'}, ${tokens}`;
+    return { name, kind, inclusion, title: `${name}\n${kind}\n${inclusion}` };
+  }
+  const name =
+    text(item.display_path) ||
+    text(item.path) ||
+    (item.role === 'user'
+      ? 'User request'
+      : item.role === 'assistant'
+        ? 'Assistant response'
+        : item.kind === 'injection' && item.source_id === 'memory'
+          ? 'Memory'
+          : humanizeProtocolValue(item.kind));
+  const inclusion = [
+    `${item.included ? 'Included' : 'Excluded'}, ${tokens}`,
+    item.reason ? humanizeProtocolValue(item.reason) : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return { name, inclusion, title: `${name}\n${inclusion}` };
 }
