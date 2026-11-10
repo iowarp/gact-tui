@@ -34,7 +34,7 @@ import {
 import { groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
-import { useRailSessions } from '@/hooks/use-rail-sessions';
+import { useRailSessionCount, useRailSessions } from '@/hooks/use-rail-sessions';
 
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
@@ -373,11 +373,23 @@ function useConversationList(
 ) {
   // The rail reads its conversations a page at a time; live rows win over a page's copy.
   const rail = useRailSessions(workspaceId, sessions, open);
+  // A folded workspace never loaded its pages, so it asks only for the count.
+  const foldedCount = useRailSessionCount(workspaceId, !open && rail.total === undefined);
   const railSessions = rail.sessions.filter(
     (session) => !session.archived && isPrimarySession(session),
   );
   const listed = railSessions.filter((session) => !excludedSessionIds.has(session.id));
-  const total = Math.max((rail.total ?? 0) - (railSessions.length - listed.length), listed.length);
+  const pinnedHere =
+    rail.total === undefined && foldedCount !== undefined
+      ? sessions.filter(
+          (session) =>
+            session.workspace_id === workspaceId &&
+            excludedSessionIds.has(session.id) &&
+            !session.archived &&
+            isPrimarySession(session),
+        ).length
+      : railSessions.length - listed.length;
+  const total = Math.max((rail.total ?? foldedCount ?? 0) - pinnedHere, listed.length);
   const visible = visibleWorkspaceSessions(
     listed,
     workspaceId,
