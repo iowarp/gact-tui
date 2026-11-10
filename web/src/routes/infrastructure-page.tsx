@@ -9,7 +9,7 @@ import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
@@ -47,6 +47,9 @@ const TAB_ROW =
   'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
 const TAB_ACTIONS =
   'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
+
+/** Set by Alt ←/→ so the next section focuses its tab; it outlives a remount of the page. */
+let sectionMovedByKey = false;
 
 export function InfrastructurePage() {
   const location = useLocation();
@@ -202,10 +205,26 @@ export function InfrastructurePage() {
     const index = INFRASTRUCTURE_SECTIONS.findIndex((item) => item.id === currentSection);
     const count = INFRASTRUCTURE_SECTIONS.length;
     const next = INFRASTRUCTURE_SECTIONS[(index + step + count) % count]!;
+    sectionMovedByKey = true;
     navigate(`/infrastructure/${next.id}`, { state: location.state });
   };
-  useShortcut('previous-tab', () => moveSection(-1), { region: mainRef });
-  useShortcut('next-tab', () => moveSection(1), { region: mainRef });
+  // A tab change replaces the focused content, so the key hands focus to the new tab and keeps working.
+  useEffect(() => {
+    if (!sectionMovedByKey) return;
+    sectionMovedByKey = false;
+    mainRef.current?.querySelector<HTMLElement>('[aria-current=page]')?.focus();
+  }, [currentSection]);
+  const tabKeyRegion = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        const active = document.activeElement;
+        return !active || active === document.body ? document.body : mainRef.current;
+      },
+    }),
+    [],
+  );
+  useShortcut('previous-tab', () => moveSection(-1), { region: tabKeyRegion });
+  useShortcut('next-tab', () => moveSection(1), { region: tabKeyRegion });
   const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
   return (
     <main
