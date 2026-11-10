@@ -10,6 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { PermissionResponse } from './permission-response';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useStableCallback } from '@/hooks/use-stable-callback';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ATTENTION_REVEAL_EVENT, pendingInteractionDomId } from './interaction-control';
@@ -127,8 +128,7 @@ export function ClioPendingInteractions({
   const seenIds = useRef<ReadonlySet<string>>(new Set(pending.map((row) => row.id)));
   const pendingKey = pending.map((row) => row.id).join('\n');
   const focusInDock = useRef(false);
-  const focusComposer = useRef(onFocusComposer);
-  focusComposer.current = onFocusComposer;
+  const focusComposer = useStableCallback(() => onFocusComposer?.());
   useEffect(() => {
     const track = (event: FocusEvent) => {
       focusInDock.current = Boolean(
@@ -153,13 +153,13 @@ export function ClioPendingInteractions({
     if (departed && focusInDock.current && (lost || !dockRef.current?.contains(active))) {
       focusInDock.current = false;
       if (card) card.focus({ preventScroll: true });
-      else focusComposer.current?.();
+      else focusComposer();
       return;
     }
     if (!arrived || !card || !(lost || isEmptyComposer(active))) return;
     // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
     card.focus({ preventScroll: true, focusVisible: false });
-  }, [pendingKey, selectedId]);
+  }, [pendingKey, selectedId, focusComposer]);
   useEffect(() => {
     const reveal = (event: Event) => {
       const id: unknown = (event as CustomEvent).detail;
