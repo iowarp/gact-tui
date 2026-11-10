@@ -1,5 +1,5 @@
 import type { InfrastructureTarget } from '@clio/core/v3';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type SavedConnection } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -7,12 +7,12 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   connectionAvailability,
+  connectionAvailabilityKey,
   connectionProbeInterval,
   probeConnection,
   useConnectionAvailabilities,
   type ConnectionAvailability,
 } from '@/hooks/use-connection-availability';
-import { queryKeys } from '@/lib/query-keys';
 
 export type KnownConnectionSource = 'recent' | 'managed' | 'infrastructure';
 
@@ -91,11 +91,19 @@ export function useKnownConnections(): readonly KnownConnection[] {
   const desktop = inTauri();
 
   // The supervisor reports the service ready once it answers, before its task runtime
-  // is (#739 B1). Probe `/v1/health` until it reports ready; then stop polling.
+  // is (#739 B1). Probe `/v1/health` until it reports ready; then stop polling. It shares
+  // the address's availability probe, so the CLIO menu does not probe it a second time.
+  const queryClient = useQueryClient();
+  const managedKey = connectionAvailabilityKey(managedConnection?.endpoint);
   const managedProbe = useQuery({
     enabled: desktop && managedConnectionReady && Boolean(managedConnection),
-    queryKey: queryKeys.key('connection-availability', managedConnection?.endpoint, 'managed'),
-    queryFn: ({ signal }) => probeConnection(managedConnection!, signal),
+    queryKey: managedKey,
+    queryFn: ({ signal }) =>
+      probeConnection(
+        managedConnection!,
+        signal,
+        queryClient.getQueryData<ConnectionAvailability>(managedKey),
+      ),
     refetchInterval: (query) =>
       query.state.data && !query.state.data.starting ? false : connectionProbeInterval(query),
   });

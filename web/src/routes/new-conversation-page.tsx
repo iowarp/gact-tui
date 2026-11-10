@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { emptyAgentDelta, type AgentDelta, type WorkspaceReference } from '@clio/core/v3';
 import { toast } from 'sonner';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { connectionScope } from '@/lib/connection-scope';
 import { serviceUnreachable } from '@/lib/connection-attempt';
@@ -34,7 +34,11 @@ import {
   canUploadWorkspaceResources,
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
-import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
+import {
+  useComposerDraft,
+  useComposerDraftValue,
+  type ComposerDraft,
+} from '@/hooks/use-composer-draft';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useRepository } from '@/hooks/use-repository';
@@ -63,6 +67,25 @@ export function NewConversationPage() {
   return <WorkspaceDraft key={`${settings.endpoint}:${workspaceId}`} workspaceId={workspaceId} />;
 }
 
+type DraftComposerProps = Omit<
+  ComponentProps<typeof ClioComposer>,
+  'value' | 'onValueChange' | 'references' | 'onReferencesChange'
+> & { draft: ComposerDraft };
+
+/** Reads the draft text here, so a keystroke re-renders the composer and not the page. */
+function DraftComposer({ draft, ...props }: DraftComposerProps) {
+  const value = useComposerDraftValue(draft);
+  return (
+    <ClioComposer
+      {...props}
+      value={value}
+      onValueChange={draft.onValueChange}
+      references={draft.references}
+      onReferencesChange={draft.onReferencesChange}
+    />
+  );
+}
+
 function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
@@ -76,7 +99,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const connection = useConnectionIndicatorState();
   const repository = useRepository();
   const draft = useComposerDraft(workspaceId, { persist: false });
-  const draftValue = useComposerDraftValue(draft);
   const [filesViewActive, setFilesViewActive] = useState(false);
   const data = useWorkspaceData({
     contextTargetId: '',
@@ -112,7 +134,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
   const commands = useSessionCommands('', workspaceId);
-  const sessions = data.allSessions.data ?? data.sessions.data ?? [];
+  const sessions = useMemo(
+    () => data.allSessions.data ?? data.sessions.data ?? [],
+    [data.allSessions.data, data.sessions.data],
+  );
+  const attentions = useMemo(
+    () => buildSessionAttentionMap(sessions, data.attentionInteractions),
+    [sessions, data.attentionInteractions],
+  );
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
   const {
     requests,
@@ -208,7 +237,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           activeSessionId=""
           activeWorkspaceId={workspaceId}
           actions={navigationActions}
-          attentions={buildSessionAttentionMap(sessions, data.attentionInteractions)}
+          attentions={attentions}
           agents={data.installedAgents.data ?? []}
           endpoint={settings.endpoint}
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
@@ -338,7 +367,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             </>
           }
         >
-          <ClioComposer
+          <DraftComposer
+            draft={draft}
             autoFocus
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
@@ -377,10 +407,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
               await send.mutateAsync(value);
             }}
             resources={data.workspaceResources.data ?? []}
-            value={draftValue}
-            onValueChange={draft.onValueChange}
-            references={draft.references}
-            onReferencesChange={draft.onReferencesChange}
             variant="welcome"
             workspaceId={workspaceId}
           />
