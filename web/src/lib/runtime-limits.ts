@@ -61,6 +61,11 @@ export const WAITING_SESSIONS_POLL_MS = 10_000;
 export const INFRASTRUCTURE_POLL_MS = 20_000;
 /** How often a server list is re-read while one of its MCP servers is being prepared. */
 export const MCP_PREPARING_POLL_MS = 2_000;
+/**
+ * Re-read cadence for the service's capabilities while reading them fails for a reason
+ * other than "not offered" (a restart, a dropped request). Unit: milliseconds.
+ */
+export const CAPABILITIES_RETRY_MS = 2_000;
 
 /**
  * Refetch cadence for operations/administration panels (schedules, health,
@@ -438,6 +443,14 @@ export const A2UI_CATALOG_STALE_TIME_MS = 10 * 60_000;
  * behind a long retry ladder.
  */
 export const QUERY_RETRY_COUNT = 1;
+
+/**
+ * Retries for a read the service refused because it is still starting (503
+ * `task_runtime_starting`). Unit: attempts after the first. At the 2 s backoff ceiling
+ * this waits about three minutes, longer than a slow agent start, before showing the
+ * failure and its Retry.
+ */
+export const STARTING_READ_RETRIES = 90;
 
 /**
  * Retries for one service availability probe. Unit: attempts after the first.
