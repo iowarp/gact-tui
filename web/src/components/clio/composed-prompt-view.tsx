@@ -215,8 +215,13 @@ function FragmentRow({
         <span className="shrink-0 font-mono text-xs text-muted-foreground max-sm:hidden">
           {fragment.id}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm">
-          {open ? null : <Highlighted text={preview} needle={needle} />}
+        {/* A preview squeezed under ~3ch would show only a stray glyph, so it hides. */}
+        <span className="@container min-w-0 flex-1 text-sm">
+          {open ? null : (
+            <span className="block truncate @max-[2rem]:hidden">
+              <Highlighted text={preview} needle={needle} />
+            </span>
+          )}
         </span>
         {fragment.tokens !== undefined ? (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">

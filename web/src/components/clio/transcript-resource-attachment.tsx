@@ -89,21 +89,6 @@ export function TranscriptResourceAttachments({
   );
 }
 
-/** Human-message attachment marker backed by the shared AI Elements primitive. */
-export function TranscriptResourceAttachment({
-  block,
-  resource,
-  onOpen,
-}: TranscriptResourceAttachmentProps) {
-  return (
-    <TranscriptResourceAttachments
-      blocks={[block]}
-      onOpen={onOpen}
-      resources={resource ? { [block.resource_id]: resource } : undefined}
-    />
-  );
-}
-
 function TranscriptResourceAttachmentItem({
   block,
   relatedResources,

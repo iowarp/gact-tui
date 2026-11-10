@@ -276,6 +276,8 @@ describe('LaTeX workspace', () => {
     expect(screen.queryByRole('region', { name: /^Source of/u })).toBeNull();
     await pickView('Source');
     expect(view()).toBe('source');
+    // Each pane is named for its own mode, not the frame's Preview.
+    expect(screen.getByRole('tabpanel', { name: 'Source' })).toBeTruthy();
     expect(document.querySelector('[data-slot="pdf"]')).toBeNull();
     await pickView('Side by side');
     expect(view()).toBe('both');
@@ -283,6 +285,7 @@ describe('LaTeX workspace', () => {
     expect(screen.getAllByRole('region', { name: 'Source of main.tex' })).toHaveLength(1);
     await pickView('Render');
     expect(view()).toBe('pdf');
+    expect(screen.getByRole('tabpanel', { name: 'Render' })).toBeTruthy();
     // A point on the PDF brings its source back beside it.
     repository.latexLocate.mockResolvedValue({
       status: 'complete',

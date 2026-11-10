@@ -63,6 +63,16 @@ export interface ResourceActions {
   setWorkspacePinned: (workspaceId: string, pinned: boolean) => Promise<void>;
   setSessionPinned: (sessionId: string, pinned: boolean) => Promise<void>;
   archiveSession: (sessionId: string) => Promise<void>;
+  /** Branches a conversation into a new one and opens it. */
+  forkSession?: (sessionId: string) => Promise<void>;
+  /** Appends a compaction checkpoint and reports whether the service compacted. */
+  compactSession?: (sessionId: string) => Promise<void>;
+  /** Permanently removes the conversation's last stored message. */
+  undoSession?: (sessionId: string) => Promise<void>;
+  /** Mints a read-only share link and resolves to its absolute URL. */
+  shareSession?: (sessionId: string, ttlSeconds: number) => Promise<string>;
+  /** Desktop only: opens the OS terminal app at a workspace folder. */
+  openSystemTerminal?: (workspacePath: string) => Promise<void>;
   restoreSession: (sessionId: string) => Promise<void>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;

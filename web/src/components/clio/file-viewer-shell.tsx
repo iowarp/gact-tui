@@ -21,6 +21,7 @@ import { FileModeTrigger, FoldedFileModes, MODE_SEGMENT_CLASS } from './file-mod
 import {
   FileViewerModeSlotContext,
   isSourceMode,
+  keepFocusInFrame,
   type FileViewerModeSlot,
   type RendererModes,
 } from './file-viewer-modes';
@@ -221,10 +222,13 @@ export function FileViewerShell({
       if (frameActive || renderer.value !== sourceMode.value) {
         renderer.onChange(sourceMode.value);
         showRenderer();
+        keepFocusInFrame(hostRef.current);
         return;
       }
       const rendered = renderer.modes.find((mode) => !isSourceMode(mode));
-      if (rendered) renderer.onChange(rendered.value);
+      if (!rendered) return;
+      renderer.onChange(rendered.value);
+      keepFocusInFrame(hostRef.current);
     },
     { enabled: Boolean(sourceMode), region: hostRef },
   );
@@ -233,6 +237,7 @@ export function FileViewerShell({
     () => {
       if (selectedValue === LINEAGE_VIEW) showRenderer();
       else selectValue(LINEAGE_VIEW);
+      keepFocusInFrame(hostRef.current);
     },
     { enabled: Boolean(lineage), region: hostRef },
   );

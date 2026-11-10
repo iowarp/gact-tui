@@ -6,6 +6,7 @@ import type { useSessionCommands } from '@/hooks/use-session-commands';
 import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useModelCatalogStatus } from '@/hooks/use-model-catalog-status';
 import { isManagedChildSession } from '@/lib/session-state';
 import { sessionSpotterModel } from '@/lib/spotter-model-ref';
 import { ClioChildSessionFooter } from './child-session-footer';
@@ -107,6 +108,7 @@ export function WorkspaceComposer({
     updateQueuedMessage,
   } = mutations;
   const value = useComposerDraftValue(draft);
+  const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const startingConversation = async (action: () => Promise<unknown>) => {
     const startedFromWelcome = conversation.welcome;
     if (startedFromWelcome) conversation.setStarted(true);
@@ -181,7 +183,7 @@ export function WorkspaceComposer({
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={data.activeModel}
-          modelCatalogStatus={data.modelCatalogStatus}
+          modelCatalogStatus={modelCatalogStatus}
           modelOptions={data.modelOptions}
           pendingInteractions={hold.withCard(pendingInteractions)}
           onCommand={(value) => startingConversation(() => commands.run(value))}

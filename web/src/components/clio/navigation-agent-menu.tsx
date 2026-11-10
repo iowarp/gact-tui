@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import type { StreamState } from '@clio/core/v3';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronsUpDownIcon } from 'lucide-react';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { useState } from 'react';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -49,7 +49,7 @@ export function NavigationAgentMenu({
   const versions = useSystemVersionStatus();
   const location = connectionLocation(endpoint, activeLocation);
   const agentName = connectionAgentName(activeLabel, location);
-  // An unnamed agent reads as the product and its place: "CLIO local, this computer".
+  // An unnamed agent reads as the product and its place: "CLIO local @ this computer".
   // A longer wordmark already heads the menu, so the line names the agent
   // instead ("Agent, this computer") and fits beside the bell.
   const shortMark = brand.wordmark.length <= 6;
@@ -90,7 +90,7 @@ export function NavigationAgentMenu({
               <span className="truncate font-heading text-[15px] font-semibold">
                 {brand.wordmark}
               </span>
-              <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
+              <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
             </span>
             <span
               className={cn(
@@ -105,8 +105,13 @@ export function NavigationAgentMenu({
                 tone={line.tone}
               />
               {line.parts ? (
-                <span className="flex min-w-0 gap-2">
+                <span className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-2')}>
                   <span className="shrink-0">{line.parts[0]}</span>
+                  {line.at ? (
+                    <span aria-hidden="true" className="shrink-0 text-faint">
+                      @
+                    </span>
+                  ) : null}
                   <span className="truncate">{line.parts[1]}</span>
                 </span>
               ) : (
@@ -133,6 +138,8 @@ interface StatusLine {
   text: string;
   /** Shown as two phrases split by a layout gap instead of a comma. */
   parts?: readonly [string, string];
+  /** Joins the parts with a faint @: the agent, then where it runs. */
+  at?: boolean;
   label: string;
   tone: StatusTone;
   className?: string;
@@ -171,7 +178,13 @@ function statusLine(
       tone: 'info',
     };
   }
-  return { text: `${name}, ${place}`, parts: [name, place], label: 'Live', tone: 'success' };
+  return {
+    text: `${name}, ${place}`,
+    parts: [name, place],
+    at: true,
+    label: 'Live',
+    tone: 'success',
+  };
 }
 
 function placeWords(location: string): string {

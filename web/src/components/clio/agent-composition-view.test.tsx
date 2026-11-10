@@ -35,7 +35,6 @@ vi.mock('sonner', () => ({
 }));
 
 import { AgentCompositionView, DraftAgentCompositionView } from './agent-composition-view';
-import { SessionAgentControl } from './session-agent-control';
 
 function renderView(view = <AgentCompositionView sessionId="sess_1" />) {
   return renderAgentView(view);
@@ -56,7 +55,7 @@ describe('AgentCompositionView', () => {
     renderView();
     await openUse(user);
     const active = await screen.findByRole('list', { name: 'Active plugins' });
-    expect(within(active).getByText('Core')).toBeVisible();
+    expect(within(active).getByText('Built in')).toBeVisible();
     expect(within(active).getAllByText('From standard')).toHaveLength(2);
     expect(within(active).getByText('Required by pdf')).toBeVisible();
     const members = within(active).getByRole('list', { name: 'Members of documents' });
@@ -355,38 +354,6 @@ describe('AgentCompositionView', () => {
     );
   });
 
-  it('uses Customize in the header and confirms an agent selection before applying it', async () => {
-    const user = userEvent.setup();
-    const onOpenAgent = vi.fn();
-    repository.agents.mockResolvedValue([
-      { ref: 'clio/standard', id: 'standard', name: 'Standard', plugins: [], kind: 'agent' },
-      { ref: 'clio/science', id: 'science', name: 'Scientist', plugins: [], kind: 'agent' },
-    ]);
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await user.click(await screen.findByRole('button', { name: 'Customize the agent (1 change)' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Add a plugin to this conversation' })).toBeNull();
-    const picker = screen.getByRole('combobox', { name: 'Conversation agent' });
-    await screen.findByRole('option', { name: 'Scientist' });
-    await user.selectOptions(picker, 'clio/science');
-    let dialog = await screen.findByRole('alertdialog');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    expect(picker).toHaveValue('clio/standard');
-    await user.click(within(dialog).getByRole('button', { name: 'No' }));
-    expect(picker).toHaveValue('clio/standard');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    await user.selectOptions(picker, 'clio/science');
-    dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, as an injection' }));
-    await waitFor(() =>
-      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
-        ref: 'clio/science',
-        delta: emptyDelta,
-        apply: 'note',
-      }),
-    );
-  });
-
   it('saves the composition as a user agent: parent plus delta', async () => {
     const user = userEvent.setup();
     repository.saveUserAgent.mockResolvedValue({
@@ -553,16 +520,6 @@ describe('AgentCompositionView', () => {
     );
     expect(repository.updateSession).toHaveBeenCalledTimes(1);
   });
-
-  it('keeps the header selector read-only for a defined subagent while allowing its details to open', async () => {
-    repository.sessionAgent.mockResolvedValue({ ...sessionAgent, subagent: true });
-    const onOpenAgent = vi.fn();
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'View agent' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.getByRole('combobox', { name: 'Conversation agent' })).toBeDisabled();
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-  });
 });
 
 describe('the agent of a conversation not yet started', () => {
@@ -632,5 +589,138 @@ describe('the agent of a conversation not yet started', () => {
       }),
     );
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  });
+});
+
+describe('an agent explored from the library', () => {
+  const draft = { ref: 'clio/standard', delta: { add: [], remove: ['xlsx'] } };
+  const library = {
+    ...resolution,
+    subagents: [
+      { id: 'pdf-reviewer', plugin: 'pdf', description: 'Reviews a PDF page by page.' },
+      { id: 'release-helper', plugin: 'shell', description: 'Cuts a release.' },
+    ],
+  };
+
+  beforeEach(() => repository.resolveAgent.mockResolvedValue(library));
+
+  function renderLibrary(onChange = vi.fn()) {
+    renderView(<DraftAgentCompositionView draft={draft} library onChange={onChange} />);
+    return onChange;
+  }
+
+  it('leads with the packages it is built from and opens its full prompt', async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    const packages = await screen.findByRole('group', { name: 'Packages' });
+    for (const id of ['shell', 'documents', 'pdf'])
+      expect(within(packages).getByRole('button', { name: id })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Tools:/u })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    expect(await screen.findByText('You are the standard agent.')).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Packages' })).toBeNull();
+  });
+
+  it('shows only what a package brings in the chosen category, each opening its details', async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    await user.click(await screen.findByRole('radio', { name: 'Subagents' }));
+    const packages = screen.getByRole('group', { name: 'Packages' });
+    expect(within(packages).queryByRole('button', { name: 'documents' })).toBeNull();
+    await user.click(within(packages).getByRole('button', { name: 'pdf' }));
+    const brings = screen.getByRole('region', { name: 'pdf brings this subagent' });
+    expect(within(brings).getByRole('button', { name: 'pdf-reviewer' })).toBeVisible();
+    expect(within(brings).queryByText('pdf-reader')).toBeNull();
+    expect(within(brings).queryByText('release-helper')).toBeNull();
+    await user.click(within(brings).getByRole('button', { name: 'pdf-reviewer' }));
+    const detail = await screen.findByRole('region', { name: 'Subagent pdf-reviewer' });
+    expect(within(detail).getByText('Reviews a PDF page by page.')).toBeVisible();
+    await user.click(within(detail).getByRole('button', { name: 'Back to packages' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'pdf-reviewer' })).toHaveFocus());
+    expect(screen.getByRole('radio', { name: 'Subagents' })).toBeChecked();
+  });
+
+  it('folds a narrow category filter to the current category and ⋯', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly report: ResizeObserverCallback) {}
+        observe() {
+          const box = [{ inlineSize: 150, blockSize: 28 }];
+          this.report(
+            [{ contentRect: { width: 150 }, borderBoxSize: box, contentBoxSize: box }] as never,
+            this as never,
+          );
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      renderLibrary();
+      await screen.findByRole('group', { name: 'Packages' });
+      const filter = screen.getByRole('radiogroup', { name: 'Show what packages bring' });
+      expect(
+        within(filter)
+          .getAllByRole('radio')
+          .map((radio) => radio.textContent),
+      ).toEqual(['All']);
+      await user.click(screen.getByRole('button', { name: 'Other categories' }));
+      await user.click(await screen.findByRole('menuitemradio', { name: 'Subagents' }));
+      expect(await screen.findByRole('radio', { name: 'Subagents' })).toBeChecked();
+      expect(
+        within(screen.getByRole('group', { name: 'Packages' })).queryByRole('button', {
+          name: 'documents',
+        }),
+      ).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('opens the prompt in a pane without an empty header, Back focused without its name', async () => {
+    const user = userEvent.setup();
+    renderView(
+      <DraftAgentCompositionView
+        draft={{ ref: 'clio/standard', delta: { add: [], remove: [] } }}
+        embedded
+        library
+        onChange={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText('Changed settings are teal')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    expect(await screen.findByText('You are the standard agent.')).toBeVisible();
+    expect(screen.queryByText('Changed settings are teal')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back to the agent' })).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('adds and removes packages from the list', async () => {
+    const user = userEvent.setup();
+    repository.previewPluginRemoval.mockResolvedValue({
+      plugin: 'shell',
+      removes: [{ id: 'shell', reason: { reason: 'removed', because: '' } }],
+      tools_removed: ['shell_run'],
+    });
+    const onChange = renderLibrary();
+    await user.click(await screen.findByRole('button', { name: 'Add package' }));
+    await user.click(await screen.findByRole('option', { name: /hdf5/u }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: ['clio/hdf5'], remove: ['xlsx'] },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove shell' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Yes' }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ref: 'clio/standard',
+        delta: { add: [], remove: ['xlsx', 'shell'] },
+      }),
+    );
   });
 });

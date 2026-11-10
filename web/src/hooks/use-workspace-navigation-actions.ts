@@ -7,7 +7,12 @@ import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { closeEmbeddedTerminalsForSession } from '@/tauri/workspace-terminal';
+import { toast } from 'sonner';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import {
+  closeEmbeddedTerminalsForSession,
+  openWorkspaceTerminal,
+} from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
 
 /**
@@ -70,6 +75,18 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       });
     },
     [repository],
+  );
+
+  const refreshTranscript = useCallback(
+    async (targetSessionId: string) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('transcript', settings.endpoint, targetSessionId),
+        }),
+        refreshNavigation(),
+      ]);
+    },
+    [queryClient, refreshNavigation, settings.endpoint],
   );
 
   const refreshWorkspaceFolders = useCallback(
@@ -155,6 +172,49 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         }
         await refreshNavigation();
       },
+      forkSession: async (targetSessionId) => {
+        const forked = await repository.forkSession(targetSessionId, {});
+        await refreshNavigation(forked.workspace_id);
+        await navigate(
+          `/workspaces/${encodeURIComponent(forked.workspace_id)}/sessions/${encodeURIComponent(forked.id)}`,
+        );
+      },
+      shareSession: async (targetSessionId, ttlSeconds) => {
+        const shared = await repository.shareSession(targetSessionId, ttlSeconds);
+        return new URL(shared.url, settings.endpoint).toString();
+      },
+      compactSession: async (targetSessionId) => {
+        const result = await repository.compactSession(targetSessionId);
+        await refreshTranscript(targetSessionId);
+        if (result.compacted) toast.success('Conversation compacted');
+        else
+          toast.info('Conversation was not compacted', {
+            description: result.reason ?? 'The service did not report a reason.',
+          });
+      },
+      undoSession: async (targetSessionId) => {
+        const result = await repository.undoSession(targetSessionId);
+        await refreshTranscript(targetSessionId);
+        toast.success(
+          result.deleted_message_ids.length === 1
+            ? 'Last message removed'
+            : `${result.deleted_message_ids.length} messages removed`,
+        );
+      },
+      openSystemTerminal: inTauri()
+        ? async (workspacePath) => {
+            try {
+              await openWorkspaceTerminal(workspacePath);
+            } catch (error) {
+              toast.error('Could not open the workspace terminal', {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : 'No supported terminal could be started.',
+              });
+            }
+          }
+        : undefined,
       restoreSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: false });
         await refreshNavigation();
@@ -193,9 +253,11 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       navigate,
       navigateToAvailableSession,
       refreshNavigation,
+      refreshTranscript,
       refreshWorkspaceFolders,
       repository,
       sessionId,
+      settings.endpoint,
       workspaceId,
       updateSessionIdentity,
     ],

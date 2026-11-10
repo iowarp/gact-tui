@@ -1,10 +1,6 @@
 import { create } from 'zustand';
 
-/**
- * Which product(s) one "Update all" click is driving. Mirrors the
- * `UpdateAction` union `navigation-version-status.tsx` already used locally
- * before this store existed.
- */
+/** Which product(s) one "Update all" click is driving. */
 export type UpdateAction = 'agent' | 'desktop' | 'both';
 
 /**
