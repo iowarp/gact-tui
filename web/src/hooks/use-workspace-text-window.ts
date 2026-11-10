@@ -1,7 +1,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import type { WorkspaceFileRange } from '@clio/core/v3';
+import { TransportError, type WorkspaceFileRange } from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
+import { retryRead } from '@/lib/connection-attempt';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { TEXT_WINDOW_CHUNK_BYTES, TEXT_WINDOW_MAX_BYTES } from '@/lib/runtime-limits';
@@ -129,6 +130,10 @@ export function useWorkspaceTextWindow(
         : bytes;
     },
     enabled: enabled && tail,
+    // A refusal (the file is past the server's read cap) won't change on retry.
+    retry: (failures, error) =>
+      !(error instanceof TransportError && (error.status ?? 0) >= 400 && (error.status ?? 0) < 500) &&
+      retryRead(failures, error),
     gcTime: TEXT_WINDOW_GC_TIME_MS,
     staleTime: Number.POSITIVE_INFINITY,
   });

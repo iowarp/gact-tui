@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { TransportError } from '@clio/core/v3';
 import { useMemo, useState } from 'react';
 import { WorkspaceFileComments } from './comments/file-comments';
 import { FileTextView } from './file-text-view';
@@ -27,6 +28,31 @@ function fileName(path: string): string {
       .filter(Boolean)
       .at(-1) ?? path
   );
+}
+
+/**
+ * The server refuses a whole-file read past its read cap, and a suffix read of
+ * such a file with it; the cap is server policy, so it is learned from the refusal.
+ */
+function serverCapSentence(error: Error | null, size?: number): string | undefined {
+  if (!(error instanceof TransportError)) return undefined;
+  if (
+    error.status !== 413 &&
+    error.code !== 'file_too_large' &&
+    !/exceeds policy cap/iu.test(error.message)
+  )
+    return undefined;
+  const [, reported, cap] = /\((\d+) > (\d+) bytes\)/u.exec(error.message) ?? [];
+  const bytes = size ?? (reported ? Number(reported) : undefined);
+  const file = bytes === undefined ? 'this file' : `this ${wholeBytes(bytes)} file`;
+  return cap
+    ? `The file server reads up to ${wholeBytes(Number(cap))}, so the end of ${file} can't be shown.`
+    : `The file server can't read the end of ${file}.`;
+}
+
+/** "1 GB", not "1.0 GB", for a round limit in a sentence. */
+function wholeBytes(bytes: number): string {
+  return formatBytes(bytes).replace(/\.0 /u, ' ');
 }
 
 export function WorkspaceTextView({
@@ -183,6 +209,16 @@ function WorkspaceTextWindowView({
     );
   const name = fileName(path);
   const total = size === undefined ? '' : ` of ${formatBytes(size)}`;
+  const capRefusal = (showEnd || !head) && serverCapSentence(textWindow.tailError, size);
+  if (capRefusal)
+    return (
+      <StateView
+        action={{ label: 'Show beginning', onClick: () => setShowEnd(false) }}
+        kind="too-large"
+        size="viewer"
+        title={capRefusal}
+      />
+    );
   const status =
     showEnd || !head
       ? textWindow.tailError
