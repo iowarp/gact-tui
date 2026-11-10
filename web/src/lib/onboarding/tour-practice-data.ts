@@ -197,6 +197,8 @@ export function practiceConversation(progress: PracticeProgress): ClioConversati
     tools[plotTool.id] = busy
       ? {
           ...running,
+          // The sample timeline is dated; a running row counts up from now.
+          started_at: new Date().toISOString(),
           state: 'running',
           presentation: {
             ...presentation,
