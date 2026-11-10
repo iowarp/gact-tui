@@ -298,6 +298,7 @@ function SessionRow({
               topLevel ? 'pl-2.5' : 'pl-[34px]',
             )}
             data-session-row={session.id}
+            data-rail-item={`session:${session.id}`}
             meta={
               needsAttention && attention ? (
                 <span
@@ -345,6 +346,7 @@ function SessionRow({
                       : 'text-foreground/85 group-hover/list-row:text-foreground',
                 )}
                 data-active={active}
+                data-rail-focus=""
                 onClick={(event) => {
                   holdPreviews(event.clientX, event.clientY);
                   setHoverOpen(false);

@@ -18,6 +18,13 @@ export interface RailSessions {
   hasMore: boolean;
   loadingMore: boolean;
   loadMore: () => void;
+  /** The first page is on its way and no page has arrived. */
+  loading: boolean;
+  /** The first page failed; only live rows, if any, are listed. */
+  error?: unknown;
+  /** The next page failed; `retry` asks for it again. */
+  loadMoreError?: unknown;
+  retry: () => void;
 }
 
 /**
@@ -76,7 +83,8 @@ export function useRailSessions(
     [hasNextPage, live, pages.data, workspaceId],
   );
   const total = pages.data?.pages[0]?.total ?? undefined;
-  const { fetchNextPage, isFetchingNextPage } = pages;
+  const { fetchNextPage, isFetchingNextPage, isFetchNextPageError, refetch } = pages;
+  const firstPageFailed = pages.isError && !pages.data;
   return {
     sessions,
     total: total === null ? undefined : total,
@@ -84,6 +92,13 @@ export function useRailSessions(
     loadingMore: isFetchingNextPage,
     loadMore: () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    loading: pages.isLoading,
+    error: firstPageFailed ? pages.error : undefined,
+    loadMoreError: isFetchNextPageError ? pages.error : undefined,
+    retry: () => {
+      if (isFetchNextPageError) void fetchNextPage();
+      else void refetch();
     },
   };
 }

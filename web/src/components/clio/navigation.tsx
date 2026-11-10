@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useClioMenuConnections } from '@/hooks/use-clio-menu-connections';
 import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
+import { useRailKeyboard } from '@/hooks/use-rail-keyboard';
+import type { ListState } from '@/lib/list-state';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
@@ -30,6 +32,10 @@ export interface ClioNavigationProps {
   agents: readonly AgentEntry[];
   onOpenWorkspaceFiles?: () => void;
   attentions: Readonly<Record<string, SessionAttention>>;
+  /** The workspace list's loading or failure, while it lists none. */
+  workspacesState?: ListState;
+  /** The conversation list's loading or failure, for Archived. */
+  sessionsState?: ListState;
 }
 
 export function ClioNavigation({
@@ -42,6 +48,8 @@ export function ClioNavigation({
   agents,
   onOpenWorkspaceFiles,
   attentions,
+  workspacesState,
+  sessionsState,
 }: ClioNavigationProps) {
   const location = useLocation();
   const {
@@ -75,6 +83,8 @@ export function ClioNavigation({
     [closeSheet],
   );
   const importInputRef = useRef<HTMLInputElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  useRailKeyboard(navRef);
   // The workspace chosen by "Import conversation here"; the service files the
   // import there when the blob names an existing workspace.
   const importWorkspaceRef = useRef<string | undefined>(undefined);
@@ -135,6 +145,7 @@ export function ClioNavigation({
           <nav
             aria-label="Workspace navigation"
             data-keyboard-region=""
+            ref={navRef}
             className="flex h-full min-w-0 flex-1 flex-col"
           >
             <NavigationHeader
@@ -177,6 +188,7 @@ export function ClioNavigation({
                 onRename={withSheetClosed(setRenameTarget)}
                 sessions={sessions}
                 workspaces={workspaces}
+                workspacesState={workspacesState}
               />
             </SidebarContent>
             <NavigationFooter
@@ -229,6 +241,7 @@ export function ClioNavigation({
         onRestore={actions.restoreSession}
         open={archivedOpen}
         sessions={sessions}
+        state={sessionsState}
         workspaces={workspaces}
       />
       {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (

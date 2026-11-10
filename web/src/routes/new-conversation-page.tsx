@@ -19,6 +19,7 @@ import {
   NewConversationDraft,
 } from '@/components/clio/new-conversation-draft';
 import { ClioNavigation } from '@/components/clio/navigation';
+import { listState } from '@/lib/list-state';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
 import { TopBarEnd } from '@/components/clio/top-bar-end';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
@@ -199,7 +200,9 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           endpoint={settings.endpoint}
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
+          sessionsState={listState(data.allSessions, data.sessions)}
           workspaces={data.workspaces.data ?? []}
+          workspacesState={listState(data.workspaces)}
         />
       }
       contextBar={

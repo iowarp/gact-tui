@@ -1,9 +1,10 @@
 import type { Session, Workspace } from '@clio/core/v3';
 import { ArchiveIcon, ArchiveRestoreIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
+import { isOfflineError, type ListState } from '@/lib/list-state';
 import { workspaceLabels } from '@/lib/workspace-labels';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
@@ -16,6 +17,8 @@ export interface ClioArchivedSessionsDialogProps {
   onDelete: (sessionId: string) => Promise<void>;
   onOpenChange: (open: boolean) => void;
   onRestore: (sessionId: string) => Promise<void>;
+  /** The conversation list's loading or failure, while it lists none. */
+  state?: ListState;
 }
 
 /** "Nov 2", with the year only when it is not this year's. */
@@ -30,6 +33,21 @@ function archivedOn(value: string) {
   });
 }
 
+/** Once a restored row leaves the list, focus the Restore of the row that took its place. */
+function focusRowAfter(list: HTMLUListElement | null, index: number) {
+  if (!list || index < 0) return;
+  const focusAt = () => {
+    const buttons = [...list.querySelectorAll<HTMLButtonElement>('li button[aria-label^="Restore"]')];
+    buttons[Math.min(index, buttons.length - 1)]?.focus();
+  };
+  const observer = new MutationObserver(() => {
+    observer.disconnect();
+    focusAt();
+  });
+  observer.observe(list, { childList: true });
+  window.setTimeout(() => observer.disconnect(), 3000);
+}
+
 export function ClioArchivedSessionsDialog({
   open,
   sessions,
@@ -37,9 +55,11 @@ export function ClioArchivedSessionsDialog({
   onDelete,
   onOpenChange,
   onRestore,
+  state,
 }: ClioArchivedSessionsDialogProps) {
   const [pendingId, setPendingId] = useState<string>();
   const [deleteTarget, setDeleteTarget] = useState<Session>();
+  const listRef = useRef<HTMLUListElement>(null);
   const labels = useMemo(() => workspaceLabels(workspaces), [workspaces]);
   const archived = useMemo(
     () =>
@@ -50,10 +70,12 @@ export function ClioArchivedSessionsDialog({
   );
 
   const restore = async (session: Session) => {
+    const index = archived.indexOf(session);
     setPendingId(session.id);
     try {
       await onRestore(session.id);
       toast.success(`${session.title} restored`);
+      focusRowAfter(listRef.current, index);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to restore the conversation');
     } finally {
@@ -86,7 +108,10 @@ export function ClioArchivedSessionsDialog({
         description="Restore one to the sidebar, or delete it for good."
       >
         {archived.length ? (
-          <ul className="clio-scrollbar -mx-0.5 max-h-[min(400px,50dvh)] overflow-y-auto">
+          <ul
+            className="clio-scrollbar -mx-0.5 max-h-[min(400px,50dvh)] overflow-y-auto"
+            ref={listRef}
+          >
             {archived.map((session) => {
               const label = labels.get(session.workspace_id);
               const workspace = label
@@ -133,6 +158,16 @@ export function ClioArchivedSessionsDialog({
               );
             })}
           </ul>
+        ) : state?.error ? (
+          <StateView
+            action={{ label: 'Retry', onClick: state.retry }}
+            detail={isOfflineError(state.error) ? 'Offline' : undefined}
+            kind="error"
+            size="panel"
+            title="Archived conversations could not be listed"
+          />
+        ) : state?.loading ? (
+          <StateView kind="loading" size="panel" title="Loading archived conversations…" />
         ) : (
           <StateView kind="empty" size="panel" title="No archived conversations" />
         )}

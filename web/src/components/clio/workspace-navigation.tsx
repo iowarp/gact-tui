@@ -21,6 +21,8 @@ import {
 } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
+import { StateView } from '@/components/clio/primitives/state-view';
+import { isOfflineError, type ListState } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import { WorkspaceMark } from './workspace-mark';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
@@ -35,7 +37,11 @@ import { groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { holdPreviews } from './row-preview-hold';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
-import { useRailSessionCount, useRailSessions } from '@/hooks/use-rail-sessions';
+import {
+  type RailSessions,
+  useRailSessionCount,
+  useRailSessions,
+} from '@/hooks/use-rail-sessions';
 
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
@@ -61,6 +67,32 @@ interface WorkspaceNavigationProps {
   attentions: Readonly<Record<string, SessionAttention>>;
   /** The workspace whose unsent draft is open, shown as a selected row. */
   draftWorkspaceId?: string;
+  /** Whether the workspace list is still loading or failed, while it lists none. */
+  workspacesState?: ListState;
+}
+
+/** A rail list's loading, failure or empty line, one row tall. */
+function RailState({
+  kind,
+  title,
+  error,
+  onRetry,
+}: {
+  kind: 'loading' | 'error' | 'empty';
+  title: string;
+  error?: unknown;
+  onRetry?: () => void;
+}) {
+  return (
+    <StateView
+      action={kind === 'error' && onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+      className="pl-2.5 pr-1 group-data-[collapsible=icon]:hidden"
+      detail={kind === 'error' && isOfflineError(error) ? 'Offline' : undefined}
+      kind={kind}
+      size="row"
+      title={title}
+    />
+  );
 }
 
 /** The unsent draft at /workspaces/<id>/new, selected, until its first message. */
@@ -117,6 +149,7 @@ export function WorkspaceNavigation({
   onAction,
   attentions,
   draftWorkspaceId,
+  workspacesState,
 }: WorkspaceNavigationProps) {
   const labels = useMemo(() => workspaceLabels(workspaces), [workspaces]);
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
@@ -286,9 +319,22 @@ export function WorkspaceNavigation({
         </ListGroupLabel>
         <SidebarGroupContent className="grid min-w-0 gap-px">
           {otherWorkspaces.map(renderWorkspace)}
+          {workspacesState?.error ? (
+            <RailState
+              error={workspacesState.error}
+              kind="error"
+              onRetry={workspacesState.retry}
+              title="Workspaces could not be listed"
+            />
+          ) : workspacesState?.loading ? (
+            <RailState kind="loading" title="Loading workspaces…" />
+          ) : listedWorkspaceCount === 0 ? (
+            <RailState kind="empty" title="No workspaces yet" />
+          ) : null}
           {listedWorkspaceCount > VISIBLE_WORKSPACE_LIMIT ? (
             <ShowMoreRow
               expanded={showAllWorkspaces}
+              railKey="more:workspaces"
               label={
                 showAllWorkspaces
                   ? 'Show recent workspaces'
@@ -337,11 +383,14 @@ function ShowMoreRow({
   expanded,
   label,
   onToggle,
+  railKey,
   indent = false,
 }: {
   expanded: boolean;
   label: string;
   onToggle: () => void;
+  /** Names the row for the list keys, e.g. `more:workspaces`. */
+  railKey: string;
   indent?: boolean;
 }) {
   return (
@@ -350,10 +399,12 @@ function ShowMoreRow({
         'h-[26px] cursor-pointer text-[11.5px] text-muted-foreground hover:text-foreground group-data-[collapsible=icon]:hidden',
         indent ? 'pl-[34px]' : 'pl-2.5',
       )}
+      data-rail-item={railKey}
       title={
         <button
           aria-expanded={expanded}
           className="outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
+          data-rail-focus=""
           onClick={(event) => {
             holdPreviews(event.clientX, event.clientY);
             onToggle();
@@ -455,7 +506,7 @@ function LooseConversations({
     expanded || filtering,
     excludedSessionIds,
   );
-  if (total === 0 && !draft) return null;
+  if (total === 0 && !draft && !rail.loading && !rail.error) return null;
   const shown = filtering ? visible.filter((session) => matchesFilter(session, filter)) : visible;
   const groups = groupConversationsByDay(nestAgentForks(shown));
   // The unsent draft is always new, so it opens the Today group.
@@ -504,12 +555,14 @@ function LooseConversations({
         {filtering && shown.length === 0 ? (
           <NoMatchingConversations onShowAll={() => setFilter('all')} />
         ) : null}
-        {expanded && !filtering && (rail.hasMore || rail.loadingMore) ? (
-          <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
+        <RailListState rail={rail} listed={visible.length > 0 || draft} />
+        {expanded && !filtering && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
+          <RailLoadMore rail={rail} />
         ) : null}
         {total > 8 && !filtering ? (
           <ShowMoreRow
             expanded={expanded}
+            railKey="more:conversations"
             label={
               expanded
                 ? 'Show recent conversations'
@@ -611,6 +664,7 @@ function WorkspaceTreeItem({
           'group-data-[collapsible=icon]:[&>:not([data-slot=list-row-text])]:hidden group-data-[collapsible=icon]:[&>[data-slot=list-row-text]]:flex-none',
         )}
         data-current-workspace={workspace.id === activeWorkspaceId ? 'true' : undefined}
+        data-rail-item={`workspace:${workspace.id}`}
         meta={
           // An open workspace shows its conversations; only a folded one counts them.
           sessionTotal > 0 && !expanded ? (
@@ -641,18 +695,18 @@ function WorkspaceTreeItem({
           {nestAgentForks(visibleSessions).map(({ session, depth }) =>
             renderSession(session, false, depth),
           )}
-          {visibleSessions.length === 0 && !draft ? (
-            <p className="h-7 truncate pl-[34px] text-[12px] leading-7 text-muted-foreground">
-              No conversations yet
-            </p>
+          {visibleSessions.length === 0 && !draft && !rail.loading && !rail.error ? (
+            <RailState kind="empty" title="No conversations yet" />
           ) : null}
-          {sessionLimitExpanded && (rail.hasMore || rail.loadingMore) ? (
-            <RailLoadMore loading={rail.loadingMore} onLoadMore={rail.loadMore} />
+          <RailListState rail={rail} listed={visibleSessions.length > 0 || draft} />
+          {sessionLimitExpanded && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
+            <RailLoadMore rail={rail} />
           ) : null}
           {sessionTotal > 8 ? (
             <ShowMoreRow
               expanded={sessionLimitExpanded}
               indent
+              railKey={`more:${workspace.id}`}
               label={
                 sessionLimitExpanded
                   ? 'Show recent conversations'
@@ -667,8 +721,42 @@ function WorkspaceTreeItem({
   );
 }
 
-/** Loads the next rail page when it scrolls into view, or on click. */
-function RailLoadMore({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
+/** The first page's loading or failure line, under any rows already listed live. */
+function RailListState({ rail, listed }: { rail: RailSessions; listed: boolean }) {
+  if (rail.error)
+    return (
+      <RailState
+        error={rail.error}
+        kind="error"
+        onRetry={rail.retry}
+        title="Conversations could not be listed"
+      />
+    );
+  if (rail.loading && !listed) return <RailState kind="loading" title="Loading conversations…" />;
+  return null;
+}
+
+/** Loads the next rail page when it scrolls into view, or on click; a failed page offers Retry. */
+function RailLoadMore({ rail }: { rail: RailSessions }) {
+  if (rail.loadMoreError)
+    return (
+      <RailState
+        error={rail.loadMoreError}
+        kind="error"
+        onRetry={rail.retry}
+        title="More conversations could not be loaded"
+      />
+    );
+  return <RailLoadMoreButton loading={rail.loadingMore} onLoadMore={rail.loadMore} />;
+}
+
+function RailLoadMoreButton({
+  loading,
+  onLoadMore,
+}: {
+  loading: boolean;
+  onLoadMore: () => void;
+}) {
   const sentinel = useRef<HTMLButtonElement>(null);
   const load = useRef(onLoadMore);
   useEffect(() => {
@@ -719,6 +807,7 @@ function WorkspaceDisclosureButton({
       aria-expanded={workspaceExpanded}
       aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
       className="flex w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring"
+      data-rail-focus=""
       onClick={() => onExpandedChange(!workspaceExpanded)}
       title={labelText}
       type="button"
