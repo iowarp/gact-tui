@@ -977,18 +977,6 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // Activity leads with the causal timeline.
-    s(
-      'canvas',
-      'activity-finished',
-      SESSION,
-      async (page) => {
-        await stripList(page, 'Activity');
-        await page.mouse.move(2, 2);
-        await page.waitForTimeout(800);
-      },
-      { settleMs: 1200 },
-    ),
     s(
       'canvas',
       'activity-relationships',
@@ -1042,8 +1030,8 @@ function catalogue({ settings, infrastructure }) {
       if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
-    // Whatever Activity shows for a conversation family: delegated runs that finished,
-    // failed and are still running, and a fork.
+    // Activity leads with the causal timeline, here for a conversation family:
+    // delegated runs that finished, failed and are still running, and a fork.
     s(
       'canvas',
       'activity-finished',
