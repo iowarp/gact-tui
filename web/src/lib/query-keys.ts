@@ -141,6 +141,8 @@ export const queryKeys = {
     ['pending-steers', endpoint, sessionId] as const,
   queuedMessages: (endpoint: string, sessionId: string) =>
     ['queued-messages', endpoint, sessionId] as const,
+  /** Mutation key of a message being added to a session's queue. */
+  queueSend: (endpoint: string, sessionId: string) => ['queue-send', endpoint, sessionId] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
   executionProvenance: (endpoint: string, sessionId: string, provider: string, limit: number) =>
     ['execution-provenance', endpoint, sessionId, provider, limit] as const,

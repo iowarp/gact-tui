@@ -1,16 +1,16 @@
-import { useCallback, useInsertionEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
 /**
- * A function with one identity for the component's lifetime that always calls the
- * latest `handler`, so a memoized child is not re-rendered by a fresh closure.
- * Call it from events and effects, never during render.
+ * A function whose identity never changes but which always calls the latest
+ * `callback`. For handlers passed to memoized children that must not re-render
+ * when the parent does. Call it from events, not during render.
  */
 export function useStableCallback<Args extends unknown[], Result>(
-  handler: (...args: Args) => Result,
+  callback: (...args: Args) => Result,
 ): (...args: Args) => Result {
-  const latest = useRef(handler);
-  useInsertionEffect(() => {
-    latest.current = handler;
+  const latest = useRef(callback);
+  useLayoutEffect(() => {
+    latest.current = callback;
   });
   return useCallback((...args: Args) => latest.current(...args), []);
 }

@@ -145,7 +145,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     queryFn: ({ signal }) => repository.memoryDocuments('all', signal),
   });
   const workspaces = useQuery({
-    queryKey: queryKeys.key('workspaces', settings.endpoint, 'memory'),
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const openWorkspace = useSettingsWorkspaceName(workspaceId);

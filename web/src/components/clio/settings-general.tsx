@@ -1,5 +1,9 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { useOnboardingTour } from '@/lib/onboarding/tour-context';
+import { ONBOARDING_TOUR_ENABLED } from '@/lib/onboarding/tour-flag';
+import { useCloseSettingsWindow } from '@/lib/settings-window-close';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { SaveBar } from './primitives/save-bar';
@@ -88,6 +92,7 @@ export function GeneralSettings() {
       >
         <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
       </SettingsRow>
+      {ONBOARDING_TOUR_ENABLED ? <ReplayTutorialRow /> : null}
       {inTauri() ? <AppUpdateSettings /> : <BetaUpdatesRow />}
       <SaveBar
         count={count}
@@ -100,5 +105,29 @@ export function GeneralSettings() {
         }}
       />
     </div>
+  );
+}
+
+/** Replays the onboarding tour over the workspace once Settings closes. */
+function ReplayTutorialRow() {
+  const tour = useOnboardingTour();
+  const close = useCloseSettingsWindow();
+  return (
+    <SettingsRow
+      info="A short walkthrough with a practice conversation. Nothing in it is sent or saved."
+      inlineControl
+      title="Replay tutorial"
+    >
+      <Button
+        onClick={() => {
+          tour.start();
+          close?.();
+        }}
+        size="sm"
+        variant="outline"
+      >
+        Replay
+      </Button>
+    </SettingsRow>
   );
 }
