@@ -10,6 +10,7 @@ export type QuickFilterId =
   | 'free'
   | 'context'
   | 'cost'
+  | 'size'
   | 'recent';
 
 interface QuickFilterDefinition {
@@ -29,6 +30,7 @@ const QUICK_FILTERS: readonly QuickFilterDefinition[] = [
   { id: 'free', label: 'Free', token: 'free' },
   { id: 'context', label: 'Context over 32K', token: 'context:>32K', range: 'context' },
   { id: 'cost', label: 'Input under $1 per 1M tokens', token: 'cost:<1', range: 'cost' },
+  { id: 'size', label: 'Under 32B parameters', token: 'size:<32B', range: 'size' },
   {
     id: 'recent',
     label: 'Released in the last 6 months',
@@ -57,12 +59,14 @@ function rangeKind(token: ModelFilterToken): RangeKind | undefined {
 /**
  * The quick filters the listed models can use: a capability only when a
  * listed model carries it (or it is on), a range only where the catalog has
- * facts to slide over (`ranges`).
+ * facts to slide over (`ranges`), and Size only where a listed model states
+ * its parameter count (`sizes`).
  */
 export function quickFilters(
   tabs: readonly FacetTab[],
   tokens: readonly ModelFilterToken[],
   ranges: boolean,
+  sizes = false,
 ): QuickFilter[] {
   const chips = new Map<ModelFilterToken, FacetChip>();
   for (const tab of tabs) {
@@ -75,6 +79,7 @@ export function quickFilters(
     if (definition.range) {
       if (!ranges) continue;
       const active = tokens.find((token) => rangeKind(token) === definition.range);
+      if (definition.range === 'size' && !sizes && !active) continue;
       filters.push({
         id: definition.id,
         label: definition.label,

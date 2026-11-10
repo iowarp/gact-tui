@@ -93,6 +93,8 @@ export function useModelPickerSearchView({ providers, entries, counts, total, qu
 
   return {
     searching,
+    /** Values of the model rows the text and the tokens keep. */
+    matched: view.matched as ReadonlySet<string>,
     /** Matching models across every listed provider, of `total`. */
     matches: view.matches,
     total,

@@ -19,7 +19,7 @@ import {
 export function provenanceLabel(provenance: PluginProvenance): string {
   switch (provenance.source) {
     case 'core':
-      return 'Core';
+      return 'Built in';
     case 'agent':
       return provenance.via ? `From ${provenance.via}` : 'From the agent';
     case 'pack':
@@ -57,6 +57,7 @@ export const PROMPT_SECTION_LABELS: Record<string, string> = {
   rendering: 'Rendering',
   capabilities: 'Capabilities',
   domain: 'Domain',
+  plugins: 'Packages',
 };
 
 export function promptSectionLabel(section: string): string {
