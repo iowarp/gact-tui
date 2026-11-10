@@ -510,29 +510,6 @@
   outline: none;
 }
 
-.clio-grid {
-  background-image: linear-gradient(
-      to right,
-      color-mix(in oklch, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--primary) 7%, transparent) 1px,
-      transparent 1px
-    ),
-    radial-gradient(
-      circle at 72% 28%,
-      color-mix(in oklch, var(--primary) 14%, transparent),
-      transparent 34%
-    );
-  background-size:
-    32px 32px,
-    32px 32px,
-    100% 100%;
-  mask-image: linear-gradient(to bottom, black, transparent 88%);
-}
-
 .clio-scrollbar {
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 36%, transparent) transparent;
   scrollbar-gutter: stable;

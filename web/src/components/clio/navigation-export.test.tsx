@@ -23,7 +23,6 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 vi.mock('./navigation-header', () => ({ NavigationHeader: () => null }));
-vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
   ClioAttentionNotifier: () => null,

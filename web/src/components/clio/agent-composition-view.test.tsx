@@ -35,7 +35,6 @@ vi.mock('sonner', () => ({
 }));
 
 import { AgentCompositionView, DraftAgentCompositionView } from './agent-composition-view';
-import { SessionAgentControl } from './session-agent-control';
 
 function renderView(view = <AgentCompositionView sessionId="sess_1" />) {
   return renderAgentView(view);
@@ -355,38 +354,6 @@ describe('AgentCompositionView', () => {
     );
   });
 
-  it('uses Customize in the header and confirms an agent selection before applying it', async () => {
-    const user = userEvent.setup();
-    const onOpenAgent = vi.fn();
-    repository.agents.mockResolvedValue([
-      { ref: 'clio/standard', id: 'standard', name: 'Standard', plugins: [], kind: 'agent' },
-      { ref: 'clio/science', id: 'science', name: 'Scientist', plugins: [], kind: 'agent' },
-    ]);
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await user.click(await screen.findByRole('button', { name: 'Customize the agent (1 change)' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Add a plugin to this conversation' })).toBeNull();
-    const picker = screen.getByRole('combobox', { name: 'Conversation agent' });
-    await screen.findByRole('option', { name: 'Scientist' });
-    await user.selectOptions(picker, 'clio/science');
-    let dialog = await screen.findByRole('alertdialog');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    expect(picker).toHaveValue('clio/standard');
-    await user.click(within(dialog).getByRole('button', { name: 'No' }));
-    expect(picker).toHaveValue('clio/standard');
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
-    await user.selectOptions(picker, 'clio/science');
-    dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, as an injection' }));
-    await waitFor(() =>
-      expect(repository.updateSessionAgent).toHaveBeenCalledWith('sess_1', {
-        ref: 'clio/science',
-        delta: emptyDelta,
-        apply: 'note',
-      }),
-    );
-  });
-
   it('saves the composition as a user agent: parent plus delta', async () => {
     const user = userEvent.setup();
     repository.saveUserAgent.mockResolvedValue({
@@ -552,16 +519,6 @@ describe('AgentCompositionView', () => {
       'The agent may perform supported actions without asking first.',
     );
     expect(repository.updateSession).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the header selector read-only for a defined subagent while allowing its details to open', async () => {
-    repository.sessionAgent.mockResolvedValue({ ...sessionAgent, subagent: true });
-    const onOpenAgent = vi.fn();
-    renderView(<SessionAgentControl onOpenAgent={onOpenAgent} sessionId="sess_1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'View agent' }));
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-    expect(screen.getByRole('combobox', { name: 'Conversation agent' })).toBeDisabled();
-    expect(repository.updateSessionAgent).not.toHaveBeenCalled();
   });
 });
 
