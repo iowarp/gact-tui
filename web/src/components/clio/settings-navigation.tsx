@@ -1,5 +1,5 @@
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
 import { groupedSettingsSections, hostSection } from '@/lib/settings-window-route';
 import { Link, useNavigate } from 'react-router-dom';
@@ -18,8 +18,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PickerFooter } from '@/components/clio/primitives/picker-footer';
 import { cn } from '@/lib/utils';
-import { CloseIcon } from '@/lib/icon-vocabulary';
+import { CloseIcon, SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { Tag } from '@/components/clio/primitives/tag';
 
 export type SettingsDestination = ApplicationDestination;
 
@@ -34,9 +35,12 @@ export interface SettingsNavigationProps {
   badges?: Record<string, { count: number; label: string }>;
   /** Sections the connected service doesn't offer, dimmed, with the reason on hover. */
   unavailable?: Record<string, string>;
-  /** A search from the global search (`?q=`): only matching sections are listed. */
-  filter?: string;
-  /** Lists every section again. */
+  /**
+   * In the filtered window (`?q=`): the matching rows per section. Every section
+   * stays listed; the ones without a match dim.
+   */
+  counts?: Record<string, number>;
+  /** Leaves the filtered window. */
   onClearFilter?: () => void;
 }
 
@@ -52,21 +56,13 @@ export function SettingsNavigation({
   scopeLabels,
   badges = {},
   unavailable = {},
-  filter = '',
-  onClearFilter,
+  counts,
 }: SettingsNavigationProps) {
-  const current = hostSection(sections, section);
-  const groups = groupedSettingsSections(sections, filter);
-  const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
+  // The filtered window shows no one section, so none is current.
+  const current = counts ? undefined : hostSection(sections, section);
+  const groups = groupedSettingsSections(sections);
   return (
     <div className="flex flex-col">
-      {search ? (
-        <SettingsFilterBar
-          count={groups.reduce((sum, group) => sum + group.items.length, 0)}
-          filter={filter.trim()}
-          onClear={onClearFilter}
-        />
-      ) : null}
       {groups.map(({ group, items }) => (
         <section key={group} aria-label={scopeLabels[group] ?? group}>
           <h2
@@ -84,15 +80,16 @@ export function SettingsNavigation({
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
                 unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
+                counts && !counts[id] && 'text-faint hover:text-muted-foreground',
               )}
               key={id}
               replace
               state={linkState}
               title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
-              to={`/settings/${id}${search}`}
+              to={`/settings/${id}`}
             >
               <span className="min-w-0 truncate">{label}</span>
-              <NavBadge badge={badges[id]} />
+              {counts ? <ResultCount count={counts[id]} /> : <NavBadge badge={badges[id]} />}
             </Link>
           ))}
         </section>
@@ -102,10 +99,19 @@ export function SettingsNavigation({
 }
 
 /** Title-row search: the global search, so a setting result opens on its row. */
-export function SettingsSearchButton() {
+export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolean }) {
+  const button = useRef<HTMLButtonElement>(null);
+  // After Esc clears the filtered window, the field unmounts and the dialog's
+  // focus scope reclaims focus; take it back once that has settled.
+  useEffect(() => {
+    if (!autoFocus) return;
+    const frame = requestAnimationFrame(() => button.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [autoFocus]);
   return (
     <button
       aria-label="Search everywhere"
+      ref={button}
       className={cn(
         'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
@@ -122,6 +128,88 @@ export function SettingsSearchButton() {
 }
 
 /**
+ * The filtered window's title-row field: the palette's query, editable here.
+ * Esc clears it and leaves the filtered window; Esc again closes Settings.
+ */
+export function SettingsQueryField({
+  query,
+  count,
+  onChange,
+  onClear,
+}: {
+  query: string;
+  /** Rows the window shows for the query. */
+  count: number;
+  onChange: (query: string) => void;
+  onClear: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  // Typed text stays local: the route catches up a render later, and a lagging
+  // value must not overwrite newer keystrokes. A query changed elsewhere wins.
+  const [value, setValue] = useState(query);
+  const sent = useRef(query);
+  useEffect(() => {
+    if (query === sent.current) return;
+    sent.current = query;
+    setValue(query);
+  }, [query]);
+  // Arriving from Ctrl K, typing carries on here.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <div
+      className={cn(
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap',
+        'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
+      )}
+      data-escape-scope
+    >
+      <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      <input
+        aria-label="Search settings"
+        className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-faint"
+        onChange={(event) => {
+          sent.current = event.target.value;
+          setValue(event.target.value);
+          onChange(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          onClear();
+        }}
+        placeholder="Search settings"
+        ref={input}
+        spellCheck={false}
+        type="text"
+        value={value}
+      />
+      <Tag
+        className="h-5 gap-1 rounded-[5px] border-transparent bg-accent text-[0.6875rem] font-normal text-accent-foreground max-[599px]:hidden"
+        title="Searching settings"
+        width="auto"
+      >
+        <SettingsWindowIcon aria-hidden="true" className="mr-1 inline size-3 align-[-0.125rem]" />
+        Settings
+      </Tag>
+      <span className="shrink-0 font-mono text-[0.6875rem] text-faint tabular-nums" role="status">
+        {count === 1 ? '1 row' : `${count} rows`}
+      </span>
+      <ShortcutKeys id="menu-close" variant="inline" className="max-[599px]:hidden" />
+      <IconButton
+        className="min-[600px]:hidden"
+        icon={<CloseIcon />}
+        label="Clear search"
+        onClick={onClear}
+        size="sm"
+      />
+    </div>
+  );
+}
+
+/**
  * Below 600 px the section list folds into this picker in the title's place:
  * the current section's icon and name, opening the one searchable Picker.
  */
@@ -132,16 +220,16 @@ export function SettingsSectionPicker({
   scopeLabels,
   badges = {},
   unavailable = {},
-  filter = '',
+  counts,
   onClearFilter,
 }: SettingsNavigationProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   const openingSearch = useRef(false);
-  const current = hostSection(sections, section);
+  const current = counts ? undefined : hostSection(sections, section);
   const active = sections.find((item) => item.id === current);
-  const ActiveIcon = active?.icon;
+  const ActiveIcon = counts ? SearchIcon : active?.icon;
+  const activeLabel = counts ? 'Search results' : (active?.label ?? 'Sections');
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -151,13 +239,19 @@ export function SettingsSectionPicker({
             'flex h-7 max-w-52 min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
             'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
           )}
-          title={active ? `${active.label}: choose another section` : 'Choose a section'}
+          title={
+            counts
+              ? 'Search results: choose a section'
+              : active
+                ? `${active.label}: choose another section`
+                : 'Choose a section'
+          }
           type="button"
         >
           {ActiveIcon ? (
             <ActiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-          <span className="min-w-0 truncate">{active?.label ?? 'Sections'}</span>
+          <span className="min-w-0 truncate">{activeLabel}</span>
           <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
@@ -197,21 +291,21 @@ export function SettingsSectionPicker({
                   <ShortcutKeys id="search" variant="inline" />
                 </CommandShortcut>
               </CommandItem>
-              {search && onClearFilter ? (
+              {counts && onClearFilter ? (
                 <CommandItem
-                  keywords={['Show every section']}
+                  keywords={['Clear search', 'Show every section']}
                   onSelect={() => {
                     onClearFilter();
                     setOpen(false);
                   }}
-                  value="show-every-section"
+                  value="clear-search"
                 >
                   <CloseIcon aria-hidden="true" className="text-muted-foreground" />
-                  <span className="truncate">Show every section</span>
+                  <span className="truncate">Clear search</span>
                 </CommandItem>
               ) : null}
             </CommandGroup>
-            {groupedSettingsSections(sections, filter).map(({ group, items }) => (
+            {groupedSettingsSections(sections).map(({ group, items }) => (
               <CommandGroup heading={scopeLabels[group] ?? group} key={group}>
                 {items.map(({ id, label, icon: Icon }) => (
                   <CommandItem
@@ -221,7 +315,7 @@ export function SettingsSectionPicker({
                     keywords={[label, scopeLabels[group] ?? group]}
                     onSelect={() => {
                       setOpen(false);
-                      void navigate(`/settings/${id}${search}`, {
+                      void navigate(`/settings/${id}`, {
                         replace: true,
                         state: linkState,
                       });
@@ -230,12 +324,15 @@ export function SettingsSectionPicker({
                   >
                     <Icon aria-hidden="true" className="text-muted-foreground" />
                     <span
-                      className={cn('min-w-0 flex-1 truncate', unavailable[id] && 'text-faint')}
+                      className={cn(
+                        'min-w-0 flex-1 truncate',
+                        (unavailable[id] || (counts && !counts[id])) && 'text-faint',
+                      )}
                       title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
                     >
                       {label}
                     </span>
-                    <NavBadge badge={badges[id]} />
+                    {counts ? <ResultCount count={counts[id]} /> : <NavBadge badge={badges[id]} />}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -254,36 +351,18 @@ export function SettingsSectionPicker({
   );
 }
 
-/** Says the list is a search's results, and how to see every section again. */
-function SettingsFilterBar({
-  filter,
-  count,
-  onClear,
-}: {
-  filter: string;
-  count: number;
-  onClear?: () => void;
-}) {
+/** A section's matching rows in the filtered window: a neutral count, not a waiting badge. */
+export function ResultCount({ count }: { count?: number }) {
+  if (!count) return null;
   return (
-    <div
-      className="flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted/60 pr-0.5 pl-2 text-xs whitespace-nowrap"
-      role="status"
+    <Tag
+      className="ml-auto h-4 px-1.5 tabular-nums"
+      title={count === 1 ? '1 matching row' : `${count} matching rows`}
+      tone="chip"
+      width="auto"
     >
-      <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 truncate" title={filter}>
-        {filter}
-      </span>
-      <span className="shrink-0 text-muted-foreground tabular-nums">{count}</span>
-      {onClear ? (
-        <IconButton
-          className="ml-auto"
-          icon={<CloseIcon />}
-          label="Show every section"
-          onClick={onClear}
-          size="sm"
-        />
-      ) : null}
-    </div>
+      {count}
+    </Tag>
   );
 }
 
