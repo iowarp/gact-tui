@@ -14,6 +14,7 @@ import {
   openWorkspaceTerminal,
 } from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
+import { movedFromWorkspace, sessionMoveFailure } from '@/lib/session-move';
 
 /**
  * The workspace/session CRUD surface for navigation-owning components (command
@@ -157,6 +158,35 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await navigate(
           `/workspaces/${encodeURIComponent(forked.workspace_id)}/sessions/${encodeURIComponent(forked.id)}`,
         );
+      },
+      moveSession: async (targetSessionId, targetWorkspaceId) => {
+        const previous = useLiveStore.getState().entities.sessions[targetSessionId]?.workspace_id;
+        const moved = await repository
+          .moveSession(targetSessionId, targetWorkspaceId)
+          .catch((error: unknown) => {
+            throw sessionMoveFailure(error);
+          });
+        useLiveStore.setState((state) => {
+          const current = state.entities.sessions[targetSessionId];
+          if (!current) return state;
+          return {
+            entities: {
+              ...state.entities,
+              sessions: {
+                ...state.entities.sessions,
+                [targetSessionId]: { ...current, workspace_id: moved.workspace_id },
+              },
+            },
+          };
+        });
+        const from = movedFromWorkspace(moved) ?? previous ?? workspaceId;
+        await Promise.all([refreshNavigation(from), refreshNavigation(moved.workspace_id)]);
+        if (targetSessionId === sessionId && moved.workspace_id !== workspaceId) {
+          await navigate(
+            `/workspaces/${encodeURIComponent(moved.workspace_id)}/sessions/${encodeURIComponent(moved.id)}`,
+            { replace: true },
+          );
+        }
       },
       shareSession: async (targetSessionId, ttlSeconds) => {
         const shared = await repository.shareSession(targetSessionId, ttlSeconds);

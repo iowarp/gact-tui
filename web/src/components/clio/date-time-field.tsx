@@ -27,7 +27,10 @@ export function DateTimeField({
   max,
   disabled,
   timezone,
+  compact = false,
 }: {
+  /** A short caption ("Nov 10, 09:00") for narrow setting columns; the full date stays on hover. */
+  compact?: boolean;
   value: string;
   onChange: (value: string) => void;
   label: string;
@@ -48,9 +51,15 @@ export function DateTimeField({
   const time = enableDate ? (parts[1]?.replace(/(?:Z|[+-]\d\d:\d\d)$/u, '') ?? '') : value;
   const parsed = day ? parseISO(day) : undefined;
   const validDay = parsed && !Number.isNaN(parsed.getTime());
-  const caption = validDay
+  const fullCaption = validDay
     ? `${format(parsed, 'PPP')}${enableTime && time ? ` at ${time}` : ''}`
     : 'Choose a date';
+  const caption =
+    compact && validDay
+      ? `${format(parsed, parsed.getFullYear() === new Date().getFullYear() ? 'MMM d' : 'PP')}${
+          enableTime && time ? `, ${time}` : ''
+        }`
+      : fullCaption;
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2" data-slot="date-time-field">
       <Label id={`${id}-label`} htmlFor={id}>
@@ -66,6 +75,7 @@ export function DateTimeField({
               disabled={disabled}
               aria-labelledby={`${id}-label ${id}-value`}
               className="w-full justify-start font-normal"
+              title={compact ? fullCaption : undefined}
             >
               <CalendarDaysIcon aria-hidden="true" className="size-4 shrink-0" />
               <span id={`${id}-value`} className="truncate">

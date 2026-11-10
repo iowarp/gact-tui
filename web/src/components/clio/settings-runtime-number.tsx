@@ -13,8 +13,15 @@ import { cn } from '@/lib/utils';
 const FIELD = 'h-[1.875rem] rounded-md';
 const INPUT = 'h-full text-right font-mono text-[0.78125rem] tabular-nums';
 const UNIT = 'pr-2 text-[0.71875rem] text-muted-foreground';
+const SHORT_UNITS: Record<string, string> = {
+  milliseconds: 'ms',
+  seconds: 's',
+  minutes: 'min',
+  hours: 'h',
+  days: 'd',
+};
 
-/** A right-aligned mono number with its unit inside the field. */
+/** A right-aligned mono number with its short unit ("120 s") inside a 96px field. */
 export function SettingsNumberInput({
   id,
   label,
@@ -44,7 +51,7 @@ export function SettingsNumberInput({
 }) {
   return (
     <InputGroup
-      className={cn(FIELD, 'w-32 shrink-0', className)}
+      className={cn(FIELD, 'w-24 shrink-0', className)}
       data-disabled={disabled || undefined}
     >
       <InputGroupInput
@@ -61,7 +68,11 @@ export function SettingsNumberInput({
         type="number"
         value={value}
       />
-      {unit ? <InputGroupText className={UNIT}>{unit}</InputGroupText> : null}
+      {unit ? (
+        <InputGroupText className={UNIT} title={unit}>
+          {SHORT_UNITS[unit] ?? unit}
+        </InputGroupText>
+      ) : null}
     </InputGroup>
   );
 }

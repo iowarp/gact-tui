@@ -1,15 +1,11 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
 import { useShortcut } from '@/lib/shortcuts/hooks';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/ui/sidebar';
+import { useClioMenuConnections } from '@/hooks/use-clio-menu-connections';
 import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
-import { useSwitchConnection } from '@/hooks/use-switch-connection';
-import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
-import { useKnownConnections } from '@/hooks/use-known-connections';
-import type { ConnectionSettings } from '@/lib/connection';
-import { useConnectionSettings } from '@/providers/connection-provider';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
@@ -48,20 +44,12 @@ export function ClioNavigation({
   attentions,
 }: ClioNavigationProps) {
   const location = useLocation();
-  const { settings } = useConnectionSettings();
-  const knownConnections = useKnownConnections();
-  const activeConnection = useMemo(() => [{ ...settings, endpoint }], [endpoint, settings]);
-  const activeAvailability = useConnectionAvailabilities(activeConnection);
-  const connectionAvailabilities = useMemo(
-    () => ({
-      ...Object.fromEntries(
-        knownConnections.map((connection) => [connection.endpoint, connection.availability]),
-      ),
-      ...activeAvailability,
-    }),
-    [activeAvailability, knownConnections],
-  );
-  const switchConnection = useSwitchConnection();
+  const {
+    settings,
+    connections: knownConnections,
+    connectionAvailabilities,
+    onConnect: switchService,
+  } = useClioMenuConnections(endpoint);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
@@ -113,16 +101,6 @@ export function ClioNavigation({
         });
       });
   };
-  const switchService = async (connection: ConnectionSettings) => {
-    try {
-      await switchConnection(connection);
-    } catch (error) {
-      toast.error('Could not switch agent service', {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
   // 'import-session' and 'export-session' used to also be reachable via the
   // native File menu (removed — see menu_spec.rs's application-menu trim);
   // the direct paths below (the header's import button, per-session export)
@@ -153,7 +131,7 @@ export function ClioNavigation({
         sessions={sessions}
       />
       <LeftBarDialogContext.Provider value={presentRowDialog}>
-          <Sidebar collapsible="icon" contained>
+        <Sidebar collapsible="icon" contained>
           <nav
             aria-label="Workspace navigation"
             data-keyboard-region=""
@@ -202,7 +180,7 @@ export function ClioNavigation({
               />
             </SidebarContent>
             <NavigationFooter
-              availability={activeAvailability[endpoint]}
+              availability={connectionAvailabilities[endpoint]}
               endpoint={endpoint}
               from={location.pathname}
               onOpenArchived={() => withSheetClosed(setArchivedOpen)(true)}
