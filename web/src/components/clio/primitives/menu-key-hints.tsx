@@ -10,16 +10,19 @@ export interface MenuKeyHint {
 }
 
 /**
- * The quiet footer line of a menu or picker: each verb, then its keys as small
+ * The quiet footer line of a menu or picker: each verb with its keys as small
  * caps in the platform's form. One line, never wraps; it is a hint, not a
  * control.
  */
 export const MenuKeyHints = memo(function MenuKeyHints({
   hints,
   className,
+  keysFirst = false,
 }: {
   hints: readonly MenuKeyHint[];
   className?: string;
+  /** Keys before the verb ("↑↓ move"), as the CLIO menu spec draws its footer. */
+  keysFirst?: boolean;
 }) {
   return (
     <div
@@ -32,8 +35,9 @@ export const MenuKeyHints = memo(function MenuKeyHints({
     >
       {hints.map((hint) => (
         <span className="inline-flex shrink-0 items-center gap-[5px]" key={hint.id}>
-          {hint.label}
+          {keysFirst ? null : hint.label}
           <ShortcutKeys capSize="sm" id={hint.id} variant="caps" />
+          {keysFirst ? hint.label : null}
         </span>
       ))}
     </div>

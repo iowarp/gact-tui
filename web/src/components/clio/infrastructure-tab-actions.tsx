@@ -20,6 +20,8 @@ export interface InfraTabFold {
   menu: ReactNode;
   /** The ⋯ button's name. */
   label: string;
+  /** Lets a menu row move focus to a field it reveals instead of back to ⋯. */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface InfraTabFold {
  * page under 600px shows the controls and a ⋯ in place of the verb (spec:
  * "Tab actions fold into ⋯. The host stays."), all as one item beside the tabs.
  */
-export function InfraTabActions({ children, fold }: { children: ReactNode; fold?: InfraTabFold }) {
+export function InfraTabActions({ children, fold }: { children?: ReactNode; fold?: InfraTabFold }) {
   const target = useContext(InfraTabActionsContext);
   if (!target) return null;
   if (!fold) return createPortal(children, target);
@@ -42,7 +44,11 @@ export function InfraTabActions({ children, fold }: { children: ReactNode; fold?
           <DropdownMenuTrigger asChild>
             <IconButton icon={<MoreIcon />} label={fold.label} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-52">
+          <DropdownMenuContent
+            align="end"
+            className="min-w-52"
+            onCloseAutoFocus={fold.onCloseAutoFocus}
+          >
             {fold.menu}
           </DropdownMenuContent>
         </DropdownMenu>

@@ -51,13 +51,12 @@ and fullscreen share the existing image toolbar. Maximizing or restoring the
 canvas retains the selected tab; a previously handled open request is not
 replayed when the canvas enters its portal.
 
-Observability uses a compact row of Evidence, Timeline, Gantt, and Context tabs.
-The Evidence header keeps provider selection and a labelled information button.
+Observability has three views: Timeline, which leads with the causal activity
+timeline; Relationships, a graph of the conversation family (user forks and
+subagents) with an inspector for the selected conversation; and Context. The
+Timeline header keeps provider selection and a labelled information button.
 The information popover exposes the exact provider/source/status and artifact
-provider; incomplete-provenance reasons remain visible. Empty child-agent
-inventories start collapsed. Used artifacts show their actual file name, format,
-and size, open the corresponding artifact, and retain the source identifier in
-their details popover. Authored provenance labels are preserved.
+provider; incomplete-provenance reasons remain visible.
 
 ## Rendered review, October 6, 2026
 

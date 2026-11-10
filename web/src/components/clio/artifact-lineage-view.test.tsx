@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -77,6 +77,9 @@ function mount(props: Partial<Parameters<typeof ArtifactLineageView>[0]> = {}) {
   return client;
 }
 
+/** The graph is a lazy chunk; a cold import can outlast the default one-second find. */
+const findNode = (name: RegExp) => screen.findByRole('button', { name }, { timeout: 10_000 });
+
 it('shows a loading status while the lineage loads', async () => {
   repository.artifactLineage.mockReturnValueOnce(new Promise(() => undefined));
   mount();
@@ -86,7 +89,9 @@ it('shows a loading status while the lineage loads', async () => {
 it('draws the recorded lineage and opens the producing action in Activity', async () => {
   const onOpenActivity = vi.fn();
   const client = mount({ onOpenActivity });
-  const action = await screen.findByRole('button', { name: /Build report/u });
+  const action = await findNode(/Build report/u);
+  // An action names itself in the node's sans title, as the spec draws it.
+  expect(action.querySelector('b')).not.toHaveClass('font-mono');
   const canvas = screen.getByRole('region', { name: 'Artifact lineage graph' });
   expect(canvas).toBeVisible();
   // The graph is laid out from the canvas's top-left, not centred in it.
@@ -116,7 +121,7 @@ it('draws the recorded lineage and opens the producing action in Activity', asyn
 it('unfolds the earlier versions from the current file', async () => {
   const onOpenArtifact = vi.fn();
   mount({ onOpenArtifact });
-  const self = await screen.findByRole('button', { name: /result\.csv.*v2, 1 earlier/u });
+  const self = await findNode(/result\.csv.*v2, 1 earlier/u);
   expect(self).toHaveAttribute('aria-expanded', 'false');
   await userEvent.click(self);
   expect(await screen.findByRole('region', { name: 'Versions of result.csv' })).toBeVisible();
@@ -135,3 +140,49 @@ it('keeps a service error behind a plain-language state', async () => {
   await userEvent.click(screen.getByText('Technical details'));
   expect(screen.getByText('lineage index missing for artifact_internal_123')).toBeVisible();
 });
+
+/** A pane `width` wide that reports its size, as the browser's observer would. */
+function stubPane(width: number) {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe() {
+        this.callback([], this as unknown as ResizeObserver);
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  return [
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width),
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600),
+  ];
+}
+
+it.each([
+  { pane: 290, fits: true },
+  { pane: 200, fits: false },
+])(
+  'fits the graph to a $pane px pane only while its names stay readable',
+  async ({ pane, fits }) => {
+    const spies = stubPane(pane);
+    mount();
+    await findNode(/Build report/u);
+    const canvas = screen.getByRole('region', { name: 'Artifact lineage graph' });
+    const layout = canvas.querySelector<HTMLElement>('[data-slot="lineage-layout"]')!;
+    const drawn = canvas.querySelector<HTMLElement>('[data-slot="lineage-fit"]')!;
+    const room = pane - 2 * 14;
+    // The drawing is wider than the pane at 1:1, so it scales.
+    expect(parseFloat(layout.style.width)).toBeGreaterThan(room);
+    await waitFor(() => expect(layout).toHaveAttribute('data-zoom'));
+    if (fits) expect(parseFloat(drawn.style.width)).toBeLessThanOrEqual(room + 0.01);
+    else {
+      // Below the readable floor the drawing keeps 0.85 and the rest scrolls into view.
+      expect(layout).toHaveAttribute('data-zoom', '0.85');
+      expect(parseFloat(drawn.style.width)).toBeGreaterThan(room);
+    }
+    vi.unstubAllGlobals();
+    for (const spy of spies) spy.mockRestore();
+  },
+);

@@ -2,6 +2,7 @@ import {
   forwardRef,
   Fragment,
   memo,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -10,7 +11,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { ChevronRightIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronRightIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { FrameBackContext } from './frame-back';
+import { IconButton } from './icon-button';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
@@ -70,10 +73,12 @@ function frameOverflows(bar: HTMLElement) {
 
 /**
  * The bar above whatever a frame shows: Where (crumbs) · What (facts) ·
- * Format (modes) · Talk and Take (actions, last). 34px, one line. No fixed
- * breakpoints: it measures, and folds the next group only while something
- * would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
- * (`data-slot="frame-format-host"`) is empty, with no modes, hides with its rule.
+ * Format (modes) | Talk and Take (actions, last). 34px, one line. One rule, before
+ * the actions; the modes sit right-aligned beside them, as every spec bar draws
+ * them. No fixed breakpoints: it measures, and folds the next group only while
+ * something would be cut off (see `FRAME_FOLDS`). A Format group whose renderer host
+ * (`data-slot="frame-format-host"`) is empty, with no shown modes (a lone mode's
+ * tablist sits inside a `hidden` segment), hides.
  */
 export const FrameBar = memo(function FrameBar({
   where,
@@ -92,6 +97,7 @@ export const FrameBar = memo(function FrameBar({
   label: string;
   className?: string;
 }) {
+  const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
   // Width and content both start the fit again from nothing folded.
   const [fitKey, setFitKey] = useState('');
@@ -140,6 +146,16 @@ export const FrameBar = memo(function FrameBar({
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
+        {back ? (
+          <IconButton
+            data-slot="frame-back"
+            icon={<ArrowLeftIcon />}
+            label={`Back to ${back.label}`}
+            onClick={back.onBack}
+            size="sm"
+            tooltipSide="bottom"
+          />
+        ) : null}
         {where}
         {what ? (
           <div
@@ -153,9 +169,8 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
-          <FrameDivider className="group-data-[fold-modes-menu]/frame:hidden" />
           {format}
         </div>
       ) : null}

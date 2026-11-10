@@ -11,12 +11,11 @@ import type {
 import {
   ActivityIcon,
   BracesIcon,
-  ChartNoAxesGanttIcon,
   CircleAlertIcon,
-  Layers3Icon,
+  GitForkIcon,
   WaypointsIcon,
 } from 'lucide-react';
-import { Suspense, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -39,8 +38,6 @@ import {
   type ObservabilityActivityItem,
 } from './observability-activity';
 import { WorkspaceFoldersBar } from './workspace-folders';
-import { ClioEvidenceView } from './observability-evidence';
-import { deferredComponent } from '@/lib/deferred-chunk';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
@@ -53,26 +50,25 @@ import {
   observabilityViewStorageKey,
   restoredObservabilityView,
 } from './observability-view-storage';
+import { ObservabilityViewControl } from './observability-view-control';
 
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 import { ResourceLoading } from './resource-states';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
 
-// The Gantt and its date pickers load when the Gantt view first opens, not with the page.
-const ObservabilityWork = deferredComponent(() =>
-  import('./observability-work').then((module) => module.ObservabilityWork),
+// React Flow and its layout code load when the relationships view first opens.
+const ConversationRelationships = lazy(() =>
+  import('./conversation-relationships').then((module) => ({
+    default: module.ConversationRelationships,
+  })),
 );
 
 export function ClioObservabilityView({
   workspaceFolders,
-  artifacts,
   contextFiles,
   contextFrames,
-  diffs,
   messages,
   processes,
-  workPages,
-  tasks,
   tools,
   runs,
   subagents,
@@ -83,8 +79,6 @@ export function ClioObservabilityView({
   contextFramesError,
   contextFramesPending,
   contextTargets,
-  diffsError,
-  diffsPending,
   processesError,
   processesPending,
   selectedContextTargetId,
@@ -93,14 +87,9 @@ export function ClioObservabilityView({
   onCompactContext,
   onContextTargetChange,
   onUpdateContextPreferences,
-  onOpenArtifact,
-  onOpenDiff,
   onOpenFile,
   onOpenResource,
   onOpenSubagent,
-  onOpenFlow,
-  onCancelTask,
-  onControlTask,
   executionProvenance,
   provenanceProviders,
   artifactProvenanceProvider,
@@ -111,22 +100,23 @@ export function ClioObservabilityView({
   resources,
   sessionId,
   sessions,
-  familyProvenance,
-  familyProvenancePending,
-  onLoadFamilyProvenance,
+  onOpenArtifact,
   requestedView,
   views,
   interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  // A host that owns the view switch (the workbench's Activity tab) names the view.
+  const control = useContext(ObservabilityViewControl);
   const [chosenView, setActiveView] = useState<ObservabilityView>(
     () => requestedView?.view ?? restoredObservabilityView(sessionId),
   );
+  // The selected conversation survives switching views, not switching sessions.
+  const [selected, setSelected] = useState<{ sessionId?: string; id: string }>();
+  const selectedId = selected?.sessionId === sessionId ? selected?.id : undefined;
   const offered = (view: ObservabilityView) => !views || views.includes(view);
-  const activeView = views && !views.includes(chosenView) ? views[0] : chosenView;
-  useEffect(() => {
-    if (activeView === 'work') onLoadFamilyProvenance?.();
-  }, [activeView, onLoadFamilyProvenance]);
+  const activeView =
+    control?.view ?? (views && !views.includes(chosenView) ? views[0] : chosenView);
   // Reset the restored view when the session identity itself changes, without
   // an effect: adjusting state from a prop change during render (rather than
   // in a post-commit effect) avoids the extra render-then-reset flash.
@@ -221,7 +211,7 @@ export function ClioObservabilityView({
       }),
       // An empty session_lineage ([]) is a legal "no children" answer, not a
       // missing read — it must still fall back to the plain processes list, or
-      // every process the Gantt shows below renders zero rows here.
+      // every background process renders zero rows here.
       ...(projected && projected.length > 0
         ? childProjectionActivityItems(executionProvenance, processes, knownToolIds, onOpenFile)
         : processes.map(
@@ -312,7 +302,6 @@ export function ClioObservabilityView({
     <>
       <ProvenanceSourceBar
         execution={executionProvenance}
-        onReview={offered('activity') ? () => selectView('activity') : undefined}
         artifactProvider={artifactProvenanceProvider}
         degradation={provenanceDegradation}
         onProviderChange={onProvenanceProviderChange}
@@ -326,105 +315,55 @@ export function ClioObservabilityView({
   return (
     <div className="@container/obs h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
-        <TabsList
-          aria-label="Observability view"
-          variant="line"
-          className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
-        >
-          {offered('evidence') ? (
-            <ObservabilityTab
-              icon={<Layers3Icon className="size-3.5" />}
-              label="Evidence"
-              value="evidence"
-            />
-          ) : null}
-          {offered('activity') ? (
-            <ObservabilityTab
-              icon={<ActivityIcon className="size-3.5" />}
-              label="Timeline"
-              value="activity"
-            />
-          ) : null}
-          <ObservabilityTab
-            icon={<ChartNoAxesGanttIcon className="size-3.5" />}
-            label="Gantt"
-            value="work"
-          />
-          <ObservabilityTab
-            icon={<BracesIcon className="size-3.5" />}
-            label="Context"
-            value="context"
-          />
-        </TabsList>
+        {control ? null : (
+          <TabsList
+            aria-label="Observability view"
+            variant="line"
+            className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
+          >
+            {offered('activity') ? (
+              <ObservabilityTab
+                icon={<ActivityIcon className="size-3.5" />}
+                label="Timeline"
+                value="activity"
+              />
+            ) : null}
+            {offered('relationships') ? (
+              <ObservabilityTab
+                icon={<GitForkIcon className="size-3.5" />}
+                label="Relationships"
+                value="relationships"
+              />
+            ) : null}
+            {offered('context') ? (
+              <ObservabilityTab
+                icon={<BracesIcon className="size-3.5" />}
+                label="Context"
+                value="context"
+              />
+            ) : null}
+          </TabsList>
+        )}
         <ScrollArea className="min-h-0 min-w-0 flex-1">
-          <TabsContent className="m-0 grid gap-2 p-3" value="work">
-            {offered('evidence') ? null : provenanceBar}
+          <TabsContent className="m-0 grid gap-2 p-4" value="activity">
+            {provenanceBar}
             <SectionState
               error={processesError}
               label="Background work"
               pending={processesPending}
             />
-            <Suspense fallback={<ResourceLoading label="Loading background work" />}>
-              <ObservabilityWork
-                familyProvenance={familyProvenance}
-                familyProvenancePending={familyProvenancePending}
-                sessionId={sessionId}
-                sessions={sessions}
-                artifacts={artifacts}
-                onOpenArtifact={onOpenArtifact}
-                executionProvenance={executionProvenance}
-                messages={messages}
-                onOpenSubagent={onOpenSubagent}
-                processes={processes}
-                workPages={workPages}
-                runs={runs}
-                subagents={subagents}
-                tools={tools}
-              />
-            </Suspense>
-          </TabsContent>
-          <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent
-            className="mx-auto my-0 grid w-full max-w-5xl gap-2 px-3 py-2"
-            value="evidence"
-          >
-            <SectionState error={diffsError} label="File changes" pending={diffsPending} />
-            <SectionState
-              error={contextFilesError}
-              label="Attached context"
-              pending={contextFilesPending}
-            />
-            {provenanceBar}
-            <ClioEvidenceView
-              onCancelTask={onCancelTask}
-              onControlTask={onControlTask}
-              artifacts={artifacts}
-              contextFiles={contextFiles}
-              diffs={diffs}
-              interactions={interactions}
-              messages={messages}
-              onOpenArtifact={onOpenArtifact}
-              onOpenDiff={onOpenDiff}
-              onOpenFile={onOpenFile}
-              onOpenResource={onOpenResource}
-              onOpenFlow={onOpenFlow}
-              onOpenSubagent={onOpenSubagent}
-              processes={processes}
-              workPages={workPages}
-              runs={runs}
-              subagents={subagents}
-              tasks={tasks}
-              executionProvenance={executionProvenance}
-              artifactProvenanceProvider={artifactProvenanceProvider}
-              provenanceDegradation={provenanceDegradation}
-              provenanceProvider={provenanceProviders?.find(
-                (provider) => provider.name === provenanceProvider,
-              )}
-              resources={resources}
-              tools={tools}
-            />
+          <TabsContent className="m-0 min-w-0" value="relationships">
+            <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
+              <ConversationRelationships
+                sessions={sessions ?? []}
+                sessionId={sessionId ?? ''}
+                onOpenArtifact={onOpenArtifact}
+                selectedId={selectedId}
+                onSelect={(id) => setSelected({ sessionId, id })}
+              />
+            </Suspense>
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
             <SectionState
@@ -464,7 +403,6 @@ export function ClioObservabilityView({
 
 function ProvenanceSourceBar({
   execution,
-  onReview,
   artifactProvider,
   degradation,
   onProviderChange,
@@ -473,7 +411,6 @@ function ProvenanceSourceBar({
   providers,
 }: {
   execution?: ExecutionProvenanceResult;
-  onReview?: () => void;
   artifactProvider?: ArtifactProvenanceProviderSummary;
   degradation?: ExecutionProvenanceDegradation;
   onProviderChange?: (provider: string) => void;
@@ -559,18 +496,6 @@ function ProvenanceSourceBar({
                   </div>
                 ) : null}
               </dl>
-              {onReview ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => {
-                    setOpen(false);
-                    onReview();
-                  }}
-                >
-                  View activity timeline
-                </Button>
-              ) : null}
               <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
                 <dl className="grid gap-1">
                   <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>

@@ -4,20 +4,15 @@ import { WorkbenchListHeader, WorkbenchListSection } from './workbench-list-colu
 
 /**
  * The column beside the tabs when the open tab brings its own list (a study
- * tree, vault files, an outline). A list chosen on the strip takes precedence;
- * over a narrow panel the tab's list is a sheet shown on request, like the
- * strip's lists.
+ * tree, vault files, an outline). Over a narrow panel it is a sheet shown on
+ * request.
  */
 export function useWorkbenchTabListSlot({
   narrow,
   activeTabId,
-  stripListShown,
-  hideStripList,
 }: {
   narrow: boolean | undefined;
   activeTabId: string;
-  stripListShown: boolean;
-  hideStripList: () => void;
 }) {
   const [title, setTitle] = useState<string>();
   const [host, setHost] = useState<HTMLDivElement | null>(null);
@@ -33,14 +28,8 @@ export function useWorkbenchTabListSlot({
     setTitle(next);
     return () => setTitle((current) => (current === next ? undefined : current));
   }, []);
-  const shown = Boolean(title) && !stripListShown && (open ?? narrow === false);
-  const setShown = useCallback(
-    (next: boolean) => {
-      if (next) hideStripList();
-      setOpen(next);
-    },
-    [hideStripList],
-  );
+  const shown = Boolean(title) && (open ?? narrow === false);
+  const setShown = useCallback((next: boolean) => setOpen(next), []);
   const picked = useCallback(() => {
     if (narrow) setOpen(false);
   }, [narrow]);

@@ -31,9 +31,9 @@ import type { ClioStatusValue } from './status';
 import { remoteUrlFromSpec } from './web-search-configuration';
 
 const MORE = [
-  { to: '/infrastructure/agent', label: 'Manage computers', icon: ServerIcon },
-  { to: '/infrastructure/models', label: 'Models & storage', icon: HardDriveIcon },
-  { to: '/infrastructure/activity', label: 'View activity', icon: HistoryIcon },
+  { to: '/infrastructure/agent', label: 'Manage computers', short: 'Computers', icon: ServerIcon },
+  { to: '/infrastructure/models', label: 'Models & storage', short: 'Models', icon: HardDriveIcon },
+  { to: '/infrastructure/activity', label: 'View activity', short: 'Activity', icon: HistoryIcon },
 ] as const;
 
 /** Where the agent, inference and web research stand, then the map of what connects to what. */
@@ -154,7 +154,7 @@ export function InfrastructureOverview({
         aria-label="More infrastructure"
         className="flex min-w-0 items-center gap-1.5 overflow-hidden px-0.5 pt-2 pb-1"
       >
-        {MORE.map(({ to, label, icon: Icon }) => (
+        {MORE.map(({ to, label, short, icon: Icon }) => (
           <Button
             asChild
             className="min-w-0 shrink gap-1.5 text-foreground [&_svg]:size-3.5"
@@ -162,9 +162,11 @@ export function InfrastructureOverview({
             size="compact"
             variant="ghost"
           >
-            <Link title={label} to={to}>
+            {/* A phone-width overview names each link by its place, so none is clipped. */}
+            <Link aria-label={label} title={label} to={to}>
               <Icon aria-hidden="true" />
-              <span className="truncate">{label}</span>
+              <span className="truncate @max-[440px]/overview:hidden">{label}</span>
+              <span className="hidden truncate @max-[440px]/overview:inline">{short}</span>
             </Link>
           </Button>
         ))}
