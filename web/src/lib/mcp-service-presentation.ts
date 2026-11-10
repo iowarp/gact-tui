@@ -29,38 +29,9 @@ const BUILTIN_TITLES: Record<string, string> = {
   shell: 'Local commands',
 };
 
-const BUILTIN_DESCRIPTIONS: Record<string, string> = {
-  fs: 'Read and edit files allowed by this workspace',
-  filesystem: 'Read and edit files allowed by this workspace',
-  shell: 'Run commands inside the workspace’s permitted folders',
-};
-
 function specString(server: McpServerDefinition, key: string): string | undefined {
   const value = server.spec[key];
   return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
-/** What to call a service: its own title, then a builtin name, then its id. */
-export function serviceTitle(server: McpServerDefinition): string {
-  return (
-    specString(server, 'title') ??
-    specString(server, 'display_name') ??
-    BUILTIN_TITLES[server.id] ??
-    BUILTIN_TITLES[server.name] ??
-    humanizeToolName(server.name || server.id)
-  );
-}
-
-/** What a service does: its own description, then a builtin, then its origin. */
-export function serviceDescription(server: McpServerDefinition): string {
-  return (
-    specString(server, 'description') ??
-    BUILTIN_DESCRIPTIONS[server.id] ??
-    BUILTIN_DESCRIPTIONS[server.name] ??
-    (server.transport === 'in_process'
-      ? 'Provided by the connected agent'
-      : 'Adds tools from a connected service')
-  );
 }
 
 /**
@@ -196,70 +167,6 @@ function humanizeStatus(status: string): string {
   const spaced = status.replaceAll('_', ' ').trim();
   if (!spaced) return 'Unknown';
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-/**
- * How many tools a service exposes, or nothing when it did not say.
- *
- * Zero is an answer — a service that is up and exposes nothing — and is
- * reported as such. Only an absent count is silent.
- */
-export function serviceToolCount(server: McpServerDefinition): string | undefined {
-  const count = server.tools_count;
-  if (typeof count !== 'number' || !Number.isFinite(count) || count < 0) return undefined;
-  return `${count} ${count === 1 ? 'tool' : 'tools'}`;
-}
-
-export interface McpServiceGrouping {
-  /** Services this session opened for itself. Empty unless `grouped`. */
-  sessionServers: McpServerDefinition[];
-  /** Services shared across the agent service. Empty unless `grouped`. */
-  sharedServers: McpServerDefinition[];
-  /** Every service, in listing order. The only list to render when ungrouped. */
-  allServers: McpServerDefinition[];
-  /** True when the split is meaningful and should be rendered. */
-  grouped: boolean;
-  /**
-   * True when a session was asked about but the service answered without
-   * saying which session owns anything — an older backend that ignored the
-   * parameter. The reader is told rather than shown a split that would be a
-   * guess.
-   */
-  sessionIgnored: boolean;
-}
-
-/**
- * Split a listing into the session's own services and the shared ones.
- *
- * Membership requires a server to actually carry the session's id. Testing
- * `server.session_id === sessionId` alone put every shared service — which
- * carries no `session_id` at all — into the session's group whenever no session
- * was in view, which is precisely backwards. With no session in view there is
- * nothing to split on, so the plain list is the honest answer.
- */
-export function groupSessionServices(
-  servers: readonly McpServerDefinition[] | undefined,
-  sessionId: string | undefined,
-): McpServiceGrouping {
-  const allServers = [...(servers ?? [])];
-  const ungrouped: McpServiceGrouping = {
-    allServers,
-    grouped: false,
-    sessionIgnored: false,
-    sessionServers: [],
-    sharedServers: [],
-  };
-  if (sessionId === undefined) return ungrouped;
-  if (allServers.length && allServers.every((server) => server.session_id == null)) {
-    return { ...ungrouped, sessionIgnored: true };
-  }
-  return {
-    allServers,
-    grouped: true,
-    sessionIgnored: false,
-    sessionServers: allServers.filter((server) => server.session_id === sessionId),
-    sharedServers: allServers.filter((server) => server.session_id !== sessionId),
-  };
 }
 
 const KNOWN_SUMMARIES: Record<string, string> = {

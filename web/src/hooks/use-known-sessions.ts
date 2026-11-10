@@ -15,18 +15,20 @@ export interface KnownSessions {
  *
  * This replaces the list of every session the views used to load: everything
  * that reads it (the conversation tree, its children and parents, subagent
- * origins, attention under each root) needs only these two bounded sets. A
- * family row wins over a waiting row for the same session (it is the one the
- * open conversation polls).
+ * origins, attention under each root) needs only these two bounded sets, plus
+ * any conversation a pending request names before its state says it waits. A
+ * family row wins over a waiting row, and both over a request owner, for the
+ * same session (the family is the one the open conversation polls).
  */
 export function useKnownSessions(
   family: UseQueryResult<Session[]>,
   waiting: UseQueryResult<Session[]>,
   hasConversation: boolean,
+  requestOwners?: readonly Session[],
 ): KnownSessions {
   const data = useMemo(
-    () => mergeKnownSessions(family.data, waiting.data),
-    [family.data, waiting.data],
+    () => mergeKnownSessions(family.data, waiting.data, requestOwners),
+    [family.data, waiting.data, requestOwners],
   );
   const { refetch: refetchFamily } = family;
   const { refetch: refetchWaiting } = waiting;
@@ -42,13 +44,15 @@ export function useKnownSessions(
   };
 }
 
-/** Both sets, one row per session; `undefined` until either has answered. */
+/** All sets, one row per session; `undefined` until the family or waiting list answers. */
 export function mergeKnownSessions(
   family: readonly Session[] | undefined,
   waiting: readonly Session[] | undefined,
+  requestOwners: readonly Session[] = [],
 ): Session[] | undefined {
   if (family === undefined && waiting === undefined) return undefined;
   const byId = new Map<string, Session>();
+  for (const session of requestOwners) byId.set(session.id, session);
   for (const session of waiting ?? []) byId.set(session.id, session);
   for (const session of family ?? []) byId.set(session.id, session);
   return [...byId.values()];

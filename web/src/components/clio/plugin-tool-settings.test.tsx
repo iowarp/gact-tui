@@ -385,12 +385,13 @@ it('reaches the other pages from the folded switch', async () => {
   expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/settings/relays');
 });
 
-it('folds the other pages to icons that keep their names', () => {
+it('names every page in text, as the spec segment does', () => {
   renderTabs('/settings/tools');
-  const icons = within(document.querySelector<HTMLElement>('[data-fold="icons"]')!);
-  expect(icons.getAllByRole('radio')).toHaveLength(3);
-  expect(icons.getByRole('radio', { name: 'Remote tools' })).toBeInTheDocument();
-  expect(icons.getByRole('radio', { name: 'MCP servers' })).toHaveTextContent('MCP servers');
+  expect(document.querySelector('[data-fold="icons"]')).toBeNull();
+  const full = within(document.querySelector<HTMLElement>('[data-fold="full"]')!);
+  for (const name of ['Tools', 'MCP servers', 'Remote tools'])
+    expect(full.getByRole('radio', { name })).toHaveTextContent(name);
+  expect(document.querySelector('[data-fold="full"] svg')).toBeNull();
 });
 
 it('a summary row opens one picker for both choices and keeps the reason', async () => {

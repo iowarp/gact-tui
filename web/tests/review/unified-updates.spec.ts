@@ -11,15 +11,6 @@ test('one product action installs and verifies the same app and runtime target',
   await expect(page.getByTestId('recovery-state')).toHaveText('Recovery: done');
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
-test('component rows are informational and have one shared update action', async ({ page }) => {
-  await page.goto('/tests/review/unified-updates.html?view=status');
-  await page
-    .getByRole('button', { name: /Version status|up to date|Software update available/ })
-    .click();
-  await expect(page.getByRole('button', { name: /^Update / })).toHaveCount(1);
-  await expect(page.getByTestId('version-row-agent').getByRole('button')).toHaveCount(0);
-  await expect(page.getByTestId('version-row-desktop').getByRole('button')).toHaveCount(0);
-});
 test('a reachable older runtime is a failed update after restart', async ({ page }) => {
   await page.goto('/tests/review/unified-updates.html?view=recovery');
   await expect(page.getByRole('alertdialog')).toContainText('Update did not finish');

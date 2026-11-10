@@ -65,11 +65,6 @@ export function branchState(branch: ScienceBranch): ScienceState {
   return { label: 'no task status', tone: 'neutral' };
 }
 
-/** Whether any branch of the study is still running. */
-export function studyRunning(study: Pick<ScienceStudy, 'branches'>): boolean {
-  return study.branches.some((branch) => branchState(branch).tone === 'running');
-}
-
 /** How a branch relates to its parent, in text. */
 export function branchRelation(branch: ScienceBranch, titles: ReadonlyMap<string, string>): string {
   switch (branch.relation) {

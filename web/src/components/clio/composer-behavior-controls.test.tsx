@@ -53,7 +53,7 @@ describe('ClioComposerBehaviorControls', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Reasoning effort: Extra high' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Execution mode: Deep research' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mode: Deep research' })).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Confirmation policy: SPOTTER review' }),
     ).toBeVisible();
@@ -73,9 +73,7 @@ describe('ClioComposerBehaviorControls', () => {
       execution_mode: 'sandboxed' as MessageBehavior['execution_mode'],
     });
 
-    expect(
-      screen.getByRole('button', { name: 'Execution mode: Unknown (sandboxed)' }),
-    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mode: Unknown (sandboxed)' })).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Confirmation policy: Unknown (triple-checked)' }),
     ).toBeVisible();
@@ -125,14 +123,14 @@ describe('ClioComposerBehaviorControls', () => {
     renderControls({ reasoning_effort: undefined }, undefined, []);
 
     expect(screen.queryByRole('button', { name: /^Reasoning effort:/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mode: Execute' })).toBeVisible();
   });
 
   it('describes each mode and policy in the menu rows', async () => {
     const user = userEvent.setup();
     renderControls();
 
-    await user.click(screen.getByRole('button', { name: 'Execution mode: Execute' }));
+    await user.click(screen.getByRole('button', { name: 'Mode: Execute' }));
     expect(screen.getByRole('menu')).toHaveTextContent('Mode');
     expect(screen.getByRole('menuitemradio', { name: /^Plan/ })).toHaveTextContent(
       'Proposes a plan and waits for you.',
@@ -185,10 +183,10 @@ describe('ClioComposerBehaviorControls', () => {
     await user.click(screen.getByRole('button', { name: 'Reasoning effort: Medium' }));
     expect(screen.getByRole('menu')).toHaveTextContent('Reasoning effort');
 
-    fireEvent.pointerDown(
-      screen.getByRole('button', { hidden: true, name: 'Execution mode: Execute' }),
-      { button: 0, ctrlKey: false },
-    );
+    fireEvent.pointerDown(screen.getByRole('button', { hidden: true, name: 'Mode: Execute' }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(screen.getByRole('menu')).toHaveTextContent('Mode');
     expect(screen.queryByText('Reasoning effort')).not.toBeInTheDocument();
 

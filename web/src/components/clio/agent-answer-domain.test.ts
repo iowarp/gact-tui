@@ -2,7 +2,6 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   questionInteractionRequestLabel,
-  questionInteractionsForTask,
   questionInteractionsForTool,
 } from './agent-answer-domain';
 
@@ -33,7 +32,6 @@ describe('agent MCP interaction correlation', () => {
     const first = interaction('question:first', 1);
 
     expect(questionInteractionsForTool([second, first], 'invoke-1')).toEqual([first, second]);
-    expect(questionInteractionsForTask([second, first], 'mcp-task')).toEqual([first, second]);
     expect(questionInteractionRequestLabel(second)).toBe('Form request 2 of 2');
   });
 
@@ -53,7 +51,6 @@ describe('agent MCP interaction correlation', () => {
     };
 
     expect(questionInteractionsForTool([answeredByHuman], 'invoke-1')).toEqual([answeredByHuman]);
-    expect(questionInteractionsForTask([answeredByHuman], 'mcp-task')).toEqual([answeredByHuman]);
   });
 
   it('retains an answered native ask-user question under its tool call', () => {

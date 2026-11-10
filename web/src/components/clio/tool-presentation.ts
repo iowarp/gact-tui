@@ -215,14 +215,6 @@ export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined 
   return subject?.target === 'file' && /^\d[\d,]*\s+bytes?$/iu.test(summary) ? summary : undefined;
 }
 
-/** Match the compact row's trailing facts so expanded results do not repeat them. */
-export function getToolCompactMetadata(tool: ToolInvocation): string | undefined {
-  const terminal = tool.presentation?.blocks.find((block) => block.type === 'terminal');
-  return terminal?.exit_code !== undefined && terminal.exit_code !== null
-    ? `exit ${terminal.exit_code}`
-    : getToolHeaderMetadata(tool) || getToolSummary(tool);
-}
-
 const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
   'interrupted',
   'succeeded',

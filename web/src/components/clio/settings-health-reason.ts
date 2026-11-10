@@ -6,8 +6,11 @@ function statusOf(error: unknown) {
 
 /** The service answered that it has no such feature: not a failure, and retrying cannot help. */
 export function notOffered(error: unknown) {
+  const status = statusOf(error);
+  // A known status decides alone, so a real "… not found" failure keeps its Retry.
+  if (status !== undefined) return status === 404;
   const message = error instanceof Error ? error.message : '';
-  return statusOf(error) === 404 || /\b404\b|not found/iu.test(message);
+  return /\b404\b|not found/iu.test(message);
 }
 
 /** The service's own message when it is plain language; otherwise a reason without HTTP text. */

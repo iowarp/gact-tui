@@ -119,6 +119,7 @@ export function SettingsWindow() {
         : destination?.group === 'Workspace'
           ? `${workspaceName} on ${agentName}, kept for this workspace and for you`
           : 'App, applies to this computer',
+    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
   };
   useEffect(() => {
     if (!sectionsLoaded) return;

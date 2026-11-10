@@ -46,7 +46,12 @@ import { displayReleaseVersion } from '@/lib/release-version';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
-import { agentIdentity, type AgentIdentity } from './connection-names';
+import {
+  AGENT_AVAILABILITY_TONE,
+  agentAvailabilityLabel,
+  agentIdentity,
+  type AgentIdentity,
+} from './connection-names';
 
 interface ClioMenuContentProps {
   endpoint: string;
@@ -69,15 +74,15 @@ function availabilityStatus(
   availability: ConnectionAvailability,
   active: boolean,
 ): { label: string; tone: StatusTone } {
+  const tone = AGENT_AVAILABILITY_TONE[availability.state];
   switch (availability.state) {
     case 'healthy':
-      return { label: active ? 'Live' : 'Online', tone: 'success' };
-    case 'degraded':
-      return { label: 'Limited', tone: 'warning' };
     case 'unavailable':
-      return { label: 'Offline', tone: 'idle' };
+      return { label: agentAvailabilityLabel(availability, active), tone };
+    case 'degraded':
+      return { label: 'Limited', tone };
     default:
-      return { label: 'Checking', tone: 'running' };
+      return { label: 'Checking', tone };
   }
 }
 
@@ -142,7 +147,7 @@ export function SwitchAgentItem({
       className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
       disabled={unavailable}
       onSelect={() => void onConnect(connection)}
-      title={`${connection.endpoint}. ${availability.label}: ${availability.detail}`}
+      title={`${connection.endpoint}. ${agentAvailabilityLabel(availability, false)}: ${availability.detail}`}
     >
       <MenuRow
         className="gap-[9px]"

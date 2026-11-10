@@ -57,7 +57,6 @@ vi.mock('@/hooks/use-system-version-status', () => ({
     versions: [],
   }),
 }));
-vi.mock('./navigation-infrastructure', () => ({ NavigationInfrastructure: () => null }));
 vi.mock('./attention-center', () => ({
   ClioAttentionCenter: () => null,
   ClioAttentionNotifier: () => null,

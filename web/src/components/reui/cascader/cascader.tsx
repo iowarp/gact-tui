@@ -205,49 +205,6 @@ export function useCascader<T = unknown>(): CascaderContextValue<T> {
 /*                              Headless selection                            */
 /* -------------------------------------------------------------------------- */
 
-export interface CascaderSelection<T = unknown> {
-  /** The selected nodes, resolved. Empty when nothing is selected. */
-  selected: CascaderNode<T>[];
-  /** Ancestor chain per selected node, root first, node last. */
-  paths: CascaderNode<T>[][];
-  /** The single selection, or the first one in `multiple` mode. */
-  first: CascaderNode<T> | null;
-  /** Ancestor chain of `first`. */
-  firstPath: CascaderNode<T>[];
-  count: number;
-  isEmpty: boolean;
-  multiple: boolean;
-  remove: (value: string) => void;
-  clear: () => void;
-}
-
-/** Headless access to the selection, for a trigger of the consumer's own.
- * Pass the payload explicitly to get `node.data` typed. */
-export function useCascaderSelection<T = unknown>(): CascaderSelection<T> {
-  const { multiple, setSelection } = useCascaderActions<T>();
-  const { index, selectedValues } = useCascaderState<T>();
-
-  return React.useMemo(() => {
-    const selected = selectedValues
-      .map((value) => index.byValue.get(value))
-      .filter(Boolean) as CascaderNode<T>[];
-    const paths = selectedValues.map((value) => getCascaderPath(index, value));
-
-    return {
-      selected,
-      paths,
-      first: selected[0] ?? null,
-      firstPath: paths[0] ?? [],
-      count: selectedValues.length,
-      isEmpty: selectedValues.length === 0,
-      multiple,
-      remove: (value: string) => setSelection(selectedValues.filter((entry) => entry !== value)),
-      // Explicit reason: emptying on purpose is not "deselect the last node".
-      clear: () => setSelection([], 'clear'),
-    };
-  }, [index, selectedValues, multiple, setSelection]);
-}
-
 /* -------------------------------------------------------------------------- */
 /*                                    Root                                    */
 /* -------------------------------------------------------------------------- */

@@ -64,7 +64,6 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ConnectionPage } from './connection-page';
-import { clearConnectionOutcomes } from '@/lib/connection-outcomes';
 import { sessionReads } from '@/test/session-reads';
 
 beforeEach(() => {
@@ -72,7 +71,6 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   vi.clearAllMocks();
-  clearConnectionOutcomes();
   mocks.credentialsReady = true;
   mocks.inTauri = false;
   mocks.managedConnectionReady = false;
