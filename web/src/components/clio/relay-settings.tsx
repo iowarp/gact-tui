@@ -73,7 +73,7 @@ export function RelaySettings() {
 
   let list;
   if (servers.isPending || saved.isPending)
-    list = <StateView kind="loading" size="row" title="Loading remote servers…" />;
+    list = <StateView kind="loading" size="row" title="Loading remote MCP servers…" />;
   else if (servers.error)
     list = (
       <div title={servers.error.message}>
@@ -81,13 +81,13 @@ export function RelaySettings() {
           action={{ label: 'Retry', onClick: () => void servers.refetch() }}
           kind="error"
           size="row"
-          title="Remote servers couldn’t be listed."
+          title="Remote MCP servers couldn’t be listed."
         />
       </div>
     );
   // The group label's + adds by URL, as in every other Settings list.
   else if (!entries.length)
-    list = <StateView kind="empty" size="row" title="No remote tools yet" />;
+    list = <StateView kind="empty" size="row" title="No remote MCP servers yet." />;
   else
     list = (
       <McpServiceList
