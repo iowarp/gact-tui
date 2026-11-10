@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { TechnicalDetails } from './technical-details';
 import { StateView } from './primitives/state-view';
+import { AnnounceStates } from './settings-a11y';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 
@@ -31,6 +32,7 @@ export function AboutSettings() {
   const missing = capabilities.isPending ? 'Loading…' : 'Unavailable';
   return (
     <div>
+      <AnnounceStates />
       <SettingsSectionHeading description="Version and links." title="About" />
       <SettingsGroupLabel>This app</SettingsGroupLabel>
       <AboutValue label="Product" value={brand.name} />

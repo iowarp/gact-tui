@@ -2,6 +2,7 @@ import { LockIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { announce } from '@/lib/announce';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { SaveBar } from './primitives/save-bar';
@@ -88,6 +89,7 @@ export function ProfileSettings() {
         onSave={() => {
           save(value);
           setDraft({});
+          announce('Profile saved');
         }}
       />
     </div>
