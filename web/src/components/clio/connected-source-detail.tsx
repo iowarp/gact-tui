@@ -17,7 +17,6 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceAuth } from './connected-source-auth';
 import { sourceAccessNames, sourceSublineParts } from './connected-source-labels';
-import { SourceProviderLogo } from './source-provider-logo';
 import { InfoTip } from './info-tip';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import { useSourceFileReference } from './use-source-file-reference';
@@ -28,7 +27,7 @@ import { GlobusReceivingStorageControl } from './globus-receiving-storage';
 import { useSourceTrackingSession } from './use-source-tracking-session';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { RowConfirm } from './primitives/row-confirm';
-import { SourceStatusLine } from './source-form-parts';
+import { SourceProviderGlyph, SourceStatusLine } from './source-form-parts';
 import { accessDownload, accessLink, linkAccessRow, type SourceAccess } from './source-access';
 import { useSourceFrameFooter } from './use-source-frame-footer';
 import { SourceDetailAccess } from './source-detail-access';
@@ -495,7 +494,10 @@ function SourceManage({
   return (
     <div className="flex min-w-0 flex-col gap-[13px]">
       <div className="flex min-w-0 items-center gap-2.5">
-        <SourceProviderLogo provider={source.provider} />
+        <SourceProviderGlyph
+          provider={source.origin === 'desktop_upload' ? 'upload' : source.provider}
+          className="text-muted-foreground"
+        />
         <div className="min-w-0 flex-1 leading-[1.3]">
           {showName ? (
             <h3 className="truncate text-[13px] font-medium" title={source.label}>
@@ -583,7 +585,7 @@ function SourceManage({
             </>
           }
         >
-          {source.linked ? 'Linked' : 'Connected'} on {hostLabel}
+          {source.linked ? 'Linked' : 'Connected'}
         </SourceStatusLine>
       )}
       {tracking.control}
@@ -646,7 +648,11 @@ function SourceManage({
           confirm={linkable && linkAccess === 'write_through'}
           confirmed={confirmed}
           onConfirmed={setConfirmed}
-          reason={canLink ? accessReason : undefined}
+          reason={
+            canLink && accessReason && !Object.values(unavailable).includes(accessReason)
+              ? accessReason
+              : undefined
+          }
         />
       ) : null}
       {review ? (
