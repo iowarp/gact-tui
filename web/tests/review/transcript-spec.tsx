@@ -674,6 +674,13 @@ const STATES: State[] = [
     }),
   },
 ];
+// The spec draws both footers of "A message"; a pointer hovers one, so the prompt gets its own shot.
+const messageState = STATES.find((state) => state.id === 'message')!;
+STATES.splice(STATES.indexOf(messageState) + 1, 0, {
+  ...messageState,
+  id: 'message-prompt',
+  hover: 'prompt',
+});
 
 function Section({ state, children }: { state: State; children: ReactNode }) {
   return (

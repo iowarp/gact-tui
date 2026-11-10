@@ -1,4 +1,4 @@
-import type { Message } from '@clio/core/v3';
+import type { AttentionAvailable, Message } from '@clio/core/v3';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -69,6 +69,49 @@ async function openOutline(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('ClioTranscriptOutline', () => {
+  it('states each message share of the attention in attention mode', async () => {
+    const user = userEvent.setup();
+    const block = (message_id: string, share: number) => ({
+      message_id,
+      part_id: message_id,
+      field: 'text',
+      kind: 'user_text' as const,
+      share,
+      mean: 0,
+      runs: [],
+    });
+    const attention = {
+      available: true as const,
+      message_id: 'message_2',
+      selection: { text: 'x' },
+      residual: 0.5,
+      sources: [],
+      flags: [],
+      blocks: [block('message_0', 0.49), block('message_1', 0.01)],
+    } as AttentionAvailable;
+    render(
+      <ClioTranscriptOutline
+        activeIndex={2}
+        attention={attention}
+        messages={manyMessages(3)}
+        onJump={vi.fn()}
+      />,
+      { wrapper: TooltipProvider },
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Open transcript outline with attention' }),
+    );
+    const outline = within(screen.getByRole('dialog', { name: 'Transcript outline' }));
+    const heated = outline.getByRole('button', {
+      name: 'Jump to user message 1, 98.0% of attention',
+    });
+    expect(heated).toHaveAttribute('data-heat');
+    expect(within(heated).getByText('98.0%')).toHaveClass('text-chart-5');
+    const cool = outline.getByRole('button', { name: 'Jump to user message 2, 2.0% of attention' });
+    expect(cool).not.toHaveAttribute('data-heat');
+    expect(within(cool).getByText('2.0%')).not.toHaveClass('text-chart-5');
+    expect(outline.getByRole('button', { name: 'Jump to user message 3' })).toBeInTheDocument();
+  });
   it('marks through a hover preview without jumping, and jumps to the original index in the marked list', async () => {
     const user = userEvent.setup();
     const onJump = vi.fn();

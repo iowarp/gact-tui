@@ -517,6 +517,7 @@ function ConversationBody({
       {messages.length > 0 ? (
         <ClioTranscriptOutline
           activeIndex={activeMessageIndex}
+          attention={entities.attentionData}
           messages={messages}
           markedMessageIds={entities.markedMessageIds}
           markingMessageId={entities.markingMessageId}

@@ -1,10 +1,12 @@
-import type { Message } from '@clio/core/v3';
+import type { AttentionAvailable, Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { BookmarkIcon, ListTreeIcon } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { type AttentionMinimapMark, attentionMinimapMarks } from '@/lib/attention-minimap-marks';
+import { formatSharePercent } from '@/lib/attention-text';
 import {
   transcriptMessagePreviews,
   type TranscriptMessagePreview as Preview,
@@ -15,6 +17,8 @@ import { TranscriptMessagePreview } from './transcript-message-preview';
 
 interface ClioTranscriptOutlineProps {
   activeIndex: number;
+  /** While attention mode is shown, every row states its share of the attention. */
+  attention?: AttentionAvailable;
   messages: readonly Message[];
   onJump: (index: number) => void;
   markedMessageIds?: ReadonlySet<string>;
@@ -22,34 +26,48 @@ interface ClioTranscriptOutlineProps {
   onMarkMessage?: (messageId: string, marked: boolean) => Promise<void>;
 }
 
-type NavigationProps = ClioTranscriptOutlineProps & {
+type NavigationProps = Omit<ClioTranscriptOutlineProps, 'attention'> & {
+  heat: ReadonlyMap<number, AttentionMinimapMark> | undefined;
   previews: ReadonlyMap<string, Preview>;
 };
 
 /**
  * The transcript outline: one small button at the conversation's top left
  * opening a list of every message, filterable to marked ones. The spec has no
- * landmark strip beside the transcript, so this is the transcript's only index.
+ * landmark strip beside the transcript, so this is the transcript's only index;
+ * in attention mode it also carries each message's share of the attention.
  */
 export function ClioTranscriptOutline({
   activeIndex,
+  attention,
   messages,
   onJump,
   ...marks
 }: ClioTranscriptOutlineProps) {
   const previews = useMemo(() => transcriptMessagePreviews(messages), [messages]);
+  const heat = useMemo(
+    () =>
+      attention
+        ? new Map(
+            attentionMinimapMarks(attention, messages).map((mark) => [mark.messageIndex, mark]),
+          )
+        : undefined,
+    [attention, messages],
+  );
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [onlyMarked, setOnlyMarked] = useState(false);
   const count = messages.filter((message) => marks.markedMessageIds?.has(message.id)).length;
   const label = 'Transcript outline';
+  const triggerName = heat ? 'Transcript outline with attention' : label;
   return (
     <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
       <PopoverTrigger asChild>
         <Button
-          aria-label="Open transcript outline"
+          aria-label={`Open ${triggerName.toLowerCase()}`}
           className="absolute top-2 -left-0.5 z-10 rounded-full"
+          data-attention={heat ? '' : undefined}
           size="icon-xs"
-          title="Transcript outline"
+          title={triggerName}
           variant="outline"
         >
           <ListTreeIcon aria-hidden="true" />
@@ -79,6 +97,7 @@ export function ClioTranscriptOutline({
         </div>
         <TranscriptOutlineList
           activeIndex={activeIndex}
+          heat={heat}
           messages={messages}
           previews={previews}
           onlyMarked={onlyMarked}
@@ -95,6 +114,7 @@ export function ClioTranscriptOutline({
 
 function TranscriptOutlineList({
   activeIndex,
+  heat,
   messages,
   onJump,
   previews,
@@ -142,6 +162,7 @@ function TranscriptOutlineList({
           return (
             <TranscriptOutlineItem
               active={index === activeIndex}
+              heat={heat ? (heat.get(index) ?? null) : undefined}
               iconColumn={anyMarked}
               index={index}
               key={row.key}
@@ -165,9 +186,12 @@ const OUTLINE_ROW_HEIGHT = 28;
  * One 28px outline line: the message's name, then its muted context cut with
  * an ellipsis; the full text is the hover preview. A bookmark glyph names a
  * marked message and the current message says "Here" as well as highlighting.
+ * In attention mode the meta column states the message's share of the
+ * attention on the conversation; shares that count as heat are also red.
  */
 function TranscriptOutlineItem({
   active,
+  heat,
   iconColumn,
   index,
   message,
@@ -180,6 +204,8 @@ function TranscriptOutlineItem({
   onMarkMessage,
 }: Pick<NavigationProps, 'previews' | 'markedMessageIds' | 'markingMessageId' | 'onMarkMessage'> & {
   active: boolean;
+  /** Attention mode only: this message's mark, or null when no attention traced back to it. */
+  heat?: AttentionMinimapMark | null;
   /** Reserve the bookmark column on every row once any listed message is marked. */
   iconColumn: boolean;
   index: number;
@@ -191,6 +217,7 @@ function TranscriptOutlineItem({
 }) {
   const preview = previews.get(message.id)!;
   const marked = markedMessageIds?.has(message.id) ?? false;
+  const share = heat ? `${formatSharePercent(heat.conversationShare)} of attention` : undefined;
   const previewDismissedRef = useRef(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const jump = () => {
@@ -210,8 +237,9 @@ function TranscriptOutlineItem({
       <HoverCardTrigger asChild>
         <ListRow
           aria-current={active ? 'location' : undefined}
-          aria-label={`Jump to ${message.role} message ${index + 1}${marked ? ', marked' : ''}`}
+          aria-label={`Jump to ${message.role} message ${index + 1}${marked ? ', marked' : ''}${share ? `, ${share}` : ''}`}
           className="absolute top-0 right-1 left-0 cursor-pointer text-[12.5px] text-foreground"
+          data-heat={heat?.heated ? heat.bucket : undefined}
           data-index={position}
           data-slot="transcript-outline-row"
           description={preview.body ? preview.body.replaceAll(/\s+/gu, ' ') : undefined}
@@ -224,7 +252,20 @@ function TranscriptOutlineItem({
               )
             ) : undefined
           }
-          meta={<span className="text-[11px] text-muted-foreground">{active ? 'Here' : null}</span>}
+          meta={
+            <span className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+              {active ? <span>Here</span> : null}
+              {heat ? (
+                <span
+                  className={cn(heat.heated && 'text-chart-5')}
+                  data-slot="transcript-outline-attention"
+                  title={`${formatSharePercent(heat.conversationShare)} of the attention on the conversation`}
+                >
+                  {formatSharePercent(heat.conversationShare)}
+                </span>
+              ) : null}
+            </span>
+          }
           onClick={jump}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return;
