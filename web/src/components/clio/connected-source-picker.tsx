@@ -8,7 +8,7 @@ import type { ConnectedSourceState, SourceProvider, WorkspaceReference } from '@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloseIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -20,14 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-} from '@/components/ui/dialog';
+import { DialogFrame } from './primitives/dialog-frame';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
@@ -61,6 +54,9 @@ export function ConnectedSourcePicker({
   initialProviderId,
   initialObsidianChoice,
   manageOnly = false,
+  intent,
+  title,
+  initialEdit = false,
   onDownloadStarted,
 }: {
   workspaceId: string;
@@ -77,6 +73,15 @@ export function ConnectedSourcePicker({
   initialProviderId?: string;
   initialObsidianChoice?: ObsidianChoice;
   manageOnly?: boolean;
+  /**
+   * `connect`: the Sources pocket's `+`: a folder or a provider to connect, without
+   * the list of sources the pocket already shows.
+   */
+  intent?: 'connect';
+  /** The frame's title when it opens on one source (its name). */
+  title?: string;
+  /** Opens `initialSourceId` straight into its edit form. */
+  initialEdit?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
     operationId: string,
@@ -84,7 +89,6 @@ export function ConnectedSourcePicker({
   ) => void;
 }) {
   const { settings } = useConnectionSettings();
-  const titleRef = useRef<HTMLHeadingElement>(null);
   const [headerActions, setHeaderActions] = useState<HTMLDivElement | null>(null);
   const scope = `${connectionScope(settings)}:${workspaceId}`;
   const activeScope = useRef(scope);
@@ -94,75 +98,62 @@ export function ConnectedSourcePicker({
       activeScope.current = '';
     };
   }, [scope]);
+  const connect = intent === 'connect' && !manageOnly && !onSelect;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="flex max-h-[88dvh] flex-col overflow-hidden sm:max-w-2xl"
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          titleRef.current?.focus();
-        }}
-      >
-        <DialogHeader className="shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
-              {manageOnly ? 'Sources' : onSelect ? 'Attach' : 'Connected data'}
-            </DialogTitle>
-            <div className="flex items-center gap-1">
-              <div ref={setHeaderActions} className="flex items-center gap-1" />
-              <DialogClose asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Close and keep setup"
-                  title="Close and keep setup"
-                >
-                  <CloseIcon aria-hidden="true" />
-                </Button>
-              </DialogClose>
-            </div>
-          </div>
-          <DialogDescription>
-            {manageOnly
-              ? 'Manage existing sources. Use Attach in the message box to add data for the agent.'
-              : 'Choose files, folders, or a connected source.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="-mx-4 min-h-0 overflow-y-auto px-4">
-          {open && (
-            <ConnectedSourceContents
-              key={`${scope}:${initialSourceId ?? ''}`}
-              workspaceId={workspaceId}
-              sessionId={sessionId}
-              manageOnly={manageOnly}
-              onDownloadStarted={onDownloadStarted}
-              onUploadFiles={onUploadFiles}
-              initialFolderFiles={initialFolderFiles}
-              initialFolder={initialFolder}
-              initialDownloaded={initialDownloaded}
-              initialSourceId={initialSourceId}
-              initialProviderId={initialProviderId}
-              initialObsidianChoice={initialObsidianChoice}
-              headerActions={headerActions}
-              onDiscard={() => {
-                if (activeScope.current === scope) onOpenChange(false);
-              }}
-              onSelect={
-                onSelect
-                  ? (reference) => {
-                      if (activeScope.current === scope) onSelect(reference);
-                    }
-                  : undefined
-              }
-              onChanged={() => {
-                if (activeScope.current === scope) onChanged?.();
-              }}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <DialogFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={onSelect && !manageOnly ? <PaperclipIcon /> : connect ? <AddIcon /> : <DatabaseIcon />}
+      title={
+        title ??
+        (manageOnly
+          ? 'Sources'
+          : onSelect
+            ? 'Attach'
+            : connect
+              ? 'Connect a data source'
+              : 'Connected data')
+      }
+      description={
+        manageOnly || connect ? undefined : 'Choose files, folders, or a connected source.'
+      }
+      titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
+    >
+      <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">
+        {open && (
+          <ConnectedSourceContents
+            key={`${scope}:${initialSourceId ?? ''}`}
+            workspaceId={workspaceId}
+            sessionId={sessionId}
+            manageOnly={manageOnly}
+            connectOnly={connect}
+            initialEdit={initialEdit}
+            onDownloadStarted={onDownloadStarted}
+            onUploadFiles={onUploadFiles}
+            initialFolderFiles={initialFolderFiles}
+            initialFolder={initialFolder}
+            initialDownloaded={initialDownloaded}
+            initialSourceId={initialSourceId}
+            initialProviderId={initialProviderId}
+            initialObsidianChoice={initialObsidianChoice}
+            headerActions={headerActions}
+            onDiscard={() => {
+              if (activeScope.current === scope) onOpenChange(false);
+            }}
+            onSelect={
+              onSelect
+                ? (reference) => {
+                    if (activeScope.current === scope) onSelect(reference);
+                  }
+                : undefined
+            }
+            onChanged={() => {
+              if (activeScope.current === scope) onChanged?.();
+            }}
+          />
+        )}
+      </div>
+    </DialogFrame>
   );
 }
 
@@ -184,10 +175,14 @@ export function ConnectedSourceContents({
   headerActions,
   onDiscard,
   settingsView = false,
+  connectOnly = false,
+  initialEdit = false,
 }: {
   workspaceId: string;
   sessionId?: string;
   manageOnly: boolean;
+  connectOnly?: boolean;
+  initialEdit?: boolean;
   onDownloadStarted?: (
     source: ConnectedSourceState,
     operationId: string,
@@ -290,6 +285,12 @@ export function ConnectedSourceContents({
     });
     onChanged?.();
   };
+  // A row's Edit opens its form once the provider list has answered.
+  const [pendingEdit, setPendingEdit] = useState(initialEdit);
+  if (pendingEdit && source && (providers.data || providers.error)) {
+    setPendingEdit(false);
+    edit(source);
+  }
   const toolbar = (row: ConnectedSourceState, editable = true) =>
     headerActions &&
     createPortal(
@@ -438,29 +439,28 @@ export function ConnectedSourceContents({
         )}
       </>
     );
+  // Section labels are the spec's `.zg`: 11px, semibold, muted.
+  const sectionLabel = 'text-[11px] font-semibold text-muted-foreground';
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <DatabaseIcon aria-hidden="true" className="size-4" />
-        <span className="min-w-0 truncate">{hostLabel}</span>
+    <div className="space-y-4">
+      <div className="flex min-h-[26px] items-center gap-1.5 text-[12px] text-muted-foreground">
+        <span className="min-w-0 truncate">Files are saved on {hostLabel}</span>
         <InfoTip label="About connected data">
           Downloaded files are saved on {hostLabel}. Upload copies files from your computer to this
           workspace. Changes to the originals are not copied automatically.
         </InfoTip>
       </div>
       {(sources.error || providers.error || folderReference.error) && (
-        <p
-          role="alert"
-          className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[12.5px] text-muted-foreground"
-        >
-          <InfoIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        // The spec's status line (`.c3s`): an icon and a sentence, no box.
+        <p role="alert" className="flex min-h-[26px] items-center gap-2 text-[12px]">
+          <InfoIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           {connectedSourceErrorMessage(sources.error || providers.error || folderReference.error)}
         </p>
       )}
       {!manageOnly && !settingsView && (
         <section className="space-y-2" aria-label="From your computer">
           <div>
-            <h3 className="text-sm font-medium">
+            <h3 className={sectionLabel}>
               {localConnection ? 'From this computer' : 'Upload from your computer'}
             </h3>
             {!localConnection && (
@@ -490,7 +490,7 @@ export function ConnectedSourceContents({
       )}
       {!manageOnly && Boolean(providers.data?.providers.length) && (
         <section className="space-y-2" aria-label="Connect a data source">
-          <h3 className="text-sm font-medium">
+          <h3 className={sectionLabel}>
             {settingsView ? 'Accounts and providers' : 'From a connected source'}
           </h3>
           <div className="divide-y rounded-lg border">
@@ -577,15 +577,15 @@ export function ConnectedSourceContents({
           </div>
         </section>
       )}
-      {sources.isPending && workspaceId && (
+      {sources.isPending && workspaceId && !connectOnly && (
         <p role="status" className="text-sm text-muted-foreground">
           Loading sources…
         </p>
       )}
-      {sources.data?.length ? (
+      {connectOnly ? null : sources.data?.length ? (
         <Collapsible defaultOpen={!collapsibleSources} asChild>
           <section className="space-y-2" aria-label="Your connected sources">
-            <h3 className="text-sm font-medium">
+            <h3 className={sectionLabel}>
               {collapsibleSources ? (
                 <CollapsibleTrigger asChild>
                   <Button
@@ -697,7 +697,7 @@ export function ConnectedSourceContents({
               {manageOnly ? 'No connected sources.' : 'Nothing connected yet.'}
             </span>{' '}
             {manageOnly
-              ? 'Use Attach in the message box to add a folder or source.'
+              ? 'Add one with + in the Sources list.'
               : 'Connect a folder to browse and attach its files.'}
           </p>
         )
