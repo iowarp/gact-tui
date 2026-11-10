@@ -32,17 +32,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { cn } from '@/lib/utils';
 import { cachedWorkspaceFile } from '@/lib/workspace-directory-cache';
@@ -54,6 +46,8 @@ import { FileSearchPassage } from './file-search-passage';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import { WorkspaceDirectoryTree } from './workspace-directory-tree';
 import { ResourceLoading } from './resource-states';
+import { StateView } from './primitives/state-view';
+import { serviceErrorDetail } from './service-error';
 import { WorkbenchFileTree } from './workbench-file-tree';
 import { buildFileTree } from './workbench-file-tree-model';
 import { LIST_HEADER_SECONDARY, type ChangeCounts } from './workbench-shared';
@@ -370,7 +364,7 @@ export function FileBrowser({
             changeCounts={changeCounts}
           />
         ) : filesPending ? (
-          <LoadingRows label="Loading workspace files" />
+          <StateView kind="loading" size="panel" title="Loading files" />
         ) : files.length ? (
           filteredFiles.length ? (
             <WorkbenchFileTree
@@ -381,18 +375,32 @@ export function FileBrowser({
               selectedPath={activePath}
             />
           ) : (
-            <Unavailable icon={SearchIcon} label="No files match this filter" />
+            <StateView
+              icon={SearchIcon}
+              kind="empty"
+              size="panel"
+              title="No files match this filter"
+            />
           )
+        ) : filesError ? (
+          <StateView
+            action={{ label: 'Retry', onClick: () => void refreshFiles() }}
+            detail={serviceErrorDetail(filesError)}
+            kind="error"
+            size="panel"
+            title="Files couldn't be listed"
+          />
         ) : (
-          <Unavailable
+          <StateView
             detail={
-              filesError ??
-              (hideDotFiles
-                ? 'The workspace contains no visible files. "Hide dot files and folders" is on in Settings > Appearance — turn it off to check for hidden ones.'
-                : 'The workspace contains no visible files.')
+              hideDotFiles
+                ? 'Hidden files are off in Settings > Appearance; there may be dot files.'
+                : undefined
             }
             icon={FolderIcon}
-            label={filesError ? 'File tree unavailable' : 'No workspace files'}
+            kind="empty"
+            size="panel"
+            title="No files in this workspace"
           />
         )}
         {headed ? legend : null}
@@ -417,10 +425,11 @@ export function FileBrowser({
         </Suspense>
       ) : (
         <div className="grid h-full place-items-center p-4">
-          <Unavailable
-            detail="Choose a file from the workspace tree to inspect it here."
+          <StateView
             icon={FileTextIcon}
-            label="Select a file"
+            kind="empty"
+            size="panel"
+            title="Choose a file in the tree to see it here"
           />
         </div>
       )}
@@ -478,6 +487,9 @@ export function ArtifactBrowser({
   sessionId,
 }: ArtifactBrowserProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const retryArtifacts = () =>
+    void queryClient.invalidateQueries({ queryKey: ['session-artifacts'] });
   const [stacked, setStacked] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const splitArtifact =
@@ -503,7 +515,9 @@ export function ArtifactBrowser({
   const artifactList = (
     <ScrollArea className="h-full p-2">
       <div className="grid gap-2">
-        {artifactsPending ? <LoadingRows label="Loading session artifacts" /> : null}
+        {artifactsPending ? (
+          <StateView kind="loading" size="panel" title="Loading artifacts" />
+        ) : null}
         <ArtifactFilters artifacts={artifacts}>
           {(visible) =>
             visible.map((artifact) => (
@@ -521,10 +535,15 @@ export function ArtifactBrowser({
           }
         </ArtifactFilters>
         {!artifactsPending && !artifacts.length ? (
-          <Unavailable
-            detail={artifactsError}
-            icon={BoxIcon}
-            label={artifactsError ? 'Artifacts unavailable' : 'No session artifacts'}
+          <StateView
+            action={artifactsError ? { label: 'Retry', onClick: retryArtifacts } : undefined}
+            detail={serviceErrorDetail(artifactsError)}
+            icon={artifactsError ? undefined : BoxIcon}
+            kind={artifactsError ? 'error' : 'empty'}
+            size="panel"
+            title={
+              artifactsError ? "Artifacts couldn't be listed" : 'No artifacts in this conversation'
+            }
           />
         ) : null}
         {artifactsTruncated ? (
@@ -566,37 +585,5 @@ export function ArtifactBrowser({
         artifactList
       )}
     </section>
-  );
-}
-
-function LoadingRows({ label, className }: { label: string; className?: string }) {
-  return (
-    <div aria-label={label} className={cn('grid gap-2', className)}>
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-4/5" />
-      <Skeleton className="h-8 w-11/12" />
-    </div>
-  );
-}
-
-function Unavailable({
-  label,
-  detail,
-  icon: Icon,
-}: {
-  label: string;
-  detail?: string;
-  icon: typeof FolderIcon;
-}) {
-  return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>{label}</EmptyTitle>
-        {detail ? <EmptyDescription>{detail}</EmptyDescription> : null}
-      </EmptyHeader>
-    </Empty>
   );
 }

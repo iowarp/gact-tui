@@ -232,6 +232,13 @@ function ActivityColumn({
   if (!entries.length)
     body = filtered ? (
       <StateView
+        action={{
+          label: 'Clear filters',
+          onClick: () => {
+            closeSearch();
+            setHidden(new Set());
+          },
+        }}
         className="p-4"
         detail="Clear the search or show more kinds."
         kind="empty"

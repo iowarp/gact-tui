@@ -236,6 +236,10 @@ function WorkspaceNetcdfView({
     staleTime: Infinity,
   });
   if (magic.isPending) return <ResourceLoading label={`Loading ${fileName(path)}`} />;
+  if (magic.isError)
+    return (
+      <ViewerReadError error={magic.error.message} onRetry={() => void magic.refetch()} />
+    );
   if (isClassicNetcdf(magic.data?.subarray(0, 4)))
     return (
       <ViewerNoPreview

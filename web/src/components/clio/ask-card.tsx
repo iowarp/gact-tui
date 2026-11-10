@@ -12,8 +12,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
-  MinusIcon,
-  OctagonMinusIcon,
   PanelRightIcon,
   WrapTextIcon,
   type LucideIcon,
@@ -393,6 +391,9 @@ export function AskRow({
     ...(number && number < 10 ? [String(number)] : []),
     ...(highlighted ? ['Enter'] : []),
   ];
+  // A choosable row (radio, checkbox) keeps a 14px check column, as the spec's menus do.
+  const checkable = props['aria-checked'] !== undefined;
+  const checked = props['aria-checked'] === true || props['aria-checked'] === 'true';
   return (
     <button
       {...askKeyAttributes(keys)}
@@ -416,6 +417,15 @@ export function AskRow({
         <span className="flex-1" />
       )}
       {highlighted ? <AskKeyChip askKey="Enter" /> : null}
+      {checkable ? (
+        <span
+          aria-hidden="true"
+          className="grid w-3.5 shrink-0 place-items-center"
+          data-slot="ask-row-check"
+        >
+          {checked ? <CheckIcon className="size-[13px] text-accent-foreground" /> : null}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -753,67 +763,5 @@ export function AskError({ error, className }: { error?: Error; className?: stri
   );
 }
 
-/** Once answered, the card folds into one activity row: icon, verb, detail, then the outcome. */
-export function AskAnsweredRow({
-  icon: Icon,
-  verb,
-  detail,
-  mono,
-  outcome,
-  tone = 'ok',
-  className,
-  ...props
-}: Omit<ComponentProps<'div'>, 'children'> & {
-  icon: LucideIcon;
-  verb: string;
-  detail?: ReactNode;
-  mono?: boolean;
-  /** Who decided, beside the detail ("you denied it"); warning-toned when denied. */
-  outcome?: string;
-  tone?: 'ok' | 'denied' | 'neutral';
-}) {
-  const Status = tone === 'ok' ? CheckIcon : tone === 'denied' ? OctagonMinusIcon : MinusIcon;
-  return (
-    <div
-      className={cn(
-        'flex h-7 min-w-0 items-center gap-2 rounded-md pr-[22px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85',
-        className,
-      )}
-      data-slot="ask-answered"
-      role="status"
-      {...props}
-    >
-      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="shrink-0 text-foreground">{verb}</span>
-      {detail ? (
-        <span
-          className={cn(
-            'min-w-0 truncate',
-            mono ? 'font-mono text-[11.5px] text-muted-foreground' : 'text-[12.5px]',
-          )}
-        >
-          {detail}
-        </span>
-      ) : null}
-      {outcome ? (
-        <span
-          className={cn(
-            'shrink-0 text-[11.5px]',
-            tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
-          )}
-        >
-          {outcome}
-        </span>
-      ) : null}
-      <span aria-hidden="true" className="min-w-1.5 flex-1" />
-      <Status
-        aria-hidden="true"
-        className={cn(
-          'size-3.5 shrink-0',
-          tone === 'ok' ? 'text-primary' : tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
-        )}
-        data-slot="ask-answered-status"
-      />
-    </div>
-  );
-}
+/** The folded, answered form lives beside the card; importers keep one entry point. */
+export { AskAnsweredRow } from './ask-answered-row';

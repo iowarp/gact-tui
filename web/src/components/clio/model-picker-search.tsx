@@ -13,6 +13,7 @@ import {
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
+import { ModelPickerAnchors, ModelPickerFieldTokens } from './model-picker-anchors';
 import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-facet-panel';
 import { rangeFilterSections } from './model-picker-filter-ranges';
 import { ModelPickerQuickStrip } from './model-picker-quick-strip';
@@ -57,6 +58,10 @@ interface ModelPickerSearchProps {
   compact?: boolean;
   /** One column: the count is the matches alone ("6"), as each group states its own. */
   single?: boolean;
+  /** Spec `.c3btns`: Task, Organization and Capabilities anchors under the field (Find a model). */
+  anchors?: boolean;
+  /** Results are loading: the anchors say so instead of offering no choices. */
+  searching?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -93,6 +98,8 @@ export function ModelPickerSearch({
   onSearch,
   compact = false,
   single = false,
+  anchors = false,
+  searching = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<FacetPanelHandle>(null);
@@ -102,9 +109,12 @@ export function ModelPickerSearch({
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
   const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined, sizes);
   const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
+  // With the spec anchors, the filters that are on read as named tokens inside the field.
+  const fieldTokens = anchors && onSearch ? extraTokens : [];
+  const rowTokens = fieldTokens.length ? [] : extraTokens;
   const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
   const rowTwo =
-    (strip.length || extraTokens.length || suggestions.length) &&
+    (strip.length || rowTokens.length || suggestions.length) &&
     (!compact || facetsOpen || suggestions.length);
 
   function addToken(token: ModelFilterToken) {
@@ -196,16 +206,28 @@ export function ModelPickerSearch({
       <div
         className={cn(
           'flex h-10 w-full min-w-0 items-center gap-1.5 ps-3 pe-2',
-          onSearch && 'rounded-md border',
+          // Spec `.c3in`: the Hub search is a 30px field.
+          onSearch &&
+            'h-[30px] rounded-[7px] border border-input bg-input/30 ps-2.5 pe-1 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20',
         )}
       >
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
+        <SearchIcon
+          aria-hidden="true"
+          className={cn('shrink-0 text-muted-foreground', onSearch ? 'size-3.5' : 'size-[15px]')}
+        />
+        <div className={cn('min-w-0 flex-1', onSearch && 'flex items-center gap-1')}>
+          {fieldTokens.length ? (
+            <ModelPickerFieldTokens
+              onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
+              tabs={facetTabs}
+              tokens={fieldTokens}
+            />
+          ) : null}
           {onSearch ? (
             <input
               id={inputId}
               aria-label={label}
-              className="h-8 w-full min-w-0 bg-transparent text-[13px] outline-hidden placeholder:text-faint"
+              className="h-7 w-full min-w-[2.5rem] flex-1 bg-transparent text-[12.5px] outline-hidden placeholder:text-faint"
               placeholder={label}
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
@@ -285,9 +307,20 @@ export function ModelPickerSearch({
           </>
         ) : null}
       </div>
+      {anchors ? (
+        <div className="pt-2">
+          <ModelPickerAnchors
+            onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
+            onToggleChip={toggleChip}
+            searching={searching}
+            tabs={facetTabs}
+            tokens={tokens}
+          />
+        </div>
+      ) : null}
       {rowTwo ? (
         <ModelPickerQuickStrip
-          extraTokens={extraTokens}
+          extraTokens={rowTokens}
           filters={strip}
           onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
           onSuggestion={addToken}

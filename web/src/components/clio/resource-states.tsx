@@ -15,6 +15,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { FileViewerFactsRegistry, useFileViewerFacts } from './file-viewer-facts';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
+import { frameKeyRegion } from './file-viewer-modes';
 import { useOpenTake } from './file-viewer-take-hooks';
 import { FileTypeIcon } from './file-type-icon';
 import { LoadingFeedback } from './loading-feedback';
@@ -215,11 +216,16 @@ export function ViewerTooLarge({
       ? { label: 'Show the beginning', icon: <ArrowUpToLineIcon />, onClick: onPreview }
       : undefined,
   );
-  // L shows the last part while focus is anywhere in this file's viewer (workbench-lineage 04).
+  // L shows the last part while focus is anywhere in the pocket showing this viewer, as the
+  // tab's other keys do, so it works as soon as the file opens (workbench-lineage 04).
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
   const region = useMemo(
     () => ({
-      current: anchor?.closest('[data-slot="file-viewer"]') ?? anchor?.parentElement ?? null,
+      get current() {
+        return frameKeyRegion(
+          anchor?.closest('[data-slot="file-viewer"]') ?? anchor?.parentElement ?? null,
+        );
+      },
     }),
     [anchor],
   );
@@ -277,7 +283,10 @@ export function ViewerNoPreview({
 }) {
   const identity = fileViewerIdentity(source);
   const extension = fileExtension(identity.name);
-  useFileViewerFacts(extension ? [extension] : undefined);
+  const facts = [extension, identity.size === undefined ? '' : formatBytes(identity.size)].filter(
+    Boolean,
+  );
+  useFileViewerFacts(facts.length ? facts : undefined);
   const actions = useViewerFileActions(
     source,
     onShowText ? { label: 'Show as text', icon: <CodeIcon />, onClick: onShowText } : undefined,

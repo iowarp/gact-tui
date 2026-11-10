@@ -124,11 +124,10 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
         .show_menu_on_left_click(menu_on_left_click)
         .on_menu_event(|app, ev| match tray_action_for(ev.id().as_ref()) {
             Some(TrayAction::Show) => show_main_window(app),
-            // Routes through the single guarded quit path so this can never
-            // double-teardown against the other entry points (native close
-            // prompt, hamburger Quit, macOS menu Quit, quit_clio) that also
-            // funnel through `request_quit`.
-            Some(TrayAction::Quit) => crate::request_quit(app),
+            // The same user Quit as Cmd-Q (macOS confirms while a
+            // conversation runs); it ends in the single guarded
+            // `request_quit`, so it can never double-teardown.
+            Some(TrayAction::Quit) => crate::request_user_quit(app),
             None => {}
         })
         .on_tray_icon_event(move |tray, event| {

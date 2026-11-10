@@ -1,5 +1,5 @@
 import type { SubagentRun } from '@clio/core/v3';
-import { ArrowLeftIcon, ClockIcon, ExternalLinkIcon } from 'lucide-react';
+import { ArrowLeftIcon, CircleStopIcon, ClockIcon, ExternalLinkIcon } from 'lucide-react';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -134,10 +134,18 @@ function RunFacts({ row }: { row: RunRow }) {
 
 /**
  * An execution's body in the spec's four states: its current step while it
- * runs, what it waits on while queued, one red line when it failed, and the
- * Result when done. Stop sits in the frame bar.
+ * runs, what it waits on (with Stop) while queued, one red line when it failed,
+ * and the Result when done. A run waiting on you links to where you answer.
  */
-function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
+function RunSummary({
+  row,
+  stateLabel,
+  stop,
+}: {
+  row: RunRow;
+  stateLabel: string;
+  stop?: { onStop: () => void; stopping: boolean };
+}) {
   const progress = taskProgressLabel(row.progress, row.taskKind, row.statusDetail);
   const message =
     typeof row.progress?.message === 'string' && row.progress.message.trim()
@@ -150,6 +158,15 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
     return (
       <div className="grid gap-4 p-3.5">
         <StateView
+          action={
+            stop
+              ? {
+                  label: stop.stopping ? 'Stopping' : 'Stop',
+                  onClick: stop.onStop,
+                  disabled: stop.stopping,
+                }
+              : undefined
+          }
           detail={host ? `Waiting on ${host}.` : 'Waiting for a free slot.'}
           icon={ClockIcon}
           kind="marker"
@@ -176,11 +193,17 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
   const settled = row.state === 'cancelled' || row.state === 'stopped' || row.state === 'paused';
   const headline =
     row.state === 'failed'
-      ? (message && message !== row.statusDetail ? message : 'The run stopped with an error')
+      ? message && message !== row.statusDetail
+        ? message
+        : 'The run stopped with an error'
       : settled
         ? stateLabel
         : (message ?? (RUNNING.includes(row.state) ? 'Working' : stateLabel));
   const meta = progress && progress !== headline ? progress : undefined;
+  const answerHref =
+    row.state === 'waiting_user' || row.state === 'waiting_permission'
+      ? runConversationHref(row, false)
+      : undefined;
   return (
     <div className="grid gap-4 px-3.5 py-2.5">
       <div className="grid">
@@ -192,6 +215,11 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
           >
             {reason}
           </p>
+        ) : null}
+        {answerHref ? (
+          <Button asChild className="mt-1 ml-6 justify-self-start" size="compact" variant="outline">
+            <Link to={answerHref}>{row.state === 'waiting_user' ? 'Answer' : 'Review'}</Link>
+          </Button>
         ) : null}
       </div>
       <RunFacts row={row} />
@@ -211,18 +239,37 @@ export function RunTab({
   row,
   stateLabel,
   actions,
+  onStop,
+  stopping = false,
   onClose,
 }: {
   row: RunRow;
   stateLabel: string;
-  /** Stop and More for this run (RunActions). */
+  /** The run's menu (RunActions with `part="menu"`). */
   actions?: ReactNode;
+  /** Stop the run; absent when it can't be stopped. */
+  onStop?: () => void;
+  /** Cancellation is requested or on its way. */
+  stopping?: boolean;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
   const sheet = useMediaQuery('(max-width: 899px)');
   const href = runConversationHref(row, false);
   const flow = row.flowHandle && row.targetSessionId ? row.flowHandle : undefined;
+  const stop = onStop ? { onStop, stopping } : undefined;
+  // The spec draws Stop first, before the rule; a queued run's Stop sits in its body.
+  const stopButton =
+    stop && row.state !== 'queued' ? (
+      <IconButton
+        disabled={stopping}
+        icon={<CircleStopIcon aria-hidden="true" />}
+        label={stopping ? 'Stopping' : 'Stop'}
+        onClick={stop.onStop}
+        size="sm"
+        tooltipSide="bottom"
+      />
+    ) : undefined;
   const openSubagent = (subagent: SubagentRun) => {
     if (!row.workspaceId) return;
     const session = subagent.child_session_id ?? subagent.session_id;
@@ -278,6 +325,7 @@ export function RunTab({
           </>
         }
         label="Run actions"
+        format={stopButton}
         what={
           <>
             <span className="shrink-0" data-frame-position="">
@@ -299,7 +347,7 @@ export function RunTab({
             />
           </Suspense>
         ) : (
-          <RunSummary row={row} stateLabel={stateLabel} />
+          <RunSummary row={row} stateLabel={stateLabel} stop={stop} />
         )}
       </div>
     </aside>

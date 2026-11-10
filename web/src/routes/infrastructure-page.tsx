@@ -13,6 +13,8 @@ import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
+import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
+import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { InfrastructureServicesSection } from '@/components/clio/infrastructure-services-section';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
@@ -212,6 +214,7 @@ export function InfrastructurePage() {
       tabIndex={-1}
     >
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
+        <FrameClioMenu className="bottom-0 left-2 sm:left-3" covered={settingsWindowOpen} />
         <div className={TAB_ROW}>
           <NamedTooltip label={`Back to ${vocab.workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">

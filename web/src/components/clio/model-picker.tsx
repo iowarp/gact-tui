@@ -40,6 +40,11 @@ interface ClioModelPickerProps {
   placement?: 'composer' | 'trigger';
   /** Catalog id of an app-wide key that opens this picker (the composer's `Ctrl '`). */
   shortcut?: string;
+  /**
+   * Where focus goes after a pick, or after dismissing a picker the shortcut
+   * opened (the composer's editor). Otherwise it returns to the trigger.
+   */
+  returnFocus?: () => void;
 }
 
 /** The composer box around a trigger: the picker's anchor and width. */
@@ -105,6 +110,7 @@ export function ClioModelPicker({
   trigger,
   placement = 'trigger',
   shortcut,
+  returnFocus,
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -116,6 +122,7 @@ export function ClioModelPicker({
   const [Catalog, setCatalog] = useState(() => modelPickerCatalog.loaded());
   const [facetsOpen, setFacetsOpen] = useState(false);
   const closingForSettings = useRef(false);
+  const toReturnFocus = useRef(false);
   const catalogContent = useRef<HTMLDivElement>(null);
   const [activeProvider, setActiveProvider] = useState(provider);
   // Two columns need a wide window and room for both lists: a narrow composer
@@ -182,6 +189,7 @@ export function ClioModelPicker({
             () => undefined,
           );
         closingForSettings.current = false;
+        toReturnFocus.current = false;
         setActiveProvider(provider);
         const frame = placement === 'composer' ? measureComposer(triggerRef.current) : null;
         setComposerFrame(frame);
@@ -193,12 +201,20 @@ export function ClioModelPicker({
     [provider, options.length, placement],
   );
   const close = useCallback(() => handleOpenChange(false), [handleOpenChange]);
+  const pick = useCallback(
+    (choice: ClioModelOption) => {
+      toReturnFocus.current = true;
+      onChange(choice);
+    },
+    [onChange],
+  );
   useShortcut(
     shortcut ?? 'model-picker',
     () => {
       const trigger = triggerRef.current;
       if (!trigger?.disabled && trigger?.getAttribute('aria-disabled') !== 'true') {
         handleOpenChange(true);
+        toReturnFocus.current = true;
       }
     },
     { enabled: Boolean(shortcut) && !open, allowInTextField: true },
@@ -242,7 +258,15 @@ export function ClioModelPicker({
         data-slot="model-picker"
         onCloseAutoFocus={(event) => {
           // Settings owns focus after navigation; ordinary dismissal returns to the trigger.
-          if (closingForSettings.current) event.preventDefault();
+          if (closingForSettings.current) {
+            event.preventDefault();
+            return;
+          }
+          if (toReturnFocus.current && returnFocus) {
+            event.preventDefault();
+            toReturnFocus.current = false;
+            returnFocus();
+          }
         }}
         onEscapeKeyDown={(event) => {
           if (!facetsOpen) return;
@@ -268,7 +292,7 @@ export function ClioModelPicker({
           >
             <Catalog
               model={model}
-              onChange={onChange}
+              onChange={pick}
               onClose={close}
               onOpenSettings={openSettings}
               onProviderChange={setActiveProvider}

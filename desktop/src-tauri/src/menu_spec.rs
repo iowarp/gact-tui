@@ -57,8 +57,8 @@ pub enum Predefined {
     /// Zoom on macOS.
     Maximize,
     Fullscreen,
-    /// Cmd+W: the same close request as the window close button, so it opens
-    /// the "keep running?" prompt rather than quitting.
+    /// Cmd+W: the same close request as the window close button, so it hides
+    /// the window and CLIO keeps running, as Mac apps do.
     CloseWindow,
     BringAllToFront,
 }
@@ -136,7 +136,7 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
             },
             Item::Separator,
             // Cmd+W: the same close request as the window close button, so it
-            // opens the "keep running?" prompt rather than quitting.
+            // hides the window and CLIO keeps running, as Mac apps do.
             Item::Predefined(Predefined::CloseWindow),
         ],
     },

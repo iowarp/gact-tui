@@ -27,6 +27,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
 import { WaitingForYou } from './agent-answer-activity';
+import { withPermissionDecision } from './agent-answer-domain';
 import { ActivityInfoButton } from './activity-row';
 import { TechnicalDetailsLink, ToolTechnicalDetailsDialog } from './tool-technical-details';
 import { useToolDuration } from './use-tool-duration';
@@ -133,7 +134,13 @@ export function ClioToolInvocation({
         withMemoryPresentation(
           withResourcePresentation(
             withSkillPresentation(
-              withTaskWaitInterruption(withTodoPresentation(withStorageToolPresentation(tool))),
+              withTaskWaitInterruption(
+                withTodoPresentation(
+                  withStorageToolPresentation(
+                    withPermissionDecision(tool, questionContext?.interactions),
+                  ),
+                ),
+              ),
             ),
             navigation?.resources,
           ),
@@ -176,7 +183,8 @@ export function ClioToolInvocation({
     : [];
   const status = getToolStatus(presentedTool);
   // A call paused on the person has no outcome yet, whatever a reload projected.
-  const failure = waitingFor ? undefined : getToolFailureDetail(presentedTool);
+  const failure =
+    waitingFor || tool.state === 'pending' ? undefined : getToolFailureDetail(presentedTool);
   const declaredFailure = presentedTool.presentation?.blocks.some(
     (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
   );
@@ -254,7 +262,11 @@ export function ClioToolInvocation({
           onExpandedChange={setResultOpen}
           duration={duration}
           surface={surface}
-          waiting={waitingFor ? <WaitingForYou interaction={waitingFor} /> : undefined}
+          waiting={
+            waitingFor || tool.state === 'pending' ? (
+              <WaitingForYou interaction={waitingFor} />
+            ) : undefined
+          }
           // A call the sandbox blocked says so before it is opened (#1905).
           badge={boundary ? <SandboxBoundaryBadge boundary={boundary} /> : undefined}
           attention={
@@ -296,7 +308,7 @@ export function ClioToolInvocation({
               {failure && !declaredFailure && !(stopped && declaredOutcome) ? (
                 <p
                   role={stopped ? undefined : 'alert'}
-                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
+                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
                 >
                   {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
                 </p>

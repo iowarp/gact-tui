@@ -5,6 +5,7 @@ import type {
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   GlobeIcon,
   ListFilterIcon,
@@ -37,6 +38,7 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
+import { serviceErrorDetail } from './service-error';
 import { Tag, MetaValue } from './primitives/tag';
 import { BrowserNewPage } from './browser-new-page';
 import { ObservabilityViewControl } from './observability-view-control';
@@ -423,6 +425,7 @@ function ArtifactsList({
   activeTabId,
   renderHeader,
 }: WorkbenchListColumnProps & { renderHeader: (actions: ReactNode) => ReactNode }) {
+  const queryClient = useQueryClient();
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ArtifactCategory | 'all'>('all');
@@ -493,11 +496,22 @@ function ArtifactsList({
   else if (!artifacts.length)
     body = (
       <StateView
+        action={
+          artifactsError
+            ? {
+                label: 'Retry',
+                onClick: () =>
+                  void queryClient.invalidateQueries({ queryKey: ['session-artifacts'] }),
+              }
+            : undefined
+        }
         className="p-4"
-        detail={artifactsError}
+        detail={serviceErrorDetail(artifactsError)}
         kind={artifactsError ? 'error' : 'empty'}
         size="panel"
-        title={artifactsError ? 'Artifacts unavailable' : 'No artifacts in this conversation'}
+        title={
+          artifactsError ? "Artifacts couldn't be listed" : 'No artifacts in this conversation'
+        }
       />
     );
   else if (!visible.length)
@@ -666,11 +680,16 @@ function BrowserList({
   if (!sessionId || (pages.error && !rows.length))
     return (
       <StateView
+        action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : undefined}
         className="p-4"
-        detail={pages.error?.message ?? 'Pages the agent opens appear here.'}
+        detail={
+          pages.error
+            ? serviceErrorDetail(pages.error.message)
+            : 'Pages the agent opens appear here.'
+        }
         kind={pages.error ? 'error' : 'empty'}
         size="panel"
-        title={pages.error ? 'Pages unavailable' : 'No browser pages'}
+        title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
       />
     );
   return (

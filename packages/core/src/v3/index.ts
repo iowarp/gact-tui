@@ -44,6 +44,7 @@ export * from './fleet-repository.js';
 export * from './prompt-repository.js';
 export * from './provider-repository.js';
 export * from './provider-components.js';
+export * from './provider-install-jobs.js';
 export * from './saved-server-domain.js';
 export * from './artifact-preview-repository.js';
 export * from './composer-conflicts.js';

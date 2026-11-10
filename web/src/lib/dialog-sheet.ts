@@ -13,3 +13,10 @@ export const DIALOG_SHEET_CLASS =
  */
 export const DIALOG_FULL_WINDOW_CLASS =
   'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:max-h-none max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none';
+
+/**
+ * {@link DIALOG_FULL_WINDOW_CLASS} as a column, so a body marked
+ * `max-[599px]:flex-1` takes the height and the buttons sit at the bottom.
+ * DialogFrame's and ConnectFrame's `narrow="window"` use it.
+ */
+export const DIALOG_FULL_WINDOW_LAYOUT = `${DIALOG_FULL_WINDOW_CLASS} max-[599px]:flex max-[599px]:flex-col`;
