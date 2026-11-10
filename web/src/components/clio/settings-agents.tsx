@@ -127,12 +127,7 @@ export function AgentSettings() {
             {mine.length ? (
               mine.map(row)
             ) : (
-              <StateView
-                action={newAgent ? { label: 'New agent', onClick: newAgent } : undefined}
-                kind="empty"
-                size="row"
-                title="No agents of your own yet."
-              />
+              <StateView kind="empty" size="row" title="No agents of your own yet." />
             )}
           </ItemList>
         </>

@@ -180,7 +180,9 @@ describe('AgentSettings', () => {
     renderSettings();
     const yours = await screen.findByRole('group', { name: 'Your agents' });
     expect(within(yours).getByText('No agents of your own yet.')).toBeVisible();
-    await user.click(within(yours).getByRole('button', { name: 'New agent' }));
+    // The spec's group + is the one way to start an agent; the empty row adds no second button.
+    expect(screen.getAllByRole('button', { name: 'New agent' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'New agent' }));
     const pane = await screen.findByRole('complementary', { name: 'CLIO' });
     expect(await within(pane).findByRole('button', { name: 'Save local variation' })).toBeEnabled();
   });
