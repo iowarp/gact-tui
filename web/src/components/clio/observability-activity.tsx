@@ -10,16 +10,22 @@ import type {
 import {
   BotIcon,
   BoxesIcon,
+  FileIcon,
   FileOutputIcon,
+  FilePlusIcon,
   GitBranchPlusIcon,
   GitMergeIcon,
   MessageCircleQuestionIcon,
   MinusIcon,
   PanelRightOpenIcon,
   ScanIcon,
+  SearchIcon,
+  ShieldIcon,
+  SquareTerminalIcon,
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +36,7 @@ import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
-import { compactDuration } from './workbench-activity-model';
+import { compactDuration, isGenericActivitySubject } from './workbench-activity-model';
 import {
   isAgentMcpInteraction,
   isCausalQuestionInteraction,
@@ -43,6 +49,7 @@ import {
   projectedFilePath,
   projectedKind,
   projectedToolName,
+  permittedActionFact,
   spanToolMatcher,
 } from './activity-projection-labels';
 import {
@@ -58,6 +65,10 @@ import {
 export interface ObservabilityActivityItem {
   id: string;
   kind: 'run' | 'tool' | 'process' | 'artifact' | 'interaction' | 'resource';
+  /** The call behind a tool or permission row; it picks the row's glyph. */
+  toolName?: string;
+  /** A permission decision ("Approved sbatch on ares"), drawn with a shield. */
+  permission?: boolean;
   label: string;
   /** Absent when the record has no summary beyond its labeled state. */
   detail?: string;
@@ -228,9 +239,12 @@ export function childProjectionActivityItems(
     // emitted, the open row must carry the true terminal state itself —
     // otherwise a failed or cancelled child reads as quietly "completed".
     const closeRowWillFollow = isTerminalState(state) && Boolean(closedAt);
+    // A child named only for the agent ("CLIO") or its category says nothing as a row.
+    const named = process?.title || owner.label;
+    const title = named && !isGenericActivitySubject(named) ? named : undefined;
     const common = {
       kind: 'process' as const,
-      label: process?.title || owner.label || 'Untitled task',
+      label: title ?? 'Subagent started',
       rootSessionId,
       ownerSessionId: owner.session_id,
       ownerLabel: owner.label,
@@ -255,6 +269,7 @@ export function childProjectionActivityItems(
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
+        label: title ? `${title} returned` : 'Subagent returned',
         detail: 'Child work returned to its parent',
         fact: closed >= opened ? compactDuration(closed - opened) : undefined,
         state,
@@ -318,21 +333,22 @@ export function childProjectionActivityItems(
     const permission = span.event_type === 'permission.resolved';
     const permittedTool =
       typeof span.attributes.tool_name === 'string' ? span.attributes.tool_name : undefined;
+    const approvedCall =
+      permission && permittedTool
+        ? matchTool(ownerSessionId, permittedTool, span.start_time, false)
+        : undefined;
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
+      toolName: permission ? permittedTool : toolName,
+      permission: permission || undefined,
       label: permission
-        ? permissionActivityLabel(
-            span.label,
-            permittedTool,
-            permittedTool
-              ? matchTool(ownerSessionId, permittedTool, span.start_time, false)
-              : undefined,
-          )
+        ? permissionActivityLabel(span.label, permittedTool, approvedCall)
         : projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
       detail: permission ? 'Permission' : projectedActivityDetail(span.kind),
-      fact:
-        span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
+      fact: permission
+        ? permittedActionFact(provenance.spans, span, permittedTool, approvedCall)
+        : span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
           ? compactDuration(span.duration_ms)
           : undefined,
       state: activityState(span.status),
@@ -662,7 +678,19 @@ export function ActivityGlyph({
   const props = { 'aria-hidden': true as const, className };
   if (item.lifecycle === 'open') return <GitBranchPlusIcon {...props} />;
   if (item.lifecycle === 'close') return <GitMergeIcon {...props} />;
-  if (item.kind === 'tool') return <WrenchIcon {...props} />;
+  if (item.permission) return <ShieldIcon {...props} />;
+  if (item.kind === 'tool') {
+    // The spec draws the action, not the category: a file read, an edit, a search, a command.
+    const name = item.toolName?.split(/[.:/]/u).pop() ?? '';
+    if (/read_file$|^read$|^view$/u.test(name)) return <FileIcon {...props} />;
+    if (/(?:write|edit|create)_file$|^(?:write|edit|apply_patch)$/u.test(name))
+      return <FilePlusIcon {...props} />;
+    if (item.toolName && TOOL_OPERATIONS[item.toolName]?.family === 'search')
+      return <SearchIcon {...props} />;
+    if (/(?:^|_)(?:bash|shell|command|exec|run_code)(?:$|_)/u.test(name))
+      return <SquareTerminalIcon {...props} />;
+    return <WrenchIcon {...props} />;
+  }
   if (item.kind === 'process') return <BoxesIcon {...props} />;
   if (item.kind === 'artifact') return <FileOutputIcon {...props} />;
   if (item.kind === 'interaction') return <MessageCircleQuestionIcon {...props} />;

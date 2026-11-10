@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { DIALOG_FULL_WINDOW_LAYOUT, DIALOG_SHEET_CLASS } from '@/lib/dialog-sheet';
+import { useKeysAria } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
+
+const CLOSE_KEYS = ['Esc'] as const;
 
 /**
  * Focus goes to the first element marked with this attribute when a frame opens:
@@ -121,7 +124,12 @@ export interface DialogFrameProps {
   /** What a screen reader hears when there is no visible description (defaults to the title). */
   srDescription?: string;
   children?: ReactNode;
-  /** The confirm button. Omit for a frame with only Close. */
+  /**
+   * Where the body starts. `title` (prose, lists, facts) lines up with the title text;
+   * `edge` (a settings form, spec `.xdb`) starts at the frame's 18px edge. Defaults to
+   * `edge` when the body holds setting rows, else `title`.
+   */
+  bodyInset?: 'title' | 'edge';
   confirm?: DialogFrameConfirm;
   /**
    * Label of the safe button that closes the frame (Cancel, Close, Got it).
@@ -172,6 +180,7 @@ export const DialogFrame = memo(function DialogFrame({
   description,
   srDescription,
   children,
+  bodyInset,
   confirm,
   cancelLabel: cancelProp,
   secondary,
@@ -187,6 +196,9 @@ export const DialogFrame = memo(function DialogFrame({
   const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
   const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
+  const confirmKey = confirm?.key === 'Enter' ? 'Enter' : 'Ctrl+Enter';
+  const confirmAria = useKeysAria(confirmKeys ? [confirmKey] : undefined);
+  const closeAria = useKeysAria(CLOSE_KEYS);
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
@@ -256,7 +268,8 @@ export const DialogFrame = memo(function DialogFrame({
         {children ? (
           <div
             data-slot="dialog-frame-body"
-            // The body starts under the title text (spec `.xd .bd`: 16px icon + 10px gap).
+            // Prose starts under the title text (`.xd .bd`: 16px icon + 10px gap); setting
+            // rows start at the frame's 18px edge (settings `.xdb`), whatever the icon.
             // No rule closes it, so a last settings row drops its own too. Its setting rows
             // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
             className={cn(
@@ -264,7 +277,14 @@ export const DialogFrame = memo(function DialogFrame({
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
               '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
-              icon ? 'pl-[42px]' : 'pl-[18px]',
+              // A 36% label column is ~110px in a 340px frame: names wrap onto a
+              // second line there rather than cut to "Provider prefe…".
+              '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
+              !icon || bodyInset === 'edge'
+                ? 'pl-[18px]'
+                : bodyInset === 'title'
+                  ? 'pl-[42px]'
+                  : 'pl-[42px] has-[[data-slot=settings-row]]:pl-[18px]',
             )}
           >
             {children}
@@ -282,11 +302,16 @@ export const DialogFrame = memo(function DialogFrame({
           {secondary}
           {confirmOnly ? null : (
             <DialogPrimitive.Close asChild>
-              <Button className="border-border gap-[7px]" variant="ghost" data-initial-focus="">
+              <Button
+                aria-keyshortcuts={closeAria}
+                className="border-border gap-[7px]"
+                variant="ghost"
+                data-initial-focus=""
+              >
                 {cancelLabel ?? 'Close'}
                 <FooterKey
                   className="border-muted-foreground/45 text-muted-foreground"
-                  keys={['Esc']}
+                  keys={CLOSE_KEYS}
                 />
               </Button>
             </DialogPrimitive.Close>
@@ -294,6 +319,7 @@ export const DialogFrame = memo(function DialogFrame({
           {confirm ? (
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
+              aria-keyshortcuts={confirmAria}
               variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
               // The face fills the whole 28 px, under the border too.
               className="gap-[7px] bg-clip-border"
@@ -303,12 +329,7 @@ export const DialogFrame = memo(function DialogFrame({
               ref={confirmOnly ? focusOnMount : undefined}
             >
               {confirm.label}
-              {confirmKeys ? (
-                <FooterKey
-                  className="border-current/45"
-                  keys={[confirm.key === 'Enter' ? 'Enter' : 'Ctrl+Enter']}
-                />
-              ) : null}
+              {confirmKeys ? <FooterKey className="border-current/45" keys={[confirmKey]} /> : null}
             </Button>
           ) : null}
         </div>
@@ -402,12 +423,13 @@ export const WindowShell = memo(function WindowShell({
           >
             {title}
           </DialogTitle>
-          {picker ? <div className="flex min-w-0 shrink min-[600px]:hidden">{picker}</div> : null}
+          {/* The picker keeps its full label; the search beside it gives up the width. */}
+          {picker ? <div className="flex min-w-0 shrink-0 min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
               {/* On a phone a search button stays compact; a live query field takes the free width. */}
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
+              <div className="@container ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
                 {search}
               </div>
               <span className="flex-1 max-[599px]:[:has(input)+&]:hidden" />

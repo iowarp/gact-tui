@@ -109,10 +109,12 @@ function ToolResultBody({
   // and rendered after the document instead.
   const contentBlocks = blocks.filter((block) => !isProvenanceBlock(block));
   const provenanceBlocks = blocks.filter(isProvenanceBlock);
+  // An outcome (a stop or an error) is not the file's contents.
   const document =
     (subject?.target === 'file' || resourceDocument) &&
     contentBlocks.length > 0 &&
-    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
+    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type)) &&
+    !contentBlocks.some((block) => block.severity === 'error' || block.severity === 'warning');
   if (document) {
     const budget = lines;
     return (
@@ -372,7 +374,12 @@ function ToolResultBody({
           return (
             <div key={block.id} className="min-w-0">
               {block.label ? (
-                <p className="text-xs font-medium text-muted-foreground">{block.label}</p>
+                <p
+                  className="px-2 text-xs font-medium text-muted-foreground"
+                  data-slot="tool-result-label"
+                >
+                  {block.label}
+                </p>
               ) : null}
               <BoundedResult
                 lines={budget}

@@ -1,7 +1,7 @@
 import { memo, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useKeysPresentation, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { HeldKeyBadge, type HeldKeySide } from './key-chip';
 import { focusIsQuiet, focusMayRaiseName } from './quiet-focus';
@@ -14,6 +14,8 @@ interface NamedTooltipProps {
   shortcut?: string;
   /** One key of a range shortcut (`strip-position` at 3). */
   shortcutPosition?: number;
+  /** Ad hoc keys in Windows form, for a key that is not in the catalog. */
+  keys?: readonly string[];
   side?: ComponentProps<typeof TooltipContent>['side'];
   children: ReactElement;
 }
@@ -26,10 +28,13 @@ export function NamedTooltip({
   label,
   shortcut,
   shortcutPosition,
+  keys,
   side = 'bottom',
   children,
 }: NamedTooltipProps) {
-  const presentation = useShortcutPresentation(shortcut, shortcutPosition);
+  const catalogued = useShortcutPresentation(shortcut, shortcutPosition);
+  const adHoc = useKeysPresentation(shortcut ? undefined : keys);
+  const presentation = catalogued ?? adHoc;
   const [open, setOpen] = useState(false);
   return (
     <Tooltip

@@ -167,6 +167,7 @@ export function WorkspaceComposer({
           disabled={
             mutations.send.isPending || cancel.isPending || commands.isPending || hold.active
           }
+          sending={mutations.send.isPending}
           effort={data.activeEffort}
           configuredEffort={data.configuredEffort}
           executionMode={

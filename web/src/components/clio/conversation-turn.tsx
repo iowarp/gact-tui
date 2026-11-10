@@ -27,8 +27,10 @@ import {
   permissionInteractionForTool,
   questionInteractionsForTool,
   splitWaitingQuestion,
+  toolWaitsForYou,
   withPermissionDecision,
 } from './agent-answer-domain';
+import { WaitingForYou } from './agent-answer-activity';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
@@ -43,6 +45,7 @@ import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-present
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 import { TranscriptDiffCard } from './transcript-diff-card';
+import { toolOutputDiffKey } from './declared-diff-key';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
@@ -290,7 +293,7 @@ export function ConversationTurn({
     >
       {groups.map((group, index) => {
         const iteration = group[0];
-        const summary = transcriptActivitySummary(group);
+        const summary = transcriptActivitySummary(group, interactions);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
         return (
           <Fragment key={iteration.id}>
@@ -423,13 +426,18 @@ function ActivityLane({
   const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
   // A settled run folds once the agent has moved past it; one call folds into
   // nothing shorter, and thoughts alone stay as they are.
+  const headCalls = head.reduce(
+    (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
+    0,
+  );
   const collapses =
-    (!turnLive || afterIds.size > 0) &&
-    head.reduce(
-      (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
-      0,
-    ) > 1 &&
-    runSettled(head, interactions);
+    (!turnLive || afterIds.size > 0) && headCalls > 1 && runSettled(head, interactions);
+  // While a call in a longer run waits on the person, the run's row already shows,
+  // open, with "waiting for you" in place of its outcome. A lone call says it itself.
+  const waiting =
+    !collapses &&
+    headCalls > 1 &&
+    head.some((item) => item.tools.some((tool) => toolWaitsForYou(tool, interactions)));
   const showAll = folded ? (
     <Button
       variant="ghost"
@@ -440,39 +448,53 @@ function ActivityLane({
       {`Show all ${total}`}
     </Button>
   ) : null;
-  const run = collapses
-    ? transcriptRunSummary(
-        head.map((item) => ({
-          ...item,
-          // A call the person refused is counted as denied, not failed.
-          tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
-        })),
-        (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
-      )
-    : undefined;
+  const run =
+    collapses || waiting
+      ? transcriptRunSummary(
+          head.map((item) => ({
+            ...item,
+            // A call the person refused is counted as denied, not failed.
+            tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
+          })),
+          (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
+        )
+      : undefined;
   return (
     <div
       role="group"
-      aria-label={`Activity: ${run?.label ?? label}`}
+      aria-label={`Activity: ${collapses && run ? run.label : label}`}
       aria-busy={live || undefined}
       // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
       // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
       className="-mt-1 min-w-0 [&_[data-slot=activity-row]:not([data-slot=activity-nest]_*):not([data-slot=activity-body]_*)]:mt-1"
       data-row-run=""
-      data-run-collapsed={run && !runOpen ? '' : undefined}
+      data-run-collapsed={collapses && !runOpen ? '' : undefined}
+      data-run-waiting={waiting ? '' : undefined}
       data-slot="transcript-activity-timeline"
       // A reader who opens something in a run while it works keeps it open
       // when the run folds at the end of the turn.
-      onClickCapture={run || runOpen ? undefined : () => setRunOpen(true)}
+      onClickCapture={collapses || runOpen ? undefined : () => setRunOpen(true)}
       onKeyDownCapture={
-        run || runOpen
+        collapses || runOpen
           ? undefined
           : (event) => {
               if (event.key === 'Enter' || event.key === ' ') setRunOpen(true);
             }
       }
     >
-      {run ? (
+      {run && waiting ? (
+        <ActivityRow
+          data-run-summary=""
+          icon={<WrenchIcon aria-hidden="true" />}
+          name={run.label}
+          outcome={<WaitingForYou />}
+          outcomeTitle="waiting for you"
+          outcomeTone="muted"
+          status={
+            <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+          }
+        />
+      ) : run ? (
         <ActivityRow
           aria-expanded={runOpen}
           data-run-summary=""
@@ -545,8 +567,8 @@ function ActivityLane({
         />
       ) : null}
       {/* One parent in both shapes keeps each row's own state when the run folds. */}
-      {run && !runOpen ? null : (
-        <ActivityNest flat={!run} label={`Calls: ${run?.label ?? label}`}>
+      {collapses && !runOpen ? null : (
+        <ActivityNest flat={!run} label={`Calls: ${(collapses && run?.label) || label}`}>
           {showAll}
           {shown.filter((item) => !afterIds.has(item.id)).map(children)}
         </ActivityNest>
@@ -568,7 +590,8 @@ function runSettled(
       item.tools.every(
         (tool) =>
           !['pending', 'running'].includes(tool.state) &&
-          !permissionInteractionForTool(interactions, tool),
+          !permissionInteractionForTool(interactions, tool) &&
+          !splitWaitingQuestion(questionInteractionsForTool(interactions, tool.id)).waiting,
       ) &&
       item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
   );
@@ -645,7 +668,10 @@ function IterationDetail({
           entry.kind === 'tool' ? (
             (() => {
               const { waiting: question, rest } = showQuestionInteractions
-                ? splitWaitingQuestion(questionInteractionsForTool(interactions, entry.id))
+                ? splitWaitingQuestion(
+                    questionInteractionsForTool(interactions, entry.id),
+                    entry.tool.name,
+                  )
                 : { waiting: undefined, rest: [] };
               const waiting = question ?? permissionInteractionForTool(interactions, entry.tool);
               return (
@@ -656,6 +682,8 @@ function IterationDetail({
                   >
                     <ClioToolInvocation
                       compact={compact}
+                      // A file change reads open, as its reported change did beside it.
+                      defaultOpen={toolOutputDiffKey(entry.tool) ? true : undefined}
                       flowResult={flowCards}
                       attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
                       attentionFields={messageAttentionIndex?.toolStepsByToolId.get(entry.tool.id)}
@@ -732,7 +760,11 @@ function IterationDetail({
             )
           ) : entry.kind === 'diff' ? (
             <div data-turn-activity={`diff:${entry.id}`} key={`diff:${entry.id}`}>
-              <TranscriptDiffCard block={entry.block} onOpenFile={onOpenFile} />
+              <TranscriptDiffCard
+                block={entry.block}
+                className="mt-0.5 mb-2 ml-[30px]"
+                onOpenFile={onOpenFile}
+              />
             </div>
           ) : showTasks ? (
             <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />

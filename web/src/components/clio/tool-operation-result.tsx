@@ -200,8 +200,9 @@ export function ToolOperationResult({
   const copyBody = assignment ? selectedTask?.assignment : selectedTask?.value;
   return (
     <div className="ml-7 min-w-0" data-slot="tool-human-result">
-      {tasks.length === 1 && assignment ? (
-        <TaskContent task={tasks[0]} assignment sessionId={tool.session_id} />
+      {/* One task is already named by the row; only several need tabs to choose between. */}
+      {tasks.length === 1 ? (
+        <TaskContent task={tasks[0]} assignment={assignment} sessionId={tool.session_id} />
       ) : (
         <Tabs
           value={current}

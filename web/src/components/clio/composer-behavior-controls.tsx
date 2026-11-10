@@ -371,7 +371,9 @@ export function ClioComposerBehaviorControls({
       spotterAvailability?.available
         ? spotterModelControl
         : null}
-      <span aria-hidden="true" className="min-w-0 flex-1" />
+      {/* A narrow row has no slack to right-align into: the model stays put after
+          the mode while a wait status appears or the route name loads. */}
+      <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
       {beforeModel}
       {modelControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>

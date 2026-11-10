@@ -121,8 +121,8 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
       type="button"
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-left">Search</span>
-      <ShortcutKeys id="search" variant="inline" className="max-[599px]:hidden" />
+      <span className="min-w-0 flex-1 truncate text-left @max-[4.75rem]:hidden">Search</span>
+      <ShortcutKeys id="search" variant="caps" capSize="sm" className="max-[599px]:hidden" />
     </button>
   );
 }
@@ -201,7 +201,7 @@ export function SettingsQueryField({
       >
         {count === 1 ? '1 row' : `${count} rows`}
       </span>
-      <ShortcutKeys id="menu-close" variant="inline" className="max-[599px]:hidden" />
+      <ShortcutKeys id="menu-close" variant="caps" capSize="sm" className="max-[599px]:hidden" />
       <IconButton
         className="min-[600px]:hidden"
         icon={<CloseIcon />}
@@ -240,7 +240,7 @@ export function SettingsSectionPicker({
         <button
           aria-label="Choose settings section"
           className={cn(
-            'flex h-7 max-w-52 min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
+            'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
             'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
           )}
           title={

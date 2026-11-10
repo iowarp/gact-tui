@@ -127,6 +127,18 @@ function progressPercent(progress: RunRow['progress']): number | undefined {
   return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
 }
 
+/** ↑/↓ on a run's name move to the next or previous run in its `[data-run-list]`. */
+function moveBetweenRuns(event: KeyboardEvent<HTMLButtonElement>) {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  const list = event.currentTarget.closest('[data-run-list]');
+  if (!list) return;
+  const titles = [...list.querySelectorAll<HTMLElement>('[data-run-title]')];
+  const next = titles[titles.indexOf(event.currentTarget) + (event.key === 'ArrowDown' ? 1 : -1)];
+  event.preventDefault();
+  next?.focus();
+}
+
 export interface RunListRowProps {
   row: RunRow;
   cancelRequested: boolean;
@@ -210,7 +222,10 @@ export const RunListRow = memo(function RunListRow({
           data-rail-row={rail ? '' : undefined}
           data-run-title=""
           onClick={onOpen}
-          onKeyDown={onTitleKeyDown}
+          onKeyDown={(event) => {
+            onTitleKeyDown?.(event);
+            if (!event.defaultPrevented) moveBetweenRuns(event);
+          }}
           title={progress ? `${row.label}: ${progress}` : row.label}
           type="button"
         >

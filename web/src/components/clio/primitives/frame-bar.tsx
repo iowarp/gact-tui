@@ -33,13 +33,14 @@ import { IconButton } from './icon-button';
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
  * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
- * group rules go: only the name, comments and the ? menu remain (Download stays
+ * group rules go: only the name, comments and the … menu remain (Download stays
  * so the original bytes are one click away). Modes and icons leave only a bar
- * whose ? menu lists them (`data-frame-modes-menu`). Then the gaps tighten. A
- * name still cut short of `FRAME_NAME_MIN` then goes too (`where`): the tab names
- * it, and "o?" says nothing. Last, a renderer's zoom icons (`zoom`,
- * `data-slot="viewer-zoom-controls"`; Ctrl or ? with the wheel still zooms, and
- * the ? menu lists them), so Download and ? are never cut. Children hide on the
+ * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
+ * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
+ * or ⌘ with the wheel still zooms, and the … menu lists them). The name is
+ * never cut while any of those still shows. Last, a name still cut short of
+ * `FRAME_NAME_MIN` goes too (`where`): the tab names it, and "o…" says nothing,
+ * so Download and … are never cut. Children hide on the
  * bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
@@ -53,18 +54,20 @@ const FRAME_FOLDS = [
   'name',
   'modes-menu',
   'rules',
-  'where',
   'zoom',
+  'where',
 ] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
 const FRAME_NAME_MIN = 96;
 
 /**
- * The name keeps its full width until facts, folders, Open, Copy, @ and the
- * modes have folded (workbench-lineage step 2-4); only then may it truncate.
+ * The name keeps its full width until everything else that folds has folded:
+ * facts, folders, Open, Copy, @, the modes, the folders' …, the modes into the
+ * … menu, the rules and zoom (workbench-lineage: "Name and comments stay").
+ * Only then may it truncate, and below `FRAME_NAME_MIN` it goes (`where`).
  */
-const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('modes') + 1;
+const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('zoom') + 1;
 
 /** Folded facts, read for the location's hover name. */
 const FrameFactsContext = createContext('');

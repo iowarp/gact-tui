@@ -272,7 +272,8 @@ export function RuntimeSettingsPanel({
       <SettingsRow title="Configuration file">
         <Button
           aria-label="Copy configuration path"
-          className="h-7 max-w-full min-w-0 justify-start gap-1.5 px-1.5 font-mono text-xs font-normal text-muted-foreground"
+          // No intrinsic width, so a long path ellipsizes instead of squeezing the label.
+          className="h-7 max-w-full min-w-0 flex-1 justify-start gap-1.5 px-1.5 font-mono text-xs font-normal text-muted-foreground [contain:inline-size] @xs:justify-end max-[1023px]:in-data-window-content:justify-start!"
           onClick={() => void copyConfigPath()}
           title={source.config_path}
           type="button"

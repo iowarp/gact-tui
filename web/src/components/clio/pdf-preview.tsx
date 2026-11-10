@@ -24,10 +24,13 @@ export function ClioPdfPreview({
   highlight,
   onPagePoint,
   onRetry,
+  pageFacts,
 }: {
   bytes?: Uint8Array;
   error?: string;
   onRetry?: () => void;
+  /** States the page count and size as the frame's facts, for a PDF file itself. */
+  pageFacts?: boolean;
   name: string;
   fit?: 'page' | 'width';
   /** Opens on this 1-based page instead of the first, when the caller already
@@ -49,6 +52,7 @@ export function ClioPdfPreview({
         name={name}
         highlight={highlight}
         onPagePoint={onPagePoint}
+        pageFacts={pageFacts}
       />
     </Suspense>
   );

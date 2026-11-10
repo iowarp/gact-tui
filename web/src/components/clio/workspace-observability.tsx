@@ -162,7 +162,7 @@ export function WorkspaceObservabilityView({
       diffsError={sessionObservability.diffs.error?.message}
       diffsPending={sessionObservability.diffs.isPending}
       processesError={sessionObservability.processes.error?.message}
-      processesPending={sessionObservability.processes.isPending}
+      processesPending={sessionObservability.processes.isLoading}
       onCompactContext={() => sessionContext.compact.mutateAsync()}
       onContextTargetChange={onContextTargetChange}
       onUpdateContextPreferences={(input) => sessionContext.preferences.mutateAsync(input)}

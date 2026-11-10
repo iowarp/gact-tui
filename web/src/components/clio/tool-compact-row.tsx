@@ -167,8 +167,8 @@ export function ToolCompactRow({
         {waiting}
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
-            {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')
-              ?.text || 'you denied it'}
+            {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')?.text ||
+              'you denied it'}
           </span>
         ) : null}
         {failureWord ? (
@@ -205,7 +205,9 @@ export function ToolCompactRow({
           />
         ) : null
       }
-      icon={denied ? <ShieldQuestionIcon aria-hidden="true" /> : createElement(toolKindIcon(tool.name))}
+      icon={
+        denied ? <ShieldQuestionIcon aria-hidden="true" /> : createElement(toolKindIcon(tool.name))
+      }
       name={
         <CollapsibleTrigger asChild>
           <button
@@ -213,6 +215,8 @@ export function ToolCompactRow({
             disabled={!operation.expandable}
             aria-label={`Show result for ${action}`}
             data-slot="tool-action-text"
+            // The chevron is the row's tab stop; the name repeats it for the pointer.
+            tabIndex={-1}
             className="cursor-pointer rounded-[3px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
           >
             {denied ? 'Denied' : action}

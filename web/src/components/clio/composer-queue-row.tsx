@@ -4,7 +4,13 @@ import type {
   QueuedMessage,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { CheckIcon, CornerDownRightIcon, GripVerticalIcon, SendIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  CornerDownRightIcon,
+  GripVerticalIcon,
+  SendIcon,
+} from 'lucide-react';
 import { createElement, useEffect, useRef, useState } from 'react';
 import {
   Attachment,
@@ -21,6 +27,7 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
+import { humanFailureText } from './composer-failure';
 import { referenceKindIcon } from './composer-reference-presentation';
 import { IconButton } from './primitives/icon-button';
 import { TruncatedText } from './primitives/truncate';
@@ -172,11 +179,13 @@ export function QueuedMessageRow({
           {problem && !isEditing ? (
             <button
               aria-expanded={showProblem}
-              className="h-6 shrink-0 rounded-[5px] px-1 text-[12px] font-medium text-warning-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-6 shrink-0 items-center gap-1 rounded-[5px] px-1 text-[12px] font-medium text-destructive-text outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
               onClick={() => setShowProblem((open) => !open)}
+              title={problem}
               type="button"
             >
-              Needs attention
+              <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              Not sent
             </button>
           ) : null}
           {isEditing ? (
@@ -224,7 +233,7 @@ export function QueuedMessageRow({
           )}
         </div>
         {problem && showProblem && !isEditing ? (
-          <p className="pr-2 pb-1.5 pl-[26px] text-[12px] break-words whitespace-normal text-warning-foreground">
+          <p className="pr-2 pb-1.5 pl-[26px] text-[12px] break-words whitespace-normal text-muted-foreground">
             {problem}
           </p>
         ) : null}
@@ -233,11 +242,21 @@ export function QueuedMessageRow({
   );
 }
 
+/** Why the service did not start this message, as a sentence; never its raw payload. */
 function promotionProblem(error: QueuedMessage['promotion_error']): string | undefined {
   if (!error) return undefined;
-  if (typeof error.detail === 'string' && error.detail) return error.detail;
-  if (error.detail !== undefined && error.detail !== null) return JSON.stringify(error.detail);
-  return `The service did not deliver it (status ${error.status_code}).`;
+  const detail = error.detail as unknown;
+  const said =
+    typeof detail === 'string'
+      ? detail
+      : detail && typeof detail === 'object' && 'message' in detail
+        ? String((detail as { message: unknown }).message)
+        : undefined;
+  const reason =
+    error.status_code >= 500
+      ? 'The service hit an error starting it.'
+      : (humanFailureText(said) ?? 'The service did not start it.');
+  return `${reason} Send it again, edit it or delete it.`;
 }
 
 /** The first reference by name and kind icon, then how many more travel with it. */
