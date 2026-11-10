@@ -31,6 +31,7 @@ import { useRegionShortcuts } from '@/lib/shortcuts/regions';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
 import { TopBarEndHost } from './top-bar-end-context';
@@ -368,15 +369,26 @@ export function ClioAppShell({
   // A strip chord with the pocket closed opens it at that strip item. The
   // desktop panel keeps the workbench mounted (it handles the chord itself);
   // the closed Sheet does not, so the shell holds the position until it mounts.
-  const [pendingStripPosition, setPendingStripPosition] = useState<number>();
+  const [pendingStripPosition, setPendingStripPosition] = useState<number | 'terminal'>();
+  const sheetClosed = hasWorkbench && !desktopWorkbench && !workbenchOpen;
   useShortcut(
     'strip-position',
     (_event, position) => {
       setPendingStripPosition(position);
       setWorkbenchOpen(true);
     },
-    { enabled: hasWorkbench && !desktopWorkbench && !workbenchOpen },
+    { enabled: sheetClosed },
   );
+  const openTerminalPocket = useCallback(() => {
+    setPendingStripPosition('terminal');
+    setWorkbenchOpen(true);
+  }, [setWorkbenchOpen]);
+  useShortcut('terminal', openTerminalPocket, { enabled: sheetClosed });
+  useEffect(() => {
+    if (!sheetClosed) return;
+    window.addEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
+    return () => window.removeEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
+  }, [openTerminalPocket, sheetClosed]);
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),

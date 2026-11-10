@@ -10,6 +10,7 @@ import {
 import { useOverlayContainer } from './overlay-container';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 
+import { useOpenedByRef } from '@/lib/input-modality';
 import { cn } from '@/lib/utils';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
 
@@ -119,8 +120,10 @@ function DropdownMenuContent({
   onKeyDown,
   onCloseAutoFocus,
   onFocusOutside,
+  ref,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  const openedBy = useOpenedByRef(ref);
   const container = useOverlayContainer();
   const modal = React.useContext(DropdownMenuModal);
   const trigger = React.useContext(DropdownMenuTriggerRef);
@@ -135,6 +138,7 @@ function DropdownMenuContent({
       ) : null}
       <DropdownMenuPrimitive.Portal container={container}>
         <DropdownMenuPrimitive.Content
+          ref={openedBy}
           data-slot="dropdown-menu-content"
           sideOffset={sideOffset}
           collisionPadding={collisionPadding}
@@ -342,11 +346,14 @@ function DropdownMenuSubContent({
   className,
   collisionPadding = 8,
   onKeyDown,
+  ref,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+  const openedBy = useOpenedByRef(ref);
   return (
     <DropdownMenuPrimitive.Portal container={useOverlayContainer()}>
       <DropdownMenuPrimitive.SubContent
+        ref={openedBy}
         data-slot="dropdown-menu-sub-content"
         collisionPadding={collisionPadding}
         className={cn(

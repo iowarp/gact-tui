@@ -511,10 +511,10 @@ describe('ClioWorkbench canvas', () => {
     expect(onOpenTerminal).toHaveBeenCalledOnce();
   });
 
-  it('leaves the terminal off the strip when the shared terminal action is absent', () => {
+  it('keeps the terminal on the strip when the shared terminal action is absent', () => {
     renderWorkbench();
 
-    expect(strip().queryByRole('button', { name: 'Terminal' })).not.toBeInTheDocument();
+    expect(strip().getByRole('button', { name: 'Terminal' })).toBeVisible();
     expect(strip().getByRole('button', { name: 'Browser pages' })).toBeVisible();
   });
 

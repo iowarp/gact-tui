@@ -48,10 +48,7 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
 /** Quiet text beside a result's name: its workspace, folder or place in Settings. */
 export function ResultDetail({ children, title }: { children: ReactNode; title?: string }) {
   return (
-    <span
-      className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint"
-      title={title}
-    >
+    <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint" title={title}>
       {children}
     </span>
   );
@@ -169,7 +166,12 @@ export function GlobalSearchGroups({
             key={item.id}
             onSelect={() => {
               if ('route' in item.action) onRoute(item.action.route);
-              else {
+              else if ('event' in item.action) {
+                const name = item.action.event;
+                onFinish();
+                // After the palette closes, so focus lands where the action leads.
+                window.setTimeout(() => window.dispatchEvent(new Event(name)));
+              } else {
                 setTheme(item.action.theme);
                 onFinish();
               }
