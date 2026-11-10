@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { matchPath } from 'react-router-dom';
 import App from '@/App';
 import { useLiveLocation } from '@/lib/live-location';
@@ -16,12 +17,23 @@ export function RouteErrorBoundary() {
   // Settings opens as a window over the workspace: the workspace keeps its
   // route boundary and its own search owner underneath.
   const background = settingsBackgroundRoute(location, settings.endpoint);
-  // A detached Settings window (no workspace behind it) is one route too: moving
-  // between its sections or editing its query must not remount the app.
-  const resetKey =
-    background ??
-    (isSettingsRoute(location.pathname) ? '/settings' : `${location.pathname}${location.search}`);
-  const pathname = background ?? location.pathname;
+  // The in-app connect dialog opens over the page it came from, so that page
+  // keeps its boundary too. A detached Settings window (no workspace behind it)
+  // is one page: moving between its sections or editing its query must not
+  // remount the app.
+  const page = {
+    pathname: location.pathname,
+    key: isSettingsRoute(location.pathname)
+      ? '/settings'
+      : `${location.pathname}${location.search}`,
+  };
+  const [lastPage, setLastPage] = useState<typeof page | null>(null);
+  const connecting =
+    location.pathname === '/' && new URLSearchParams(location.search).get('intent') === 'connect';
+  if (!connecting && !background && lastPage?.key !== page.key) setLastPage(page);
+  const behind = connecting && lastPage && lastPage.pathname !== '/' ? lastPage : null;
+  const resetKey = background ?? behind?.key ?? page.key;
+  const pathname = background ?? behind?.pathname ?? location.pathname;
   return (
     // Outer boundary is UNKEYED: it must stay mounted across navigation, or the
     // PromptInputProvider it wraps would remount on every route change and the composer
