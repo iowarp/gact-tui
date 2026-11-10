@@ -51,6 +51,10 @@ for (const theme of ['light', 'dark']) {
       await expect(
         page.getByRole('menuitemcheckbox', { name: 'Artifacts', exact: true }),
       ).toBeChecked();
+      // One download item: ticking files turns HTML into a ZIP.
+      await expect(page.getByRole('menuitem', { name: 'Download HTML', exact: true })).toHaveCount(
+        0,
+      );
       await expect(page.getByRole('menuitem', { name: 'Download ZIP', exact: true })).toBeVisible();
       const submenu = page
         .getByRole('menu')

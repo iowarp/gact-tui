@@ -12,7 +12,7 @@ import { selectMenuKey } from './select-menu-key';
 afterEach(cleanup);
 
 describe('session export modes', () => {
-  it('downloads the transcript as HTML and the chosen files as a ZIP', async () => {
+  it('is one download: HTML with nothing ticked, a ZIP once files are ticked', async () => {
     const user = userEvent.setup();
     const download = vi.fn();
     render(
@@ -28,26 +28,35 @@ describe('session export modes', () => {
     expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAccessibleDescription(
       'files the agent made',
     );
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Download ZIP' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Download HTML' })).not.toHaveAttribute(
+      'aria-disabled',
+    );
+
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     expect(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' })).toHaveAttribute(
       'aria-checked',
       'true',
     );
+    expect(screen.queryByRole('menuitem', { name: 'Download HTML' })).toBeNull();
+
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
     expect(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' })).toHaveAttribute(
       'aria-checked',
       'false',
     );
-    // A ZIP needs files beyond the transcript.
-    expect(screen.getByRole('menuitem', { name: 'Download ZIP' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Download HTML' }));
-    expect(download).toHaveBeenCalledWith('transcript');
+    expect(screen.queryByRole('menuitem', { name: 'Download ZIP' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
+    expect(download).toHaveBeenCalledWith('full');
   });
 
-  it('defaults to the transcript with artifacts in a ZIP', async () => {
+  it('downloads with one key, whichever format the ticks choose', async () => {
     const user = userEvent.setup();
     const download = vi.fn();
     render(
@@ -60,8 +69,8 @@ describe('session export modes', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export' }));
-    await user.keyboard('z');
-    expect(download).toHaveBeenCalledWith('effects');
+    await user.keyboard('s');
+    expect(download).toHaveBeenCalledWith('transcript');
   });
 });
 
@@ -100,7 +109,7 @@ describe('session export on a phone', () => {
 
     await user.click(exportItem);
     expect(exportItem).toHaveAttribute('aria-expanded', 'true');
-    await user.keyboard('h');
+    await user.keyboard('s');
     expect(download).toHaveBeenCalledWith('transcript');
   });
 });

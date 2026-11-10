@@ -127,7 +127,9 @@ it.each([
     await user.click(screen.getByRole('button', { name: 'Session actions for Export example' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export' }));
     await screen.findByRole('menuitem', { name: 'Download HTML' });
-    // Artifacts start checked; workspace files are opt-in.
+    // Nothing ticked is the HTML transcript; ticking files turns it into a ZIP.
+    if (mode === 'effects')
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
     if (mode === 'full')
       fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Workspace files' }));
     fireEvent.click(

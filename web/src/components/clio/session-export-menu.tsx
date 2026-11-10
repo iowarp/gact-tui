@@ -19,11 +19,12 @@ const SUBMENU_WIDTH = 260;
 const INLINE_BELOW = 600;
 
 /**
- * HTML is the transcript alone. ZIP carries the transcript plus the chosen
- * files; workspace files imply the agent's artifacts.
+ * One download: with nothing ticked it is the transcript as HTML; ticking
+ * files makes it a ZIP of the transcript plus those files. Workspace files
+ * imply the agent's artifacts.
  */
 export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExportMode) => void }) {
-  const [effects, setEffects] = useState(true);
+  const [effects, setEffects] = useState(false);
   const [full, setFull] = useState(false);
   const trigger = useRef<HTMLDivElement>(null);
   const [sideOffset, setSideOffset] = useState(0);
@@ -51,17 +52,10 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
       />
       <DropdownMenuSeparator />
       <KeyMenuItem
-        icon={FileTextIcon}
-        label="Download HTML"
-        menuKey="H"
-        onSelect={() => onExport('transcript')}
-      />
-      <KeyMenuItem
-        disabled={!effects}
-        icon={BoxIcon}
-        label="Download ZIP"
-        menuKey="Z"
-        onSelect={() => onExport(full ? 'full' : 'effects')}
+        icon={effects ? BoxIcon : FileTextIcon}
+        label={effects ? 'Download ZIP' : 'Download HTML'}
+        menuKey="S"
+        onSelect={() => onExport(full ? 'full' : effects ? 'effects' : 'transcript')}
       />
     </>
   );
