@@ -534,6 +534,11 @@ function ExtensionLibraryContents({
             disabled={supported !== true && item.action.label !== 'View'}
             label={`${item.action.label} ${item.title}`}
             onClick={item.action.run}
+            reason={
+              supported === false
+                ? 'Installing needs a newer agent service'
+                : 'Checking the agent service…'
+            }
           >
             {item.action.label}
           </SlotButton>
@@ -675,16 +680,6 @@ function ExtensionLibraryContents({
         type={type}
         view={view}
       />
-      {supported === false ? (
-        <p
-          className="mt-1 truncate text-xs text-muted-foreground"
-          role="status"
-          title="Update the connected agent service to add or compose extensions here. Existing sources can still be inspected."
-        >
-          Update the connected agent service to add or compose extensions here. Existing sources can
-          still be inspected.
-        </p>
-      ) : null}
       {catalog.data?.default_marketplace_error ? (
         <div className="mt-3" title={catalog.data.default_marketplace_error.message}>
           <StateView

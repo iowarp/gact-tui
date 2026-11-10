@@ -215,6 +215,8 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const openEditor = (prompt?: PromptDefinition) =>
     setEditor((current) => ({ prompt, key: (current?.key ?? 0) + 1 }));
   const families = prompts.data?.filter((prompt) => !reminderMeta(prompt)) ?? [];
+  // A service without prompt families has nothing to reload or add to.
+  const promptsOffered = !unsupported(prompts.error);
   const workspaceName = workspaces.data?.find((row) => row.id === workspaceId)?.display_name;
 
   const promptRow = (prompt: PromptDefinition) => {
@@ -364,17 +366,17 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <SelectTrigger
             aria-label="Prompt workspace"
             className={cn(
-              'h-7! min-w-0 shrink gap-1.5 px-2 text-xs *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate',
-              tight ? 'order-last w-full *:data-[slot=select-value]:flex-1' : 'w-44',
+              'h-[30px]! min-w-0 shrink justify-start gap-2 px-2.5 text-[12.5px] *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
+              tight ? 'order-last w-full' : 'w-44',
             )}
             size="sm"
-            title={workspaceName ?? 'Global service view'}
+            title={workspaceName ?? 'No workspace'}
           >
             <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Global service view</SelectItem>
+            <SelectItem value="all">No workspace</SelectItem>
             {workspaces.data?.map((workspace) => (
               <SelectItem key={workspace.id} value={workspace.id}>
                 {workspace.display_name}
@@ -383,19 +385,23 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           </SelectContent>
         </Select>
         <span className="flex-1" />
-        <IconButton
-          disabled={reload.isPending}
-          icon={reload.isPending ? <Spinner /> : <RefreshIcon />}
-          label="Reload sources"
-          onClick={() => reload.mutate()}
-        />
-        {narrow ? (
-          <IconButton icon={<AddIcon />} label="New prompt" onClick={() => openEditor()} />
-        ) : (
-          <Button className="shrink-0" onClick={() => openEditor()} variant="outline">
-            <AddIcon aria-hidden="true" /> New prompt
-          </Button>
-        )}
+        {promptsOffered ? (
+          <>
+            <IconButton
+              disabled={reload.isPending}
+              icon={reload.isPending ? <Spinner /> : <RefreshIcon />}
+              label="Reload sources"
+              onClick={() => reload.mutate()}
+            />
+            {narrow ? (
+              <IconButton icon={<AddIcon />} label="New prompt" onClick={() => openEditor()} />
+            ) : (
+              <Button className="shrink-0" onClick={() => openEditor()} variant="outline">
+                <AddIcon aria-hidden="true" /> New prompt
+              </Button>
+            )}
+          </>
+        ) : null}
       </div>
       <ListDetailLayout
         className="min-h-[20rem]"

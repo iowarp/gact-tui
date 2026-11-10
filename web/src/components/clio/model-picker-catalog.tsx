@@ -589,7 +589,6 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
             }
             hints={footerHints(showColumns, searchColumns)}
             hintsAlign={showColumns ? 'end' : 'start'}
-            keysOnlyNarrow
             start={
               <>
                 {showColumns && panel.column.bar ? (
@@ -653,8 +652,8 @@ function previewModels(
 }
 
 /**
- * Word, then key: the picker's keys. One column keeps only Choose and Close
- * (the spec's fold drops every key except ? and Esc). Search typed in two
+ * Word, then key: the picker's keys. One column keeps Move, Choose and Close,
+ * words and all (Move ↑↓ · Choose ↵ · Close Esc). Search typed in two
  * columns trades Close for Filters, as the spec's search footer does.
  * Columns shows only when the picker is wide; Move drops next, and the last
  * hint always shows.
@@ -662,6 +661,7 @@ function previewModels(
 function footerHints(columns: boolean, searching = false): PickerHint[] {
   if (!columns) {
     return [
+      { label: 'Move', shortcut: 'menu-move' },
       { label: 'Choose', shortcut: 'menu-pick' },
       { label: 'Close', shortcut: 'menu-close' },
     ];

@@ -11,7 +11,6 @@ import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { NamedTooltip } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
-import { ClioStatus } from './status';
 import { SessionWorkStatus } from './session-work';
 
 /**
@@ -152,19 +151,14 @@ export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetr
   );
 }
 
+/** The spec's page Loading state (`.xs.pn`): a spinner and one line. */
 export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?: string }) {
   return (
     <section
       aria-label="Conversation loading"
-      aria-live="polite"
       className="grid h-full min-h-0 place-items-center bg-background p-6"
     >
-      <div className="grid justify-items-center gap-3 text-center">
-        <ClioStatus label={label} value="connecting" />
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Restoring saved messages now. Newer messages will appear as they arrive.
-        </p>
-      </div>
+      <StateView kind="loading" title={label} />
     </section>
   );
 }

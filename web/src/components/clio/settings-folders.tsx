@@ -1,7 +1,7 @@
 import type { Workspace, WorkspaceSourceFolder } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, FolderIcon, LockIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,9 @@ import { useRepository } from '@/hooks/use-repository';
 import { InfoIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
-import { ROW_STATE_WRAP } from '@/lib/settings-fold';
+import { ROW_STATE_WRAP, SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { SettingsScopeContext } from '@/lib/settings-scope-context';
+import { workspaceScopeLine } from '@/lib/settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSelectField } from './model-select-field';
 import { IconButton } from './primitives/icon-button';
@@ -53,6 +55,16 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
   const workspaceId = pickedId ?? (initialWorkspaceId || list[0]?.id);
   const workspace = list.find((item) => item.id === workspaceId);
   const picker = !initialWorkspaceId && list.length > 1;
+  const pageScope = useContext(SettingsScopeContext);
+  // Opened on its own, the page picks its workspace, and the scope line names that one.
+  const scope =
+    pageScope && workspace
+      ? {
+          ...pageScope,
+          line: workspaceScopeLine(workspace.display_name),
+          place: workspace.display_name,
+        }
+      : pageScope;
 
   let body: ReactNode;
   if (workspaces.isPending) {
@@ -82,37 +94,39 @@ export function FoldersSettings({ initialWorkspaceId }: { initialWorkspaceId?: s
   }
 
   return (
-    <div className="min-w-0" data-slot="folders-settings">
-      <SettingsSectionHeading
-        info="Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
-        title="Folders"
-      />
-      {picker ? (
-        <SettingsRow htmlFor="folders-workspace" title="Workspace">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SettingsSelectField
-                icon={<FolderIcon />}
-                id="folders-workspace"
-                placeholder="Choose a workspace"
-                title={workspace?.path}
-                value={workspace?.display_name}
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-w-80">
-              <DropdownMenuRadioGroup onValueChange={setPickedId} value={workspaceId}>
-                {list.map((item) => (
-                  <DropdownMenuRadioItem key={item.id} title={item.path} value={item.id}>
-                    <span className="truncate">{item.display_name}</span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </SettingsRow>
-      ) : null}
-      {body}
-    </div>
+    <SettingsScopeContext.Provider value={scope}>
+      <div className="min-w-0" data-slot="folders-settings">
+        <SettingsSectionHeading
+          info="Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
+          title="Folders"
+        />
+        {picker ? (
+          <SettingsRow htmlFor="folders-workspace" title="Workspace">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SettingsSelectField
+                  icon={<FolderIcon />}
+                  id="folders-workspace"
+                  placeholder="Choose a workspace"
+                  title={workspace?.path}
+                  value={workspace?.display_name}
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-w-80">
+                <DropdownMenuRadioGroup onValueChange={setPickedId} value={workspaceId}>
+                  {list.map((item) => (
+                    <DropdownMenuRadioItem key={item.id} title={item.path} value={item.id}>
+                      <span className="truncate">{item.display_name}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SettingsRow>
+        ) : null}
+        {body}
+      </div>
+    </SettingsScopeContext.Provider>
   );
 }
 
@@ -267,8 +281,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
         />
       </SettingsRow>
 
-      {/* Item lists fill the content column; only setting rows take 60%. */}
-      <div className="w-full" data-slot="folders-lists">
+      {/* Item lists share the setting rows' column (spec `.xrw`), so right edges meet. */}
+      <div className={SETTINGS_COLUMN} data-slot="folders-lists">
         <SettingsGroupLabel info="Conversations start here. Changing it never moves files.">
           Primary folder
         </SettingsGroupLabel>

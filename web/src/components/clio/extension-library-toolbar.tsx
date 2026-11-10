@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { EXTENSION_TYPE_LABELS, type ExtensionType } from '@/lib/extension-library-entries';
 import { AddIcon, CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import type { ExtensionAdd } from './extension-add-dialog';
+import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SplitButton } from './primitives/split-button';
@@ -129,21 +130,20 @@ export function ExtensionToolbar({
           onClick={() => setSearching(true)}
         />
       )}
-      <span
-        className="inline-flex shrink-0"
-        title={
-          supported === false
-            ? 'Update the connected agent service to use the extension library'
-            : undefined
-        }
-      >
+      {supported === false ? (
+        <InfoTip label="Why Add is unavailable">
+          Adding or composing extensions needs a newer agent service. Existing sources can still be
+          inspected.
+        </InfoTip>
+      ) : null}
+      <span className="inline-flex shrink-0">
         <SplitButton
           disabled={supported !== true}
           icon={<AddIcon aria-hidden="true" />}
           label="Add"
           menuLabel="Add options"
           onClick={() => (type === 'marketplaces' ? onAddMarketplace() : onAdd(defaultAdd(type)))}
-          // Disabled keeps readable words; the reason line below says why.
+          // Disabled keeps readable words; the ⓘ beside it says why.
           className="[&_button:disabled]:text-muted-foreground [&_button:disabled]:opacity-100!"
           showLabel
           variant="outline"

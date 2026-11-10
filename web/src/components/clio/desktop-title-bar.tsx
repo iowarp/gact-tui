@@ -60,14 +60,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
 import { SwitchAgentItem } from '@/components/clio/clio-menu';
 import { useKnownConnections } from '@/hooks/use-known-connections';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import type { ConnectionSettings } from '@/lib/connection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useDesktopWorkspaceToolbar } from '@/store/desktop-workspace-toolbar';
-import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
 import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -285,7 +283,7 @@ export function DesktopTitleBar() {
   return (
     <header
       aria-label={`${brand.name} desktop controls`}
-      className="relative z-50 flex h-10 shrink-0 select-none items-stretch border-b border-border/70 bg-background/95 text-foreground shadow-xs backdrop-blur"
+      className="relative z-50 flex h-10 shrink-0 select-none items-stretch border-b border-border/70 bg-background text-foreground"
     >
       <div
         className={cn('flex items-center gap-0.5 px-1.5', macOS && MACOS_TRAFFIC_LIGHT_CLEARANCE)}
@@ -496,17 +494,19 @@ export function DesktopTitleBar() {
         ref={setWorkspaceNavigationHost}
         aria-label="Conversation navigation"
       />
-      <DesktopTitleContext />
-
+      {/* No title-bar copy (spec fp 12): the workspace page's own top bar is portaled here,
+          so web and desktop read the same. Its empty space drags the window; Tauri's drag
+          script skips the buttons inside, and maximizes on a double-click natively. */}
       <div
-        className="flex min-w-0 max-w-[45%] items-center gap-1 px-1"
+        className="flex min-w-0 flex-1 items-center gap-1 px-1"
+        data-tauri-drag-region="deep"
+        data-testid="desktop-title-drag"
         id="desktop-workspace-toolbar"
         ref={setWorkspaceToolbarHost}
         aria-label="Workspace controls"
       />
 
       <div className="flex items-stretch gap-1 px-2">
-        <LiveConnectionIndicator />
         {macOS ? null : (
           <>
             <WindowButton action="minimize" label="Minimize">

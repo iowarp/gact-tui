@@ -195,11 +195,14 @@ export function SettingsChoice({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** Shown but not choosable (a setting this agent doesn't offer). */
+  disabled?: boolean;
   options: Array<{
     value: string;
     label: string;
@@ -220,7 +223,11 @@ export function SettingsChoice({
       onValueChange={onChange}
       data-slot="settings-choice"
       data-compact={iconOnly || undefined}
-      className="inline-flex w-auto max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
+      disabled={disabled}
+      className={cn(
+        'inline-flex w-auto max-w-full min-w-0 shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5',
+        disabled && 'pointer-events-none opacity-60',
+      )}
     >
       {options.map(({ value: option, label: name, description, icon: Icon }) => (
         <Label
@@ -244,7 +251,12 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className={cn('min-w-0 truncate', Icon && iconOnly && 'sr-only')}>{name}</span>
+          {/* Folded to icons, the selected choice still names itself. */}
+          <span
+            className={cn('min-w-0 truncate', Icon && iconOnly && value !== option && 'sr-only')}
+          >
+            {name}
+          </span>
         </Label>
       ))}
     </RadioGroup>
