@@ -71,27 +71,42 @@ interface WorkspaceNavigationProps {
   workspacesState?: ListState;
 }
 
-/** A rail list's loading, failure or empty line, one row tall. */
+/**
+ * A rail list's loading, failure or empty line, one row tall. A failure names
+ * what was not listed in a few words the narrow rail keeps on one line, with
+ * the full sentence on hover; offline replaces the cause.
+ */
 function RailState({
   kind,
   title,
+  failed,
   error,
   onRetry,
 }: {
   kind: 'loading' | 'error' | 'empty';
   title: string;
+  /** For an error: what failed, e.g. `workspaces`. */
+  failed?: { what: string; verb: 'listed' | 'loaded' };
   error?: unknown;
   onRetry?: () => void;
 }) {
+  const offline = kind === 'error' && isOfflineError(error);
+  const what = failed?.what ?? '';
+  const shown = !failed
+    ? title
+    : offline
+      ? `Offline, no ${what}`
+      : `${what.charAt(0).toUpperCase()}${what.slice(1)} not ${failed.verb}`;
   return (
-    <StateView
-      action={kind === 'error' && onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
-      className="pl-2.5 pr-1 group-data-[collapsible=icon]:hidden"
-      detail={kind === 'error' && isOfflineError(error) ? 'Offline' : undefined}
-      kind={kind}
-      size="row"
-      title={title}
-    />
+    <div className="min-w-0 group-data-[collapsible=icon]:hidden" title={failed ? title : undefined}>
+      <StateView
+        action={kind === 'error' && onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        className="pl-2.5 pr-1"
+        kind={kind}
+        size="row"
+        title={shown}
+      />
+    </div>
   );
 }
 
@@ -322,6 +337,7 @@ export function WorkspaceNavigation({
           {workspacesState?.error ? (
             <RailState
               error={workspacesState.error}
+              failed={{ what: 'workspaces', verb: 'listed' }}
               kind="error"
               onRetry={workspacesState.retry}
               title="Workspaces could not be listed"
@@ -506,7 +522,7 @@ function LooseConversations({
     expanded || filtering,
     excludedSessionIds,
   );
-  if (total === 0 && !draft && !rail.loading && !rail.error) return null;
+  const empty = total === 0 && !draft && !rail.loading && !rail.error;
   const shown = filtering ? visible.filter((session) => matchesFilter(session, filter)) : visible;
   const groups = groupConversationsByDay(nestAgentForks(shown));
   // The unsent draft is always new, so it opens the Today group.
@@ -555,6 +571,7 @@ function LooseConversations({
         {filtering && shown.length === 0 ? (
           <NoMatchingConversations onShowAll={() => setFilter('all')} />
         ) : null}
+        {empty ? <RailState kind="empty" title="No conversations yet" /> : null}
         <RailListState rail={rail} listed={visible.length > 0 || draft} />
         {expanded && !filtering && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
           <RailLoadMore rail={rail} />
@@ -727,6 +744,7 @@ function RailListState({ rail, listed }: { rail: RailSessions; listed: boolean }
     return (
       <RailState
         error={rail.error}
+        failed={{ what: 'conversations', verb: 'listed' }}
         kind="error"
         onRetry={rail.retry}
         title="Conversations could not be listed"
@@ -742,6 +760,7 @@ function RailLoadMore({ rail }: { rail: RailSessions }) {
     return (
       <RailState
         error={rail.loadMoreError}
+        failed={{ what: 'more conversations', verb: 'loaded' }}
         kind="error"
         onRetry={rail.retry}
         title="More conversations could not be loaded"

@@ -313,6 +313,8 @@ export class ClioRepository extends WorkspaceFileRepository {
       limit: number;
       cursor?: string;
       search?: string;
+      /** Only archived conversations; without it the server leaves them out. */
+      archived?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<SessionPage> {
@@ -323,6 +325,7 @@ export class ClioRepository extends WorkspaceFileRepository {
     if (input.kinds?.length) query.set('kinds', input.kinds.join(','));
     if (input.cursor) query.set('cursor', input.cursor);
     if (input.search) query.set('q', input.search);
+    if (input.archived) query.set('archived', 'true');
     return this.transport.request({
       method: 'GET',
       path: `/v1/sessions?${query.toString()}`,

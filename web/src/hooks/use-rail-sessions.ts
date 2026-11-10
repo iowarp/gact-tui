@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
+import { listState, type ListState } from '@/lib/list-state';
 import { mergeRailSessions } from '@/lib/rail-sessions';
 import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
 import { useRepository } from './use-repository';
@@ -101,4 +102,37 @@ export function useRailSessions(
       else void refetch();
     },
   };
+}
+
+/** Archived conversations the Archived dialog lists; one page, newest first. */
+export const ARCHIVED_PAGE_SIZE = 100;
+
+/**
+ * The archived conversations of every workspace, read only while the Archived
+ * dialog is open (`GET /v1/sessions?archived=true`). A live row wins over the
+ * page's copy, so a restore leaves the list before the page is read again.
+ */
+export function useArchivedSessions(
+  live: readonly Session[],
+  enabled: boolean,
+): { sessions: Session[]; state: ListState } {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const page = useQuery({
+    queryKey: queryKeys.key('session-pages', settings.endpoint, 'archived'),
+    queryFn: ({ signal }) =>
+      repository.sessionPage(
+        { kinds: PRIMARY_SESSION_KINDS, limit: ARCHIVED_PAGE_SIZE, archived: true },
+        signal,
+      ),
+    select: (data) => data.sessions,
+    enabled,
+  });
+  const sessions = useMemo(() => {
+    const byId = new Map<string, Session>();
+    for (const session of page.data ?? []) byId.set(session.id, session);
+    for (const session of live) if (session.archived || byId.has(session.id)) byId.set(session.id, session);
+    return [...byId.values()];
+  }, [live, page.data]);
+  return { sessions, state: listState(page) };
 }

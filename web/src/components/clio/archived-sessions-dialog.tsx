@@ -17,7 +17,7 @@ export interface ClioArchivedSessionsDialogProps {
   onDelete: (sessionId: string) => Promise<void>;
   onOpenChange: (open: boolean) => void;
   onRestore: (sessionId: string) => Promise<void>;
-  /** The conversation list's loading or failure, while it lists none. */
+  /** The archived list's loading or failure, while it lists none. */
   state?: ListState;
 }
 
@@ -33,19 +33,26 @@ function archivedOn(value: string) {
   });
 }
 
-/** Once a restored row leaves the list, focus the Restore of the row that took its place. */
+/**
+ * Once a restored row leaves the list, focus the Restore of the row that took
+ * its place, or the dialog when none is left, whenever focus fell out of it.
+ */
 function focusRowAfter(list: HTMLUListElement | null, index: number) {
-  if (!list || index < 0) return;
-  const focusAt = () => {
-    const buttons = [...list.querySelectorAll<HTMLButtonElement>('li button[aria-label^="Restore"]')];
-    buttons[Math.min(index, buttons.length - 1)]?.focus();
+  const dialog = list?.closest<HTMLElement>('[role="dialog"]');
+  if (!dialog || index < 0) return;
+  const deadline = Date.now() + 3000;
+  const tick = () => {
+    if (!dialog.isConnected) return;
+    const active = document.activeElement;
+    if (!active || active === document.body || active === dialog || !dialog.contains(active)) {
+      const buttons = [
+        ...dialog.querySelectorAll<HTMLButtonElement>('li button[aria-label^="Restore"]'),
+      ];
+      (buttons[Math.min(index, buttons.length - 1)] ?? dialog).focus();
+    }
+    if (Date.now() < deadline) window.setTimeout(tick, 100);
   };
-  const observer = new MutationObserver(() => {
-    observer.disconnect();
-    focusAt();
-  });
-  observer.observe(list, { childList: true });
-  window.setTimeout(() => observer.disconnect(), 3000);
+  tick();
 }
 
 export function ClioArchivedSessionsDialog({

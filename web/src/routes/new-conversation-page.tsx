@@ -200,7 +200,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           endpoint={settings.endpoint}
           onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
           sessions={sessions}
-          sessionsState={listState(data.allSessions, data.sessions)}
           workspaces={data.workspaces.data ?? []}
           workspacesState={listState(data.workspaces)}
         />

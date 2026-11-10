@@ -8,6 +8,8 @@ const FOCUS = '[data-rail-focus]';
 /** Where a row's menu or dialog takes focus; a row record survives a trip there. */
 const POPUP =
   '[role="menu"],[role="dialog"],[role="alertdialog"],[data-radix-popper-content-wrapper]';
+/** The top bar's left-bar toggle, which reopens the phone sheet. */
+const SHEET_TOGGLE = '[data-sidebar="trigger"]';
 
 function railItems(region: Element): HTMLElement[] {
   return [...region.querySelectorAll<HTMLElement>(ITEM)].filter(
@@ -64,11 +66,11 @@ export function useRailKeyboard(region: RefObject<HTMLElement | null>) {
   );
 
   useEffect(() => {
-    const node = region.current;
-    if (!node) return undefined;
+    // On a phone the bar is a sheet that mounts and unmounts, so the region
+    // is read when needed rather than once.
     let last: { element: HTMLElement; order: string[] } | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const remember = (item: HTMLElement) => {
+    const remember = (node: HTMLElement, item: HTMLElement) => {
       const items = railItems(node);
       const index = items.indexOf(item);
       const key = item.dataset.railItem ?? '';
@@ -80,32 +82,50 @@ export function useRailKeyboard(region: RefObject<HTMLElement | null>) {
       };
     };
     const onFocusIn = (event: FocusEvent) => {
+      const node = region.current;
       const target = event.target instanceof Element ? event.target : null;
-      if (target && node.contains(target)) {
+      if (node && target && node.contains(target)) {
         const item = target.closest<HTMLElement>(ITEM);
-        if (item) remember(item);
-        else last = null;
+        // A control outside the rows (the footer's Archived) keeps no row order.
+        if (item) remember(node, item);
+        else last = { element: target as HTMLElement, order: [] };
         return;
       }
       if (target?.closest(POPUP)) return;
       last = null;
     };
     const onPointerDown = (event: PointerEvent) => {
+      const node = region.current;
       const target = event.target instanceof Element ? event.target : null;
-      if (target && (node.contains(target) || target.closest(POPUP))) return;
+      if (target && (node?.contains(target) || target.closest(POPUP))) return;
       last = null;
     };
     const restore = () => {
       if (!last) return;
+      const node = region.current;
       const active = document.activeElement;
-      if (active && active !== document.body) return;
-      const items = railItems(node);
-      const byKey = new Map(items.map((item) => [item.dataset.railItem ?? '', item]));
-      const order = last.order;
+      // A phone sheet's own focus trap parks a lost focus on the sheet itself.
+      const parked =
+        active instanceof HTMLElement &&
+        active.matches('[role="dialog"]') &&
+        node !== null &&
+        active.contains(node);
+      if (active && active !== document.body && !parked) return;
+      const { element, order } = last;
       last = null;
-      for (const key of order) if (focusItem(byKey.get(key))) return;
-      if (focusItem(items[0])) return;
-      node.querySelector<HTMLElement>('a[href],button:not([disabled])')?.focus();
+      if (node?.isConnected && node.getClientRects().length > 0) {
+        if (!order.length && element.isConnected && node.contains(element)) return element.focus();
+        const items = railItems(node);
+        const byKey = new Map(items.map((item) => [item.dataset.railItem ?? '', item]));
+        for (const key of order) if (focusItem(byKey.get(key))) return;
+        if (focusItem(items[0])) return;
+        const first = node.querySelector<HTMLElement>('a[href],button:not([disabled])');
+        if (first) return first.focus();
+      }
+      // A dialog from the phone sheet closed the sheet: its toggle reopens the bar.
+      [...document.querySelectorAll<HTMLElement>(SHEET_TOGGLE)]
+        .find((toggle) => toggle.getClientRects().length > 0)
+        ?.focus();
     };
     // Rows leave or move in the list, inline editors and dialogs close, as DOM
     // changes; once they settle, a focus that fell to the body comes back.

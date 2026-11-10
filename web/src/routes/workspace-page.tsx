@@ -231,7 +231,6 @@ export function WorkspacePage() {
       endpoint={settings.endpoint}
       onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
       sessions={navigationSessions}
-      sessionsState={listState(allSessions, sessions)}
       workspaces={workspaces.data ?? []}
       workspacesState={listState(workspaces)}
     />

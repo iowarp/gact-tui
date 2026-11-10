@@ -7,6 +7,7 @@ import { Sidebar, SidebarContent, SidebarRail, useSidebar } from '@/components/u
 import { useClioMenuConnections } from '@/hooks/use-clio-menu-connections';
 import { LeftBarDialogContext } from '@/hooks/use-left-bar-dialog';
 import { useRailKeyboard } from '@/hooks/use-rail-keyboard';
+import { useArchivedSessions } from '@/hooks/use-rail-sessions';
 import type { ListState } from '@/lib/list-state';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
@@ -34,8 +35,6 @@ export interface ClioNavigationProps {
   attentions: Readonly<Record<string, SessionAttention>>;
   /** The workspace list's loading or failure, while it lists none. */
   workspacesState?: ListState;
-  /** The conversation list's loading or failure, for Archived. */
-  sessionsState?: ListState;
 }
 
 export function ClioNavigation({
@@ -49,7 +48,6 @@ export function ClioNavigation({
   onOpenWorkspaceFiles,
   attentions,
   workspacesState,
-  sessionsState,
 }: ClioNavigationProps) {
   const location = useLocation();
   const {
@@ -62,6 +60,7 @@ export function ClioNavigation({
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const archived = useArchivedSessions(sessions, archivedOpen);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
   const { isMobile, setOpenMobile } = useSidebar();
@@ -240,8 +239,8 @@ export function ClioNavigation({
         onOpenChange={setArchivedOpen}
         onRestore={actions.restoreSession}
         open={archivedOpen}
-        sessions={sessions}
-        state={sessionsState}
+        sessions={archived.sessions}
+        state={archived.state}
         workspaces={workspaces}
       />
       {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (
