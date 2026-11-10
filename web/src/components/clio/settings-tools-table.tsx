@@ -16,8 +16,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AdjustIcon, DeleteIcon, EditIcon, HelpIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import {
+  AdjustIcon,
+  DeleteIcon,
+  EditIcon,
+  HelpIcon,
+  MoreIcon,
+  RetryIcon,
+} from '@/lib/icon-vocabulary';
+import { moveAcrossCells } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 import {
   CALLERS_TEXT,
@@ -76,7 +85,14 @@ export interface ToolTableSection {
   bulkLabel: string;
   tools: ToolSetting[];
   /** Instead of tools: why there are none yet ("Not loaded yet"). */
-  notice?: { text: string; status: string; tone: StatusTone; title?: string };
+  notice?: {
+    text: string;
+    status: string;
+    tone: StatusTone;
+    title?: string;
+    /** A failed read offers Retry on its row, as every Settings error does. */
+    retry?: () => void;
+  };
   /** While its tools load: how many rows to hold space for, so the page doesn't jump. */
   reserveRows?: number;
 }
@@ -202,6 +218,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
         'group/row relative min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
       )}
       data-tool={tool.name}
+      onKeyDown={moveAcrossCells}
     >
       <span
         aria-label={kind.label}
@@ -503,6 +520,7 @@ function GroupRow({
     <div
       className={cn(COLUMNS, 'group/group relative mt-1.5 min-h-10 py-1')}
       data-tool-group={section.id}
+      onKeyDown={moveAcrossCells}
     >
       {hasTools ? (
         <button
@@ -588,7 +606,7 @@ function GroupRow({
       </span>
       {section.notice ? (
         <span
-          className="col-span-2 col-start-2 row-start-2 flex min-w-0 @min-[32rem]/tools:col-[3/-1] @min-[32rem]/tools:row-start-1"
+          className="col-span-2 col-start-2 row-start-2 flex min-w-0 items-center gap-3 @min-[32rem]/tools:col-[3/-1] @min-[32rem]/tools:row-start-1"
           title={section.notice.title}
         >
           <StatusIndicator
@@ -596,6 +614,17 @@ function GroupRow({
             label={section.notice.status}
             tone={section.notice.tone}
           />
+          {section.notice.retry ? (
+            <Button
+              className="ml-auto rounded-[7px] border-input text-foreground"
+              onClick={section.notice.retry}
+              size="xs"
+              variant="outline"
+            >
+              <RetryIcon aria-hidden="true" className="size-3.5" />
+              Retry
+            </Button>
+          ) : null}
         </span>
       ) : hasTools ? (
         <>
