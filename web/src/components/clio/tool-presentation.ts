@@ -233,9 +233,24 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
   // A call the person stopped was stopped, whatever its producer called the error it saw.
   if (tool.state === 'cancelled') return 'cancelled';
   const declared = tool.presentation?.status;
-  return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
-    ? (declared as ClioStatusValue)
-    : tool.state;
+  const status =
+    declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
+      ? (declared as ClioStatusValue)
+      : tool.state;
+  return status === 'failed' && stoppedDiagnostic(tool) ? 'cancelled' : status;
+}
+
+// The service records a call the person stopped as failed; its diagnostic says it was cancelled.
+const STOPPED_DIAGNOSTIC =
+  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by the (?:user|client|person)\b|\bturn cancell?ed\b/iu;
+
+function stoppedDiagnostic(tool: ToolInvocation): boolean {
+  return [
+    tool.error,
+    ...(tool.presentation?.blocks ?? [])
+      .filter((block) => block.severity === 'error')
+      .map((block) => block.text),
+  ].some((text) => Boolean(text?.trim() && STOPPED_DIAGNOSTIC.test(text.trim())));
 }
 
 /** The call ended because it was stopped or interrupted, not because it failed. */
