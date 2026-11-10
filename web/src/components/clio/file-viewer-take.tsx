@@ -7,7 +7,7 @@ import {
   FileTextIcon,
   LoaderCircleIcon,
 } from 'lucide-react';
-import { Fragment, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { copyText } from '@/lib/clipboard';
 import { MoreIcon } from '@/lib/icon-vocabulary';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import {
   attempt,
   type AddToMessage,
@@ -72,6 +73,7 @@ export function TakeMenuRows({ rows }: { rows: readonly TakeRow[] }) {
             label={row.label}
             description={row.reason}
             accelerator={row.accelerator}
+            shortcut={row.shortcut}
           />
         </DropdownMenuItem>
       </Fragment>
@@ -79,17 +81,43 @@ export function TakeMenuRows({ rows }: { rows: readonly TakeRow[] }) {
   });
 }
 
+/** The frame's Ctrl+C: with nothing selected, focus in the frame copies what the Copy face copies. */
+function useFrameCopyKey(run: () => void) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const region = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        return anchor.current?.closest('[data-slot="frame-bar"]')?.parentElement ?? null;
+      },
+    }),
+    [],
+  );
+  useShortcut('copy', run, {
+    region,
+    when: () => {
+      const selection = window.getSelection();
+      return !selection || selection.isCollapsed || !selection.toString();
+    },
+  });
+  return <span ref={anchor} hidden />;
+}
+
 export function FrameCopyButton({ take, className }: { take: CopyTake; className?: string }) {
+  const anchor = useFrameCopyKey(take.face.run);
   return (
-    <SplitButton
-      label={take.face.label}
-      icon={<CopyIcon aria-hidden="true" />}
-      onClick={take.face.run}
-      menuLabel="Copy options"
-      className={className}
-    >
-      <TakeMenuRows rows={take.rows} />
-    </SplitButton>
+    <>
+      {anchor}
+      <SplitButton
+        label={take.face.label}
+        icon={<CopyIcon aria-hidden="true" />}
+        onClick={take.face.run}
+        menuLabel="Copy options"
+        shortcut="copy"
+        className={className}
+      >
+        <TakeMenuRows rows={take.rows} />
+      </SplitButton>
+    </>
   );
 }
 
@@ -105,25 +133,31 @@ export function FrameContentsCopyButton({
       if (text === undefined) throw new Error('The text is not available yet.');
       await copyText(text);
     }, 'Copied the contents.');
+  const anchor = useFrameCopyKey(copy);
   return (
-    <SplitButton
-      label="Copy contents"
-      icon={<CopyIcon aria-hidden="true" />}
-      onClick={copy}
-      menuLabel="Copy options"
-    >
-      <TakeMenuRows
-        rows={[
-          {
-            id: 'contents',
-            label: 'Contents',
-            icon: <FileTextIcon />,
-            accelerator: 'C',
-            onSelect: copy,
-          },
-        ]}
-      />
-    </SplitButton>
+    <>
+      {anchor}
+      <SplitButton
+        label="Copy contents"
+        icon={<CopyIcon aria-hidden="true" />}
+        onClick={copy}
+        menuLabel="Copy options"
+        shortcut="copy"
+      >
+        <TakeMenuRows
+          rows={[
+            {
+              id: 'contents',
+              label: 'Contents',
+              icon: <FileTextIcon />,
+              accelerator: 'C',
+              shortcut: 'copy',
+              onSelect: copy,
+            },
+          ]}
+        />
+      </SplitButton>
+    </>
   );
 }
 
@@ -145,6 +179,7 @@ export function FrameOpenButton({ take, className }: { take: OpenTake; className
       icon={take.face.icon}
       onClick={take.face.run}
       menuLabel="Open options"
+      menuKey
       disabled={take.busy}
       className={className}
     >
@@ -351,6 +386,7 @@ export function FrameTalkTake({
                 label="Add to message"
                 description={addToMessage.reason}
                 accelerator="@"
+                shortcut="add-to-message"
               />
             </DropdownMenuItem>
           ) : null}

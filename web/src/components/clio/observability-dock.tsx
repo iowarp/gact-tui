@@ -1,33 +1,8 @@
-import { vocab } from '@/lib/brand-vocabulary';
-import type {
-  ExecutionProvenanceDegradation,
-  ExecutionProvenanceResult,
-  Message,
-  SubagentRun,
-  ToolInvocation,
-  ProvenanceProviderSummary,
-  ArtifactProvenanceProviderSummary,
-} from '@clio/core/v3';
-import {
-  ActivityIcon,
-  BracesIcon,
-  CircleAlertIcon,
-  GitForkIcon,
-  WaypointsIcon,
-} from 'lucide-react';
+import type { Message, SubagentRun, ToolInvocation } from '@clio/core/v3';
+import { ActivityIcon, BracesIcon, GitForkIcon } from 'lucide-react';
 import { lazy, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { InfoIcon } from '@/lib/icon-vocabulary';
 import { formatDuration } from '@/lib/format';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import {
@@ -37,9 +12,10 @@ import {
   ClioActivityTimeline,
   type ObservabilityActivityItem,
 } from './observability-activity';
+import { ClioActivityTimelineList } from './activity-timeline-list';
+import { ActivityRecordFooter, ProvenanceSourceBar } from './observability-provenance';
 import { WorkspaceFoldersBar } from './workspace-folders';
 import { ClioStatus } from './status';
-import { TechnicalDetails } from './technical-details';
 import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -290,6 +266,15 @@ export function ClioObservabilityView({
     waitTurnContext,
   ]);
 
+  const turnStartedAt = useMemo(
+    () =>
+      runs.reduce<string | undefined>(
+        (latest, run) =>
+          run.started_at && (!latest || run.started_at > latest) ? run.started_at : latest,
+        undefined,
+      ),
+    [runs],
+  );
   const selectView = (value: string) => {
     if (!OBSERVABILITY_VIEWS.has(value as ObservabilityView)) return;
     const next = value as ObservabilityView;
@@ -312,6 +297,99 @@ export function ClioObservabilityView({
       <WorkspaceFoldersBar folders={workspaceFolders} />
     </>
   );
+  const relationshipsView = (
+    <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
+      <ConversationRelationships
+        sessions={sessions ?? []}
+        sessionId={sessionId ?? ''}
+        onOpenArtifact={onOpenArtifact}
+        selectedId={selectedId}
+        onSelect={(id) => setSelected({ sessionId, id })}
+      />
+    </Suspense>
+  );
+  const contextView = (
+    <>
+      <SectionState
+        error={contextFilesError}
+        label="Attached context"
+        pending={contextFilesPending}
+      />
+      <SectionState
+        error={contextFramesError}
+        label="Context frames"
+        pending={contextFramesPending}
+      />
+      <ClioContextCanvasPanel
+        compactPending={compactContextPending}
+        context={context}
+        error={contextError}
+        files={contextFiles}
+        frames={contextFrames}
+        resources={resources}
+        onOpenResource={onOpenResource}
+        tools={tools}
+        messages={messages}
+        onCompact={onCompactContext}
+        onOpenFile={onOpenFile}
+        onTargetChange={onContextTargetChange}
+        onUpdatePreferences={onUpdateContextPreferences}
+        preferencesPending={contextPreferencesPending}
+        selectedTargetId={selectedContextTargetId}
+        targets={contextTargets}
+      />
+    </>
+  );
+  // The workbench's Activity tab: its own header, then the view, with no second row of tabs.
+  if (control?.renderHeader) {
+    const renderHeader = control.renderHeader;
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-col" ref={surfaceRef}>
+        {activeView === 'activity' ? (
+          <ClioActivityTimelineList
+            footer={
+              <ActivityRecordFooter
+                artifactProvider={artifactProvenanceProvider}
+                degradation={provenanceDegradation}
+                execution={executionProvenance}
+                folders={workspaceFolders}
+                onProviderChange={onProvenanceProviderChange}
+                pending={provenancePending}
+                provider={provenanceProvider}
+                providers={provenanceProviders}
+              />
+            }
+            items={activity}
+            messages={messages}
+            notice={
+              processesError || processesPending ? (
+                <div className="border-b px-3 py-1.5">
+                  <SectionState
+                    error={processesError}
+                    label="Background work"
+                    pending={processesPending}
+                  />
+                </div>
+              ) : null
+            }
+            renderHeader={renderHeader}
+            turnStartedAt={turnStartedAt}
+          />
+        ) : (
+          <>
+            {renderHeader(null)}
+            <ScrollArea className="min-h-0 min-w-0 flex-1">
+              {activeView === 'relationships' ? (
+                <div className="min-w-0">{relationshipsView}</div>
+              ) : (
+                <div className="grid gap-4 p-4">{contextView}</div>
+              )}
+            </ScrollArea>
+          </>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="@container/obs h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
@@ -355,238 +433,15 @@ export function ClioObservabilityView({
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
           <TabsContent className="m-0 min-w-0" value="relationships">
-            <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
-              <ConversationRelationships
-                sessions={sessions ?? []}
-                sessionId={sessionId ?? ''}
-                onOpenArtifact={onOpenArtifact}
-                selectedId={selectedId}
-                onSelect={(id) => setSelected({ sessionId, id })}
-              />
-            </Suspense>
+            {relationshipsView}
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
-            <SectionState
-              error={contextFilesError}
-              label="Attached context"
-              pending={contextFilesPending}
-            />
-            <SectionState
-              error={contextFramesError}
-              label="Context frames"
-              pending={contextFramesPending}
-            />
-            <ClioContextCanvasPanel
-              compactPending={compactContextPending}
-              context={context}
-              error={contextError}
-              files={contextFiles}
-              frames={contextFrames}
-              resources={resources}
-              onOpenResource={onOpenResource}
-              tools={tools}
-              messages={messages}
-              onCompact={onCompactContext}
-              onOpenFile={onOpenFile}
-              onTargetChange={onContextTargetChange}
-              onUpdatePreferences={onUpdateContextPreferences}
-              preferencesPending={contextPreferencesPending}
-              selectedTargetId={selectedContextTargetId}
-              targets={contextTargets}
-            />
+            {contextView}
           </TabsContent>
         </ScrollArea>
       </Tabs>
     </div>
   );
-}
-
-function ProvenanceSourceBar({
-  execution,
-  artifactProvider,
-  degradation,
-  onProviderChange,
-  pending,
-  provider,
-  providers,
-}: {
-  execution?: ExecutionProvenanceResult;
-  artifactProvider?: ArtifactProvenanceProviderSummary;
-  degradation?: ExecutionProvenanceDegradation;
-  onProviderChange?: (provider: string) => void;
-  pending?: boolean;
-  provider?: string;
-  providers?: readonly ProvenanceProviderSummary[];
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = providers?.find((item) => item.name === provider);
-  const selectedDegradation =
-    degradation && degradation.provider === selected?.name ? degradation : undefined;
-  const issue = evidenceRecordIssue(
-    selectedDegradation ?? (!selected ? degradation : undefined),
-    execution,
-    selected,
-  );
-  return (
-    <div className="grid gap-1 border-b pb-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <WaypointsIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="shrink-0 text-xs font-medium">Evidence sources</span>
-          {pending ? <ResourceLoading label="Loading evidence sources" variant="line" /> : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {providers && providers.length > 1 && provider && onProviderChange ? (
-            <Select onValueChange={onProviderChange} value={provider}>
-              <SelectTrigger aria-label="Activity record source" className="w-auto" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map((item) => (
-                  <SelectItem key={item.name} value={item.name}>
-                    <span className="flex items-center gap-2">
-                      <span>{recordSourceLabel(item.name)}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                aria-label={issue?.label ?? 'About evidence records'}
-                title={issue?.label ?? 'About evidence records'}
-                size={issue ? 'sm' : 'icon-xs'}
-                variant="ghost"
-                className={
-                  issue ? 'h-7 px-1.5 text-xs text-warning-foreground dark:text-warning' : undefined
-                }
-              >
-                {issue ? (
-                  <>
-                    <CircleAlertIcon aria-hidden="true" className="size-3.5" />
-                    <span>{issue.label}</span>
-                  </>
-                ) : (
-                  <InfoIcon aria-hidden="true" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 space-y-3 text-sm leading-6">
-              <p className="font-medium">{issue?.title ?? 'About these records'}</p>
-              <p>
-                {issue?.explanation ??
-                  'This view brings together saved activity, file use and artifact relationships for this conversation.'}
-              </p>
-              {issue ? <p className="text-muted-foreground">{issue.consequence}</p> : null}
-              <dl className="grid gap-2 border-t pt-3">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Activity history</dt>
-                  <dd>{selected ? recordSourceLabel(selected.name) : 'Source unavailable'}</dd>
-                </div>
-                {artifactProvider ? (
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Artifact relationships</dt>
-                    <dd>
-                      {artifactProvider.provider === 'native'
-                        ? `${vocab.agent} artifact registry`
-                        : recordSourceLabel(artifactProvider.provider)}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-              <TechnicalDetails title="Technical details" className="text-xs text-muted-foreground">
-                <dl className="grid gap-1">
-                  <div>Provider: {selected?.name ?? provider ?? 'unknown'}</div>
-                  <div>Source: {selected?.source ?? 'unknown'}</div>
-                  <div>Source availability: {selected?.status ?? 'unknown'}</div>
-                  {artifactProvider ? (
-                    <div>Artifact provider: {artifactProvider.provider}</div>
-                  ) : null}
-                </dl>
-                {selectedDegradation ? (
-                  <p className="mt-2 break-words">{selectedDegradation.reason}</p>
-                ) : null}
-                {selected?.health.last_error ? (
-                  <p className="mt-2 break-words">Recording error: {selected.health.last_error}</p>
-                ) : null}
-              </TechnicalDetails>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function recordSourceLabel(provider: string): string {
-  return (
-    (
-      { native: `Built-in ${vocab.agent} records`, flowcept: 'Flowcept', cmf: 'CMF' } as Record<
-        string,
-        string
-      >
-    )[provider] ?? provider
-  );
-}
-
-/** Explain record coverage separately from whether its storage service can be queried. */
-function evidenceRecordIssue(
-  degradation: ExecutionProvenanceDegradation | undefined,
-  execution: ExecutionProvenanceResult | undefined,
-  source: ProvenanceProviderSummary | undefined,
-): { label: string; title: string; explanation: string; consequence: string } | undefined {
-  if (execution?.truncated)
-    return {
-      label: 'Limited history',
-      title: 'Some activity is not shown',
-      explanation: 'The recording source returned a limited number of records.',
-      consequence:
-        'This view cannot show the full sequence of work or all relationships between records.',
-    };
-  if (degradation?.partial && source?.name === 'native' && execution?.complete === false)
-    return {
-      label: 'Unfinished records',
-      title: 'Some activity has no recorded finish',
-      explanation: 'It may still be running, or its final update may be missing.',
-      consequence: 'The history cannot confirm completion or duration for those records.',
-    };
-  if (degradation?.partial || source?.status === 'partial')
-    return {
-      label: 'Partial history',
-      title: 'Activity history is incomplete',
-      explanation:
-        'The recording source cannot confirm that this view contains the full activity history.',
-      consequence:
-        'Some events or relationships may be missing. Review the available records before relying on the full sequence or timings.',
-    };
-  if (source && providerStatus(source.status, source.queryable) === 'degraded')
-    return {
-      label: 'Recording needs attention',
-      title: 'Some records may be missing',
-      explanation: 'The source can be read, but it reports a recording problem.',
-      consequence:
-        'Review the available activity with that limitation in mind. Technical details contain the source diagnostic.',
-    };
-  if (degradation || (source && providerStatus(source.status, source.queryable) !== 'healthy'))
-    return {
-      label: 'Recording unavailable',
-      title: 'Activity records could not be read',
-      explanation: 'The selected recording source is unavailable or reports a problem.',
-      consequence:
-        'The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic.',
-    };
-  return undefined;
-}
-
-function providerStatus(
-  status: string,
-  queryable: boolean,
-): 'healthy' | 'degraded' | 'unavailable' {
-  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
-  if (status === 'degraded' || status === 'partial') return 'degraded';
-  return 'healthy';
 }
 
 /** States an observability section the service could not deliver, or has not delivered yet. */

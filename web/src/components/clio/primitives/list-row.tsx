@@ -72,7 +72,11 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * elements that cut them with … so the whole line answers the pointer.
    */
   hoverText?: { title?: string; description?: string };
-  /** The 12px column before the icon (an expand chevron) in `activity` rows. */
+  /**
+   * The 12px column before the icon (an expand chevron) in `activity` rows. In
+   * `list` rows it is the first column and sizes itself, the same width on
+   * every row (the Activity timeline's agent strands).
+   */
   leading?: ReactNode;
   /**
    * In a narrow `activity` row (below 280px) the name becomes the icon's hover
@@ -281,6 +285,7 @@ export const ListRow = memo(
         )}
         {...rest}
       >
+        {leading}
         {status !== undefined ? (
           <span className="flex w-4 shrink-0 justify-center">{status}</span>
         ) : null}
