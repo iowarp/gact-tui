@@ -90,20 +90,26 @@ function workbenchTabReference(
 }
 
 /**
- * A tab shortcut that unmounts the focused tab or its body lands focus on the new
- * active tab, or on the composer when the last tab closed the canvas.
+ * After a tab shortcut, focus follows the active tab: when focus was lost (the
+ * focused tab or its body unmounted) or sat on another canvas tab, it lands on the
+ * new active tab, or on the composer when the last tab closed the canvas.
  */
 export function refocusActiveCanvasTab(region: Element | null) {
   requestAnimationFrame(() => {
     const active = document.activeElement;
-    if (active && active !== document.body) return;
+    const onCanvasTab =
+      active instanceof HTMLElement &&
+      active.matches('[data-slot=canvas-tab-row] [role=tab]') &&
+      Boolean(region?.contains(active));
+    if (active && active !== document.body && !onCanvasTab) return;
     const tab = region?.isConnected
       ? region.querySelector<HTMLElement>(
           '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
         )
       : null;
-    if (tab) tab.focus();
-    else
+    if (tab) {
+      if (tab !== active) tab.focus();
+    } else if (!onCanvasTab)
       focusEditorAtOffset(
         document.querySelector<HTMLDivElement>('[contenteditable="true"][role="combobox"]'),
       );
