@@ -282,6 +282,56 @@ describe('row menu', () => {
     await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
     expect(screen.queryByRole('menuitem', { name: /system terminal/u })).toBeNull();
   });
+
+  it('offers the title menu’s Compact and Remove last after the terminal, each confirmed', async () => {
+    const user = userEvent.setup();
+    const compactSession = vi.fn().mockResolvedValue(undefined);
+    const undoSession = vi.fn().mockResolvedValue(undefined);
+    renderMenuRow(
+      { ...actions, openSystemTerminal: vi.fn(), compactSession, undoSession },
+      session,
+      'D:\\data\\ndp',
+    );
+    const openMenu = () =>
+      user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+
+    await openMenu();
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
+    const at = (pattern: RegExp) => items.findIndex((label) => pattern.test(label));
+    expect(at(/^Compact conversation…C$/u)).toBe(at(/^Open in system terminal/u) + 1);
+    expect(at(/^Remove last message…V$/u)).toBe(at(/^Compact/u) + 1);
+    expect(at(/^Archive/u)).toBe(at(/^Remove last/u) + 1);
+
+    await user.keyboard('c');
+    let dialog = await screen.findByRole('alertdialog', { name: 'Compact this conversation?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(compactSession).not.toHaveBeenCalled();
+
+    await openMenu();
+    await user.click(screen.getByRole('menuitem', { name: /Compact conversation/u }));
+    dialog = await screen.findByRole('alertdialog', { name: 'Compact this conversation?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Compact conversation' }));
+    expect(compactSession).toHaveBeenCalledWith('sess_review');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    await openMenu();
+    await user.click(screen.getByRole('menuitem', { name: /Remove last message/u }));
+    dialog = await screen.findByRole('alertdialog', { name: 'Remove last message?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove message' }));
+    expect(undoSession).toHaveBeenCalledWith('sess_review');
+  });
+
+  it('keeps a refused Remove last open and names the failure', async () => {
+    const user = userEvent.setup();
+    const undoSession = vi.fn().mockRejectedValue(new Error('nothing to remove'));
+    renderMenuRow({ ...actions, compactSession: vi.fn(), undoSession });
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    await user.click(screen.getByRole('menuitem', { name: /Remove last message/u }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove last message?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove message' }));
+    expect(undoSession).toHaveBeenCalledWith('sess_review');
+    expect(within(dialog).getByRole('button', { name: 'Remove message' })).toBeEnabled();
+  });
 });
 
 describe('agent fork row', () => {

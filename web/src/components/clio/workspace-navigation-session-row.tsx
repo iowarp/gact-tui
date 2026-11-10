@@ -35,7 +35,12 @@ import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 import { SessionExportMenu } from './session-export-menu';
 import {
+  SessionHistoryConfirmDialog,
+  type SessionHistoryConfirmation,
+} from './session-history-confirm-dialog';
+import {
   SessionForkMenuItem,
+  SessionHistoryMenuItems,
   SessionLifecycleMenuItems,
   SessionOrganizeMenuItems,
   SessionShareMenuItem,
@@ -148,7 +153,28 @@ function SessionRow({
   const active = session.id === activeSessionId;
   const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
-  const { forkSession, shareSession, openSystemTerminal } = actions;
+  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
+  const [historyPending, setHistoryPending] = useState(false);
+  const { forkSession, shareSession, openSystemTerminal, compactSession, undoSession } = actions;
+  const hasHistoryActions = Boolean(compactSession && undoSession);
+  const confirmHistory = async () => {
+    const action = confirmation === 'compact' ? compactSession : undoSession;
+    if (!action) return;
+    setHistoryPending(true);
+    try {
+      await action(session.id);
+      setConfirmation(undefined);
+    } catch (error) {
+      toast.error(
+        confirmation === 'compact'
+          ? 'Unable to compact this conversation'
+          : 'Unable to remove the last message',
+        { description: error instanceof Error ? error.message : String(error) },
+      );
+    } finally {
+      setHistoryPending(false);
+    }
+  };
   const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <>
@@ -199,16 +225,19 @@ function SessionRow({
                       )
                     }
                   />
+                  {(openSystemTerminal && workspacePath) || hasHistoryActions ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
                   {openSystemTerminal && workspacePath ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <KeyMenuItem
-                        icon={ExternalLinkIcon}
-                        label="Open in system terminal"
-                        menuKey="T"
-                        onSelect={() => void openSystemTerminal(workspacePath)}
-                      />
-                    </>
+                    <KeyMenuItem
+                      icon={ExternalLinkIcon}
+                      label="Open in system terminal"
+                      menuKey="T"
+                      onSelect={() => void openSystemTerminal(workspacePath)}
+                    />
+                  ) : null}
+                  {hasHistoryActions ? (
+                    <SessionHistoryMenuItems onConfirm={setConfirmation} />
                   ) : null}
                   <DropdownMenuSeparator />
                   <SessionLifecycleMenuItems
@@ -371,6 +400,14 @@ function SessionRow({
           }}
           open
           title={session.title || 'Untitled session'}
+        />
+      ) : null}
+      {hasHistoryActions ? (
+        <SessionHistoryConfirmDialog
+          confirmation={confirmation}
+          onCancel={() => setConfirmation(undefined)}
+          onConfirm={() => void confirmHistory()}
+          pending={historyPending}
         />
       ) : null}
     </>

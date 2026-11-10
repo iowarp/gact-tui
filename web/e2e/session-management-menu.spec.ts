@@ -154,4 +154,7 @@ test('header rename and pin refresh both the header and sidebar menus', async ({
   await page.keyboard.press('Escape');
   await sidebar.click();
   await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible();
+  // The left bar menu is the title menu: history actions included.
+  await expect(page.getByRole('menuitem', { name: /^Compact conversation…/u })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: /^Remove last message…/u })).toBeVisible();
 });

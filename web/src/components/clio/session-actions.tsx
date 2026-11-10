@@ -1,19 +1,9 @@
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
-import { ExternalLinkIcon, PackageOpenIcon, Undo2Icon } from 'lucide-react';
+import { ExternalLinkIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,7 +23,12 @@ import {
 import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
 import {
+  SessionHistoryConfirmDialog,
+  type SessionHistoryConfirmation,
+} from './session-history-confirm-dialog';
+import {
   SessionForkMenuItem,
+  SessionHistoryMenuItems,
   SessionLifecycleMenuItems,
   SessionOrganizeMenuItems,
   SessionShareMenuItem,
@@ -75,7 +70,7 @@ export function ClioSessionActions({
   onShare,
   onUndo,
 }: ClioSessionActionsProps) {
-  const [confirmation, setConfirmation] = useState<'compact' | 'undo'>();
+  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
   const [sharing, setSharing] = useState(false);
   const [pending, setPending] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
@@ -155,19 +150,7 @@ export function ClioSessionActions({
           onSelect={() => void run(onOpenSystemTerminal)}
         />
       ) : null}
-      <KeyMenuItem
-        icon={PackageOpenIcon}
-        label="Compact conversation…"
-        menuKey="C"
-        onSelect={() => setConfirmation('compact')}
-      />
-      <KeyMenuItem
-        icon={Undo2Icon}
-        label="Remove last message…"
-        menuKey="V"
-        onSelect={() => setConfirmation('undo')}
-        destructive
-      />
+      <SessionHistoryMenuItems onConfirm={setConfirmation} />
       {management ? (
         <>
           <DropdownMenuSeparator />
@@ -225,42 +208,12 @@ export function ClioSessionActions({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open && !pending) setConfirmation(undefined);
-        }}
-        open={confirmation !== undefined}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmation === 'compact' ? 'Compact this conversation?' : 'Remove last message?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmation === 'compact'
-                ? 'The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.'
-                : 'The service will permanently remove the last stored message from this session. This action follows the connected permission policy.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={pending}
-              onClick={(event) => {
-                event.preventDefault();
-                void confirm();
-              }}
-              variant={confirmation === 'undo' ? 'destructive' : 'default'}
-            >
-              {pending
-                ? 'Working…'
-                : confirmation === 'compact'
-                  ? 'Compact conversation'
-                  : 'Remove message'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SessionHistoryConfirmDialog
+        confirmation={confirmation}
+        onCancel={() => setConfirmation(undefined)}
+        onConfirm={() => void confirm()}
+        pending={pending}
+      />
       {management && renameTarget ? (
         <RenameResourceDialog
           actions={management.actions}

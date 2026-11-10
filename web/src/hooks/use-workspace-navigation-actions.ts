@@ -77,6 +77,18 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
     [repository],
   );
 
+  const refreshTranscript = useCallback(
+    async (targetSessionId: string) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('transcript', settings.endpoint, targetSessionId),
+        }),
+        refreshNavigation(),
+      ]);
+    },
+    [queryClient, refreshNavigation, settings.endpoint],
+  );
+
   const refreshWorkspaceFolders = useCallback(
     async (targetWorkspaceId: string) => {
       await Promise.all([
@@ -171,6 +183,24 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         const shared = await repository.shareSession(targetSessionId, ttlSeconds);
         return new URL(shared.url, settings.endpoint).toString();
       },
+      compactSession: async (targetSessionId) => {
+        const result = await repository.compactSession(targetSessionId);
+        await refreshTranscript(targetSessionId);
+        if (result.compacted) toast.success('Conversation compacted');
+        else
+          toast.info('Conversation was not compacted', {
+            description: result.reason ?? 'The service did not report a reason.',
+          });
+      },
+      undoSession: async (targetSessionId) => {
+        const result = await repository.undoSession(targetSessionId);
+        await refreshTranscript(targetSessionId);
+        toast.success(
+          result.deleted_message_ids.length === 1
+            ? 'Last message removed'
+            : `${result.deleted_message_ids.length} messages removed`,
+        );
+      },
       openSystemTerminal: inTauri()
         ? async (workspacePath) => {
             try {
@@ -223,6 +253,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       navigate,
       navigateToAvailableSession,
       refreshNavigation,
+      refreshTranscript,
       refreshWorkspaceFolders,
       repository,
       sessionId,

@@ -10,7 +10,10 @@ const mocks = vi.hoisted(() => ({
   updateWorkspace: vi.fn(),
   grantWorkspaceFolder: vi.fn(),
   revokeWorkspaceFolder: vi.fn(),
+  compactSession: vi.fn(),
+  undoSession: vi.fn(),
   navigate: vi.fn(),
+  toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
 vi.mock('./use-repository', () => ({
   useRepository: () => ({
@@ -18,8 +21,11 @@ vi.mock('./use-repository', () => ({
     updateWorkspace: mocks.updateWorkspace,
     grantWorkspaceFolder: mocks.grantWorkspaceFolder,
     revokeWorkspaceFolder: mocks.revokeWorkspaceFolder,
+    compactSession: mocks.compactSession,
+    undoSession: mocks.undoSession,
   }),
 }));
+vi.mock('sonner', () => ({ toast: mocks.toast }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('./use-available-session-navigation', () => ({
   useAvailableSessionNavigation: () => mocks.navigate,
@@ -174,3 +180,35 @@ it.each(['grantWorkspaceFolder', 'revokeWorkspaceFolder'] as const)(
     expect(client.getQueryState(unrelated)?.isInvalidated).toBe(false);
   },
 );
+
+it('compacts or removes the last message of any row and refreshes that transcript', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const endpoint = 'http://localhost:8100';
+  const transcript = ['transcript', endpoint, 's2'];
+  const other = ['transcript', endpoint, 's1'];
+  client.setQueryData(transcript, {});
+  client.setQueryData(other, {});
+  mocks.compactSession.mockResolvedValueOnce({ compacted: false, reason: 'Too short' });
+  mocks.undoSession.mockResolvedValueOnce({ deleted_message_ids: ['m1', 'm2'] });
+  const { result } = renderHook(() => useWorkspaceNavigationActions('w1', 's1'), {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+
+  await act(async () => {
+    await result.current.navigationActions.compactSession?.('s2');
+  });
+  expect(mocks.compactSession).toHaveBeenCalledWith('s2');
+  expect(client.getQueryState(transcript)?.isInvalidated).toBe(true);
+  expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+  expect(mocks.toast.info).toHaveBeenCalledWith('Conversation was not compacted', {
+    description: 'Too short',
+  });
+
+  await act(async () => {
+    await result.current.navigationActions.undoSession?.('s2');
+  });
+  expect(mocks.undoSession).toHaveBeenCalledWith('s2');
+  expect(mocks.toast.success).toHaveBeenCalledWith('2 messages removed');
+});

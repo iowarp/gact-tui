@@ -1,8 +1,17 @@
 import type { Session } from '@clio/core/v3';
-import { ArchiveIcon, GitForkIcon, PinIcon, PinOffIcon, Share2Icon } from 'lucide-react';
+import {
+  ArchiveIcon,
+  GitForkIcon,
+  PackageOpenIcon,
+  PinIcon,
+  PinOffIcon,
+  Share2Icon,
+  Undo2Icon,
+} from 'lucide-react';
 import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import type { SessionHistoryConfirmation } from './session-history-confirm-dialog';
 
 export interface SessionManagementMenuProps {
   session: Session;
@@ -58,6 +67,31 @@ export function SessionForkMenuItem({ onSelect }: { onSelect: () => void }) {
 export function SessionShareMenuItem({ onSelect }: { onSelect: () => void }) {
   return (
     <KeyMenuItem icon={Share2Icon} label="Share read-only link" menuKey="L" onSelect={onSelect} />
+  );
+}
+
+/** Compact and Remove last, shared by the title and left bar menus; each opens its confirmation. */
+export function SessionHistoryMenuItems({
+  onConfirm,
+}: {
+  onConfirm: (confirmation: SessionHistoryConfirmation) => void;
+}) {
+  return (
+    <>
+      <KeyMenuItem
+        icon={PackageOpenIcon}
+        label="Compact conversation…"
+        menuKey="C"
+        onSelect={() => onConfirm('compact')}
+      />
+      <KeyMenuItem
+        icon={Undo2Icon}
+        label="Remove last message…"
+        menuKey="V"
+        onSelect={() => onConfirm('undo')}
+        destructive
+      />
+    </>
   );
 }
 
