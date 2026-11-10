@@ -454,7 +454,8 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                   type="submit"
                 >
                   {submitLabel}
-                  <span aria-hidden="true">
+                  {/* The sheet under 600 px drops key hints first. */}
+                  <span aria-hidden="true" className="max-[599px]:hidden">
                     <ShortcutKeys
                       className="font-mono text-[10.5px] text-current opacity-70"
                       keys={['Ctrl+Enter']}
@@ -694,6 +695,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                   }
                   // A failed row already reads "Can't connect"; the line adds only the reason.
                   title={selectedFailed ? undefined : "Can't connect"}
+                  tokenSent={Boolean(mutation.variables?.token)}
                 />
               ) : null}
               {!mutation.error && credentialError ? (
@@ -716,7 +718,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
       <Dialog open onOpenChange={(open) => (open ? undefined : dialog.onClose())}>
         <DialogContent
           aria-describedby={undefined}
-          className="top-1/2 w-[460px] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 overflow-visible rounded-[12px] bg-transparent p-0 ring-0 sm:max-w-[calc(100%-2rem)] max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-b-none"
+          className="top-1/2 w-[clamp(340px,36vw,640px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 overflow-visible rounded-[12px] bg-transparent p-0 ring-0 sm:max-w-[calc(100%-2rem)] max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-b-none"
           showCloseButton={false}
           // Start in the content (the address field or the first agent), not on
           // the close button, so Esc closes the dialog on the first press.
