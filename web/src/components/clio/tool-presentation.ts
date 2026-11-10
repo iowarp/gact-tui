@@ -278,7 +278,11 @@ export function getToolActivityTitle(tool: ToolInvocation): string {
   const subject = getToolSubject(tool);
   let label = subject?.label?.trim();
   // A path subject names its last segment; the full path stays in the call's details.
-  if (label && TOOL_OPERATIONS[tool.name]?.subjects?.includes('path'))
+  if (
+    label &&
+    (TOOL_OPERATIONS[tool.name]?.subjects?.includes('path') ||
+      /^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/])/u.test(label))
+  )
     label = label.split(/[\\/]/u).filter(Boolean).at(-1) ?? label;
   return label ? `${action} (${label})` : action;
 }

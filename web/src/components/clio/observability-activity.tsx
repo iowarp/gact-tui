@@ -740,7 +740,12 @@ function projectedActivityLabel(
   fallback: string,
   attributes: Record<string, unknown>,
 ): string {
-  if (kind !== 'tool' || !toolName) return fallback;
+  if (kind !== 'tool' || !toolName) {
+    // Recorder sentences ("Artifact regrid.py v1 created.") read as the action they record.
+    const recorded = /^Artifact (.+?) (created|updated|deleted)\.?$/u.exec(fallback.trim());
+    if (recorded) return `${recorded[2]![0]!.toUpperCase()}${recorded[2]!.slice(1)} ${recorded[1]}`;
+    return fallback.trim().replace(/\.$/u, '');
+  }
   const input = attributes.tool_input;
   const qualifier =
     input && typeof input === 'object'

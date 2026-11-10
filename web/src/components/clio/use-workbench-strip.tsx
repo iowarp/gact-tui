@@ -129,7 +129,8 @@ export function useWorkbenchStrip({
     const item = stripItems.find((candidate) =>
       position === 'terminal' ? candidate.id === 'terminal' : candidate.position === position,
     );
-    if (item) selectStripItem(item.id);
+    // Opening the pocket is the whole of the chord when its item is already shown.
+    if (item && !item.pressed) selectStripItem(item.id);
   };
   // Where no terminal can run, the chord still lands on Terminal's list, which says so.
   const openTerminal = () => {
