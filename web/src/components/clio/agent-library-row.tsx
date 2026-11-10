@@ -19,6 +19,7 @@ import { DetailPane } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { MenuRow } from './primitives/menu-row';
+import { RowConfirm } from './primitives/row-confirm';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -27,7 +28,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
  * and what they add or remove; installed agents show their description.
  */
 function agentMeta(agent: AgentEntry, agents: readonly AgentEntry[]): string[] {
-  const count = plural(agent.plugins.length, 'plugin');
+  const count = plural(agent.plugins.length, 'package');
   if (agent.kind !== 'user') return agent.description ? [agent.description] : [count];
   const parent = agent.extends ? agentDisplayName(agent.extends, agents) : '';
   const add = agent.delta?.add ?? [];
@@ -71,7 +72,8 @@ export function AgentRow({
   agent: AgentEntry;
   agents: readonly AgentEntry[];
   onPreview: () => void;
-  onDelete?: () => void;
+  /** Deletes once the row's inline confirm says so; a promise keeps the confirm waiting. */
+  onDelete?: () => unknown;
   onViewSource?: () => void;
   metadata?: ReactNode;
   selected?: boolean;
@@ -79,20 +81,40 @@ export function AgentRow({
   slot?: ReactNode;
 }) {
   const name = agent.name || agent.id;
+  // Delete asks on the row (spec: an inline confirm, focus stays put).
+  const [asking, setAsking] = useState(false);
+  const confirming = asking && Boolean(onDelete);
   const open = (event: MouseEvent<HTMLDivElement>) => {
     // Buttons and menu items (portaled, but still bubbling through React) do their own thing.
     if ((event.target as Element).closest('button, a, [role="menuitem"], [role="menu"]')) return;
+    if (confirming) return;
     onPreview();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || event.key !== 'Enter') return;
-    event.preventDefault();
-    onPreview();
+    if (event.target !== event.currentTarget || confirming) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onPreview();
+    } else if ((event.key === 'Delete' || event.key === 'Backspace') && onDelete) {
+      event.preventDefault();
+      setAsking(true);
+    }
   };
   return (
     <ItemRow
       aria-current={selected || undefined}
       className="cursor-default target:bg-primary/10"
+      confirm={
+        confirming && onDelete ? (
+          <RowConfirm
+            action="Delete"
+            busyAction="Deleting…"
+            onConfirm={onDelete}
+            onKeep={() => setAsking(false)}
+            question="Delete this agent?"
+          />
+        ) : undefined
+      }
       data-agent-ref={agent.ref}
       icon={<BotIcon />}
       id={agentSearchTarget(agent.ref)}
@@ -112,7 +134,11 @@ export function AgentRow({
             onClick={onPreview}
           />
           {onDelete ? (
-            <IconButton icon={<DeleteIcon />} label={`Delete ${name}`} onClick={onDelete} />
+            <IconButton
+              icon={<DeleteIcon />}
+              label={`Delete ${name}`}
+              onClick={() => setAsking(true)}
+            />
           ) : null}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>

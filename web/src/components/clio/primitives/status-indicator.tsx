@@ -69,11 +69,16 @@ export const StatusIndicator = memo(function StatusIndicator({
   className,
 }: StatusIndicatorProps) {
   const glyph = markStyle === 'glyph' ? GLYPH[tone] : undefined;
-  // Work in progress is the shared teal ring; in a glyph column, a wait on the person is too.
+  // Work in progress is the shared teal ring; in a glyph column, a wait on the person turns amber.
   const mark =
     glyph ??
-    (tone === 'running' || (markStyle === 'glyph' && tone === 'waiting') ? (
+    (tone === 'running' ? (
       <RingSpinner className={markStyle === 'glyph' ? undefined : 'size-[11px]'} />
+    ) : markStyle === 'glyph' && tone === 'waiting' ? (
+      <span
+        aria-hidden="true"
+        className="block size-3 rounded-full border-[1.5px] border-warning border-t-transparent motion-safe:animate-spin motion-safe:will-change-transform"
+      />
     ) : (
       <span aria-hidden="true" className={cn('block', MARK[tone])} />
     ));

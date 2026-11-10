@@ -7,14 +7,14 @@ Paths are under `web/src/`.
 
 ## Window and navigation (owned by S3)
 
-| Part            | Path                                                                                | Notes                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc. Sections load lazily.                            |
-| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                         |
-| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter. |
-| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                    |
-| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                          |
-| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.               |
+| Part            | Path                                                                                | Notes                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc or browser Back. It is one history entry: sections replace it, and closing goes back past it. Sections load lazily. |
+| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                                                                                           |
+| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter.                                                                   |
+| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                                                                                      |
+| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                                                                                            |
+| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.                                                                                 |
 
 ## Page parts
 
@@ -23,9 +23,11 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, wideControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
+switch. Use `wideControl` for a control that can outgrow the 52% column, such as a
+segmented choice with many options: it sits beside the label while both fit and drops
+under it, left-aligned, when they don't, so it never covers the label. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
 with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
 (group labels with a control, a save bar under rows) use the same `SETTINGS_COLUMN` class
 from `lib/settings-fold.ts`. It applies 60% from a 36rem container, so the 41rem content
@@ -50,7 +52,9 @@ alternatives, which has a right-aligned arrow.
 
 **`SettingsChoice`** (same file)
 `{ id, label, value, onChange, options: { value, label, description?, icon? }[] }`.
-A choice that applies at once, so it never reaches the save bar.
+A choice that applies at once, so it never reaches the save bar. In a row narrower than
+28rem, options with an icon show only the icon, with the name on hover and as the
+accessible name (Appearance → Theme at 390 px).
 
 **`ItemRow` / `ItemList`** (D) `components/clio/primitives/item-row.tsx`
 `ItemRow { icon?, title, meta?, status?, actions?, actionsVisible?, foldActions?, slot?, confirm?, statusWidth?, actionsWidth?, slotWidth?, selected?, size?: 'default' | 'sm' | 'line' }`
@@ -73,7 +77,8 @@ own max width. `confirm` is an inline confirmation ("Remove this rule?",
 Keep, Remove) that replaces status, actions and slot with one cell across them.
 
 The shared one-line row (X5) is `size="line"`: 30 px, a 15 px icon, the name at 12.5 px
-and the meta in faint 11.5 px on the same line, shrinking first. Pickers, menus,
+and the meta in faint 11.5 px on the same line. The meta gives way first: the name keeps
+its full width and ellipsizes only when it alone overflows the row. Pickers, menus,
 Infrastructure and dense Settings lists use it instead of cards, accordions or two-line
 rows. `default` (46 px, meta under the name) is for lists whose meta needs room, and
 `sm` (34 px) for nested lists.
@@ -94,11 +99,16 @@ The key chips sit inside the buttons as 18 px `.xk` caps: `Cancel Esc` on the sa
 and `Allow folder Ctrl ↵` (⌘↩ on a Mac) on the confirm button. There is no hint strip on
 the left. The chips are hidden from screen readers, so a button's name stays its label.
 The overlay is the theme's `--scrim`; Notebook dark uses the spec's `rgba(10,9,8,.62)`.
-Below 600 px the frame becomes a full-width sheet and drops the chips (spec: dialogs grow to
-100% and drop the key hints before anything else folds). With `keyboard: false` or a disabled
+The frame is 44% of the viewport (`clamp(360px,44vw,600px)`, the spec's 600 px cap) and a
+full-width bottom sheet below 600 px. Narrowing drops the chips first (spec: dialogs "drop the
+key hints before anything else"): the footer is a container and the chips hide once it is
+under 28.5rem, the spec frame's ~460 px, which at 44% is a window under about 1036 px, before
+the window's 1024 px fold. They stay hidden in the sheet. A section that needs a wider dialog passes its own `w-[clamp(...)]`; one whose
+floor is 460 px or more keeps its chips until the sheet. With `keyboard: false` or a disabled
 confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
 `cancelLabel={null}` (no Cancel; focus starts on the confirm), `confirm.key: 'Enter'` (plain ↵
-confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The body is marked
+confirms, and the button's chip shows ↵) and `footerStart` (a quiet link on the left). The
+body is marked
 `data-slot="dialog-frame-body"`; parts that need a dialog-specific layout use the
 `in-data-[slot=dialog-frame-body]:` variant rather than a new prop.
 
@@ -113,11 +123,35 @@ a right-aligned 12.5 px value that keeps one line while it fits and wraps only w
 dialog is too narrow for it.
 
 **`WindowShell`** (same file)
-`{ open, onOpenChange, title, navigation?, rail?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
+`{ open, onOpenChange, title, navigation?, rail?, picker?, toolbar?, search?, children, icon?, contentRef?, contentLabel?, className? }`.
 The full window frame. Only the Settings window uses it today. The window
-narrows in the spec's order: from 1024 px `navigation` shows; at 768–1023 px
-`rail` replaces it; below 768 px both hide and a `toolbar` picker takes over.
-Without a `rail`, `navigation` shows from 768 px.
+folds in the spec's order ("notes and ⓘ tooltips hide, rows stack, the nav folds
+to a rail, the rail becomes a picker"). The spec gives proportions, not widths, so
+the viewport thresholds are ours:
+
+| Viewport  | Fold                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| ≥ 1024 px | `navigation`, notes and ⓘ, two-column rows                                                                                                    |
+| < 1024 px | notes and ⓘ hide, rows stack (`NARROW_HIDDEN` in `lib/settings-fold.ts`)                                                                      |
+| < 880 px  | `rail` replaces `navigation`                                                                                                                  |
+| < 600 px  | the window fills the screen, the rail hides and `picker` takes the title's place (the title stays for screen readers); search becomes an icon |
+
+Below 600 px a `DialogFrame` is a bottom sheet, so `NARROW_HIDDEN` hides notes and ⓘ in
+its body as well; above that, dialogs keep them (they portal outside the window content).
+Below 600 px a one-line `StateView size="row"` in a settings body takes `ROW_STATE_WRAP`
+(same file) so its sentence wraps instead of ellipsizing, and a list wrapper in a section
+body uses `grid-cols-1` (not a bare `grid`) so wide item rows never widen the column
+past the window.
+
+Without a `rail`, `navigation` shows from 600 px. `toolbar` holds other title-row
+controls before the ×.
+
+**`SettingsSectionPicker`** `components/clio/settings-navigation.tsx`
+The `picker` for Settings: a bordered chip with the current section's icon, name and
+a chevron (the spec's `.mpk`). It opens the one searchable Picker (Popover, Command,
+`PickerFooter`) with Search everywhere first, Show every section while a search
+filters the list, then the sections grouped by scope with their counts and a check on
+the current one.
 
 **`SettingsNavRail`** `components/clio/settings-nav-rail.tsx`
 Takes the same props as `SettingsNavigation`. It is one named icon per scope
@@ -150,12 +184,12 @@ muted track without a border, 24 px items at 12 px, and the selected item raised
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
 
 **`StepList`** `components/clio/primitives/step-list.tsx`
-`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label }`.
 The steps of a long operation in 28 px rows: a check, a 12 px teal ring on its track (the spec's
 `.spin`; it stays still with reduced motion), an open circle or an alert, the
 state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
-`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
-default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step; the
+local startup passes none and keeps its output in Startup details.
 Used by the update page and the local startup (`LocalStartupSteps`).
 
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and

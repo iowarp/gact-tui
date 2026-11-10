@@ -1800,8 +1800,9 @@ function Cascader<T>({
       }
 
       // Opening onto the level holding the selection is the difference
-      // between "edit this" and "start over".
-      if (revealSelected) {
+      // between "edit this" and "start over". A keystroke that opens the
+      // list has already written the query; resetting here would drop it.
+      if (revealSelected && details.reason !== 'input-change') {
         setQuery('');
         const first = toArray(value)[0];
         setPathWithReason(
