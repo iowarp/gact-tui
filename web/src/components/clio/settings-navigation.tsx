@@ -82,6 +82,7 @@ export function SettingsNavigation({
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
+              replace
               state={linkState}
               title={label}
               to={`/settings/${id}${search}`}
@@ -216,7 +217,10 @@ export function SettingsSectionPicker({
                     keywords={[label, scopeLabels[group] ?? group]}
                     onSelect={() => {
                       setOpen(false);
-                      void navigate(`/settings/${id}${search}`, { state: linkState });
+                      void navigate(`/settings/${id}${search}`, {
+                        replace: true,
+                        state: linkState,
+                      });
                     }}
                     value={id}
                   >

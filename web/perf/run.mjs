@@ -132,9 +132,9 @@ async function runInteractions(browser, stack) {
   await coldLoad(r, `${stack.baseURL}${SESSION_URL}`, marks.base);
   const loadRequests = requestSummary(await drainRequests(stack));
   const groups = await processGroups(browser, stack);
-  const idleStart = await sampleGroups(groups);
-  await idle(r, idleSeconds);
-  const idleEnd = await sampleGroups(groups);
+  const { cpuStart: idleStart, cpuEnd: idleEnd } = await idle(r, idleSeconds, () =>
+    sampleGroups(groups),
+  );
   for (let round_ = 0; round_ < repeat; round_ += 1) {
     log(`interactions round ${round_ + 1}/${repeat}`);
     await shellJourney(r);
@@ -465,9 +465,9 @@ async function runDesktop(stack) {
     const r = new Recorder(page, cdp, 'desktop');
     recorder = r;
     await coldLoad(r, `${origin}${SESSION_URL}`, marks.base);
-    const idleStart = await sampleGroups({ desktop: child.pid });
-    await idle(r, idleSeconds);
-    const idleEnd = await sampleGroups({ desktop: child.pid });
+    const { cpuStart: idleStart, cpuEnd: idleEnd } = await idle(r, idleSeconds, () =>
+      sampleGroups({ desktop: child.pid }),
+    );
     result.idleProcesses = idleEnd.groups;
     result.idleCpuPercent = cpuBetween(idleStart, idleEnd);
     result.journeyErrors = {};
@@ -524,9 +524,9 @@ async function runLive(browser, endpoint, sessionUrl) {
     shell: marks.base.shell,
     conversation: MESSAGE,
   });
-  const idleStart = await sampleGroups(groups);
-  await idle(r, idleSeconds);
-  const idleEnd = await sampleGroups(groups);
+  const { cpuStart: idleStart, cpuEnd: idleEnd } = await idle(r, idleSeconds, () =>
+    sampleGroups(groups),
+  );
   await shellJourney(r);
   await composerJourney(r);
   await transcriptJourney(r);

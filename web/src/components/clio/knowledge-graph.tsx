@@ -24,6 +24,7 @@ import {
   topLeftViewport,
   usePaneSize,
 } from './graph-fit';
+import { GraphEdgeFade } from './graph-edge-fade';
 import {
   KNOWLEDGE_NODE,
   KNOWLEDGE_ROW,
@@ -102,6 +103,9 @@ export function KnowledgeGraph({
   ];
   const focused = graph.cards.find((card) => card.side === 'focus');
   const viewport = topLeftViewport(fit.zoom);
+  const extent = [...graph.cards, ...graph.more];
+  const wide = extent.length ? Math.max(...extent.map((card) => card.x)) + width : 0;
+  const tall = extent.length ? Math.max(...extent.map((card) => card.y)) + height : 0;
   return (
     <section
       aria-label="Note graph"
@@ -123,6 +127,7 @@ export function KnowledgeGraph({
           proOptions={{ hideAttribution: true }}
         >
           <ApplyViewport viewport={viewport} />
+          <GraphEdgeFade width={wide} height={tall} />
           <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
           <Controls
             aria-label="Note graph controls"

@@ -95,6 +95,8 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
+          // A confirm sizes to its question and buttons; the name gives way, not the question.
+          'data-confirm:grid-cols-[1.25rem_minmax(0,1fr)_auto]!',
           '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
           !actionsVisible &&
             '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
@@ -105,7 +107,7 @@ export const ItemRow = memo(
                 ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
                 : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
-          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]',
+          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -138,7 +140,9 @@ export const ItemRow = memo(
           <span
             className={cn(
               'min-w-0 truncate text-foreground',
-              size === 'line' ? 'shrink text-[0.78125rem]' : 'text-[0.8125rem] font-medium',
+              size === 'line'
+                ? 'max-w-full shrink-0 text-[0.78125rem]'
+                : 'text-[0.8125rem] font-medium',
             )}
             data-slot="item-row-title"
           >

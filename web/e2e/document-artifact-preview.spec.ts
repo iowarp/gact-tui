@@ -273,9 +273,9 @@ for (const layout of [
         }
         const toolbar = canvas.locator('[data-slot="frame-bar"]');
         await expect(toolbar).toHaveCount(1);
-        // A phone-width frame bar folds the modes to one menu; their state holds.
+        // A phone-width frame bar folds the modes to one menu; the document's Read mode holds.
         const previewTab = toolbar.getByRole('tab', {
-          name: 'Preview',
+          name: 'Read document',
           exact: true,
           includeHidden: true,
         });
@@ -284,8 +284,10 @@ for (const layout of [
         await expect
           .poll(() => previewTab.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe('rgba(0, 0, 0, 0)');
-        // Zoom out and Zoom in are the format icons; the zoom and page are frame facts.
-        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeVisible();
+        // At this width the frame bar is at its narrowest fold (workbench-lineage
+        // step 6): the format icons, Zoom out and Zoom in, are rows in ⋯.
+        await expect(toolbar).toHaveAttribute('data-fold-modes-menu');
+        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeHidden();
         const toolbarGeometry = await toolbar.evaluate((element) => ({
           height: element.getBoundingClientRect().height,
           width: element.clientWidth,
@@ -293,8 +295,9 @@ for (const layout of [
         }));
         expect(toolbarGeometry.height).toBeLessThanOrEqual(40);
         expect(toolbarGeometry.scroll).toBeLessThanOrEqual(toolbarGeometry.width);
-        await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeVisible();
         await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        await expect(page.getByRole('menuitem', { name: /^Zoom out/u })).toBeVisible();
+        await expect(page.getByRole('menuitem', { name: /^Zoom in/u })).toBeVisible();
         await page
           .getByRole('menuitem', { name: 'Copy to another workspace', exact: true })
           .click();
@@ -330,13 +333,28 @@ for (const layout of [
           });
           await page.evaluate(() => window.document.documentElement.classList.remove('dark'));
         }
-        await selectFileView(page, viewer, 'Preview');
+        await selectFileView(page, viewer, 'Read document');
         await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
         const document = canvas.getByRole('region', { name: 'Document workspace' });
         // A folded bar keeps its facts in the DOM, so the page fact is attached, not visible.
         await expect(toolbar.getByText(`1 / ${item.pages}`, { exact: true })).toBeAttached();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
-        await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        // Maximized on a phone the bar stays at its narrowest fold, so the zoom
+        // icons are rows in its ? menu rather than buttons in the bar.
+        const zoomFolded = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        const zoomRow = (name: string) =>
+          page.getByRole('menuitem', { name: new RegExp(`^${name}`, 'u') });
+        const openFrameMenu = () =>
+          toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        if (zoomFolded) {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
+          await openFrameMenu();
+          await expect(zoomRow('Zoom in')).toBeVisible();
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom in')).toBeHidden();
+        } else {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        }
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
         await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
         const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -369,9 +387,23 @@ for (const layout of [
           await page.evaluate(() => ({ width: innerWidth, density: devicePixelRatio })),
         ).toEqual(windowGeometry);
         // Zooming out stops where the page fits.
-        await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        if (zoomFolded) {
+          await openFrameMenu();
+          await zoomRow('Zoom out').click();
+        } else {
+          await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        }
         await expect(toolbar.getByText('115%', { exact: true })).toHaveCount(0);
-        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeDisabled();
+        if (zoomFolded) {
+          await openFrameMenu();
+          await expect(zoomRow('Zoom out')).toHaveAttribute('aria-disabled', 'true');
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom out')).toBeHidden();
+        } else {
+          await expect(
+            toolbar.getByRole('button', { name: 'Zoom out', exact: true }),
+          ).toBeDisabled();
+        }
         await expect.poll(pageWidth).toBe(fittedWidth);
         await expect.poll(pageFits).toBe(true);
         await expect
@@ -427,8 +459,8 @@ for (const layout of [
           .toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         const graph = canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true });
-        const sourceNode = graph.getByTestId(`rf__node-${sourceId}`);
-        const previewNode = graph.getByTestId(`rf__node-${pdfId}`);
+        const sourceNode = graph.locator(`[data-lineage-id="${sourceId}"]`);
+        const previewNode = graph.locator(`[data-lineage-id="${pdfId}"]`);
         await expect(sourceNode).toBeVisible();
         await expect(previewNode).toBeVisible();
         await expect(sourceNode).toContainText(name);
@@ -440,8 +472,7 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await selectFileView(page, viewer, 'Versions');
-        await selectFileView(page, viewer, 'Preview');
+        await selectFileView(page, viewer, 'Read document');
         holdRefresh = true;
         const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
         await fileActions.click();

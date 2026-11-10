@@ -6,11 +6,9 @@ import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported, useInstalledAgents } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
-import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentPreviewPane, AgentRow } from './agent-library-row';
-import { DialogFrame } from './primitives/dialog-frame';
 import { ListDetailLayout } from './primitives/detail-pane';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
@@ -27,7 +25,6 @@ export function AgentSettings() {
   const location = useLocation();
   const supported = useAgentPluginsSupported();
   const agents = useInstalledAgents();
-  const [deleting, setDeleting] = useState<AgentEntry>();
   const [previewRef, setPreviewRef] = useState<string>();
   const [sourceAgent, setSourceAgent] = useState<AgentEntry>();
   const defaults = useQuery({
@@ -56,11 +53,11 @@ export function AgentSettings() {
   const remove = useMutation({
     mutationFn: (agent: AgentEntry) => repository.deleteUserAgent(agent.id),
     onSuccess: async (_value, agent) => {
-      setDeleting(undefined);
       setPreviewRef((current) => (current === agent.ref ? undefined : current));
       await queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
       toast.success(`Deleted ${agent.name || agent.ref}`);
     },
+    onError: (error: Error) => toast.error(`Could not delete the agent: ${error.message}`),
   });
   const heading = (
     <SettingsSectionHeading
@@ -89,7 +86,7 @@ export function AgentSettings() {
       agent={agent}
       agents={all}
       key={agent.ref}
-      onDelete={agent.kind === 'user' ? () => setDeleting(agent) : undefined}
+      onDelete={agent.kind === 'user' ? () => remove.mutateAsync(agent) : undefined}
       onPreview={() => setPreviewRef(agent.ref)}
       onViewSource={agent.kind === 'user' ? () => setSourceAgent(agent) : undefined}
       selected={agent.ref === previewRef}
@@ -158,35 +155,6 @@ export function AgentSettings() {
         }
         list={list}
       />
-      <DialogFrame
-        confirm={{
-          label: 'Delete agent',
-          tone: 'destructive',
-          disabled: remove.isPending,
-          onConfirm: () => {
-            if (deleting) remove.mutate(deleting);
-          },
-        }}
-        cancelLabel="Keep agent"
-        description="New conversations can no longer choose it."
-        icon={<DeleteIcon className="size-3.5" />}
-        onOpenChange={(open) => {
-          if (open) return;
-          setDeleting(undefined);
-          remove.reset();
-        }}
-        open={Boolean(deleting)}
-        title={`Delete ${deleting?.name || deleting?.ref || 'agent'}?`}
-      >
-        <p className="text-muted-foreground">
-          Conversations already using it keep their pinned plugins.
-        </p>
-        {remove.error ? (
-          <p className="mt-2 text-destructive" role="alert">
-            Could not delete the agent. Try again.
-          </p>
-        ) : null}
-      </DialogFrame>
       {sourceAgent ? (
         <SavedAgentFile
           agent={sourceAgent}
