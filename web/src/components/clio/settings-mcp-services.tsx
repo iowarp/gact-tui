@@ -7,7 +7,7 @@ import {
   UnplugIcon,
   type LucideIcon,
 } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,7 @@ import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { ShortcutKeys } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
+import { RowConfirm } from './primitives/row-confirm';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
@@ -113,8 +114,10 @@ export function McpServiceList({
   onReconnect: (server: McpServerDefinition) => void;
   /** Prepares a conversation's own server again (see `reconnectableNamespace`). */
   onReconnectSession?: (server: McpServerDefinition) => unknown | Promise<unknown>;
-  onDisconnect: (server: McpServerDefinition) => void;
-  onRemoveSaved: (service: SavedMcpService) => void;
+  /** Disconnects once the row's inline confirm says so; a promise keeps the confirm waiting. */
+  onDisconnect: (server: McpServerDefinition) => unknown;
+  /** Removes the saved service once the row's inline confirm says so. */
+  onRemoveSaved: (service: SavedMcpService) => unknown;
 }) {
   const rows = entries.map((entry) => {
     const server = entry.server;
@@ -171,25 +174,49 @@ function McpServiceRow({
   failed: boolean;
   onDetails?: () => void;
   onReconnect?: () => void;
-  onDisconnect?: () => void;
-  onRemoveSaved?: () => void;
+  onDisconnect?: () => unknown;
+  onRemoveSaved?: () => unknown;
 }) {
   const title = serviceEntryTitle(entry);
+  // Disconnect and Remove saved ask on the row (spec: an inline confirm, focus stays put).
+  const [asking, setAsking] = useState<'disconnect' | 'remove'>();
+  const keep = () => setAsking(undefined);
+  const askDisconnect = onDisconnect ? () => setAsking('disconnect') : undefined;
+  const askRemove = onRemoveSaved ? () => setAsking('remove') : undefined;
+  const confirm =
+    asking === 'disconnect' && onDisconnect ? (
+      <RowConfirm
+        action="Disconnect"
+        busyAction="Disconnecting…"
+        onConfirm={onDisconnect}
+        onKeep={keep}
+        question={`Disconnect ${title}?`}
+      />
+    ) : asking === 'remove' && onRemoveSaved ? (
+      <RowConfirm
+        action="Remove"
+        busyAction="Removing…"
+        onConfirm={onRemoveSaved}
+        onKeep={keep}
+        question={`Remove ${title}?`}
+      />
+    ) : undefined;
   const open = (event: MouseEvent<HTMLDivElement>) => {
     // Buttons and menu items (portaled, but still bubbling through React) do their own thing.
     if ((event.target as Element).closest('button, a, [role="menuitem"], [role="menu"]')) return;
+    if (confirm) return;
     onDetails?.();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
+    if (event.target !== event.currentTarget || confirm) return;
     if (event.key === 'Enter' && onDetails) {
       event.preventDefault();
       onDetails();
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
-      const remove = onRemoveSaved ?? onDisconnect;
-      if (!remove) return;
+      const ask = askRemove ?? askDisconnect;
+      if (!ask) return;
       event.preventDefault();
-      remove();
+      ask();
     }
   };
   const hasMenu = Boolean(onDetails || onReconnect || onDisconnect || onRemoveSaved);
@@ -237,16 +264,16 @@ function McpServiceRow({
                     <MenuRow icon={<RefreshIcon />} label="Reconnect" />
                   </DropdownMenuItem>
                 ) : null}
-                {onDisconnect ? (
-                  <DropdownMenuItem onSelect={onDisconnect}>
+                {askDisconnect ? (
+                  <DropdownMenuItem onSelect={askDisconnect}>
                     <MenuRow icon={<UnplugIcon />} label="Disconnect" />
                   </DropdownMenuItem>
                 ) : null}
                 {onRemoveSaved && (onDetails || onReconnect || onDisconnect) ? (
                   <DropdownMenuSeparator />
                 ) : null}
-                {onRemoveSaved ? (
-                  <DropdownMenuItem onSelect={onRemoveSaved}>
+                {askRemove ? (
+                  <DropdownMenuItem onSelect={askRemove}>
                     <MenuRow icon={<DeleteIcon />} label="Remove saved" />
                     <ShortcutKeys
                       className="shrink-0 pl-2"
@@ -267,6 +294,7 @@ function McpServiceRow({
       data-mcp-service={entry.key}
       icon={<McpServiceIcon entry={entry} />}
       meta={<McpServiceMeta entry={entry} />}
+      confirm={confirm}
       onClick={open}
       onKeyDown={onKeyDown}
       selected={selected}

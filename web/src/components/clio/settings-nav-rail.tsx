@@ -113,6 +113,7 @@ export function SettingsNavRail({
                   >
                     <Link
                       aria-current={id === current ? 'page' : undefined}
+                      replace
                       state={linkState}
                       to={`/settings/${id}${search}`}
                     >

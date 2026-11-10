@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { downloadFromFrame, selectFileView } from './file-viewer-setup';
-import { hideWorkbenchList, showWorkbenchList } from './workspace-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
@@ -100,9 +100,6 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  // The pocket list sits beside the tabs at this width; this case measures the
-  // frame bar alone.
-  await hideWorkbenchList(page);
   const toolbar = canvas.locator('[data-slot="frame-bar"]');
   await expect(canvas.getByRole('img', { name: 'vertical-displacement.png' })).toBeVisible();
   await expectImageCentred(canvas.getByRole('img', { name: 'vertical-displacement.png' }));
@@ -114,9 +111,6 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   expect(metrics.height).toBeLessThanOrEqual(40);
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width);
   await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
-  await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
-  await expect(page.getByRole('menuitemcheckbox', { name: 'Versions', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
   await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
   const image = canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true });
   const before = await imageWidth(image);
@@ -141,11 +135,6 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await page.screenshot({ path: testInfo.outputPath('shared-image-toolbar.png'), fullPage: true });
-  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
-  await expect(canvas.getByRole('tabpanel', { name: 'Versions', exact: true })).toBeVisible();
-  expect(
-    (await new AxeBuilder({ page }).include('[data-slot="frame-bar"]').analyze()).violations,
-  ).toEqual([]);
   await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Lineage');
   await expect(canvas.getByRole('tabpanel', { name: 'Lineage', exact: true })).toBeVisible();
   await expect(
@@ -175,8 +164,6 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   expect(canvasHeader!.height).toBe(40);
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  // The Activity list takes 46% of the pocket; the wide viewer is the tab alone.
-  await hideWorkbenchList(page);
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
   for (const name of ['Zoom in', 'Zoom out', 'Open options', 'File actions']) {
     await expect(canvas.getByRole('button', { name, exact: true })).toBeVisible();

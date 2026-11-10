@@ -41,6 +41,8 @@ import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useModelCatalogStatus } from '@/hooks/use-model-catalog-status';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
@@ -78,6 +80,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     workspaceId,
     filesViewActive,
   });
+  const filesFetching = useQueryFetching(data.workspaceFilesKey);
+  const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const diffActions = useSessionDiffActions();
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
@@ -205,7 +209,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           <ClioDownloadsButton />
         </div>
       }
-      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} tokens={0} />}
+      statusStrip={<WorkspaceStatusStrip activeWorkCount={0} stream={connection} />}
       workbenchReveal={requests}
       workbench={
         <ClioWorkbench
@@ -214,7 +218,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           files={data.workspaceFiles.data?.entries ?? []}
           filesError={data.workspaceFiles.error?.message}
           filesPending={data.workspaceFiles.isPending}
-          filesFetching={data.workspaceFiles.isFetching}
+          filesFetching={filesFetching}
           filesTruncated={data.workspaceFiles.data?.truncated ?? false}
           filesNextOffset={data.workspaceFiles.data?.next_offset}
           onFilesViewActiveChange={setFilesViewActive}
@@ -308,7 +312,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             provider={provider}
             model={model}
             modelOptions={data.modelOptions}
-            modelCatalogStatus={data.modelCatalogStatus}
+            modelCatalogStatus={modelCatalogStatus}
             configuredEffort={data.configuredEffort}
             effort={defaults.data?.effort}
             executionMode={

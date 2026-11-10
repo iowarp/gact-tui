@@ -7,8 +7,10 @@ import { toast } from 'sonner';
 import { Sortable } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { SavedDraft } from '@/lib/composer-saved-drafts';
 import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
 import { QueuedMessageRow } from './composer-queue-row';
+import { SavedDraftRow } from './composer-saved-draft-row';
 import { Tag } from './primitives/tag';
 
 /** Queue state and actions passed through the shared composer. */
@@ -33,6 +35,10 @@ interface ClioComposerQueueProps {
   onOpenResource?: (resource: WorkspaceResource) => void;
   onReorder: (messages: QueuedMessage[]) => Promise<void>;
   onUpdate: (message: QueuedMessage, text: string) => Promise<void>;
+  /** Drafts put aside with Ctrl+S; they wait below the queue, nearest the editor. */
+  savedDrafts?: readonly SavedDraft[];
+  onRestoreSavedDraft?: (draft: SavedDraft) => void;
+  onDeleteSavedDraft?: (draft: SavedDraft) => void;
 }
 
 /** Longer queues get a header toggle so they can fold out of the way. */
@@ -42,13 +48,27 @@ function queuedMessagesLabel(count: number): string {
   return `${count} queued ${count === 1 ? 'message' : 'messages'}`;
 }
 
+function dashLabel(queued: number, saved: number): string {
+  const savedLabel = `${saved} saved ${saved === 1 ? 'draft' : 'drafts'}`;
+  if (!saved) return queuedMessagesLabel(queued);
+  if (!queued) return savedLabel;
+  return `${queuedMessagesLabel(queued)}, ${savedLabel}`;
+}
+
 function smoothScroll(): ScrollBehavior {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 }
 
+interface RowsBelow {
+  below: number;
+  /** The rows overflow the viewport, so the "more" line keeps its slot even at the end. */
+  overflowing: boolean;
+}
+
 /** How many rows sit below the viewport's visible edge, so a scrolled queue names what it hides. */
-function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
+function useRowsBelow(viewport: HTMLElement | null, rowCount: number): RowsBelow {
   const [below, setBelow] = useState(0);
+  const [overflowing, setOverflowing] = useState(false);
   useEffect(() => {
     if (!viewport) return;
     const measure = () => {
@@ -60,6 +80,7 @@ function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
         if (rect.top + rect.height / 2 > edge) hidden += 1;
       }
       setBelow(hidden);
+      setOverflowing(viewport.scrollHeight - viewport.clientHeight > 1);
     };
     measure();
     viewport.addEventListener('scroll', measure, { passive: true });
@@ -72,7 +93,7 @@ function useRowsBelow(viewport: HTMLElement | null, rowCount: number): number {
       observer?.disconnect();
     };
   }, [viewport, rowCount]);
-  return below;
+  return { below, overflowing };
 }
 
 /**
@@ -89,9 +110,12 @@ export function ClioComposerQueue({
   onPromote,
   onReorder,
   onUpdate,
+  onDeleteSavedDraft,
+  onRestoreSavedDraft,
   paused = false,
   promoteDelivery,
   resources = [],
+  savedDrafts = [],
 }: ClioComposerQueueProps) {
   const viewportId = useId();
   const [orderOverride, setOrderOverride] = useState<QueuedMessage[]>();
@@ -104,18 +128,18 @@ export function ClioComposerQueue({
   const [editing, setEditing] = useState<{ id: string; text: string }>();
   const [collapsedPreference, setCollapsedPreference] = useState(false);
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
-  const below = useRowsBelow(viewport, ordered.length);
+  const { below, overflowing } = useRowsBelow(viewport, ordered.length + savedDrafts.length);
 
   const resourceById = useMemo(
     () => new Map(resources.map((resource) => [resource.id, resource])),
     [resources],
   );
 
-  if (ordered.length === 0) return null;
+  if (ordered.length === 0 && savedDrafts.length === 0) return null;
 
-  const collapsible = ordered.length > COLLAPSIBLE_AFTER;
+  const collapsible = ordered.length + savedDrafts.length > COLLAPSIBLE_AFTER;
   const collapsed = collapsible && collapsedPreference;
-  const countLabel = queuedMessagesLabel(ordered.length);
+  const countLabel = dashLabel(ordered.length, savedDrafts.length);
 
   const saveEdit = async (message: QueuedMessage, text: string) => {
     try {
@@ -162,7 +186,7 @@ export function ClioComposerQueue({
 
   return (
     <section
-      aria-label="Queued messages"
+      aria-label={ordered.length ? 'Queued messages' : 'Saved drafts'}
       data-slot="composer-queue"
       // The strip runs 12px under the composer box so the box's rounded top
       // corners sit on the queue's surface instead of leaving notches.
@@ -205,7 +229,7 @@ export function ClioComposerQueue({
           viewportProps={{
             'aria-label': countLabel,
             className:
-              'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none',
+              'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none [&>div]:!block [&>div]:min-w-0',
             id: viewportId,
             ref: setViewport,
             role: 'region',
@@ -216,47 +240,62 @@ export function ClioComposerQueue({
             tabIndex: 0,
           }}
         >
-          <Sortable
-            asChild
-            getItemValue={(message) => message.id}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-            onValueChange={setOrderOverride}
-            onValueCommit={(next) => void commitReorder(next)}
-            strategy="vertical"
-            value={ordered}
-          >
-            <ul className="flex flex-col gap-px">
-              {ordered.map((message) => (
-                <QueuedMessageRow
-                  busy={busy}
-                  editingText={editing?.id === message.id ? editing.text : undefined}
-                  key={message.id}
-                  message={message}
-                  onCancelEdit={() => setEditing(undefined)}
-                  onDelete={() =>
-                    void runAction(() => onDelete(message), 'Queued message was not deleted')
-                  }
-                  onEditChange={(text) => setEditing({ id: message.id, text })}
-                  onOpenResource={onOpenResource}
-                  onPromote={() =>
-                    void runAction(
-                      () => onPromote(message, promoteDelivery),
-                      'Queued message was not sent',
-                    )
-                  }
-                  onSaveEdit={(text) => void saveEdit(message, text)}
-                  onStartEdit={(text) => setEditing({ id: message.id, text })}
-                  promoteDelivery={promoteDelivery}
-                  resourceById={resourceById}
+          {ordered.length > 0 ? (
+            <Sortable
+              asChild
+              getItemValue={(message) => message.id}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              onValueChange={setOrderOverride}
+              onValueCommit={(next) => void commitReorder(next)}
+              strategy="vertical"
+              value={ordered}
+            >
+              <ul className="flex flex-col gap-px">
+                {ordered.map((message) => (
+                  <QueuedMessageRow
+                    busy={busy}
+                    editingText={editing?.id === message.id ? editing.text : undefined}
+                    key={message.id}
+                    message={message}
+                    onCancelEdit={() => setEditing(undefined)}
+                    onDelete={() =>
+                      void runAction(() => onDelete(message), 'Queued message was not deleted')
+                    }
+                    onEditChange={(text) => setEditing({ id: message.id, text })}
+                    onOpenResource={onOpenResource}
+                    onPromote={() =>
+                      void runAction(
+                        () => onPromote(message, promoteDelivery),
+                        'Queued message was not sent',
+                      )
+                    }
+                    onSaveEdit={(text) => void saveEdit(message, text)}
+                    onStartEdit={(text) => setEditing({ id: message.id, text })}
+                    promoteDelivery={promoteDelivery}
+                    resourceById={resourceById}
+                  />
+                ))}
+              </ul>
+            </Sortable>
+          ) : null}
+          {savedDrafts.length > 0 ? (
+            <ul aria-label="Saved drafts" className="flex flex-col gap-px">
+              {savedDrafts.map((draft, index) => (
+                <SavedDraftRow
+                  draft={draft}
+                  key={draft.id}
+                  latest={index === savedDrafts.length - 1}
+                  onDelete={() => onDeleteSavedDraft?.(draft)}
+                  onRestore={() => onRestoreSavedDraft?.(draft)}
                 />
               ))}
             </ul>
-          </Sortable>
+          ) : null}
         </ScrollArea>
       )}
       {!collapsed && below > 0 ? (
         <button
-          className="mx-1 mt-0.5 flex h-[22px] items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+          className="mx-1 mt-0.5 flex h-[22px] shrink-0 items-center gap-1 self-start rounded-[5px] px-1.5 text-[11.5px] text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
           onClick={() =>
             viewport?.scrollBy({ top: viewport.clientHeight, behavior: smoothScroll() })
           }
@@ -265,6 +304,10 @@ export function ClioComposerQueue({
           {below} more
           <ChevronDownIcon aria-hidden="true" className="size-3.5" />
         </button>
+      ) : !collapsed && overflowing ? (
+        // Scrolled to the end: hold the line's height so the strip, and the
+        // pending responses sharing the composer's height, do not resize.
+        <span aria-hidden="true" className="mt-0.5 h-[22px] shrink-0" />
       ) : null}
     </section>
   );

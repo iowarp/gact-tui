@@ -1,5 +1,6 @@
 import type { RunState, Session, WorkspaceReference } from '@clio/core/v3';
-import { AnimatePresence, LayoutGroup } from 'motion/react';
+import { AnimatePresence, LayoutGroup, useResetProjection } from 'motion/react';
+import { useCallback, useLayoutEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import type { useAttentionMode } from '@/hooks/use-attention-mode';
 import type { useRepository } from '@/hooks/use-repository';
@@ -67,6 +68,7 @@ export function WorkspaceTranscript({
     | 'subagents'
     | 'transcript'
     | 'transcriptError'
+    | 'transcriptKey'
   >;
   mutations: Pick<
     SessionMutations,
@@ -93,9 +95,19 @@ export function WorkspaceTranscript({
   onInteractionResponse: ReturnType<typeof useWorkspaceQuestions>['handleInteractionResponse'];
 }) {
   const { transcript, transcriptError } = data;
+
   const { actionCard, cancelPendingSteer, retry } = mutations;
   const { pendingMessageIds, cancellablePendingMessageIds } =
     workspaceRouteState.pendingSteerMessageIds(mutations.pendingSteers.data ?? []);
+  const resetSharedLayout = useResetProjection();
+  // Runs in the commit that changes session, before the next session's composer registers,
+  // so it never resumes from the previous session's composer and no stale stack is retained.
+  useLayoutEffect(() => () => resetSharedLayout(), [resetSharedLayout, sessionId]);
+  const { revealWorkbench } = navigation;
+  const openWork = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'work' }),
+    [revealWorkbench],
+  );
   return (
     <section
       ref={surfaceRef}
@@ -111,8 +123,11 @@ export function WorkspaceTranscript({
         removal={damaged ? { actions: navigationActions, session } : undefined}
       />
       <SessionAttentionTools attention={attention} sessionId={sessionId} />
-      <LayoutGroup id={`session-layout:${sessionId}`}>
-        <AnimatePresence initial={false} mode="popLayout">
+      <LayoutGroup>
+        {/* popLayout already takes the leaving surface out of flow; letting presence
+            "affect layout" would hand every transcript motion element a fresh context
+            on each render of this section, re-rendering all rows' motion wrappers. */}
+        <AnimatePresence initial={false} mode="popLayout" presenceAffectsLayout={false}>
           {showWelcome ? (
             <TranscriptPresenceSurface
               className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6"
@@ -135,12 +150,10 @@ export function WorkspaceTranscript({
                 onReload={() => void transcript.refetch()}
                 hasEarlierMessages={Boolean(transcript.data?.next_cursor)}
                 awaitingFirstPage={transcript.isPending}
-                loading={transcript.isFetching}
+                loadingQueryKey={data.transcriptKey}
                 onActionCardAction={actionCard.mutateAsync}
                 {...navigation.conversationNavigation}
-                onOpenWork={() =>
-                  navigation.revealWorkbench({ kind: 'resources', section: 'work' })
-                }
+                onOpenWork={openWork}
                 onOpenReference={onOpenReference}
                 onOpenTasks={onOpenTasks}
                 onInteractionResponse={onInteractionResponse}

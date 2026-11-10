@@ -44,12 +44,12 @@ const report: LatexReport = {
     page_count: 2,
     diagnostics: [
       {
-        kind: 'undefined_reference',
-        message: 'Reference nowhere is undefined.',
+        kind: 'error',
+        message: 'Undefined control sequence.',
         file: 'sections/eval.tex',
         line: 2,
         page: 1,
-        detail: 'nowhere',
+        detail: '\\nowhere',
       },
       {
         kind: 'font_warning',
@@ -60,7 +60,7 @@ const report: LatexReport = {
         detail: '',
       },
     ],
-    counts: { undefined_reference: 1, font_warning: 1 },
+    counts: { error: 1, font_warning: 1 },
     read: ['main.tex', 'sections/eval.tex'],
     network: 'bundle_hosts',
     error: '1 problem(s) make this build fail',
@@ -85,7 +85,7 @@ const report: LatexReport = {
   texts: {
     'main.tex':
       '\\documentclass{article}\n\\begin{document}\n\\input{sections/eval}\n\\end{document}',
-    'sections/eval.tex': '\\section{Scaling}\\label{sec:scaling}\nSee~\\ref{nowhere}.\nDone.',
+    'sections/eval.tex': '\\section{Scaling}\\label{sec:scaling}\nSee~\\nowhere.\nDone.',
   },
   page_sizes: [
     [612, 792],
@@ -128,11 +128,14 @@ describe('LaTeX workspace', () => {
     expect(within(frame).getByRole('button', { name: 'Rebuild' })).toBeTruthy();
     fireEvent.click(within(frame).getByRole('button', { name: '2 problems, 1 error' }));
     const problems = await screen.findByRole('list', { name: 'Build problems' });
-    expect(within(problems).getByText('Reference nowhere is undefined.')).toBeTruthy();
+    expect(within(problems).getByText('Undefined control sequence.')).toBeTruthy();
     const places = [...problems.querySelectorAll('[data-slot="latex-problem-place"]')];
     expect(places.map((place) => place.textContent?.replace(/\s+/gu, ' '))).toEqual([
       'sections/eval.tex, line 2',
     ]);
+    // The place shares the message's one-line box, so it drops whole before the message cuts.
+    const message = within(problems).getByText('Undefined control sequence.');
+    expect(message.parentElement?.contains(places[0] ?? null)).toBe(true);
     expect(within(problems).getByText('Font shape substituted')).toBeTruthy();
   });
 
@@ -150,14 +153,12 @@ describe('LaTeX workspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^2 problems/u }));
     fireEvent.click(
       within(await screen.findByRole('list', { name: 'Build problems' })).getByRole('button', {
-        name: 'Error: Reference nowhere is undefined., sections/eval.tex, line 2',
+        name: 'Error: Undefined control sequence., sections/eval.tex, line 2',
       }),
     );
     const eval_ = await screen.findAllByRole('region', { name: 'Source of sections/eval.tex' });
     const flagged = eval_[0]!.querySelector('[data-line="2"] [role="img"]');
-    expect(flagged?.getAttribute('aria-label')).toBe(
-      'Undefined reference: Reference nowhere is undefined.',
-    );
+    expect(flagged?.getAttribute('aria-label')).toBe('Error: Undefined control sequence.');
     expect(eval_[0]!.querySelector('[data-line="2"]')?.className).toContain('bg-primary/10');
   });
 
@@ -275,6 +276,8 @@ describe('LaTeX workspace', () => {
     expect(screen.queryByRole('region', { name: /^Source of/u })).toBeNull();
     await pickView('Source');
     expect(view()).toBe('source');
+    // Each pane is named for its own mode, not the frame's Preview.
+    expect(screen.getByRole('tabpanel', { name: 'Source' })).toBeTruthy();
     expect(document.querySelector('[data-slot="pdf"]')).toBeNull();
     await pickView('Side by side');
     expect(view()).toBe('both');
@@ -282,6 +285,7 @@ describe('LaTeX workspace', () => {
     expect(screen.getAllByRole('region', { name: 'Source of main.tex' })).toHaveLength(1);
     await pickView('Render');
     expect(view()).toBe('pdf');
+    expect(screen.getByRole('tabpanel', { name: 'Render' })).toBeTruthy();
     // A point on the PDF brings its source back beside it.
     repository.latexLocate.mockResolvedValue({
       status: 'complete',

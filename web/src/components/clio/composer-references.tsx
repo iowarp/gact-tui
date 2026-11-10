@@ -18,6 +18,7 @@ import {
   type Ref,
 } from 'react';
 import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
+import { RingSpinner } from '@/components/clio/primitives/ring-spinner';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -32,7 +33,12 @@ import {
 import { hdf5DrillQuery, useHdf5ReferenceRows } from './composer-hdf5-references';
 import { publishActiveOption } from './composer-reference-controller-active-option';
 import { referenceKindIcon } from './composer-reference-presentation';
-import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
+import {
+  COMPOSER_GROUP_HEADING,
+  ComposerSuggestionPopup,
+  Highlighted,
+  MatchCount,
+} from './composer-suggestion-popup';
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -346,6 +352,7 @@ export function ClioComposerReferenceMenu({
   );
 
   const localFilesKnown = localFiles.isFetched;
+  const localFilesLoading = localFiles.isLoading;
   const sections = useMemo((): Section[] => {
     if (hdf5.mention)
       return [
@@ -359,7 +366,9 @@ export function ClioComposerReferenceMenu({
       ];
     return groups.flatMap((group) => {
       const matches = listing.rows.filter((row) => group.kinds.includes(row.kind));
-      const alwaysVisible = !isSearching && group.label === 'Workspace files';
+      // While the file list's first fetch runs, the single loading row stands
+      // in for it rather than an empty heading.
+      const alwaysVisible = !isSearching && group.label === 'Workspace files' && !localFilesLoading;
       if (!matches.length && !alwaysVisible) return [];
       return [
         {
@@ -375,7 +384,15 @@ export function ClioComposerReferenceMenu({
         },
       ];
     });
-  }, [hdf5.mention, hdf5.rows, isSearching, listing.rows, localFilesKnown, openGroups]);
+  }, [
+    hdf5.mention,
+    hdf5.rows,
+    isSearching,
+    listing.rows,
+    localFilesKnown,
+    localFilesLoading,
+    openGroups,
+  ]);
 
   const visibleRows = useMemo(
     () => sections.flatMap((section) => (section.open ? section.rows : [])),
@@ -465,15 +482,19 @@ export function ClioComposerReferenceMenu({
     return counts;
   }, []);
 
+  const failed = hdf5.mention ? hdf5.listing.isError : references.isError || localFiles.isError;
+  const loading =
+    !failed &&
+    (hdf5.mention ? hdf5.listing.isFetching : references.isFetching || localFiles.isFetching);
   const emptyText = hdf5.mention
-    ? hdf5.listing.isError
+    ? failed
       ? `${hdf5.mention.file} cannot be read as HDF5 here.`
-      : hdf5.listing.isFetching
+      : loading
         ? `Reading ${hdf5.mention.group} in ${hdf5.mention.file}…`
         : 'No objects match.'
-    : references.isError || localFiles.isError
+    : failed
       ? 'References are unavailable from the connected service.'
-      : references.isFetching || localFiles.isFetching
+      : loading
         ? 'Searching workspace context…'
         : 'No workspace context matches.';
   const total = hdf5.mention ? hdf5.rows.length : listing.rows.length;
@@ -514,7 +535,11 @@ export function ClioComposerReferenceMenu({
         role="listbox"
       >
         {visibleRows.length === 0 ? (
-          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-faint">
+          <div
+            className="flex h-[30px] min-w-0 items-center gap-2 px-2 text-[12px] text-muted-foreground"
+            data-slot={loading ? 'composer-references-loading' : undefined}
+          >
+            {loading ? <RingSpinner /> : null}
             <span className="truncate">{emptyText}</span>
           </div>
         ) : null}
@@ -537,8 +562,7 @@ export function ClioComposerReferenceMenu({
               </span>
             </>
           );
-          const headingClass =
-            'flex w-full min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-left text-[11px] font-semibold whitespace-nowrap text-muted-foreground';
+          const headingClass = cn(COMPOSER_GROUP_HEADING, 'w-full text-left');
           return (
             <div aria-label={section.label} key={section.label} role="group">
               {section.collapsible ? (

@@ -4,8 +4,9 @@ import { isJsonObject } from './chart-spec-guard';
 
 /**
  * Set by a saved dashboard. Its metrics read as one compact stat row, and its
- * charts keep a one-line title with the units in a caption instead of axis
- * titles. Every other surface keeps the shared presentation.
+ * charts keep a compact title (two lines at most in a narrow pane) with the
+ * units in a caption instead of axis titles. Every other surface keeps the
+ * shared presentation.
  */
 export const DashboardPresentationContext = createContext(false);
 

@@ -17,6 +17,13 @@ export interface CascaderNode<T = unknown> {
   /** Trailing count. Defaults to known children; set it for async nodes. */
   count?: number;
   disabled?: boolean;
+  /**
+   * A row of controls, not a choice: rendered by `renderItem` as a
+   * `role="group"` named by `label`, never an option. An option may not hold
+   * buttons (axe `nested-interactive`); a listbox may hold a group. Arrows
+   * skip it; its buttons are Tab stops.
+   */
+  static?: boolean;
   keywords?: string[];
   /**
    * Only read on a node nested inside a `getChildren` result. For the level a
@@ -25,7 +32,6 @@ export interface CascaderNode<T = unknown> {
   hasMore?: boolean;
   data?: T;
 }
-
 
 /** Panel layout. See the docs for the keyboard map of each. */
 export type CascaderMode = 'drill' | 'columns' | 'tree';

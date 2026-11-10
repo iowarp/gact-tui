@@ -54,7 +54,7 @@ Status values:
 | Empty, loading, error, unavailable, too large, no preview and changed elsewhere            | conversation-states: states; workbench-lineage: the four file states; workbench-frame-bar: the five shared states | `primitives/state-view.tsx`: `StateView` (`row`, `panel` or `page`; error is an alert, loading is a polite status)                                                                                                                                                                                                                                                                                                                        | Shared, partly migrated                                                                                                                                                       |
 | Toasts                                                                                     | conversation-states: toasts                                                                                       | `sonner` through `ui/sonner.tsx`                                                                                                                                                                                                                                                                                                                                                                                                          | Unchanged; restyling is surface work                                                                                                                                          |
 | Step list (done, current, to do, failed; progress bar and log line)                        | conversation-states: Update and restart, Local startup                                                            | `primitives/step-list.tsx`: `StepList` (an ordered list; `aria-current="step"`; state is also a word)                                                                                                                                                                                                                                                                                                                                     | Shared; used by the update page                                                                                                                                               |
-| Ring spinner (work in progress beside its words)                                           | conversation-states: Local startup (`.spin`)                                                                      | `primitives/ring-spinner.tsx`: `RingSpinner` (12 px teal arc on its track; decorative; still with reduced motion)                                                                                                                                                                                                                                                                                                                         |
+| Ring spinner (work in progress beside its words)                                           | conversation-states: Local startup (`.spin`)                                                                      | `primitives/ring-spinner.tsx`: `RingSpinner` (12 px teal arc on its `--spin-track` token; decorative; still with reduced motion)                                                                                                                                                                                                                                                                                                          |
 | Security acknowledgement strip (sandbox off at start)                                      | settings: ?Blocked by the sandbox? strip (`.zsbx`, warning edge, verb on the right)                               | `sandbox-inactive-banner.tsx`: `SandboxInactiveStrip` (warning, reason and next step on one line each; Details and ?Continue without protection?)                                                                                                                                                                                                                                                                                         | Shared                                                                                                                                                                        |
 
 ## Consolidated in this pass
@@ -106,17 +106,30 @@ Status values:
   whose `data-accelerator` matches.
 - **Right pocket.** `clio/workbench-strip.tsx` is the vertical toolbar
   "Workbench lists": Files, Sources, Artifacts, Activity, Agent, then Science
-  log, Terminal and Browser pages. `clio/workbench-list-column.tsx` is the one
-  list beside the tabs: `ListRow` rows with fixed tag and size columns and
-  `StateView` for empty, loading and error. Sizes in the 44 px column use
+  log, Terminal and Browser pages. It is a launcher (iowarp/gact-tui#839, the
+  user's design over the spec's list column): every list, Files included, opens
+  or focuses its own `list:<view>` tab (`listTab` in
+  `clio/workbench-tab-storage.ts`), rendered by `clio/workbench-list-column.tsx`;
+  the lit icon again returns to the tab shown before. A pick in a list tab shows
+  the item in that tab, and the item's `FrameBar` leads with "Back to <list>"
+  (`primitives/frame-back.ts`); Shift, or a pinned list tab, opens the item in a
+  tab of its own. Anything opened from the conversation gets its own tab. A
+  sparse list tab narrows the pocket to what its rows need. Activity leads with
+  the conversation's causal timeline, then Events and Context, chosen with a
+  `SegmentedControl` in its header. There is never an empty pane: closing the
+  last tab closes the pocket, and a pocket shown empty opens Files. The lists
+  use `ListRow` rows with fixed tag and size columns and `StateView` for empty,
+  loading and error. Sizes in the 44 px column use
   `formatCompactBytes` (`54 KB`; the exact size is in the row's hover name).
   `clio/workbench-tab-row.tsx` is
   one `FrameTab` row that measures itself: full names, then icon-only inactive
   tabs, then an "All N tabs" menu. One context menu offers Pin, Show in Files,
   Copy path, Close, Close others, Close to the right, Move left and Move right.
   The pocket's width is a remembered share of the window
-  (`clio.workbench-share.v1`). Below 520 px the list overlays the tabs and
-  steps aside after a pick. An empty narrow pocket shows its list.
+  (`clio.workbench-share.v1`). A tab's own list (the science log's study tree)
+  is the one column beside the tabs, resizable from its hairline edge and
+  remembered only after a resize (`clio.workbench-list-share.v1`); below 440 px
+  it overlays the tab.
 - **Quiet focus.** `primitives/quiet-focus.ts` `focusQuietly(element)` hands
   focus back to a control (after Escape restores a maximized frame) without
   popping its hover name; `NamedTooltip` ignores that focus.
@@ -127,8 +140,7 @@ These call sites still use their own markup. Migrate them to the components
 above while redesigning the surface; the change is not mechanical.
 
 - **Menus to `MenuRow`:** `clio/session-export-menu.tsx`,
-  `clio/session-management-menu.tsx`, `clio/session-behavior-menu.tsx`,
-  `clio/agent-switch-menu.tsx`, `clio/context-compaction-controls.tsx`,
+  `clio/session-management-menu.tsx`, `clio/agent-switch-menu.tsx`, `clio/context-compaction-controls.tsx`,
   `clio/message-history-actions.tsx`.
 - **Dialogs to `DialogFrame`:** `clio/share-session-dialog.tsx`,
   `clio/archived-sessions-dialog.tsx`, `clio/whats-new-dialog.tsx`, tool detail
@@ -143,10 +155,11 @@ above while redesigning the surface; the change is not mechanical.
   `clio/subagent-card.tsx`, `clio/tool-terminal-result.tsx`,
   `clio/transcript-reasoning.tsx`.
 - **Rows whose trailing actions shift on hover:**
-  `clio/session-summary-row.tsx`,
-  `clio/workspace-navigation-session-row.tsx`, `clio/artifact-rail-row.tsx`.
+  `clio/session-summary-row.tsx` and `clio/artifact-rail-row.tsx`.
   `ListRow` keeps its action column with `visibility`. The workbench Artifacts
-  list already uses `ListRow`.
+  list already uses `ListRow`. The left-bar workspace and conversation rows
+  already use it, with `actionsOverlay` so the hover actions cover the trailing
+  time instead of reserving a second column.
 - **Frame bar:** `clio/file-viewer-shell.tsx` renders `FrameBar` with
   `FrameCrumbs`, more than one reading mode as `FileModeControls` (a segmented
   group of named icons inside Radix `Tabs`), and `FrameTalkTake` for the
@@ -157,8 +170,7 @@ above while redesigning the surface; the change is not mechanical.
   `foldedFrameModes`. A bar without that menu keeps the folded mode icon. The
   workbench tab row renders `FrameTab`.
 - **Remaining key handlers to register in the catalog:**
-  `clio/selection-actions.tsx`, `ui/sidebar.tsx` (`Ctrl B`; the catalog's
-  `left-pocket`), `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the
+  `clio/selection-actions.tsx`, `hooks/use-desktop-zoom.ts` (`Ctrl =`, `Ctrl -`, `Ctrl 0`; the
   catalog has `zoom-in`, `zoom-out` and `zoom-reset`), the `Downloads (Ctrl+J)`
   title in `clio/downloads-button.tsx`, `clio/global-search-results.tsx`, and
   Mermaid zoom and pan. Register the key with `useShortcut(id, handler)` and show
@@ -174,6 +186,9 @@ above while redesigning the surface; the change is not mechanical.
 - Never show status with color alone. `StatusIndicator` pairs each state with
   a shape and a word, and `column` display keeps the word for assistive
   technology.
+- A mark that can stay running indefinitely spins with `animate-spin-steps`
+  (12 discrete steps), not a smooth `animate-spin`: a smooth spinner keeps the
+  compositor drawing every frame and alone costs a few percent of idle CPU.
 - `StatusIndicator` is the one status word (cross-surface X4): a mark that
   carries the color and a 12px muted word, in every state. Use it for
   Ready, Connected, Running, Completed, Failed and the like in lists, menus,

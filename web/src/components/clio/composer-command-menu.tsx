@@ -17,7 +17,12 @@ import { cn } from '@/lib/utils';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ShortcutKeys } from './primitives/key-chip';
 import { publishActiveOption } from './composer-reference-controller-active-option';
-import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
+import {
+  COMPOSER_GROUP_HEADING,
+  ComposerSuggestionPopup,
+  Highlighted,
+  MatchCount,
+} from './composer-suggestion-popup';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
@@ -317,7 +322,7 @@ export function ClioComposerCommandMenu({
         ) : null}
         {groups.map((group) => (
           <div aria-label={group.heading} key={group.heading} role="group">
-            <div className="flex min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+            <div className={COMPOSER_GROUP_HEADING}>
               <span className="min-w-0 truncate">{group.heading}</span>
               <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
                 {group.rows.length}

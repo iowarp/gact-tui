@@ -7,7 +7,11 @@ import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
 
-/** Focus goes to the element marked with this attribute when a frame opens. */
+/**
+ * Focus goes to the first element marked with this attribute when a frame opens:
+ * the safe button, or a body field that is the point of the dialog (Rename's
+ * name, its text selected).
+ */
 const INITIAL_FOCUS = '[data-initial-focus]';
 
 function focusSafeButton(event: Event) {
@@ -16,6 +20,7 @@ function focusSafeButton(event: Event) {
   if (!target) return;
   event.preventDefault();
   target.focus();
+  if (target instanceof HTMLInputElement) target.select();
 }
 
 /**
@@ -68,7 +73,9 @@ function FrameClose({ className }: { className?: string }) {
 /** The key chip inside a footer button; the sheet below 600 px drops it. */
 function FooterKey({ keys, className }: { keys: readonly string[]; className?: string }) {
   return (
-    <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+    // Under the spec frame's ~460 px (44% below a 1036 px window) the chips drop,
+    // before the window's 1024 px fold; the sheet never shows them.
+    <span aria-hidden="true" className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden">
       <ShortcutKeys className={className} keys={keys} variant="inline" />
     </span>
   );
@@ -121,8 +128,10 @@ export interface DialogFrameProps {
 
 /**
  * The one dialog: icon, title, ×, a description under the title, body, buttons on the
- * right. 36% of the window wide (360 to 560 px), a bottom sheet below 600 px.
- * Esc or × closes, Ctrl+Enter confirms, focus starts on the safe button.
+ * right. 44% of the window wide (360 to 600 px), a full-width bottom sheet
+ * below 600 px. The key chips in the buttons drop first, once the footer is
+ * narrower than the spec frame. Esc or × closes, Ctrl+Enter confirms, focus
+ * starts on the safe button unless a body field is marked `data-initial-focus`.
  */
 export const DialogFrame = memo(function DialogFrame({
   open,
@@ -169,7 +178,8 @@ export const DialogFrame = memo(function DialogFrame({
         {...(alert ? { role: 'alertdialog' } : {})}
         data-frame="dialog"
         className={cn(
-          'top-1/2 w-[clamp(360px,36vw,560px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
+          // 44% of the window, as the spec's frame; the spec caps it at 600 px.
+          'top-1/2 w-[clamp(360px,44vw,600px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
           'max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-t-[14px] max-[599px]:rounded-b-none',
           className,
         )}
@@ -211,13 +221,17 @@ export const DialogFrame = memo(function DialogFrame({
           <DialogDescription className="sr-only">{title}</DialogDescription>
         )}
         {children ? (
-          <div data-slot="dialog-frame-body" className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px]">
+          <div
+            data-slot="dialog-frame-body"
+            // The footer rule closes the body, so a last settings row drops its own.
+            className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0"
+          >
             {children}
           </div>
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="@container mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
         >
           {footerStart ? (
             <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
@@ -273,6 +287,7 @@ export const WindowShell = memo(function WindowShell({
   title,
   navigation,
   rail,
+  picker,
   children,
   toolbar,
   search,
@@ -285,13 +300,15 @@ export const WindowShell = memo(function WindowShell({
   onOpenChange: (open: boolean) => void;
   title: string;
   /**
-   * The section list on the left. With a `rail` it shows from 1024 px and the
-   * rail takes 768-1023 px; without one it shows from 768 px. Below 768 px use a
-   * picker in the toolbar.
+   * The section list on the left. With a `rail` it shows from 880 px and the
+   * rail takes 600-879 px; without one it shows from 600 px. Below 600 px the
+   * `picker` stands in the title's place.
    */
   navigation?: ReactNode;
-  /** The section list folded to icons for 768-1023 px. */
+  /** The section list folded to scope icons for 600-879 px. */
   rail?: ReactNode;
+  /** Below 600 px: the current section, opening every section, in place of the title. */
+  picker?: ReactNode;
   /** Controls in the title row, before ×. */
   toolbar?: ReactNode;
   /** A wide search field right after the title. */
@@ -325,7 +342,7 @@ export const WindowShell = memo(function WindowShell({
         }}
         className={cn(
           'top-1/2 flex h-[min(720px,calc(100dvh-2rem))] w-[min(980px,calc(100vw-2rem))] max-w-none -translate-y-1/2 flex-col gap-0 overflow-hidden bg-background p-0 sm:max-w-none',
-          'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none',
+          'max-[599px]:inset-0 max-[599px]:h-dvh max-[599px]:max-h-none max-[599px]:w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-none',
           className,
         )}
       >
@@ -339,14 +356,18 @@ export const WindowShell = memo(function WindowShell({
             className={cn(
               'min-w-0 truncate font-sans text-sm font-semibold [overflow-wrap:normal]',
               !search && 'flex-1',
+              picker && 'max-[599px]:sr-only',
             )}
           >
             {title}
           </DialogTitle>
+          {picker ? <div className="flex min-w-0 shrink min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-auto">{search}</div>
+              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%]">
+                {search}
+              </div>
               <span className="flex-1" />
             </>
           ) : null}
@@ -359,7 +380,7 @@ export const WindowShell = memo(function WindowShell({
               aria-label={`${title} sections`}
               className={cn(
                 'hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5',
-                rail ? 'min-[1024px]:block' : 'min-[768px]:block',
+                rail ? 'min-[880px]:block' : 'min-[600px]:block',
               )}
             >
               {navigation}
@@ -368,7 +389,7 @@ export const WindowShell = memo(function WindowShell({
           {rail ? (
             <nav
               aria-label={`${title} scopes`}
-              className="hidden w-11 shrink-0 flex-col items-center border-r border-border bg-sidebar pt-2.5 min-[768px]:max-[1023px]:flex"
+              className="hidden w-11 shrink-0 flex-col items-center border-r border-border bg-sidebar pt-2.5 min-[600px]:max-[879px]:flex"
             >
               {rail}
             </nav>

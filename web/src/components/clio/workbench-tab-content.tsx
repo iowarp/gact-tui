@@ -16,12 +16,13 @@ import { useLiveStore } from '@/store/live-store';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { WorkbenchActivityDetail } from './workbench-activity-detail';
+import { activityTab } from './workbench-activity-tab';
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
-import { ScienceLogTab } from './science-log-tab';
+import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 const BrowserSurface = lazy(() =>
@@ -31,6 +32,7 @@ const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import type { WorkbenchTabListView } from './workbench-strip';
 import { ResourceLoading } from './resource-states';
 
 const ArtifactView = lazy(() =>
@@ -40,6 +42,11 @@ const WorkspaceResourceCarousel = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
     default: module.WorkspaceResourceCarousel,
   })),
+);
+
+// The study graph brings its graph layout libraries; most visits never open it.
+const ScienceLogTab = deferredComponent(() =>
+  import('./science-log-tab').then((module) => module.ScienceLogTab),
 );
 
 function CanvasLoading({ label }: { label: string }) {
@@ -79,6 +86,8 @@ export interface WorkbenchTabContentProps {
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
+  /** A strip list opened as a tab (Files, Sources, Artifacts, Activity, Terminal, Browser pages). */
+  renderList: (view: WorkbenchTabListView) => ReactNode;
 }
 
 // Extracted from ClioWorkbench (which still owns tab state and callbacks) so
@@ -116,6 +125,7 @@ export function WorkbenchTabContent({
   onReplaceTab,
   onSelectFilesPath,
   onSelectWorkspaceFilePath,
+  renderList,
 }: WorkbenchTabContentProps): ReactNode {
   switch (tab.kind) {
     case 'work':
@@ -126,8 +136,6 @@ export function WorkbenchTabContent({
           <KnowledgeSourceView workspaceId={workspaceId} sourceId={tab.sourceId} />
         </Suspense>
       );
-    case 'session':
-      return sessionView;
     case 'activity':
       return (
         <WorkbenchActivityDetail
@@ -139,20 +147,22 @@ export function WorkbenchTabContent({
       );
     case 'science-log':
       return (
-        <ScienceLogTab
-          key={sessionId}
-          onOpenFolder={(path) =>
-            onShowFolder(
-              workspaceFilePath(
-                path,
-                useLiveStore.getState().entities.workspaces[workspaceId]?.path,
-              ),
-            )
-          }
-          onOpenSubagent={onOpenSubagent}
-          sessionId={sessionId}
-          workspaceId={workspaceId}
-        />
+        <Suspense fallback={<CanvasLoading label="Loading science log" />}>
+          <ScienceLogTab
+            key={sessionId}
+            onOpenFolder={(path) =>
+              onShowFolder(
+                workspaceFilePath(
+                  path,
+                  useLiveStore.getState().entities.workspaces[workspaceId]?.path,
+                ),
+              )
+            }
+            onOpenSubagent={onOpenSubagent}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+          />
+        </Suspense>
       );
     case 'files':
       return (
@@ -294,6 +304,15 @@ export function WorkbenchTabContent({
               })
             }
             workspaceId={tab.workspaceId}
+            onOpenActivity={(activity) =>
+              onOpenTab(
+                activityTab(
+                  { id: `tool:${activity.callId}`, kind: 'tool', name: activity.tool },
+                  activity.sessionId ?? sessionId,
+                  tab.workspaceId,
+                ),
+              )
+            }
           />
         </Suspense>
       );
@@ -360,6 +379,8 @@ export function WorkbenchTabContent({
           />
         </Suspense>
       );
+    case 'list':
+      return renderList(tab.view);
     default:
       return assertNever(tab);
   }

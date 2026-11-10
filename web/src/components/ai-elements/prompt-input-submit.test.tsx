@@ -1,12 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import {
-  PromptInput,
-  PromptInputProvider,
-  PromptInputTextarea,
-  usePromptInputController,
-} from './prompt-input';
+import { PromptInput, PromptInputProvider, usePromptInputController } from './prompt-input';
 
 afterEach(cleanup);
 
@@ -28,7 +23,12 @@ function Draft({ send, showForm = true }: { send: () => Promise<void>; showForm?
             controller.textInput.clear();
           }}
         >
-          <PromptInputTextarea aria-label="Message" />
+          <textarea
+            aria-label="Message"
+            name="message"
+            onChange={(event) => controller.textInput.setInput(event.currentTarget.value)}
+            value={controller.textInput.value}
+          />
           <button type="submit">Send</button>
         </PromptInput>
       ) : null}

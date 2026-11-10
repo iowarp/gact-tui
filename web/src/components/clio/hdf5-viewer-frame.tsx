@@ -22,13 +22,10 @@ import { HDF5_LOCATOR_SEPARATOR } from './composer-hdf5-references';
 import { useFileViewerContentsRegistry } from './file-viewer-action-context';
 import { useFileViewerFacts } from './file-viewer-facts';
 import { entityFacts, valuesAsTsv, type ViewerEntity } from './hdf5-viewer-facts';
-import { currentViewerLocation, HDF5_VIEWER_PATH } from './hdf5-viewer-location';
+import { currentViewerLocation } from './hdf5-viewer-location';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
-
-/** The h5web viewer page, built from packages/hdf5-viewer and served by the web app. */
-export const HDF5_VIEWER_URL = `/${HDF5_VIEWER_PATH}`;
 
 /** Most files whose last selection is remembered. */
 const REMEMBERED_FILES = 50;

@@ -1,10 +1,11 @@
 import type { Session } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ResourceActions } from './resource-dialogs';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { SessionAttention } from '@/lib/session-attention';
 
 const actions: ResourceActions = {
@@ -67,7 +68,7 @@ describe('session navigation state', () => {
   it('labels completed activity that arrived after the session was last seen', () => {
     renderRow(session, '2026-08-23T01:05:00Z');
 
-    expect(screen.getByText('New')).toBeVisible();
+    expect(screen.getByText(/New activity/u)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Evidence review/u })).toBeVisible();
   });
 
@@ -94,7 +95,7 @@ describe('session navigation state', () => {
     );
 
     expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
-    expect(screen.queryByText('New')).not.toBeInTheDocument();
+    expect(screen.queryByText(/New activity/u)).not.toBeInTheDocument();
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
   });
 
@@ -187,6 +188,182 @@ describe('session navigation state', () => {
 
     expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
     expect(screen.queryByText('Started')).not.toBeInTheDocument();
+  });
+});
+
+describe('row menu', () => {
+  function renderMenuRow(
+    rowActions: ResourceActions,
+    row: Session = session,
+    workspacePath?: string,
+  ) {
+    const onAction = vi.fn((action: () => Promise<void>) => void action());
+    render(
+      <MemoryRouter>
+        <TooltipProvider>
+          <SessionNavigationRow
+            actions={rowActions}
+            activeSessionId="sess_active"
+            onAction={onAction}
+            onDelete={vi.fn()}
+            onDownloadSession={vi.fn().mockResolvedValue(undefined)}
+            onRename={vi.fn()}
+            onVisit={vi.fn()}
+            session={row}
+            workspaceId="ws_ndp"
+            workspacePath={workspacePath}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    return onAction;
+  }
+
+  it('offers the title menu’s fork and share, in the spec’s order', async () => {
+    const user = userEvent.setup();
+    const forkSession = vi.fn().mockResolvedValue(undefined);
+    const shareSession = vi.fn().mockResolvedValue('https://clio.test/share/abc');
+    renderMenuRow({ ...actions, forkSession, shareSession });
+
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      expect.stringMatching(/^Open/u),
+      expect.stringMatching(/^Pin/u),
+      expect.stringMatching(/^Rename/u),
+      expect.stringMatching(/^Fork into a new conversation/u),
+      expect.stringMatching(/^Share read-only link/u),
+      expect.stringMatching(/^Export/u),
+      expect.stringMatching(/^Archive/u),
+      expect.stringMatching(/^Delete/u),
+    ]);
+
+    await user.click(screen.getByRole('menuitem', { name: /Fork into a new conversation/u }));
+    expect(forkSession).toHaveBeenCalledWith('sess_review');
+
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    await user.click(screen.getByRole('menuitem', { name: /Share read-only link/u }));
+    const dialog = await screen.findByRole('dialog', { name: 'Share Evidence review' });
+    await user.click(within(dialog).getByRole('button', { name: 'Create share link' }));
+    expect(shareSession).toHaveBeenCalledWith('sess_review', 604800);
+    expect(await within(dialog).findByDisplayValue('https://clio.test/share/abc')).toBeVisible();
+  });
+
+  it('leaves out fork for an agent’s own conversation and both without the actions', async () => {
+    const user = userEvent.setup();
+    renderMenuRow({ ...actions, forkSession: vi.fn(), shareSession: vi.fn() }, {
+      ...session,
+      session_kind: 'agent',
+    } as Session);
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /Fork/u })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /Share read-only link/u })).toBeVisible();
+    cleanup();
+
+    renderMenuRow(actions);
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /Fork/u })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Share/u })).toBeNull();
+  });
+
+  it('opens the system terminal at the workspace folder only when desktop knows it', async () => {
+    const user = userEvent.setup();
+    const openSystemTerminal = vi.fn().mockResolvedValue(undefined);
+    renderMenuRow({ ...actions, openSystemTerminal }, session, 'D:\\data\\ndp');
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(items.findIndex((label) => /^Open in system terminal/u.test(label ?? ''))).toBe(
+      items.findIndex((label) => /^Archive/u.test(label ?? '')) - 1,
+    );
+    await user.keyboard('t');
+    expect(openSystemTerminal).toHaveBeenCalledWith('D:\\data\\ndp');
+    cleanup();
+
+    renderMenuRow({ ...actions, openSystemTerminal });
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /system terminal/u })).toBeNull();
+  });
+
+  it('opens the same menu on right-click and hides the hover card while it is open', async () => {
+    const user = userEvent.setup();
+    renderMenuRow({ ...actions, forkSession: vi.fn(), shareSession: vi.fn() });
+    const link = screen.getByRole('link', { name: /Evidence review/u });
+
+    await user.hover(link);
+    expect(await screen.findByText('Work mode')).toBeVisible();
+
+    await user.pointer({ keys: '[MouseRight]', target: link });
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^Open/u),
+        expect.stringMatching(/^Fork into a new conversation/u),
+        expect.stringMatching(/^Share read-only link/u),
+        expect.stringMatching(/^Delete/u),
+      ]),
+    );
+    expect(screen.queryByText('Work mode')).toBeNull();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('hides the hover card while the ⋯ menu is open', async () => {
+    const user = userEvent.setup();
+    renderMenuRow(actions);
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+    expect(await screen.findByText('Work mode')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(screen.queryByText('Work mode')).toBeNull();
+  });
+
+  it('offers the title menu’s Compact and Remove last after the terminal, each confirmed', async () => {
+    const user = userEvent.setup();
+    const compactSession = vi.fn().mockResolvedValue(undefined);
+    const undoSession = vi.fn().mockResolvedValue(undefined);
+    renderMenuRow(
+      { ...actions, openSystemTerminal: vi.fn(), compactSession, undoSession },
+      session,
+      'D:\\data\\ndp',
+    );
+    const openMenu = () =>
+      user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+
+    await openMenu();
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
+    const at = (pattern: RegExp) => items.findIndex((label) => pattern.test(label));
+    expect(at(/^Compact conversation…C$/u)).toBe(at(/^Open in system terminal/u) + 1);
+    expect(at(/^Remove last message…V$/u)).toBe(at(/^Compact/u) + 1);
+    expect(at(/^Archive/u)).toBe(at(/^Remove last/u) + 1);
+
+    await user.keyboard('c');
+    let dialog = await screen.findByRole('alertdialog', { name: 'Compact this conversation?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(compactSession).not.toHaveBeenCalled();
+
+    await openMenu();
+    await user.click(screen.getByRole('menuitem', { name: /Compact conversation/u }));
+    dialog = await screen.findByRole('alertdialog', { name: 'Compact this conversation?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Compact conversation' }));
+    expect(compactSession).toHaveBeenCalledWith('sess_review');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    await openMenu();
+    await user.click(screen.getByRole('menuitem', { name: /Remove last message/u }));
+    dialog = await screen.findByRole('alertdialog', { name: 'Remove last message?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove message' }));
+    expect(undoSession).toHaveBeenCalledWith('sess_review');
+  });
+
+  it('keeps a refused Remove last open and names the failure', async () => {
+    const user = userEvent.setup();
+    const undoSession = vi.fn().mockRejectedValue(new Error('nothing to remove'));
+    renderMenuRow({ ...actions, compactSession: vi.fn(), undoSession });
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    await user.click(screen.getByRole('menuitem', { name: /Remove last message/u }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove last message?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove message' }));
+    expect(undoSession).toHaveBeenCalledWith('sess_review');
+    expect(within(dialog).getByRole('button', { name: 'Remove message' })).toBeEnabled();
   });
 });
 

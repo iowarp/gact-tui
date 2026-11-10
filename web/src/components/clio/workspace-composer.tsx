@@ -6,6 +6,7 @@ import type { useSessionCommands } from '@/hooks/use-session-commands';
 import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useModelCatalogStatus } from '@/hooks/use-model-catalog-status';
 import { isManagedChildSession } from '@/lib/session-state';
 import { sessionSpotterModel } from '@/lib/spotter-model-ref';
 import { ClioChildSessionFooter } from './child-session-footer';
@@ -107,6 +108,7 @@ export function WorkspaceComposer({
     updateQueuedMessage,
   } = mutations;
   const value = useComposerDraftValue(draft);
+  const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const startingConversation = async (action: () => Promise<unknown>) => {
     const startedFromWelcome = conversation.welcome;
     if (startedFromWelcome) conversation.setStarted(true);
@@ -125,9 +127,18 @@ export function WorkspaceComposer({
           ? 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
           : 'w-full'
       }
-      key={variant}
+      // A session's welcome composer registers fresh so it can hand off to its docked one.
+      // The layoutId is constant: motion keeps one shared-layout stack per id for the life
+      // of the page, so per-session ids leaked a stack (and a dead composer) per conversation.
+      // WorkspaceTranscript resets those stacks when the session changes, so nothing
+      // animates across sessions.
+      key={docked ? 'docked' : `welcome:${sessionId}`}
       layout
-      layoutId={`session-composer:${sessionId}`}
+      layoutId="session-composer"
+      // Measure only for the welcome-to-docked handoff (Motion resumes a shared
+      // layout only across differing dependencies). Without it every render
+      // snapshots the page layout, twice per transcript commit.
+      layoutDependency={variant}
     >
       {isManagedChildSession(session) ? (
         <ClioChildSessionFooter
@@ -172,7 +183,7 @@ export function WorkspaceComposer({
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={data.activeModel}
-          modelCatalogStatus={data.modelCatalogStatus}
+          modelCatalogStatus={modelCatalogStatus}
           modelOptions={data.modelOptions}
           pendingInteractions={hold.withCard(pendingInteractions)}
           onCommand={(value) => startingConversation(() => commands.run(value))}

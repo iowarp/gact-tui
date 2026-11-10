@@ -1,4 +1,4 @@
-import { SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { ROW_STATE_WRAP, SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { cn } from '@/lib/utils';
 import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
@@ -47,7 +47,7 @@ const FIELDS =
 function SectionHeading() {
   return (
     <SettingsSectionHeading
-      title="New session defaults"
+      title="Session defaults"
       description="Choose how new sessions start."
     />
   );
@@ -112,7 +112,7 @@ export function SessionDefaultsSettings() {
   const selectedModel = catalogModel
     ? {
         ...catalogModel,
-        label: compactModelName(catalogModel.providerId, catalogModel.id, catalogModel.label),
+        label: compactModelName(catalogModel.id, catalogModel.label),
       }
     : undefined;
   const reasoning = useModelReasoningLevels(
@@ -130,6 +130,7 @@ export function SessionDefaultsSettings() {
         <div className={cn('w-full border-b border-border/70 py-1', SETTINGS_COLUMN)}>
           <StateView
             action={{ label: 'Retry', onClick: () => void defaults.refetch() }}
+            className={ROW_STATE_WRAP}
             kind="error"
             size="row"
             title="New session defaults could not be loaded."

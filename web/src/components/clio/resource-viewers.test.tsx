@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportError } from '@clio/core/v3';
@@ -30,32 +30,6 @@ const { repository } = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
-}));
-vi.mock('ace-builds/src-noconflict/mode-json', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-markdown', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-python', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-sh', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-text', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-toml', () => ({}));
-vi.mock('ace-builds/src-noconflict/mode-yaml', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-github', () => ({}));
-vi.mock('ace-builds/src-noconflict/theme-one_dark', () => ({}));
-vi.mock('react-ace', () => ({
-  default: ({
-    value,
-    onChange,
-    'aria-label': ariaLabel,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    'aria-label'?: string;
-  }) => (
-    <textarea
-      aria-label={ariaLabel}
-      onChange={(event) => onChange(event.target.value)}
-      value={value}
-    />
-  ),
 }));
 vi.mock('./document-workspace', () => ({
   ClioDocumentWorkspace: ({ fallbackPreview }: { fallbackPreview: ReactNode }) => (
@@ -219,6 +193,13 @@ describe('ArtifactView', () => {
     expect(imageCanvas.closest('[data-slot="scroll-area"]')).toBeNull();
     expect(imageCanvas.closest('[role="tabpanel"]')?.firstElementChild).toHaveClass('h-full');
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
+    // Ctrl or ⌘ with the wheel zooms, so the zoom icons may fold from a narrow frame.
+    const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
+    expect(zoomOut).toBeDisabled();
+    fireEvent.wheel(imageCanvas, { deltaY: -100 });
+    expect(zoomOut).toBeDisabled();
+    fireEvent.wheel(imageCanvas, { ctrlKey: true, deltaY: -100 });
+    expect(zoomOut).toBeEnabled();
   });
 });
 

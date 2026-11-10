@@ -1,5 +1,13 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -10,7 +18,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  storedSidebarOpen,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useMenuAction } from '@/tauri/menu-actions';
@@ -18,9 +32,30 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
+import { TopBarEndHost } from './top-bar-end-context';
+import { NamedTooltip } from './primitives/icon-button';
 import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
+import { fitWorkbenchWidthTo } from './workbench-list-fit';
+
+/** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
+function TopBarSidebarTrigger() {
+  const { isMobile, state } = useSidebar();
+  const leftPocketKey = useShortcutPresentation('left-pocket');
+  if (!isMobile && state === 'expanded') return null;
+  return (
+    <span className="inline-flex">
+      <NamedTooltip label="Show the left bar" shortcut="left-pocket">
+        <SidebarTrigger
+          aria-keyshortcuts={leftPocketKey?.aria}
+          className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
+        />
+      </NamedTooltip>
+      <HeldKeyBadge id="left-pocket" />
+    </span>
+  );
+}
 
 export interface ClioAppShellProps {
   navigation: ReactNode;
@@ -31,6 +66,7 @@ export interface ClioAppShellProps {
   workbenchRevealKey?: string;
   /** Open requests that reveal the canvas; read here so the page need not re-render. */
   workbenchReveal?: WorkbenchRequestSource;
+  /** Recovery, work needing inspection and usage, shown in the top bar's trailing group. */
   statusStrip: ReactNode;
 }
 
@@ -38,27 +74,33 @@ function DesktopNavigationLayout({
   navigation,
   children,
   collapseForWorkbench,
+  onFoldChange,
 }: {
   navigation: ReactNode;
   children: ReactNode;
   collapseForWorkbench: boolean;
+  /** Runs once the bar has folded or unfolded, when the content's width has changed. */
+  onFoldChange?: () => void;
 }) {
   const { open, setOpen, toggleSidebar } = useSidebar();
   useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   const previousCollapseForWorkbenchRef = useRef(false);
+  // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
+  const narrow = useMediaQuery('(max-width: 1023px)');
+  const collapse = collapseForWorkbench || narrow;
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
-    previousCollapseForWorkbenchRef.current = collapseForWorkbench;
+    previousCollapseForWorkbenchRef.current = collapse;
 
-    if (collapseForWorkbench && !wasCollapsedForWorkbench) {
+    if (collapse && !wasCollapsedForWorkbench) {
       if (open) {
         setOpen(false);
       }
       return;
     }
-  }, [collapseForWorkbench, open, setOpen]);
+  }, [collapse, open, setOpen]);
 
   useEffect(() => {
     if (open) panelRef.current?.expand();
@@ -71,6 +113,7 @@ function DesktopNavigationLayout({
     previous?: PanelSize,
   ) => {
     if (!previous) return;
+    if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
     if (size.inPixels <= 64 && open) setOpen(false);
     if (size.inPixels >= 216 && !open) setOpen(true);
   };
@@ -81,7 +124,7 @@ function DesktopNavigationLayout({
         <ResizablePanel
           collapsedSize="56px"
           collapsible
-          defaultSize="248px"
+          defaultSize="292px"
           groupResizeBehavior="preserve-pixel-size"
           id="workspace-navigation"
           maxSize="440px"
@@ -110,7 +153,7 @@ const MAX_WORKBENCH_SHARE = 0.7;
 const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
-const OPEN_NAVIGATION_WIDTH = 248;
+const OPEN_NAVIGATION_WIDTH = 292;
 /** Under this the workbench slides over the conversation instead of sitting beside it. */
 const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
 
@@ -125,6 +168,14 @@ function storedWorkbenchShare(): number {
 
 function workbenchWidth(share: number, windowWidth: number): number {
   return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
+}
+
+/**
+ * The panel's width: the stored share, or less when the active tab is a sparse
+ * list that needs less (never under the workbench minimum, never above the share).
+ */
+function fittedWorkbenchWidth(share: number, windowWidth: number, fit: number | undefined): number {
+  return fitWorkbenchWidthTo(workbenchWidth(share, windowWidth), fit, MIN_WORKBENCH_WIDTH);
 }
 
 /** Up to this the left bar folds whenever the workbench is open (spec "Laptop, 1280px"). */
@@ -181,18 +232,52 @@ export function ClioAppShell({
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
   // Opens at the remembered share of the window; the panel keeps those pixels
   // until the window itself resizes (below), so folding the left bar widens
-  // the conversation rather than the workbench.
-  const [workbenchDefaultSize] = useState(
-    () => `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`,
+  // the conversation rather than the workbench. A closed canvas mounts
+  // collapsed: mounting it open and collapsing it in an effect lays the
+  // conversation out at the wrong width first and re-renders it on every
+  // workspace mount. Opening then expands and applies the share.
+  const [workbenchDefaultSize] = useState(() =>
+    workbenchOpen
+      ? `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`
+      : '0px',
   );
+  // A list tab's fitted width. The left bar still folds by the stored share, so
+  // switching tabs never folds or unfolds it. A drag while fitted overrides the
+  // fit until the next tab asks again.
+  const workbenchFitRef = useRef<{ pixels?: number; applied?: number; overridden: boolean }>({
+    overridden: false,
+  });
   const applyWorkbenchShare = useCallback(() => {
     const share = workbenchShareRef.current;
     const width = currentWindowWidth();
     setConversationCrowded(conversationNeedsFoldedNavigation(share, width));
+    const fit = workbenchFitRef.current;
+    const pixels = Math.round(
+      fittedWorkbenchWidth(share, width, fit.overridden ? undefined : fit.pixels),
+    );
+    fit.applied = fit.pixels !== undefined && !fit.overridden ? pixels : undefined;
     const panel = workbenchPanelRef.current;
-    if (panel && !panel.isCollapsed())
-      panel.resize(`${Math.round(workbenchWidth(share, width))}px`);
+    if (panel && !panel.isCollapsed()) panel.resize(`${pixels}px`);
   }, []);
+  const [sheetFit, setSheetFit] = useState<number>();
+  const fitWorkbenchWidth = useCallback(
+    (pixels: number | undefined) => {
+      const fit = workbenchFitRef.current;
+      const next = pixels === undefined ? undefined : Math.ceil(pixels);
+      if (next === undefined) {
+        setSheetFit(undefined);
+        if (fit.pixels === undefined && !fit.overridden) return;
+        workbenchFitRef.current = { overridden: false };
+      } else {
+        setSheetFit(Math.max(MIN_WORKBENCH_WIDTH, next));
+        if (fit.pixels === next) return;
+        fit.pixels = next;
+        if (fit.overridden) return;
+      }
+      applyWorkbenchShare();
+    },
+    [applyWorkbenchShare],
+  );
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
       setWorkbenchPreference(open);
@@ -211,8 +296,16 @@ export function ClioAppShell({
     const panel = workbenchPanelRef.current;
     if (!panel) return;
     const collapsed = panel.isCollapsed();
-    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
-      const share = Math.round((panel.getSize().inPixels / window.innerWidth) * 1000) / 1000;
+    const fit = workbenchFitRef.current;
+    const pixels = panel.getSize().inPixels;
+    // A click on the separator of a fitted panel is not a new preference.
+    const unchangedFit = fit.applied !== undefined && Math.abs(pixels - fit.applied) <= 1;
+    if (!collapsed && !unchangedFit && typeof window !== 'undefined' && window.innerWidth) {
+      if (fit.applied !== undefined) {
+        fit.overridden = true;
+        fit.applied = undefined;
+      }
+      const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
       if (share !== workbenchShareRef.current) {
         workbenchShareRef.current = share;
         window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
@@ -250,7 +343,7 @@ export function ClioAppShell({
 
   useShortcut('right-pocket', toggleWorkbench, { enabled: hasWorkbench });
   useMenuAction('toggle-workbench', toggleWorkbench, hasWorkbench);
-  const leftPocketKey = useShortcutPresentation('left-pocket');
+  const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
 
   // A strip chord with the pocket closed opens it at that strip item. The
   // desktop panel keeps the workbench mounted (it handles the chord itself);
@@ -267,10 +360,12 @@ export function ClioAppShell({
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),
+      hide: () => setWorkbenchOpen(false),
       pendingStripPosition,
       clearPendingStripPosition: () => setPendingStripPosition(undefined),
+      fitWidth: fitWorkbenchWidth,
     }),
-    [pendingStripPosition, setWorkbenchOpen],
+    [fitWorkbenchWidth, pendingStripPosition, setWorkbenchOpen],
   );
 
   const sessionSurface = (
@@ -279,16 +374,14 @@ export function ClioAppShell({
       aria-label="Conversation workspace"
       data-slot="conversation-surface"
     >
-      <DesktopWorkspaceToolbar
-        navigation={
-          <span className="inline-flex">
-            <SidebarTrigger aria-keyshortcuts={leftPocketKey?.aria} />
-            <HeldKeyBadge id="left-pocket" />
-          </span>
-        }
-      >
+      <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
         {/* The update page brings its own header; the conversation's is stale while it runs. */}
-        <div className="min-w-0 flex-1">{updating ? null : contextBar}</div>
+        <div className="min-w-0 flex-1">
+          {updating ? null : (
+            <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+          )}
+        </div>
+        {updating ? null : statusStrip}
         {updating ? null : toolbarActions}
         {hasWorkbench && !updating && (
           <ToolbarAction
@@ -300,11 +393,9 @@ export function ClioAppShell({
             <PanelRightIcon aria-hidden="true" />
           </ToolbarAction>
         )}
+        <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
       </DesktopWorkspaceToolbar>
       <div className="min-h-0 flex-1 overflow-hidden">{updating ? <UpdatePage /> : children}</div>
-      {statusStrip && !updating && (
-        <footer className="h-9 shrink-0 border-t bg-card/70 px-3">{statusStrip}</footer>
-      )}
     </section>
   );
 
@@ -357,10 +448,14 @@ export function ClioAppShell({
   );
 
   return (
-    <SidebarProvider>
+    // The route can remount the shell (a draft, a new workspace); keep the bar as left.
+    <SidebarProvider defaultOpen={storedSidebarOpen()}>
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}
+          // The workbench opens while the bar is still open; once the bar folds,
+          // the content has room for the workbench's full share.
+          onFoldChange={applyWorkbenchShare}
           navigation={navigation}
         >
           {workspace}
@@ -374,8 +469,15 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            // Under the split breakpoint the workbench slides over the conversation at 86%.
-            className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Under the split breakpoint the workbench slides over the conversation at 86%,
+            // or less for a sparse list that needs less; the spec's shadow sets the
+            // conversation strip beside it underneath, not cut off.
+            className="w-[var(--workbench-sheet-width,86vw)] p-0 shadow-[-14px_0_30px_rgb(0_0_0/0.18)] data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_rgb(0_0_0/0.45)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            style={
+              sheetFit === undefined
+                ? undefined
+                : ({ '--workbench-sheet-width': `min(86vw, ${sheetFit}px)` } as CSSProperties)
+            }
             // Land on the sheet itself, announced by its title, rather than on whichever icon
             // button comes first (which would also pop its tooltip).
             onOpenAutoFocus={(event) => {

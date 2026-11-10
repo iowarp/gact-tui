@@ -2,20 +2,21 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { ModalShield } from "./modal-shield"
+import { ModalShield, useShieldFocusOutside } from "./modal-shield"
 import { useOverlayContainer } from "./overlay-container"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 const ContextMenuModal = React.createContext(true)
 
+/** `modal` shields the page; Radix stays non-modal (see DropdownMenu). */
 function ContextMenu({
   modal = true,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
   return (
     <ContextMenuModal.Provider value={modal}>
-      <ContextMenuPrimitive.Root data-slot="context-menu" modal={modal} {...props} />
+      <ContextMenuPrimitive.Root data-slot="context-menu" modal={false} {...props} />
     </ContextMenuModal.Provider>
   )
 }
@@ -68,12 +69,14 @@ function ContextMenuRadioGroup({
 
 function ContextMenuContent({
   className,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
   const container = useOverlayContainer()
   const modal = React.useContext(ContextMenuModal)
+  const focusOutside = useShieldFocusOutside(modal, onFocusOutside)
   return (
     <>
       {modal ? (
@@ -84,7 +87,11 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Portal container={container}>
         <ContextMenuPrimitive.Content
           data-slot="context-menu-content"
-          className={cn("z-50 max-h-(--radix-context-menu-content-available-height) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          // A context menu opens at the pointer and never moves sideways to fit, so
+          // near the edge of a narrow window it narrows to the room it has instead.
+          collisionPadding={8}
+          className={cn("z-50 max-h-(--radix-context-menu-content-available-height) max-w-(--radix-context-menu-content-available-width) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-[5px] text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          onFocusOutside={focusOutside}
           {...props}
         />
       </ContextMenuPrimitive.Portal>
@@ -107,7 +114,7 @@ function ContextMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "group/context-menu-item relative flex cursor-default items-center gap-1.5 min-h-8 rounded-[7px] px-2 py-1 text-[13px] outline-hidden select-none focus:bg-menu-highlight focus:text-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
+        "group/context-menu-item relative flex cursor-default items-center gap-1.5 min-h-8 rounded-[7px] px-2 py-1 text-[13px] outline-hidden select-none focus:bg-menu-highlight focus:text-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive-text data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive-text dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
         className
       )}
       {...props}

@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import type { ClioModelOption } from '@/lib/model-options';
 import {
@@ -13,6 +13,10 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
@@ -86,10 +90,9 @@ async function dropDefault(user: ReturnType<typeof userEvent.setup>, token: stri
   if (!document.querySelector('[data-slot="facet-panel"]')) {
     await user.click(screen.getByRole('button', { name: /^Filters/u }));
   }
+  const fold = document.querySelector<HTMLElement>('[data-slot="facet-fold"]');
+  if (fold) await user.click(fold);
   const panel = document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
-  await user.click(
-    within(panel).getByRole('tab', { name: token.startsWith('input:') ? 'Input' : 'Output' }),
-  );
   const chip = panel.querySelector(`[data-token="${token}"]`);
   if (!(chip instanceof HTMLElement)) throw new Error(`no ${token} chip in the Filters panel`);
   await user.click(chip);
@@ -104,6 +107,28 @@ function modelNames(): string[] {
 }
 
 describe('ClioModelPicker filter tokens', () => {
+  it('keeps the first character typed straight into the search it focused on open', async () => {
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        model="meta/llama-4"
+        onChange={vi.fn()}
+        options={openrouter}
+        provider="openrouter"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const input = screen.getByRole('combobox', { name: 'Search providers and models' });
+    await waitFor(() => expect(input).toHaveFocus());
+    // No click first: a person types into the field the picker focused, and
+    // that first key is what opens the list onto the chosen model.
+    await user.keyboard('q');
+    expect(input).toHaveValue('q');
+    await user.keyboard('wen');
+    expect(input).toHaveValue('qwen');
+  });
+
   it('includes Codex and Claude Code in Tools using catalog tags rather than the native flag', async () => {
     repository.languageModelConfiguration.mockResolvedValue({
       ...configuration,

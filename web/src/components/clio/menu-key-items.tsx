@@ -1,41 +1,40 @@
-import { type ComponentProps, type ReactElement } from 'react';
-import { DropdownMenuItem, DropdownMenuShortcut } from '@/components/ui/dropdown-menu';
+import type { ComponentProps } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
+export type MenuIcon = LucideIcon;
+
 /**
- * A one-line menu row with its letter key on the right. The key is
- * announced through `aria-keyshortcuts`, not the row's name.
+ * A one-line menu row: a muted 14px icon, the label, then its letter key on
+ * the right, as the spec's conversation menu draws it. The key is announced
+ * through `aria-keyshortcuts`, not the row's name.
  */
 export function KeyMenuItem({
-  icon,
   label,
+  icon: Icon,
   menuKey,
   destructive = false,
   className,
   ...props
 }: Omit<ComponentProps<typeof DropdownMenuItem>, 'children' | 'variant'> & {
-  icon: ReactElement<{ className?: string }>;
   label: string;
+  icon?: MenuIcon;
   /** One letter, or `Enter`. */
   menuKey?: string;
-  /** A destructive row: label and icon in the destructive tone (`.mi.ds`). */
+  /** Shown in the destructive text tone. */
   destructive?: boolean;
 }) {
   return (
     <DropdownMenuItem
       aria-keyshortcuts={menuKey}
       className={cn('whitespace-nowrap', className)}
-      data-menu-key={menuKey?.toLowerCase()}
+      menuKey={menuKey === 'Enter' ? '↵' : menuKey?.toUpperCase()}
       variant={destructive ? 'destructive' : 'default'}
       {...props}
     >
-      {icon}
+      {Icon ? <Icon aria-hidden="true" className="text-muted-foreground" /> : null}
       <span className="min-w-0 truncate">{label}</span>
-      {menuKey ? (
-        <DropdownMenuShortcut aria-hidden="true" className="font-mono">
-          {menuKey === 'Enter' ? '↵' : menuKey.toUpperCase()}
-        </DropdownMenuShortcut>
-      ) : null}
     </DropdownMenuItem>
   );
 }

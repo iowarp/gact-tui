@@ -43,15 +43,14 @@ function ReplyUsedDetails({
   counts: ReplyToolCounts;
 }) {
   const { setup, usage } = replyUsedRows(message, agentName, counts);
-  const rows = 'gap-y-0 px-2 [&_dd]:leading-[25px] [&_dt]:h-[25px]';
   return (
     <section aria-label="This reply used">
       <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">This reply used</p>
-      <KeyValueGrid className={rows} items={setup} />
+      <KeyValueGrid variant="card" items={setup} />
       {usage.length ? (
         <>
           <div className="my-1 border-t border-border" role="separator" />
-          <KeyValueGrid className={rows} items={usage} />
+          <KeyValueGrid variant="card" items={usage} />
         </>
       ) : null}
     </section>

@@ -74,9 +74,9 @@ describe('a failed service row', () => {
     return knownServiceFailure(connection, unavailableFromError(error), idle);
   };
 
-  it('says "no answer" only when nothing answered, and names the host only on a named row', () => {
+  it('says "no answer" only when nothing answered, and then names the address', () => {
     const down = new TransportError('down', undefined, 'network_unavailable');
-    expect(row(down)).toBe("Can't connect: no answer");
+    expect(row(down)).toBe("Can't connect: no answer from 127.0.0.1:9");
     expect(row(down, 'Lab')).toBe("Can't connect: no answer from 127.0.0.1:9");
   });
 
@@ -98,8 +98,19 @@ describe('a failed service row', () => {
       "Can't connect: incompatible version",
     ],
     ['a local failure', new Error('Connection refused'), "Can't connect: Connection refused"],
+    [
+      'an unexpected exception',
+      new TypeError("Cannot read properties of undefined (reading 'invoke')"),
+      "Can't connect: unexpected error",
+    ],
   ])('reports %s as what happened', (_name, error, line) => {
     expect(row(error)).toBe(line);
     expect(row(error)).not.toMatch(/no answer|protocol|0\.\d/iu);
   });
+});
+
+it('keeps an unexpected exception for technical details, never as the reason', () => {
+  const availability = unavailableFromError(new TypeError('Cannot read properties of undefined'));
+  expect(availability.detail).toBe('unexpected error');
+  expect(availability.diagnostics).toBe('TypeError: Cannot read properties of undefined');
 });

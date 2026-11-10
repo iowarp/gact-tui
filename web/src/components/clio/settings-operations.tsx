@@ -13,6 +13,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { SettingsLoadError } from './settings-health-load-error';
+import { notOffered } from './settings-health-reason';
 import { HooksGroup, MetricsGroup, StorageGroup } from './settings-health-views';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -199,6 +200,7 @@ function QueryState({
   error,
   pending,
   title,
+  noun,
   loading,
   retry,
   retrying,
@@ -206,14 +208,27 @@ function QueryState({
   error: Error | null;
   pending: boolean;
   title: string;
+  noun: string;
   loading: string;
   retry: () => void;
   retrying: boolean;
 }) {
   if (error)
-    return <SettingsLoadError error={error} onRetry={retry} retrying={retrying} title={title} />;
+    return (
+      <SettingsLoadError
+        error={error}
+        noun={noun}
+        onRetry={retry}
+        retrying={retrying}
+        title={title}
+      />
+    );
   return pending ? <StateView kind="loading" size="row" title={loading} /> : null;
 }
+
+/** A feature the service does not offer will not appear by polling. */
+const pollUnlessNotOffered = (query: { state: { error: Error | null } }) =>
+  notOffered(query.state.error) ? false : OPERATIONS_POLL_MS;
 
 /** Health, storage, metrics and hooks of the connected service as groups on one flat page. */
 export function SystemSettings() {
@@ -223,22 +238,22 @@ export function SystemSettings() {
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const metrics = useQuery({
     queryKey: queryKeys.key('runtime-metrics', settings.endpoint),
     queryFn: ({ signal }) => repository.runtimeMetrics(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const memory = useQuery({
     queryKey: queryKeys.key('memory-statistics', settings.endpoint),
     queryFn: ({ signal }) => repository.memoryStatistics(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const hooks = useQuery({
     queryKey: queryKeys.key('hook-inspection', settings.endpoint),
     queryFn: ({ signal }) => repository.hooks(signal),
-    refetchInterval: OPERATIONS_POLL_MS,
+    refetchInterval: pollUnlessNotOffered,
   });
   const integrations = health.data?.integrations ?? [];
   const open = integrations.find((integration) => integration.name === openName);
@@ -272,6 +287,7 @@ export function SystemSettings() {
         pending={health.isPending}
         retry={() => void health.refetch()}
         retrying={health.isFetching}
+        noun="health details"
         title="Health details unavailable."
       />
       <SettingsGroupLabel info="What the agent's memory store holds and how often its cache answers.">
@@ -284,6 +300,7 @@ export function SystemSettings() {
         pending={memory.isPending}
         retry={() => void memory.refetch()}
         retrying={memory.isFetching}
+        noun="storage statistics"
         title="Storage statistics unavailable."
       />
       <SettingsGroupLabel info="Totals since the agent started.">Metrics</SettingsGroupLabel>
@@ -294,6 +311,7 @@ export function SystemSettings() {
         pending={metrics.isPending}
         retry={() => void metrics.refetch()}
         retrying={metrics.isFetching}
+        noun="activity metrics"
         title="Activity metrics unavailable."
       />
       <SettingsGroupLabel info="Automation that runs before or after tools, and what it recently did.">
@@ -306,6 +324,7 @@ export function SystemSettings() {
         pending={hooks.isPending}
         retry={() => void hooks.refetch()}
         retrying={hooks.isFetching}
+        noun="hook inspection"
         title="Hook inspection unavailable."
       />
     </div>

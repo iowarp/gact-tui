@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import {
   defaultConfiguration,
@@ -13,6 +13,10 @@ import {
   setWideViewport,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 vi.mock('@/hooks/use-repository', async () => {
   const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
@@ -205,6 +209,35 @@ describe('ClioModelPicker: a usable provider', () => {
 });
 
 describe('ClioModelPicker: a provider that is not usable yet', () => {
+  it('one column: its manage row offers Log in, and the sign-in hand-off opens under it', async () => {
+    setWideViewport(false);
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-1',
+      browser: {
+        authorization_url: 'https://auth.openai.com/oauth/authorize?state=1',
+        loopback: true,
+      },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending', reason: '' });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    const manage = await screen.findByRole('group', { name: 'Manage Codex' });
+    expect(manage).toHaveTextContent('Needs sign-in');
+    expect(repository.authenticateProvider).not.toHaveBeenCalled();
+
+    await user.click(within(manage).getByRole('button', { name: 'Log in' }));
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', {
+        force: true,
+        method: 'browser',
+      }),
+    );
+    expect(await screen.findByLabelText('Complete Codex sign-in')).toBeVisible();
+  });
+
   it('signed out: one sentence and Log in; opening it never starts a flow', async () => {
     repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
     const user = await open([codexProviderRow, options[1]!]);

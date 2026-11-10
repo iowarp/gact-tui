@@ -33,10 +33,10 @@ import {
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
+import { agentAvailabilityLabel, agentIdentity } from '@/components/clio/connection-names';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
-import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Button } from '@/components/ui/button';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
@@ -104,10 +104,10 @@ export function ConnectionPage() {
   } = useConnectionSettings();
   // The DEFAULT view: every CLIO the person can click without typing an
   // address (recents, the desktop-managed local service, reachable
-  // Infrastructure deployments â€” see the hook). The manual "Connect by
+  // Infrastructure deployments — see the hook). The manual "Connect by
   // address" form is secondary, reached only through `manualModeRequested`
-  // (an explicit "Add a service" click) or because there is nothing known
-  // yet to list at all â€” CLIO is for non-technical people, and ip:port is
+  // (an explicit "Add an agent…" click) or because there is nothing known
+  // yet to list at all — CLIO is for non-technical people, and ip:port is
   // the non-default way in.
   const knownConnections = useKnownConnections();
   const initialKnownConnection =
@@ -199,13 +199,6 @@ export function ConnectionPage() {
         : workspace
           ? newConversationRoute(workspace.id)
           : undefined;
-      if (!route) {
-        reportConnectionOutcome({
-          code: 'target_unresolved',
-          endpoint: next.endpoint,
-          reason: 'The service exposed no workspace that could be opened.',
-        });
-      }
       return { next, capabilities, sessions, target: target ?? workspace, workspaces, route };
     },
   });
@@ -299,7 +292,7 @@ export function ConnectionPage() {
     // `mutation.status === 'idle'` alone used to gate this, to cover the one
     // render between mount and the auto-connect effect actually dispatching
     // (avoiding a flash of the form first). But `mutation.reset()` ALSO
-    // returns status to 'idle' -- "Add a service" and "Known services" call
+    // returns status to 'idle' -- "Add an agent…" and its Cancel call
     // it to clear a stale error/success from a previous attempt -- which
     // made this full-screen boot screen come BACK after the one-shot
     // auto-connect (gated by `autoConnectStarted`, see the effect above) had
@@ -333,7 +326,7 @@ export function ConnectionPage() {
     mutation.reset();
   };
   const submitLabel = mutation.isPending
-    ? 'Connectingâ€¦'
+    ? 'Connecting…'
     : showManualForm
       ? 'Connect'
       : 'Open workspace';
@@ -342,7 +335,7 @@ export function ConnectionPage() {
     knownMode &&
     selectedConnection !== undefined &&
     availabilityFailed(availabilityAfterAttempt(selectedConnection, mutation));
-  // The row already carries "no answer from â€¦", so the form does not repeat it.
+  // The row already carries "no answer from …", so the form does not repeat it.
   const errorShownInRow =
     selectedFailed &&
     selectedConnection !== undefined &&
@@ -363,7 +356,7 @@ export function ConnectionPage() {
           {brand.name}
         </p>
         <ConnectFrame
-          closeLabel="Back to known services"
+          closeLabel="Back to the agent list"
           footer={
             emptyService ? undefined : (
               <>
@@ -415,7 +408,7 @@ export function ConnectionPage() {
               ? `Open ${brand.name}`
               : showManualForm
                 ? 'Connect by address'
-                : 'Choose a service'
+                : 'Switch to'
           }
         >
           {inTauri() ? (
@@ -445,16 +438,17 @@ export function ConnectionPage() {
               onSubmit={submit}
             >
               {knownMode ? (
-                <div
-                  className="-mx-2 flex min-w-0 flex-col"
-                  role="group"
-                  aria-label="Known services"
-                >
+                <div className="-mx-2 flex min-w-0 flex-col" role="group" aria-label="Switch to">
                   {knownConnections.map((connection) => {
                     const selected = connection.endpoint === selectedEndpoint;
                     const Icon = connectionSourceIcon(connection);
-                    const host = new URL(connection.endpoint).host;
-                    const name = connection.label || host;
+                    // The CLIO menu's identity: the name leads; the address is secondary.
+                    const identity = agentIdentity(
+                      connection.endpoint,
+                      connection.label,
+                      connection.location,
+                    );
+                    const name = identity.name;
                     const availability = availabilityAfterAttempt(connection, mutation);
                     const failed = availabilityFailed(availability);
                     return (
@@ -474,7 +468,13 @@ export function ConnectionPage() {
                               />
                             ) : (
                               <ConnectionAvailabilityIndicator
-                                availability={availability}
+                                availability={{
+                                  ...availability,
+                                  label: agentAvailabilityLabel(
+                                    availability,
+                                    connection.endpoint === settings.endpoint,
+                                  ),
+                                }}
                                 compact
                                 endpoint={connection.endpoint}
                               />
@@ -485,7 +485,11 @@ export function ConnectionPage() {
                           failed ? (
                             <span
                               className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
-                              title={availability.detail}
+                              title={
+                                availability.diagnostics
+                                  ? `${availability.detail}\n\n${availability.diagnostics}`
+                                  : availability.detail
+                              }
                             >
                               <TriangleAlertIcon
                                 aria-hidden="true"
@@ -496,8 +500,7 @@ export function ConnectionPage() {
                               </span>
                             </span>
                           ) : (
-                            connection.location ||
-                            (connection.label ? connection.endpoint : undefined)
+                            identity.address
                           )
                         }
                         icon={<Icon />}
@@ -552,7 +555,7 @@ export function ConnectionPage() {
                     type="button"
                   >
                     <AddIcon aria-hidden="true" className="size-4" />
-                    Add a service
+                    Add an agent…
                   </button>
                 </div>
               ) : (
@@ -597,7 +600,8 @@ export function ConnectionPage() {
                       </Button>
                     ) : undefined
                   }
-                  title="Can't connect"
+                  // A failed row already reads "Can't connect"; the line adds only the reason.
+                  title={selectedFailed ? undefined : "Can't connect"}
                 />
               ) : null}
               {!mutation.error && credentialError ? (

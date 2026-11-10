@@ -110,8 +110,26 @@ export function gestureModifiers(platform: KeyPlatform) {
 }
 
 const KEY_LABELS: Record<KeyPlatform, Record<string, string>> = {
-  windows: { Enter: '↵', Up: '↑', Down: '↓', Left: '←', Right: '→' },
-  mac: { Enter: '↩', Up: '↑', Down: '↓', Left: '←', Right: '→', Delete: '⌫', Backspace: '⌫' },
+  windows: {
+    Enter: '↵',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
+  mac: {
+    Enter: '↩',
+    Up: '↑',
+    Down: '↓',
+    Left: '←',
+    Right: '→',
+    Delete: '⌫',
+    Backspace: '⌫',
+    PageUp: 'PgUp',
+    PageDown: 'PgDn',
+  },
 };
 
 /** The labels of one chord, one per key cap, in the platform's order. */
@@ -254,69 +272,6 @@ export function chordPosition(parsed: ParsedChord, event: ChordEvent): number | 
   if (!digitRange(parsed.key)) return undefined;
   const pressed = Number(eventKey(event));
   return Number.isFinite(pressed) ? pressed : undefined;
-}
-
-/**
- * Keys the browser or the OS keeps. Nothing binds them; a definition that
- * needs one (the desktop app owns Ctrl N) marks itself desktop-only.
- */
-const RESERVED: Record<KeyPlatform, readonly string[]> = {
-  windows: [
-    'Ctrl+N',
-    'Ctrl+T',
-    'Ctrl+W',
-    'Ctrl+Tab',
-    'Ctrl+L',
-    'Ctrl+1–9',
-    'Ctrl+PageUp',
-    'Ctrl+PageDown',
-    'F5',
-    'Ctrl+Shift+N',
-    'Ctrl+Shift+T',
-    'Ctrl+Shift+W',
-    'Ctrl+Shift+I',
-    'Ctrl+Shift+J',
-    'Ctrl+Shift+C',
-  ],
-  mac: [
-    'Cmd+Q',
-    'Cmd+H',
-    'Cmd+M',
-    'Cmd+N',
-    'Cmd+T',
-    'Cmd+W',
-    'Cmd+L',
-    'Cmd+Tab',
-    'Cmd+`',
-    'Cmd+Space',
-    'Cmd+1–9',
-    'Shift+Cmd+3–5',
-    // The Help menu's search over the menu bar.
-    'Shift+Cmd+/',
-    'Alt+Cmd+M',
-    'Alt+Cmd+I',
-    'Alt+Cmd+J',
-    'Alt+Cmd+C',
-    'Alt+Cmd+U',
-    'Ctrl+Space',
-    'Ctrl+Left',
-    'Ctrl+Right',
-    'Ctrl+Up',
-    'Ctrl+Down',
-  ],
-};
-
-function sameModifiers(a: ReadonlySet<Modifier>, b: ReadonlySet<Modifier>): boolean {
-  return a.size === b.size && [...a].every((modifier) => b.has(modifier));
-}
-
-/** Whether `parsed` (already for `platform`) collides with a browser or OS key. */
-export function isReservedChord(parsed: ParsedChord, platform: KeyPlatform): boolean {
-  if (parsed.hold) return false;
-  return RESERVED[platform].some((reserved) => {
-    const other = parseChord(reserved, platform, true);
-    return sameModifiers(other.modifiers, parsed.modifiers) && keysOverlap(other.key, parsed.key);
-  });
 }
 
 const TEXT_EDITING_KEYS = new Set([

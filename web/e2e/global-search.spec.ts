@@ -77,6 +77,23 @@ test('global search applies themes from Settings and opens settings, hosts and e
   await expect(page.locator('[id="agent-user%2Fglobal-reviewer"]')).toBeFocused();
 });
 
+test('a setting picked from search opens its row marked, with its control focused', async ({
+  page,
+}) => {
+  await installSearchFixture(page, endpoint);
+  await page.goto('/settings/general');
+  await page.getByRole('button', { name: 'Search everywhere', exact: true }).click();
+  await page.getByPlaceholder(placeholder).fill('interface size');
+  await page.getByRole('option', { name: /^Interface size/u }).click();
+  await expect(page).toHaveURL(/\/settings\/appearance#setting=Interface%20size$/u);
+  const row = page.locator('[data-setting="Interface size"]');
+  await expect(row).toHaveClass(/clio-search-arrival/u);
+  await expect(row.locator('[data-slot="settings-control"] :focus')).toHaveCount(1);
+  // The mark fades after the spec's 2 s; focus stays with the control.
+  await expect(row).not.toHaveClass(/clio-search-arrival/u, { timeout: 4000 });
+  await expect(row.locator('[data-slot="settings-control"] :focus')).toHaveCount(1);
+});
+
 test('a file found from Settings opens in the remembered workspace canvas', async ({ page }) => {
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);
@@ -84,7 +101,7 @@ test('a file found from Settings opens in the remembered workspace canvas', asyn
   await page.goto('/settings/appearance');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(
     new RegExp(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}$`, 'u'),
   );
@@ -104,20 +121,20 @@ test('a file found from a new conversation retains its unsent draft and route', 
   await composer.fill('Keep this unsent review draft.');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(new RegExp(`${route}$`, 'u'));
   await expect(page.getByRole('heading', { name: 'Plant study notes', exact: true })).toBeVisible();
   await expect(composer).toHaveText('Keep this unsent review draft.');
   expect(fixture.state.created).toBe(0);
 });
 
-test('the compact Settings menu hands focus to the shared global search', async ({ page }) => {
+test('the compact Settings picker hands focus to the shared global search', async ({ page }) => {
   await installSearchFixture(page, endpoint);
-  await page.setViewportSize({ width: 640, height: 800 });
+  await page.setViewportSize({ width: 560, height: 800 });
   await page.goto('/settings/general');
   await page.getByRole('button', { name: 'Choose settings section' }).click();
-  await page.getByRole('menuitem', { name: 'Search everywhere from settings menu' }).click();
-  await expect(page.getByRole('menu')).toHaveCount(0);
+  await page.getByRole('option', { name: 'Search everywhere from settings menu' }).click();
+  await expect(page.getByPlaceholder('Search sections…')).toHaveCount(0);
   await expect(page.getByPlaceholder(placeholder)).toBeFocused();
   await page.keyboard.type('dark');
   await expect(

@@ -103,7 +103,7 @@ it('stays on the boot screen through a starting task runtime and opens the works
   const form = watchForConnectForm();
   renderFirstLaunch();
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting local ${brand.agentName}` })).toBeVisible();
   expect(await screen.findByText('Workspace opened', {}, { timeout: 8_000 })).toBeVisible();
   form.stop();
 
@@ -165,7 +165,9 @@ it('shows a non-transient failure once instead of retrying it', async () => {
   mocks.repository.capabilities.mockResolvedValue({ gact_versions: ['0.1'] });
   renderFirstLaunch();
 
-  expect(await screen.findByRole('alert')).toHaveTextContent(/^Can't connect\s/u);
+  // The failed row carries "Can't connect"; the alert gives only the reason.
+  expect(await screen.findByRole('alert')).not.toHaveTextContent(/Can't connect/u);
+  expect(screen.getByText("Can't connect")).toBeVisible();
   await new Promise((resolve) => setTimeout(resolve, 600));
   await waitFor(() => expect(mocks.resolveConnection).toHaveBeenCalledOnce());
   expect(mocks.connect).not.toHaveBeenCalled();

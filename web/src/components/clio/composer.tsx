@@ -72,6 +72,12 @@ import {
   useComposerSourceAttachments,
 } from './use-composer-source-attachments';
 import { useSummonTargets } from '@/hooks/use-summon-targets';
+import {
+  deleteSavedDraft,
+  saveDraft,
+  takeSavedDraft,
+  useSavedDrafts,
+} from '@/lib/composer-saved-drafts';
 
 export interface ClioComposerProps extends ComposerQueueControls {
   state: RunState;
@@ -165,6 +171,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
    */
   placeholder?: string;
 }
+
+const noQueueAction = async () => undefined;
 
 export function ClioComposer({
   state,
@@ -337,6 +345,38 @@ export function ClioComposer({
     enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
     region: rootRef,
   });
+  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
+  // the newest back. Restoring over a draft puts that one aside first.
+  const savedDraftKey = sessionId ?? `new:${workspaceId}`;
+  const savedDrafts = useSavedDrafts(savedDraftKey);
+  const draftEmpty = !input.trim() && selectedReferences.length === 0;
+  const putDraftAside = () => {
+    const saved = saveDraft(savedDraftKey, {
+      text: latestInputRef.current,
+      references: selectedReferences,
+    });
+    if (!saved) return;
+    setInput('');
+    setSelectedReferences([]);
+  };
+  const restoreSavedDraft = (id?: string) => {
+    const draft = takeSavedDraft(savedDraftKey, id);
+    if (!draft) return;
+    saveDraft(savedDraftKey, { text: latestInputRef.current, references: selectedReferences });
+    setInput(draft.text);
+    setSelectedReferences(draft.references);
+    focusEditorSoon();
+  };
+  useShortcut('save-draft', putDraftAside, {
+    enabled: !disabled,
+    region: rootRef,
+    allowInTextField: true,
+  });
+  useShortcut('restore-draft', () => restoreSavedDraft(), {
+    enabled: !disabled && draftEmpty && savedDrafts.length > 0,
+    region: inputRef,
+    allowInTextField: true,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>
@@ -449,22 +489,33 @@ export function ClioComposer({
       ) : null}
       {pendingInteractions}
       {connectedSources.picker}
-      {queuedMessages.length > 0 &&
-      onDeleteQueuedMessage &&
-      onPromoteQueuedMessage &&
-      onReorderQueuedMessages &&
-      onUpdateQueuedMessage ? (
+      {(queuedMessages.length > 0 &&
+        onDeleteQueuedMessage &&
+        onPromoteQueuedMessage &&
+        onReorderQueuedMessages &&
+        onUpdateQueuedMessage) ||
+      savedDrafts.length > 0 ? (
         <ClioComposerQueue
           busy={queueBusy}
           paused={queuePaused}
-          messages={queuedMessages}
-          onDelete={onDeleteQueuedMessage}
+          messages={
+            onDeleteQueuedMessage &&
+            onPromoteQueuedMessage &&
+            onReorderQueuedMessages &&
+            onUpdateQueuedMessage
+              ? queuedMessages
+              : []
+          }
+          onDelete={onDeleteQueuedMessage ?? noQueueAction}
+          onDeleteSavedDraft={(draft) => deleteSavedDraft(savedDraftKey, draft.id)}
           onOpenResource={onOpenResource}
-          onPromote={onPromoteQueuedMessage}
-          onReorder={onReorderQueuedMessages}
-          onUpdate={onUpdateQueuedMessage}
+          onPromote={onPromoteQueuedMessage ?? noQueueAction}
+          onReorder={onReorderQueuedMessages ?? noQueueAction}
+          onRestoreSavedDraft={(draft) => restoreSavedDraft(draft.id)}
+          onUpdate={onUpdateQueuedMessage ?? noQueueAction}
           promoteDelivery={state === 'running' ? 'steer' : 'start'}
           resources={resources}
+          savedDrafts={savedDrafts}
         />
       ) : null}
       <PromptInput
@@ -632,7 +683,8 @@ export function ClioComposer({
             event.preventDefault();
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
-            if (submit?.disabled) return;
+            // No submit square (Stop shows while work runs with nothing typed): nothing to send.
+            if (!submit || submit.disabled) return;
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}
@@ -688,12 +740,14 @@ export function ClioComposer({
                   options={modelOptions}
                   provider={selectedOption?.providerId}
                   placement="composer"
+                  shortcut="model-picker"
                   trigger={
                     <ComposerModelButton
                       appearance="text"
                       aria-label="Change model"
                       className="max-w-56 @min-[48rem]/composer:max-w-72"
                       option={selectedOption}
+                      shortcut="model-picker"
                       type="button"
                       variant="ghost"
                     />

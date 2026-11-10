@@ -1,23 +1,26 @@
 import type { RunState } from '@clio/core/v3';
-import { ArrowUpIcon, CornerDownRightIcon, ListPlusIcon, SquareIcon } from 'lucide-react';
+import { ArrowUpIcon, ListPlusIcon, SquareIcon } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useComposerDelivery } from '@/hooks/use-composer-delivery';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
-import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
 import { ClioStatus } from './status';
 
-/** The 28px square the row ends with, filled so it reads as the primary action. */
+/**
+ * The 28px square the row ends with, filled so it reads as the primary action.
+ * Its dark hover is restated: the ghost variant's `dark:hover:bg-muted/50`
+ * would otherwise win in dark and the tile would fade out under the pointer.
+ */
 const SQUARE =
-  'size-7 rounded-[8px] border-0 bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
+  'size-7 rounded-[8px] border-0 bg-foreground/10 text-foreground hover:bg-foreground/15 hover:text-foreground dark:hover:bg-foreground/15 disabled:bg-foreground/5 disabled:text-muted-foreground disabled:opacity-100 [&_svg:not([class*=size-])]:size-3.5';
 
 /**
- * Send, or while work runs a flat Queue (Enter) or Steer (Ctrl/⌘ Enter) icon
- * beside Stop, the row's one filled square. The visible action follows the same
- * state and modifier rule as the keys.
+ * The row's one square. With nothing typed while work runs it stops the run
+ * (Esc); with text it queues (Enter), or steers while Ctrl/⌘ is held; with
+ * nothing running it sends. The glyph follows the same rule as the keys.
  */
 export function ComposerSubmitControls({
   state,
@@ -35,13 +38,25 @@ export function ComposerSubmitControls({
   const { delivery } = useComposerDelivery(state);
   const attachments = usePromptInputAttachments();
   const sendable = hasContent || attachments.files.length > 0;
-  const running = state === 'running';
+  const stoppable = state === 'running' || state === 'queued';
   return (
     <>
       {state === 'waiting_permission' || state === 'waiting_user' ? (
         <ClioStatus className="shrink-0 px-1 whitespace-nowrap" value={state} />
       ) : null}
-      {!running ? (
+      {stoppable && !sendable ? (
+        <IconButton
+          className={SQUARE}
+          disabled={!onStop}
+          icon={<SquareIcon className="size-3 fill-current" />}
+          label="Stop"
+          onClick={onStop}
+          shortcut="stop"
+          shortcutSide="top-edge"
+          tooltipSide="top"
+          type="button"
+        />
+      ) : state !== 'running' ? (
         <IconButton
           className={SQUARE}
           disabled={disabled || !sendable}
@@ -55,36 +70,22 @@ export function ComposerSubmitControls({
         />
       ) : delivery === 'steer' ? (
         <IconButton
-          disabled={disabled || !sendable}
-          icon={<CornerDownRightIcon />}
+          className={SQUARE}
+          disabled={disabled}
+          icon={<ArrowUpIcon />}
           label="Steer"
           onClick={onSubmit}
           shortcut="steer"
           shortcutSide="top-edge"
-          size="toolbar"
           tooltipSide="top"
           type="submit"
         />
       ) : (
-        <QueueButton disabled={disabled || !sendable} onSubmit={onSubmit} />
+        <QueueButton disabled={disabled} onSubmit={onSubmit} />
       )}
-      {running || state === 'queued' ? (
-        <IconButton
-          className={cn(SQUARE, 'ml-0.5')}
-          disabled={!onStop}
-          icon={<SquareIcon className="size-3 fill-current" />}
-          label="Stop"
-          onClick={onStop}
-          shortcut="stop"
-          shortcutSide="top-edge"
-          tooltipSide="top"
-          type="button"
-        />
-      ) : null}
     </>
   );
 }
-
 /** Queue names both keys: Enter queues, Ctrl/⌘ Enter steers the running turn. */
 function QueueButton({
   disabled,
@@ -100,11 +101,11 @@ function QueueButton({
       <TooltipTrigger asChild>
         <IconButton
           aria-keyshortcuts={[send?.aria, steer?.aria].filter(Boolean).join(' ') || undefined}
+          className={SQUARE}
           disabled={disabled}
           icon={<ListPlusIcon />}
           label="Queue"
           onClick={onSubmit}
-          size="toolbar"
           tooltip={false}
           type="submit"
         />

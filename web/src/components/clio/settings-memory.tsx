@@ -1,16 +1,23 @@
 import type { MemoryDocument } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DownloadIcon } from 'lucide-react';
+import {
+  BrainIcon,
+  DownloadIcon,
+  HistoryIcon,
+  InboxIcon,
+  SparklesIcon,
+  UploadIcon,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionDirectory } from '@/hooks/use-session-directory';
 import { queryKeys } from '@/lib/query-keys';
-import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { defineShortcuts } from '@/lib/shortcuts/registry';
+import { narrowerThan, useElementWidth } from '@/hooks/use-element-width';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { MemoryCreate } from './memory-create';
 import { MemoryCreationLog } from './memory-creation-log';
@@ -25,7 +32,6 @@ import { MemoryImportDialog } from './memory-import-dialog';
 import { MemoryInbox } from './memory-inbox';
 import { ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
-import { ShortcutKeys } from './primitives/key-chip';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsRow } from './settings-row';
@@ -86,6 +92,9 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
   const { settings } = useConnectionSettings();
   const [params, setParams] = useSearchParams();
   const rootRef = useRef<HTMLDivElement>(null);
+  const [toolbar, toolbarWidth] = useElementWidth<HTMLDivElement>();
+  // The four views need about 27rem; below that the others fold to named icons.
+  const foldViews = narrowerThan(toolbarWidth, 440);
   const searchRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [paneTab, setPaneTab] = useState<MemoryPaneTab>('facts');
@@ -152,7 +161,6 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     },
   };
   useShortcut(IMPORT_SHORTCUT, () => setImporting(true), { enabled: !importing, region });
-  const importKeys = useShortcutPresentation(IMPORT_SHORTCUT);
   useShortcut(SEARCH_SHORTCUT, () => searchRef.current?.focus(), {
     enabled: tab === 'memories' && !importing,
     region,
@@ -222,30 +230,22 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
   return (
     <div className="grid min-w-0" ref={rootRef}>
       <SettingsSectionHeading
-        actions={
-          <Button
-            aria-keyshortcuts={importKeys?.aria}
-            onClick={() => setImporting(true)}
-            size="xs"
-            variant="outline"
-          >
-            Import memory
-            <ShortcutKeys id={IMPORT_SHORTCUT} variant="inline" />
-          </Button>
-        }
         info="Saved facts and preferences the agent can use in later conversations."
         title="Memory and instructions"
       />
-      <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2">
+      <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2" ref={toolbar}>
         <SegmentedControl
           className="min-w-0 overflow-hidden"
+          iconOnly={foldViews ? 'others' : false}
           label="Memory views"
           onValueChange={setTab}
           options={[
-            { value: 'memories', label: 'Memories' },
+            { value: 'memories', label: 'Memories', icon: foldViews ? <BrainIcon /> : undefined },
             {
               value: 'review',
               label: 'Under review',
+              icon: foldViews ? <InboxIcon /> : undefined,
+              count: inbox || undefined,
               badge: inbox ? (
                 <span
                   aria-label={`${inbox} waiting`}
@@ -255,17 +255,35 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
                 </span>
               ) : undefined,
             },
-            { value: 'create', label: 'Create memories' },
-            { value: 'log', label: 'Creation log' },
+            {
+              value: 'create',
+              label: 'Create memories',
+              icon: foldViews ? <SparklesIcon /> : undefined,
+            },
+            { value: 'log', label: 'Creation log', icon: foldViews ? <HistoryIcon /> : undefined },
           ]}
           value={tab}
         />
         <span className="flex-1" />
+        {tab === 'review' ? (
+          <IconButton
+            icon={<UploadIcon />}
+            label="Import memory"
+            onClick={() => setImporting(true)}
+            shortcut={IMPORT_SHORTCUT}
+          />
+        ) : null}
         <IconButton
           disabled={exportAll.isPending || !documents.data?.length}
           icon={<DownloadIcon />}
           label="Export all memory"
           onClick={() => exportAll.mutate()}
+        />
+        <IconButton
+          icon={<UploadIcon />}
+          label="Import memory"
+          onClick={() => setImporting(true)}
+          shortcut={IMPORT_SHORTCUT}
         />
       </div>
       {summary.data && !summary.data.enabled ? (

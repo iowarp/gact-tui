@@ -35,6 +35,7 @@ import { StateView } from './primitives/state-view';
 import { useFrameTool } from './primitives/frame-modes';
 import { ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { matchesListQuery, useWorkbenchListSearch } from './workbench-list-search';
 import { WorkbenchTabList } from './workbench-tab-list';
 import { WorkbenchTabListSlot } from './workbench-tab-list-context';
 
@@ -45,6 +46,11 @@ function entryFile(report: LatexReport): string {
 
 const NO_TEXTS: Record<string, string> = {};
 const PANE = 'm-0 min-h-0 min-w-0 flex-1';
+
+function paneName(view: LatexView) {
+  const label = latexModes(true).find((mode) => mode.value === view)?.label ?? view;
+  return { 'aria-label': label, 'aria-labelledby': undefined };
+}
 /** The section width below which Side by side gives way to one pane. */
 const BOTH_MIN_WIDTH = 480;
 
@@ -175,10 +181,18 @@ export function LatexWorkspace({
     if (problem.file) goToSource({ file: problem.file, line: problem.line });
   };
   const picked = slot?.picked;
+  const search = useWorkbenchListSearch('Search the outline');
+  const shownRows = search.query
+    ? rows.filter((row) => matchesListQuery(`${row.number} ${row.node.title ?? ''}`, search.query))
+    : rows;
+  const shownProblems = search.query
+    ? problems.filter((problem) => matchesListQuery(problem.detail, search.query))
+    : problems;
 
   const list = data ? (
     <LatexListSections
       entry={entry}
+      filtered={Boolean(search.query.trim())}
       onProblem={(problem) => {
         goToProblem(problem);
         picked?.();
@@ -188,9 +202,9 @@ export function LatexWorkspace({
         picked?.();
       }}
       place={chosen}
-      problems={problems}
+      problems={shownProblems}
       revealProblems={revealProblems}
-      rows={rows}
+      rows={shownRows}
     />
   ) : null;
   const format = (
@@ -283,14 +297,16 @@ export function LatexWorkspace({
     body = (
       <>
         {/* Only the shown mode renders its panes: the PDF puts its own facts and
-            controls in the frame bar, and a hidden copy would add a second set. */}
-        <TabsContent className={PANE} value="pdf">
+            controls in the frame bar, and a hidden copy would add a second set.
+            The mode switch lives in the frame, so each pane names its own mode. */}
+        <TabsContent {...paneName('pdf')} className={PANE} value="pdf">
           {pdfPane}
         </TabsContent>
-        <TabsContent className={PANE} value="source">
+        <TabsContent {...paneName('source')} className={PANE} value="source">
           {sourcePane}
         </TabsContent>
         <TabsContent
+          {...paneName('both')}
           className={`${PANE} grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)]`}
           value="both"
         >
@@ -332,7 +348,11 @@ export function LatexWorkspace({
           body
         )}
       </Tabs>
-      {slot && list ? <WorkbenchTabList title="Outline">{list}</WorkbenchTabList> : null}
+      {slot && list ? (
+        <WorkbenchTabList actions={search.toggle} title="Outline">
+          {search.withField(list)}
+        </WorkbenchTabList>
+      ) : null}
     </section>
   );
 }

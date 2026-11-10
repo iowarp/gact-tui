@@ -75,7 +75,7 @@ export function FileTextView({
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
       : []),
     ...(format === 'csv' || dataset ? [{ value: 'data', label: 'Data', icon: Table2Icon }] : []),
-    { value: 'source', label: 'Source', icon: FileCode2Icon },
+    { value: 'source', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' },
   ];
   const [chosen, setChosen] = useState(modes[0].value);
   const selected = view

@@ -29,6 +29,7 @@ import {
 } from './a2ui-data-demo-fixture.mjs';
 import { makeGalleryTerrainGlb } from './gallery-terrain.mjs';
 import { createBranchArtifactFixture } from './branch-artifact-fixture.mjs';
+import { createConversationFamilyFixture } from './conversation-family-fixture.mjs';
 import { createInfrastructureFixture } from './infrastructure-fixture.mjs';
 import { createScienceViewsFixture } from './science-fixture.mjs';
 import { createSessionSummaryFixture } from './session-summary-fixture.mjs';
@@ -1456,6 +1457,7 @@ const branchArtifacts = createBranchArtifactFixture({
   commonHeaders,
 });
 
+const conversationFamily = createConversationFamilyFixture({ session, workspaceId, sendJson });
 const sessionSummary = createSessionSummaryFixture({ sendJson, sessionId, workspaceId });
 const scienceViews = createScienceViewsFixture({
   sendJson,
@@ -2465,6 +2467,7 @@ const server = createServer(async (request, response) => {
     settingsFixture.reset();
     agentFixture.reset();
     branchArtifacts.reset();
+    conversationFamily.reset();
     session.state = 'running';
     session.updated_at = observedAt;
     permissionPending = true;
@@ -2531,6 +2534,7 @@ const server = createServer(async (request, response) => {
   if (await settingsCatalog.handle(request, response, url, { sendJson, readJson })) return;
   if (await settingsFixture.handle(request, response, url)) return;
   if (await branchArtifacts.handle(request, response, url)) return;
+  if (await conversationFamily.handle(request, response, url)) return;
   if (await sessionSummary.handle(request, response, url)) return;
   if (await scienceViews.handle(request, response, url)) return;
   if (request.method === 'POST' && url.pathname === '/__test/session-failure-demo') {
@@ -3212,6 +3216,7 @@ const server = createServer(async (request, response) => {
       session,
       ...(decisionCardsDemo ? [decisionChildSession(session, decisionChildSessionId)] : []),
       ...branchArtifacts.sessions(),
+      ...conversationFamily.sessions(),
     ];
     const byId = new Map(all.map((row) => [row.id, row]));
     const rootOf = (id) => {

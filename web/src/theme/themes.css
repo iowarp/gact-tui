@@ -35,8 +35,10 @@
   --muted: #ede7da;
   /* Muted text reaches 4.5:1 on every light surface, the menu highlight included. */
   --muted-foreground: #675f53;
-  --faint: #6f675b;
+  /* Steps down from muted text as far as dark's --faint does (1.7:1) and stays 3:1 on every surface. */
+  --faint: #8a8378;
   --changed: #276a63;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ece6da;
   --menu-highlight: #e3dccd;
   --key: #f8f4ec;
@@ -52,6 +54,7 @@
   --primary: #2f6f6a;
   --primary-foreground: #fbf8f1;
   --action: #9a4a12;
+  --question: #9a4a12;
   --sidebar: #ede8dd;
   --sidebar-foreground: #2b2a26;
   --sidebar-primary: #2f6f6a;
@@ -62,6 +65,7 @@
   --sidebar-ring: #2f6f6a;
   --destructive: #b3261e;
   --destructive-foreground: #8c1d18;
+  --destructive-text: var(--destructive);
   --info: #3a6690;
   --info-foreground: #234b70;
   --success: #2f6f6a;
@@ -142,6 +146,7 @@
   --muted-foreground: #9c9588;
   --faint: #6f695f;
   --changed: #74b8b0;
+  --spin-track: #2f5551;
   --hover: #25231f;
   --menu-highlight: #38342d;
   --key: #23211d;
@@ -157,6 +162,7 @@
   --primary: #5fa8a0;
   --primary-foreground: #16211f;
   --action: #e8a05f;
+  --question: #e8a05f;
   --sidebar: #1a1916;
   --sidebar-foreground: #ece6da;
   --sidebar-primary: #5fa8a0;
@@ -167,6 +173,7 @@
   --sidebar-ring: #5fa8a0;
   --destructive: #e5675c;
   --destructive-foreground: #f2b8b5;
+  --destructive-text: #ef9a90;
   --info: #8db4da;
   --info-foreground: #a9c7e6;
   --success: #5fa8a0;
@@ -248,6 +255,7 @@
   --muted-foreground: oklch(0.47 0.035 235);
   --faint: oklch(0.6 0.02 230);
   --changed: oklch(0.5 0.1 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.96 0.012 225);
   --menu-highlight: oklch(0.925 0.02 220);
   --key: oklch(0.97 0.008 225);
@@ -263,6 +271,7 @@
   --primary: oklch(0.63 0.14 205);
   --primary-foreground: oklch(0.12 0.03 225);
   --action: oklch(0.64 0.17 55);
+  --question: oklch(0.64 0.17 55);
   --sidebar: oklch(0.965 0.012 225);
   --sidebar-foreground: oklch(0.2 0.03 235);
   --sidebar-primary: oklch(0.63 0.14 205);
@@ -273,6 +282,7 @@
   --sidebar-ring: oklch(0.63 0.14 205);
   --destructive: oklch(0.5 0.19 25);
   --destructive-foreground: var(--color-red-800);
+  --destructive-text: var(--destructive);
   --info: oklch(0.48 0.13 220);
   --info-foreground: var(--color-violet-900);
   --success: oklch(0.46 0.13 155);
@@ -353,6 +363,7 @@
   --muted-foreground: oklch(0.7 0 0);
   --faint: oklch(0.5 0 0);
   --changed: oklch(0.78 0.11 185);
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: oklch(0.165 0 0);
   --menu-highlight: oklch(0.255 0 0);
   --key: oklch(0.155 0 0);
@@ -368,6 +379,7 @@
   --primary: oklch(0.77 0.145 198);
   --primary-foreground: oklch(0.13 0 0);
   --action: oklch(0.75 0.17 57);
+  --question: oklch(0.75 0.17 57);
   --sidebar: oklch(0.125 0 0);
   --sidebar-foreground: oklch(0.92 0 0);
   --sidebar-primary: oklch(0.77 0.145 198);
@@ -378,6 +390,7 @@
   --sidebar-ring: oklch(0.77 0.145 198);
   --destructive: oklch(0.69 0.19 24);
   --destructive-foreground: var(--color-red-400);
+  --destructive-text: var(--destructive);
   --info: oklch(0.72 0.14 215);
   --info-foreground: var(--color-violet-400);
   --success: oklch(0.72 0.15 155);
@@ -462,6 +475,7 @@
   --muted-foreground: #a30000;
   --faint: #ff9999;
   --changed: #008080;
+  --spin-track: color-mix(in oklab, var(--primary) 30%, transparent);
   --hover: #ffd0d0;
   --menu-highlight: #ffb3b3;
   --key: #ffd9d9;
@@ -477,6 +491,7 @@
   --primary: #e00000;
   --primary-foreground: #fff0f0;
   --action: #ff3333;
+  --question: #ff3333;
   --sidebar: #ffd9d9;
   --sidebar-foreground: #7a0000;
   --sidebar-primary: #e00000;
@@ -487,6 +502,7 @@
   --sidebar-ring: #ff0000;
   --destructive: #b30000;
   --destructive-foreground: #8a0000;
+  --destructive-text: var(--destructive);
   --info: #cc0000;
   --info-foreground: #8a0000;
   --success: #d10000;

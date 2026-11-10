@@ -1,5 +1,5 @@
 import type { SessionDiff } from '@clio/core/v3';
-import { FileDiffIcon, Undo2Icon } from 'lucide-react';
+import { Undo2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
   AlertDialog,
@@ -81,7 +81,6 @@ export function DiffCanvasView({
           label="Change"
           where={
             <span className="flex min-w-0 items-center gap-1.5">
-              <FileDiffIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
               <FrameCrumbs parts={crumbs.length ? crumbs : [{ label: diff.path }]} />
             </span>
           }

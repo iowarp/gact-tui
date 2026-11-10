@@ -1,25 +1,9 @@
-import {
-  ExternalLinkIcon,
-  GitForkIcon,
-  PackageOpenIcon,
-  Share2Icon,
-  Undo2Icon,
-} from 'lucide-react';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
-import { useState } from 'react';
+import { ExternalLinkIcon } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -38,7 +22,18 @@ import {
 } from './resource-dialogs';
 import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
-import { SessionLifecycleMenuItems, SessionOrganizeMenuItems } from './session-management-menu';
+import {
+  SessionHistoryConfirmDialog,
+  type SessionHistoryConfirmation,
+} from './session-history-confirm-dialog';
+import {
+  SessionForkMenuItem,
+  SessionHistoryMenuItems,
+  SessionLifecycleMenuItems,
+  SessionOrganizeMenuItems,
+  SessionShareMenuItem,
+} from './session-management-menu';
+import { TopBarEnd } from './top-bar-end';
 
 export interface ClioSessionActionsProps {
   title: string;
@@ -51,10 +46,22 @@ export interface ClioSessionActionsProps {
   onOpenSystemTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onUndo: () => Promise<void>;
+  /**
+   * Replaces the More button, e.g. with the top bar's title and chevron. It must be a button
+   * that forwards props; it gets the menu's open state and `disabled`.
+   */
+  trigger?: (state: { disabled: boolean }) => ReactNode;
+  /**
+   * A second trigger for the same menu at the end of the top bar (the ⋯). Alt . opens the
+   * menu from it when it is there.
+   */
+  more?: (state: { disabled: boolean }) => ReactNode;
 }
 
 export function ClioSessionActions({
   title,
+  trigger,
+  more,
   disabled,
   management,
   onFork,
@@ -63,15 +70,15 @@ export function ClioSessionActions({
   onShare,
   onUndo,
 }: ClioSessionActionsProps) {
-  const [confirmation, setConfirmation] = useState<'compact' | 'undo'>();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
   const [sharing, setSharing] = useState(false);
   const [pending, setPending] = useState(false);
-  useShortcut('conversation-menu', () => setMenuOpen(true), {
-    enabled: !(disabled || pending),
-  });
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
+  const [openMenu, setOpenMenu] = useState<'trigger' | 'more'>();
+  useShortcut('conversation-menu', () => setOpenMenu(more ? 'more' : 'trigger'), {
+    enabled: !disabled && !pending,
+  });
   const run = async (action: () => Promise<void>) => {
     setPending(true);
     try {
@@ -105,131 +112,108 @@ export function ClioSessionActions({
       }
     });
   };
+  const items = (
+    <>
+      {management ? (
+        <SessionOrganizeMenuItems
+          actions={management.actions}
+          onAction={runManagementAction}
+          onRename={setRenameTarget}
+          session={management.session}
+        />
+      ) : null}
+      {onFork ? <SessionForkMenuItem onSelect={() => void run(onFork)} /> : null}
+      <SessionShareMenuItem onSelect={() => setSharing(true)} />
+      {management ? (
+        <SessionExportMenu
+          onExport={(mode) =>
+            runManagementAction(
+              () =>
+                downloadSessionExport(
+                  management.actions,
+                  management.endpoint,
+                  management.session.id,
+                  title,
+                  mode,
+                ),
+              'Session archive prepared for download',
+            )
+          }
+        />
+      ) : null}
+      <DropdownMenuSeparator />
+      {onOpenSystemTerminal ? (
+        <KeyMenuItem
+          icon={ExternalLinkIcon}
+          label="Open in system terminal"
+          menuKey="T"
+          onSelect={() => void run(onOpenSystemTerminal)}
+        />
+      ) : null}
+      <SessionHistoryMenuItems onConfirm={setConfirmation} />
+      {management ? (
+        <>
+          <DropdownMenuSeparator />
+          <SessionLifecycleMenuItems
+            actions={management.actions}
+            onAction={runManagementAction}
+            onDelete={setDeleteTarget}
+            session={management.session}
+          />
+        </>
+      ) : null}
+    </>
+  );
   return (
     <>
-      <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
+      <DropdownMenu
+        onOpenChange={(open) => setOpenMenu(open ? 'trigger' : undefined)}
+        open={openMenu === 'trigger'}
+      >
         <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`Actions for ${title}`}
-            className="max-sm:size-8"
-            disabled={disabled || pending}
-            size="icon-xs"
-            variant="ghost"
-          >
-            <MoreIcon aria-hidden="true" />
-          </Button>
+          {trigger ? (
+            trigger({ disabled: Boolean(disabled || pending) })
+          ) : (
+            <Button
+              aria-label={`Actions for ${title}`}
+              className="max-sm:size-8"
+              disabled={disabled || pending}
+              size="icon-xs"
+              variant="ghost"
+            >
+              <MoreIcon aria-hidden="true" />
+            </Button>
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-64" onKeyDown={selectMenuKey}>
-          {management ? (
-            <SessionOrganizeMenuItems
-              actions={management.actions}
-              onAction={runManagementAction}
-              onRename={setRenameTarget}
-              session={management.session}
-            />
-          ) : null}
-          {onFork ? (
-            <KeyMenuItem
-              icon={<GitForkIcon aria-hidden="true" />}
-              label="Fork into a new conversation"
-              menuKey="F"
-              onSelect={() => void run(onFork)}
-            />
-          ) : null}
-          <KeyMenuItem
-            icon={<Share2Icon aria-hidden="true" />}
-            label="Share read-only link"
-            menuKey="L"
-            onSelect={() => setSharing(true)}
-          />
-          {management ? (
-            <SessionExportMenu
-              onExport={(mode) =>
-                runManagementAction(
-                  () =>
-                    downloadSessionExport(
-                      management.actions,
-                      management.endpoint,
-                      management.session.id,
-                      title,
-                      mode,
-                    ),
-                  'Session archive prepared for download',
-                )
-              }
-            />
-          ) : null}
-          <DropdownMenuSeparator />
-          {onOpenSystemTerminal ? (
-            <KeyMenuItem
-              icon={<ExternalLinkIcon aria-hidden="true" />}
-              label="Open in system terminal"
-              menuKey="T"
-              onSelect={() => void run(onOpenSystemTerminal)}
-            />
-          ) : null}
-          <KeyMenuItem
-            icon={<PackageOpenIcon aria-hidden="true" />}
-            label="Compact conversation…"
-            menuKey="C"
-            onSelect={() => setConfirmation('compact')}
-          />
-          <KeyMenuItem
-            icon={<Undo2Icon aria-hidden="true" />}
-            label="Remove last message…"
-            menuKey="V"
-            onSelect={() => setConfirmation('undo')}
-            destructive
-          />
-          {management ? (
-            <>
-              <DropdownMenuSeparator />
-              <SessionLifecycleMenuItems
-                actions={management.actions}
-                onAction={runManagementAction}
-                onDelete={setDeleteTarget}
-                session={management.session}
-              />
-            </>
-          ) : null}
+        <DropdownMenuContent
+          align={trigger ? 'start' : 'end'}
+          className="w-[290px]"
+          onKeyDown={selectMenuKey}
+        >
+          {items}
         </DropdownMenuContent>
       </DropdownMenu>
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open && !pending) setConfirmation(undefined);
-        }}
-        open={confirmation !== undefined}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmation === 'compact' ? 'Compact this conversation?' : 'Remove last message?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmation === 'compact'
-                ? 'The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.'
-                : 'The service will permanently remove the last stored message from this session. This action follows the connected permission policy.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={pending}
-              onClick={(event) => {
-                event.preventDefault();
-                void confirm();
-              }}
-              variant={confirmation === 'undo' ? 'destructive' : 'default'}
-            >
-              {pending
-                ? 'Working…'
-                : confirmation === 'compact'
-                  ? 'Compact conversation'
-                  : 'Remove message'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {more ? (
+        <DropdownMenu
+          onOpenChange={(open) => setOpenMenu(open ? 'more' : undefined)}
+          open={openMenu === 'more'}
+        >
+          <TopBarEnd>
+            <DropdownMenuTrigger asChild>
+              {more({ disabled: Boolean(disabled || pending) })}
+            </DropdownMenuTrigger>
+          </TopBarEnd>
+          <DropdownMenuContent align="end" className="w-[290px]" onKeyDown={selectMenuKey}>
+            {items}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      <SessionHistoryConfirmDialog
+        confirmation={confirmation}
+        onCancel={() => setConfirmation(undefined)}
+        onConfirm={() => void confirm()}
+        pending={pending}
+      />
       {management && renameTarget ? (
         <RenameResourceDialog
           actions={management.actions}

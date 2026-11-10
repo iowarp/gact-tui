@@ -1,4 +1,5 @@
-import type { RunState } from '@clio/core/v3';
+import type { RunState, WorkspaceReference } from '@clio/core/v3';
+import type { ObservabilityView } from '@/components/clio/observability-view-storage';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -33,6 +34,7 @@ import { useScienceLog } from '@/hooks/use-science-log';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
 import { useReferenceThisSelectionAction } from '@/hooks/use-reference-this-selection-action';
@@ -124,25 +126,37 @@ export function WorkspacePage() {
   const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // Hydration can lag messageCount by a render. Check both to avoid remounting
   // the welcome composer and losing drafts or attachments during navigation.
-  const showConversationWelcome =
+  const welcomeCandidate =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
-    !transcript.isFetching &&
     !transcriptError &&
     !conversationStarted;
+  // Read at render for the first fetch; the leaf subscription catches later flips
+  // without re-rendering the page for a populated session's background refetches.
+  const transcriptFetching = useQueryFetching(data.transcriptKey, welcomeCandidate);
+  const showConversationWelcome = welcomeCandidate && !transcript.isFetching && !transcriptFetching;
 
   const workbench = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const { openArtifact, openFlow, openSubagent, revealWorkbench } = workbench;
-  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, (view) =>
-    revealWorkbench({ kind: 'session', view }),
+  const revealSessionView = useCallback(
+    (view?: ObservabilityView) => revealWorkbench({ kind: 'session', view }),
+    [revealWorkbench],
   );
+  const { openObservability, requestedView } = useObservabilityNavigation(
+    sessionId,
+    revealSessionView,
+  );
+  const openTasks = useCallback(() => openObservability(), [openObservability]);
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   const inStudy = useScienceLog(sessionId).data?.in_study;
   const openAgent = useCallback(
     () => revealWorkbench({ kind: 'resources', section: 'agent' }),
     [revealWorkbench],
   );
-  const openWork = () => revealWorkbench({ kind: 'resources', section: 'work' });
+  const openWork = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'work' }),
+    [revealWorkbench],
+  );
   useDesktopTitleSync({
     agent: agentLabel,
     onOpenAgent: openAgent,
@@ -159,6 +173,11 @@ export function WorkspacePage() {
     sessionId,
     workspaceId,
   });
+  // Stable, so a page render does not re-render every memoized transcript row.
+  const openReference = useCallback(
+    (reference: WorkspaceReference) => void openComposerReference(reference),
+    [openComposerReference],
+  );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
   useDashboardReviewOpening(
@@ -318,7 +337,7 @@ export function WorkspacePage() {
       onHeightChange={setDockedComposerHeight}
       onReturnToParent={() => workbench.openParentSession(session)}
       onOpenResource={workbench.openWorkspaceResource}
-      onOpenReference={(reference) => void openComposerReference(reference)}
+      onOpenReference={openReference}
     />
   );
   return (
@@ -356,13 +375,12 @@ export function WorkspacePage() {
             <WorkspaceContextBar
               session={session}
               parentSession={data.parentSession}
-              agentLabel={agentLabel}
               workspaceLabel={activeWorkspace?.display_name}
               endpoint={settings.endpoint}
               history={sessionHistory}
               navigationActions={navigationActions}
               terminalActions={terminalActions}
-              onOpenAgent={openAgent}
+              onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
             />
           }
           workbench={
@@ -386,7 +404,7 @@ export function WorkspacePage() {
           statusStrip={
             <WorkspaceLiveStatusStrip
               work={work}
-              onInspectTasks={() => openObservability('evidence')}
+              onInspectTasks={() => openObservability()}
               onOpenWork={openWork}
               sessionId={sessionId}
               sessionState={session.state}
@@ -412,8 +430,8 @@ export function WorkspacePage() {
             showWelcome={showConversationWelcome}
             dockedComposerHeight={dockedComposerHeight}
             composer={renderComposer}
-            onOpenReference={(reference) => void openComposerReference(reference)}
-            onOpenTasks={() => openObservability('evidence')}
+            onOpenReference={openReference}
+            onOpenTasks={openTasks}
             onInteractionResponse={handleInteractionResponse}
           />
         </ClioAppShell>

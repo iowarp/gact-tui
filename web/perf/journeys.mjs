@@ -118,8 +118,34 @@ export class Recorder {
       .first();
   }
 
+  /** Hover the left-bar row that owns a hover-revealed action, as a person would. */
+  async revealRowAction(role, label) {
+    if (
+      await this.control(role, label)
+        .isVisible()
+        .catch(() => false)
+    )
+      return;
+    const matches = this.page.getByRole(role, { name: label, includeHidden: true });
+    const count = Math.min(await matches.count(), 20);
+    for (let index = 0; index < count; index += 1) {
+      const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+      if (!(await row.isVisible().catch(() => false))) continue;
+      // Leave the previous control first so its tooltip closes instead of covering the row.
+      const viewport = this.page.viewportSize();
+      if (viewport) await this.page.mouse.move(viewport.width / 2, viewport.height / 2);
+      await this.page.waitForTimeout(120);
+      const box = await row.boundingBox();
+      await row.hover(
+        box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {},
+      );
+      return;
+    }
+  }
+
   /** Press a control by role/name and wait for a new menu/dialog/listbox. */
   async overlay(name, role, label, extra = {}) {
+    await this.revealRowAction(role, label);
     const control = this.control(role, label);
     return this.measure(name, extra.category ?? 'menu', () => control.click(), OVERLAY, {
       close: 'Escape',
@@ -207,16 +233,12 @@ export async function shellJourney(r) {
       close: 'Escape',
     },
   );
-  await r.overlay('create or import menu', 'button', 'Create or import');
+  await r.overlay('agent menu', 'button', /^[^:]+: .+, this computer$/u);
   await r.overlay('workspace actions menu', 'button', /^Workspace actions for /u);
   await r.overlay('session row actions menu', 'button', /^Session actions for /u);
-  await r.overlay('attention inbox', 'button', /needs your response/u);
+  await r.overlay('attention inbox', 'button', /^Notifications|needs your response/u);
   await r.overlay('service status menu', 'button', /^Workspace Service status/u);
-  const infraStatus = r.control('button', 'Show infrastructure status');
-  await r.measure('infrastructure status', 'toggle', () => infraStatus.click(), OVERLAY, {
-    control: infraStatus,
-    close: () => r.control('button', /infrastructure status/u).click(),
-  });
+  await r.overlay('infrastructure status', 'button', /^Infrastructure: /u);
   // The rail (also "Toggle Sidebar") sits under the navigation resize handle;
   // the header trigger is the control people press.
   const toggle = page.locator('button[data-sidebar="trigger"]').filter({ visible: true }).first();
@@ -261,8 +283,6 @@ export async function headerJourney(r) {
     { css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]', text: 'Agent' },
     { control: customize },
   );
-  await r.overlay('version status', 'button', /^Version status/u);
-  await r.overlay('usage summary', 'button', /^Usage for this conversation/u);
 }
 
 export async function railJourney(r) {
@@ -297,7 +317,8 @@ export async function railJourney(r) {
     minCount: 1,
   });
   // The draft opens from the top bar's new-conversation control; measure its
-  // in-app route change from a conversation.
+  // in-app route change from a conversation. A history push is not an input
+  // event, so the measurement starts at the push.
   await r.measure(
     'new conversation draft',
     'navigation',
@@ -306,7 +327,7 @@ export async function railJourney(r) {
         history.pushState({}, '', path);
         dispatchEvent(new PopStateEvent('popstate'));
       }, '/workspaces/ws_flat_ndp/new'),
-    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation' },
+    { css: 'nav[aria-label="Breadcrumb"]', text: 'New conversation', noInput: true },
     { timeoutMs: 8000 },
   );
   await page.goto(new URL(SESSION_URL, page.url()).href);
@@ -358,7 +379,7 @@ export async function composerJourney(r) {
   });
   await r.overlay('model picker', 'button', 'Change model', { category: 'picker' });
   await r.overlay('reasoning effort', 'button', /^Reasoning effort/u);
-  await r.overlay('execution mode', 'button', /^Execution mode/u);
+  await r.overlay('execution mode', 'button', /^Mode: /u);
   await r.overlay('confirmation policy', 'button', /^Confirmation policy/u);
   await attachmentJourney(r);
 }
@@ -462,9 +483,15 @@ export async function transcriptJourney(r) {
       { control: activity },
     );
   }
+  // A conversation wider than 760 px shows the minimap rail instead of the
+  // outline button, so the outline is measured where it appears.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 700, height: viewport.height });
   await r.overlay('transcript outline', 'button', 'Open transcript outline', {
     category: 'dialog',
   });
+  await page.setViewportSize(viewport);
+  await waitIdle(page);
   const jump = r.control('button', /^Jump to user message 2$/u);
   await r.measure(
     'minimap jump',
@@ -520,7 +547,7 @@ export async function workbenchJourney(r) {
       'open workspace canvas',
       'toggle',
       () => open.click(),
-      { css: '[role="complementary"][aria-label="Workspace canvas"]' },
+      { css: 'aside[aria-label="Workspace canvas"]' },
       { control: open },
     );
   }
@@ -537,10 +564,11 @@ export async function workbenchJourney(r) {
       { control: button, close: undefined },
     );
   }
-  const activity = page
-    .getByRole('region', { name: 'Activity list' })
-    .locator('[data-kind="tool"], [data-kind="turn"]')
-    .first();
+  // Activity leads with its timeline; its rows are the Events view.
+  const activityList = page.getByRole('region', { name: 'Activity list' });
+  const events = activityList.getByRole('radio', { name: 'Events', exact: true });
+  if (await r.visible(events, 1000)) await events.click();
+  const activity = activityList.locator('[data-kind="tool"], [data-kind="turn"]').first();
   if (await r.visible(activity, 1000)) {
     // The tab takes the row's name; its accessible name adds the status after a comma.
     const name = (await activity.getAttribute('aria-label'))?.split(', ')[0];
@@ -552,18 +580,20 @@ export async function workbenchJourney(r) {
       { control: activity, close: undefined },
     );
   }
-  const timeline = page
-    .getByRole('region', { name: 'Activity list' })
-    .getByRole('button', { name: 'Open timeline and context' });
+  const activityButton = strip.getByRole('button', { name: 'Activity', exact: true }).first();
+  // A row shows its detail in the Activity tab: come back to the list.
+  if (
+    (await r.visible(activityButton, 1000)) &&
+    (await activityButton.getAttribute('aria-pressed')) !== 'true'
+  )
+    await activityButton.click();
+  const timeline = activityList.getByRole('radio', { name: 'Timeline', exact: true });
   if (await r.visible(timeline, 1000)) {
     await r.measure(
       'open canvas tab: Timeline',
       'tab',
       () => timeline.click(),
-      {
-        css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]',
-        text: 'Timeline',
-      },
+      { css: '[aria-label="Activity list"] [data-slot="activity-session"]' },
       { control: timeline, close: undefined },
     );
   }
@@ -591,10 +621,25 @@ export async function workbenchJourney(r) {
       { close: 'Escape', control: activeTab },
     );
   }
-  const tabs = await page.locator('[aria-label="Workspace canvas"] [role="tab"]').all();
-  for (const tab of tabs.slice(0, 8)) {
-    const name = (await tab.textContent())?.trim() || 'tab';
-    if ((await tab.getAttribute('aria-selected')) === 'true') continue;
+  // Lists are tabs too, so a narrow canvas folds some into the overflow menu;
+  // re-query after every switch because activating a tab changes what fits.
+  const visibleTabs = page
+    .locator('[aria-label="Workspace canvas"] [role="tab"]')
+    .filter({ visible: true });
+  const switched = new Set();
+  for (let index = 0; index < 8; index += 1) {
+    let tab;
+    let name = '';
+    for (const candidate of await visibleTabs.all()) {
+      const text = (await candidate.textContent())?.trim() || 'tab';
+      if (switched.has(text) || (await candidate.getAttribute('aria-selected')) === 'true')
+        continue;
+      tab = candidate;
+      name = text;
+      break;
+    }
+    if (!tab) break;
+    switched.add(name);
     await r.measure(
       `switch canvas tab: ${name}`,
       'tab',
@@ -614,6 +659,29 @@ export async function workbenchJourney(r) {
   await page.keyboard.press('Escape');
   const restore = r.control('button', /^(Restore|Exit|Minimize|Unmaximize)/u);
   if (await r.visible(restore, 1000)) await restore.click();
+}
+
+/** Scroll a virtualized list's scroller a page at a time until `target` is rendered. */
+async function scrollTreeTo(list, target, visible) {
+  for (let page = 0; page < 200; page += 1) {
+    if (await visible(target, page === 0 ? 1000 : 150)) return;
+    const moved = await list.evaluate((root, first) => {
+      const scroller = [root, ...root.querySelectorAll('*')].find(
+        (node) =>
+          node.scrollHeight > node.clientHeight + 1 &&
+          /auto|scroll/u.test(getComputedStyle(node).overflowY),
+      );
+      if (!scroller) return false;
+      if (first && scroller.scrollTop > 0) {
+        scroller.scrollTop = 0;
+        return true;
+      }
+      const before = scroller.scrollTop;
+      scroller.scrollTop += Math.max(1, scroller.clientHeight * 0.8);
+      return scroller.scrollTop !== before;
+    }, page === 0);
+    if (!moved) return;
+  }
 }
 
 /**
@@ -664,6 +732,8 @@ export async function fileViewerJourney(r, entries) {
       .locator('[role="treeitem"]:not([aria-expanded])')
       .filter({ hasText: name })
       .first();
+    // The tree is virtualized: scroll it until the row is rendered.
+    await scrollTreeTo(list, file, (locator, ms) => r.visible(locator, ms));
     const preview = '[aria-label="Workspace file preview"]';
     const step = await r.measure(
       `open file ${name}`,
@@ -732,7 +802,12 @@ export async function settingsJourney(r) {
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {
     category: 'picker',
   });
-  if (await page.locator('[data-frame="window"]').isVisible()) {
+  await closeSettingsWindow(page);
+}
+
+/** Escape closes the innermost layer first (search, then the Settings window). */
+async function closeSettingsWindow(page) {
+  for (let i = 0; i < 3 && (await page.locator('[data-frame="window"]').isVisible()); i++) {
     await page.keyboard.press('Escape');
     await waitIdle(page);
   }
@@ -778,6 +853,8 @@ export async function exploreJourney(r) {
   }
   await page.goBack();
   await waitIdle(page);
+  // Back can land on a /settings route from the previous journey, which reopens the window.
+  await closeSettingsWindow(page);
   const infra = r.control('link', /^Infrastructure/u);
   await r.measure(
     'open infrastructure',
@@ -819,28 +896,41 @@ export async function exploreJourney(r) {
   if (!(await r.visible(page.locator(MESSAGE).first(), 3000))) {
     await page.goto(new URL('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp', page.url()).href);
   }
+  // Settings is an overlay route; history steps can land back on it.
+  if (await page.locator('[data-frame="window"]').isVisible()) {
+    await page.keyboard.press('Escape');
+    await waitIdle(page);
+  }
   await page.locator(MESSAGE).first().waitFor({ timeout: 30_000 });
   await waitIdle(page, 1000);
-  const create = r.control('button', /^New session in /u);
+  await r.revealRowAction('button', /^New conversation in /u);
+  const create = r.control('button', /^New conversation in /u);
   await r.measure('new session dialog', 'dialog', () => create.click(), OVERLAY, {
     control: create,
   });
-  const workspaceTab = r.control('tab', 'Workspace', { exact: true });
+  // The Create dialog picks Session or Workspace with a radio group.
+  const workspaceTab = r.control('radio', 'Workspace', { exact: true });
   await r.measure(
     'create dialog: workspace tab',
     'tab',
     () => workspaceTab.click(),
-    { css: '[role="dialog"] [role="tab"][aria-selected="true"]', text: 'Workspace' },
+    { css: '[role="dialog"] [role="radio"][aria-checked="true"]', text: 'Workspace' },
     { control: workspaceTab, close: 'Escape' },
   );
   await r.close('Escape');
 }
 
-/** Idle sampling: heap and renderer CPU while a running conversation stays open. */
-export async function idle(r, seconds) {
+/**
+ * Idle sampling: heap and renderer CPU while a running conversation stays open.
+ * `sample` reads process CPU inside the window, after and before the forced
+ * garbage collections, so the harness's own GC is not counted as idle work.
+ */
+export async function idle(r, seconds, sample = async () => null) {
   const before = await cdpMetrics(r.cdp, { gc: true });
   const start = await r.page.evaluate(() => window.__perf.totals());
+  const cpuStart = await sample();
   await r.page.waitForTimeout(seconds * 1000);
+  const cpuEnd = await sample();
   const after = await cdpMetrics(r.cdp, { gc: true });
   const end = await r.page.evaluate(() => window.__perf.totals());
   const step = {
@@ -859,7 +949,7 @@ export async function idle(r, seconds) {
     longTaskMs: round(end.longTaskMs - start.longTaskMs),
   };
   r.steps.push(step);
-  return step;
+  return { step, cpuStart, cpuEnd };
 }
 
 export const marks = {

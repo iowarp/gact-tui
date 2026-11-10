@@ -53,6 +53,11 @@ vi.mock('@/hooks/use-switch-connection', () => ({
 }));
 vi.mock('@/providers/appearance-provider', () => ({
   useTheme: () => ({ theme: 'light', setTheme: repository.setTheme }),
+  useAppearancePreferences: () => ({
+    conversationWidth: 'focused',
+    interfaceSize: 100,
+    motion: 'system',
+  }),
 }));
 
 import { ClioCommandMenu } from './command-menu';
@@ -259,7 +264,7 @@ describe('ClioCommandMenu workspace search', () => {
     renderMenu(vi.fn(), '/settings/general', false);
     await user.keyboard('{Control>}k{/Control}');
     await user.keyboard('stations');
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent(
         '/workspaces/ws_current/sessions/sess_current',
@@ -279,7 +284,7 @@ describe('ClioCommandMenu workspace search', () => {
       renderMenu(vi.fn(), route, false);
       await user.keyboard('{Control>}k{/Control}');
       await user.keyboard('stations');
-      await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+      await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
       expect(repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_current',
         expect.any(AbortSignal),
@@ -336,6 +341,22 @@ describe('ClioCommandMenu workspace search', () => {
     expect(screen.getByRole('tab', { name: /^All/u })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('counts only the result types that found something', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard('dark mode');
+    expect(await screen.findByRole('option', { name: 'Switch to dark mode' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /^Actions/u }).textContent).toMatch(/^Actions\d+$/u);
+    const files = screen.getByRole('tab', { name: /^Files/u });
+    expect(files).toHaveTextContent(/^Files$/u);
+    expect(files).toHaveAccessibleName('Files');
+    expect(files).toHaveClass('text-faint');
+    expect(files).toHaveAttribute('data-empty', 'true');
+    expect(screen.getByRole('tab', { name: /^Actions/u })).not.toHaveClass('text-faint');
+    expect(screen.getByRole('tab', { name: /^More/u })).not.toHaveClass('text-faint');
+  });
+
   it('opens Settings filtered to the search when every result is a setting', async () => {
     // No remembered passages match, so only settings remain once the search settles.
     repository.searchMemory.mockResolvedValue({
@@ -386,7 +407,7 @@ describe('ClioCommandMenu workspace search', () => {
     expect(
       screen.queryByText('.clio\\agent\\documents\\working-copies\\copy_1\\stations.csv'),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('option', { name: /results\/stations.csv/u }));
+    await user.click(await screen.findByRole('option', { name: /^stations\.csv/u }));
     expect(onOpenResource).toHaveBeenCalledWith({
       kind: 'workspace-file',
       path: 'results/stations.csv',

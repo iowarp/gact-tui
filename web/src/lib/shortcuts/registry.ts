@@ -21,7 +21,7 @@ export function detectKeyPlatform(): KeyPlatform {
   return isMacOS() ? 'mac' : 'windows';
 }
 
-function detectHost(): 'desktop' | 'browser' {
+export function detectHost(): 'desktop' | 'browser' {
   try {
     return inTauri() ? 'desktop' : 'browser';
   } catch {
@@ -142,18 +142,6 @@ export function shortcutAria(
     .map(chordAria)
     .filter((value): value is string => Boolean(value));
   return values.length ? values.join(' ') : undefined;
-}
-
-/** Whether `event` presses shortcut `id` on this platform, for a widget's own key handler. */
-export function shortcutMatches(
-  id: string,
-  event: KeyboardEvent,
-  platform: KeyPlatform = detectKeyPlatform(),
-): boolean {
-  const definition = definitions.get(id);
-  return Boolean(
-    definition && shortcutChords(definition, platform).some((chord) => chordMatches(chord, event)),
-  );
 }
 
 // ---- Dispatch --------------------------------------------------------------

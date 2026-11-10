@@ -95,9 +95,3 @@ export function commentSessionParts(
     .filter((session) => session.marks.length > 0)
     .map((session) => ({ type: 'comment_session', metadata: { comment_session: session } }));
 }
-
-/** A short line for a session's chip: its target and its marks. */
-export function commentSessionSummary(session: CommentAttachment): string {
-  const marks = session.marks.map((mark) => mark.label).join(', ');
-  return `${session.title || session.kind}: ${marks}`;
-}

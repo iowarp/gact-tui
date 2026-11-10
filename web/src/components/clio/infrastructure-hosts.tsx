@@ -1,6 +1,5 @@
 import type { InfrastructureInventory } from '@clio/core/v3';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import {
   BoxIcon,
   LaptopIcon,
@@ -9,7 +8,6 @@ import {
   PlugIcon,
   ServerIcon,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { vocab } from '@/lib/brand-vocabulary';
 import { AddIcon } from '@/lib/icon-vocabulary';
@@ -17,10 +15,11 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { computerConnectionLabel } from '@/lib/infrastructure-service-labels';
 import { InfrastructureHostInspection } from './infrastructure-host-inspection';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
 import { ComputerConnectionContent } from './managed-service-host-selector';
 import { InfoTip } from './info-tip';
-import { IconButton, NamedTooltip } from './primitives/icon-button';
+import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 
 /** The words and mark for a computer's connection; never the colour alone. */
@@ -136,24 +135,6 @@ export function InfrastructureHosts({
   );
 }
 
-/** A small icon link with its hover name, for a row's hover actions. */
-function RowLink({ icon, label, to }: { icon: ReactNode; label: string; to: string }) {
-  return (
-    <NamedTooltip label={label}>
-      <Button
-        asChild
-        className="rounded-[5px] text-muted-foreground hover:bg-hover hover:text-foreground [&_svg:not([class*=size-])]:size-3.5"
-        size="icon-xs"
-        variant="ghost"
-      >
-        <Link aria-label={label} to={to}>
-          {icon}
-        </Link>
-      </Button>
-    </NamedTooltip>
-  );
-}
-
 function ComputerRow({
   id,
   label,
@@ -181,18 +162,21 @@ function ComputerRow({
   return (
     <InfraRow
       actions={
-        <InfraRowActions className="flex items-center gap-0.5">
-          <RowLink
-            icon={<LayersIcon />}
-            label={`Services on ${label}`}
-            to={`/infrastructure/services?target=${target}`}
-          />
-          <RowLink
-            icon={<BoxIcon />}
-            label={`Models on ${label}`}
-            to={`/infrastructure/models?target=${target}`}
-          />
-        </InfraRowActions>
+        <InfraRowMenu
+          actions={[
+            {
+              icon: <LayersIcon />,
+              label: `Services on ${label}`,
+              to: `/infrastructure/services?target=${target}`,
+            },
+            {
+              icon: <BoxIcon />,
+              label: `Models on ${label}`,
+              to: `/infrastructure/models?target=${target}`,
+            },
+          ]}
+          label={`More for ${label}`}
+        />
       }
       className="cursor-pointer"
       description={

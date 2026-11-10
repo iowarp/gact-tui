@@ -54,11 +54,15 @@ const def = (
 
 export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('search', 'Search and commands', 'anywhere', ['Ctrl+K']),
+  def('model-picker', 'Open the model picker', 'anywhere', ["Ctrl+'"], {
+    when: 'In a conversation',
+  }),
   def('save-changes', 'Save typed settings', 'anywhere', ['Ctrl+S']),
   def('new-conversation', 'New conversation', 'anywhere', ['Ctrl+N'], { host: 'desktop' }),
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',
   }),
+  def('import-conversation', 'Import conversation?', 'anywhere', ['Ctrl+I']),
   def('left-pocket', 'Left pocket', 'anywhere', ['Ctrl+B']),
   def('right-pocket', 'Right pocket', 'anywhere', ['Ctrl+Shift+B']),
   def('previous-conversation', 'Previous conversation', 'anywhere', ['Alt+Up'], {
@@ -100,6 +104,10 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('stop', 'Stop', 'composer', ['Esc'], { mac: ['Esc', 'Cmd+.'] }),
   def('mode', 'Change mode', 'composer', ['Ctrl+Shift+M']),
   def('queue-delete', 'Delete the queued message', 'composer', ['Delete']),
+  def('save-draft', 'Save the draft for later', 'composer', ['Ctrl+S']),
+  def('restore-draft', 'Bring back the saved draft', 'composer', ['Up'], {
+    when: 'In an empty composer',
+  }),
 
   def('strip-position', 'Strip icon by position', 'strip', ['Ctrl+Shift+1–7'], {
     mac: ['Alt+Cmd+1–7'],
@@ -126,6 +134,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('menu-fill', 'Fill the command, to add to it', 'menu', ['Tab']),
   def('menu-submenu', 'Into a submenu, back', 'menu', ['Right', 'Left'], { joiner: 'pair' }),
   def('menu-open', 'Into a submenu', 'menu', ['Right']),
+  def('menu-back', 'Back out of a submenu', 'menu', ['Left']),
   def('menu-close', 'Close', 'menu', ['Esc']),
   def('menu-type', 'Change type, at the edge of the text', 'menu', ['Left', 'Right'], {
     joiner: 'pair',
@@ -139,6 +148,12 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   }),
   def('menu-ask', 'Ask the search assistant, and back', 'menu', ['Tab']),
   def('menu-filters', 'All filters', 'menu', ['Alt+Down']),
+  def('menu-toggle', 'Toggle a filter', 'menu', ['Space'], { when: 'In the filters' }),
+  def('menu-next-group', 'Next filter group', 'menu', ['PageDown'], { when: 'In the filters' }),
+  def('menu-slide', 'Slide a filter', 'menu', ['Left', 'Right'], {
+    joiner: 'pair',
+    when: 'In the filters',
+  }),
   def('menu-drop-filter', 'Drop the last filter', 'menu', ['Backspace'], {
     when: 'In an empty search',
   }),

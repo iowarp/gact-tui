@@ -13,8 +13,8 @@ import {
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
-import { ModelPickerFacetPanel } from './model-picker-facet-panel';
-import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
+import { ModelPickerFacetPanel, type FacetPanelHandle } from './model-picker-facet-panel';
+import { rangeFilterSections } from './model-picker-filter-ranges';
 import { ModelPickerQuickStrip } from './model-picker-quick-strip';
 
 interface ModelPickerSearchProps {
@@ -43,11 +43,20 @@ interface ModelPickerSearchProps {
   onFacetsOpenChange: (open: boolean) => void;
   /** The highest input price the listed models state (the Cost slider's top). */
   maxInputPrice?: number;
+  /** Whether any listed model states its size: the Size chip and slider show only then. */
+  sizes?: boolean;
   /** Downloads share the picker search without claiming serving capabilities or prices. */
   label?: string;
   inputId?: string;
   /** Repository searches run remotely on submission rather than filtering a loaded catalog. */
   onSearch?: () => void;
+  /**
+   * The narrowest picker (under 400px): row 2 folds into the Filters button
+   * and shows above the filter panel while it is open.
+   */
+  compact?: boolean;
+  /** One column: the count is the matches alone ("6"), as each group states its own. */
+  single?: boolean;
 }
 
 /** The word being typed: the text after the last space. */
@@ -78,15 +87,23 @@ export function ModelPickerSearch({
   facetsOpen,
   onFacetsOpenChange,
   maxInputPrice,
+  sizes = false,
   label = 'Search providers and models',
   inputId,
   onSearch,
+  compact = false,
+  single = false,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<FacetPanelHandle>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
-  const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined);
+  const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined, sizes);
   const extraTokens = chosen.filter((token) => !isQuickFilterToken(token, strip));
+  const hasFilters = facetTabs.some((tab) => tab.chipCount > 0) || (compact && strip.length > 0);
+  const rowTwo =
+    (strip.length || extraTokens.length || suggestions.length) &&
+    (!compact || facetsOpen || suggestions.length);
 
   function addToken(token: ModelFilterToken) {
     onTokensChange(addModelFilterToken(tokens, token));
@@ -116,6 +133,16 @@ export function ModelPickerSearch({
   }, [facetsOpen, onFacetsOpenChange]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // The picker's own highlight seed presses arrows; those are not the person's.
+    if (event.currentTarget.dataset.seeding !== undefined) return;
+    // The open panel moves and toggles its own rows; the list behind it stays put.
+    if (facetsOpen && panelRef.current?.keyDown(event)) {
+      event.preventDefault();
+      (
+        event as KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler?: () => void }
+      ).preventBaseUIHandler?.();
+      return;
+    }
     if (event.key === 'Enter' && onSearch) {
       event.preventDefault();
       onFacetsOpenChange(false);
@@ -194,14 +221,19 @@ export function ModelPickerSearch({
           )}
         </div>
         <span
-          aria-label={`${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`}
-          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-faint tabular-nums"
+          aria-label={
+            single
+              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+              : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+          }
+          className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
-          {shown} / {total}
+          {shown}
+          {single ? '' : ` / ${total}`}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
-        {facetTabs.some((tab) => tab.chipCount > 0) ? (
+        {hasFilters ? (
           <>
             <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
             <TooltipProvider disableHoverableContent>
@@ -215,7 +247,15 @@ export function ModelPickerSearch({
                       'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                   data-slot="model-filters-button"
-                  onClick={() => onFacetsOpenChange(!facetsOpen)}
+                  // The panel answers keys through the search field, so a press
+                  // leaves focus there and a key press on the button returns it.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onFacetsOpenChange(!facetsOpen);
+                    rootRef.current
+                      ?.querySelector<HTMLInputElement>('input')
+                      ?.focus({ preventScroll: true });
+                  }}
                   type="button"
                 >
                   <span className="grid w-6 place-items-center">
@@ -243,7 +283,7 @@ export function ModelPickerSearch({
           </>
         ) : null}
       </div>
-      {strip.length || extraTokens.length || suggestions.length ? (
+      {rowTwo ? (
         <ModelPickerQuickStrip
           extraTokens={extraTokens}
           filters={strip}
@@ -255,16 +295,14 @@ export function ModelPickerSearch({
       ) : null}
       {facetsOpen ? (
         <ModelPickerFacetPanel
+          onClose={() => onFacetsOpenChange(false)}
           onToggleChip={toggleChip}
-          sliders={
-            maxInputPrice === undefined ? undefined : (
-              <ModelPickerFacetSliders
-                maxInputPrice={maxInputPrice}
-                onTokensChange={onTokensChange}
-                tokens={tokens}
-              />
-            )
+          ranges={
+            maxInputPrice === undefined
+              ? undefined
+              : rangeFilterSections({ tokens, onTokensChange, maxInputPrice, sizes })
           }
+          ref={panelRef}
           tabs={facetTabs}
         />
       ) : null}

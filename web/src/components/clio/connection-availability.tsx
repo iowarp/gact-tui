@@ -1,8 +1,9 @@
 import { ServerIcon } from 'lucide-react';
-import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
+import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { cn } from '@/lib/utils';
+import { AGENT_AVAILABILITY_TONE } from './connection-names';
 
 interface ConnectionAvailabilityIndicatorProps {
   availability: ConnectionAvailability;
@@ -11,16 +12,16 @@ interface ConnectionAvailabilityIndicatorProps {
   className?: string;
 }
 
-/** Show a service's reachability inline, with diagnostic detail on hover or focus. */
+/**
+ * An agent's reachability as the spec's status dot and word (connect-infrastructure
+ * `.st3`), with diagnostic detail on hover or focus.
+ */
 export function ConnectionAvailabilityIndicator({
   availability,
   endpoint,
   compact = false,
   className,
 }: ConnectionAvailabilityIndicatorProps) {
-  const value: ClioStatusValue =
-    availability.state === 'checking' ? 'connecting' : availability.state;
-
   return (
     <HoverCard closeDelay={100} openDelay={150}>
       <HoverCardTrigger asChild>
@@ -28,14 +29,12 @@ export function ConnectionAvailabilityIndicator({
           className={cn('inline-flex rounded-md outline-none focus-visible:ring-2', className)}
           tabIndex={compact ? -1 : 0}
         >
-          <ClioStatus
+          <StatusIndicator
             className={cn(
-              compact &&
-                'border-0 bg-transparent px-1 py-0 shadow-none group-data-selected/list-row:text-accent-foreground',
+              compact && 'text-[11px] group-data-selected/list-row:text-accent-foreground',
             )}
-            detail={availability.detail}
             label={availability.label}
-            value={value}
+            tone={AGENT_AVAILABILITY_TONE[availability.state]}
           />
         </span>
       </HoverCardTrigger>

@@ -204,4 +204,73 @@ describe('skill observations at three levels', () => {
     expect(within(dialog).getByText('D:/skills/work-with-ndp', { exact: true })).toBeVisible();
     expect(JSON.stringify(tool)).toBe(original);
   });
+
+  it('opens installed skill files from the loaded text, never through the workspace reader', async () => {
+    const user = userEvent.setup();
+    const opened: string[] = [];
+    const root = '/Applications/CLIO Desktop.app/Contents/Resources/skills/work-with-ndp';
+    const tool: ToolInvocation = {
+      id: 'batch',
+      session_id: 'session',
+      name: 'load_skill',
+      state: 'succeeded',
+      input: { skill_id: 'work-with-ndp', files: ['references/streams.md', 'catalog.json#/x'] },
+      presentation: {
+        action: 'Read skill references',
+        subject: 'skill-reference',
+        summary: 'Work with NDP',
+        blocks: [
+          { id: 'skill-reference', type: 'text', text: '2 reference files' },
+          { id: 'skill-identity', type: 'text', label: 'Skill', text: 'work-with-ndp' },
+          { id: 'skill-directory', type: 'text', label: 'Skill directory', text: root },
+          {
+            id: 'skill-file-0',
+            type: 'link',
+            target: 'file',
+            uri: `${root}/references/streams.md`,
+            label: 'references/streams.md',
+          },
+          {
+            id: 'skill-file-1',
+            type: 'link',
+            target: 'file',
+            uri: `${root}/catalog.json`,
+            label: 'catalog.json#/x',
+          },
+          {
+            id: 'content',
+            type: 'markdown',
+            text: '=== File 1/2: references/streams.md ===\n# Stream windows\n\nAlign to the hour.\n\n=== File 2/2: catalog.json#/x ===\n{"title": "Chart"}',
+          },
+        ],
+      },
+    };
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: (path) => void opened.push(path) }}
+      >
+        <ClioToolInvocation compact tool={tool} />
+      </PresentationNavigation.Provider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Show result for Read skill references' }));
+    const result = screen.getByRole('region', { name: 'Read skill references: Result' });
+    await user.click(within(result).getByText('Source', { exact: true }));
+    await user.click(within(result).getByRole('button', { name: 'references/streams.md' }));
+    const dialog = screen.getByRole('dialog', { name: 'streams.md' });
+    expect(within(dialog).getByRole('region', { name: 'Scrollable result content' })).toHaveFocus();
+    expect(dialog).toHaveAccessibleDescription('work-with-ndp › references');
+    expect(within(dialog).getByText('work-with-ndp › references')).toHaveAttribute(
+      'title',
+      `${root}/references/streams.md`,
+    );
+    expect(within(dialog).getByRole('button', { name: 'Copy path' })).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: 'Copy references/streams.md' }),
+    ).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Download streams.md' })).toBeVisible();
+    expect(within(dialog).getByRole('heading', { name: 'Stream windows' })).toBeVisible();
+    expect(dialog).toHaveTextContent('Align to the hour.');
+    expect(dialog).not.toHaveTextContent('Chart');
+    expect(opened).toEqual([]);
+  });
 });

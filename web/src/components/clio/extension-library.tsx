@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
-import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import {
   useExtensionsSupported,
   useInstalledAgents,
@@ -45,6 +45,7 @@ import { PrivateLocalLibrary } from './private-local-library';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { MarketplaceDetailPane } from './settings-plugins';
+import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { downloadBytes } from './surface-export';
 
@@ -122,6 +123,13 @@ function ExtensionLibraryContents({
   const [adding, setAdding] = useState<ExtensionAdd>();
   const [signing, setSigning] = useState<string>();
   const [removing, setRemoving] = useState<SavedMcpService>();
+  // A row's Remove asks inline on that row; the detail pane's Remove keeps its dialog.
+  const [askingRemove, setAskingRemove] = useState('');
+  const removeSaved = useRemoveSavedMcp((service) =>
+    setDetail((shown) =>
+      shown?.kind === 'mcp' && shown.name === service.name ? undefined : shown,
+    ),
+  );
   const [backup, setBackup] = useState(false);
   const [localDetails, setLocalDetails] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -445,6 +453,17 @@ function ExtensionLibraryContents({
         selected={isOpen(target)}
         aligned
         status={entry.status}
+        confirm={
+          entry.saved && askingRemove === entry.key ? (
+            <RowConfirm
+              action="Remove"
+              busyAction="Removing…"
+              onConfirm={() => removeSaved.mutateAsync(entry.saved!)}
+              onKeep={() => setAskingRemove('')}
+              question={`Remove ${entry.title}?`}
+            />
+          ) : undefined
+        }
         slot={
           retry ? (
             <SlotButton
@@ -470,7 +489,7 @@ function ExtensionLibraryContents({
               <IconButton
                 icon={<DeleteIcon />}
                 label={`Remove ${entry.title}`}
-                onClick={() => setRemoving(entry.saved)}
+                onClick={() => setAskingRemove(entry.key)}
               />
             ) : null}
           </>

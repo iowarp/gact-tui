@@ -14,6 +14,12 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
+  /**
+   * The last action is a ⋯ menu that holds every action. On a phone-width list
+   * the others fold into it and it stays visible in its own column; on a touch
+   * screen with room for the actions column, they stay visible there.
+   */
+  foldActions?: boolean;
   /** Right slot: one button (Use, Retry, Update, Trust) or a toggle. */
   slot?: ReactNode;
   /**
@@ -53,6 +59,7 @@ export const ItemRow = memo(
       status,
       actions,
       actionsVisible = false,
+      foldActions = false,
       slot,
       confirm,
       statusWidth = 158,
@@ -69,6 +76,7 @@ export const ItemRow = memo(
     // Below 24rem of list width a two-line row stacks, as setting rows do: the
     // status drops under the name, so a phone keeps the name readable.
     const stacks = size !== 'line';
+    const folds = stacks && foldActions && actions !== undefined;
     const columns: CSSProperties = {
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
       ['--item-actions' as string]: `${actions === undefined ? 0 : actionsWidth}px`,
@@ -87,15 +95,19 @@ export const ItemRow = memo(
           'hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset',
           'data-selected:bg-primary/10 data-selected:shadow-[inset_2px_0_var(--color-primary)]',
           'data-confirm:bg-destructive/[0.08] data-confirm:hover:bg-destructive/[0.08]',
+          // A confirm sizes to its question and buttons; the name gives way, not the question.
+          'data-confirm:grid-cols-[1.25rem_minmax(0,1fr)_auto]!',
           '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
           !actionsVisible &&
             '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
           stacks &&
-            (actionsVisible
-              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
-              : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
+            (folds
+              ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_1.625rem_var(--item-slot)]'
+              : actionsVisible
+                ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
+                : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
-          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]',
+          stacks && '@max-sm:data-confirm:grid-cols-[1.25rem_minmax(0,1fr)]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -128,7 +140,9 @@ export const ItemRow = memo(
           <span
             className={cn(
               'min-w-0 truncate text-foreground',
-              size === 'line' ? 'shrink text-[0.78125rem]' : 'text-[0.8125rem] font-medium',
+              size === 'line'
+                ? 'max-w-full shrink-0 text-[0.78125rem]'
+                : 'text-[0.8125rem] font-medium',
             )}
             data-slot="item-row-title"
           >
@@ -176,6 +190,8 @@ export const ItemRow = memo(
                 !actionsVisible &&
                   'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
                 !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
+                folds &&
+                  '@xl:pointer-coarse:visible @max-sm:visible @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
               )}
               data-slot="item-row-actions"
             >
