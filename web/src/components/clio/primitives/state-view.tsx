@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
-import { IconButton } from './icon-button';
+import { NamedTooltip } from './icon-button';
+import { HeldKeyBadge } from './key-chip';
 import { RingSpinner } from './ring-spinner';
 
 export type StateKind =
@@ -55,7 +57,7 @@ const VIEWER_SKELETON = ['70%', '100%', '85%', '60%', '100%'];
 export interface StateAction {
   label: string;
   onClick: () => void;
-  /** In a viewer body, an action with an icon is a named icon button. */
+  /** In a viewer body, its icon leads the button's label. */
   icon?: ReactNode;
   disabled?: boolean;
   /** Catalog id of the key that runs it; a named icon shows it in its tooltip. */
@@ -187,7 +189,12 @@ export const StateView = memo(function StateView({
       >
         <span
           title={typeof title === 'string' ? title : undefined}
-          className={cn('min-w-0 max-w-full truncate', !row && 'text-foreground')}
+          className={cn(
+            'min-w-0 max-w-full truncate',
+            // A row's title says what failed; its technical detail gives way first.
+            row && 'shrink-0',
+            !row && 'text-foreground',
+          )}
         >
           {title}
         </span>
@@ -196,7 +203,7 @@ export const StateView = memo(function StateView({
             title={row ? detail : undefined}
             className={cn(
               row
-                ? 'min-w-0 max-w-full shrink-0 truncate font-mono text-[11px] text-muted-foreground tabular-nums'
+                ? 'min-w-0 max-w-full truncate font-mono text-[11px] text-muted-foreground tabular-nums'
                 : // A panel's explanation is a sentence: it wraps rather than hide its end.
                   'max-w-[36ch] text-[12px] leading-[1.4] text-balance',
             )}
@@ -331,40 +338,42 @@ function ViewerState({
       ) : null}
       {children}
       {actions.length ? (
-        <span
-          className={cn(
-            'flex shrink-0 items-center',
-            actions.every((entry) => entry.icon) ? 'gap-1' : 'gap-1.5',
-          )}
-        >
-          {actions.map((entry) =>
-            entry.icon ? (
-              <IconButton
-                key={entry.label}
-                className={cn(
-                  'size-[30px] shrink-0 rounded-[6px] text-muted-foreground hover:text-foreground [&_svg:not([class*=size-])]:size-5',
-                )}
-                disabled={entry.disabled}
-                icon={entry.icon}
-                label={entry.label}
-                onClick={entry.onClick}
-                shortcut={entry.shortcut}
-              />
-            ) : (
-              <Button
-                key={entry.label}
-                className="h-auto rounded-[6px] px-[9px] py-1 text-[11.5px] font-normal text-foreground"
-                disabled={entry.disabled}
-                onClick={entry.onClick}
-                size="xs"
-                variant="secondary"
-              >
-                {entry.label}
-              </Button>
-            ),
-          )}
+        <span className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
+          {actions.map((entry) => (
+            <ViewerStateAction key={entry.label} action={entry} />
+          ))}
         </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A viewer state's way out: the labelled small button every state uses ("↻ Retry",
+ * "Download"), so no action is a bare glyph. A catalogued key shows in its tooltip,
+ * as a held-key badge and in `aria-keyshortcuts`.
+ */
+function ViewerStateAction({ action }: { action: StateAction }) {
+  const presentation = useShortcutPresentation(action.shortcut);
+  const button = (
+    <Button
+      aria-keyshortcuts={presentation?.aria}
+      className="relative h-auto shrink-0 gap-1 rounded-[6px] px-[9px] py-1 text-[11.5px] font-normal whitespace-nowrap text-foreground [&_svg:not([class*=size-])]:size-3.5"
+      data-slot="state-action"
+      disabled={action.disabled}
+      onClick={action.onClick}
+      size="xs"
+      variant="secondary"
+    >
+      {action.icon ?? null}
+      {action.label}
+      {action.shortcut ? <HeldKeyBadge id={action.shortcut} /> : null}
+    </Button>
+  );
+  if (!action.shortcut) return button;
+  return (
+    <NamedTooltip label={action.label} shortcut={action.shortcut}>
+      {button}
+    </NamedTooltip>
   );
 }

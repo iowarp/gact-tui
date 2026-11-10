@@ -145,13 +145,19 @@ export function ExtensionAddDialog(props: {
   return <ExtensionSourceDialog {...props} />;
 }
 
+/** A drive letter, /, ~ or . : the source names a folder on the agent host, not a repository. */
+const LOCAL_PATH = /^(?:[a-z]:[\\/]|[\\/~.])/iu;
+
 /** A failed fetch reads as what happened; the service's own words stay on hover. */
-function plainAddError(error: string): string {
+function plainAddError(error: string, source: string): string {
+  if (/no such file or directory|does not exist/iu.test(error))
+    return 'That folder doesn’t exist on the agent host.';
+  // The host reads a path as a file:// remote, so a bad folder fails as a git fetch.
+  if (LOCAL_PATH.test(source.trim()))
+    return 'That folder couldn’t be read as an extension source on the agent host.';
   if (/repository .*not found|could not read username|authentication failed/iu.test(error))
     return 'That repository couldn’t be found, or it needs access this agent host doesn’t have.';
   if (/git (fetch|clone)\b.*failed/iu.test(error)) return 'That repository couldn’t be fetched.';
-  if (/no such file or directory|does not exist/iu.test(error))
-    return 'That folder doesn’t exist on the agent host.';
   return error;
 }
 
@@ -280,7 +286,11 @@ function ExtensionSourceDialog({
           if (!busy && !missing && supported === true) void save();
         }}
       >
-        <SettingsRow htmlFor={`${ids}-name`} title={importing ? 'Local name (optional)' : 'Name'}>
+        <SettingsRow
+          htmlFor={`${ids}-name`}
+          info={importing ? 'Optional. The source keeps its own name without one.' : undefined}
+          title="Name"
+        >
           <Input
             className={FIELD}
             data-initial-focus=""
@@ -288,17 +298,23 @@ function ExtensionSourceDialog({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={
-              choice.kind === 'skill' || choice.category === 'skills'
-                ? 'My skill'
-                : choice.kind === 'plugin' || choice.category === 'plugins'
-                  ? 'My plugin'
-                  : 'My source'
+              importing
+                ? 'Optional'
+                : choice.kind === 'skill' || choice.category === 'skills'
+                  ? 'My skill'
+                  : choice.kind === 'plugin' || choice.category === 'plugins'
+                    ? 'My plugin'
+                    : 'My source'
             }
             required={!importing}
           />
         </SettingsRow>
         {importing ? (
-          <SettingsRow htmlFor={`${ids}-source`} title="Repository URL or folder on the agent host">
+          <SettingsRow
+            htmlFor={`${ids}-source`}
+            info="A repository URL, or a folder on the agent host."
+            title="Source"
+          >
             <Input
               className={FIELD}
               id={`${ids}-source`}
@@ -382,7 +398,7 @@ function ExtensionSourceDialog({
         ) : null}
         {error ? (
           <p className="pt-2 text-xs text-destructive" role="alert" title={error}>
-            {plainAddError(error)}
+            {plainAddError(error, source)}
           </p>
         ) : null}
         {!importing ? (

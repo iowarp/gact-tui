@@ -125,6 +125,13 @@ export const CONNECTION_PROBE_POLL_MS = 30_000;
 export const CONNECTION_LOST_PROBE_POLL_MS = 5_000;
 
 /**
+ * Delay before the connected service's probe tries once more. A single slow or
+ * dropped `/v1/capabilities` read under load is retried after this short pause
+ * before the line under CLIO says it can't reach the service. Unit: milliseconds.
+ */
+export const CONNECTION_LOST_PROBE_RETRY_MS = 750;
+
+/**
  * Re-probe cadence while a remembered service is starting, or has not answered yet
  * (it may have been started together with this page). Unit: milliseconds.
  */
@@ -192,6 +199,13 @@ export const STREAM_RECONNECT_BASE_MS = 250;
  * is down for long stretches.
  */
 export const STREAM_RECONNECT_MAX_MS = 8_000;
+
+/**
+ * How long a session stream may keep failing before each retry also probes
+ * `/v1/health`. Unit: milliseconds. A probe that cannot reach the service turns
+ * "Resuming updates" into "Can't reach …, retrying"; a short blip never probes.
+ */
+export const STREAM_OFFLINE_AFTER_MS = 5_000;
 
 /**
  * First wait between reads of a workspace resource that is still `uploading`
@@ -306,6 +320,13 @@ export const EXECUTION_PROVENANCE_PAGE = 200;
  * Unit: bytes. Above this the card explains the budget instead of fetching.
  */
 export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * How long a closed viewer's file bytes stay cached. Unit: milliseconds.
+ * Long enough that reopening or remounting (maximize, restore) doesn't refetch;
+ * short enough that closed PDFs, images and text don't sit in the tab's memory.
+ */
+export const VIEWER_BYTES_GC_TIME_MS = 30_000;
 
 /**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files

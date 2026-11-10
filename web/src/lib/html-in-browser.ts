@@ -17,6 +17,20 @@ export function isHtmlFile(name: string, mediaType = ''): boolean {
 /** What the server opens: a workspace file by path, or an artifact's file. */
 export type BrowserFileTarget = { path: string } | { artifact_id: string };
 
+/**
+ * One plain sentence for a failed open: the server's typed reasons
+ * (`browser_file_outside_roots: …`) are worded, and any other reason loses its token.
+ */
+export function browserFileFailure(message: string, label: string): string {
+  const [, code = '', rest = message] = /^([a-z][a-z0-9_]*):\s*(.*)$/su.exec(message) ?? [];
+  if (code === 'browser_file_outside_roots')
+    return `${label} is outside the folders this conversation may read, so the browser can't open it.`;
+  if (code === 'browser_file_missing') return `${label} is no longer on disk.`;
+  if (code === 'browser_file_artifact_unknown') return `No file is recorded for ${label}.`;
+  const sentence = rest.trim() || 'Could not open the file in the browser.';
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
 /** Ask the workbench to show an open browser page (the Browser surface's tab). */
 export const OPEN_BROWSER_PAGE_EVENT = 'clio:open-browser-page';
 

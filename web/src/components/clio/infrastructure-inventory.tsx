@@ -9,6 +9,7 @@ import { InfrastructureHosts } from './infrastructure-hosts';
 import { SshAuthentication } from './managed-service-target';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { StateView } from './primitives/state-view';
+import { useShownByPage } from './infrastructure-reachability';
 import { ModelAcquisitions } from './model-acquisition';
 import { InfrastructureOverview } from './infrastructure-overview';
 import { useRegisterInfrastructureTarget } from '@/hooks/use-register-infrastructure-target';
@@ -36,7 +37,16 @@ export function InfrastructureInventory({
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', settings.endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
-    refetchInterval: 5000,
+    // Close follow-up only while work is underway; otherwise a slow check for outside changes.
+    refetchInterval: (query) =>
+      query.state.data?.operations.some(
+        (operation) => operation.state === 'queued' || operation.state === 'running',
+      ) ||
+      query.state.data?.model_acquisitions.some(
+        (model) => model.state === 'queued' || model.state === 'running',
+      )
+        ? 5000
+        : 30_000,
   });
   const {
     targetId,
@@ -68,8 +78,9 @@ export function InfrastructureInventory({
     )
       setTargetId(requestedTarget);
   }, [requestedTarget, targetId, inventory.data?.targets, setTargetId]);
+  const errorShownByPage = useShownByPage(inventory.error);
   if (inventory.error)
-    return (
+    return errorShownByPage ? null : (
       <StateView
         className="mt-2"
         kind="error"

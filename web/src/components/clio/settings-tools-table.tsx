@@ -7,7 +7,17 @@ import {
   CircleAlertIcon,
   EyeIcon,
 } from 'lucide-react';
-import { useState, type ComponentType, type SVGProps } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type SVGProps,
+} from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +36,7 @@ import {
   MoreIcon,
   RetryIcon,
 } from '@/lib/icon-vocabulary';
+import { scrollParent } from '@/hooks/use-seen-in-view';
 import { moveAcrossCells } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 import {
@@ -198,18 +209,41 @@ function valueTitle(label: string, isDefault: boolean): string {
   return isDefault ? `${label} (default; choose a value to override it)` : `${label} (your choice)`;
 }
 
-function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; editor: ToolEditor }) {
+/** A row's save and rule removal: stable across renders, so rows can skip re-rendering. */
+type RowEditor = Pick<ToolEditor, 'save' | 'removeRule'>;
+
+const ToolRow = memo(function ToolRow({
+  tool,
+  mode,
+  status,
+  busy,
+  editor,
+  index,
+  position,
+  setSize,
+  measure,
+}: {
+  tool: ToolSetting;
+  mode: string;
+  status?: RowStatus;
+  busy: boolean;
+  editor: RowEditor;
+  /** Windowed: the row's index among the table's measured rows. */
+  index?: number;
+  /** Windowed: the row's place in its group, for assistive tech. */
+  position?: number;
+  setSize?: number;
+  measure?: (element: Element | null) => void;
+}) {
   const permission = effectivePermission(tool, mode);
   const callers = effectiveCallers(tool);
   const permissionDefault = defaultPermission(tool, mode);
   const callersDefault = defaultCallers(tool);
   const outcome = tool.outcomes[mode];
-  const status = editor.status[tool.name];
-  const busy = editor.busy.has(tool.name);
   const kind = toolKind(tool);
   const byRule = !tool.permission && savedRules(tool).length > 0;
   const permissionLabel = PERMISSION_TEXT[permission.value].label;
-  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Not known yet';
+  const callersLabel = callers.value ? CALLERS_TEXT[callers.value].label : 'Unknown';
   const permissionIcon = PERMISSION_ICON[permission.value];
   const callersIcon = callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon;
   const choosePermission = (value: ToolPermission) =>
@@ -218,12 +252,16 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
     editor.save({ tools: [tool.name], callers: value === callersDefault ? null : value });
   return (
     <li
+      aria-posinset={position}
+      aria-setsize={setSize}
       className={cn(
         COLUMNS,
         'group/row relative min-h-11 border-b border-border/70 py-1 hover:bg-hover/60 has-[[aria-expanded=true]]:bg-hover/60',
       )}
+      data-index={index}
       data-tool={tool.name}
       onKeyDown={moveAcrossCells}
+      ref={measure}
     >
       <span
         aria-label={kind.label}
@@ -355,7 +393,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
       />
     </li>
   );
-}
+});
 
 /** What the columns and the sub line say about a tool, in sentences. */
 function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
@@ -363,7 +401,11 @@ function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
   return (
     <>
       <span className="font-mono text-foreground">{tool.name}</span>
-      {tool.description ? <span>{tool.description}</span> : null}
+      {tool.description ? (
+        <span className="line-clamp-2" title={tool.description}>
+          {tool.description}
+        </span>
+      ) : null}
       <span>
         {flagText(tool)}. {sourceText(tool)}.
       </span>
@@ -378,7 +420,7 @@ function ToolFacts({ tool, mode }: { tool: ToolSetting; mode: string }) {
 }
 
 /** Use defaults, then each saved rule's removal. */
-function rowActions(tool: ToolSetting, editor: ToolEditor): PickerAction[] {
+function rowActions(tool: ToolSetting, editor: RowEditor): PickerAction[] {
   return [
     {
       label: 'Use defaults',
@@ -402,7 +444,7 @@ function RowSlot({
   tool: ToolSetting;
   mode: string;
   status?: RowStatus;
-  editor: ToolEditor;
+  editor: RowEditor;
 }) {
   return (
     <span className="relative hidden size-6 place-items-center @min-[32rem]/tools:grid">
@@ -478,16 +520,22 @@ const PER_TOOL = {
   icon: AdjustIcon,
 };
 
-function GroupRow({
+const GroupRow = memo(function GroupRow({
   section,
   open,
   onToggle,
   editor,
+  busy,
+  index,
+  measure,
 }: {
   section: ToolTableSection;
   open: boolean;
-  onToggle: () => void;
-  editor: ToolEditor;
+  onToggle: (id: string) => void;
+  editor: RowEditor;
+  busy: boolean;
+  index?: number;
+  measure?: (element: Element | null) => void;
 }) {
   const names = section.tools.map((tool) => tool.name);
   const permission = shared(section.tools.map(permissionChoice));
@@ -504,7 +552,6 @@ function GroupRow({
       : callers === 'default'
         ? 'Per tool'
         : CALLERS_TEXT[callers].label;
-  const busy = names.some((name) => editor.busy.has(name));
   const hasTools = names.length > 0;
   const meta =
     section.meta ??
@@ -523,16 +570,19 @@ function GroupRow({
   const summary = hasTools && !section.notice;
   return (
     <div
-      className={cn(COLUMNS, 'group/group relative mt-1.5 min-h-10 py-1')}
+      // Padding, not margin, above the group: a windowed table measures each row's box.
+      className={cn(COLUMNS, 'group/group relative min-h-[2.875rem] pt-2.5 pb-1')}
+      data-index={index}
       data-tool-group={section.id}
       onKeyDown={moveAcrossCells}
+      ref={measure}
     >
       {hasTools ? (
         <button
           aria-expanded={open}
           aria-label={`${open ? 'Collapse' : 'Expand'} ${section.title}`}
           className="relative z-10 grid size-5 place-items-center rounded text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
-          onClick={onToggle}
+          onClick={() => onToggle(section.id)}
           type="button"
         >
           {open ? (
@@ -711,12 +761,59 @@ function GroupRow({
       ) : null}
     </div>
   );
+});
+
+/** Above this many rows the table renders only those near the visible part of its scroller. */
+const WINDOW_FROM = 80;
+const GROUP_HEIGHT = 46;
+const ROW_HEIGHT = 44;
+
+type TableItem =
+  | { kind: 'group'; section: number; key: string }
+  | { kind: 'tool'; section: number; key: string; tool: ToolSetting; position: number }
+  | { kind: 'reserve'; section: number; key: string };
+
+/** The table's rows in order: each group, then its tools or the space they will take. */
+function tableItems(
+  sections: readonly ToolTableSection[],
+  collapsed: ReadonlySet<string>,
+): TableItem[] {
+  return sections.flatMap((section, index): TableItem[] => {
+    const group: TableItem = { kind: 'group', section: index, key: `g:${section.id}` };
+    if (collapsed.has(section.id)) return [group];
+    if (section.tools.length)
+      return [
+        group,
+        ...section.tools.map(
+          (tool, place): TableItem => ({
+            kind: 'tool',
+            section: index,
+            key: `t:${section.id}:${tool.name}`,
+            tool,
+            position: place + 1,
+          }),
+        ),
+      ];
+    return [
+      group,
+      ...Array.from(
+        { length: section.reserveRows ?? 0 },
+        (_, slot): TableItem => ({
+          kind: 'reserve',
+          section: index,
+          key: `r:${section.id}:${slot}`,
+        }),
+      ),
+    ];
+  });
 }
 
 /**
  * Permission and I/O per tool, in groups: one row per tool with its flag, what
  * a call does in the chosen approval mode, and its two choices. Folds by its
  * own width, so the same table serves Settings and a plugin's detail pane.
+ * A long table keeps only the rows near view in the page, so hundreds of tools
+ * cost what a screenful does.
  */
 export function ToolSettingsTable({
   sections,
@@ -730,13 +827,173 @@ export function ToolSettingsTable({
   label: string;
 }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const toggle = (id: string) =>
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const toggle = useCallback(
+    (id: string) =>
+      setCollapsed((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+  const { save, removeRule } = editor;
+  const rowEditor = useMemo<RowEditor>(() => ({ save, removeRule }), [save, removeRule]);
+  const items = useMemo(() => tableItems(sections, collapsed), [sections, collapsed]);
+  const windowed = items.length > WINDOW_FROM;
+  const list = useRef<HTMLDivElement>(null);
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  // Content above the rows can change height on any render, so the offset is read after
+  // each one; state is set only when it moved.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!windowed || !element) return;
+    const parent = scroller ?? scrollParent(element);
+    if (parent !== scroller) setScroller(parent);
+    if (!parent) return;
+    // Where the rows start in the scroller's content, past the toolbar and column titles.
+    const offset = Math.round(
+      element.getBoundingClientRect().top -
+        parent.getBoundingClientRect().top -
+        parent.clientTop +
+        parent.scrollTop,
+    );
+    if (Math.abs(offset - scrollMargin) > 1) setScrollMargin(offset);
+  });
+  // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
+  const virtualizer = useVirtualizer({
+    count: windowed ? items.length : 0,
+    enabled: windowed,
+    getScrollElement: () => scroller,
+    estimateSize: (index) => (items[index]?.kind === 'group' ? GROUP_HEIGHT : ROW_HEIGHT),
+    getItemKey: (index) => items[index]?.key ?? index,
+    // Start from where the scroller already is, so mounting never moves it.
+    initialOffset: () => scroller?.scrollTop ?? 0,
+    initialRect: { width: 0, height: 1000 },
+    // Scroll updates render with React's own batching rather than one synchronous commit each.
+    useFlushSync: false,
+    overscan: 10,
+    scrollMargin,
+  });
+
+  const groupBusy = (section: ToolTableSection) =>
+    section.tools.some((tool) => editor.busy.has(tool.name));
+  const toolRow = (section: ToolTableSection, tool: ToolSetting, at?: [number, number]) => (
+    <ToolRow
+      busy={editor.busy.has(tool.name)}
+      editor={rowEditor}
+      index={at?.[0]}
+      key={tool.name}
+      measure={at ? virtualizer.measureElement : undefined}
+      mode={mode}
+      position={at?.[1]}
+      setSize={at ? section.tools.length : undefined}
+      status={editor.status[tool.name]}
+      tool={tool}
+    />
+  );
+
+  let rows;
+  if (windowed) {
+    const shown = virtualizer.getVirtualItems();
+    const first = shown[0];
+    const last = shown.at(-1);
+    const total = virtualizer.getTotalSize();
+    const before = first ? first.start - scrollMargin : 0;
+    const after = last ? total - (last.end - scrollMargin) : total;
+    // The rows in view, still grouped under their sections.
+    const runs: { section: number; entries: { item: TableItem; index: number }[] }[] = [];
+    for (const { index } of shown) {
+      const item = items[index];
+      if (!item) continue;
+      const run = runs.at(-1);
+      if (run?.section === item.section) run.entries.push({ item, index });
+      else runs.push({ section: item.section, entries: [{ item, index }] });
+    }
+    rows = (
+      // The virtualizer keeps the view steady as rows measure; the browser's own scroll
+      // anchoring would correct it a second time and pull the scroll back.
+      <div
+        className="[overflow-anchor:none]"
+        ref={list}
+        style={{ paddingTop: before, paddingBottom: after }}
+      >
+        {runs.map(({ section: at, entries }) => {
+          const section = sections[at]!;
+          const group = entries.find((entry) => entry.item.kind === 'group');
+          const tools = entries.flatMap((entry) =>
+            entry.item.kind === 'tool' ? [{ ...entry, item: entry.item }] : [],
+          );
+          const reserved = entries.filter((entry) => entry.item.kind === 'reserve');
+          return (
+            // The section names its group, so its rows load once in view, even with
+            // the group's own row scrolled away.
+            <section aria-label={section.title} data-tool-group={section.id} key={section.id}>
+              {group ? (
+                <GroupRow
+                  busy={groupBusy(section)}
+                  editor={rowEditor}
+                  index={group.index}
+                  measure={virtualizer.measureElement}
+                  onToggle={toggle}
+                  open={!collapsed.has(section.id)}
+                  section={section}
+                />
+              ) : null}
+              {tools.length ? (
+                <ul className="grid" aria-label={`${section.title} tools`}>
+                  {tools.map(({ item, index }) =>
+                    toolRow(section, item.tool, [index, item.position]),
+                  )}
+                </ul>
+              ) : null}
+              {reserved.length ? (
+                <div aria-hidden="true" className="grid">
+                  {reserved.map(({ item, index }) => (
+                    <span
+                      className="min-h-11 border-b border-border/70"
+                      data-index={index}
+                      key={item.key}
+                      ref={virtualizer.measureElement}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
+    );
+  } else {
+    rows = sections.map((section) => {
+      const open = !collapsed.has(section.id);
+      return (
+        <section aria-label={section.title} key={section.id}>
+          <GroupRow
+            busy={groupBusy(section)}
+            editor={rowEditor}
+            onToggle={toggle}
+            open={open}
+            section={section}
+          />
+          {open && section.tools.length ? (
+            <ul className="grid" aria-label={`${section.title} tools`}>
+              {section.tools.map((tool) => toolRow(section, tool))}
+            </ul>
+          ) : open && section.reserveRows ? (
+            // Empty rows, each the height of a tool row, until the tools arrive.
+            <div aria-hidden="true" className="grid">
+              {Array.from({ length: section.reserveRows }, (_, index) => (
+                <span className="min-h-11 border-b border-border/70" key={index} />
+              ))}
+            </div>
+          ) : null}
+        </section>
+      );
     });
+  }
   return (
     <TooltipProvider disableHoverableContent>
       <div
@@ -746,33 +1003,7 @@ export function ToolSettingsTable({
         role="group"
       >
         <HeaderRow mode={mode} />
-        {sections.map((section) => {
-          const open = !collapsed.has(section.id);
-          return (
-            <section aria-label={section.title} key={section.id}>
-              <GroupRow
-                editor={editor}
-                onToggle={() => toggle(section.id)}
-                open={open}
-                section={section}
-              />
-              {open && section.tools.length ? (
-                <ul className="grid" aria-label={`${section.title} tools`}>
-                  {section.tools.map((tool) => (
-                    <ToolRow editor={editor} key={tool.name} mode={mode} tool={tool} />
-                  ))}
-                </ul>
-              ) : open && section.reserveRows ? (
-                // Empty rows, each the height of a tool row, until the tools arrive.
-                <div aria-hidden="true" className="grid">
-                  {Array.from({ length: section.reserveRows }, (_, index) => (
-                    <span className="min-h-11 border-b border-border/70" key={index} />
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
+        {rows}
       </div>
     </TooltipProvider>
   );

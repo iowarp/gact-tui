@@ -8,7 +8,6 @@ import {
 } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ShortcutKeys } from './primitives/key-chip';
 
 /** What a source view puts in its frame's footer: the confirm, and a quiet action at the left. */
 export interface SourceFooter {
@@ -29,8 +28,9 @@ export function useSourceFrameFooterHost() {
 }
 
 /**
- * Publishes a view's footer to the dialog frame. Without a frame it returns the
- * same buttons as an inline row. Handlers are read through refs, so registering
+ * Publishes a view's footer to the dialog frame, which owns Ctrl+Enter. Without
+ * a frame it returns the same buttons as an inline row, with no key hint because
+ * nothing there handles the key. Handlers are read through refs, so registering
  * only re-renders the frame when a label or state changes.
  */
 export function useSourceFrameFooter(footer: SourceFooter): ReactNode {
@@ -122,7 +122,6 @@ export function useSourceFrameFooter(footer: SourceFooter): ReactNode {
           onClick={footer.onConfirm}
         >
           {footer.confirm.label}
-          <ShortcutKeys keys={['Ctrl+Enter']} variant="inline" className="border-current/45" />
         </Button>
       ) : null}
     </div>

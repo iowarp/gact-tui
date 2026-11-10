@@ -38,8 +38,13 @@ export interface ComposerToolbarProps {
   defaultEffortLabel: string;
   onBehaviorChange: (behavior: MessageBehavior) => void;
   unrecognizedEffort?: string;
+  /** Strings, not an object, so the memo holds across renders. */
+  modelProblemLabel?: string;
+  modelProblemDetail?: string;
   connecting: boolean;
   held: boolean;
+  offline: boolean;
+  sending: boolean;
   preparing: boolean;
   state: RunState;
   hasContent: boolean;
@@ -78,8 +83,12 @@ export const ComposerToolbar = memo(function ComposerToolbar({
   defaultEffortLabel,
   onBehaviorChange,
   unrecognizedEffort,
+  modelProblemLabel,
+  modelProblemDetail,
   connecting,
   held,
+  offline,
+  sending,
   preparing,
   state,
   hasContent,
@@ -134,6 +143,11 @@ export const ComposerToolbar = memo(function ComposerToolbar({
               onChange={onSelectModel}
               onRetryCatalog={onRetryCatalog}
               options={modelOptions}
+              problem={
+                modelProblemLabel
+                  ? { label: modelProblemLabel, detail: modelProblemDetail ?? '' }
+                  : undefined
+              }
               returnFocus={onReturnFocus}
               selected={selectedModel}
             />
@@ -142,7 +156,13 @@ export const ComposerToolbar = memo(function ComposerToolbar({
           onReturnFocus={onReturnFocus}
           unrecognizedEffort={unrecognizedEffort}
         />
-        <ComposerToolbarStatus connecting={connecting} held={held} preparing={preparing} />
+        <ComposerToolbarStatus
+          connecting={connecting}
+          held={held}
+          offline={offline}
+          sending={sending}
+          preparing={preparing}
+        />
         <ComposerSubmitControls
           state={state}
           hasContent={hasContent}

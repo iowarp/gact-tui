@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 import { renderedFileText, textFileFormat } from '@/lib/file-presentation';
 import type { Artifact, DocumentManifest, DocumentWorkingCopy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -113,6 +114,7 @@ export function ClioDocumentWorkspace({
     queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
     enabled: Boolean(effectiveManifest && directProfiles.has(effectiveManifest.profile)),
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
 
   const announce = (message: string) => {

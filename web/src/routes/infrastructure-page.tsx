@@ -9,7 +9,7 @@ import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
@@ -24,6 +24,9 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
 import { InfrastructureTools } from '@/components/clio/infrastructure-tools';
 import { InfraTabActionsProvider } from '@/components/clio/infrastructure-tab-actions';
+import { AgentUnansweredProvider } from '@/components/clio/infrastructure-reachability';
+import { agentIdentity } from '@/components/clio/connection-names';
+import { noAnswer } from '@/lib/connection-attempt';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -47,6 +50,9 @@ const TAB_ROW =
   'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
 const TAB_ACTIONS =
   'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
+
+/** Set by Alt ←/→ so the next section focuses its tab; it outlives a remount of the page. */
+let sectionMovedByKey = false;
 
 export function InfrastructurePage() {
   const location = useLocation();
@@ -115,6 +121,7 @@ export function InfrastructurePage() {
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
         : (servers.error ?? webSearchConfiguration.error);
+  const agentUnanswered = noAnswer(error);
   const retrySection = () => {
     for (const query of [health, servers, tools, effectiveToolset, webSearchConfiguration]) {
       if (query.error) void query.refetch();
@@ -202,10 +209,26 @@ export function InfrastructurePage() {
     const index = INFRASTRUCTURE_SECTIONS.findIndex((item) => item.id === currentSection);
     const count = INFRASTRUCTURE_SECTIONS.length;
     const next = INFRASTRUCTURE_SECTIONS[(index + step + count) % count]!;
+    sectionMovedByKey = true;
     navigate(`/infrastructure/${next.id}`, { state: location.state });
   };
-  useShortcut('previous-tab', () => moveSection(-1), { region: mainRef });
-  useShortcut('next-tab', () => moveSection(1), { region: mainRef });
+  // A tab change replaces the focused content, so the key hands focus to the new tab and keeps working.
+  useEffect(() => {
+    if (!sectionMovedByKey) return;
+    sectionMovedByKey = false;
+    mainRef.current?.querySelector<HTMLElement>('[aria-current=page]')?.focus();
+  }, [currentSection]);
+  const tabKeyRegion = useMemo<RefObject<Element | null>>(
+    () => ({
+      get current() {
+        const active = document.activeElement;
+        return !active || active === document.body ? document.body : mainRef.current;
+      },
+    }),
+    [],
+  );
+  useShortcut('previous-tab', () => moveSection(-1), { region: tabKeyRegion });
+  useShortcut('next-tab', () => moveSection(1), { region: tabKeyRegion });
   const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
   return (
     <main
@@ -233,66 +256,72 @@ export function InfrastructurePage() {
         </div>
       </div>
       <InfraTabActionsProvider value={tabActions}>
-        <div className="mx-auto max-w-[840px] px-2 sm:px-3">
-          <section
-            aria-label={sectionDefinition.label}
-            className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
-          >
-            {error ? (
-              <StateView
-                className="mt-6 rounded-md border"
-                kind="error"
-                size="row"
-                icon={NetworkIcon}
-                title="This section could not load completely"
-                detail={error.message}
-                action={{ label: 'Retry', onClick: retrySection }}
-              />
-            ) : null}
+        <AgentUnansweredProvider value={agentUnanswered}>
+          <div className="mx-auto max-w-[840px] px-2 sm:px-3">
+            <section
+              aria-label={sectionDefinition.label}
+              className={cn('min-w-0 pt-1.5', currentSection === 'overview' ? 'pb-3' : 'pb-12')}
+            >
+              {error ? (
+                <StateView
+                  className="mt-6 rounded-md border"
+                  kind="error"
+                  size="row"
+                  icon={NetworkIcon}
+                  title={
+                    agentUnanswered
+                      ? `Can't reach ${agentIdentity(settings.endpoint, settings.label, settings.location).name}`
+                      : 'This section could not load completely'
+                  }
+                  detail={error.message}
+                  action={{ label: 'Retry', onClick: retrySection }}
+                />
+              ) : null}
 
-            {currentSection === 'overview' ||
-            currentSection === 'models' ||
-            currentSection === 'activity' ? (
-              <InfrastructureInventory
-                section={currentSection}
-                overview={{
-                  webSearch: webSearchConfiguration.data,
-                  webSearchConnected: webSearchReady,
-                  onManageWebSearch: () => setWebSearchOpen(true),
-                }}
-              />
-            ) : null}
+              {currentSection === 'overview' ||
+              currentSection === 'models' ||
+              currentSection === 'activity' ? (
+                <InfrastructureInventory
+                  section={currentSection}
+                  overview={{
+                    webSearch: webSearchConfiguration.data,
+                    webSearchConnected: webSearchReady,
+                    onManageWebSearch: () => setWebSearchOpen(true),
+                  }}
+                />
+              ) : null}
 
-            {currentSection === 'tools' ? (
-              <InfrastructureTools
-                sessionId={sessionId}
-                sessionScoped={sessionToolScope}
-                pending={toolsPending}
-                tools={displayedTools}
-                servers={servers.data ?? []}
-                onScope={setToolScope}
-              />
-            ) : null}
+              {currentSection === 'tools' ? (
+                <InfrastructureTools
+                  sessionId={sessionId}
+                  sessionScoped={sessionToolScope}
+                  pending={toolsPending}
+                  tools={displayedTools}
+                  servers={servers.data ?? []}
+                  onScope={setToolScope}
+                />
+              ) : null}
 
-            {currentSection === 'services' ? (
-              <InfrastructureServicesSection
-                webSearch={{
-                  connection: webSearchConfiguration.data,
-                  connected: webSearchReady,
-                  configured: webSearchConfigured,
-                  connecting: connectDetectedWebSearch.isPending,
-                  disconnecting: disconnectWebSearch.isPending,
-                  onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
-                  onDisconnect: () => disconnectWebSearch.mutate(),
-                }}
-              />
-            ) : null}
+              {currentSection === 'services' ? (
+                <InfrastructureServicesSection
+                  webSearch={{
+                    connection: webSearchConfiguration.data,
+                    connected: webSearchReady,
+                    configured: webSearchConfigured,
+                    connecting: connectDetectedWebSearch.isPending,
+                    disconnecting: disconnectWebSearch.isPending,
+                    onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
+                    onDisconnect: () => disconnectWebSearch.mutate(),
+                  }}
+                />
+              ) : null}
 
-            {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
+              {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
 
-            <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
-          </section>
-        </div>
+              <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
+            </section>
+          </div>
+        </AgentUnansweredProvider>
       </InfraTabActionsProvider>
     </main>
   );

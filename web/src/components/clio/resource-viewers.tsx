@@ -19,7 +19,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { isTextMediaType } from '@/lib/media-types';
-import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
+import { INLINE_PREVIEW_MAX_BYTES, VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 
 import {
   ArtifactLineageView,
@@ -266,6 +266,7 @@ function WorkspacePdfView({
   const content = useQuery({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   return (
     <WorkspaceFileComments
@@ -302,6 +303,7 @@ function WorkspaceImageView({
   const content = useQuery({
     queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   return (
     <WorkspaceFileComments
@@ -420,6 +422,7 @@ function ArtifactFileView({
       }
     },
     enabled: canPreviewText && canLoadInline,
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   const image = useQuery({
     queryKey: queryKeys.key('artifact-image', settings.endpoint, artifact.id, fallbackPath),
@@ -447,6 +450,7 @@ function ArtifactFileView({
       }
     },
     enabled: canPreviewImage && canLoadInline,
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   const payloadError = text.error ?? image.error;
   const currentFile =

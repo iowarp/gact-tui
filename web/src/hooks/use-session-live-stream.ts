@@ -4,11 +4,14 @@ import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
 import {
+  CONNECTION_PROBE_TIMEOUT_MS,
   LIVE_PROVENANCE_REFRESH_MS,
   LIVE_SESSION_LIST_REFRESH_MS,
+  STREAM_OFFLINE_AFTER_MS,
   STREAM_RECONNECT_BASE_MS,
   TRANSCRIPT_PAGE_SIZE,
 } from '@/lib/runtime-limits';
+import { serviceUnreachable } from '@/lib/connection-attempt';
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
@@ -96,6 +99,39 @@ export function useSessionLiveStream({
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     let resumeCursor = initialCursor;
     let reconcileBeforeConnect = false;
+    let failingSince: number | undefined;
+    // Whether /v1/health could not be reached. A health check that is merely slow
+    // (a warming agent can take many seconds) is not an outage.
+    const serviceDown = async () => {
+      const probe = new AbortController();
+      const stop = () => probe.abort();
+      controller.signal.addEventListener('abort', stop, { once: true });
+      const timer = window.setTimeout(stop, CONNECTION_PROBE_TIMEOUT_MS);
+      try {
+        await repository.serviceHealth(probe.signal);
+        return false;
+      } catch (error) {
+        if (probe.signal.aborted) return false;
+        return serviceUnreachable(error instanceof Error ? error : undefined);
+      } finally {
+        window.clearTimeout(timer);
+        controller.signal.removeEventListener('abort', stop);
+      }
+    };
+    // A drop reads "Resuming updates" at first. Once it has lasted past the
+    // reconnect window, a retry that could not reach the service, or a failed
+    // /v1/health probe after any other drop, reads offline until it answers.
+    const reportDrop = async (error?: unknown) => {
+      reconcileBeforeConnect = true;
+      failingSince ??= performance.now();
+      if (performance.now() - failingSince < STREAM_OFFLINE_AFTER_MS) {
+        setStreamState('reconnecting');
+        return;
+      }
+      const down =
+        serviceUnreachable(error instanceof Error ? error : undefined) || (await serviceDown());
+      if (!controller.signal.aborted) setStreamState(down ? 'offline' : 'reconnecting');
+    };
     const reconcileAfterDisconnect = async () => {
       const [workspaces, sessions, transcript, surfaces] = await Promise.all([
         repository.workspaces(controller.signal),
@@ -159,6 +195,7 @@ export function useSessionLiveStream({
             controller.signal,
           )) {
             reconnectDelay = STREAM_RECONNECT_BASE_MS;
+            failingSince = undefined;
             setStreamState('live');
             if (frame.eventName === 'lm.provider.changed') {
               clearCachedSessionModelReferences(queryClient, settings.endpoint);
@@ -191,15 +228,15 @@ export function useSessionLiveStream({
           // not a frame ever arrived, the connection is gone (server close,
           // idle timeout, network drop). Reporting 'live' here would be a
           // status lie; the next loop iteration's first frame flips it back.
-          if (!controller.signal.aborted) {
-            reconcileBeforeConnect = true;
-            setStreamState('reconnecting');
-          }
+          if (!controller.signal.aborted) await reportDrop();
         } catch (error) {
           if (controller.signal.aborted) break;
-          reconcileBeforeConnect = true;
-          setStreamState('reconnecting');
-          if (error instanceof Error && error.name === 'AbortError') break;
+          if (error instanceof Error && error.name === 'AbortError') {
+            reconcileBeforeConnect = true;
+            setStreamState('reconnecting');
+            break;
+          }
+          await reportDrop(error);
         }
         await abortableDelay(controller, reconnectDelay);
         reconnectDelay = nextReconnectDelay(reconnectDelay);
