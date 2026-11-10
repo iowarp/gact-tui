@@ -96,17 +96,29 @@ export function withPermissionDecision(
   tool: ToolInvocation,
   interactions: readonly PendingInteraction[] | undefined,
 ): ToolInvocation {
-  if (tool.state === 'denied' || tool.presentation?.status === 'denied') return tool;
-  // The server's own `denied` state comes first, then the linked approval record.
-  // Resolved records age out of the service's recent window, so the call's own
-  // refusal reason is the durable fallback.
-  const decided = deniedPermissionForTool(interactions, tool);
-  if (!decided && !(tool.state === 'failed' && refusedForApproval(tool))) return tool;
+  // The call's own projection decides the wording, so it never changes when the
+  // service later drops the resolved approval record. Since the server projects a
+  // refused call `denied`, the record only adds detail.
+  if (tool.state === 'denied' || tool.presentation?.status === 'denied') {
+    return tool.state === 'denied' && tool.presentation?.status === 'denied'
+      ? tool
+      : asDenied(tool, 'you denied it');
+  }
+  // Sessions recorded before that projection: the call's own refusal reason is
+  // durable but cannot tell a person's refusal from a rule's, so it reads
+  // "not approved" with or without the record. Only a call without that reason
+  // falls back to the linked record.
+  if (tool.state === 'failed' && refusedForApproval(tool)) return asDenied(tool, 'not approved');
+  if (!deniedPermissionForTool(interactions, tool)) return tool;
+  return asDenied(tool, 'you denied it');
+}
+
+function asDenied(tool: ToolInvocation, wording: string): ToolInvocation {
   const decision: ToolPresentationBlock = {
     id: 'permission-decision',
     type: 'text',
     label: 'Decision',
-    text: decided ? 'you denied it' : 'not approved',
+    text: wording,
   };
   return {
     ...tool,

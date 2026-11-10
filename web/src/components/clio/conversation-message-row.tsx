@@ -366,6 +366,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               followLiveActivity={segment.iterations.some(
                                 (iteration) => iteration.id === liveActivityId,
                               )}
+                              holdsWaitingCalls={
+                                turnLive &&
+                                segmentIndex ===
+                                  segments.findLastIndex((later) => later.kind === 'iterations')
+                              }
                               turnLive={
                                 // Anything the agent did after these calls means it moved on.
                                 turnLive &&

@@ -1,11 +1,12 @@
 import type { Artifact, Message, RunState, SubagentRun } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { useTaskCancellation } from '@/hooks/use-task-cancellation';
 import { useSubagentControl } from '@/hooks/use-subagent-control';
 import { useMessageMarks } from '@/hooks/use-message-marks';
 import { useEarlierMessages } from '@/hooks/use-earlier-messages';
+import { useShallowStableRecord } from '@/hooks/use-shallow-stable-record';
 import { conversationForkOrigin } from './conversation-fork-origin';
 import { ClioConversation, type ClioConversationProps } from './conversation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
@@ -16,15 +17,82 @@ import {
   unansweredMessageIds,
 } from './workspace-route-state';
 
-function useSessionMessages(sessionId: string): Message[] {
-  const messages = useLiveStore((state) => state.entities.messages);
-  return useMemo(
-    () =>
-      Object.values(messages)
-        .filter((message): message is Message => message.session_id === sessionId)
-        .sort((left, right) => left.created_at.localeCompare(right.created_at)),
-    [messages, sessionId],
-  );
+type MessageBlockOf<T extends Message['blocks'][number]['type']> = Extract<
+  Message['blocks'][number],
+  { type: T }
+>;
+
+/**
+ * What the Activity dock and view read of a message: its order, its turn, and
+ * which tools, delegations, citations, resources and summaries it carries.
+ * Streamed text and reasoning are left out, so a token delta doesn't change it.
+ */
+function blockShape(block: Message['blocks'][number]): string {
+  const base = `${block.type}:${'id' in block ? block.id : ''}:${block.sequence ?? ''}`;
+  switch (block.type) {
+    case 'tool':
+      return `${base}:${(block as MessageBlockOf<'tool'>).tool_id}`;
+    case 'subagent': {
+      const subagent = block as MessageBlockOf<'subagent'>;
+      return `${base}:${subagent.subagent_id}:${subagent.stage}`;
+    }
+    case 'citation': {
+      const citation = block as MessageBlockOf<'citation'>;
+      return `${base}:${citation.label}:${citation.uri}`;
+    }
+    case 'resource': {
+      const resource = block as MessageBlockOf<'resource'>;
+      return `${base}:${resource.workspace_id}:${resource.resource_id}:${resource.resource_revision}:${resource.name}:${resource.media_type}`;
+    }
+    case 'injection': {
+      const injection = block as MessageBlockOf<'injection'>;
+      return `${base}:${injection.source}:${injection.text.length}`;
+    }
+    default:
+      return base;
+  }
+}
+
+const messageShapes = new WeakMap<Message, string>();
+function messageShape(message: Message): string {
+  let shape = messageShapes.get(message);
+  if (shape === undefined) {
+    shape = [message.id, message.role, message.created_at, ...message.blocks.map(blockShape)].join(
+      '\u0001',
+    );
+    messageShapes.set(message, shape);
+  }
+  return shape;
+}
+
+/**
+ * The session's messages for the Activity dock and view. The list keeps its
+ * identity while only streamed text changes, so the dock isn't re-rendered on
+ * every token. Its text may lag the transcript; read text from the transcript.
+ */
+function useSessionMessageStructure(sessionId: string): Message[] {
+  const cache = useRef<{
+    entities?: Record<string, Message>;
+    sessionId?: string;
+    shape?: string;
+    list: Message[];
+  }>({ list: [] });
+  return useLiveStore((state) => {
+    const entities = state.entities.messages;
+    const current = cache.current;
+    if (current.entities === entities && current.sessionId === sessionId) return current.list;
+    const list = Object.values(entities)
+      .filter((message): message is Message => message.session_id === sessionId)
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
+    const shape = list.map(messageShape).join('\u0002');
+    cache.current = {
+      entities,
+      sessionId,
+      shape,
+      list: current.sessionId === sessionId && current.shape === shape ? current.list : list,
+    };
+    return cache.current.list;
+  });
 }
 
 type LiveConversationProps = Omit<
@@ -82,17 +150,19 @@ export function WorkspaceLiveConversation({
         .sort((left, right) => left.created_at.localeCompare(right.created_at)),
     [messageEntities, sessionId],
   );
-  const artifacts = useMemo(
-    () =>
-      Object.fromEntries(
-        [
-          ...Object.values(artifactEntities).filter(
-            (artifact) => artifact.session_id === sessionId,
-          ),
-          ...artifactList,
-        ].map((artifact) => [artifact.id, artifact]),
-      ),
-    [artifactEntities, artifactList, sessionId],
+  const artifacts = useShallowStableRecord(
+    useMemo(
+      () =>
+        Object.fromEntries(
+          [
+            ...Object.values(artifactEntities).filter(
+              (artifact) => artifact.session_id === sessionId,
+            ),
+            ...artifactList,
+          ].map((artifact) => [artifact.id, artifact]),
+        ),
+      [artifactEntities, artifactList, sessionId],
+    ),
   );
   const surfaces = useMemo(
     () =>
@@ -108,12 +178,14 @@ export function WorkspaceLiveConversation({
       Object.values(compactionEntities).filter((compaction) => compaction.session_id === sessionId),
     [compactionEntities, sessionId],
   );
-  const subagents = useMemo(
-    () => ({
-      ...subagentEntities,
-      ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
-    }),
-    [subagentEntities, subagentList],
+  const subagents = useShallowStableRecord(
+    useMemo(
+      () => ({
+        ...subagentEntities,
+        ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
+      }),
+      [subagentEntities, subagentList],
+    ),
   );
   const earlier = useEarlierMessages(sessionId, hasEarlierMessages, messages[0]?.id);
   const { pendingMessageIds: listedPending, cancellablePendingMessageIds: listedCancellable } =
@@ -165,7 +237,7 @@ export function WorkspaceLiveObservabilityDock({
       usage={usage}
       onCancelTask={onCancelTask}
       onControlTask={onControlTask}
-      messages={useSessionMessages(sessionId)}
+      messages={useSessionMessageStructure(sessionId)}
     />
   );
 }
@@ -185,7 +257,7 @@ export function WorkspaceLiveObservabilityView({
       {...props}
       onCancelTask={onCancelTask}
       onControlTask={onControlTask}
-      messages={useSessionMessages(sessionId)}
+      messages={useSessionMessageStructure(sessionId)}
       sessionId={sessionId}
     />
   );
@@ -203,8 +275,13 @@ type LiveStatusStripProps = Omit<
 };
 
 export function WorkspaceLiveStatusStrip({ sessionId, work, ...props }: LiveStatusStripProps) {
-  const cursor = useLiveStore((state) => state.entities.cursor);
   const stream = useLiveStore((state) => state.entities.stream);
+  // The cursor advances on every frame but is only shown while recovering.
+  const cursor = useLiveStore((state) =>
+    state.entities.stream === 'reconnecting' || state.entities.stream === 'gapped'
+      ? state.entities.cursor
+      : undefined,
+  );
   return (
     <WorkspaceStatusStrip
       {...props}

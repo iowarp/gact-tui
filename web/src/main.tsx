@@ -1,3 +1,5 @@
+// Must stay first: records whether this device had app data before this launch.
+import '@/lib/onboarding/install-snapshot';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppRouter } from '@/lib/app-router';

@@ -2,6 +2,7 @@ import type { RunState, Session, WorkspaceReference } from '@clio/core/v3';
 import { m } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useComposerDraftValue, type ComposerDraft } from '@/hooks/use-composer-draft';
+import { useComposerQueue } from '@/hooks/use-composer-queue';
 import type { useSessionCommands } from '@/hooks/use-session-commands';
 import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
@@ -17,6 +18,8 @@ import * as workspaceRouteState from './workspace-route-state';
 
 type WorkspaceData = ReturnType<typeof useWorkspaceData>;
 type SessionMutations = ReturnType<typeof useSessionMutations>;
+
+const NO_QUEUED_MESSAGES: never[] = [];
 
 /** Whether the conversation has started, and how to record a start that failed. */
 export interface ConversationStart {
@@ -48,14 +51,10 @@ export interface WorkspaceComposerProps {
   mutations: Pick<
     SessionMutations,
     | 'cancel'
-    | 'deleteQueuedMessage'
     | 'discardFiles'
     | 'prepareFiles'
-    | 'promoteQueuedMessage'
-    | 'queuedMessages'
-    | 'reorderQueuedMessages'
+    | 'reconcileTurnMode'
     | 'send'
-    | 'updateQueuedMessage'
     | 'updateSessionBehavior'
   >;
   commands: ReturnType<typeof useSessionCommands>;
@@ -100,13 +99,14 @@ export function WorkspaceComposer({
   onOpenResource,
   onOpenReference,
 }: WorkspaceComposerProps) {
-  const {
-    cancel,
-    deleteQueuedMessage,
-    promoteQueuedMessage,
-    reorderQueuedMessages,
-    updateQueuedMessage,
-  } = mutations;
+  const { cancel } = mutations;
+  const queue = useComposerQueue({
+    reconcileTurnMode: mutations.reconcileTurnMode,
+    sessionId,
+    workspaceId,
+  });
+  const { deleteQueuedMessage, promoteQueuedMessage, reorderQueuedMessages, updateQueuedMessage } =
+    queue;
   const value = useComposerDraftValue(draft);
   const modelCatalogStatus = useModelCatalogStatus(data.modelCatalogStatus);
   const startingConversation = async (action: () => Promise<unknown>) => {
@@ -165,9 +165,13 @@ export function WorkspaceComposer({
           commandsState={commands.commandsState}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={
-            mutations.send.isPending || cancel.isPending || commands.isPending || hold.active
+            mutations.send.isPending ||
+            queue.adding ||
+            cancel.isPending ||
+            commands.isPending ||
+            hold.active
           }
-          sending={mutations.send.isPending}
+          sending={mutations.send.isPending || queue.adding}
           effort={data.activeEffort}
           configuredEffort={data.configuredEffort}
           executionMode={
@@ -221,15 +225,10 @@ export function WorkspaceComposer({
           onReferencesChange={draft.onReferencesChange}
           onValueChange={draft.onValueChange}
           provider={data.activeProvider}
-          queuedMessages={mutations.queuedMessages.data ?? []}
+          queuedMessages={queue.messages ?? NO_QUEUED_MESSAGES}
           queuePaused={session.metadata?.composer_queue_paused === true}
           resources={data.workspaceResources.data ?? []}
-          queueBusy={
-            deleteQueuedMessage.isPending ||
-            promoteQueuedMessage.isPending ||
-            reorderQueuedMessages.isPending ||
-            updateQueuedMessage.isPending
-          }
+          queueBusy={queue.busy}
           state={state}
           references={draft.references}
           value={value}

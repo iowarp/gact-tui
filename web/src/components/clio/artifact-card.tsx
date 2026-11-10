@@ -53,6 +53,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { fileRowTint } from '@/lib/file-presentation';
 import { ClioRelativeTime } from './relative-time';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -232,6 +233,7 @@ function ArtifactCardContent({
 
   return (
     <Artifact
+      {...tourAnchor('artifact-card')}
       className={cn(
         'group/artifact group relative isolate',
         fileRowTint(artifact.name, artifact.media_type),

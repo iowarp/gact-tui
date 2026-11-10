@@ -11,6 +11,7 @@ import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { HeldKeyBadge } from './primitives/key-chip';
 import { useLocalProfile } from './settings-profile-store';
+import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 
 const FOOTER_LINK =
   'relative grid size-7 shrink-0 place-items-center rounded-[6px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring';
@@ -65,6 +66,7 @@ export function NavigationFooter({
         <Link
           aria-label="Settings"
           className={FOOTER_LINK}
+          {...tourAnchor('settings')}
           state={returnState}
           to="/settings/general"
         >

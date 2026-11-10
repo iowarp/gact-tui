@@ -32,11 +32,19 @@ interface Anchor {
 
 const TOOLBAR_GAP_PX = 8;
 
+/** A subtree that offers its own selection actions (the onboarding practice conversation). */
+function inLocalSelectionScope(range: Range): boolean {
+  const node = range.commonAncestorContainer;
+  const element = node instanceof Element ? node : node.parentElement;
+  return Boolean(element?.closest('[data-selection-actions="local"]'));
+}
+
 function currentAnchor(): Anchor | undefined {
   const selection = window.getSelection();
   const target = transcriptSelection(selection) ?? fileTextSelection(selection);
   if (!target || !selection) return undefined;
   const range = selection.getRangeAt(0);
+  if (inLocalSelectionScope(range)) return undefined;
   // Environments without layout (tests, some embedded views) have no range geometry.
   const rect =
     typeof range.getBoundingClientRect === 'function'

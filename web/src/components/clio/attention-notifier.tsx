@@ -23,6 +23,7 @@ import {
   type AttentionSoundMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
+import { useOnboardingTour } from '@/lib/onboarding/tour-context';
 
 interface NotifierProps {
   activeSessionId: string;
@@ -76,7 +77,9 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
   // A clicked banner opens its conversation, even one that started the app.
   useEffect(() => listenForNotificationOpen((path) => void navigate(path)), [navigate]);
 
-  useAskForNotifications(desktopNotifications || finishedWork === 'desktop');
+  // The first-run tour goes first; the ask waits until it ends.
+  const { holdPrompts } = useOnboardingTour();
+  useAskForNotifications((desktopNotifications || finishedWork === 'desktop') && !holdPrompts);
 
   // The Dock badge counts the conversations waiting on the person.
   const waitingCount = sessions.filter(
@@ -267,12 +270,14 @@ function useAskForNotifications(wanted: boolean) {
       }
     };
     let cancelled = false;
+    let shown = false;
     void notificationPermission().then((permission) => {
       if (cancelled) return;
       if (permission !== 'default') {
         remember();
         return;
       }
+      shown = true;
       toast(`Get notified when ${vocab.agent} needs you`, {
         id: 'clio-notification-ask',
         description:
@@ -292,11 +297,15 @@ function useAskForNotifications(wanted: boolean) {
           },
         },
         cancel: { label: 'Not now', onClick: remember },
-        onDismiss: remember,
+        onDismiss: () => {
+          if (!cancelled) remember();
+        },
       });
     });
     return () => {
       cancelled = true;
+      // Withdrawn (the tour started), not answered: ask again afterwards.
+      if (shown) toast.dismiss('clio-notification-ask');
     };
   }, [wanted]);
 }
