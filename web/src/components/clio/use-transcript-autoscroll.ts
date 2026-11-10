@@ -114,7 +114,14 @@ export function useTranscriptAutoscroll(
 ): TranscriptAutoscroll {
   const engagedRef = useRef(true);
   const [engaged, setEngagedState] = useState(true);
-  const [scrollable, setScrollable] = useState(false);
+  // Only the jump button reads `scrollable`, and only while disengaged; the
+  // ref stays current so following never re-renders the transcript for it.
+  const scrollableRef = useRef(false);
+  const [scrollable, setScrollableState] = useState(false);
+  const setScrollable = useCallback((next: boolean) => {
+    scrollableRef.current = next;
+    if (!engagedRef.current) setScrollableState(next);
+  }, []);
   const stuckRef = useRef(true);
   const followingRef = useRef(true);
   // Geometry at the last scroll we observed or produced. Deliberately not
@@ -141,6 +148,7 @@ export function useTranscriptAutoscroll(
     (next: boolean) => {
       engagedRef.current = next;
       setEngagedState(next);
+      if (!next) setScrollableState(scrollableRef.current);
       // Every engagement lands the view at the bottom (the button scrolls
       // there; a reader scroll re-engages only on arrival).
       setStuck(next || stuckRef.current);
@@ -148,13 +156,16 @@ export function useTranscriptAutoscroll(
     [setStuck],
   );
 
-  const recordGeometry = useCallback((element: HTMLElement) => {
-    setScrollable(element.scrollHeight - element.clientHeight > BOTTOM_EPSILON_PX);
-    geometryRef.current = {
-      scrollHeight: element.scrollHeight,
-      clientHeight: element.clientHeight,
-    };
-  }, []);
+  const recordGeometry = useCallback(
+    (element: HTMLElement) => {
+      setScrollable(element.scrollHeight - element.clientHeight > BOTTOM_EPSILON_PX);
+      geometryRef.current = {
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+      };
+    },
+    [setScrollable],
+  );
 
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'instant') => {
@@ -339,7 +350,7 @@ export function useTranscriptAutoscroll(
       observer.disconnect();
       observerRef.current = null;
     };
-  }, [scrollRef, scrollToBottom]);
+  }, [scrollRef, scrollToBottom, setScrollable]);
 
   const observeContent = useCallback((content: HTMLElement | null) => {
     const observer = observerRef.current;
