@@ -2,6 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { brand } from '@brand';
+import { withArticle } from '@/lib/brand-vocabulary';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { UpdateStatus } from '@/hooks/use-update-status';
@@ -108,6 +110,45 @@ it('shows the runtime version with a v prefix', () => {
   expect(screen.getByText('v0.9.5')).toBeVisible();
 });
 
+it('opens the ways to add an agent in place on a phone, with Back', async () => {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query) =>
+      ({
+        matches: query === '(max-width: 599px)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as MediaQueryList,
+  );
+  const user = userEvent.setup();
+  renderMenu();
+
+  await user.click(screen.getByRole('menuitem', { name: /Add an agent/u }));
+  expect(screen.getByRole('menuitem', { name: /Connect by address/u })).toBeVisible();
+  expect(screen.queryByText('Talking to')).toBeNull();
+  expect(screen.getByRole('menuitem', { name: /^Add an agent$/u })).toHaveFocus();
+  // Drilled in, the footer says what Enter and Left do here.
+  expect(screen.getByText('choose')).toBeVisible();
+  expect(screen.getByText('back')).toBeVisible();
+  expect(screen.queryByText('switch')).toBeNull();
+  expect(screen.getByText(`${withArticle(brand.agentName)} that is already running`)).toBeVisible();
+
+  await user.keyboard('{ArrowLeft}');
+  expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.getByText('switch')).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: /Add an agent/u })).toHaveFocus();
+
+  await user.keyboard('{ArrowRight}');
+  expect(screen.getByRole('menuitem', { name: /^Add an agent$/u })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(screen.getByText('Talking to')).toBeVisible();
+  vi.restoreAllMocks();
+});
+
 it('copies the agent address and keeps the menu open', async () => {
   const user = userEvent.setup();
   renderMenu();
@@ -118,6 +159,22 @@ it('copies the agent address and keeps the menu open', async () => {
   expect(
     await screen.findByRole('menuitem', { name: 'Address 127.0.0.1:8788. Copied' }),
   ).toBeVisible();
+});
+
+it('opens with agent search, Talking to and the key footer', async () => {
+  renderMenu([
+    { endpoint: 'https://ares.iit.edu:8100', label: 'ares-genesis' },
+    { endpoint: 'http://10.0.4.12:8100', label: 'lab-shared' },
+  ]);
+
+  expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.getByRole('searchbox', { name: 'Search agents' })).toBeVisible();
+  expect(screen.getByText('move')).toBeVisible();
+  expect(screen.getByText('switch')).toBeVisible();
+  expect(screen.getByRole('menuitem', { name: /^Infrastructure/u })).toHaveAttribute(
+    'href',
+    '/infrastructure',
+  );
 });
 
 it('filters saved agents as you type anywhere in the menu', async () => {

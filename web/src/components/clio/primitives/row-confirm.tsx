@@ -56,7 +56,11 @@ export function RowConfirm({
       ref={cell}
       role="group"
     >
-      <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
+      <span
+        className="min-w-0 truncate text-[12.5px] text-destructive"
+        role="alert"
+        title={question}
+      >
         {question}
       </span>
       <Button

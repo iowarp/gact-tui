@@ -121,6 +121,37 @@ export function changedPathSet(diffs: readonly SessionDiff[]): ReadonlySet<strin
   return new Set(diffs.map((diff) => diff.path.replace(/\\/gu, '/')));
 }
 
+/** Lines each applied change added, by forward-slash path. */
+export type ChangeCounts = ReadonlyMap<string, number>;
+
+export function changeCountMap(diffs: readonly SessionDiff[]): ChangeCounts {
+  const counts = new Map<string, number>();
+  for (const diff of diffs) {
+    if (diff.status !== 'applied' || !diff.lines_added) continue;
+    const path = diff.path.replace(/\\/gu, '/');
+    counts.set(path, (counts.get(path) ?? 0) + diff.lines_added);
+  }
+  return counts;
+}
+
+/** The lines added to a path (diff paths may be absolute), if any were recorded. */
+export function changeCountFor(counts: ChangeCounts | undefined, path: string): number | undefined {
+  if (!counts?.size) return undefined;
+  const normalized = path.replace(/\\/gu, '/');
+  const exact = counts.get(normalized);
+  if (exact !== undefined) return exact;
+  for (const [candidate, count] of counts) if (candidate.endsWith(`/${normalized}`)) return count;
+  return undefined;
+}
+
+/**
+ * A list header's secondary actions (refresh, hide), which the spec does not
+ * draw: on a pointer that hovers they show only while the header is hovered
+ * or holds focus; touch keeps them visible.
+ */
+export const LIST_HEADER_SECONDARY =
+  'inline-flex transition-opacity duration-150 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/list-header:opacity-100 [@media(hover:hover)]:group-focus-within/list-header:opacity-100 [@media(hover:hover)]:has-[[aria-busy=true]]:opacity-100';
+
 export function assertNever(value: never): never {
   throw new Error(`Unsupported workbench item: ${JSON.stringify(value)}`);
 }

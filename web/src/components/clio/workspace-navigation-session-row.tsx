@@ -153,6 +153,9 @@ function SessionRow({
   const active = session.id === activeSessionId;
   const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
+  // One menu for ⋯ and right-click; the hover card stays out of its way while open.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hoverOpen, setHoverOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
   const [historyPending, setHistoryPending] = useState(false);
   const { forkSession, shareSession, openSystemTerminal, compactSession, undoSession } = actions;
@@ -178,13 +181,29 @@ function SessionRow({
   const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <>
-      <HoverCard closeDelay={100} openDelay={260}>
+      <HoverCard
+        closeDelay={100}
+        onOpenChange={setHoverOpen}
+        open={hoverOpen && !menuOpen}
+        openDelay={260}
+      >
         <HoverCardTrigger asChild>
           {/* Its own slot wins over the trigger's, so the left bar can style the row. */}
           <ListRow
             data-slot="list-row"
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setHoverOpen(false);
+              setMenuOpen(true);
+            }}
             actions={
-              <DropdownMenu>
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  setMenuOpen(open);
+                  if (open) setHoverOpen(false);
+                }}
+                open={menuOpen}
+              >
                 <DropdownMenuTrigger asChild>
                   <IconButton
                     icon={<MoreIcon />}
