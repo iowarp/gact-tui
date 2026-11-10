@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { CircleAlertIcon, FileCode2Icon, ListTreeIcon, TriangleAlertIcon } from 'lucide-react';
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import { FileModeControls, type FileMode } from './file-mode-controls';
 import { FileViewerFactsRegistry } from './file-viewer-facts';
 import { plural, type LatexProblem, type LatexView } from './latex-model';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { useFrameTool } from './primitives/frame-modes';
 import { NamedTooltip } from './primitives/icon-button';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { WorkbenchTabListToggle } from './workbench-tab-list';
@@ -36,28 +37,53 @@ export function LatexFacts({ facts }: { facts: readonly string[] }) {
 }
 
 /**
- * The problems count in words ("2 problems") after a warning (or error) mark,
- * so it never reads by colour alone; the list opens on click.
+ * The problems count after a warning (or error) mark, so it never reads by
+ * colour alone; the list opens on click. Like the renderer's icons it leaves
+ * the bar for a … menu row at the narrowest fold. Beside the workbench's list,
+ * which shows the same problems, it leaves earlier, with the modes, so the
+ * paper keeps its name.
  */
 function ProblemsButton({
   problems,
   onClick,
+  besideList = false,
 }: {
   problems: readonly LatexProblem[];
   onClick: () => void;
+  besideList?: boolean;
 }) {
-  if (!problems.length) return null;
+  const button = useRef<HTMLButtonElement>(null);
   const errors = problems.filter((problem) => problem.severity === 'error').length;
   const Icon = errors ? CircleAlertIcon : TriangleAlertIcon;
   const label = `${plural(problems.length, 'problem')}${errors ? `, ${plural(errors, 'error')}` : ''}`;
+  useFrameTool(
+    button,
+    problems.length
+      ? {
+          label,
+          icon: (
+            <Icon
+              aria-hidden="true"
+              className={errors ? 'text-destructive' : 'text-warning'}
+            />
+          ),
+        }
+      : null,
+  );
+  if (!problems.length) return null;
   return (
     <TooltipProvider delayDuration={200}>
       <NamedTooltip label={label}>
         <button
           aria-label={label}
-          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11.5px] whitespace-nowrap text-foreground tabular-nums outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+          className={cn(
+            'inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11.5px] whitespace-nowrap text-foreground tabular-nums outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring',
+            besideList && 'group-data-[fold-modes]/frame:hidden',
+          )}
+          data-frame-tool=""
           data-slot="latex-problems"
           onClick={onClick}
+          ref={button}
           type="button"
         >
           <Icon
@@ -65,8 +91,8 @@ function ProblemsButton({
             className={cn('size-3.5 shrink-0', errors ? 'text-destructive' : 'text-warning')}
           />
           {problems.length}
-          {/* Short of room the count stays, beside its mark and in the hover name. */}
-          <span className="group-data-[fold-where]/frame:hidden">
+          {/* The spec draws the mark and its count; the word goes with the first fold. */}
+          <span className="group-data-[fold-facts]/frame:hidden">
             {problems.length === 1 ? ' problem' : ' problems'}
           </span>
         </button>
@@ -180,7 +206,7 @@ export function LatexFormat({
     return (
       <>
         {head}
-        <ProblemsButton problems={problems} onClick={onShowProblems} />
+        <ProblemsButton besideList={inWorkbench} problems={problems} onClick={onShowProblems} />
         <WorkbenchTabListToggle />
       </>
     );
