@@ -22,6 +22,7 @@ import {
   ComposerSuggestionPopup,
   Highlighted,
   MatchCount,
+  ROW_CUT_SLOT,
   SuggestionDetail,
   useHoveredRow,
 } from './composer-suggestion-popup';
@@ -103,11 +104,20 @@ function commandDetail(command: CommandDefinition): string {
   return command.description || command.argument_hint || '';
 }
 
-/** Everything about the command, for the row's tooltip. */
-function commandSummary(command: CommandDefinition): string {
+/** Everything about the command beyond its id, one part per line of its tooltip. */
+function commandSummaryParts(command: CommandDefinition): string[] {
   return [command.title, command.argument_hint, command.description]
-    .filter((part, index, parts) => part && part !== command.id && parts.indexOf(part) === index)
-    .join('\n');
+    .map((part) => part?.trim() ?? '')
+    .filter((part, index, parts) => part && part !== command.id && parts.indexOf(part) === index);
+}
+
+/** The parts as one line of prose: each ends as a sentence, with no decorative joins. */
+function asSentences(parts: readonly string[]): string {
+  return parts
+    .map((part, index) =>
+      index < parts.length - 1 && !/[.!?…:;]$/u.test(part) ? `${part}.` : part,
+    )
+    .join(' ');
 }
 
 const CommandOption = memo(function CommandOption({
@@ -130,7 +140,7 @@ const CommandOption = memo(function CommandOption({
   const source = commandSource(command);
   const detail = commandDetail(command);
   const status = CommandStatus({ command });
-  const summary = commandSummary(command);
+  const summary = commandSummaryParts(command).join('\n');
   return (
     // The editor keeps focus and the keys; a press only picks.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -159,7 +169,12 @@ const CommandOption = memo(function CommandOption({
         <Highlighted query={query} text={command.id.replace(/^\//u, '')} />
       </span>
       {detail ? (
-        <span className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint">{detail}</span>
+        <span
+          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint"
+          data-slot={ROW_CUT_SLOT}
+        >
+          {detail}
+        </span>
       ) : null}
       {status || source || active ? (
         <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
@@ -306,8 +321,11 @@ export function ClioComposerCommandMenu({
   const dismiss = useCallback(() => setDismissedQuery(query), [query]);
   const hover = useHoveredRow();
   const described =
-    groups.flatMap((group) => group.rows).find((command) => commandKey(command) === hover.hovered) ??
-    active;
+    groups
+      .flatMap((group) => group.rows)
+      .find((command) => commandKey(command) === hover.hovered) ?? active;
+  const describedParts = described ? commandSummaryParts(described) : [];
+  const describedDetail = described ? commandDetail(described) : '';
 
   if (!open) return null;
   return (
@@ -356,9 +374,11 @@ export function ClioComposerCommandMenu({
       </div>
       {described ? (
         <SuggestionDetail
-          description={commandSummary(described).replaceAll('\n', ' — ')}
+          description={asSentences(describedParts)}
           mono
+          more={describedParts.some((part) => part !== describedDetail)}
           name={described.id}
+          rowId={optionId(described)}
         />
       ) : null}
       {total ? (
