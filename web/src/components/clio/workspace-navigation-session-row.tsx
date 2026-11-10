@@ -36,6 +36,7 @@ import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 import { SessionExportMenu } from './session-export-menu';
+import { SessionMoveMenu } from './session-move-menu';
 import {
   SessionHistoryConfirmDialog,
   type SessionHistoryConfirmation,
@@ -242,6 +243,7 @@ function SessionRow({
                       }
                     />
                   ) : null}
+                  <SessionMoveMenu actions={actions} onAction={onAction} session={session} />
                   {shareSession ? <SessionShareMenuItem onSelect={() => setSharing(true)} /> : null}
                   <SessionExportMenu
                     onExport={(mode) =>

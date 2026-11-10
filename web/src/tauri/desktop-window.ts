@@ -36,6 +36,16 @@ export async function ackClosePromptShown(seq: number): Promise<void> {
 }
 
 /**
+ * Answer a native `clio:quit-requested` event (macOS): the frontend now owns
+ * this quit, so the native 500ms fallback does not quit underneath it. With
+ * `showWindow` the host brings the main window forward for the confirmation.
+ */
+export async function ackQuitPromptShown(seq: number, showWindow: boolean): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('quit_prompt_shown', { seq, showWindow });
+}
+
+/**
  * The desktop host opens its window hidden on a dark background and shows it when
  * the page has committed its first frame, so launch never flashes an unpainted
  * WebView (#739). The host reveals it on its own after a short fallback.

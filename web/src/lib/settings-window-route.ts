@@ -9,6 +9,11 @@ export function isSettingsRoute(pathname: string): boolean {
   return pathname.startsWith(SETTINGS_ROUTE_PREFIX);
 }
 
+/** The Settings window covers the page now; read at key or request time. */
+export function settingsWindowOpen(): boolean {
+  return typeof window !== 'undefined' && isSettingsRoute(window.location.pathname);
+}
+
 /**
  * The workspace that stays mounted behind the Settings window. Only a route the
  * app itself recorded when opening Settings qualifies: a remembered route from
