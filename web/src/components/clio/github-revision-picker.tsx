@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from './refresh-button';
-import { ConnectField, ConnectInput } from './connect-frame';
+import { CircleAlertIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { SourceField, SourceStatusLine, sourceInputClass } from './source-form-parts';
 
 type RevisionKind = 'branch' | 'tag' | 'commit';
 
@@ -70,13 +72,14 @@ export function GitHubRevisionPicker({
   const label = kind === 'branch' ? 'Branch' : kind === 'tag' ? 'Tag' : 'Commit';
   const selection = kind === 'tag' && value.startsWith('refs/tags/') ? value.slice(10) : value;
   const selectClass =
-    'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sidebar';
+    'h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30';
   return (
-    <div className="space-y-2">
-      <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] gap-2.5">
-        <ConnectField htmlFor={`${formId}-revision-kind`} label="Revision">
+    <div className="flex flex-col gap-[5px]">
+      <SourceField label="Revision" htmlFor={`${formId}-revision-kind`}>
+        <div className="grid min-w-0 grid-cols-[30%_minmax(0,1fr)] gap-1.5">
           <select
             id={`${formId}-revision-kind`}
+            aria-label="Revision kind"
             className={selectClass}
             value={kind}
             disabled={!repoUrl || settled !== repoUrl || disabled}
@@ -90,10 +93,9 @@ export function GitHubRevisionPicker({
             <option value="tag">Tag</option>
             <option value="commit">Commit</option>
           </select>
-        </ConnectField>
-        <ConnectField htmlFor={`${formId}-revision`} label={label}>
           <select
             id={`${formId}-revision`}
+            aria-label={label}
             form={formId}
             className={selectClass}
             value={manual ? '__manual__' : selection}
@@ -125,18 +127,18 @@ export function GitHubRevisionPicker({
             )}
             {choices.map((row) => (
               <option key={row.value} value={row.value}>
-                {kind === 'commit' ? `${row.sha.slice(0, 7)} — ${row.label}` : row.label}
+                {kind === 'commit' ? `${row.sha.slice(0, 7)} ${row.label}` : row.label}
               </option>
             ))}
             {kind === 'commit' && <option value="__manual__">Enter a commit ID…</option>}
           </select>
-        </ConnectField>
-      </div>
+        </div>
+      </SourceField>
       {manual && (
-        <ConnectField htmlFor={`${formId}-commit`} label="Commit ID">
-          <ConnectInput
-            mono
+        <SourceField label="Commit ID" htmlFor={`${formId}-commit`}>
+          <Input
             id={`${formId}-commit`}
+            className={sourceInputClass}
             form={formId}
             value={value}
             required
@@ -145,38 +147,45 @@ export function GitHubRevisionPicker({
             placeholder="Paste the commit ID"
             onChange={(event) => onChange(event.target.value.trim())}
           />
-        </ConnectField>
+        </SourceField>
       )}
       {!repoUrl && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11px] text-faint">
           Enter a GitHub repository to choose its branch, tag, or commit.
         </p>
       )}
       {ready && choices.length === 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11px] text-faint">
           No {kind === 'branch' ? 'branches' : `${kind}s`} found.
         </p>
       )}
       {revisions.error && (
-        <div role="alert" className="space-y-1 text-xs text-destructive">
-          <p>{revisions.error.message}</p>
-          <RefreshButton
-            label="Try again"
-            refreshing={revisions.isFetching}
-            type="button"
-            size="sm"
-            variant="outline"
-            onRefresh={() => revisions.refetch()}
-          >
-            Try again
-          </RefreshButton>
-        </div>
+        <SourceStatusLine
+          role="alert"
+          tone="error"
+          icon={<CircleAlertIcon />}
+          actions={
+            <RefreshButton
+              label="Try again"
+              refreshing={revisions.isFetching}
+              type="button"
+              size="sm"
+              variant="ghost"
+              onRefresh={() => revisions.refetch()}
+            >
+              Try again
+            </RefreshButton>
+          }
+        >
+          {revisions.error.message}
+        </SourceStatusLine>
       )}
       {revisions.hasNextPage && (
         <Button
           type="button"
           size="sm"
           variant="ghost"
+          className="self-start"
           disabled={revisions.isFetchingNextPage}
           onClick={() => void revisions.fetchNextPage()}
         >
@@ -186,7 +195,7 @@ export function GitHubRevisionPicker({
         </Button>
       )}
       {ready && kind !== 'branch' && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[11px] text-faint">
           Tags and commits pin a version. Choose a branch to publish edits.
         </p>
       )}

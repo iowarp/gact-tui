@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConnectedSourceState, NDPDataset, SourceProvider } from '@clio/core/v3';
-import { ArrowLeftIcon, SearchIcon } from 'lucide-react';
+import { CheckIcon, CircleAlertIcon, SearchIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -9,9 +9,10 @@ import { connectionScope } from '@/lib/connection-scope';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ConnectedAccountSignIn } from './connected-source-auth';
-import { SourceProviderLogo } from './source-provider-logo';
-import { SourceProviderInfo } from './source-provider-info';
+import { SegmentedControl } from './primitives/segmented-control';
+import { cn } from '@/lib/utils';
+import { SourceField, SourceStatusLine, sourceInputClass } from './source-form-parts';
+import { useSourceFrameFooter } from './use-source-frame-footer';
 import { RefreshButton } from './refresh-button';
 import { NDPDatasetRow } from './ndp-dataset-row';
 import { useNdpCatalog } from './use-ndp-catalog';
@@ -27,64 +28,70 @@ export function NDPSourcePicker(props: {
   workspaceId: string;
   provider: SourceProvider;
   onConnected: (sources: ConnectedSourceState[]) => void;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
-  const [view, setView] = useState('datasets');
+  const [view, setView] = useState<'datasets' | 'endpoints'>('datasets');
   const [visitedEndpoints, setVisitedEndpoints] = useState(false);
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2" aria-label="NDP view">
-        <div className="flex items-center gap-1">
-          <Button
-            variant={view === 'datasets' ? 'secondary' : 'ghost'}
-            aria-pressed={view === 'datasets'}
-            onClick={() => setView('datasets')}
-          >
-            Datasets
-          </Button>
-          <InfoTip label="About datasets">
-            Discover scientific observations, measurements, simulations and analysis results. A
-            dataset can provide files in HDF5, NetCDF, CSV or other formats, plus metadata and links
-            to live data.
-          </InfoTip>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant={view === 'endpoints' ? 'secondary' : 'ghost'}
-            aria-pressed={view === 'endpoints'}
-            onClick={() => {
-              setVisitedEndpoints(true);
-              setView('endpoints');
-            }}
-          >
-            Endpoints & streams
-          </Button>
-          <InfoTip label="About endpoints and streams">
-            Connect to a research institution’s data services. Browse its catalog, query services
-            and work with available streams through a direct connection or SSH.
-          </InfoTip>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {view === 'datasets'
-          ? 'Discover scientific datasets in the NDP catalog.'
-          : 'Browse catalogs, query services and explore streams.'}
-      </p>
+    <div className="flex flex-col gap-[13px]">
+      <SourceField
+        label="Browse"
+        hint={
+          <span className="inline-flex items-center gap-1">
+            {view === 'datasets'
+              ? 'Discover scientific datasets in the NDP catalog.'
+              : 'Browse catalogs, query services and explore streams.'}
+            {view === 'datasets' ? (
+              <InfoTip label="About datasets">
+                Discover scientific observations, measurements, simulations and analysis results. A
+                dataset can provide files in HDF5, NetCDF, CSV or other formats, plus metadata and
+                links to live data.
+              </InfoTip>
+            ) : (
+              <InfoTip label="About endpoints and streams">
+                Connect to a research institution’s data services. Browse its catalog, query
+                services and work with available streams through a direct connection or SSH.
+              </InfoTip>
+            )}
+          </span>
+        }
+      >
+        <SegmentedControl
+          label="NDP view"
+          className="self-start"
+          value={view}
+          onValueChange={(next) => {
+            if (next === 'endpoints') setVisitedEndpoints(true);
+            setView(next);
+          }}
+          options={[
+            { value: 'datasets', label: 'Datasets' },
+            { value: 'endpoints', label: 'Endpoints & streams' },
+          ]}
+        />
+      </SourceField>
       <div hidden={view !== 'datasets'}>
-        <NDPCatalogPicker {...props} />
+        <NDPCatalogPicker {...props} active={view === 'datasets'} />
       </div>
       {visitedEndpoints ? (
         <div hidden={view !== 'endpoints'}>
           <NDPEndpointPanel
             workspaceId={props.workspaceId}
-            onBack={props.onBack}
+            onBack={() => setView('datasets')}
             signedIn={props.provider.authenticated}
-            accountName={props.provider.account_name}
           />
         </div>
       ) : null}
+      {view === 'endpoints' ? <NdpEndpointsFooter onBack={props.onBack} /> : null}
     </div>
   );
+}
+
+/** Endpoints act in place, so the frame keeps only Back. */
+function NdpEndpointsFooter({ onBack }: { onBack?: () => void }) {
+  return useSourceFrameFooter({
+    start: onBack ? { label: 'Back', back: true, onClick: onBack } : undefined,
+  });
 }
 
 function NDPCatalogPicker({
@@ -92,11 +99,14 @@ function NDPCatalogPicker({
   provider,
   onConnected,
   onBack,
+  active,
 }: {
   workspaceId: string;
   provider: SourceProvider;
   onConnected: (sources: ConnectedSourceState[]) => void;
-  onBack: () => void;
+  onBack?: () => void;
+  /** The catalog is the open view, so it owns the frame's footer. */
+  active: boolean;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -154,32 +164,16 @@ function NDPCatalogPicker({
       return next;
     });
   };
+  const footer = (
+    <CatalogFooter
+      count={count}
+      pending={connect.isPending}
+      onConnect={() => connect.mutate()}
+      onBack={onBack}
+    />
+  );
   return (
     <section aria-label="National Data Platform" className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack} disabled={connect.isPending}>
-        <ArrowLeftIcon /> Back
-      </Button>
-      <div className="flex items-center gap-3">
-        <SourceProviderLogo provider="ndp" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">National Data Platform</h3>
-            <SourceProviderInfo provider={provider} />
-          </div>
-          {signedIn && provider.account_name ? (
-            <p className="break-all text-xs text-muted-foreground">{provider.account_name}</p>
-          ) : null}
-        </div>
-      </div>
-      {!signedIn ? (
-        <ConnectedAccountSignIn
-          provider="ndp"
-          onComplete={() => {
-            void client.invalidateQueries({ queryKey: ['connected-storage', scope] });
-            void client.invalidateQueries({ queryKey: ['ndp-catalog', scope] });
-          }}
-        />
-      ) : null}
       <form
         className="flex items-center gap-2"
         onSubmit={(event) => {
@@ -196,7 +190,7 @@ function NDPCatalogPicker({
             ref={searchInput}
             aria-label="Search NDP datasets"
             placeholder="Search names, descriptions or files…"
-            className="pl-9 pr-9"
+            className={cn(sourceInputClass, 'pl-9 pr-9')}
             value={catalog.query}
             onChange={(event) => {
               catalog.setQuery(event.target.value);
@@ -209,7 +203,7 @@ function NDPCatalogPicker({
               variant="ghost"
               size="icon"
               aria-label="Clear search"
-              className="absolute right-0 top-0 size-9"
+              className="absolute right-0 top-0 size-[30px]"
               onClick={() => {
                 catalog.setQuery('');
                 searchInput.current?.focus();
@@ -242,7 +236,7 @@ function NDPCatalogPicker({
         />
         <select
           aria-label="Catalog access filter"
-          className="h-8 max-w-full rounded-md border bg-background px-2 text-sm"
+          className={cn(sourceInputClass, 'w-auto max-w-full border bg-background')}
           value={catalog.onlyGroups ? 'groups' : 'all'}
           onChange={(event) => {
             catalog.setOnlyGroups(event.target.value === 'groups');
@@ -338,12 +332,11 @@ function NDPCatalogPicker({
           {catalog.results.isFetchingNextPage ? 'Loading datasets…' : 'Show more datasets'}
         </Button>
       ) : null}
-      <div className="flex items-center justify-between gap-3 border-t pt-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>
-            {count ? `${count} resource${count === 1 ? '' : 's'} selected` : 'Select resources'}
-          </span>
-          {count > 0 ? (
+      {count > 0 ? (
+        <SourceStatusLine
+          icon={<CheckIcon />}
+          tone="ok"
+          actions={
             <Button
               type="button"
               variant="ghost"
@@ -356,17 +349,35 @@ function NDPCatalogPicker({
             >
               Clear selection
             </Button>
-          ) : null}
-        </div>
-        <Button disabled={!count || connect.isPending} onClick={() => connect.mutate()}>
-          {connect.isPending ? 'Connecting…' : 'Continue'}
-        </Button>
-      </div>
-      {connect.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {connect.error.message}
-        </p>
+          }
+        >
+          {count} resource{count === 1 ? '' : 's'} selected
+        </SourceStatusLine>
       ) : null}
+      {connect.error ? (
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
+          {connect.error.message}
+        </SourceStatusLine>
+      ) : null}
+      {active ? footer : null}
     </section>
   );
+}
+
+function CatalogFooter({
+  count,
+  pending,
+  onConnect,
+  onBack,
+}: {
+  count: number;
+  pending: boolean;
+  onConnect: () => void;
+  onBack?: () => void;
+}) {
+  return useSourceFrameFooter({
+    confirm: { label: pending ? 'Connecting…' : 'Connect', disabled: !count || pending },
+    onConfirm: onConnect,
+    start: onBack ? { label: 'Back', back: true, onClick: onBack, disabled: pending } : undefined,
+  });
 }

@@ -254,6 +254,7 @@ describe('connected provider accounts', () => {
         expect(await screen.findByText('input.csv')).toBeVisible();
         expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
       }
+      expect(screen.getByRole('button', { name: 'Link folder' })).toBeEnabled();
     },
   );
 

@@ -68,26 +68,22 @@ export function ConnectField({
   htmlFor,
   label,
   optional = false,
-  aside,
   children,
 }: {
-  htmlFor?: string;
+  htmlFor: string;
   label: string;
   optional?: boolean;
-  /** A control beside the label, such as an InfoTip. */
-  aside?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-[5px]">
       <span className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-        {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}
+        <label htmlFor={htmlFor}>{label}</label>
         {optional ? (
           <span aria-hidden="true" className="text-faint">
             optional
           </span>
         ) : null}
-        {aside}
       </span>
       {children}
     </div>
@@ -109,42 +105,6 @@ export function ConnectInput({
       )}
       {...props}
     />
-  );
-}
-
-/**
- * A chosen folder, one 30px line: its name, then the full path cut at the
- * end. The whole path stays in the hover title.
- */
-export function ChosenFolder({
-  path,
-  empty = 'No folder chosen',
-}: {
-  path: string;
-  empty?: string;
-}) {
-  const name = path
-    .trim()
-    .replace(/[/\\]+$/, '')
-    .split(/[/\\]/)
-    .pop();
-  return (
-    <span
-      role="status"
-      title={path || undefined}
-      className="flex h-[30px] min-w-0 flex-1 items-center gap-2 rounded-[7px] border border-input px-2.5 text-[12.5px] whitespace-nowrap"
-    >
-      {path ? (
-        <>
-          <span className="max-w-[60%] shrink-0 truncate text-foreground">{name || path}</span>
-          <span className="min-w-0 truncate font-mono text-[11.5px] text-muted-foreground">
-            {path}
-          </span>
-        </>
-      ) : (
-        <span className="truncate text-faint">{empty}</span>
-      )}
-    </span>
   );
 }
 export type ConnectLineTone = 'error' | 'lock' | 'working' | 'done' | 'pending';

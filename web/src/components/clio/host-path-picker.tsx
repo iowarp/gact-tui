@@ -28,6 +28,7 @@ export function HostPathPicker({
   disabled,
   startPath,
   triggerLabel = 'Browse…',
+  triggerClassName,
   browse,
 }: {
   targetId: string;
@@ -38,6 +39,8 @@ export function HostPathPicker({
   disabled?: boolean;
   startPath?: string;
   triggerLabel?: string;
+  /** Restyles the trigger as a quiet action inside a field. */
+  triggerClassName?: string;
   browse?: (
     path: string,
     signal: AbortSignal,
@@ -76,7 +79,9 @@ export function HostPathPicker({
       <Button
         type="button"
         disabled={disabled || nativePending}
-        variant="outline"
+        variant={triggerClassName ? 'ghost' : 'outline'}
+        size={triggerClassName ? 'sm' : undefined}
+        className={triggerClassName}
         aria-label={`Browse ${label.toLowerCase()} on ${hostLabel}`}
         onClick={async () => {
           if (inTauri() && isManagedConnection && targetId === 'local' && !browse) {

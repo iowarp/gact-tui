@@ -1,387 +1,292 @@
-import { inTauri } from '@/lib/transport/tauri-runtime';
-import { vocab } from '@/lib/brand-vocabulary';
-import type {
-  CreateSourceInput,
-  SourceProvider,
-  ConnectedSourceState,
-  SftpCredentials,
-  SourceMode,
-} from '@clio/core/v3';
+import type { ConnectedSourceState, SourceProvider } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
+import { CheckIcon, CircleAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
-import { ChosenFolder, ConnectField, ConnectInput } from './connect-frame';
-import { HostPathPicker } from './host-path-picker';
-import { InfoTip } from './info-tip';
-import { SourceProviderLogo } from './source-provider-logo';
+import { ConnectedAccountActions } from './connected-account-actions';
+import { connectedSourceErrorMessage } from './connected-source-error';
+import { DesktopFolderUpload } from './desktop-folder-upload';
+import { NDPSourcePicker } from './ndp-source-picker';
 import { ObsidianSourceForm, type ObsidianChoice } from './obsidian-source-form';
-import { SourceSshTarget } from './source-ssh-target';
-import { GitHubRevisionPicker } from './github-revision-picker';
-import { GlobusReceivingStorageControl } from './globus-receiving-storage';
-import { SourceAccessChoice } from './source-access-choice';
-import { ObsidianSyncDirection } from './obsidian-sync-direction';
-import { vaultModes, vaultReasons } from './connected-source-labels';
+import { SourceFields } from './source-fields';
+import { useSourceFields } from './use-source-fields';
 import {
-  defaultSourceUse,
-  rememberSourceAccess,
-  rememberedSourceAccess,
-  type SourceUse,
-} from './source-access-intent';
+  AccessRows,
+  ProviderSwitch,
+  SourceProviderGlyph,
+  SourceStatusLine,
+  type SourceChoiceId,
+} from './source-form-parts';
+import { accessModes, unavailableAccess, type SourceAccess } from './source-access';
+import { useSourceFrameFooter } from './use-source-frame-footer';
+import { SourceProviderInfo } from './source-provider-info';
 
-/** The last segment of a folder path or link: what a person calls the folder. */
-const rootName = (root: string) =>
-  root
-    .trim()
-    .replace(/[/\\]+$/, '')
-    .split(/[/\\]/)
-    .pop() ?? '';
+const order: SourceChoiceId[] = [
+  'local',
+  'upload',
+  'sftp',
+  'github',
+  'google_drive',
+  'globus',
+  'obsidian',
+  'ndp',
+];
 
-/** Node capabilities determine which real access modes can be offered. */
+const signInSentences: Partial<Record<SourceProvider['id'], string>> = {
+  github: "Public repositories don't need sign-in.",
+  google_drive: 'Sign in to Google Drive to reach your folders.',
+  globus: 'Sign in to Globus to reach your collections.',
+  ndp: 'Sign in for private datasets and your groups.',
+};
+
+/**
+ * The spec's one connect form: a row of providers, and the chosen provider's
+ * own fields under it. Every provider keeps its full setup: SSH hosts, GitHub
+ * revisions, Globus receiving storage, Obsidian vaults, the NDP catalog and
+ * desktop folder uploads.
+ */
 export function ConnectedSourceForm({
+  workspaceId,
+  providers,
+  initialChoice,
+  localConnection,
+  hostLabel,
+  browseStartPath,
+  obsidianChoice,
+  uploadFiles,
+  onConnected,
+  onConnectedMany,
+  onSignIn,
+  onBack,
+}: {
+  workspaceId: string;
+  providers: SourceProvider[];
+  initialChoice?: SourceChoiceId;
+  /** This app runs on the computer CLIO runs on, so a folder is a local folder. */
+  localConnection: boolean;
+  hostLabel: string;
+  browseStartPath?: string;
+  obsidianChoice?: ObsidianChoice;
+  /** Files dropped on the picker: start on Upload with them. */
+  uploadFiles?: File[];
+  onConnected: (source: ConnectedSourceState) => void;
+  onConnectedMany: (sources: ConnectedSourceState[]) => void;
+  onSignIn: (provider: SourceProvider) => void;
+  /** Return to the list it was opened from. */
+  onBack?: () => void;
+}) {
+  const options = order.flatMap((id): { id: SourceChoiceId; name: string }[] => {
+    if (id === 'upload')
+      return localConnection && !uploadFiles?.length
+        ? []
+        : [{ id, name: 'Upload from this computer' }];
+    const provider = providers.find((row) => row.id === id);
+    if (!provider) return [];
+    return [
+      {
+        id,
+        name:
+          id === 'local'
+            ? localConnection
+              ? 'This computer'
+              : `Folder on ${hostLabel}`
+            : provider.name,
+      },
+    ];
+  });
+  const fallback = options[0]?.id ?? 'local';
+  const [choice, setChoice] = useState<SourceChoiceId>(
+    initialChoice && options.some((option) => option.id === initialChoice)
+      ? initialChoice
+      : uploadFiles?.length
+        ? 'upload'
+        : fallback,
+  );
+  const provider = providers.find((row) => row.id === choice);
+  return (
+    <div className="flex flex-col gap-[13px]">
+      <ProviderSwitch
+        options={options}
+        value={choice}
+        onChange={setChoice}
+        aside={provider ? <SourceProviderInfo provider={provider} /> : undefined}
+      />
+      {choice === 'upload' ? (
+        <DesktopFolderUpload
+          initialFiles={uploadFiles}
+          workspaceId={workspaceId}
+          hostLabel={hostLabel}
+          onBack={onBack}
+          onComplete={onConnected}
+        />
+      ) : !provider ? null : provider.id === 'ndp' ? (
+        <>
+          <ProviderAccount provider={provider} onSignIn={onSignIn} />
+          <NDPSourcePicker
+            workspaceId={workspaceId}
+            provider={provider}
+            onConnected={onConnectedMany}
+            onBack={onBack}
+          />
+        </>
+      ) : provider.id === 'obsidian' ? (
+        <ObsidianSourceForm
+          initialChoice={obsidianChoice}
+          workspaceId={workspaceId}
+          hostLabel={hostLabel}
+          browseStartPath={browseStartPath}
+          onConnected={onConnected}
+          onBack={onBack}
+        />
+      ) : (
+        <ProviderForm
+          key={provider.id}
+          workspaceId={workspaceId}
+          provider={provider}
+          hostLabel={hostLabel}
+          browseStartPath={browseStartPath}
+          onConnected={onConnected}
+          onSignIn={onSignIn}
+          onBack={onBack}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A browser-signed account as the spec's status line: who is signed in, or a Sign in action. */
+export function ProviderAccount({
+  provider,
+  onSignIn,
+}: {
+  provider: SourceProvider;
+  onSignIn: (provider: SourceProvider) => void;
+}) {
+  if (!provider.configured && provider.setup_requirement)
+    return (
+      <SourceStatusLine tone="warning" icon={<TriangleAlertIcon />}>
+        {provider.setup_requirement}
+      </SourceStatusLine>
+    );
+  if (provider.authentication !== 'browser') return null;
+  if (provider.authenticated)
+    return (
+      <SourceStatusLine
+        tone="ok"
+        icon={<CheckIcon />}
+        actions={<ConnectedAccountActions provider={provider} />}
+      >
+        Signed in{provider.account_name ? ` as ${provider.account_name}` : ''}
+      </SourceStatusLine>
+    );
+  return (
+    <SourceStatusLine
+      icon={<UserGlyph />}
+      actions={
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Sign in to ${provider.name}`}
+          onClick={() => onSignIn(provider)}
+        >
+          <SourceProviderGlyph provider={provider.id} className="size-3.5" />
+          Sign in
+        </Button>
+      }
+    >
+      {signInSentences[provider.id] ?? `Sign in to ${provider.name}.`}
+    </SourceStatusLine>
+  );
+}
+
+function UserGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
+function ProviderForm({
   workspaceId,
   provider,
   hostLabel,
   browseStartPath,
-  source,
-  obsidianChoice,
   onConnected,
+  onSignIn,
   onBack,
 }: {
   workspaceId: string;
   provider: SourceProvider;
   hostLabel: string;
   browseStartPath?: string;
-  source?: ConnectedSourceState;
-  obsidianChoice?: ObsidianChoice;
   onConnected: (source: ConnectedSourceState) => void;
-  onBack: () => void;
+  onSignIn: (provider: SourceProvider) => void;
+  onBack?: () => void;
 }) {
   const formId = useId();
   const repository = useRepository();
-  const [sftpCredentials, setSftpCredentials] = useState<SftpCredentials>();
-  const [label, setLabel] = useState(source?.label ?? '');
-  const [root, setRoot] = useState(source?.root ?? '');
-  const [githubRevisionValid, setGithubRevisionValid] = useState(provider.id !== 'github');
-  const supportedModes = provider.capabilities.supported_modes;
-  const [mode, setMode] = useState<SourceMode>(
-    source?.mode ??
-      (supportedModes.includes('read_only') ? 'read_only' : (supportedModes[0] ?? 'read_only')),
-  );
-  const locationLocked = Boolean(source && !source.can_edit_location);
-  const [chosenUse, setChosenUse] = useState<SourceUse | undefined>(
-    source
-      ? (rememberedSourceAccess(source.id)?.use ?? (source.linked ? 'link' : undefined))
-      : undefined,
-  );
-  const [confirmed, setConfirmed] = useState(source?.mode === 'write_enabled');
-  const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();
-  const [configuration, setConfiguration] = useState<
-    NonNullable<CreateSourceInput['configuration']>
-  >(source?.configuration ?? {});
-  // An SSH target opened from Desktop only downloads; GitHub only links.
-  const uses: SourceUse[] = [
-    ...(provider.id === 'sftp' && configuration.target_id && configuration.ssh_origin !== 'clio'
-      ? []
-      : (['link'] as const)),
-    ...((provider.capabilities as { download?: boolean }).download === false
-      ? []
-      : (['transfer'] as const)),
-  ];
-  const use = chosenUse && uses.includes(chosenUse) ? chosenUse : defaultSourceUse(mode, uses);
-  const needsConfirmation = provider.id !== 'obsidian' && mode === 'write_enabled' && !confirmed;
-  const chooseMode = (next: SourceMode) => {
-    setMode(next);
-    if (next === 'write_enabled') setConfirmed(source?.mode === 'write_enabled');
-  };
-  const defaultLabel =
-    provider.id === 'local' || provider.id === 'obsidian' || (provider.id === 'sftp' && inTauri())
-      ? rootName(root) || provider.name
-      : provider.name;
+  const fields = useSourceFields(provider);
+  const unavailable = unavailableAccess(provider);
+  const [access, setAccess] = useState<SourceAccess>('read_only');
   const connect = useMutation({
-    mutationFn: () => {
-      const input: CreateSourceInput = {
-        provider: provider.id,
-        label: label.trim() || defaultLabel,
-        root: root.trim(),
-        // A source with history keeps its mode; its link or copy takes the new Access.
-        mode: locationLocked && source?.mode ? source.mode : mode,
-        configuration,
-        ...(sftpCredentials ? { sftp_credentials: sftpCredentials } : {}),
-      };
-      return source
-        ? repository.updateConnectedSource(workspaceId, source.id, input)
-        : repository.createConnectedSource(workspaceId, input);
-    },
-    onSuccess: (saved) => {
-      if (use) rememberSourceAccess(saved.id, { mode, use, confirmed });
-      onConnected(saved);
-    },
+    mutationFn: () =>
+      repository.createConnectedSource(workspaceId, fields.input(accessModes[access])),
+    onSuccess: onConnected,
   });
-  const configField = (key: keyof typeof configuration, name: string, placeholder: string) => (
-    <ConnectField htmlFor={`source-${key}`} label={name}>
-      <ConnectInput
-        form={formId}
-        id={`source-${key}`}
-        value={
-          Array.isArray(configuration[key])
-            ? configuration[key].join(', ')
-            : (configuration[key] ?? '')
-        }
-        placeholder={placeholder}
-        onChange={(e) => setConfiguration((previous) => ({ ...previous, [key]: e.target.value }))}
-      />
-    </ConnectField>
-  );
-  return provider.id === 'obsidian' && !source ? (
-    <ObsidianSourceForm
-      initialChoice={obsidianChoice}
-      workspaceId={workspaceId}
-      hostLabel={hostLabel}
-      browseStartPath={browseStartPath}
-      onConnected={onConnected}
-      onBack={onBack}
-    />
-  ) : (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <SourceProviderLogo provider={provider.id} />
-        <div>
-          <h3 className="font-medium">
-            {source
-              ? 'Edit source'
-              : provider.id === 'local'
-                ? 'Use an existing folder'
-                : `Connect ${provider.name}`}
-          </h3>
-          <p className="text-xs text-muted-foreground">Data will be available on {hostLabel}</p>
-        </div>
-      </div>
-      <fieldset disabled={connect.isPending} className="space-y-4">
-        <ConnectField htmlFor="source-label" label="Name" optional>
-          <ConnectInput
-            form={formId}
-            id="source-label"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder={defaultLabel}
-          />
-        </ConnectField>
-        <fieldset disabled={locationLocked} className="space-y-4">
-          {locationLocked && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Folder retained</span>
-              <InfoTip label="Why source location is retained">
-                This source has data or transfer history. Its folder identifies that evidence. You
-                can rename it, or connect another folder as a new source.
-              </InfoTip>
-            </div>
-          )}
-          {provider.id === 'obsidian' && (
-            <div className="space-y-3 text-sm">
-              <p className="text-xs text-muted-foreground">
-                This vault is a knowledge source. Only its approved folder is available to knowledge
-                tools. Hidden folders and Obsidian settings are excluded.
-              </p>
-              {configuration.obsidian_connection === 'headless_sync' && (
-                <div className="space-y-2">
-                  <p>
-                    {vocab.agent} manages this synced copy on {hostLabel}. Manage the official Sync
-                    client and its account in Settings → Data sources → Obsidian.
-                  </p>
-                  <ConnectField htmlFor="vault-sync-mode" label="Sync direction">
-                    <ObsidianSyncDirection
-                      id="vault-sync-mode"
-                      value={configuration.obsidian_sync_mode ?? 'pull-only'}
-                      onChange={(obsidian_sync_mode) =>
-                        setConfiguration((previous) => ({ ...previous, obsidian_sync_mode }))
-                      }
-                    />
-                  </ConnectField>
-                  <p className="text-xs text-muted-foreground">
-                    Sync direction is separate from permission for the agent to edit notes.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          {provider.id === 'sftp' && (
-            <SourceSshTarget
-              hostLabel={hostLabel}
-              initialTargetId={source?.configuration.target_id}
-              onChange={(target, startPath, credentials) => {
-                setSftpCredentials(credentials);
-                setConfiguration((previous) => ({
-                  ...previous,
-                  target_id: target?.id ?? '',
-                  ssh_origin: inTauri() ? 'desktop' : 'clio',
-                  ssh_authentication:
-                    credentials?.password !== undefined
-                      ? 'password'
-                      : credentials?.private_key
-                        ? 'key'
-                        : 'configured',
-                }));
-                setSshFolder(target ? { label: target.label, startPath } : undefined);
-                setRoot('');
-              }}
-            />
-          )}
-          {provider.id === 'globus' &&
-            configField('collection_id', 'Source collection ID', 'Collection UUID')}
-          <ConnectField
-            htmlFor="source-root"
-            label={
-              provider.id === 'google_drive'
-                ? 'Google Drive folder link'
-                : provider.id === 'github'
-                  ? 'Repository or folder link'
-                  : provider.id === 'ndp'
-                    ? 'Dataset'
-                    : 'Source folder'
-            }
-            aside={
-              provider.id === 'google_drive' ? (
-                <InfoTip label="How to choose a Google Drive folder">
-                  Open your folder in Google Drive, copy the address from your browser, and paste it
-                  here. You can also paste a folder ID. The link does not change sharing
-                  permissions.
-                </InfoTip>
-              ) : null
-            }
-          >
-            <div className="flex min-w-0 gap-2">
-              {provider.id !== 'local' && provider.id !== 'sftp' && provider.id !== 'obsidian' && (
-                <ConnectInput
-                  form={formId}
-                  id="source-root"
-                  required
-                  value={root}
-                  onChange={(e) => {
-                    setRoot(e.target.value);
-                    if (provider.id === 'github')
-                      setConfiguration((previous) => ({ ...previous, github_ref: '' }));
-                  }}
-                  placeholder={
-                    provider.id === 'google_drive'
-                      ? 'https://drive.google.com/drive/folders/…'
-                      : provider.id === 'github'
-                        ? 'https://github.com/owner/repository/tree/main/folder'
-                        : '/path/to/data'
-                  }
-                />
-              )}
-              {(provider.id === 'local' ||
-                provider.id === 'sftp' ||
-                provider.id === 'obsidian') && (
-                <div className="flex w-full min-w-0 items-center gap-2">
-                  <HostPathPicker
-                    targetId={provider.id === 'sftp' ? configuration.target_id || '' : 'local'}
-                    hostLabel={
-                      provider.id === 'sftp' ? sshFolder?.label || 'selected SSH host' : hostLabel
-                    }
-                    label={
-                      provider.id === 'obsidian' ? 'Vault or folder inside it' : 'Source folder'
-                    }
-                    triggerLabel="Choose folder"
-                    startPath={provider.id === 'sftp' ? sshFolder?.startPath : browseStartPath}
-                    path={root}
-                    onChoose={setRoot}
-                    browse={
-                      provider.id === 'sftp' && configuration.ssh_origin === 'clio'
-                        ? (path, signal) =>
-                            repository.inspectSourceSsh(
-                              {
-                                target_id: configuration.target_id,
-                                path,
-                                credentials: sftpCredentials,
-                              },
-                              signal,
-                            )
-                        : undefined
-                    }
-                    disabled={
-                      connect.isPending || (provider.id === 'sftp' && !configuration.target_id)
-                    }
-                  />
-                  <ChosenFolder path={root} />
-                </div>
-              )}
-            </div>
-          </ConnectField>
-          {provider.id === 'github' && (
-            <GitHubRevisionPicker
-              key={root.trim()}
-              root={root}
-              value={configuration.github_ref ?? ''}
-              formId={formId}
-              disabled={locationLocked}
-              onValidityChange={setGithubRevisionValid}
-              onChange={(github_ref) =>
-                setConfiguration((previous) => ({ ...previous, github_ref }))
-              }
-            />
-          )}
-        </fieldset>
-        {provider.id === 'obsidian' && (
-          <p className="text-xs text-muted-foreground">
-            Connect this vault as a knowledge source. Notes open in the graph, file list, and
-            reader.
-          </p>
-        )}
-        <SourceAccessChoice
-          value={mode}
-          onChange={chooseMode}
-          supported={provider.id === 'obsidian' ? vaultModes : supportedModes}
-          reasons={
-            provider.id === 'obsidian' ? vaultReasons : provider.capabilities.unavailable_reasons
-          }
-          disabled={connect.isPending}
-          uses={uses}
-          use={use}
-          onUseChange={setChosenUse}
-          confirmed={confirmed}
-          onConfirmedChange={provider.id === 'obsidian' ? undefined : setConfirmed}
-        />
-      </fieldset>
-      {connect.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {connect.error.message}
-        </p>
-      )}
-      {provider.id === 'globus' ? <GlobusReceivingStorageControl hostLabel={hostLabel} /> : null}
+  const submit = () => {
+    if (fields.ready && !connect.isPending) connect.mutate();
+  };
+  const footer = useSourceFrameFooter({
+    confirm: {
+      label: connect.isPending ? 'Connecting…' : 'Connect',
+      disabled: !fields.ready || connect.isPending,
+    },
+    onConfirm: submit,
+    start: onBack
+      ? { label: 'Back', back: true, onClick: onBack, disabled: connect.isPending }
+      : undefined,
+  });
+  return (
+    <>
       <form
         id={formId}
-        className="flex justify-between gap-2"
+        hidden
         onSubmit={(event) => {
           event.preventDefault();
-          connect.mutate();
+          submit();
         }}
-      >
-        <Button type="button" variant="ghost" onClick={onBack} disabled={connect.isPending}>
-          {source ? 'Cancel' : 'Back'}
-        </Button>
-        <Button
-          type="submit"
-          disabled={
-            connect.isPending ||
-            needsConfirmation ||
-            (provider.id === 'github' && !githubRevisionValid) ||
-            ((provider.id === 'local' || provider.id === 'sftp' || provider.id === 'obsidian') &&
-              !root.trim())
-          }
-        >
-          {connect.isPending
-            ? source
-              ? 'Saving…'
-              : 'Connecting…'
-            : source
-              ? 'Save changes'
-              : provider.id === 'obsidian'
-                ? 'Connect vault'
-                : 'Connect folder'}
-        </Button>
-      </form>
-    </div>
+      />
+      <SourceFields
+        fields={fields}
+        hostLabel={hostLabel}
+        browseStartPath={browseStartPath}
+        formId={formId}
+        disabled={connect.isPending}
+      />
+      <AccessRows
+        value={access}
+        onChange={setAccess}
+        unavailable={unavailable}
+        disabled={connect.isPending}
+      />
+      <ProviderAccount provider={provider} onSignIn={onSignIn} />
+      {connect.error ? (
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
+          {connectedSourceErrorMessage(connect.error)}
+        </SourceStatusLine>
+      ) : null}
+      {footer}
+    </>
   );
 }

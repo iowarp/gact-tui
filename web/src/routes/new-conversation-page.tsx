@@ -309,9 +309,8 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           <ClioComposer
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
-            disabled={
-              !workspace || defaults.isPending || send.isPending || runDraftCommand.isPending
-            }
+            disabled={send.isPending || runDraftCommand.isPending}
+            connecting={!workspace || defaults.isPending}
             state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}
             commands={commands.commands}
             commandsState={commands.commandsState}

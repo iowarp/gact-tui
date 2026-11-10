@@ -1,7 +1,7 @@
 import type { ConnectedSourceState, SourceMode, SourceProviderId } from '@clio/core/v3';
 import type { StatusTone } from './primitives/status-indicator';
 
-/** The spec's three Access words, shared by the Access rows and every source sub-line. */
+/** A source's configured access, named as the Access choice names it. */
 export const sourceModeNames: Record<SourceMode, string> = {
   read_only: 'Read only',
   working_copy: 'Editable download',
@@ -17,24 +17,11 @@ export const linkAccessNames: Record<LinkAccess, string> = {
   write_through: 'Update originals on save',
 };
 
-export const sourceModeDescriptions: Record<SourceMode, string | undefined> = {
-  read_only: undefined,
-  working_copy: linkAccessNames.publish_later,
-  write_enabled: linkAccessNames.write_through,
-};
-
-/** The link access a source's chosen mode maps to when it is linked. */
-export const sourceModeLinkAccess: Record<SourceMode, LinkAccess> = {
-  read_only: 'read_only',
-  working_copy: 'publish_later',
-  write_enabled: 'write_through',
-};
-
-/** A link's access in the same three words as the Access rows. */
-const accessNames: Record<LinkAccess, string> = {
-  read_only: sourceModeNames.read_only,
-  publish_later: sourceModeNames.working_copy,
-  write_through: sourceModeNames.write_enabled,
+/** The access choice's own name (spec Access: Read only, Editable download, Read and write link). */
+export const sourceAccessNames: Record<LinkAccess, string> = {
+  read_only: 'Read only',
+  publish_later: 'Editable download',
+  write_through: 'Read and write link',
 };
 
 export const sourceProviderNames: Record<SourceProviderId, string> = {
@@ -50,11 +37,11 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
 /** A source row's sub-line parts: provider, a GitHub revision, then access (["GitHub", "main", "Read only"]). */
 export function sourceSublineParts(source: ConnectedSourceState): string[] {
   const access = source.linked
-    ? accessNames[source.link_access ?? 'read_only']
+    ? sourceAccessNames[source.link_access ?? 'read_only']
     : source.local_path
       ? source.download_access === 'editable'
-        ? sourceModeNames.working_copy
-        : sourceModeNames.read_only
+        ? 'Editable download'
+        : 'Read only'
       : sourceModeNames[source.mode ?? 'read_only'];
   return [
     sourceProviderNames[source.provider] ?? source.provider,
@@ -96,9 +83,3 @@ export const sourceBytes = (value: number): string =>
       : value >= 1024
         ? `${(value / 1024).toFixed(1)} KB`
         : `${value} B`;
-
-/** A vault's notes are read, or edited in place; it has no separate copy to publish from. */
-export const vaultModes: readonly SourceMode[] = ['read_only', 'write_enabled'];
-export const vaultReasons: Partial<Record<SourceMode, string>> = {
-  working_copy: 'Vault notes are edited in place, so there is no copy to publish later.',
-};

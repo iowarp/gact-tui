@@ -95,10 +95,7 @@ const source = {
   download_available: true,
 };
 
-it('relinks an existing unlinked read-only source from Files without a composer draft', async () => {
-  repository.connectedSources.mockResolvedValue([
-    { ...source, mode: 'read_only', linked: false, link_available: true },
-  ]);
+it('relinks an existing unlinked source from Files without a composer draft', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -185,6 +182,7 @@ it('opens a summary-selected source directly without changing the composer selec
     </QueryClientProvider>,
   );
   expect(await screen.findByRole('heading', { name: 'OPAL inputs' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Link folder' })).toBeEnabled();
   expect(await screen.findByText('input.csv')).toBeVisible();
   expect(client.getQueryData(key)).toBe('some-other-source');
   expect(repository.beginSourceDraft).not.toHaveBeenCalled();
@@ -206,17 +204,7 @@ describe('with no conversations in the workspace', () => {
       created_at: '2026-11-09',
     });
   });
-  const open = async (mode: 'read_only' | 'working_copy') => {
-    repository.connectedSources.mockResolvedValue([
-      {
-        ...source,
-        mode,
-        materialization: 'not_materialized',
-        local_path: null,
-        linked: false,
-        link_available: true,
-      },
-    ]);
+  const open = async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -232,7 +220,7 @@ describe('with no conversations in the workspace', () => {
   };
 
   it('links a folder by starting a conversation named after the source', async () => {
-    const { user, track } = await open('read_only');
+    const { user, track } = await open();
     await user.click(await screen.findByRole('button', { name: 'Link folder' }));
     await waitFor(() =>
       expect(repository.linkConnectedSource).toHaveBeenCalledWith(
@@ -254,7 +242,7 @@ describe('with no conversations in the workspace', () => {
   });
 
   it('downloads into the started conversation and reuses it for later work', async () => {
-    const { user } = await open('working_copy');
+    const { user } = await open();
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() =>
       expect(repository.transferConnectedSource).toHaveBeenCalledWith(
@@ -282,7 +270,7 @@ describe('with no conversations in the workspace', () => {
 
   it('retries starting the conversation after a failure', async () => {
     repository.createSession.mockRejectedValueOnce(new Error('service unavailable'));
-    const { user } = await open('read_only');
+    const { user } = await open();
     await user.click(await screen.findByRole('button', { name: 'Link folder' }));
     expect(await screen.findByText(/service unavailable/)).toBeVisible();
     expect(repository.linkConnectedSource).not.toHaveBeenCalled();

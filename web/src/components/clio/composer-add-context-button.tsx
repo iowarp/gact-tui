@@ -70,7 +70,7 @@ export function ComposerAddContextButtons({
           label="Add a reference"
           onClick={onOpenReferences}
           shortcut="mention"
-          shortcutSide="under-icon"
+          shortcutSide="above-icon"
           size="toolbar"
           tooltipSide="top"
           type="button"

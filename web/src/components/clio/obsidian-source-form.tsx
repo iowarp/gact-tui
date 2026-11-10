@@ -4,17 +4,24 @@ import type { ConnectedSourceState, SourceMode } from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
-import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
+import { CircleAlertIcon } from 'lucide-react';
 import { vocab } from '@/lib/brand-vocabulary';
-import { SourceProviderLogo } from './source-provider-logo';
-import { ChosenFolder, ConnectField, ConnectInput } from './connect-frame';
+import { cn } from '@/lib/utils';
 import { HostPathPicker } from './host-path-picker';
-import { ObsidianIntroduction } from './obsidian-introduction';
+import { InfoTip } from './info-tip';
 import { ObsidianAccountSettings } from './obsidian-account-settings';
-import { ObsidianSyncDirection, type ObsidianSyncMode } from './obsidian-sync-direction';
-import { SourceAccessChoice } from './source-access-choice';
-import { vaultModes, vaultReasons } from './connected-source-labels';
+import {
+  AccessRows,
+  ChoiceRows,
+  FolderFace,
+  SourceField,
+  SourceStatusLine,
+  folderTriggerClass,
+  sourceInputClass,
+} from './source-form-parts';
+import type { SourceAccess } from './source-access';
+import { useSourceFrameFooter } from './use-source-frame-footer';
 
 export type ObsidianChoice = 'new' | 'existing' | 'sync';
 
@@ -25,7 +32,7 @@ type ObsidianSourceFormProps = {
   browseStartPath?: string;
   initialChoice?: ObsidianChoice;
   onConnected: (source: ConnectedSourceState) => void;
-  onBack: () => void;
+  onBack?: () => void;
 };
 
 export function ObsidianSourceForm(props: ObsidianSourceFormProps) {
@@ -55,7 +62,7 @@ function ObsidianSourceEditor({
   );
   const [vaultId, setVaultId] = useState('');
   const [encryptionPassword, setEncryptionPassword] = useState('');
-  const [syncMode, setSyncMode] = useState<ObsidianSyncMode>('pull-only');
+  const [syncMode, setSyncMode] = useState<'pull-only' | 'bidirectional'>('pull-only');
   const account = useQuery({
     queryKey: ['obsidian-account', scope],
     queryFn: ({ signal }) => repository.obsidianStatus(signal),
@@ -117,174 +124,160 @@ function ObsidianSourceEditor({
     connect.reset();
   };
   const error = connect.error || (choice === 'sync' ? vaults.error : undefined);
+  const access: SourceAccess = mode === 'write_enabled' ? 'write' : 'read_only';
+  const footer = useSourceFrameFooter({
+    confirm: {
+      label: connect.isPending
+        ? choice === 'new'
+          ? 'Creating vault…'
+          : 'Connecting…'
+        : choice === 'new'
+          ? 'Create vault'
+          : 'Connect vault',
+      disabled:
+        connect.isPending ||
+        (choice === 'existing' && !root) ||
+        (choice === 'sync' && (!vaultId || !account.data?.authenticated)),
+    },
+    onConfirm: () => connect.mutate(),
+    start: onBack
+      ? { label: 'Back', back: true, onClick: onBack, disabled: connect.isPending }
+      : undefined,
+  });
   return (
-    <div className="grid gap-5">
-      <div className="flex items-center gap-3">
-        <SourceProviderLogo provider="obsidian" />
-        <h3 className="font-medium">Obsidian knowledge source</h3>
-      </div>
-      <ObsidianIntroduction />
-      <fieldset disabled={connect.isPending} className="grid gap-4">
-        <legend className="mb-2 text-sm font-medium">Choose how to start</legend>
-        <RadioGroup
-          className="grid gap-2"
-          aria-label="Vault setup"
-          value={choice}
-          onValueChange={(value) => choose(value as ObsidianChoice)}
-        >
-          {(
-            [
-              [
-                'new',
-                'Create a new vault',
-                `Start an empty knowledge vault managed by ${vocab.agent}.`,
-              ],
-              [
-                'existing',
-                'Attach an existing vault or folder',
-                'Use notes already on this host. Obsidian is not required.',
-              ],
-              [
-                'sync',
-                'Sync from Obsidian',
-                `Sign in and let ${vocab.agent} manage a synced copy.`,
-              ],
-            ] as const
-          ).map(([value, title, detail]) => (
-            <label
-              key={value}
-              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${choice === value ? 'border-primary bg-primary/5' : ''}`}
-            >
-              <RadioGroupItem
-                value={value}
-                className="mt-1"
-                aria-label={title}
-                disabled={connect.isPending}
-              />
-              <span>
-                <span className="block text-sm font-medium">{title}</span>
-                <span className="mt-1 block text-xs leading-5 text-muted-foreground">{detail}</span>
-              </span>
-            </label>
-          ))}
-        </RadioGroup>
-        <ConnectField htmlFor={`${id}-name`} label="Vault name" optional>
-          <ConnectInput
-            id={`${id}-name`}
-            placeholder={choice === 'new' ? 'My knowledge' : 'Use the folder or vault name'}
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-          />
-        </ConnectField>
-        {choice === 'new' ? (
-          <p className="text-sm leading-6 text-muted-foreground">
-            {vocab.agent} creates an empty vault on {hostLabel}. You can add notes and follow their
-            links here, and open the same folder in Obsidian later.
-          </p>
-        ) : choice === 'existing' ? (
-          <ConnectField label={`Vault or notes folder on ${hostLabel}`}>
-            <div className="flex min-w-0 items-center gap-2">
-              <HostPathPicker
-                targetId="local"
-                hostLabel={hostLabel}
-                label="Vault or notes folder"
-                triggerLabel="Choose folder"
-                startPath={browseStartPath}
-                path={root}
-                onChoose={setRoot}
-                disabled={connect.isPending}
-              />
-              <ChosenFolder path={root} />
-            </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+    <fieldset disabled={connect.isPending} className="flex min-w-0 flex-col gap-[13px]">
+      <ChoiceRows
+        label="Start"
+        value={choice}
+        onChange={choose}
+        rows={[
+          {
+            value: 'new',
+            label: 'Create a new vault',
+            detail: `An empty knowledge vault managed by ${vocab.agent}`,
+          },
+          {
+            value: 'existing',
+            label: 'Attach an existing vault or folder',
+            detail: 'Notes already on this host. Obsidian is not required',
+          },
+          {
+            value: 'sync',
+            label: 'Sync from Obsidian',
+            detail: `Sign in and let ${vocab.agent} manage a synced copy`,
+          },
+        ]}
+      />
+      {choice === 'existing' ? (
+        <SourceField
+          label="Folder"
+          hint={`On ${hostLabel}. Hidden files and Obsidian settings are excluded.`}
+          aside={
+            <InfoTip label="About attached vaults">
               Only this folder is available to knowledge tools. Existing notes and settings stay
-              intact; hidden files and Obsidian settings are excluded.
-            </p>
-          </ConnectField>
-        ) : (
-          <div className="grid gap-4">
-            <ObsidianAccountSettings />
-            {account.data?.authenticated ? (
-              <>
-                <ConnectField htmlFor={`${id}-vault`} label="Obsidian Sync vault">
-                  <select
-                    id={`${id}-vault`}
-                    className="h-[30px] w-full min-w-0 rounded-[7px] border border-input bg-transparent px-2 text-[12.5px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-sidebar"
-                    value={vaultId}
-                    onChange={(event) => setVaultId(event.target.value)}
-                  >
-                    <option value="">
-                      {vaults.isPending ? 'Loading vaults…' : 'Choose a vault'}
-                    </option>
-                    {vaults.data?.vaults.map((vault) => (
-                      <option key={vault.id} value={vault.id}>
-                        {vault.name}
-                      </option>
-                    ))}
-                  </select>
-                </ConnectField>
-                <ConnectField
-                  htmlFor={`${id}-encryption`}
-                  label="Vault encryption password, if required"
-                >
-                  <ConnectInput
-                    id={`${id}-encryption`}
-                    type="password"
-                    autoComplete="off"
-                    value={encryptionPassword}
-                    onChange={(event) => setEncryptionPassword(event.target.value)}
-                  />
-                </ConnectField>
-                <ConnectField htmlFor={`${id}-direction`} label="Sync direction">
-                  <ObsidianSyncDirection
-                    id={`${id}-direction`}
-                    value={syncMode}
-                    onChange={setSyncMode}
-                  />
-                </ConnectField>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {vocab.agent} stores and manages a dedicated copy on {hostLabel}. Sync direction
-                  is separate from permission to edit notes.
-                </p>
-              </>
-            ) : null}
-          </div>
-        )}
-        <SourceAccessChoice
-          value={mode}
-          onChange={setMode}
-          supported={vaultModes}
-          reasons={vaultReasons}
-          disabled={connect.isPending}
-        />
-      </fieldset>
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error.message}
-        </p>
-      ) : null}
-      <div className="flex justify-between gap-2">
-        <Button type="button" variant="ghost" disabled={connect.isPending} onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          type="button"
-          disabled={
-            connect.isPending ||
-            (choice === 'existing' && !root) ||
-            (choice === 'sync' && (!vaultId || !account.data?.authenticated))
+              intact.
+            </InfoTip>
           }
-          onClick={() => connect.mutate()}
         >
-          {connect.isPending
-            ? choice === 'new'
-              ? 'Creating vault…'
-              : 'Connecting…'
-            : choice === 'new'
-              ? 'Create vault'
-              : 'Connect vault'}
-        </Button>
-      </div>
-    </div>
+          <FolderFace path={root}>
+            <HostPathPicker
+              targetId="local"
+              hostLabel={hostLabel}
+              label="Vault or notes folder"
+              triggerLabel="Choose…"
+              triggerClassName={folderTriggerClass}
+              startPath={browseStartPath}
+              path={root}
+              onChoose={setRoot}
+              disabled={connect.isPending}
+            />
+          </FolderFace>
+        </SourceField>
+      ) : null}
+      {choice === 'sync' ? (
+        <div className="flex flex-col gap-[13px]">
+          <ObsidianAccountSettings />
+          {account.data?.authenticated ? (
+            <>
+              <SourceField label="Obsidian Sync vault" htmlFor={`${id}-vault`}>
+                <select
+                  id={`${id}-vault`}
+                  className={cn(sourceInputClass, 'w-full border bg-background')}
+                  value={vaultId}
+                  onChange={(event) => setVaultId(event.target.value)}
+                >
+                  <option value="">
+                    {vaults.isPending ? 'Loading vaults…' : 'Choose a vault'}
+                  </option>
+                  {vaults.data?.vaults.map((vault) => (
+                    <option key={vault.id} value={vault.id}>
+                      {vault.name}
+                    </option>
+                  ))}
+                </select>
+              </SourceField>
+              <SourceField
+                label="Vault encryption password"
+                htmlFor={`${id}-encryption`}
+                aside="If required"
+              >
+                <Input
+                  id={`${id}-encryption`}
+                  type="password"
+                  autoComplete="off"
+                  className={sourceInputClass}
+                  value={encryptionPassword}
+                  onChange={(event) => setEncryptionPassword(event.target.value)}
+                />
+              </SourceField>
+              <SourceField
+                label="Sync direction"
+                htmlFor={`${id}-direction`}
+                hint={`${vocab.agent} keeps a dedicated copy on ${hostLabel}. Direction is separate from editing.`}
+              >
+                <select
+                  id={`${id}-direction`}
+                  className={cn(sourceInputClass, 'w-full border bg-background')}
+                  value={syncMode}
+                  onChange={(event) => setSyncMode(event.target.value as typeof syncMode)}
+                >
+                  <option value="pull-only">Download remote changes</option>
+                  <option value="bidirectional">Sync changes both ways</option>
+                </select>
+              </SourceField>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      <SourceField
+        label="Name"
+        htmlFor={`${id}-name`}
+        aside="Optional"
+        hint={
+          choice === 'new'
+            ? `Created on ${hostLabel}. Open the same folder in Obsidian later.`
+            : undefined
+        }
+      >
+        <Input
+          id={`${id}-name`}
+          className={sourceInputClass}
+          placeholder={choice === 'new' ? 'My knowledge' : 'The folder or vault name'}
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+      </SourceField>
+      <AccessRows
+        value={access}
+        onChange={(next) => setMode(next === 'write' ? 'write_enabled' : 'read_only')}
+        unavailable={{ editable: 'Vaults are edited in place' }}
+      />
+      {error ? (
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
+          {error.message}
+        </SourceStatusLine>
+      ) : null}
+      {footer}
+    </fieldset>
   );
 }

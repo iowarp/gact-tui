@@ -2,13 +2,14 @@ import type { GlobusDestination } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { ConnectField, ConnectInput } from './connect-frame';
 import { HostPathPicker } from './host-path-picker';
 import { InfoTip } from './info-tip';
+import { SourceField, sourceInputClass } from './source-form-parts';
 import { SourceProviderLogo } from './source-provider-logo';
 
 /** Configure the host destination beside the Globus source that needs it. */
@@ -16,14 +17,14 @@ export function GlobusReceivingStorageControl({ hostLabel }: { hostLabel: string
   const [open, setOpen] = useState(false);
   return (
     <details
-      className="border-t py-3"
+      className="text-[12px]"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="cursor-pointer text-sm font-medium">
+      <summary className="flex min-h-[26px] cursor-pointer items-center text-muted-foreground hover:text-foreground">
         Receiving storage on {hostLabel}
       </summary>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className="mt-1 text-[11px] leading-[1.45] text-faint">
         Globus downloads need a receiving collection on this host. Other sources download directly
         into workspace storage.
       </p>
@@ -93,26 +94,27 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
             save.mutate(current);
           }}
         >
-          <ConnectField htmlFor="receiving-collection" label="Collection ID">
-            <ConnectInput
-              mono
+          <SourceField label="Collection ID" htmlFor="receiving-collection">
+            <Input
               id="receiving-collection"
+              className={sourceInputClass}
               value={current.collection_id}
               required
               onChange={(e) => change('collection_id', e.target.value)}
             />
-          </ConnectField>
-          <ConnectField htmlFor="receiving-collection-root" label="Collection folder">
-            <ConnectInput
+          </SourceField>
+          <SourceField label="Collection folder" htmlFor="receiving-collection-root">
+            <Input
               id="receiving-collection-root"
+              className={sourceInputClass}
               value={current.collection_root}
               required
               onChange={(e) => change('collection_root', e.target.value)}
             />
-          </ConnectField>
-          <ConnectField
-            htmlFor="receiving-local-root"
+          </SourceField>
+          <SourceField
             label={`Same folder on ${hostLabel}`}
+            htmlFor="receiving-local-root"
             aside={
               <InfoTip label="About the receiving folder">
                 This maps the collection folder to the same directory on this host. It must contain
@@ -121,8 +123,9 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
             }
           >
             <div className="flex gap-2">
-              <ConnectInput
+              <Input
                 id="receiving-local-root"
+                className={sourceInputClass}
                 value={current.local_root}
                 required
                 onChange={(e) => change('local_root', e.target.value)}
@@ -135,7 +138,7 @@ export function GlobusReceivingStorage({ hostLabel }: { hostLabel: string }) {
                 onChoose={(path) => change('local_root', path)}
               />
             </div>
-          </ConnectField>
+          </SourceField>
           <p className="break-all text-xs text-muted-foreground">
             Source storage: {query.data?.storage_root}
           </p>

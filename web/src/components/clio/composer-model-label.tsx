@@ -18,7 +18,7 @@ import { TOOLTIP_KEY } from './primitives/tooltip-key';
  */
 export function ComposerModelButton({
   option,
-  placeholder = 'Choose model',
+  placeholder = 'Choose a model',
   appearance = 'pill',
   shortcut,
   className,
@@ -36,7 +36,7 @@ export function ComposerModelButton({
   const route = option && !isVendorApi(option.providerId, option.id);
   const fullName = option
     ? `${option.providerName} / ${option.label}${option.label === option.id ? '' : ` (${option.id})`}`
-    : placeholder;
+    : 'Choose the model this conversation uses';
   return (
     <TooltipProvider delayDuration={450}>
       <Tooltip>
@@ -104,7 +104,7 @@ export function ComposerModelButton({
               <span className="truncate">{placeholder}</span>
             )}
             {children}
-            {shortcut ? <HeldKeyBadge id={shortcut} side="under-icon" /> : null}
+            {shortcut ? <HeldKeyBadge id={shortcut} side="above-icon" /> : null}
           </Button>
         </TooltipTrigger>
         <TooltipContent className="gap-2 break-words">

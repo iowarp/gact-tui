@@ -9,6 +9,7 @@ import ndpDark from '../../../../branding/provider-logos/ndp-dark.png';
 import type { SourceProviderId } from '@clio/core/v3';
 import { FolderIcon, TerminalIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SourceProviderGlyph } from './source-form-parts';
 
 /** Original provider artwork; protocol-based sources use the shared system glyphs. */
 export function SourceProviderLogo({
@@ -35,7 +36,10 @@ export function SourceProviderLogo({
         size === 'row' && 'h-9 w-16',
       )}
     >
-      {provider === 'google_drive' ? (
+      {icon && (provider === 'globus' || provider === 'ndp') ? (
+        // Their wordmarks are unreadable at 15px; the spec draws the mono glyph.
+        <SourceProviderGlyph provider={provider} className="size-[15px] text-muted-foreground" />
+      ) : provider === 'google_drive' ? (
         <img alt="" src={driveLogo} className={cn('object-contain', mark)} />
       ) : provider === 'globus' ? (
         <>

@@ -5,6 +5,9 @@ import type { InfrastructureTarget, SftpCredentials } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { CircleAlertIcon } from 'lucide-react';
+import { IconButton } from './primitives/icon-button';
+import { SourceField, SourceStatusLine } from './source-form-parts';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { ConfigureIcon } from '@/lib/icon-vocabulary';
@@ -85,21 +88,18 @@ function DesktopSourceSshTarget({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11.5px] whitespace-nowrap text-muted-foreground">SSH host</span>
-        <Button
-          aria-label="Manage SSH hosts"
+    <SourceField
+      label="SSH host"
+      aside={
+        <IconButton
+          label="Manage SSH hosts"
+          icon={<ConfigureIcon />}
           disabled={connecting}
           onClick={() => setManaging(true)}
-          size="icon"
-          title="Manage SSH hosts"
-          type="button"
-          variant="ghost"
-        >
-          <ConfigureIcon aria-hidden="true" />
-        </Button>
-      </div>
+          className="-my-1.5"
+        />
+      }
+    >
       <SshHostPicker
         disabled={connecting}
         value={host}
@@ -131,17 +131,19 @@ function DesktopSourceSshTarget({
       <Button
         type="button"
         variant="outline"
+        size="sm"
+        className="self-start"
         disabled={!host || incomplete || connecting}
         onClick={() => void connect()}
       >
         {connecting ? 'Connecting…' : 'Connect host'}
       </Button>
       {(error || initial.error) && (
-        <p role="alert" className="text-sm text-destructive">
+        <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
           {error || initial.error?.message}
-        </p>
+        </SourceStatusLine>
       )}
-    </div>
+    </SourceField>
   );
 }
 

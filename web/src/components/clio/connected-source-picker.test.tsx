@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
@@ -248,14 +248,10 @@ describe('connected source picker', () => {
       created_at: '2026-10-03',
       bytes_done: 14,
     };
-    fixtures.repository.connectedSources.mockResolvedValue([
-      { ...source, materialization: 'not_materialized', local_path: null },
-    ]);
     fixtures.repository.sourceOperations.mockResolvedValue([oldOperation]);
     fixtures.repository.transferConnectedSource.mockImplementation(async () => {
       const completed = { ...oldOperation, id: 'new', created_at: '2026-10-04' };
       fixtures.repository.sourceOperations.mockResolvedValue([oldOperation, completed]);
-      fixtures.repository.connectedSources.mockResolvedValue([source]);
       return completed;
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -267,19 +263,11 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    await screen.findByRole('heading', { name: 'OPAL inputs' });
+    await screen.findByText(/Downloaded to workspace Files/);
     expect(onSelect).not.toHaveBeenCalled();
     await chooseTrackingConversation(user, 'Source work');
-    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
+    await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
-    expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
-      'w',
-      's1',
-      undefined,
-      'draft_test',
-      'editable',
-      'session_sources',
-    );
     expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
       'w',
       's1',
@@ -316,8 +304,9 @@ describe('connected source picker', () => {
       const downloadFile = await screen.findByRole('button', { name: 'Download file' });
       if (downloads) expect(downloadFile).toBeEnabled();
       else expect(downloadFile).toBeDisabled();
+      expect(screen.getByText(/Keep files at their source/)).toBeVisible();
       await chooseTrackingConversation(user, 'Source work');
-      await user.click(screen.getByRole('button', { name: 'Add source to message' }));
+      await user.click(screen.getByRole('button', { name: 'Link folder' }));
       await waitFor(() =>
         expect(fixtures.repository.linkConnectedSource).toHaveBeenCalledWith(
           'w',
@@ -330,6 +319,7 @@ describe('connected source picker', () => {
       );
       expect(fixtures.repository.transferConnectedSource).not.toHaveBeenCalled();
       if (downloads) {
+        expect(screen.getByRole('button', { name: 'Download all' })).toBeEnabled();
         await user.click(screen.getByRole('button', { name: 'Download file' }));
         await waitFor(() =>
           expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
@@ -337,11 +327,12 @@ describe('connected source picker', () => {
             's1',
             ['input.csv'],
             'draft_test',
-            'read_only',
+            'editable',
             'session_sources',
           ),
         );
       } else {
+        expect(screen.queryByRole('button', { name: 'Download all' })).toBeNull();
         expect(screen.getByRole('button', { name: 'Download file' })).toBeDisabled();
       }
     },
@@ -562,7 +553,7 @@ describe('connected source picker', () => {
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    expect(screen.getByLabelText('Name')).toBeEnabled();
+    expect(screen.getByPlaceholderText('Optional name')).toBeEnabled();
     const folder = screen.getByLabelText('Google Drive folder link');
     expect(folder).toBeEnabled();
     const button = screen.getByRole('button', { name: 'Connect folder' });
@@ -643,6 +634,18 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
+    await chooseTrackingConversation(user, 'Source work');
+    await user.click(screen.getByRole('button', { name: 'Download all' }));
+    await waitFor(() =>
+      expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
+        'w',
+        's1',
+        undefined,
+        'draft_test',
+        'editable',
+        'session_sources',
+      ),
+    );
     expect(screen.getByRole('heading', { name: 'OPAL inputs' })).toBeInTheDocument();
     expect(await screen.findByText('input.csv')).toBeInTheDocument();
     fixtures.repository.attachSourceFile.mockResolvedValue({
@@ -672,7 +675,7 @@ describe('connected source picker', () => {
   });
 
   it.each(['google_drive', 'github'])(
-    'connects %s with the Access the user chooses',
+    'offers a writable %s link with a propagation warning',
     async (provider) => {
       fixtures.repository.storageProviders.mockResolvedValue({
         providers: [
@@ -696,106 +699,12 @@ describe('connected source picker', () => {
       );
       const user = userEvent.setup();
       await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-      const access = screen.getByRole('radiogroup', { name: 'Access' });
+      expect(screen.queryByRole('radio')).toBeNull();
       expect(
-        within(access)
-          .getAllByRole('radio')
-          .map((radio) => radio.ariaChecked),
-      ).toEqual(['true', 'false', 'false']);
-      await user.click(within(access).getByRole('radio', { name: /^Read and write link/ }));
-      expect(within(access).getByRole('radio', { name: /^Read and write link/ })).toBeChecked();
-      if (provider === 'google_drive') {
-        await user.type(
-          screen.getByLabelText('Google Drive folder link'),
-          'https://drive.google.com/drive/folders/abc',
-        );
-        expect(screen.queryByRole('radiogroup', { name: 'Files' })).toBeNull();
-        const connect = screen.getByRole('button', { name: 'Connect folder' });
-        expect(connect).toBeDisabled();
-        await user.click(
-          screen.getByRole('checkbox', { name: /^Allow changes to original files/ }),
-        );
-        expect(connect).toBeEnabled();
-        await user.click(connect);
-        await waitFor(() =>
-          expect(fixtures.repository.createConnectedSource).toHaveBeenCalledWith(
-            'w',
-            expect.objectContaining({ provider: 'google_drive', mode: 'write_enabled' }),
-          ),
-        );
-      }
+        screen.getByText('Choose Download or Link and how edits are handled after connecting.'),
+      ).toBeVisible();
     },
   );
-
-  it('downloads a copy when the user chose Download a copy for Files while connecting', async () => {
-    fixtures.repository.storageProviders.mockResolvedValue({
-      providers: [
-        {
-          id: 'google_drive',
-          name: 'Google Drive',
-          authentication: 'browser',
-          configured: true,
-          capabilities: {
-            supported_modes: ['read_only', 'working_copy', 'write_enabled'],
-            unavailable_reasons: {},
-          },
-        },
-      ],
-    });
-    const created = {
-      ...source,
-      id: 'drive_copy',
-      provider: 'google_drive',
-      label: 'Drive inputs',
-      root: 'input_data',
-      mode: 'read_only',
-      materialization: 'not_materialized',
-      local_path: null,
-      can_edit_location: true,
-      link_available: true,
-      linked: false,
-    };
-    fixtures.repository.createConnectedSource.mockImplementation(async () => {
-      fixtures.repository.connectedSources.mockResolvedValue([source, created]);
-      return created;
-    });
-    fixtures.repository.transferConnectedSource.mockResolvedValue({
-      id: 'op_copy',
-      state: 'queued',
-      created_at: '2026-11-09',
-    });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={vi.fn()} />
-      </QueryClientProvider>,
-    );
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    const files = screen.getByRole('radiogroup', { name: 'Files' });
-    expect(within(files).getByRole('radio', { name: 'Link to the originals' })).toBeChecked();
-    await user.click(within(files).getByRole('radio', { name: 'Download a copy' }));
-    expect(within(files).getByRole('radio', { name: 'Download a copy' })).toBeChecked();
-    await user.type(
-      screen.getByLabelText('Google Drive folder link'),
-      'https://drive.google.com/drive/folders/abc',
-    );
-    await user.click(screen.getByRole('button', { name: 'Connect folder' }));
-    expect(await screen.findByRole('heading', { name: 'Drive inputs' })).toBeVisible();
-    await chooseTrackingConversation(user, 'Source work');
-    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
-    await waitFor(() =>
-      expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
-        'w',
-        'drive_copy',
-        undefined,
-        'draft_test',
-        'read_only',
-        'session_sources',
-      ),
-    );
-    expect(fixtures.repository.linkConnectedSource).not.toHaveBeenCalled();
-  });
 
   it('disables modes the provider cannot deliver and explains them on tap', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -806,15 +715,10 @@ describe('connected source picker', () => {
     );
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
-    const access = screen.getByRole('radiogroup', { name: 'Access' });
-    expect(within(access).getByRole('radio', { name: 'Read only' })).toBeChecked();
-    const editable = within(access).getByRole('radio', { name: /^Editable download/ });
-    expect(editable).toBeDisabled();
-    expect(editable.closest('label')).toHaveAttribute(
-      'title',
-      'This collection cannot conditionally update files.',
-    );
-    expect(within(access).getByRole('radio', { name: /^Read and write link/ })).toBeDisabled();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(
+      screen.getByText('Choose Download or Link and how edits are handled after connecting.'),
+    ).toBeVisible();
     expect(screen.queryByText(/Destination collection/)).toBeNull();
     expect(fixtures.repository.createConnectedSource).not.toHaveBeenCalled();
   });
