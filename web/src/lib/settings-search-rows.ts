@@ -1,4 +1,5 @@
 import { vocab } from './brand-vocabulary';
+import { ONBOARDING_TOUR_ENABLED } from './onboarding/tour-flag';
 
 /** A current value that global search can show at the right of a setting's row. */
 export type SettingsSearchValue =
@@ -35,6 +36,15 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
     },
     { label: 'Transcript preview lines', section: 'general', keywords: 'preview lines transcript' },
     { label: 'Hide dot files and folders', section: 'general', keywords: 'hidden dotfiles files' },
+    ...(ONBOARDING_TOUR_ENABLED
+      ? [
+          {
+            label: 'Replay tutorial',
+            section: 'general',
+            keywords: 'tour onboarding introduction help',
+          },
+        ]
+      : []),
     { label: 'Theme', section: 'appearance', keywords: 'dark light colour color', value: 'theme' },
     {
       label: 'Interface size',

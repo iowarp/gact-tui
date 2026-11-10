@@ -8,6 +8,7 @@ export function ComposerModelControl({
   onChange,
   onRetryCatalog,
   options,
+  problem,
   returnFocus,
   selected,
 }: {
@@ -15,6 +16,8 @@ export function ComposerModelControl({
   onChange: (option: ClioModelOption) => void;
   onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
+  /** Shown on the chip when no model can be: why, as a word and a sentence. */
+  problem?: { label: string; detail: string };
   /** Focus the editor after a pick, or after a shortcut-opened picker closes. */
   returnFocus?: () => void;
   selected?: ClioModelOption;
@@ -35,7 +38,9 @@ export function ComposerModelControl({
           appearance="text"
           aria-label="Change model"
           className="max-w-56 @min-[48rem]/composer:max-w-72"
+          data-tour="model-picker"
           option={selected}
+          problem={problem}
           shortcut="model-picker"
           type="button"
           variant="ghost"

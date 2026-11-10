@@ -76,5 +76,56 @@ export function truncatedTextWithin(root: HTMLElement, limit = 60): HTMLElement[
 export function fullTextOf(element: HTMLElement): string {
   const declared = element.dataset.fullText?.trim();
   if (declared) return declared;
-  return (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+  return readableText(element);
+}
+
+/** Rows whose controls reveal the row's cut text when keyboard focus lands on them. */
+const ROW = '[data-slot="item-row"], [data-slot="settings-row"]';
+
+/**
+ * The cut text a focused control reveals: its own, or else its row's (a row's
+ * path or meta sits beside its Copy and Edit buttons, not inside them).
+ */
+export function truncatedTextForFocus(control: HTMLElement): HTMLElement[] {
+  const own = truncatedTextWithin(control);
+  if (own.length) return own;
+  const row = control.parentElement?.closest<HTMLElement>(ROW);
+  return row ? truncatedTextWithin(row, 160) : [];
+}
+
+/** A wide space, so parts the row sets apart with a gap or margin stay apart. */
+const PART_GAP = '\u2003';
+
+/**
+ * Text as the row reads it. `textContent` glues parts that only a flex gap or a
+ * margin separates ("Tool actionOne conversation"); those parts get a gap here.
+ */
+function readableText(element: HTMLElement): string {
+  const parts: string[] = [];
+  const walk = (node: Node, gapped: boolean) => {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        parts.push(child.textContent ?? '');
+        continue;
+      }
+      if (!(child instanceof Element)) continue;
+      const style = getComputedStyle(child);
+      if (style.display === 'none') continue;
+      const apart =
+        gapped ||
+        style.display !== 'inline' ||
+        parseFloat(style.marginLeft) > 0 ||
+        parseFloat(style.marginRight) > 0;
+      if (apart) parts.push(PART_GAP);
+      walk(child, parseFloat(style.columnGap) > 0);
+      if (apart) parts.push(PART_GAP);
+    }
+  };
+  walk(element, parseFloat(getComputedStyle(element).columnGap) > 0);
+  return parts
+    .join('')
+    .replace(/[ \t\n\r\f]+/g, ' ')
+    .replace(/ ?\u2003[ \u2003]*/g, PART_GAP)
+    .replace(/^\u2003|\u2003$/g, '')
+    .trim();
 }

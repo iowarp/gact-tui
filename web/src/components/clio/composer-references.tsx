@@ -1,7 +1,7 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import { onComposerRowDegraded } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRightIcon, SearchIcon } from 'lucide-react';
+import { ChevronRightIcon, CircleAlertIcon, SearchIcon } from 'lucide-react';
 import {
   createElement,
   memo,
@@ -503,7 +503,11 @@ export function ClioComposerReferenceMenu({
     return counts;
   }, []);
 
-  const failed = hdf5.mention ? hdf5.listing.isError : references.isError || localFiles.isError;
+  const settledError = (query: { isError: boolean; isFetching: boolean }) =>
+    query.isError && !query.isFetching;
+  const failed = hdf5.mention
+    ? settledError(hdf5.listing)
+    : settledError(references) || settledError(localFiles);
   const loading =
     !failed &&
     (hdf5.mention ? hdf5.listing.isFetching : references.isFetching || localFiles.isFetching);
@@ -514,7 +518,7 @@ export function ClioComposerReferenceMenu({
         ? `Reading ${hdf5.mention.group} in ${hdf5.mention.file}…`
         : 'No objects match.'
     : failed
-      ? 'References are unavailable from the connected service.'
+      ? 'Workspace context could not be searched.'
       : loading
         ? 'Searching workspace context…'
         : 'No workspace context matches.';
@@ -562,7 +566,28 @@ export function ClioComposerReferenceMenu({
             data-slot={loading ? 'composer-references-loading' : undefined}
           >
             {loading ? <RingSpinner /> : null}
+            {failed ? (
+              <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive" />
+            ) : null}
             <span className="truncate">{emptyText}</span>
+            {failed ? (
+              <button
+                className="ml-auto h-6 shrink-0 rounded-[5px] px-1.5 text-[12px] font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
+                onClick={() => {
+                  if (hdf5.mention) void hdf5.listing.refetch();
+                  else {
+                    void references.refetch();
+                    if (localFiles.isError) void localFiles.refetch();
+                  }
+                  window.requestAnimationFrame(restoreFocus);
+                }}
+                onMouseDown={keepFocus}
+                tabIndex={-1}
+                type="button"
+              >
+                Retry
+              </button>
+            ) : null}
           </div>
         ) : null}
         {sections.map((section, index) => {

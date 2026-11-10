@@ -1,6 +1,6 @@
 import type { PluginEntry, ToolSettings } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { useSeenInView } from '@/hooks/use-seen-in-view';
 import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
@@ -17,6 +17,9 @@ import {
 import { ToolSettingsTable, type ToolTableSection } from './settings-tools-table';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** How long the tools read for this page stay cached once nothing shows them. */
+const SECTION_CACHE_MS = 30_000;
 
 /** "github server", "Skill scripts": where a plugin's tools come from. */
 function originText(settings: ToolSettings): string[] {
@@ -108,7 +111,8 @@ export function ToolPermissionsSettings() {
   const editor = useToolSettingsEditor();
   const [filter, setFilter] = useState('');
   const [mode, setMode] = useState('');
-  const term = filter.trim().toLocaleLowerCase();
+  // The field answers each key at once; the table, its reads and the layout key follow.
+  const term = useDeferredValue(filter).trim().toLocaleLowerCase();
   const container = useRef<HTMLDivElement>(null);
   // Groups (`data-tool-group`) are replaced when the plugins or the filter change.
   const seen = useSeenInView(
@@ -121,6 +125,8 @@ export function ToolPermissionsSettings() {
       queryKey: ['tool-settings', scope, plugin.ref],
       queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
       enabled: Boolean(term) || seen.has(plugin.ref),
+      // Every plugin's tool list is the heaviest cache in Settings; leaving Tools lets it go.
+      gcTime: SECTION_CACHE_MS,
     })),
   });
   const loaded = results.flatMap((result) => (result.data ? [result.data] : []));

@@ -1,6 +1,10 @@
 use super::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
 struct Case(PathBuf);
 
 impl Case {
@@ -203,7 +207,8 @@ fn shared_queue_extracts_exactly_with_different_worker_counts() {
             workers,
         )
         .unwrap();
-        assert_eq!(report, UnpackReport { files: 1, bytes: 2 });
+        assert_eq!((report.files, report.bytes), (1, 2));
+        assert_eq!(report.sha256, sha256_hex(&fs::read(&archive).unwrap()));
         assert_eq!(
             fs::read(case.0.join("staging/gact-runtime/runtime.json")).unwrap(),
             b"{}"
