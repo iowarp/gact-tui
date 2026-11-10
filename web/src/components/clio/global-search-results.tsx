@@ -45,11 +45,20 @@ export function ResultsHeading({ label, count }: { label: string; count?: number
   );
 }
 
-/** Quiet text beside a result's name: its workspace, folder or place in Settings. */
+/**
+ * Quiet text beside a result's name: its workspace, folder or place in Settings.
+ * With less than 4 rem of room it drops out rather than show a letter: the text
+ * wraps past the line-high spacer onto a second line, which is clipped. A zero
+ * basis lets the name keep its full width before the detail takes what is left.
+ */
 export function ResultDetail({ children, title }: { children: ReactNode; title?: string }) {
   return (
-    <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint" title={title}>
-      {children}
+    <span
+      className="flex h-[1lh] min-w-0 flex-[1_1_0%] flex-wrap overflow-hidden text-[11.5px] text-faint"
+      title={title}
+    >
+      <span aria-hidden="true" className="h-[1lh] w-0" />
+      <span className="min-w-16 flex-[1_1_4rem] truncate">{children}</span>
     </span>
   );
 }
@@ -205,7 +214,7 @@ export function GlobalSearchGroups({
   return (
     <>
       {COMMAND_GROUPS.map((item) => commandGroup(item.group, item.heading, item.scope, item.noun))}
-      {inCommandMenuScope(scope, 'settings') && agents.rows.length ? (
+      {more && agents.rows.length ? (
         <CommandGroup
           heading={
             <ResultsHeading count={searching ? matches.agents.length : undefined} label="Agents" />
@@ -227,10 +236,10 @@ export function GlobalSearchGroups({
               <ResultTrail>{item.kind === 'user' ? 'Your agent' : 'Agent'}</ResultTrail>
             </CommandItem>
           ))}
-          <MoreResultsItem hidden={agents.hidden} noun="agents" onMore={onMore} scope="settings" />
+          <MoreResultsItem hidden={agents.hidden} noun="agents" onMore={onMore} scope="more" />
         </CommandGroup>
       ) : null}
-      {inCommandMenuScope(scope, 'settings') && matches.agentsError ? (
+      {more && matches.agentsError ? (
         <p
           className="truncate px-3 py-2 text-xs text-destructive"
           role="alert"
