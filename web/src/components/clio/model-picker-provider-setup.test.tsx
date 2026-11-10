@@ -399,7 +399,7 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
         },
       ],
     });
-    repository.installProviderSupport.mockRejectedValueOnce(
+    repository.startProviderInstall.mockRejectedValueOnce(
       new Error('Claude Code could not be installed.'),
     );
     const user = await open([
@@ -419,7 +419,7 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     expect(sentence()).toHaveTextContent("Claude Code isn't installed yet.");
     await user.click(await screen.findByRole('button', { name: 'Install' }));
     await waitFor(() =>
-      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
+      expect(repository.startProviderInstall).toHaveBeenCalledWith('claude_code'),
     );
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Claude Code could not be installed.',

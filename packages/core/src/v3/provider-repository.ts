@@ -20,6 +20,13 @@ import {
   type ProviderComponentUpdate,
   type ProviderComponents,
 } from './provider-components.js';
+import {
+  providerInstallJobFromResponse,
+  providerInstallJobListSchema,
+  providerInstallJobSchema,
+  type ProviderInstallJob,
+} from './provider-install-jobs.js';
+import { TransportError } from './transport.js';
 import { ContextRepository } from './context-repository.js';
 import {
   contextControlsSchema,
@@ -285,6 +292,55 @@ export class ProviderRepository extends ContextRepository {
           .parse(value),
       signal,
     });
+  }
+
+  /**
+   * Start the provider's support install as a job on the connected agent and
+   * answer at once (202): the install outlives this request and the view
+   * that sent it. A start while the provider's install runs joins that job.
+   */
+  public startProviderInstall(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderInstallJob> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/install?wait=false`,
+      body: {},
+      decode: providerInstallJobFromResponse,
+      signal,
+    });
+  }
+
+  /** The provider's latest support install job (running, done or failed). */
+  public providerInstallJob(providerId: string, signal?: AbortSignal): Promise<ProviderInstallJob> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/install`,
+      decode: (value) => providerInstallJobSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * Every provider's latest support install job. An agent that predates
+   * install jobs has none to report.
+   */
+  public async providerInstallJobs(signal?: AbortSignal): Promise<ProviderInstallJob[]> {
+    try {
+      const list = await this.transport.request({
+        method: 'GET',
+        path: '/v1/providers/support/installs',
+        decode: (value) => providerInstallJobListSchema.parse(value),
+        signal,
+      });
+      return list.installs;
+    } catch (error) {
+      if (error instanceof TransportError && (error.status === 404 || error.status === 405)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   /**

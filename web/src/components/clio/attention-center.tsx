@@ -34,10 +34,11 @@ import { cn } from '@/lib/utils';
 import { useNotificationPreferences } from '@/providers/notification-preferences-provider';
 import { type AwayTone, awayRows } from './attention-away';
 import { sessionPath } from './attention-notifier';
+import { AttentionUpdateRows } from './attention-update-rows';
+import { attentionUpdate } from './version-check-issue';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { permissionCommand } from './permission-operation-labels';
-import { ProductUpdateIcon } from './product-update-summary';
 import { ClioRelativeTime } from './relative-time';
 
 interface AttentionProps {
@@ -326,7 +327,7 @@ export function ClioAttentionCenter({
   const respond = useAttentionResponse();
   useShortcut('notifications', () => setOpen((current) => !current));
 
-  const updateReady = versions.state === 'available';
+  const { updateReady, shown: updateShown } = attentionUpdate(versions);
   const memoryCount = proposals.data?.length ?? 0;
   const memorySources = suggestedFrom(
     (proposals.data ?? []).flatMap((proposal) => proposal.evidence.map((item) => item.session)),
@@ -335,7 +336,7 @@ export function ClioAttentionCenter({
   const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
   const earlier = away.length - shownAway.length;
   const unread = away.some((row) => !row.read);
-  const empty = rows.length === 0 && away.length === 0 && !updateReady && memoryCount === 0;
+  const empty = rows.length === 0 && away.length === 0 && !updateShown && memoryCount === 0;
   // The bell is always there; its badge counts Needs you.
   const label =
     responseCount === 0
@@ -366,9 +367,7 @@ export function ClioAttentionCenter({
           className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
           count={responseCount || undefined}
           countTone="warning"
-          hoverLabel={
-            responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`
-          }
+          hoverLabel={responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`}
           icon={<BellIcon />}
           label={label}
           shortcut="notifications"
@@ -587,37 +586,12 @@ export function ClioAttentionCenter({
               ))}
             </section>
           ) : null}
-          {updateReady || memoryCount > 0 ? (
+          {updateShown || memoryCount > 0 ? (
             <section aria-labelledby="attention-agent">
               <h3 className={groupLabel} id="attention-agent">
                 {vocab.agent}
               </h3>
-              {updateReady ? (
-                <div
-                  className="min-h-[46px] rounded-[6px] px-2 py-1.5"
-                  data-slot="attention-update"
-                >
-                  <ListRow
-                    description={versions.message}
-                    hoverText={{ description: versions.message }}
-                    icon={<ProductUpdateIcon state={versions.state} />}
-                    primaryAction={
-                      versions.desktopShell ? (
-                        <button
-                          className="hover:underline disabled:opacity-50"
-                          disabled={versions.updating}
-                          onClick={() => versions.updateAll()}
-                          type="button"
-                        >
-                          Update
-                        </button>
-                      ) : undefined
-                    }
-                    title={<span className="font-semibold text-foreground">Update ready</span>}
-                    variant="notice"
-                  />
-                </div>
-              ) : null}
+              <AttentionUpdateRows versions={versions} />
               {memoryCount > 0 ? (
                 <div className={rowFrame} data-slot="attention-memory">
                   <Link

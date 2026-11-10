@@ -10,7 +10,7 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   meta?: ReactNode;
   /** Fixed status column: a StatusIndicator with its words. */
   status?: ReactNode;
-  /** Hover actions (IconButtons). Hidden with `visibility`, so they never move the row. */
+  /** Hover actions (IconButtons). Transparent until hover or focus, so they never move the row and Tab still reaches them. */
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
@@ -48,7 +48,8 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
  * "Update waits for trust" (still one width for every row). Hover actions keep
  * their own column after the status, as in the spec, so they never cover the
  * name or meta. Below 36rem that column would squeeze the name under ~150 px, so
- * the actions float over the end of the name instead, left of the status.
+ * the actions float over the status cell instead (a row without a status keeps
+ * the column).
  */
 export const ItemRow = memo(
   forwardRef<HTMLDivElement, ItemRowProps>(function ItemRow(
@@ -77,6 +78,10 @@ export const ItemRow = memo(
     // status drops under the name, so a phone keeps the name readable.
     const stacks = size !== 'line';
     const folds = stacks && foldActions && actions !== undefined;
+    // Narrow, hidden actions float over the status (its words return when the
+    // pointer leaves), never over the name or meta; a row without a status
+    // keeps their column.
+    const overlay = !actionsVisible && status !== undefined;
     const columns: CSSProperties = {
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
       ['--item-actions' as string]: `${actions === undefined ? 0 : actionsWidth}px`,
@@ -98,12 +103,12 @@ export const ItemRow = memo(
           // A confirm sizes to its question and buttons; the name gives way, not the question.
           'data-confirm:grid-cols-[1.25rem_minmax(0,1fr)_auto]!',
           '@max-2xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
-          !actionsVisible &&
+          overlay &&
             '@max-xl:grid-cols-[1.25rem_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
           stacks &&
             (folds
               ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_1.625rem_var(--item-slot)]'
-              : actionsVisible
+              : !overlay
                 ? '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
                 : '@max-sm:grid-cols-[1.25rem_minmax(0,1fr)_var(--item-slot)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
@@ -188,10 +193,12 @@ export const ItemRow = memo(
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
-                !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
+                  'pointer-events-none opacity-0 group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100',
+                // In the status cell, over its words; stacked, the status line under the name.
+                overlay && '@max-xl:col-start-3 @max-xl:row-start-1 @max-xl:bg-hover @max-xl:pl-1',
+                overlay && stacks && !folds && '@max-sm:col-start-2 @max-sm:row-start-2',
                 folds &&
-                  '@xl:pointer-coarse:visible @max-sm:visible @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
+                  '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
               )}
               data-slot="item-row-actions"
             >

@@ -183,7 +183,8 @@ export function ClioToolInvocation({
     : [];
   const status = getToolStatus(presentedTool);
   // A call paused on the person has no outcome yet, whatever a reload projected.
-  const failure = waitingFor ? undefined : getToolFailureDetail(presentedTool);
+  const failure =
+    waitingFor || tool.state === 'pending' ? undefined : getToolFailureDetail(presentedTool);
   const declaredFailure = presentedTool.presentation?.blocks.some(
     (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
   );
@@ -239,7 +240,11 @@ export function ClioToolInvocation({
           onExpandedChange={setResultOpen}
           duration={duration}
           surface={surface}
-          waiting={waitingFor ? <WaitingForYou interaction={waitingFor} /> : undefined}
+          waiting={
+            waitingFor || tool.state === 'pending' ? (
+              <WaitingForYou interaction={waitingFor} />
+            ) : undefined
+          }
           // A call the sandbox blocked says so before it is opened (#1905).
           badge={boundary ? <SandboxBoundaryBadge boundary={boundary} /> : undefined}
           attention={

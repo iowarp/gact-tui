@@ -29,6 +29,7 @@ import { agentUseValues, type AgentUseKind } from './agent-tab-values';
 import { PluginChangeDialog, type PluginChangeDialogProps } from './plugin-change-dialog';
 import { KeyValueRowButton, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
+import { serviceErrorDetail } from './service-error';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
 
 // A row's drill-in (plugin explorer, tool tables) is its own chunk, kept off
@@ -42,7 +43,13 @@ const PluginExplorer = lazy(() =>
 /** What the agent panel reads and changes: a conversation's agent, or a new conversation's draft. */
 interface AgentChangeSource {
   supported: boolean | undefined;
-  agent: { data?: SessionAgent; isPending: boolean; isFetching?: boolean; error: Error | null };
+  agent: {
+    data?: SessionAgent;
+    isPending: boolean;
+    isFetching?: boolean;
+    error: Error | null;
+    refetch?: () => unknown;
+  };
   update: { isPending: boolean; error: Error | null };
   compact: { isPending: boolean };
   propose: (change: PluginChange) => void;
@@ -194,14 +201,19 @@ function AgentComposition({
       />
     );
   }
-  if (agent.isPending) return <StateView kind="loading" title="Loading agent…" />;
+  if (agent.isPending) return <StateView kind="loading" title="Loading agent" />;
   if (agent.error || !resolution) {
-    return (
+    return agent.error ? (
       <StateView
-        detail={agent.error?.message ?? 'The conversation has no resolved agent.'}
+        action={
+          agent.refetch ? { label: 'Retry', onClick: () => void agent.refetch?.() } : undefined
+        }
+        detail={serviceErrorDetail(agent.error.message)}
         kind="error"
-        title="Agent unavailable"
+        title="The agent couldn't be loaded"
       />
+    ) : (
+      <StateView kind="empty" title="This conversation has no resolved agent" />
     );
   }
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);

@@ -32,9 +32,10 @@ export function questionInteractionsForTool(
 const SETTLED_TOOL_STATES = new Set(['succeeded', 'failed', 'denied', 'cancelled']);
 
 /**
- * The pending approval a call is paused on. A permission without the call's id
- * is matched by tool name and by every argument it names, so a reloaded call
- * still reads as waiting on the person rather than as an unrecorded outcome.
+ * The pending approval a call is paused on, linked by the interaction's
+ * `source.invocation_id`. Sessions recorded before the server sent that link
+ * fall back to the tool name and every argument the permission names, so a
+ * reloaded call still reads as waiting on the person.
  */
 export function permissionInteractionForTool(
   interactions: readonly PendingInteraction[] | undefined,
@@ -70,9 +71,10 @@ export function interactionAnswerLabels(interaction: PendingInteraction): string
 }
 
 /**
- * The approval the person refused for this call. The agent reports a refused call
- * as an ordinary failure and settles its permission as cancelled or denied, so a
- * failed call whose matching permission was refused reads as denied.
+ * The approval the person refused for this call, linked by `source.invocation_id`
+ * (name and arguments only for sessions recorded before that link). A refused
+ * script still projects as an ordinary failure with its permission cancelled,
+ * so a failed call whose linked permission was refused reads as denied.
  */
 export function deniedPermissionForTool(
   interactions: readonly PendingInteraction[] | undefined,
@@ -95,8 +97,9 @@ export function withPermissionDecision(
   interactions: readonly PendingInteraction[] | undefined,
 ): ToolInvocation {
   if (tool.state === 'denied' || tool.presentation?.status === 'denied') return tool;
-  // Prefer the retained approval record; resolved records age out of the service's
-  // recent window, so the call's own refusal reason is the durable fallback.
+  // The server's own `denied` state comes first, then the linked approval record.
+  // Resolved records age out of the service's recent window, so the call's own
+  // refusal reason is the durable fallback.
   const decided = deniedPermissionForTool(interactions, tool);
   if (!decided && !(tool.state === 'failed' && refusedForApproval(tool))) return tool;
   const decision: ToolPresentationBlock = {
@@ -143,19 +146,36 @@ function argumentsCover(asked: unknown, called: unknown): boolean {
 /**
  * Splits a call's questions: a plain pending question is said on the call's own row
  * ("waiting for you"), so it is not drawn again; everything else keeps its record.
+ * An ask_user row also says its answer ("Answered · 2020–2023"), so a plain
+ * answered question beside it is not drawn again either.
  */
-export function splitWaitingQuestion(questions: readonly PendingInteraction[]): {
+export function splitWaitingQuestion(
+  questions: readonly PendingInteraction[],
+  toolName?: string,
+): {
   waiting?: PendingInteraction;
   rest: PendingInteraction[];
 } {
+  const plain = (interaction: PendingInteraction) =>
+    !isAgentMcpInteraction(interaction) &&
+    !isVariantPickInteraction(interaction) &&
+    interaction.source.tool_name !== 'plan_exit';
   const waiting = questions.find(
-    (interaction) =>
-      interaction.status === 'pending' &&
-      !isAgentMcpInteraction(interaction) &&
-      !isVariantPickInteraction(interaction) &&
-      interaction.source.tool_name !== 'plan_exit',
+    (interaction) => interaction.status === 'pending' && plain(interaction),
   );
-  return { waiting, rest: questions.filter((interaction) => interaction !== waiting) };
+  return {
+    waiting,
+    rest: questions.filter(
+      (interaction) =>
+        interaction !== waiting &&
+        !(
+          toolName === 'ask_user' &&
+          interaction.kind === 'question' &&
+          interaction.status === 'answered' &&
+          plain(interaction)
+        ),
+    ),
+  };
 }
 
 /** Human-readable identity that stays honest about request versus protocol round. */

@@ -68,6 +68,7 @@ export function AddAgentDialog({
       <SettingsRow title="Name" htmlFor="add-agent-name" error={touched ? nameError : undefined}>
         <Input
           className={CONNECTION_FIELD}
+          data-initial-focus=""
           id="add-agent-name"
           onChange={(event) => setName(event.target.value)}
           placeholder="ares-genesis"

@@ -231,7 +231,7 @@ export function UsageSettings() {
         />
       </div>
       {fleet.isPending ? (
-        <StateView kind="loading" size="row" title="Loading usage" />
+        <StateView kind="loading" size="row" title="Loading usage…" />
       ) : fleet.error || !fleet.data ? (
         <div className="max-w-[760px]">
           <StateView
