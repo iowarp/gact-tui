@@ -199,7 +199,8 @@ export const ItemRow = memo(
             </span>
             <span
               className={cn(
-                'flex min-w-0 items-center justify-end gap-2',
+                // Spec `.xi .btn`: slot buttons read 12px/500 whatever size they were given.
+                'flex min-w-0 items-center justify-end gap-2 [&_[data-slot=button]]:text-xs',
                 stacks && '@max-sm:row-span-2',
               )}
               data-slot="item-row-slot"

@@ -1,5 +1,4 @@
 import { SETTINGS_COLUMN } from '@/lib/settings-fold';
-import { cn } from '@/lib/utils';
 import type {
   ContextControls,
   LanguageModelConfiguration,
@@ -8,7 +7,6 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import { CheckIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useCatalogModel } from '@/hooks/use-catalog-model';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
@@ -78,11 +76,7 @@ export function ModelsSettings() {
           />
         </div>
       ) : (
-        <Skeleton
-          aria-label="Loading models"
-          className={cn('mt-3 h-40 w-full', SETTINGS_COLUMN)}
-          role="status"
-        />
+        <StateView kind="loading" size="row" title="Loading models…" />
       )}
     </div>
   );

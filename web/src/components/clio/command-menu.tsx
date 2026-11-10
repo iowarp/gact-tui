@@ -517,6 +517,7 @@ export function ClioCommandMenu({
                         {
                           label: 'All in Settings',
                           shortcut: 'menu-all-results',
+                          accent: true,
                           onSelect: () => openRoute(settingsRoute),
                         },
                       ]
