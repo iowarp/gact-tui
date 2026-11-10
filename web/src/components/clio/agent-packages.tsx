@@ -226,19 +226,16 @@ function PackageRow({
       className="cursor-default"
       data-agent-package={plugin.id}
       icon={<Icon />}
-      // A narrow list stacks the status under the meta; there provenance
-      // joins the counts line instead, so a package stays two lines.
       meta={
-        <span className="block min-w-0 truncate" title={`${meta}. ${provenance}`}>
+        <span className="block min-w-0 truncate" title={meta}>
           {meta}
-          <span className="hidden @max-sm:inline">, {provenance.toLowerCase()}</span>
         </span>
       }
       onClick={click}
       selected={open}
       status={
         <span
-          className="min-w-0 truncate text-xs text-muted-foreground @max-sm:hidden"
+          className="min-w-0 truncate text-xs text-muted-foreground"
           title={provenanceDetail(plugin.provenance)}
         >
           {provenance}

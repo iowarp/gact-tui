@@ -280,7 +280,11 @@ function ExtensionSourceDialog({
           if (!busy && !missing && supported === true) void save();
         }}
       >
-        <SettingsRow htmlFor={`${ids}-name`} title={importing ? 'Local name (optional)' : 'Name'}>
+        <SettingsRow
+          htmlFor={`${ids}-name`}
+          info={importing ? 'Optional. The source keeps its own name without one.' : undefined}
+          title="Name"
+        >
           <Input
             className={FIELD}
             data-initial-focus=""
@@ -288,17 +292,23 @@ function ExtensionSourceDialog({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={
-              choice.kind === 'skill' || choice.category === 'skills'
-                ? 'My skill'
-                : choice.kind === 'plugin' || choice.category === 'plugins'
-                  ? 'My plugin'
-                  : 'My source'
+              importing
+                ? 'Optional'
+                : choice.kind === 'skill' || choice.category === 'skills'
+                  ? 'My skill'
+                  : choice.kind === 'plugin' || choice.category === 'plugins'
+                    ? 'My plugin'
+                    : 'My source'
             }
             required={!importing}
           />
         </SettingsRow>
         {importing ? (
-          <SettingsRow htmlFor={`${ids}-source`} title="Repository URL or folder on the agent host">
+          <SettingsRow
+            htmlFor={`${ids}-source`}
+            info="A repository URL, or a folder on the agent host."
+            title="Source"
+          >
             <Input
               className={FIELD}
               id={`${ids}-source`}
