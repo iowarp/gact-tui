@@ -21,8 +21,6 @@ type Anchor = {
   prefix: string;
   article: 'a' | 'an';
   icon: ComponentType<{ className?: string }>;
-  /** Spec `--anw`: each anchor keeps its own fixed width. */
-  width: string;
 };
 
 const ANCHORS: readonly Anchor[] = [
@@ -33,7 +31,6 @@ const ANCHORS: readonly Anchor[] = [
     prefix: 'task:',
     article: 'a',
     icon: ListFilterIcon,
-    width: 'basis-[92px]',
   },
   {
     tab: 'providers',
@@ -42,7 +39,6 @@ const ANCHORS: readonly Anchor[] = [
     prefix: 'provider:',
     article: 'an',
     icon: UsersIcon,
-    width: 'basis-[128px]',
   },
   {
     tab: 'capabilities',
@@ -51,7 +47,6 @@ const ANCHORS: readonly Anchor[] = [
     prefix: 'cap:',
     article: 'a',
     icon: LayersIcon,
-    width: 'basis-[124px]',
   },
 ];
 
@@ -127,8 +122,7 @@ function AnchorFilter({
         <button
           aria-label={on.length ? `${anchor.label}: ${on.join(', ')}` : anchor.label}
           className={cn(
-            'inline-flex h-[26px] min-w-0 shrink items-center gap-1.5 overflow-hidden rounded-[6px] border border-border px-2 text-[12px] font-normal whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 @max-[340px]/anchors:[&>svg:first-child]:hidden',
-            anchor.width,
+            'inline-flex h-[26px] min-w-0 shrink items-center gap-1 overflow-hidden rounded-[6px] border border-border px-1.5 text-[12px] font-normal whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 @max-[300px]/anchors:[&>svg:first-child]:hidden',
             on.length && 'border-ring/60 bg-accent text-accent-foreground hover:bg-accent',
           )}
           title={on.length ? on.join(', ') : undefined}

@@ -30,7 +30,7 @@ import { KeyValueGrid } from './primitives/key-value-grid';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
-import { SettingsGroupLabel, SettingsRow } from './settings-row';
+import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SpendRow } from './settings-usage-spend';
 import { TechnicalDetails } from './technical-details';
@@ -311,15 +311,17 @@ export function UsageSettings() {
                     </ItemList>
                   </>
                 ) : null}
-                {totals ? (
+                {total && totals ? (
                   <>
                     <SettingsGroupLabel>Total</SettingsGroupLabel>
-                    <SettingsRow fullWidth inlineControl title="Tokens">
-                      <UsageTotal>{totals.tokens}</UsageTotal>
-                    </SettingsRow>
-                    <SettingsRow fullWidth inlineControl title="Cost">
-                      <UsageTotal>{totals.cost ?? 'None recorded'}</UsageTotal>
-                    </SettingsRow>
+                    {/* The same columns as By model, so the sums sit under their figures. */}
+                    <ItemList label="Total usage">
+                      <SpendRow
+                        meta={`${total.turns} ${total.turns === 1 ? 'turn' : 'turns'}${totals.cost ? '' : ', no cost recorded'}`}
+                        spend={total}
+                        title={models.length ? 'All models' : 'All accounts'}
+                      />
+                    </ItemList>
                   </>
                 ) : null}
                 {data?.estimated_sessions ? (
@@ -354,14 +356,6 @@ function totalSpend(spends: FleetSpend[]): FleetSpend | undefined {
     turns_without_cost: sum.turns_without_cost + spend.turns_without_cost,
     turns: sum.turns + spend.turns,
   }));
-}
-
-function UsageTotal({ children }: { children: string }) {
-  return (
-    <span className="min-w-0 truncate text-[13px] font-normal tabular-nums" title={children}>
-      {children}
-    </span>
-  );
 }
 
 function EstimatedNote({ count }: { count: number }) {
