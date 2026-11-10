@@ -397,7 +397,8 @@ export function ModelServerRow({
       slot={slot}
       slotWidth={84}
       status={
-        <span className="flex min-w-0" title={state.hint}>
+        // A live status: a check that changes the state is announced.
+        <span className="flex min-w-0" role="status" title={state.hint}>
           <StatusIndicator label={state.label} tone={state.tone} />
         </span>
       }
