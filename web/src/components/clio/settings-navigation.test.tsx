@@ -149,15 +149,16 @@ it('lists every section in the compact picker and navigates with the keyboard', 
   );
   await user.click(screen.getByRole('button', { name: 'Choose settings section' }));
   // Search everywhere plus the four listed sections; the folded page is not listed.
-  expect(screen.getAllByRole('menuitem')).toHaveLength(5);
-  expect(screen.getByRole('menuitem', { name: 'Appearance' })).toHaveAttribute(
+  expect(screen.getAllByRole('option')).toHaveLength(5);
+  expect(screen.getByRole('option', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  screen.getByRole('menuitem', { name: 'Models' }).focus();
+  await user.type(screen.getByRole('combobox'), 'mod');
+  expect(screen.getAllByRole('option')).toHaveLength(1);
   await user.keyboard('{Enter}');
   expect(screen.getByLabelText('Current route')).toHaveTextContent('"path":"/settings/models"');
-  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 });
 
 it('opens global search after the compact settings menu has closed', async () => {
@@ -173,10 +174,10 @@ it('opens global search after the compact settings menu has closed', async () =>
     </MemoryRouter>,
   );
   await user.click(screen.getByRole('button', { name: 'Choose settings section' }));
-  const opened = vi.fn(() => screen.queryByRole('menu'));
+  const opened = vi.fn(() => screen.queryByRole('listbox'));
   window.addEventListener('clio:open-command-menu', opened, { once: true });
-  await user.click(screen.getByRole('menuitem', { name: /Search everywhere/ }));
+  await user.click(screen.getByRole('option', { name: /Search everywhere/ }));
   await waitFor(() => expect(opened).toHaveBeenCalledOnce());
   expect(opened).toHaveReturnedWith(null);
-  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 });
