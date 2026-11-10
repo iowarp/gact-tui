@@ -1522,9 +1522,22 @@ function Cascader<T>({
       const unchanged =
         nextValues.length === current.length &&
         nextValues.every((entry, i) => entry === current[i]);
-      if (unchanged) return;
-
       const next = currentMultiple ? nextValues : (nextValues[0] ?? '');
+      if (unchanged) {
+        // Pressing the chosen row again is still a choice: report it, so a
+        // picker that closes on a pick closes on this one too.
+        if (!currentMultiple && node && reason === 'select' && emit) {
+          const chain = getCascaderPath(currentIndex, node.value);
+          emit(next, {
+            node,
+            path: chain.length ? chain : [node],
+            nodes: nextValues.map(resolve),
+            reason: 'reselect',
+          });
+        }
+        return;
+      }
+
       setValue(next);
 
       if (!emit) return;

@@ -276,6 +276,9 @@ export function useSessionMutations({
           .createSession({
             workspace_id: workspaceId,
             title: 'New conversation',
+            // The created session carries the turn's model, so the open
+            // conversation names it before the first turn reports back.
+            ...route,
             mode: sessionModeForExecution(value.behavior.execution_mode),
             routing_mode: value.behavior.execution_mode === 'deep_research' ? 'experts' : 'auto',
             approval_mode: value.behavior.confirmation_policy,
