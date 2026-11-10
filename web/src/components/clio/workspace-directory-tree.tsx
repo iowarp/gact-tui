@@ -7,6 +7,7 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import { workspaceDirectoryQueryKey } from '@/lib/workspace-directory-cache';
 import { FileTypeIcon } from './file-type-icon';
+import { serviceErrorDetail } from './service-error';
 import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
 import type { ChangeCounts } from './workbench-shared';
 
@@ -28,6 +29,7 @@ interface DirectoryListing {
   hasNext: boolean;
   fetchingNext: boolean;
   fetchNext: () => void;
+  retry: () => void;
 }
 
 /**
@@ -117,14 +119,20 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
         });
       else if (listing.error)
         result.push({
-          kind: 'note',
+          kind: 'error',
           key: `${directory}#error`,
           depth,
-          label: listing.error,
-          tone: 'error',
+          label: directory ? "Couldn't list this folder" : "Files couldn't be listed",
+          detail: serviceErrorDetail(listing.error),
+          onRetry: listing.retry,
         });
       else if (!listing.entries.length)
-        result.push({ kind: 'note', key: `${directory}#empty`, depth, label: 'Empty folder' });
+        result.push({
+          kind: 'note',
+          key: `${directory}#empty`,
+          depth,
+          label: 'No files in this folder',
+        });
       if (listing?.hasNext)
         result.push({
           kind: 'more',
@@ -198,7 +206,8 @@ function DirectoryLoader({
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
   });
-  const { data, isPending, error, hasNextPage, isFetchingNextPage, fetchNextPage } = listing;
+  const { data, isPending, error, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+    listing;
   // Layout effects report before paint, so a listed folder never flashes as loading.
   useLayoutEffect(() => {
     onReport(directory, {
@@ -208,8 +217,19 @@ function DirectoryLoader({
       hasNext: hasNextPage,
       fetchingNext: isFetchingNextPage,
       fetchNext: () => void fetchNextPage(),
+      retry: () => void refetch(),
     });
-  }, [data, directory, error, fetchNextPage, hasNextPage, isFetchingNextPage, isPending, onReport]);
+  }, [
+    data,
+    directory,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isPending,
+    onReport,
+    refetch,
+  ]);
   useLayoutEffect(() => () => onReport(directory, undefined), [directory, onReport]);
   return null;
 }
