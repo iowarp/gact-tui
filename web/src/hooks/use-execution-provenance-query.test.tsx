@@ -6,7 +6,7 @@ import { useExecutionProvenance } from './use-execution-provenance';
 
 const { read } = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock('@/providers/connection-provider', () => ({
-  useConnectionSettings: () => ({ settings: { endpoint: 'http://family.test' } }),
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://provenance.test' } }),
 }));
 vi.mock('./use-repository', () => ({
   useRepository: () => ({
@@ -26,7 +26,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('queries the family using the selected execution provider when the user switches it', async () => {
+it('queries the session snapshot with the execution provider the user selects', async () => {
   read.mockImplementation(async (session_id: string, options: { provider: string }) => ({
     session_id,
     provider: options.provider,
@@ -39,26 +39,13 @@ it('queries the family using the selected execution provider when the user switc
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  const { result } = renderHook(
-    () => {
-      const selected = useExecutionProvenance('branch');
-      const family = useExecutionProvenance('root', selected.provider, { includeChildren: true });
-      return { selected, family };
-    },
-    { wrapper },
-  );
-  await waitFor(() => expect(result.current.family.execution.data?.provider).toBe('native'));
-  act(() => result.current.selected.setProvider('flowcept'));
-  await waitFor(() => expect(result.current.family.execution.data?.provider).toBe('flowcept'));
-  expect(read).toHaveBeenCalledWith(
-    'root',
-    expect.objectContaining({ provider: 'flowcept', includeChildren: true }),
-    expect.any(AbortSignal),
-  );
-  expect(result.current.selected.execution.data?.provider).toBe('flowcept');
-  expect(read).toHaveBeenCalledWith(
-    'branch',
-    expect.objectContaining({ includeChildren: false }),
+  const { result } = renderHook(() => useExecutionProvenance('session'), { wrapper });
+  await waitFor(() => expect(result.current.execution.data?.provider).toBe('native'));
+  act(() => result.current.setProvider('flowcept'));
+  await waitFor(() => expect(result.current.execution.data?.provider).toBe('flowcept'));
+  expect(read).toHaveBeenLastCalledWith(
+    'session',
+    expect.objectContaining({ provider: 'flowcept' }),
     expect.any(AbortSignal),
   );
   client.clear();

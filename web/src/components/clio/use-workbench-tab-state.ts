@@ -2,12 +2,11 @@ import type { SubagentRun } from '@clio/core/v3';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { useScienceLogTab } from './science-log-tab-state';
-import { fileName, type WorkbenchTab } from './workbench-shared';
-import type { WorkbenchListView } from './workbench-strip';
+import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
 import { restoredWorkbenchState, saveWorkbenchState } from './workbench-tab-storage';
 
 /**
- * The workbench's open tabs, pins and list choice: restored per workspace,
+ * The workbench's open tabs and pins: restored per workspace,
  * saved on every change, and the operations that open, close and order tabs.
  */
 export function useWorkbenchTabState(
@@ -20,12 +19,11 @@ export function useWorkbenchTabState(
   const [initialState] = useState(() => restoredWorkbenchState(workspaceId, Boolean(sessionId)));
   const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
   const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
-  const [listView, setListView] = useState<WorkbenchListView | undefined>(initialState.listView);
   const [pinnedIds, setPinnedIds] = useState<string[]>(initialState.pinnedIds);
 
   useEffect(() => {
-    saveWorkbenchState(workspaceId, { activeTabId, tabs, listView, pinnedIds });
-  }, [activeTabId, listView, pinnedIds, tabs, workspaceId]);
+    saveWorkbenchState(workspaceId, { activeTabId, tabs, pinnedIds });
+  }, [activeTabId, pinnedIds, tabs, workspaceId]);
 
   const shown = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
   const shownActiveTabId = shown.activeTabId;
@@ -48,14 +46,7 @@ export function useWorkbenchTabState(
     setActiveTabId(tab.id);
   }, []);
   const openSubagentTab = useCallback(
-    (subagent: SubagentRun) =>
-      openTab({
-        id: `subagent:${subagent.child_session_id ?? subagent.id}`,
-        kind: 'subagent',
-        label: subagent.title,
-        subagent,
-        workspaceId,
-      }),
+    (subagent: SubagentRun) => openTab(subagentTab(subagent, workspaceId)),
     [openTab, workspaceId],
   );
   const replaceTab = useCallback((tabId: string, replacement: WorkbenchTab) => {
@@ -127,8 +118,6 @@ export function useWorkbenchTabState(
     setActiveTabId,
     pinned,
     setPinnedIds,
-    listView,
-    setListView,
     openTab,
     openSubagentTab,
     replaceTab,

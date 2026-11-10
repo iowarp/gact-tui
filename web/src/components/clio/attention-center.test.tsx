@@ -304,7 +304,7 @@ describe('ClioAttentionCenter', () => {
     ).toBeInTheDocument();
     expect(
       within(dialog).getByRole('link', {
-        name: 'Run broke stopped: The run ended with an error in Lab',
+        name: 'Run broke stopped: In Lab',
       }),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Retry Run broke' })).toBeInTheDocument();
