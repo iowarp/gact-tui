@@ -1,4 +1,5 @@
 import { brand } from '@brand';
+import { withArticle } from '@/lib/brand-vocabulary';
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -65,6 +66,13 @@ const MENU_HINTS = [
   { id: 'menu-move', label: 'move' },
   { id: 'menu-pick', label: 'switch' },
   { id: 'menu-open', label: 'open' },
+] as const;
+
+/** Drilled into Add an agent at narrow widths: Enter chooses a way, Left goes back. */
+const ADD_HINTS = [
+  { id: 'menu-move', label: 'move' },
+  { id: 'menu-pick', label: 'choose' },
+  { id: 'menu-back', label: 'back' },
 ] as const;
 
 /** A short state word for the 62px status column; the full sentence is on hover. */
@@ -398,7 +406,11 @@ export function ClioMenuContent({
         </div>
       )}
       <div className="flex items-center border-t border-border/70 pr-1">
-        <MenuKeyHints className="min-w-0 flex-1 border-t-0 pl-3.5" hints={MENU_HINTS} keysFirst />
+        <MenuKeyHints
+          className="min-w-0 flex-1 border-t-0 pl-3.5"
+          hints={adding ? ADD_HINTS : MENU_HINTS}
+          keysFirst
+        />
         <InfrastructureItem returnState={returnState} />
       </div>
     </DropdownMenuContent>
@@ -413,7 +425,7 @@ function AddAgentItems({ desktop }: { desktop: boolean }) {
         <Link to="/?intent=connect&mode=address">
           <MenuRow
             className="gap-[9px]"
-            detail={`${brand.agentName} already running at an address`}
+            detail={`${withArticle(brand.agentName)} that is already running`}
             icon={<GlobeIcon />}
             label="Connect by address"
           />

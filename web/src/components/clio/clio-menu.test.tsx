@@ -2,6 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { brand } from '@brand';
+import { withArticle } from '@/lib/brand-vocabulary';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { UpdateStatus } from '@/hooks/use-update-status';
@@ -129,9 +131,15 @@ it('opens the ways to add an agent in place on a phone, with Back', async () => 
   expect(screen.getByRole('menuitem', { name: /Connect by address/u })).toBeVisible();
   expect(screen.queryByText('Talking to')).toBeNull();
   expect(screen.getByRole('menuitem', { name: /^Add an agent$/u })).toHaveFocus();
+  // Drilled in, the footer says what Enter and Left do here.
+  expect(screen.getByText('choose')).toBeVisible();
+  expect(screen.getByText('back')).toBeVisible();
+  expect(screen.queryByText('switch')).toBeNull();
+  expect(screen.getByText(`${withArticle(brand.agentName)} that is already running`)).toBeVisible();
 
   await user.keyboard('{ArrowLeft}');
   expect(screen.getByText('Talking to')).toBeVisible();
+  expect(screen.getByText('switch')).toBeVisible();
   expect(screen.getByRole('menuitem', { name: /Add an agent/u })).toHaveFocus();
 
   await user.keyboard('{ArrowRight}');
