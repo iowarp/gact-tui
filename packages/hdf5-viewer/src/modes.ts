@@ -96,7 +96,7 @@ const EXPLORER = 'data-explorer';
  */
 export const MIN_EXPLORER_PANE = 720;
 
-function paneFitsExplorer(root: Element): boolean {
+export function paneFitsExplorer(root: Element): boolean {
   return (root.ownerDocument.defaultView?.innerWidth ?? Infinity) >= MIN_EXPLORER_PANE;
 }
 
@@ -136,8 +136,14 @@ export function setExplorer(root: ParentNode, open: boolean): void {
 /**
  * Report the view state whenever h5web changes it, and apply the host's
  * requests, including a mode that waits for its visualizations to render.
+ * `restored` is the tree's state before the page reloaded; it applies while
+ * the pane is still on the same side of MIN_EXPLORER_PANE.
  */
-export function observeView(root: Element, onChange: (state: ViewState) => void) {
+export function observeView(
+  root: Element,
+  onChange: (state: ViewState) => void,
+  restored?: { explorer: boolean; wide: boolean },
+) {
   let last: ViewState | undefined;
   let lastKey = '';
   let pending: Hdf5Mode | undefined;
@@ -161,7 +167,9 @@ export function observeView(root: Element, onChange: (state: ViewState) => void)
   // is too narrow to show both; the Explorer toggle opens it there, in the
   // plot's place. Crossing that width while reading closes or reopens it.
   let wide = paneFitsExplorer(root);
-  if (!root.hasAttribute(EXPLORER)) setExplorer(root, wide);
+  if (!root.hasAttribute(EXPLORER)) {
+    setExplorer(root, restored?.wide === wide ? restored.explorer : wide);
+  }
   const win = root.ownerDocument.defaultView;
   const onResize = () => {
     const next = paneFitsExplorer(root);

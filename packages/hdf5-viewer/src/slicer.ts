@@ -31,7 +31,7 @@ function key(doc: Document, name: string, type: 'keydown' | 'keyup' = 'keydown')
  * keyboard move on its thumb's focus and then listens on the document; its
  * own `focus()` call is silenced so the reader's focus stays on the input.
  */
-async function drive(thumb: HTMLElement, target: () => number) {
+export async function drive(thumb: HTMLElement, target: () => number) {
   const doc = thumb.ownerDocument;
   thumb.focus = () => {};
   thumb.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));

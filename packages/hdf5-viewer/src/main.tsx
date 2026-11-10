@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client';
 import { HostBridge, createExportURL, observeSelection } from './bridge';
 import { hostOriginFor } from './host-origin';
 import { dtypeName, entityKind, firstArrayDataset, observeView, shapeOf } from './modes';
+import { observeMemory, restoreMemory } from './memory';
 import { applyPalette, applyTheme } from './theme';
 import { observeSlicers } from './slicer';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
@@ -33,6 +34,12 @@ function Viewer() {
   const rootRef = useRef<HTMLDivElement>(null);
   const showRef = useRef<((message: Show) => void) | undefined>(undefined);
   const openedRef = useRef<(() => void) | undefined>(undefined);
+  const locatorRef = useRef(locator);
+  locatorRef.current = locator;
+  // Whether this page has applied the view the host kept from before a reload.
+  const restoredRef = useRef(false);
+  // The object last reported; the first one opened is the start, not a pick.
+  const reportedRef = useRef<string>(undefined);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -65,15 +72,38 @@ function Viewer() {
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !init) return undefined;
-    const view = observeView(root, (state) =>
-      bridge.post({ source: VIEWER_SOURCE, type: 'modes', ...state }),
+    const kept = init.view?.locator === init.locator ? init.view : undefined;
+    const view = observeView(
+      root,
+      (state) => bridge.post({ source: VIEWER_SOURCE, type: 'modes', ...state }),
+      kept,
     );
     showRef.current = view.show;
     openedRef.current = view.opened;
     const stopSlicers = observeSlicers(root);
+    const memory = observeMemory(
+      root,
+      () => locatorRef.current,
+      (next) => bridge.post({ source: VIEWER_SOURCE, type: 'view', view: next }),
+    );
+    let cancelRestore: (() => void) | undefined;
+    if (!restoredRef.current && kept) {
+      memory.pause(true);
+      cancelRestore = restoreMemory(
+        root,
+        kept,
+        (mode) => view.show({ mode }),
+        () => {
+          restoredRef.current = true;
+          memory.pause(false);
+        },
+      );
+    } else restoredRef.current = true;
     return () => {
+      cancelRestore?.();
       showRef.current = undefined;
       openedRef.current = undefined;
+      memory.dispose();
       stopSlicers();
       view.dispose();
     };
@@ -105,7 +135,10 @@ function Viewer() {
                   shape: shapeOf(entity),
                   dtype: 'type' in entity && entity.type ? dtypeName(entity.type) : undefined,
                 });
-                if (entityKind(entity) === 'dataset') openedRef.current?.();
+                const first = reportedRef.current === undefined;
+                const picked = !first && reportedRef.current !== locator;
+                reportedRef.current = locator;
+                if (picked && entityKind(entity) === 'dataset') openedRef.current?.();
               }}
             />
           </Suspense>

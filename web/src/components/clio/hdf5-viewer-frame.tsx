@@ -5,6 +5,7 @@ import {
   isViewerMessage,
   type Hdf5Mode,
   type Hdf5Palette,
+  type Hdf5ViewMemory,
   type HostMessage,
   type ViewerMessage,
 } from '@clio/hdf5-viewer/protocol';
@@ -34,21 +35,42 @@ import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 const REMEMBERED_FILES = 50;
 
 /**
- * The last object selected in each open file, so that when the canvas
- * remounts the viewer (maximize, resize, moving tabs) it reopens there
- * instead of at the file root. `requested` is the `locator` prop in effect
- * when it was selected: a caller asking for a different object wins.
+ * The last object selected in each open file, and the reader's view of it
+ * (mode, tree, axes and slices), so that when the canvas remounts the viewer
+ * (maximize, resize, moving tabs) it reopens there instead of at the file
+ * root. `requested` is the `locator` prop in effect when it was selected: a
+ * caller asking for a different object wins.
  */
-const lastSelection = new Map<string, { requested?: string; selected: string }>();
+const lastSelection = new Map<
+  string,
+  { requested?: string; selected: string; view?: Hdf5ViewMemory }
+>();
 
-function startLocator(key: string, requested: string | undefined): string | undefined {
+function startOf(
+  key: string,
+  requested: string | undefined,
+): { locator?: string; view?: Hdf5ViewMemory } {
   const last = lastSelection.get(key);
-  return last && last.requested === requested ? last.selected : requested;
+  if (!last || last.requested !== requested) return { locator: requested };
+  return {
+    locator: last.selected,
+    view: last.view?.locator === last.selected ? last.view : undefined,
+  };
 }
 
-function rememberSelection(key: string, requested: string | undefined, selected: string) {
+function remember(
+  key: string,
+  requested: string | undefined,
+  selected: string,
+  view?: Hdf5ViewMemory,
+) {
+  const kept = lastSelection.get(key);
   lastSelection.delete(key);
-  lastSelection.set(key, { requested, selected });
+  lastSelection.set(key, {
+    requested,
+    selected,
+    view: view ?? (kept?.view?.locator === selected ? kept.view : undefined),
+  });
   if (lastSelection.size > REMEMBERED_FILES) {
     const oldest = lastSelection.keys().next().value;
     if (oldest !== undefined) lastSelection.delete(oldest);
@@ -95,7 +117,7 @@ export function Hdf5ViewerFrame({
   const readyRef = useRef(false);
   const initRef = useRef<InitState>({
     path,
-    locator: startLocator(fileKey, locator),
+    ...startOf(fileKey, locator),
     revision,
     theme,
     palette,
@@ -162,12 +184,16 @@ export function Hdf5ViewerFrame({
           inFlight.delete(message.id);
           return;
         case 'select':
-          rememberSelection(
+          remember(selectionRef.current.fileKey, selectionRef.current.locator, message.locator);
+          onSelectRef.current?.(message.locator);
+          return;
+        case 'view':
+          remember(
             selectionRef.current.fileKey,
             selectionRef.current.locator,
-            message.locator,
+            message.view.locator,
+            message.view,
           );
-          onSelectRef.current?.(message.locator);
           return;
         case 'entity':
           setEntity({
@@ -192,7 +218,7 @@ export function Hdf5ViewerFrame({
 
   useEffect(() => {
     selectionRef.current = { fileKey, locator };
-    initRef.current = { path, locator: startLocator(fileKey, locator), revision, theme, palette };
+    initRef.current = { path, ...startOf(fileKey, locator), revision, theme, palette };
     const target = iframeRef.current?.contentWindow;
     if (!target || !readyRef.current) return;
     target.postMessage(initMessage(initRef.current), viewer.origin);
@@ -348,6 +374,7 @@ function copiesValues(entity: ViewerEntity): boolean {
 type InitState = {
   path: string;
   locator?: string;
+  view?: Hdf5ViewMemory;
   revision: number;
   theme?: 'light' | 'dark';
   palette?: Hdf5Palette;
@@ -381,6 +408,7 @@ function initMessage(init: InitState): HostMessage {
     protocol: HDF5_VIEWER_PROTOCOL,
     filepath: init.path,
     locator: init.locator,
+    view: init.view,
     revision: init.revision,
     theme: init.theme,
     palette: init.palette,
