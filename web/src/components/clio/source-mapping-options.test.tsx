@@ -8,6 +8,11 @@ import { type LinkAccess, type DownloadAccess } from './connected-source-labels'
 
 afterEach(cleanup);
 
+async function choose(user: ReturnType<typeof userEvent.setup>, name: string, option: string) {
+  await user.click(screen.getByRole('combobox', { name }));
+  await user.click(await screen.findByRole('option', { name: option }));
+}
+
 it('keeps copy access independent and requires acknowledgement for live writes', async () => {
   const linked = vi.fn();
   const downloaded = vi.fn();
@@ -35,22 +40,18 @@ it('keeps copy access independent and requires acknowledgement for live writes',
   }
   render(<Example />);
   const user = userEvent.setup();
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Linked folder access' }),
-    'write_through',
-  );
+  await choose(user, 'Linked folder access', 'Update originals on save');
   expect(screen.getByRole('button', { name: 'Link folder' })).toBeDisabled();
-  expect(screen.getByRole('combobox', { name: 'Downloaded copy access' })).toHaveValue('editable');
+  expect(screen.getByRole('combobox', { name: 'Downloaded copy access' })).toHaveTextContent(
+    'Editable copy',
+  );
   await user.click(screen.getByRole('button', { name: 'Download all' }));
   expect(downloaded).toHaveBeenCalledWith('editable');
   expect(linked).not.toHaveBeenCalled();
   await user.click(screen.getByRole('checkbox', { name: 'Allow changes to original files' }));
   await user.click(screen.getByRole('button', { name: 'Link folder' }));
   expect(linked).toHaveBeenCalledWith('write_through');
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Linked folder access' }),
-    'publish_later',
-  );
+  await choose(user, 'Linked folder access', 'Edit locally, publish later');
   expect(
     screen.getByText(`Keep edits in ${vocab.agent}. Review and publish when you are ready.`),
   ).toBeVisible();
