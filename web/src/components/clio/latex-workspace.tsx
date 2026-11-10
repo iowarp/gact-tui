@@ -9,6 +9,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { VIEWER_BYTES_GC_TIME_MS } from '@/lib/runtime-limits';
 import { useSharedNow } from '@/lib/shared-clock';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { CommentCapture } from './comments/comment-capture';
@@ -92,6 +93,7 @@ export function LatexWorkspace({
     enabled: Boolean(pdfId),
     placeholderData: keepPreviousData,
     staleTime: Infinity,
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   const inViewer = useContext(FileViewerInformationHost) !== undefined;
   const facts = useContext(FileViewerFactsRegistry);

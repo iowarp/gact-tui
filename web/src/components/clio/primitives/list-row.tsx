@@ -57,7 +57,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * (`leading`) before the icon, 12.5px text, and the right edge ordered
    * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
    * the time it explains. Empty columns keep their width; below 600px the row
-   * drops its hover actions, elapsed and an empty badge so the text keeps room.
+   * drops its hover actions and an empty badge, and below 360px its elapsed, so
+   * the text keeps room.
    *
    * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (one
    * line, cut with … per `.d-nm`) and a faint 11px `meta` age in a 52px column
@@ -87,6 +88,11 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * keeps its name, cut with …, since the icon alone would say nothing.
    */
   titleCollapses?: boolean;
+  /**
+   * `activity` rows whose description ends in an outcome word: the elapsed
+   * column drops below 480px so the outcome never clips.
+   */
+  metaYields?: boolean;
   selected?: boolean;
   /**
    * `highlight` marks the selected row with the menu-highlight tone. `accent`
@@ -125,6 +131,7 @@ export const ListRow = memo(
       expanded = false,
       leading,
       titleCollapses = true,
+      metaYields = false,
       selected = false,
       selectedTone = 'highlight',
       className,
@@ -195,8 +202,9 @@ export const ListRow = memo(
           style={style}
           className={cn(
             // A container, so a narrow row sheds columns by its own width (spec U7): below
-            // 600px its empty and hover-only columns; below 280px (`.xc.n2`, a fifth of the
-            // window) its elapsed time, and its name becomes the icon's hover name.
+            // 600px its empty and hover-only columns; below 360px (a quarter of the window, a
+            // phone) its elapsed time; below 280px (`.xc.n2`, a fifth) its name becomes the
+            // icon's hover name.
             'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
@@ -217,21 +225,15 @@ export const ListRow = memo(
           <span
             data-slot="list-row-title"
             className={cn(
-              'text-foreground',
-              titleCollapses ? 'shrink-0 @max-[280px]/activity:sr-only' : 'min-w-0 shrink truncate',
+              'min-w-0 shrink truncate text-foreground',
+              titleCollapses && '@max-[280px]/activity:sr-only',
             )}
           >
             {title}
           </span>
-          {/* When the title is what truncates, what follows it (an outcome) stays whole. */}
-          <span
-            className={cn(
-              'flex flex-1 items-center gap-2 overflow-hidden',
-              // A container, so a collapsing argument can leave whole (gap and all)
-              // when there is no room left to show any of it.
-              titleCollapses ? '@container/desc min-w-0' : 'min-w-fit',
-            )}
-          >
+          {/* At least as wide as its outcome: an argument (no intrinsic width) gives up
+              its room first, then the name, so the outcome stays whole. */}
+          <span className="flex min-w-min flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
           {columns}
@@ -257,7 +259,8 @@ export const ListRow = memo(
           {meta !== undefined ? (
             <span
               className={cn(
-                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[280px]/activity:hidden',
+                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[360px]/activity:hidden',
+                metaYields && '@max-[480px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
             >

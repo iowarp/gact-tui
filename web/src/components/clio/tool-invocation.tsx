@@ -21,6 +21,7 @@ import {
   getToolStatus,
   getToolFailureDetail,
   isA2uiCatalogLookup,
+  withStoppedOutcome,
 } from './tool-presentation';
 import { flowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
@@ -129,29 +130,31 @@ export function ClioToolInvocation({
     flow?.handle && navigation?.onOpenFlow
       ? () => navigation.onOpenFlow?.(flow.handle!, `${flow.label} run`)
       : undefined;
-  const presentedTool = withOperationOutcome(
-    withAgentMessagePresentation(
-      withQuestionPresentation(
-        withMemoryPresentation(
-          withResourcePresentation(
-            withSkillPresentation(
-              withTaskWaitInterruption(
-                withTodoPresentation(
-                  withStorageToolPresentation(
-                    withPermissionDecision(tool, questionContext?.interactions),
+  const presentedTool = withStoppedOutcome(
+    withOperationOutcome(
+      withAgentMessagePresentation(
+        withQuestionPresentation(
+          withMemoryPresentation(
+            withResourcePresentation(
+              withSkillPresentation(
+                withTaskWaitInterruption(
+                  withTodoPresentation(
+                    withStorageToolPresentation(
+                      withPermissionDecision(tool, questionContext?.interactions),
+                    ),
                   ),
                 ),
               ),
+              navigation?.resources,
             ),
-            navigation?.resources,
           ),
+          questionContext?.interactions,
         ),
-        questionContext?.interactions,
-      ),
-      agentMessageName(
-        sentMessage?.sessionId ?? sentMessage?.target,
-        navigation?.subagents,
-        recipientTitle,
+        agentMessageName(
+          sentMessage?.sessionId ?? sentMessage?.target,
+          navigation?.subagents,
+          recipientTitle,
+        ),
       ),
     ),
   );
@@ -206,13 +209,15 @@ export function ClioToolInvocation({
   const outputCarries = (text?: string) =>
     !text?.trim() || terminalOutput.includes(text.trim().split('\n').at(-1)!.trim());
   // A failed command keeps its command and output; its error shows only when the output lacks it.
-  const terminalFailure =
-    failure && !outputCarries(failure)
-      ? failure
-      : contentBlocks.find(
-          (block) =>
-            block.severity === 'error' && block.type !== 'terminal' && !outputCarries(block.text),
-        )?.text;
+  // A stopped command shows its Stopped outcome in the same place.
+  const outcomeBlock = (block: (typeof contentBlocks)[number]) =>
+    block.type !== 'terminal' &&
+    (block.severity === 'error' || (stopped && block.severity === 'warning'));
+  const outcomeText = contentBlocks.find(
+    (block) => outcomeBlock(block) && !outputCarries(block.text),
+  )?.text;
+  const failureText = failure && !outputCarries(failure) ? failure : undefined;
+  const terminalFailure = stopped ? (outcomeText ?? failureText) : (failureText ?? outcomeText);
   const compactBody =
     surface !== 'evidence' && operation.kind === 'declared'
       ? !failure &&
@@ -222,7 +227,7 @@ export function ClioToolInvocation({
         contentBlocks[0]!.text
         ? ({ kind: 'diff', block: contentBlocks[0]! } as const)
         : terminalBlocks.length === 1 &&
-            contentBlocks.every((block) => block.type === 'terminal' || block.severity === 'error')
+            contentBlocks.every((block) => block.type === 'terminal' || outcomeBlock(block))
           ? ({ kind: 'terminal', block: terminalBlocks[0]! } as const)
           : undefined
       : undefined;

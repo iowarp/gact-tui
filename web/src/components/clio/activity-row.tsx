@@ -130,9 +130,7 @@ export const ActivityRow = memo(
         const fromRow = event.target === row;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           const rows = Array.from(
-            (
-              row.closest('[data-slot="conversation-transcript"]') ?? document
-            ).querySelectorAll<HTMLElement>(ROW_SELECTOR),
+            (row.closest('[role="log"]') ?? document).querySelectorAll<HTMLElement>(ROW_SELECTOR),
           );
           const next = rows[rows.indexOf(row) + (event.key === 'ArrowDown' ? 1 : -1)];
           if (next) {
@@ -205,7 +203,8 @@ export const ActivityRow = memo(
             <>
               {link ? (
                 // The agent name stays whole when it fits; if the row is narrower, it ends in …
-                <span className="flex min-w-0 max-w-[min(16rem,100%)] shrink-0 items-center [&>*]:min-w-0">
+                // It takes the room before the argument does.
+                <span className="flex w-0 min-w-0 max-w-fit grow-[100] items-center [&>*]:min-w-0 [&>*]:max-w-[16rem]">
                   {link}
                 </span>
               ) : null}
@@ -214,9 +213,8 @@ export const ActivityRow = memo(
                   data-slot="activity-argument"
                   title={argumentTitle}
                   className={cn(
-                    'min-w-0 shrink truncate',
-                    // Too narrow to show any of it: the outcome keeps the room instead.
-                    hasOutcome && '@max-[64px]/desc:hidden',
+                    // No intrinsic width: it fills what the outcome leaves, up to its own length.
+                    'w-0 min-w-0 max-w-fit grow truncate',
                     argumentStyle === 'code'
                       ? 'font-mono text-[11.5px] text-muted-foreground'
                       : 'text-[12.5px] text-foreground/85',
@@ -245,13 +243,19 @@ export const ActivityRow = memo(
           badge={badge ?? null}
           actions={armed ? (actions ?? null) : null}
           meta={elapsed ?? null}
+          metaYields={hasOutcome}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}
           onClick={handleClick}
           onPointerEnter={actions && !armed ? handlePointerEnter : onPointerEnter}
           onFocus={actions && !armed ? handleFocus : onFocus}
-          className={cn(onOpenChange && 'cursor-pointer', className)}
+          className={cn(
+            onOpenChange && 'cursor-pointer',
+            // Tab lands on the chevron; the spec draws that focus on the whole row.
+            'has-[[data-slot=activity-disclosure]:focus-visible]:bg-hover has-[[data-slot=activity-disclosure]:focus-visible]:ring-[1.5px] has-[[data-slot=activity-disclosure]:focus-visible]:ring-ring has-[[data-slot=activity-disclosure]:focus-visible]:ring-inset',
+            className,
+          )}
           {...rest}
         />
       </TooltipProvider>
@@ -283,7 +287,7 @@ export function ActivityDisclosure({
       disabled={disabled}
       onClick={onClick}
       data-slot="activity-disclosure"
-      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground disabled:opacity-0 aria-expanded:bg-transparent aria-expanded:text-faint aria-expanded:hover:text-foreground dark:hover:bg-transparent"
+      className="size-auto h-7 w-3 rounded-[3px] p-0 text-faint hover:bg-transparent hover:text-foreground focus-visible:border-transparent focus-visible:text-foreground focus-visible:ring-0 disabled:opacity-0 aria-expanded:bg-transparent aria-expanded:text-faint aria-expanded:hover:text-foreground dark:hover:bg-transparent"
     >
       <ChevronRightIcon
         aria-hidden="true"

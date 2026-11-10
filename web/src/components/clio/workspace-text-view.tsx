@@ -16,6 +16,7 @@ import {
   PREVIEW_ROW_LIMIT,
   TEXT_FULL_READ_MAX_BYTES,
   TEXT_WINDOW_CHUNK_BYTES,
+  VIEWER_BYTES_GC_TIME_MS,
 } from '@/lib/runtime-limits';
 import { SourceWindowContext } from '@/lib/source-window';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -80,6 +81,7 @@ export function WorkspaceTextView({
     queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: !windowed,
+    gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   if (windowed)
     return (
