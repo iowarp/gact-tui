@@ -2,7 +2,9 @@ import type { SourceProvider } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from '@/components/ui/external-link';
+import { ExternalLinkIcon, LogOutIcon } from 'lucide-react';
+import { openExternalUrlOrToast } from '@/tauri/external-url';
+import { IconButton } from './primitives/icon-button';
 import { connectionScope } from '@/lib/connection-scope';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -34,21 +36,19 @@ export function ConnectedAccountActions({ provider }: { provider: SourceProvider
   return (
     <>
       {provider.account_url && (
-        <ExternalLink
-          href={provider.account_url}
-          className="w-full text-right text-xs underline sm:w-auto"
-        >
-          Repository access
-        </ExternalLink>
+        <IconButton
+          size="sm"
+          label="Repository access"
+          icon={<ExternalLinkIcon />}
+          onClick={() => provider.account_url && openExternalUrlOrToast(provider.account_url)}
+        />
       )}
-      <Button
+      <IconButton
         size="sm"
-        variant="outline"
-        aria-label={`Sign out of ${provider.name}`}
+        label={`Sign out of ${provider.name}`}
+        icon={<LogOutIcon />}
         onClick={() => setConfirm(true)}
-      >
-        Sign out
-      </Button>
+      />
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>

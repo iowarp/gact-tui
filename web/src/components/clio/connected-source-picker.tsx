@@ -14,12 +14,14 @@ import {
   ChevronRightIcon,
   DatabaseIcon,
   FolderUpIcon,
+  LogInIcon,
   PaperclipIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { DialogFrame } from './primitives/dialog-frame';
+import { IconButton } from './primitives/icon-button';
+import { ItemRow } from './primitives/item-row';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
@@ -132,6 +134,12 @@ export function ConnectedSourcePicker({
       description={
         manageOnly || connect ? undefined : 'Choose files, folders, or a connected source.'
       }
+      srDescription={
+        connect
+          ? `Choose a provider to bring its files or datasets into this workspace.`
+          : undefined
+      }
+      className={connect ? 'w-[480px]' : undefined}
       titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
     >
       <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">
@@ -482,76 +490,74 @@ export function ConnectedSourceContents({
           <h3 className={sectionLabel}>
             {settingsView ? 'Accounts and providers' : 'From a connected source'}
           </h3>
-          <div className="divide-y rounded-lg border">
+          <div className="@container -mx-2">
             {providers.data?.providers
               .filter((row) => settingsView || !localConnection || row.id !== 'local')
               .map((row) => (
-                <div key={row.id} className="flex flex-wrap items-center gap-3 p-3">
-                  <div className="flex min-w-48 flex-1 items-center gap-3">
-                    <SourceProviderLogo provider={row.id} />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-2 text-sm font-medium">
+                <ItemRow
+                  key={row.id}
+                  className="border-b-0"
+                  icon={<SourceProviderLogo provider={row.id} size="icon" />}
+                  title={
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate">
                         {row.id === 'local' ? `Use a folder on ${hostLabel}` : row.name}
-                        <SourceProviderInfo provider={row} />
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.id === 'obsidian' ? (
-                          'Knowledge graphs from linked notes'
-                        ) : row.id === 'local' ? (
-                          'Choose data already on this machine'
-                        ) : row.authentication === 'browser' ? (
-                          row.authenticated ? (
-                            <span className="inline-flex items-center gap-1">
-                              <CheckIcon aria-hidden="true" className="size-3" /> Signed in
-                            </span>
-                          ) : (
-                            'Browser sign in'
-                          )
-                        ) : row.id === 'github' ? (
-                          'Public or private repository folder'
-                        ) : (
-                          'Saved or new SSH host'
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                    {row.id === 'obsidian' && (
-                      <Button
+                      </span>
+                      <SourceProviderInfo provider={row} />
+                    </span>
+                  }
+                  meta={
+                    row.id === 'obsidian' ? (
+                      'Knowledge graphs from linked notes'
+                    ) : row.id === 'local' ? (
+                      'Choose data already on this machine'
+                    ) : row.authentication === 'browser' ? (
+                      row.authenticated ? (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckIcon aria-hidden="true" className="size-3" /> Signed in
+                        </span>
+                      ) : (
+                        'Sign in for private data'
+                      )
+                    ) : row.id === 'github' ? (
+                      'Public or private repository folder'
+                    ) : (
+                      'Saved or new SSH host'
+                    )
+                  }
+                  actionsVisible
+                  actionsWidth={52}
+                  actions={
+                    row.id === 'obsidian' ? (
+                      <IconButton
                         size="sm"
-                        variant="outline"
+                        label="New vault"
+                        icon={<AddIcon />}
                         disabled={!workspaceId}
                         onClick={() => {
                           setObsidianChoice('new');
                           setForm({ choice: row.id });
                         }}
-                      >
-                        New vault
-                      </Button>
-                    )}
-                    {row.authentication === 'browser' &&
-                      (row.authenticated ? (
+                      />
+                    ) : row.authentication === 'browser' ? (
+                      row.authenticated ? (
                         <ConnectedAccountActions provider={row} />
                       ) : (
-                        <TooltipProvider delayDuration={150}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                aria-label={`Sign in to ${row.name}`}
-                                onClick={() => setAccountLogin(row)}
-                              >
-                                Sign in
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Sign in to access private data.</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ))}
+                        <IconButton
+                          size="sm"
+                          label={`Sign in to ${row.name}`}
+                          icon={<LogInIcon />}
+                          onClick={() => setAccountLogin(row)}
+                        />
+                      )
+                    ) : undefined
+                  }
+                  slotWidth={76}
+                  slot={
                     <Button
                       size="sm"
                       variant="outline"
+                      className="w-full"
                       disabled={!workspaceId}
                       onClick={() => {
                         setObsidianChoice('existing');
@@ -560,8 +566,8 @@ export function ConnectedSourceContents({
                     >
                       Connect
                     </Button>
-                  </div>
-                </div>
+                  }
+                />
               ))}
           </div>
         </section>

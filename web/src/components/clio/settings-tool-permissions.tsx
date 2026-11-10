@@ -1,7 +1,8 @@
 import type { PluginEntry, ToolSettings } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { useSeenInView } from '@/hooks/use-seen-in-view';
 import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -73,29 +74,70 @@ function pluginSection(
   return undefined;
 }
 
-/** Settings ??? Tools and MCP servers ??? Tools: every installed plugin's tools in one table. */
+/** What the catalog already says about a plugin's tools, before its settings are read. */
+function catalogMeta(plugin: PluginEntry): string {
+  const parts: string[] = [];
+  if (plugin.mcp_servers.length)
+    parts.push(
+      `${plugin.mcp_servers.join(', ')} ${plugin.mcp_servers.length === 1 ? 'server' : 'servers'}`,
+    );
+  if (plugin.tools.length) parts.push(plural(plugin.tools.length, 'tool'));
+  return parts.join(', ');
+}
+
+/**
+ * Settings › Tools and MCP servers › Tools: every installed plugin's tools in one table.
+ * The catalog lays the table out at once; a plugin's tool settings are read when its
+ * group comes into view, or for every plugin while a filter searches tool names.
+ */
 export function ToolPermissionsSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const scope = connectionScope(settings);
   const supported = useAgentPluginsSupported();
   const catalog = usePluginCatalog();
-  const plugins = catalog.data?.plugins ?? [];
-  const results = useQueries({
-    queries: plugins.map((plugin) => ({
-      queryKey: ['tool-settings', scope, plugin.ref],
-      queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
-    })),
-  });
+  // A plugin with neither tools nor MCP servers has nothing to list here.
+  const plugins = (catalog.data?.plugins ?? []).filter(
+    (plugin) => plugin.tools.length || plugin.mcp_servers.length,
+  );
   const editor = useToolSettingsEditor();
   const [filter, setFilter] = useState('');
   const [mode, setMode] = useState('');
   const term = filter.trim().toLocaleLowerCase();
+  const container = useRef<HTMLDivElement>(null);
+  // Groups (`data-tool-group`) are replaced when the plugins or the filter change.
+  const seen = useSeenInView(
+    container,
+    'data-tool-group',
+    `${plugins.map((plugin) => plugin.ref).join('\n')}\n${term}`,
+  );
+  const results = useQueries({
+    queries: plugins.map((plugin) => ({
+      queryKey: ['tool-settings', scope, plugin.ref],
+      queryFn: ({ signal }: { signal: AbortSignal }) => repository.toolSettings(plugin.ref, signal),
+      enabled: Boolean(term) || seen.has(plugin.ref),
+    })),
+  });
   const loaded = results.flatMap((result) => (result.data ? [result.data] : []));
   const modes = loaded[0]?.approval_modes ?? ['ask'];
   const shown = mode && modes.includes(mode) ? mode : (modes[0] ?? 'ask');
   const sections = plugins.flatMap((plugin, index): ToolTableSection[] => {
     const result = results[index];
+    if (result && !result.data && !result.error) {
+      // Not read yet: while filtering, only a plugin whose name matches holds its place.
+      if (term && !matches(plugin.id, term)) return [];
+      return [
+        {
+          id: plugin.ref,
+          title: plugin.id,
+          hint: plugin.description || plugin.ref,
+          bulkLabel: `All ${plugin.id} tools`,
+          tools: [],
+          notice: { text: catalogMeta(plugin), status: 'Loading', tone: 'running' },
+          reserveRows: plugin.tools.length,
+        },
+      ];
+    }
     if (result?.error) {
       if (term && !matches(plugin.id, term)) return [];
       return [
@@ -140,8 +182,11 @@ export function ToolPermissionsSettings() {
         />
       </div>
     );
-  } else if (catalog.isPending || results.some((result) => result.isPending)) {
+  } else if (catalog.isPending) {
     body = <StateView kind="loading" size="row" title="Loading plugin tools…" />;
+  } else if (term && !sections.length && results.some((result) => result.isPending)) {
+    toolbar = true;
+    body = <StateView kind="loading" size="row" title="Searching plugin tools…" />;
   } else if (!anyTools && !sections.length) {
     body = (
       <StateView
@@ -170,7 +215,11 @@ export function ToolPermissionsSettings() {
     );
   }
   return (
-    <div className="@container/page grid min-w-0 gap-3" data-slot="tool-permissions">
+    <div
+      className="@container/page grid min-w-0 gap-3"
+      data-slot="tool-permissions"
+      ref={container}
+    >
       {toolbar ? (
         <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField

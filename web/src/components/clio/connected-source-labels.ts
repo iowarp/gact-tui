@@ -17,6 +17,13 @@ export const sourceAccessNames: Record<LinkAccess, string> = {
   write_through: 'Read and write link',
 };
 
+/** The configured mode's access name, for a source with neither a link nor a copy yet. */
+const modeNames: Record<NonNullable<ConnectedSourceState['mode']>, string> = {
+  read_only: 'Read only',
+  working_copy: 'Editable download',
+  write_enabled: 'Read and write link',
+};
+
 export const sourceProviderNames: Record<SourceProviderId, string> = {
   local: 'Local',
   sftp: 'SFTP',
@@ -35,7 +42,7 @@ export function sourceSublineParts(source: ConnectedSourceState): string[] {
       ? source.download_access === 'editable'
         ? 'Editable download'
         : 'Read only'
-      : undefined;
+      : modeNames[source.mode ?? 'read_only'];
   return [
     sourceProviderNames[source.provider] ?? source.provider,
     source.provider === 'github' ? source.configuration.github_ref || undefined : undefined,

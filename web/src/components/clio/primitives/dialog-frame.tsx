@@ -103,6 +103,8 @@ export interface DialogFrameProps {
   title: string;
   /** A sentence under the title, aligned with its text; it wraps rather than cut. */
   description?: string;
+  /** What a screen reader hears when there is no visible description (defaults to the title). */
+  srDescription?: string;
   children?: ReactNode;
   /** The confirm button. Omit for a frame with only Close. */
   confirm?: DialogFrameConfirm;
@@ -139,6 +141,7 @@ export const DialogFrame = memo(function DialogFrame({
   icon,
   title,
   description,
+  srDescription,
   children,
   confirm,
   cancelLabel: cancelProp,
@@ -218,7 +221,7 @@ export const DialogFrame = memo(function DialogFrame({
             {description}
           </DialogDescription>
         ) : (
-          <DialogDescription className="sr-only">{title}</DialogDescription>
+          <DialogDescription className="sr-only">{srDescription ?? title}</DialogDescription>
         )}
         {children ? (
           <div

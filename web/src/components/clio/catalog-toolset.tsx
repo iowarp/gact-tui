@@ -52,6 +52,7 @@ export function CatalogToolset({
   query = '',
   source = 'all',
   permissions,
+  checking,
   onClearFilters,
 }: {
   servers?: McpServerDefinition[];
@@ -60,6 +61,8 @@ export function CatalogToolset({
   source?: ToolSource;
   /** Each tool's permission by name (Settings › Tools); the status column says it. */
   permissions?: ReadonlyMap<string, ToolPermission>;
+  /** Tools whose permission is still being read; they say Loading rather than Available. */
+  checking?: ReadonlySet<string>;
   onClearFilters?: () => void;
 }) {
   const bundles = useMemo(() => toolBundles(tools, servers, query), [query, servers, tools]);
@@ -77,6 +80,7 @@ export function CatalogToolset({
         <InfraList heading="Built in" hover={26} meta={128} pinned={false}>
           {builtin.map((entry) => (
             <ToolRow
+              checking={checking?.has(entry.tool.name)}
               entry={entry}
               key={toolKey(entry.tool)}
               onInspect={setSelected}
@@ -89,6 +93,7 @@ export function CatalogToolset({
         <InfraList heading="MCP servers" hover={26} meta={128} pinned={false}>
           {mcp.map((entry) => (
             <ToolRow
+              checking={checking?.has(entry.tool.name)}
               entry={entry}
               key={toolKey(entry.tool)}
               onInspect={setSelected}
@@ -126,10 +131,12 @@ function ToolRow({
   entry,
   onInspect,
   permission,
+  checking,
 }: {
   entry: ToolEntry;
   onInspect: (entry: ToolEntry) => void;
   permission?: ToolPermission;
+  checking?: boolean;
 }) {
   const { tool } = entry;
   const inspect = (event: MouseEvent) => {
@@ -139,12 +146,13 @@ function ToolRow({
   return (
     <InfraRow
       className="cursor-pointer"
+      data-tool-name={tool.name}
       description={toolSummary(tool)}
       icon={<ToolIcon tool={tool} />}
       // The meta column names where the tool comes from: the agent itself or its server.
       meta={tool.server_id ? entry.group : vocab.agent}
       onClick={() => onInspect(entry)}
-      status={toolStatus(tool, permission)}
+      status={toolStatus(tool, permission, checking)}
       title={
         <button className="max-w-full truncate text-left" onClick={inspect} type="button">
           {tool.name}
@@ -191,11 +199,16 @@ const PERMISSION_STATUS: Record<ToolPermission, InfraStatus> = {
 };
 
 /** The permission when Settings knows it (spec: Allowed, Asks first, Off), else availability. */
-function toolStatus(tool: ToolCatalogItem, permission?: ToolPermission): InfraStatus {
+function toolStatus(
+  tool: ToolCatalogItem,
+  permission?: ToolPermission,
+  checking?: boolean,
+): InfraStatus {
   if (tool.enabled === false) return { tone: 'idle', label: 'Off' };
   const status = tool.status?.trim().toLocaleLowerCase();
   const healthy = !status || ['available', 'enabled', 'ready', 'healthy'].includes(status);
   if (permission && healthy) return PERMISSION_STATUS[permission];
+  if (checking && healthy) return { tone: 'running', label: 'Loading' };
   if (healthy) {
     return { tone: 'success', label: 'Available' };
   }
