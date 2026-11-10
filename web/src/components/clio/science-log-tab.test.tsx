@@ -232,7 +232,7 @@ describe('Science log tab', () => {
       'aria-selected',
       'true',
     );
-    expect(within(frame).getByRole('tab', { name: 'Study graph' })).toBeVisible();
+    expect(within(frame).getByRole('tab', { name: 'Lineage' })).toBeVisible();
     expect(within(frame).queryByRole('tab', { name: 'Views' })).toBeNull();
     expect(screen.queryByText('Live boards')).toBeNull();
   });

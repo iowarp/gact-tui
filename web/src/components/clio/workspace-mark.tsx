@@ -5,11 +5,13 @@ import {
   FlaskConicalIcon,
   FolderGit2Icon,
   LeafIcon,
+  MessageSquareIcon,
   ServerIcon,
   TelescopeIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace-labels';
 
 const MARKS: readonly LucideIcon[] = [
   FlaskConicalIcon,
@@ -42,4 +44,13 @@ export function WorkspaceMark({ id, className }: { id: string; className?: strin
   const Icon = MARKS[value % MARKS.length]!;
   const tone = TONES[Math.floor(value / MARKS.length) % TONES.length]!;
   return <Icon aria-hidden="true" className={cn('size-4 shrink-0', tone, className)} />;
+}
+
+/** The top bar's crumb icon: a chat bubble for Conversations, otherwise the workspace's mark. */
+export function WorkspaceCrumbMark({ id }: { id: string }) {
+  return id === DEFAULT_WORKSPACE_ID ? (
+    <MessageSquareIcon aria-hidden="true" className="size-4 shrink-0" />
+  ) : (
+    <WorkspaceMark id={id} />
+  );
 }

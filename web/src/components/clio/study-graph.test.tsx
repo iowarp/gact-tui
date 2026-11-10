@@ -122,7 +122,7 @@ describe('study overview', () => {
   it('shows every grouped observation in the log from the graph', async () => {
     const user = userEvent.setup();
     render(<ScienceLogView sessionId="root" study={trialsStudy()} />);
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     const frame = screen.getByRole('toolbar', { name: 'Science log' });
     expect(within(frame).getByText('24 entries')).toBeVisible();
     expect(within(frame).getByText('43 links')).toBeVisible();
@@ -207,7 +207,7 @@ describe('science log graph navigation', () => {
     const user = userEvent.setup();
     render(<ScienceLogView study={study} sessionId="root" />);
     expect(screen.getByRole('group', { name: 'Study tree' })).toBeVisible();
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     const scope = within(facts()).getByRole('button', {
       name: 'Only the selected entry and its links',
     });
@@ -232,7 +232,7 @@ describe('science log graph navigation', () => {
   it('marks the edge the graph continues past when it opens at the readable floor', async () => {
     const user = userEvent.setup();
     render(<ScienceLogView study={study} sessionId="root" />);
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     const graph = screen.getByRole('region', { name: 'Study relationship graph' });
     const more = [...graph.querySelectorAll('[data-graph-more]')].map((edge) =>
       edge.getAttribute('data-graph-more'),
@@ -243,7 +243,7 @@ describe('science log graph navigation', () => {
   it('renders new recorded links on a study update and never enables an unavailable entry', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ScienceLogView study={study} sessionId="root" />);
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     expect(within(facts()).getByText('7 entries')).toBeVisible();
     expect(within(facts()).getByText('7 links')).toBeVisible();
     const extra = entry('later', 'root', 'evidence', { interpretation: 'A new check' }, [
@@ -268,7 +268,7 @@ describe('science log graph navigation', () => {
     await user.click(
       screen.getByRole('button', { name: /^Conflict: Functional form remains unresolved/u }),
     );
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     expect(
       screen.getByRole('button', { name: /^Conflict: Functional form remains unresolved/u }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -280,7 +280,7 @@ describe('science log graph navigation', () => {
     expect(within(facts()).getByText('3 links')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Log' }));
     expect(document.getElementById('science-entry-x')).toHaveAttribute('data-focused', 'true');
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     expect(within(facts()).getByText('4 entries')).toBeVisible();
     expect(
       within(facts()).getByRole('button', { name: 'Only the selected entry and its links' }),
@@ -291,7 +291,7 @@ describe('science log graph navigation', () => {
     const user = userEvent.setup();
     const focus = vi.spyOn(HTMLElement.prototype, 'focus');
     render(<ScienceLogView study={study} sessionId="root" />);
-    await user.click(screen.getByRole('tab', { name: 'Study graph' }));
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }));
     focus.mockClear();
     const graph = screen.getByRole('region', { name: 'Study relationship graph' });
     await user.click(

@@ -85,7 +85,19 @@ export function NavigationAgentMenu({
           size="lg"
           tooltip={tooltip}
         >
-          <BrandIcon className="size-[26px]! shrink-0 text-primary" />
+          <span className="relative grid shrink-0 place-items-center">
+            <BrandIcon className="size-[26px]! shrink-0 text-primary" />
+            {line.tone === 'error' || line.tone === 'warning' || line.tone === 'running' ? (
+              // Folded to icons the status line is hidden; its shaped glyph stays on the mark.
+              <StatusIndicator
+                className="absolute -right-[3px] -bottom-[3px] hidden size-3 rounded-full bg-sidebar group-data-[collapsible=icon]:inline-grid [&>*]:size-3!"
+                display="column"
+                label={line.text}
+                mark="glyph"
+                tone={line.tone}
+              />
+            ) : null}
+          </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
               <span className="truncate font-heading text-[15px] font-semibold">

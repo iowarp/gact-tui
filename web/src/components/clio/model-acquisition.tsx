@@ -370,7 +370,7 @@ export function ModelAcquisitions({
                 acquire.mutate();
               }}
             >
-              <div className="grid min-h-0 flex-1 auto-rows-min gap-x-4 gap-y-[13px] overflow-y-auto px-4 pb-3.5 max-[899px]:grid-rows-[minmax(14rem,1fr)_auto] min-[900px]:grid-cols-2 min-[900px]:grid-rows-[minmax(0,1fr)] min-[900px]:overflow-hidden">
+              <div className="grid min-h-0 flex-1 auto-rows-min gap-x-4 gap-y-[13px] overflow-y-auto px-4 pb-3.5 max-[899px]:grid-rows-[minmax(14rem,1fr)_auto] min-[900px]:grid-cols-[calc(48%-8px)_calc(52%-8px)] min-[900px]:grid-rows-[minmax(0,1fr)] min-[900px]:overflow-hidden">
                 <ModelDownloadSearch
                   heading={
                     submittedSearch
