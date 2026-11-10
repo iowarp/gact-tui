@@ -16,6 +16,8 @@ export interface PickerHint {
   wide?: boolean;
   /** Sits at the right edge, apart from the hints before it ("Ask"). */
   end?: boolean;
+  /** Draws the word in the accent tone: an action this list offers now ("All in Settings"). */
+  accent?: boolean;
 }
 
 interface PickerFooterProps {
@@ -69,7 +71,14 @@ export const PickerFooter = memo(function PickerFooter({
         {hints.map((hint) => {
           const content = (
             <>
-              <span className={cn(keysOnlyNarrow && '@max-[30rem]:sr-only')}>{hint.label}</span>{' '}
+              <span
+                className={cn(
+                  hint.accent && 'text-accent-foreground',
+                  keysOnlyNarrow && '@max-[30rem]:sr-only',
+                )}
+              >
+                {hint.label}
+              </span>{' '}
               <ShortcutKeys id={hint.shortcut} variant="inline" />
             </>
           );

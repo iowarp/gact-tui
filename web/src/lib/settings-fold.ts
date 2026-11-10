@@ -1,11 +1,9 @@
 /**
- * The spec's first fold: in the Settings window below 1024 px (rail or picker),
- * notes and ⓘ hints hide, then rows stack, before the nav folds. Dialogs portal
- * outside the window content and keep theirs until they become a bottom sheet
- * below 600 px.
+ * Notes and ⓘ hints stay with their label in the Settings window at every width:
+ * a stacked row only moves its control under the label (V's gap audit, spec 16
+ * step 1). Dialogs drop theirs once they become a bottom sheet below 600 px.
  */
-export const NARROW_HIDDEN =
-  'max-[1023px]:in-data-window-content:hidden max-[599px]:in-data-[slot=dialog-frame-body]:hidden';
+export const NARROW_HIDDEN = 'max-[599px]:in-data-[slot=dialog-frame-body]:hidden';
 
 /**
  * The spec's setting column (`.xrw{width:60%}`): 60% of the content column whenever
