@@ -11,7 +11,11 @@ import { TranscriptTaskRow } from './transcript-task-row';
 import { ClioStreamingText } from './streaming-text';
 import { ClioAgentMessageLine, ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
-import { questionInteractionsForTool, splitWaitingQuestion } from './agent-answer-domain';
+import {
+  permissionInteractionForTool,
+  questionInteractionsForTool,
+  splitWaitingQuestion,
+} from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { bucketIntensity } from '@/lib/attention-text';
@@ -107,9 +111,10 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
-    const { waiting, rest: questions } = splitWaitingQuestion(
+    const { waiting: question, rest: questions } = splitWaitingQuestion(
       questionInteractionsForTool(entities.interactions, block.tool_id),
     );
+    const waiting = question ?? permissionInteractionForTool(entities.interactions, tool);
     const attentionEntries = entities.messageAttentionIndex?.toolStepsByToolId.get(block.tool_id);
     const thoughtAttention = attentionEntries?.find((entry) => entry.kind === 'thought');
     const toolShare = toolStepShare(attentionEntries);

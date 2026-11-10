@@ -110,7 +110,8 @@ export function RelaySettings() {
         {GROUP}
       </SettingsGroupLabel>
       {list}
-      <p className="mt-3 text-xs text-faint">
+      {/* Notes are the first thing a narrow window drops. */}
+      <p className="mt-3 text-xs text-faint max-sm:hidden">
         Relay placements from earlier versions are not converted. Add each remote server again by
         its URL.
       </p>

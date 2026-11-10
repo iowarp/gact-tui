@@ -119,7 +119,7 @@ export function NavigationHeader({
             <span className="truncate">Search</span>
             <ShortcutKeys
               className={cn(
-                'ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden',
+                'ml-auto text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden max-[599px]:hidden',
                 // The held badge takes its place.
                 commandKeyHeld && 'invisible',
               )}

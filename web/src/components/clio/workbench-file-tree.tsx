@@ -41,6 +41,12 @@ export type FileTreeRow =
       icon?: ReactNode;
       /** Bytes, shown as the trailing meta when the conversation did not change it. */
       size?: number;
+      /** A trailing word when there is no size (an NDP resource's format). */
+      meta?: string;
+      /** Row actions, shown in place of the trailing meta on hover or focus. */
+      actions?: ReactNode;
+      /** An action that stays visible (an NDP stream's start). */
+      pinned?: ReactNode;
     }
   | { kind: 'note'; key: string; depth: number; label: string; tone?: 'muted' | 'error' }
   | { kind: 'loading'; key: string; depth: number; label: string }
@@ -318,9 +324,10 @@ function TreeRowView({
       const selected = selectedPath === row.path;
       const added = changed ? changeCountFor(changeCounts, row.path) : undefined;
       const sizeKnown = row.size !== undefined && row.size >= 0;
+      const trailing = added ? `+${added}` : sizeKnown ? formatCompactBytes(row.size!) : row.meta;
       const detail = [
         added ? `${added} lines added` : undefined,
-        sizeKnown ? formatBytes(row.size!) : undefined,
+        sizeKnown ? formatBytes(row.size!) : row.meta,
       ]
         .filter(Boolean)
         .join(', ');
@@ -331,6 +338,7 @@ function TreeRowView({
           aria-selected={selected}
           className={cn(
             TREE_ROW_CLASS,
+            'group/tree-row',
             changed && 'text-changed',
             selected && 'bg-accent text-accent-foreground hover:bg-accent',
           )}
@@ -357,11 +365,51 @@ function TreeRowView({
             {row.icon ?? <FileIcon className="size-3.5" />}
           </FileTreeIcon>
           <FileTreeName>{row.name}</FileTreeName>
-          {added || sizeKnown ? (
-            // Spec `.zx .t`: one quiet trailing meta, `+N` on a changed file, else its size.
-            <MetaValue className={cn('ml-auto text-faint', selected && 'text-accent-foreground')}>
-              {added ? `+${added}` : formatCompactBytes(row.size!)}
-            </MetaValue>
+          {trailing || row.actions || row.pinned ? (
+            <span className="ml-auto flex min-w-0 shrink-0 items-center gap-2 pl-2">
+              {trailing ? (
+                // Spec `.zx .t`: one quiet trailing meta, `+N` on a changed file, else its size
+                // or word; a row with actions shows them there on hover or focus instead.
+                <span
+                  className={cn(
+                    'flex',
+                    row.actions &&
+                      'group-focus-visible/tree-row:hidden group-has-[:focus-visible]/tree-row:hidden group-hover/tree-row:hidden',
+                  )}
+                >
+                  {added || sizeKnown ? (
+                    <MetaValue className={cn('text-faint', selected && 'text-accent-foreground')}>
+                      {trailing}
+                    </MetaValue>
+                  ) : (
+                    <span
+                      className={cn(
+                        'max-w-40 truncate text-[11px] text-faint',
+                        selected && 'text-accent-foreground',
+                      )}
+                    >
+                      {trailing}
+                    </span>
+                  )}
+                </span>
+              ) : null}
+              {row.actions || row.pinned ? (
+                // The row's own controls; a click or key on them never selects the row.
+                <span
+                  className="-my-0.5 -mr-1 flex items-center gap-px"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  role="none"
+                >
+                  {row.pinned}
+                  {row.actions ? (
+                    <span className="hidden items-center gap-px group-focus-visible/tree-row:flex group-has-[:focus-visible]/tree-row:flex group-hover/tree-row:flex">
+                      {row.actions}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </span>
           ) : null}
         </div>
       );

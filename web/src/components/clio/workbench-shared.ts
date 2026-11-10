@@ -176,6 +176,9 @@ export function changeCountFor(counts: ChangeCounts | undefined, path: string): 
   return undefined;
 }
 
+/** Under this the workbench slides over the conversation instead of sitting beside it. */
+export const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
+
 /**
  * A list header's secondary actions (refresh, hide), which the spec does not
  * draw: on a pointer that hovers they show only while the header is hovered

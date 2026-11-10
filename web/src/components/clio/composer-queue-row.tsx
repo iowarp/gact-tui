@@ -193,7 +193,7 @@ export function QueuedMessageRow({
           ) : (
             <>
               <span
-                className="invisible flex shrink-0 items-center gap-0.5 group-hover/queue-row:visible group-focus-within/queue-row:visible pointer-coarse:visible"
+                className="hidden shrink-0 items-center gap-0.5 group-hover/queue-row:flex group-focus-within/queue-row:flex pointer-coarse:flex"
                 data-slot="queue-row-actions"
               >
                 <IconButton

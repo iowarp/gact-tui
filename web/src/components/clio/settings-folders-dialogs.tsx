@@ -12,7 +12,7 @@ import { folderName, folderPathProblem, samePath } from './settings-folders-mode
 function ValueRow({ title, children }: { title: string; children: ReactNode }) {
   return (
     <SettingsRow fullWidth title={title}>
-      <span className="min-w-0 text-right text-[0.78125rem] text-pretty whitespace-normal text-foreground">
+      <span className="min-w-0 text-[0.78125rem] text-pretty whitespace-normal text-foreground">
         {children}
       </span>
     </SettingsRow>

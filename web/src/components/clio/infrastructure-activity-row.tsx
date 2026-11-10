@@ -117,9 +117,21 @@ export function InfrastructureActivityRow({
     row.detail ||
     '';
   const logLines = readableLogLines(row.logs);
-  const inlineLog = logLines.some((line) => line.trim())
+  const fullLog = logLines.some((line) => line.trim())
     ? logLines
     : (longDetail?.split('\n') ?? []);
+  // The ⚠ line already states the failure; the log under it carries only the rest.
+  const stated = new Set(
+    failed && outcome
+      ? outcome
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+      : [],
+  );
+  const inlineLog = stated.size
+    ? fullLog.filter((line) => !stated.has(line.trim()))
+    : fullLog;
   // A failed run stops on its last line, so that line is the error even without a keyword.
   const failureLine = failed ? inlineLog.findLastIndex((line) => line.trim()) : -1;
   const refresh = () =>
@@ -235,7 +247,7 @@ export function InfrastructureActivityRow({
                 </p>
               ) : null}
               {row.model && active ? <ModelDownloadProgress model={row.model} /> : null}
-              {inlineLog.length > 0 ? (
+              {inlineLog.some((line) => line.trim()) ? (
                 <pre
                   aria-label={`Log for ${title}`}
                   className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7] text-muted-foreground"

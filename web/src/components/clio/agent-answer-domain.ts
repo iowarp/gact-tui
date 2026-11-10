@@ -1,4 +1,4 @@
-import type { PendingInteraction } from '@clio/core/v3';
+import type { PendingInteraction, ToolInvocation } from '@clio/core/v3';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
 
 /** True for an MCP request the server first addressed to an agent. */
@@ -27,6 +27,36 @@ export function questionInteractionsForTool(
         interaction.source.invocation_id === toolId && isCausalQuestionInteraction(interaction),
     )
     .sort(compareQuestionInteractions);
+}
+
+const SETTLED_TOOL_STATES = new Set(['succeeded', 'failed', 'denied', 'cancelled']);
+
+/**
+ * The pending approval a call is paused on. A permission without the call's id
+ * is matched by tool name and by every argument it names, so a reloaded call
+ * still reads as waiting on the person rather than as an unrecorded outcome.
+ */
+export function permissionInteractionForTool(
+  interactions: readonly PendingInteraction[] | undefined,
+  tool: ToolInvocation | undefined,
+): PendingInteraction | undefined {
+  if (!tool || SETTLED_TOOL_STATES.has(tool.state)) return undefined;
+  return (interactions ?? []).find((interaction) => {
+    if (interaction.kind !== 'permission' || interaction.status !== 'pending') return false;
+    if (interaction.source.invocation_id) return interaction.source.invocation_id === tool.id;
+    const call = interaction.payload?.tool_call;
+    const name = interaction.source.tool_name ?? call?.tool_name;
+    return name === tool.name && argumentsCover(call?.input, tool.input);
+  });
+}
+
+function argumentsCover(asked: unknown, called: unknown): boolean {
+  if (!asked || typeof asked !== 'object') return asked === undefined;
+  if (!called || typeof called !== 'object') return false;
+  const target = called as Record<string, unknown>;
+  return Object.entries(asked as Record<string, unknown>).every(
+    ([key, value]) => JSON.stringify(target[key]) === JSON.stringify(value),
+  );
 }
 
 /**

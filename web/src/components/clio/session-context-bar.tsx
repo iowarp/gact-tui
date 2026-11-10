@@ -2,8 +2,8 @@ import type { Session } from '@clio/core/v3';
 import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { MoreIcon } from '@/lib/icon-vocabulary';
-import { cn } from '@/lib/utils';
 import { canForkSession } from '@/lib/session-state';
+import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace-labels';
 import { ClioSessionActions } from './session-actions';
 import { ClioDownloadsButton } from './downloads-button';
 import type { ClioSessionActionsProps } from './session-actions';
@@ -54,18 +54,24 @@ export function ClioSessionContextBar({
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5 text-[13px]">
         {workspaceLabel ? (
           <>
+            {/* Spec narrow order: on phones the top bar drops the workspace crumb, so the title gets the width. */}
             <button
-              className="flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28"
+              className="flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-1.5 text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring disabled:hover:bg-transparent max-md:max-w-28 max-sm:hidden"
               disabled={!onOpenWorkspace}
               onClick={onOpenWorkspace}
               title={`Open ${workspaceLabel}`}
               type="button"
             >
-              {session ? <WorkspaceMark id={session.workspace_id} /> : null}
-              {/* Phones keep the mark so the conversation title gets the width. */}
-              <span className={cn('truncate', session && 'max-sm:sr-only')}>{workspaceLabel}</span>
+              {/* Loose conversations have no workspace mark, as in the left bar. */}
+              {session && session.workspace_id !== DEFAULT_WORKSPACE_ID ? (
+                <WorkspaceMark id={session.workspace_id} />
+              ) : null}
+              <span className="truncate">{workspaceLabel}</span>
             </button>
-            <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-faint" />
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="size-3 shrink-0 text-faint max-sm:hidden"
+            />
           </>
         ) : null}
         <h1 aria-label={title} className="flex min-w-0">

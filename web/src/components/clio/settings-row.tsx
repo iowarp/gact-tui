@@ -107,11 +107,14 @@ export function SettingsRow({
               <Label
                 htmlFor={htmlFor}
                 className="block min-w-0 truncate text-[0.8125rem] leading-normal font-normal"
+                title={title}
               >
                 {name}
               </Label>
             ) : (
-              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal">{name}</h2>
+              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal" title={title}>
+                {name}
+              </h2>
             )}
             {hint ? (
               <InfoTip className={cn('text-faint', NARROW_HIDDEN)} label={`About ${title}`}>

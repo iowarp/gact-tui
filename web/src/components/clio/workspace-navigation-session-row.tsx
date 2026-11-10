@@ -48,6 +48,28 @@ import {
 } from './session-management-menu';
 import { ClioShareSessionDialog } from './share-session-dialog';
 
+/*
+ * Opening a conversation can reorder the list (the draft row goes away), which
+ * moves another row under a pointer that never moved. Previews stay closed
+ * until the pointer really moves.
+ */
+let previewsHeldAt: { x: number; y: number } | null = null;
+
+function releasePreviews(event: PointerEvent) {
+  if (
+    !previewsHeldAt ||
+    Math.hypot(event.clientX - previewsHeldAt.x, event.clientY - previewsHeldAt.y) > 3
+  ) {
+    previewsHeldAt = null;
+    window.removeEventListener('pointermove', releasePreviews);
+  }
+}
+
+function holdPreviews(x: number, y: number) {
+  previewsHeldAt = { x, y };
+  window.addEventListener('pointermove', releasePreviews);
+}
+
 interface SessionNavigationRowProps {
   session: Session;
   workspaceId: string;
@@ -186,7 +208,10 @@ function SessionRow({
     <>
       <HoverCard
         closeDelay={100}
-        onOpenChange={setHoverOpen}
+        onOpenChange={(next) => {
+          if (next && previewsHeldAt) return;
+          setHoverOpen(next);
+        }}
         open={hoverOpen && !menuOpen && !isMobile}
         openDelay={260}
       >
@@ -325,7 +350,11 @@ function SessionRow({
                       : 'text-foreground/85 group-hover/list-row:text-foreground',
                 )}
                 data-active={active}
-                onClick={() => onVisit(session)}
+                onClick={(event) => {
+                  holdPreviews(event.clientX, event.clientY);
+                  setHoverOpen(false);
+                  onVisit(session);
+                }}
                 onMouseDown={(event) => event.preventDefault()}
                 to={href}
               >
