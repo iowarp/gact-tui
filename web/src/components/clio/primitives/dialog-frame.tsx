@@ -383,10 +383,11 @@ export const WindowShell = memo(function WindowShell({
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
-              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%]">
+              {/* On a phone a search button stays compact; a live query field takes the free width. */}
+              <div className="ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
                 {search}
               </div>
-              <span className="flex-1" />
+              <span className="flex-1 max-[599px]:[:has(input)+&]:hidden" />
             </>
           ) : null}
           {toolbar}

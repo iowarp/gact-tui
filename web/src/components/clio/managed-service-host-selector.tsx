@@ -29,6 +29,7 @@ import { AddIcon, EditIcon, SettingsIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { SshHostPicker } from './ssh-host-picker';
 
 type Computer = Pick<InfrastructureTarget, 'id' | 'label' | 'kind'> &
@@ -95,7 +96,7 @@ export function ManagedServiceHostSelector({
   const navigate = useNavigate();
   const computers: Computer[] = targets.length
     ? targets.filter((host) => host.kind !== 'direct')
-    : [{ id: 'local', label: 'Local', kind: 'local' }];
+    : [{ id: 'local', label: AGENT_COMPUTER, kind: 'local' }];
   const selected = computers.find((host) => host.id === targetId);
   const selectedName = selected ? (selected.kind === 'local' ? 'Local' : selected.label) : targetId;
   const SelectedIcon = selected?.kind === 'local' ? LaptopIcon : ServerIcon;
