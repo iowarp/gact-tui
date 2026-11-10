@@ -44,7 +44,7 @@ function metricContext(name: string) {
 
 function ValueRow({ title, value, note }: { title: string; value: string; note?: string }) {
   return (
-    <SettingsRow inlineControl note={note} title={title}>
+    <SettingsRow fullWidth inlineControl note={note} title={title}>
       <span className="text-[0.8125rem] text-foreground tabular-nums">{value}</span>
     </SettingsRow>
   );
@@ -117,6 +117,7 @@ export function StorageGroup({ memory }: { memory: MemoryStatistics }) {
         value={number(memory.global.invocations_total)}
       />
       <SettingsRow
+        fullWidth
         inlineControl
         note={
           cacheSamples
@@ -187,6 +188,7 @@ export function HooksGroup({ hooks }: { hooks: HookInspection }) {
   return (
     <>
       <SettingsRow
+        fullWidth
         inlineControl
         note={`${hooks.hooks.length} loaded, ${hooks.recent_invocations.length} recent invocations`}
         title="Automation hooks"

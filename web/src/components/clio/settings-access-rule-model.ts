@@ -207,6 +207,21 @@ export function priorityError(priority: string): string | undefined {
   return priority !== '' && !/^-?\d+$/.test(priority.trim()) ? 'Use a whole number.' : undefined;
 }
 
+/**
+ * Each rule's rank among the rules' priorities, counted from the lowest (1), so
+ * "Priority N" stays small and positive while higher still wins. The agent
+ * places approved grants below every existing rule (0, -1, -2…); raw numbers
+ * stay in the editor. Ties share a rank; a rule without a priority has none.
+ */
+export function priorityRanks(policies: readonly { priority?: number }[]) {
+  const levels = [...new Set(policies.flatMap((policy) => policy.priority ?? []))].sort(
+    (left, right) => left - right,
+  );
+  return policies.map((policy) =>
+    policy.priority === undefined ? undefined : levels.indexOf(policy.priority) + 1,
+  );
+}
+
 /** "1 rule added, 2 rules removed" */
 export function changeSummary(added: number, changed: number, removed: number): string {
   const rules = (count: number) => `${count} ${count === 1 ? 'rule' : 'rules'}`;
