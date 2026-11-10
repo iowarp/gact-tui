@@ -738,7 +738,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
-    menu('composer-execution-mode', 'button', /^Execution mode/u),
+    menu('composer-execution-mode', 'button', /^Mode: /u),
     menu('composer-confirmation-policy', 'button', /^Confirmation policy/u),
     menu('composer-attach-files', 'button', 'Attach files'),
     menu('composer-add-reference', 'button', 'Add a reference'),

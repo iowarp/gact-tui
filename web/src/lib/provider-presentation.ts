@@ -95,6 +95,20 @@ export function providerManagedClientVendor(providerKind: string | undefined): s
   return providerKind ? managedClientVendors[providerKind] : undefined;
 }
 
+/**
+ * The route as the model label writes it: lowercase, without the vendor word its
+ * logo already shows (OpenAI Codex → codex, GitHub Copilot → copilot).
+ */
+export function modelRouteName(providerId: string, providerName: string): string {
+  const vendor = managedClientVendors[providerId] ?? providerIdNames[providerLogoId(providerId)];
+  const name = providerName.trim();
+  const rest =
+    vendor && name.toLowerCase().startsWith(`${vendor.toLowerCase()} `)
+      ? name.slice(vendor.length).trim()
+      : name;
+  return rest.toLowerCase();
+}
+
 /** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {
   return providerLogoIds[providerId] ?? providerId;
