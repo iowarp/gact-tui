@@ -193,7 +193,7 @@ describe('ArtifactView', () => {
     expect(imageCanvas.closest('[data-slot="scroll-area"]')).toBeNull();
     expect(imageCanvas.closest('[role="tabpanel"]')?.firstElementChild).toHaveClass('h-full');
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
-    // Ctrl or ⌘ with the wheel zooms, so the zoom icons may fold from a narrow frame.
+    // Ctrl or âŒ˜ with the wheel zooms, so the zoom icons may fold from a narrow frame.
     const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
     expect(zoomOut).toBeDisabled();
     fireEvent.wheel(imageCanvas, { deltaY: -100 });
@@ -378,8 +378,8 @@ describe('WorkspaceFileView', () => {
   it('presents an unsupported binary as the frame no-preview state, not a code block', async () => {
     renderFile(
       <WorkspaceFileView
-        mediaType="application/x-netcdf"
-        path="data/run.nc"
+        mediaType="application/octet-stream"
+        path="data/run.grib2"
         size={4096}
         workspaceId="workspace_1"
       />,
@@ -387,14 +387,14 @@ describe('WorkspaceFileView', () => {
 
     // The frame bar stays, with the extension and size as facts.
     const frame = screen.getByRole('toolbar', { name: 'File' });
-    expect(within(frame).getByLabelText('Location')).toHaveTextContent('run.nc');
-    expect(await within(frame).findByText('.nc')).toBeVisible();
+    expect(within(frame).getByLabelText('Location')).toHaveTextContent('run.grib2');
+    expect(await within(frame).findByText('.grib2')).toBeVisible();
     expect(within(frame).getByText('4.1 KB')).toBeVisible();
     const state = document.querySelector<HTMLElement>(
       '[data-slot="state-view"][data-kind="no-preview"]',
     )!;
-    expect(state).toHaveTextContent('.nc');
-    expect(state).toHaveTextContent('No preview for this format');
+    expect(state).toHaveTextContent('.grib2');
+    expect(state).toHaveTextContent('No viewer for .grib2 yet');
     // The frame bar and the state both offer the original download; Open does not repeat it.
     expect(within(state).getByRole('button', { name: 'Download' })).toBeVisible();
     expect(document.querySelector('pre code')).not.toBeInTheDocument();
@@ -405,11 +405,11 @@ describe('WorkspaceFileView', () => {
     await userEvent.keyboard('{Escape}');
     await userEvent.click(within(frame).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
-      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.nc'),
+      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.grib2'),
     );
     await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
-    expect(await screen.findByText('data/run.nc')).toBeVisible();
+    expect(await screen.findByText('data/run.grib2')).toBeVisible();
   });
 
   it.each([
@@ -504,7 +504,7 @@ describe('WorkspaceFileView', () => {
     );
   });
 
-  it('moves Build this paper into the frame’s … menu at the narrowest fold', async () => {
+  it('moves Build this paper into the frameâ€™s â€¦ menu at the narrowest fold', async () => {
     const restore = narrowFrameBars();
     try {
       repository.readWorkspaceFile.mockResolvedValue(
