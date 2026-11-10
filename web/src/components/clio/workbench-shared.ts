@@ -16,6 +16,8 @@ export type WorkbenchTab = WorkbenchTabKind & { backTo?: WorkbenchListView };
 
 type WorkbenchTabKind =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
+  /** The NDP catalog, browsed as a Files tree. */
+  | { id: string; kind: 'ndp'; label: string; workspaceId: string }
   | { id: 'work'; kind: 'work'; label: 'Work' }
   /** One Activity row's detail: a tool call, a task, a question, a source. */
   | {
@@ -106,7 +108,17 @@ type WorkbenchTabKind =
       workspaceId: string;
     }
   /** Ctrl K's results for `query`, moved into a tab (All results). */
-  | { id: string; kind: 'search'; label: string; query: string; scope?: CommandMenuScope };
+  | { id: string; kind: 'search'; label: string; query: string; scope?: CommandMenuScope }
+  /** One try of a variant run (BestOfN / Refine); the run's pick card picks between them. */
+  | {
+      id: string;
+      kind: 'variant-try';
+      label: string;
+      variantsId: string;
+      tryIndex: number;
+      sessionId: string;
+      workspaceId: string;
+    };
 
 export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {
   return {

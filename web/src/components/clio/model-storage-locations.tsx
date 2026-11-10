@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FolderIcon, HardDriveIcon } from 'lucide-react';
 import { EditIcon } from '@/lib/icon-vocabulary';
+import { DIALOG_FULL_WINDOW_CLASS } from '@/lib/dialog-sheet';
+import { cn } from '@/lib/utils';
 import { displayHostPath } from '@/lib/host-path-display';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -84,7 +86,12 @@ export function ModelStorageLocations({
         />
       )}
       <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+          className={cn(
+            'max-h-[90dvh] overflow-y-auto sm:max-w-[clamp(340px,36vw,640px)] max-[599px]:content-start',
+            DIALOG_FULL_WINDOW_CLASS,
+          )}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <HardDriveIcon aria-hidden="true" className="size-4 text-muted-foreground" />

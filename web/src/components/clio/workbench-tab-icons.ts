@@ -3,6 +3,7 @@ import {
   BookIcon,
   BotIcon,
   BoxIcon,
+  DatabaseIcon,
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
@@ -22,6 +23,7 @@ import type { WorkbenchTabListView } from './workbench-strip';
 
 export const workbenchTabIcons = {
   knowledge: BookIcon,
+  ndp: DatabaseIcon,
   work: ListChecksIcon,
   activity: ActivityIcon,
   files: FolderIcon,
@@ -39,6 +41,7 @@ export const workbenchTabIcons = {
   browser: GlobeIcon,
   list: ListIcon,
   search: SearchIcon,
+  'variant-try': BotIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>

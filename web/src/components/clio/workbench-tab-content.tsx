@@ -22,6 +22,7 @@ import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
+import { WorkbenchVariantTryTab } from './workbench-variant-try-tab';
 import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
@@ -33,6 +34,9 @@ const SearchResultsTab = lazy(() =>
 );
 const KnowledgeSourceView = lazy(() =>
   import('./knowledge-source-view').then((module) => ({ default: module.KnowledgeSourceView })),
+);
+const NdpBrowserTab = lazy(() =>
+  import('./ndp-browser-tab').then((module) => ({ default: module.NdpBrowserTab })),
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchTabListView } from './workbench-strip';
@@ -382,6 +386,12 @@ export function WorkbenchTabContent({
           />
         </Suspense>
       );
+    case 'ndp':
+      return (
+        <Suspense fallback={<CanvasLoading label="Loading the catalog" />}>
+          <NdpBrowserTab label={tab.label} workspaceId={tab.workspaceId} />
+        </Suspense>
+      );
     case 'list':
       return renderList(tab.view);
     case 'search':
@@ -396,6 +406,8 @@ export function WorkbenchTabContent({
           />
         </Suspense>
       );
+    case 'variant-try':
+      return <WorkbenchVariantTryTab tab={tab} />;
     default:
       return assertNever(tab);
   }

@@ -71,10 +71,10 @@ export function saveWorkbenchState(workspaceId: string, state: RestoredWorkbench
   window.localStorage.setItem(workbenchTabsStorageKey(workspaceId), JSON.stringify(state));
 }
 
-/** A fresh pocket opens on its Activity tab when there is a conversation, or on
- * the Files tab for a workspace without one. */
-export function restoredWorkbenchState(workspaceId: string, hasSession = true): RestoredWorkbench {
-  const first = listTab(hasSession ? 'activity' : 'files');
+/** A fresh pocket opens on Files. Tabs hold only what the reader opened, so
+ * Activity appears when its strip icon is chosen rather than by default. */
+export function restoredWorkbenchState(workspaceId: string): RestoredWorkbench {
+  const first = listTab('files');
   const fresh: RestoredWorkbench = { tabs: [first], activeTabId: first.id, pinnedIds: [] };
   if (typeof window === 'undefined') return fresh;
   try {
