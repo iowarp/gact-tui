@@ -939,6 +939,20 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
+    // A frame bar folded to its active mode and a chevron (390): the modes as a
+    // checked list with the key that works anywhere (workbench-keyboard).
+    s('canvas', 'file-csv-modes', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+      const fallback = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (await folded.isVisible().catch(() => false)) await folded.click();
+      else await fallback.click();
+      await overlay(page);
+    }),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
