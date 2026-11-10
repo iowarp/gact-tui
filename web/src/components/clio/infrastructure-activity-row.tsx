@@ -34,6 +34,7 @@ import {
 } from './infrastructure-operation-presentation';
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowChevron, InfraRowToggle, InfraRowActions } from './infrastructure-row-toggle';
+import { InfraRowMenu } from './infrastructure-row-menu';
 import { IconButton } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
@@ -57,7 +58,7 @@ const STATE_TONES: Record<string, InfraStatus['tone']> = {
   failed: 'error',
   succeeded: 'success',
   ready: 'success',
-  cancelled: 'stopped',
+  cancelled: 'idle',
   removed: 'idle',
   pending: 'idle',
   reused: 'success',
@@ -74,6 +75,10 @@ const ACTION_ICONS: Record<string, ReactNode> = {
   remove: <DeleteIcon />,
   uninstall: <DeleteIcon />,
 };
+
+// The spec's quiet text link under an opened row's log (.lnk): muted words, no outline.
+const QUIET_ACTION =
+  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-[12px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
 
 /**
  * One operation in the timeline: what ran, where, its state and when. Opening
@@ -152,25 +157,20 @@ export function InfrastructureActivityRow({
           </InfraRowToggle>
         }
         actions={
-          <InfraRowActions className="flex items-center">
-            {canRetry ? (
-              <IconButton
-                disabled={act.isPending}
-                icon={<RetryIcon />}
-                label={`Retry ${title}`}
-                onClick={() => act.mutate('retry')}
-                size="sm"
-              />
-            ) : null}
-            {raw ? (
-              <IconButton
-                icon={<CopyIcon />}
-                label={`Copy log for ${title}`}
-                onClick={() => void copyText(raw)}
-                size="sm"
-              />
-            ) : null}
-          </InfraRowActions>
+          <InfraRowMenu
+            actions={
+              raw
+                ? [
+                    {
+                      icon: <CopyIcon />,
+                      label: `Copy log for ${title}`,
+                      onSelect: () => void copyText(raw),
+                    },
+                  ]
+                : []
+            }
+            label={`More for ${title}`}
+          />
         }
         primaryAction={
           canCancel ? (
@@ -186,6 +186,22 @@ export function InfrastructureActivityRow({
                 }
                 label={`Cancel ${title}`}
                 onClick={() => act.mutate('cancel')}
+                size="sm"
+              />
+            </InfraRowActions>
+          ) : canRetry ? (
+            <InfraRowActions>
+              <IconButton
+                disabled={act.isPending}
+                icon={
+                  act.isPending ? (
+                    <LoaderCircleIcon className="motion-safe:animate-spin" />
+                  ) : (
+                    <RetryIcon />
+                  )
+                }
+                label={`Retry ${title}`}
+                onClick={() => act.mutate('retry')}
                 size="sm"
               />
             </InfraRowActions>
@@ -228,16 +244,14 @@ export function InfrastructureActivityRow({
                   action={{ label: 'Dismiss', onClick: () => act.reset() }}
                 />
               ) : null}
-              <div className="flex flex-wrap gap-1.5">
-                <Button onClick={() => setOpen(true)} size="xs" variant="outline">
+              <div className="-ml-1.5 flex min-w-0 gap-0.5">
+                <button className={QUIET_ACTION} onClick={() => setOpen(true)} type="button">
                   View operation
-                </Button>
-                <Button asChild size="xs" variant="outline">
-                  <Link to={destination}>
-                    <ExternalLinkIcon aria-hidden="true" />
-                    {row.model ? 'Go to models' : 'Go to service'}
-                  </Link>
-                </Button>
+                </button>
+                <Link className={QUIET_ACTION} to={destination}>
+                  <ExternalLinkIcon aria-hidden="true" />
+                  {row.model ? 'Go to models' : 'Go to service'}
+                </Link>
               </div>
             </>
           ) : undefined

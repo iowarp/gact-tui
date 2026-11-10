@@ -234,7 +234,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
                 {row.next_action}
               </p>
             ) : null}
-            <KeyValueGrid className={INFRA_FACTS_GRID} items={facts} />
+            <KeyValueGrid actionColumn className={INFRA_FACTS_GRID} items={facts} />
             {setupOutcome ? (
               <p className="text-[12px] whitespace-normal text-foreground" role="status">
                 {setupOutcome}

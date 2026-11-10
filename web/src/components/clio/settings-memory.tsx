@@ -279,6 +279,12 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
           label="Export all memory"
           onClick={() => exportAll.mutate()}
         />
+        <IconButton
+          icon={<UploadIcon />}
+          label="Import memory"
+          onClick={() => setImporting(true)}
+          shortcut={IMPORT_SHORTCUT}
+        />
       </div>
       {summary.data && !summary.data.enabled ? (
         <div className="flex min-w-0 items-center gap-2 py-2 text-[12.5px] text-muted-foreground">

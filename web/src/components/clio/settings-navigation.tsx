@@ -105,14 +105,13 @@ export function SettingsSearchButton() {
       className={cn(
         'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
-        'max-[599px]:size-7 max-[599px]:justify-center max-[599px]:p-0',
       )}
       onClick={openGlobalSearch}
       title="Search settings and everything else"
       type="button"
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-left max-[599px]:hidden">Search</span>
+      <span className="min-w-0 flex-1 truncate text-left">Search</span>
       <ShortcutKeys id="search" variant="inline" className="max-[599px]:hidden" />
     </button>
   );
