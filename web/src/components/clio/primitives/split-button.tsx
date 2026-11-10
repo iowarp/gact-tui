@@ -137,11 +137,12 @@ export const SplitButton = memo(function SplitButton({
               disabled={menuDisabled}
               className={cn(
                 segment,
-                // On a filled face a foreground tint deepens the contrast in light and dark.
+                // On a filled face a foreground tint deepens the contrast in light and dark;
+                // on a disabled face the menu stays usable, so the chip keeps only a faint tint.
                 variant === 'default'
-                  ? 'bg-foreground/15 hover:bg-foreground/25 aria-expanded:bg-foreground/25'
+                  ? 'bg-foreground/15 group-data-disabled/split:bg-foreground/[0.06] hover:bg-foreground/25 aria-expanded:bg-foreground/25'
                   : 'bg-current/15 hover:bg-current/25 aria-expanded:bg-current/25',
-                'h-[22px] gap-1 rounded-[5px] pr-1 pl-[7px] text-[11.5px] font-medium [&_svg:not([class*=size-])]:size-[11px]',
+                'h-[22px] gap-1 rounded-[5px] pr-1 pl-[7px] text-[11.5px] font-normal [&_svg:not([class*=size-])]:size-[11px]',
               )}
             >
               <span className="min-w-0 truncate">{menuValue}</span>
