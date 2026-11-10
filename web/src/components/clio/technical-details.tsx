@@ -28,6 +28,7 @@ export function TechnicalDetails({
   title,
   shortcut,
   hint,
+  hintClassName,
   triggerProps,
   onOpenChange,
 }: {
@@ -42,6 +43,7 @@ export function TechnicalDetails({
   shortcut?: string;
   /** A quiet line beside the trigger saying what is inside. */
   hint?: string;
+  hintClassName?: string;
   /** Extra attributes for the trigger, e.g. the key a surface maps to it. */
   triggerProps?: Record<string, string>;
   onOpenChange?: (open: boolean) => void;
@@ -70,7 +72,11 @@ export function TechnicalDetails({
         <div className={cn('flex min-w-0 items-center', beside ? 'gap-1' : 'gap-2')}>
           {beside}
           {trigger}
-          {hint ? <span className="min-w-0 truncate text-muted-foreground">{hint}</span> : null}
+          {hint ? (
+            <span className={cn('min-w-0 truncate text-muted-foreground', hintClassName)}>
+              {hint}
+            </span>
+          ) : null}
         </div>
       ) : (
         trigger

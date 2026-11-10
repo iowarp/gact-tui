@@ -18,7 +18,7 @@ const FOLDER_DIALOG_WIDTH = 'w-[clamp(440px,44vw,600px)]';
 function ValueRow({ title, children }: { title: string; children: ReactNode }) {
   return (
     <SettingsRow fullWidth title={title}>
-      <span className="min-w-0 text-right text-[0.78125rem] whitespace-normal text-foreground">
+      <span className="min-w-0 text-right text-[0.78125rem] text-pretty whitespace-normal text-foreground">
         {children}
       </span>
     </SettingsRow>
