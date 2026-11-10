@@ -34,6 +34,20 @@ export const ACTIVE_SESSION_POLL_MS = 1_500;
 export const LIVE_STREAM_FALLBACK_POLL_MS = 15_000;
 
 /**
+ * Shortest gap between execution-provenance refreshes driven by a streaming
+ * turn's events; the turn's completion always refreshes it. Unit: milliseconds.
+ */
+export const LIVE_PROVENANCE_REFRESH_MS = 10_000;
+
+/**
+ * Shortest gap between session-list and work-rail refreshes driven by a
+ * streaming turn's events; the turn's completion always refreshes them. The live
+ * stream carries the open session's own state, so these lists may trail by up
+ * to this long. Unit: milliseconds.
+ */
+export const LIVE_SESSION_LIST_REFRESH_MS = 2_000;
+
+/**
  * Refetch cadence for the active transcript page while a turn runs and no live
  * stream is connected. Unit: milliseconds.
  */
@@ -284,12 +298,17 @@ export const GACT_HTTP_TRANSFER_TIMEOUT_MS = 600_000;
 // How much history a surface holds or asks for.
 
 /**
- * Maximum provenance records requested for one execution-provenance view.
- * Unit: records. High because the view is a complete lineage audit and a
- * silently trimmed graph would be misleading; lower it only if large sessions
- * make the request itself the bottleneck.
+ * Most provenance records one execution-provenance view may ask for, after the
+ * user has loaded earlier pages. Unit: records.
  */
 export const EXECUTION_PROVENANCE_LIMIT = 10_000;
+
+/**
+ * Provenance records requested per page, newest first; "Load earlier" asks for
+ * one more page. Unit: records. A long session's full history is megabytes and
+ * seconds to read, and the Activity list shows the latest work first.
+ */
+export const EXECUTION_PROVENANCE_PAGE = 200;
 
 // ## Preview budgets
 // Ceilings on how much of an artifact the client will fetch and render inline.

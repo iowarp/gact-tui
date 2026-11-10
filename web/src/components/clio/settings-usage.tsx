@@ -111,7 +111,7 @@ function AccountRow({
       slot={<DelegationSwitch account={account} />}
       slotWidth={44}
       status={
-        <span className="flex min-w-0" title={words.hint}>
+        <span className="flex min-w-0" role="status" title={words.hint}>
           <StatusIndicator label={words.label} tone={words.tone} />
         </span>
       }
