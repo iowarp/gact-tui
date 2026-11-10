@@ -190,7 +190,7 @@ function McpServiceRow({
         busyAction="Disconnecting…"
         onConfirm={onDisconnect}
         onKeep={keep}
-        question="Disconnect this server?"
+        question={`Disconnect ${title}?`}
       />
     ) : asking === 'remove' && onRemoveSaved ? (
       <RowConfirm
@@ -198,7 +198,7 @@ function McpServiceRow({
         busyAction="Removing…"
         onConfirm={onRemoveSaved}
         onKeep={keep}
-        question="Remove this server?"
+        question={`Remove ${title}?`}
       />
     ) : undefined;
   const open = (event: MouseEvent<HTMLDivElement>) => {

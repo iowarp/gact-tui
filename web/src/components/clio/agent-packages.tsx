@@ -229,9 +229,9 @@ function PackageRow({
       // A narrow list stacks the status under the meta; there provenance
       // joins the counts line instead, so a package stays two lines.
       meta={
-        <span className="flex min-w-0" title={`${meta}. ${provenance}`}>
-          <span className="min-w-0 truncate">{meta}</span>
-          <span className="hidden shrink-0 @max-sm:inline">, {provenance.toLowerCase()}</span>
+        <span className="block min-w-0 truncate" title={`${meta}. ${provenance}`}>
+          {meta}
+          <span className="hidden @max-sm:inline">, {provenance.toLowerCase()}</span>
         </span>
       }
       onClick={click}

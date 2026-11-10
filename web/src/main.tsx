@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { AppRouter } from '@/lib/app-router';
 import './index.css';
 import { AppProviders } from '@/providers/app-providers';
 import { RouteErrorBoundary } from '@/components/clio/route-error-boundary';
@@ -21,10 +21,10 @@ try {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <RevealDesktopWindow />
-    <BrowserRouter>
+    <AppRouter>
       <AppProviders>
         <RouteErrorBoundary />
       </AppProviders>
-    </BrowserRouter>
+    </AppRouter>
   </StrictMode>,
 );

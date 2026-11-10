@@ -673,11 +673,15 @@ describe('ClioComposer service commands', () => {
     const input = composerEditor();
 
     expect(input).toBeEnabled();
+    // Nothing typed: the one square stops the run.
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Queue' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Queue' })).not.toBeInTheDocument();
     expect(screen.queryByText('Working')).not.toBeInTheDocument();
 
     await user.type(input, 'Prioritize the provenance gap.');
+    // Text: the same square queues it, and steers while Ctrl is held.
+    expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeEnabled();
     await user.keyboard('{Control>}');
     await user.click(screen.getByRole('button', { name: 'Steer' }));
     await user.keyboard('{/Control}');
@@ -686,6 +690,20 @@ describe('ClioComposer service commands', () => {
       expect.objectContaining({ text: 'Prioritize the provenance gap.' }),
     );
     expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it('stops from the send square when nothing is typed, and Enter sends nothing', async () => {
+    const user = userEvent.setup();
+    const { onStop, onSubmit } = renderComposer({ state: 'running' });
+    const input = composerEditor();
+
+    await user.click(input);
+    await user.keyboard('{Enter}');
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.type(input, 'x');
+    await user.keyboard('{Backspace}');
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(onStop).toHaveBeenCalledOnce();
   });
 
   it('queues Enter and steers Ctrl+Enter and Cmd+Enter into the running turn', async () => {

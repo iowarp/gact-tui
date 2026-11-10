@@ -147,8 +147,6 @@ export const STATUS_KINDS = ['supported', 'running', 'refuted', 'superseded'] as
 export type StatusKind = (typeof STATUS_KINDS)[number];
 
 export const CATEGORY_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('category-'));
-export const CHART_TOKENS = COLOR_TOKENS.filter((token) => token.startsWith('chart-'));
-
 /** A theme's id, which `themes.css` selects with `:root[data-theme='<id>']`. */
 export type ThemeId = 'light' | 'dark' | 'classic-light' | 'classic-dark' | 'debug';
 /** What the person picks. `system` follows the OS between Light and Dark. */
@@ -169,9 +167,4 @@ export const THEMES: readonly ThemeDefinition[] = [
   { id: 'classic-light', label: 'Cool', scheme: 'light' },
   { id: 'classic-dark', label: 'Neutral', scheme: 'dark' },
   { id: 'debug', label: 'Debug', scheme: 'system', development: true },
-];
-
-export const THEME_PREFERENCES: readonly ThemePreference[] = [
-  'system',
-  ...THEMES.map((theme) => theme.id),
 ];

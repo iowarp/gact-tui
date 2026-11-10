@@ -61,7 +61,6 @@ import { LIST_HEADER_SECONDARY, type ChangeCounts } from './workbench-shared';
 const ArtifactView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
 );
-export { CanvasLauncher, type CanvasResourceKind } from './canvas-launcher';
 
 interface FileBrowserProps {
   directory?: string;

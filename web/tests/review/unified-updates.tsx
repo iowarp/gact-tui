@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ForcedTheme } from '../../src/theme/forced-theme';
 import { AppUpdateSettings } from '../../src/components/clio/settings-app-updates';
-import { SystemVersionStatus } from '../../src/components/clio/navigation-version-status';
 import { UpdateRestartRecovery } from '../../src/components/clio/update-restart-recovery';
 import { UpdateRestartOverlay } from '../../src/components/clio/update-restart-overlay';
 import { ArchiveConnectionProvider } from '../../src/providers/connection-provider';
@@ -105,7 +104,7 @@ function Review() {
                 <p className="text-xs text-muted-foreground">
                   Interface review · Simulated native update metadata. No software is installed.
                 </p>
-                {view === 'status' ? <SystemVersionStatus /> : <AppUpdateSettings />}
+                <AppUpdateSettings />
                 {restarted ? (
                   <>
                     <UpdateRestartRecovery />

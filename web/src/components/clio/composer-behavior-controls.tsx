@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { approvalOptionViews } from './approval-option-availability';
-import { IconButton, NamedTooltip } from './primitives/icon-button';
-import { HeldKeyBadge } from './primitives/key-chip';
+import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
@@ -55,7 +53,7 @@ const MENU_ITEM =
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;
   disabled?: boolean;
-  /** The model choice, placed on the right of the row before the mode. */
+  /** The model choice, placed on the right of the row before Send. */
   modelControl: ReactNode;
   /** Optional compact session evidence, placed just before the model. */
   beforeModel?: ReactNode;
@@ -83,10 +81,10 @@ interface ClioComposerBehaviorControlsProps {
 }
 
 /**
- * The composer row's behavior controls: confirmation policy and reasoning as
- * bare icons on the left, then the model and the mode word on the right. One
- * menu opens at a time. Rendered as a fragment so every control sits directly
- * in the composer's single toolbar row.
+ * The composer row's behavior controls: confirmation policy, reasoning and mode
+ * as bare icons on the left, then the model on the right. One menu opens at a
+ * time. Rendered as a fragment so every control sits directly in the composer's
+ * single toolbar row.
  */
 export function ClioComposerBehaviorControls({
   behavior,
@@ -167,7 +165,11 @@ export function ClioComposerBehaviorControls({
             type="button"
           />
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[24rem] max-w-[calc(100vw-1rem)]" side="top">
+        <DropdownMenuContent
+          className="w-[24rem] max-w-[calc(100vw-1rem)]"
+          collisionPadding={8}
+          side="top"
+        >
           <DropdownMenuLabel className={MENU_LABEL}>Confirmation policy</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
@@ -232,7 +234,7 @@ export function ClioComposerBehaviorControls({
               type="button"
             />
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" side="top">
+          <DropdownMenuContent className="w-56" collisionPadding={8} side="top">
             <DropdownMenuLabel className={MENU_LABEL}>Reasoning effort</DropdownMenuLabel>
             {unknownEffort ? (
               <p className="px-2 pb-1.5 text-xs text-muted-foreground">
@@ -269,37 +271,27 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      {spotterModelControl &&
-      behavior.confirmation_policy === 'spotter-ai' &&
-      spotterAvailability?.available
-        ? spotterModelControl
-        : null}
-      <span aria-hidden="true" className="min-w-0 flex-1" />
-      {beforeModel}
-      {modelControl}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
-        <NamedTooltip label={`Mode: ${modeLabel}`} shortcut="mode" side="top">
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label={`Execution mode: ${modeLabel}`}
-              className={cn(
-                'h-[26px] shrink-0 gap-[5px] rounded-[6px] px-1.5 text-[12px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover [&_svg:not([class*=size-])]:size-3.5',
-                selectedMode &&
-                  selectedMode.value !== 'edit' &&
-                  'text-accent-foreground hover:text-accent-foreground',
-              )}
-              data-slot="composer-mode"
-              disabled={disabled}
-              type="button"
-              variant="ghost"
-            >
-              <ModeIcon aria-hidden="true" />
-              <span className="@max-[420px]/composer:hidden">{modeLabel}</span>
-              <HeldKeyBadge id="mode" side="top-edge" />
-            </Button>
-          </DropdownMenuTrigger>
-        </NamedTooltip>
-        <DropdownMenuContent align="end" className="w-[21rem]" side="top">
+        <DropdownMenuTrigger asChild>
+          <IconButton
+            className={cn(
+              'aria-expanded:bg-hover',
+              selectedMode &&
+                selectedMode.value !== 'edit' &&
+                'text-accent-foreground hover:text-accent-foreground',
+            )}
+            data-slot="composer-mode"
+            disabled={disabled}
+            icon={<ModeIcon />}
+            label={`Mode: ${modeLabel}`}
+            shortcut="mode"
+            shortcutSide="top-edge"
+            size="toolbar"
+            tooltipSide="top"
+            type="button"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[21rem]" collisionPadding={8} side="top">
           <DropdownMenuLabel className={MENU_LABEL}>Mode</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
@@ -323,6 +315,14 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {spotterModelControl &&
+      behavior.confirmation_policy === 'spotter-ai' &&
+      spotterAvailability?.available
+        ? spotterModelControl
+        : null}
+      <span aria-hidden="true" className="min-w-0 flex-1" />
+      {beforeModel}
+      {modelControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
         <AlertDialogContent>
           <AlertDialogHeader>

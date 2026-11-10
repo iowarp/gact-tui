@@ -653,6 +653,8 @@ function previewModels(
  * Word, then key: the picker's keys. One column keeps only Choose and Close
  * (the spec's fold drops every key except ? and Esc). Search typed in two
  * columns trades Close for Filters, as the spec's search footer does.
+ * Columns shows only when the picker is wide; Move drops next, and the last
+ * hint always shows.
  */
 function footerHints(columns: boolean, searching = false): PickerHint[] {
   if (!columns) {
@@ -664,10 +666,10 @@ function footerHints(columns: boolean, searching = false): PickerHint[] {
   return [
     { label: 'Move', shortcut: 'menu-move', optional: true },
     { label: 'Choose', shortcut: 'menu-pick' },
-    { label: 'Columns', shortcut: 'menu-columns', optional: true },
+    { label: 'Columns', shortcut: 'menu-columns', wide: true },
     searching
-      ? { label: 'Filters', shortcut: 'menu-filters', optional: true }
-      : { label: 'Close', shortcut: 'menu-close', optional: true },
+      ? { label: 'Filters', shortcut: 'menu-filters' }
+      : { label: 'Close', shortcut: 'menu-close' },
   ];
 }
 
