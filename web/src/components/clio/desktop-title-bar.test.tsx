@@ -6,7 +6,6 @@ import { brand } from '@brand';
 import { MENU_ACTION_EVENT, useMenuAction, type MenuAction } from '@/tauri/menu-actions';
 import type { ReactNode } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useDesktopTitleStore } from '@/store/desktop-title';
 import { DesktopTitleBar } from './desktop-title-bar';
 
 const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
@@ -110,7 +109,6 @@ describe('DesktopTitleBar', () => {
     isMacOS.mockReturnValue(false);
     liveStreamState.current = 'live';
     capabilitiesService.current = { name: 'clio-agent-gact', version: '1.2.3' };
-    useDesktopTitleStore.getState().clearTitleContext();
   });
 
   afterEach(() => {
@@ -384,65 +382,21 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
   });
 
-  it('title_bar_shows_session_context: shows workspace › session with the agent badge once a route writes it', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
+  it('the empty top-bar space is a deep Tauri drag region', () => {
     renderTitleBar();
 
-    expect(screen.getByText('flat-ndp')).toBeInTheDocument();
-    expect(screen.getByText('NDP flatness run')).toBeInTheDocument();
-    expect(screen.getByText('EarthScope (Flat / Haiku)')).toBeInTheDocument();
-  });
-
-  it('the title context region is a deep Tauri drag region, so clicking its text (not just its padding) drags', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    expect(screen.getByTestId('desktop-title-context')).toHaveAttribute(
+    expect(screen.getByTestId('desktop-title-drag')).toHaveAttribute(
       'data-tauri-drag-region',
       'deep',
     );
   });
 
-  it('double-clicking the title context no longer toggles maximize itself — Tauri handles it natively', () => {
+  it('double-clicking the drag region no longer toggles maximize itself — Tauri handles it natively', () => {
     renderTitleBar();
 
-    fireEvent.doubleClick(screen.getByTestId('desktop-title-context'));
+    fireEvent.doubleClick(screen.getByTestId('desktop-title-drag'));
 
     expect(runDesktopWindowAction).not.toHaveBeenCalledWith('toggleMaximize');
-  });
-
-  it('agent_badge_opens_agent: clicking the agent badge calls the route-supplied opener', () => {
-    const onOpenAgent = vi.fn();
-    useDesktopTitleStore.getState().setTitleContext({
-      agent: 'EarthScope (Flat / Haiku)',
-      onOpenAgent,
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    fireEvent.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
-
-    expect(onOpenAgent).toHaveBeenCalledOnce();
-  });
-
-  it('renders no agent badge while the route has not resolved the agent', () => {
-    useDesktopTitleStore.getState().setTitleContext({
-      session: 'NDP flatness run',
-      workspace: 'flat-ndp',
-    });
-    renderTitleBar();
-
-    const titleContext = within(screen.getByTestId('desktop-title-context'));
-    expect(titleContext.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('shortcuts_bind_new_session_fullscreen: Ctrl+N and F11 work on Windows/Linux; App owns Ctrl+comma', () => {
@@ -478,45 +432,6 @@ describe('DesktopTitleBar', () => {
     window.removeEventListener(MENU_ACTION_EVENT, action);
   });
 
-  it('falls back to the product name on a route that never writes title context', () => {
-    renderTitleBar();
-
-    // The centre owns the route fallback; scope to
-    // the centre context region specifically so this asserts its OWN
-    // fallback, not the always-present left-section brand block.
-    expect(
-      within(screen.getByTestId('desktop-title-context')).getByText(brand.wordmark),
-    ).toBeInTheDocument();
-  });
-
-  it('title_bar_shows_connection_state_with_tooltip: the health dot discloses endpoint, transport, and backend version on hover', async () => {
-    liveStreamState.current = 'reconnecting';
-    renderTitleBar();
-
-    const dot = screen.getByRole('status', { name: 'Reconnecting' });
-    // gact-tui rule: status is never encoded only as a dot/color/icon -- the
-    // "Reconnecting" label itself must be real, visible text, not just an
-    // aria-label with nothing on screen.
-    expect(dot).toHaveTextContent('Reconnecting');
-    fireEvent.pointerEnter(dot);
-    fireEvent.focus(dot);
-
-    expect(await screen.findByText('http://127.0.0.1')).toBeInTheDocument();
-    expect(screen.getByText('Transport: Bridge')).toBeInTheDocument();
-    expect(screen.getByText('Backend: clio-agent-gact 1.2.3')).toBeInTheDocument();
-  });
-
-  it('shows the backend as unknown until capabilities resolve', async () => {
-    capabilitiesService.current = undefined;
-    renderTitleBar();
-
-    const dot = screen.getByRole('status', { name: 'Live' });
-    fireEvent.pointerEnter(dot);
-    fireEvent.focus(dot);
-
-    expect(await screen.findByText('Backend: Unknown')).toBeInTheDocument();
-  });
-
   it('window_controls_present_on_windows_linux_only: hides the custom window controls on macOS, where native traffic lights apply', () => {
     isMacOS.mockReturnValue(true);
     renderTitleBar();
@@ -524,8 +439,6 @@ describe('DesktopTitleBar', () => {
     expect(screen.queryByRole('button', { name: 'Minimize' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maximize or restore' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
-    // The connection health indicator is not window chrome, so it still renders.
-    expect(screen.getByRole('status', { name: 'Live' })).toBeInTheDocument();
   });
 
   it('shows the custom window controls on Windows/Linux', () => {
@@ -535,26 +448,5 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('button', { name: 'Minimize' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Maximize or restore' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
-  });
-
-  it('centers the Live indicator on the same line as the breadcrumb and window controls', () => {
-    isMacOS.mockReturnValue(false);
-    renderTitleBar();
-
-    const live = screen.getByRole('status', { name: 'Live' });
-    const controls = live.parentElement;
-    // The control group stretches its children to the bar height so the
-    // window buttons fill it; the indicator must opt out and center itself,
-    // or its chip top-aligns inside a bar-height box.
-    expect(controls).toHaveClass('items-stretch');
-    expect(live).toHaveClass('self-center', 'inline-flex', 'items-center');
-    // The window buttons fill the bar and center their icon on its midline.
-    expect(screen.getByRole('button', { name: 'Minimize' })).toHaveClass(
-      'h-10',
-      'place-items-center',
-    );
-    // The breadcrumb region centers its content on the same midline.
-    expect(screen.getByLabelText(/desktop controls/)).toHaveClass('h-10', 'flex');
-    expect(controls?.previousElementSibling).toHaveClass('items-center');
   });
 });

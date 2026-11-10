@@ -103,13 +103,13 @@ describe('ClioResourceDialogs session creation', () => {
       </QueryClientProvider>,
     );
 
-    await user.type(screen.getByRole('textbox', { name: 'Session name' }), 'Review anomaly');
+    await user.type(screen.getByRole('textbox', { name: 'Conversation name' }), 'Review anomaly');
     fireEvent.click(screen.getByRole('combobox', { name: 'Agent' }));
     fireEvent.click(screen.getByRole('option', { name: 'SPOTTER AI' }));
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: 'Agent' })).toHaveTextContent('SPOTTER AI'),
     );
-    await user.click(screen.getByRole('button', { name: 'Advanced session behavior' }));
+    await user.click(screen.getByRole('button', { name: 'Advanced behavior' }));
     expect(screen.queryByRole('combobox', { name: 'Work routing' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('combobox', { name: 'Default work mode' }));
     fireEvent.click(screen.getByRole('option', { name: 'Deep research' }));
@@ -125,7 +125,7 @@ describe('ClioResourceDialogs session creation', () => {
         'SPOTTER review',
       ),
     );
-    await user.click(screen.getByRole('button', { name: 'Create session' }));
+    await user.click(screen.getByRole('button', { name: 'Create conversation' }));
 
     await waitFor(() =>
       expect(resourceActions.createSession).toHaveBeenCalledWith({
