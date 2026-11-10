@@ -143,7 +143,7 @@ export function PickerRowLabel({
         >
           {node.label}
         </span>
-        {!providerRunning(node.data.group) && !stage ? (
+        {!stage ? (
           <span
             className="shrink-0 text-[11px] text-muted-foreground"
             data-slot="provider-row-status"
