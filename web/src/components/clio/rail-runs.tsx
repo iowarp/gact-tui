@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { IconButton } from '@/components/clio/primitives/icon-button';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import { RunListRow } from './run-list-row';
 import { railRuns, type RailRun } from './rail-run-rows';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
@@ -23,7 +23,7 @@ import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 const RAIL_RUN_LIMIT = 8;
 
 export type RailRunsProps = Pick<
-  ClioEvidenceViewProps,
+  SessionEvidenceActions,
   'onOpenSubagent' | 'onOpenFlow' | 'onCancelTask' | 'onControlTask'
 > & {
   processes: readonly AsyncProcess[];

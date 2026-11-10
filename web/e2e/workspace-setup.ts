@@ -41,8 +41,9 @@ export async function closeNotifications(page: Page): Promise<void> {
 }
 
 /**
- * Open the workspace canvas and show one of its lists (Files, Sources,
- * Artifacts, Activity, ?) from the strip on its outer edge.
+ * Open the workspace canvas and show one of its lists from the strip on its
+ * outer edge: Files as the column beside the tabs, the others (Sources,
+ * Artifacts, Activity, Terminal, Browser pages) as their own tab.
  */
 export async function showWorkbenchList(page: Page, name: string): Promise<void> {
   const open = page.getByRole('button', { name: 'Open workspace canvas', exact: true });
@@ -52,16 +53,6 @@ export async function showWorkbenchList(page: Page, name: string): Promise<void>
     .getByRole('button', { name, exact: true });
   if ((await item.getAttribute('aria-pressed')) !== 'true') await item.click();
   await expect(page.getByRole('region', { name: `${name} list`, exact: true })).toBeVisible();
-}
-
-/** Hide whichever list sits beside the canvas tabs, giving the open tab the full width. */
-export async function hideWorkbenchList(page: Page): Promise<void> {
-  const pressed = page
-    .getByRole('toolbar', { name: 'Workbench lists', exact: true })
-    .locator('button[aria-pressed="true"]');
-  if ((await pressed.count()) === 0) return;
-  await pressed.first().click();
-  await expect(pressed).toHaveCount(0);
 }
 
 /** Reset the shared server and retain browser error checks for each workspace case. */
