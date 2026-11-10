@@ -1,5 +1,5 @@
 import type { Session } from '@clio/core/v3';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
@@ -18,6 +18,24 @@ export interface RailSessions {
   hasMore: boolean;
   loadingMore: boolean;
   loadMore: () => void;
+}
+
+/**
+ * How many conversations a folded workspace holds, without loading them: a
+ * one-row page whose `total` the server counts. Invalidated with the rail pages.
+ */
+export function useRailSessionCount(workspaceId: string, enabled: boolean): number | undefined {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const count = useQuery({
+    queryKey: queryKeys.key('session-pages', settings.endpoint, workspaceId, 'count'),
+    // One row is cheaper to finish than to cancel and refetch on a remount.
+    queryFn: () => repository.sessionPage({ workspaceId, kinds: PRIMARY_SESSION_KINDS, limit: 1 }),
+    select: (page) => page.total ?? undefined,
+    enabled: enabled && Boolean(workspaceId),
+    refetchOnWindowFocus: false,
+  });
+  return count.data;
 }
 
 /**

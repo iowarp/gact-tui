@@ -11,8 +11,12 @@ import {
   type StudyGraphNode,
 } from './study-graph-model';
 
-/** Each drawn entry's box, in graph units: the spec's 120 x 40 card. */
-export const STUDY_GRAPH_NODE = { width: 120, height: 40 };
+/**
+ * Each drawn entry's box, in graph units. The spec's card is 120 x 40 for short
+ * titles; recorded titles run longer, so the card is wider and a little taller
+ * to show the whole title on up to two lines instead of cutting it.
+ */
+export const STUDY_GRAPH_NODE = { width: 148, height: 44 };
 const { width, height } = STUDY_GRAPH_NODE;
 
 type PositionedEntry = Pick<Node, 'id' | 'position' | 'style'> & {
