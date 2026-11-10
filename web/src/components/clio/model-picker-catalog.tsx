@@ -1,6 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { EyeIcon, EyeOffIcon, LayoutGridIcon } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { LoadingFeedback } from './loading-feedback';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
 import {
@@ -41,6 +41,10 @@ import {
   providerGroupsFromOptions,
   providerNodeValue,
   type ProviderGroup,
+  SEARCH_ALL_VALUE,
+  SEARCH_HEADER_PREFIX,
+  SEARCH_RESULT_PREFIX,
+  type SearchHeaderNodeData,
 } from './model-picker-model';
 import { useProviderPanel } from './model-picker-provider-panel';
 import { ModelPickerHighlightSeed } from './model-picker-highlight-seed';
@@ -146,7 +150,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
   const grouped = !showColumns;
   const activeGroup = grouped
     ? sortedProviders.find((item) => item.id === (focusProviderId ?? provider))
-    : sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
+    : path[0] === SEARCH_ALL_VALUE
+      ? // Every match is in view: the provider bar stays on the chosen provider.
+        sortedProviders.find((item) => item.id === provider)
+      : sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
   const prepared = useProgressiveModelCatalog(visibleProviders, activeGroup?.id);
   const tree = useModelPickerTree(visibleProviders, tokens, prepared);
   const loadingModels =
@@ -221,7 +228,54 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     }
     return searching ? tree.nodes : groupAlcfProviders(tree.nodes, alcfExpanded);
   }, [grouped, tree.nodes, alcfExpanded, searching, search.collapsed, openGroups, provider, model]);
-  const { facetTabs, maxInputPrice } = useModelPickerFacets(
+  // Two columns, search typed: "All providers" leads the providers column and
+  // opens every match grouped under its provider; a provider row narrows to its own.
+  const searchColumns = showColumns && searching;
+  const { matched, counts: searchCounts, matches: searchMatches } = search;
+  const columnNodes = useMemo(() => {
+    if (!searchColumns) return providerNodes;
+    const results = tree.nodes.flatMap((node): CascaderNode<PickerNodeData>[] => {
+      if (node.data?.kind !== 'provider') return [];
+      const group = node.data.group;
+      const models = (node.children ?? []).filter((child) => matched.has(child.value));
+      if (!models.length) return [];
+      const count = searchCounts.get(group.id);
+      return [
+        {
+          value: SEARCH_HEADER_PREFIX + group.id,
+          label: group.name,
+          icon: node.icon,
+          static: true,
+          data: {
+            kind: 'search-header',
+            group,
+            matches: count?.matches ?? models.length,
+            total: count?.total ?? models.length,
+          },
+        },
+        ...models.map((child) => ({ ...child, value: SEARCH_RESULT_PREFIX + child.value })),
+      ];
+    });
+    const all: CascaderNode<PickerNodeData> = {
+      value: SEARCH_ALL_VALUE,
+      label: 'All providers',
+      icon: <LayoutGridIcon aria-hidden="true" />,
+      hasChildren: true,
+      children: results,
+      data: { kind: 'search-all', matches: searchMatches },
+    };
+    return [all, ...providerNodes];
+  }, [searchColumns, providerNodes, tree.nodes, matched, searchCounts, searchMatches]);
+  const searchFilter = search.filter;
+  const filter = useCallback(
+    (node: CascaderNode<PickerNodeData>, normalizedQuery: string) =>
+      node.data?.kind === 'search-all' ||
+      node.data?.kind === 'search-header' ||
+      node.value.startsWith(SEARCH_RESULT_PREFIX) ||
+      searchFilter(node, normalizedQuery),
+    [searchFilter],
+  );
+  const { facetTabs, maxInputPrice, hasSizes } = useModelPickerFacets(
     tree.entries,
     tokens,
     searching,
@@ -277,7 +331,16 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     // global hit. Start every new search at the root; choosing a result can
     // then establish the path that remains when the query is cleared.
     // A token being typed ("input:") is not a search: only free text is.
-    if (freeSearchText(nextQuery) && !freeSearchText(query)) setPath([]);
+    // Two columns open the search on "All providers"; clearing it goes back
+    // to the provider in view (or the chosen one).
+    const wasSearching = Boolean(freeSearchText(query));
+    const willSearch = Boolean(freeSearchText(nextQuery));
+    if (willSearch && !wasSearching) setPath(showColumns ? [SEARCH_ALL_VALUE] : []);
+    if (!willSearch && wasSearching && showColumns) {
+      const back = path[0]?.startsWith(PROVIDER_NODE_PREFIX) ? path[0] : undefined;
+      const chosen = providers.find((item) => item.id === provider);
+      setPath(back ? [back] : chosen ? [providerNodeValue(chosen.id)] : []);
+    }
     setQuery(nextQuery);
   }
 
@@ -289,7 +352,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       indicator={false}
       inline
       inputValue={query}
-      items={providerNodes}
+      items={columnNodes}
       labels={{
         actionsLabel: 'Provider actions',
         columnsLabel: 'Providers and models',
@@ -321,12 +384,11 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           if (alcfExpanded && isAlcfServer(activeGroup?.id)) setPath([]);
           return;
         }
-        if (
-          search.searching &&
-          details.reason === 'drill' &&
-          header?.startsWith(PROVIDER_NODE_PREFIX)
-        ) {
-          toggleCollapsed(header.slice(PROVIDER_NODE_PREFIX.length));
+        if (searchColumns) {
+          // Moving between "All providers" and one provider keeps the search;
+          // the cascader clears its query on every path change.
+          setPath(nextPath);
+          setNotice(undefined);
           keepQueryOnce.current = true;
           return;
         }
@@ -347,7 +409,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
       }}
       path={grouped ? EMPTY_PATH : path}
       renderItem={(node) =>
-        node.data?.kind === 'provider-manage' ? (
+        node.data?.kind === 'search-header' ? (
+          <SearchResultsHeader data={node.data} icon={node.icon} />
+        ) : node.data?.kind === 'provider-manage' ? (
           <ProviderManageRow
             fold={foldFilters}
             group={node.data.group}
@@ -385,6 +449,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                   count: search.counts.get(node.data.group.id) ?? { matches: 0, total: 0 },
                   collapsed: search.collapsed.has(node.data.group.id),
                   plain: grouped,
+                  column: searchColumns,
                 }
               : undefined
           }
@@ -400,23 +465,35 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
           state={state}
         />
       )}
-      filter={search.filter}
+      filter={filter}
       // Nothing chosen yet: keep the path the picker opened on.
       revealSelected={Boolean(selectedChoice)}
-      searchScope={!grouped && freeSearchText(query) ? 'deep' : 'level'}
+      // Search typed lists its matches in "All providers" (two columns) or in
+      // the grouped list (one column): never a deep scan.
+      searchScope="level"
       // Every hit is listed (the lists are windowed): the counts beside the
       // search and each provider must agree with the rows.
       searchLimit={Number.POSITIVE_INFINITY}
       selectable={(node) => node.data?.kind === 'model'}
       // Always controlled: a refused pick (a surrogate) must not stay checked.
-      value={selectedChoice ? modelNodeValue(selectedChoice) : ''}
+      value={
+        selectedChoice
+          ? (searchColumns && path[0] === SEARCH_ALL_VALUE ? SEARCH_RESULT_PREFIX : '') +
+            modelNodeValue(selectedChoice)
+          : ''
+      }
     >
       <CascaderPanel
         className={cn(
           'h-full min-h-0',
+          // Filters covers the list: a short catalog must not squeeze its rows.
+          facetsOpen && 'min-h-[min(27.5rem,70dvh)]',
           // Search results and the narrow groups: a provider row is a group
-          // header that draws its own count and fold chevron.
-          (grouped || search.searching) && '[&_[data-slot=cascader-item-trailing]]:hidden',
+          // header that draws its own count and fold chevron. Two columns keep
+          // the drill chevron and swap the model count for the match count.
+          searchColumns
+            ? '[&_[data-slot=cascader-item-count]]:hidden'
+            : (grouped || search.searching) && '[&_[data-slot=cascader-item-trailing]]:hidden',
         )}
       >
         <CascaderNav className="gap-0 border-border p-0">
@@ -427,6 +504,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               facetTabs={facetTabs}
               facetsOpen={facetsOpen}
               maxInputPrice={maxInputPrice}
+              sizes={hasSizes}
               onFacetsOpenChange={setFacetsOpen}
               onTokensChange={setTokens}
               query={query}
@@ -472,7 +550,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
               );
             }}
           </CascaderColumns>
-        ) : (
+        ) : null}
+        {showColumns && searchColumns ? <ModelPickerHighlightSeed /> : null}
+        {showColumns ? null : (
           <>
             <CascaderList className="w-full flex-1" maxHeight="100%">
               <CascaderVirtualItems />
@@ -504,8 +584,9 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                 {managingVisibility ? 'Done' : `Hidden ${hiddenProviders.size}`}
               </Button>
             }
-            hints={footerHints(showColumns)}
+            hints={footerHints(showColumns, searchColumns)}
             hintsAlign={showColumns ? 'end' : 'start'}
+            keysOnlyNarrow
             start={
               <>
                 {showColumns && panel.column.bar ? (
@@ -520,7 +601,7 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
                   <LoadingFeedback
                     label={loading ? 'Refreshing models…' : 'Loading remaining models…'}
                   />
-                ) : search.emptyProviders ? (
+                ) : grouped && search.emptyProviders ? (
                   <span className="min-w-0 truncate" data-slot="providers-without-matches">
                     {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'}{' '}
                     with no matches
@@ -570,10 +651,12 @@ function previewModels(
 
 /**
  * Word, then key: the picker's keys. One column keeps only Choose and Close
- * (the spec's fold drops every key except ? and Esc); two columns drop
- * Columns, then Move, and always keep Close.
+ * (the spec's fold drops every key except ? and Esc). Search typed in two
+ * columns trades Close for Filters, as the spec's search footer does.
+ * Columns shows only when the picker is wide; Move drops next, and the last
+ * hint always shows.
  */
-function footerHints(columns: boolean): PickerHint[] {
+function footerHints(columns: boolean, searching = false): PickerHint[] {
   if (!columns) {
     return [
       { label: 'Choose', shortcut: 'menu-pick' },
@@ -584,6 +667,27 @@ function footerHints(columns: boolean): PickerHint[] {
     { label: 'Move', shortcut: 'menu-move', optional: true },
     { label: 'Choose', shortcut: 'menu-pick' },
     { label: 'Columns', shortcut: 'menu-columns', wide: true },
-    { label: 'Close', shortcut: 'menu-close' },
+    searching
+      ? { label: 'Filters', shortcut: 'menu-filters' }
+      : { label: 'Close', shortcut: 'menu-close' },
   ];
+}
+
+/** A provider's header over its matches in "All providers": `name  3 / 312`. */
+function SearchResultsHeader({ data, icon }: { data: SearchHeaderNodeData; icon?: ReactNode }) {
+  return (
+    <span
+      className="flex h-7 w-full min-w-0 items-center gap-2 px-2 pt-1 text-[11.5px] text-muted-foreground [&_svg]:size-3.5"
+      data-slot="search-results-header"
+    >
+      {icon ? <span className="grid size-4 shrink-0 place-items-center">{icon}</span> : null}
+      <span className="min-w-0 flex-1 truncate">{data.group.name}</span>
+      <span
+        aria-label={`${data.matches} of ${data.total} models match`}
+        className="shrink-0 font-mono text-[10.5px] text-faint tabular-nums"
+      >
+        {data.matches} / {data.total}
+      </span>
+    </span>
+  );
 }

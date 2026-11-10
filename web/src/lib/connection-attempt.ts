@@ -86,10 +86,10 @@ const FAILURE_CAUSE: Readonly<Record<Exclude<UnavailableReason, 'failed'>, strin
 
 /**
  * A failed service row's one line: the cause that was actually observed, in plain words.
- * "No answer" is only a network failure; version numbers stay in the diagnostics. A row
- * without a name already shows its address, so only a named row repeats the host. When
- * the attempt's own error line below the list already says why (a refused token, an
- * incompatible version), the row keeps to "Can't connect".
+ * "No answer" is only a network failure and names the address, since the row leads with
+ * the agent's name; version numbers stay in the diagnostics. When the attempt's own error
+ * line below the list already says why (a refused token, an incompatible version), the
+ * row keeps to "Can't connect".
  */
 export function knownServiceFailure(
   connection: KnownConnection,
@@ -102,10 +102,18 @@ export function knownServiceFailure(
   const cause =
     reason === 'failed'
       ? availability.detail
-      : reason === 'no-answer' && connection.label
-        ? `no answer from ${new URL(connection.endpoint).host}`
+      : reason === 'no-answer'
+        ? `no answer from ${hostOf(connection.endpoint)}`
         : FAILURE_CAUSE[reason];
   return `Can't connect: ${cause}`;
+}
+
+function hostOf(endpoint: string): string {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return endpoint;
+  }
 }
 
 function reportedReadiness(details: unknown): unknown {

@@ -420,7 +420,6 @@ function ConversationBody({
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
-    scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
   // Grow only into the unused margin, leaving a gap before the transcript column.
