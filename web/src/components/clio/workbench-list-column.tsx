@@ -39,9 +39,11 @@ import { ArtifactTypeIcon } from './artifact-type-icon';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
+import { SegmentedControl, type SegmentedOption } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { Tag, MetaValue } from './primitives/tag';
 import { BrowserNewPage } from './browser-new-page';
+import { ObservabilityViewControl } from './observability-view-control';
 import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
@@ -52,17 +54,19 @@ import type { WorkbenchListView } from './workbench-strip';
 import type { WorkbenchTab } from './workbench-shared';
 import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 
+export type WorkbenchActivityView = 'timeline' | 'events' | 'relationships' | 'context';
+
+const ACTIVITY_VIEWS: readonly SegmentedOption<WorkbenchActivityView>[] = [
+  { value: 'timeline', label: 'Timeline' },
+  { value: 'events', label: 'Events' },
+  { value: 'relationships', label: 'Relationships' },
+  { value: 'context', label: 'Context' },
+];
+
 export interface WorkbenchListColumnProps {
   view: WorkbenchListView;
-  /** Narrow panel: the list lies over the tab and hides after a pick. */
-  overlay: boolean;
-  /** The list fills a workbench tab instead of the column beside the tabs. */
-  asTab?: boolean;
-  /** In a tab: the width its rows need untruncated, and the width it has. */
+  /** The width its rows need untruncated, and the width it has. */
   onFitWidth?: (pixels: number, listWidth: number) => void;
-  /** As a column with no tabs open: it takes the whole workbench, without a handle. */
-  fill?: boolean;
-  onHide?: () => void;
   workspaceId: string;
   sessionId: string;
   tabs: readonly WorkbenchTab[];
@@ -94,6 +98,10 @@ export interface WorkbenchListColumnProps {
   // Activity
   subagents: readonly SubagentRun[];
   finishedWorkHidden: boolean;
+  /** The conversation's timeline and context window (Activity's Timeline and Context). */
+  sessionView?: ReactNode;
+  activityView?: WorkbenchActivityView;
+  onActivityViewChange?: (view: WorkbenchActivityView) => void;
   /** Activity rows open their details, a change or Work as a tab. */
   onOpenTab: (tab: WorkbenchTab) => void;
   onOpenSubagent: (subagent: SubagentRun) => void;
@@ -103,33 +111,20 @@ export interface WorkbenchListColumnProps {
 }
 
 /**
- * A strip's list: Files as the column beside the tabs, the others as a tab of
- * their own. A row opens its item as a tab; the column stays (or, over a narrow
- * panel, steps aside).
+ * A strip's list, as its workbench tab. A row shows its item in the tab
+ * (Shift opens it in a tab of its own instead).
  */
 export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   props: WorkbenchListColumnProps,
 ) {
-  const { view, overlay, asTab = false, onHide } = props;
+  const { view } = props;
   const title = WORKBENCH_LIST_TITLES[view];
   const renderHeader = (actions: ReactNode) => (
-    <WorkbenchListHeader actions={actions} onHide={onHide} title={title} />
+    <WorkbenchListHeader actions={actions} title={title} />
   );
   const body =
     view === 'activity' ? (
-      <WorkbenchActivityList
-        activeTabId={props.activeTabId}
-        finishedWorkHidden={props.finishedWorkHidden}
-        onOpenArtifact={props.onOpenArtifact}
-        onOpenFile={props.onOpenFile}
-        onOpenSubagent={props.onOpenSubagent}
-        onOpenTab={props.onOpenTab}
-        renderHeader={renderHeader}
-        sessionId={props.sessionId}
-        subagents={props.subagents}
-        tabs={props.tabs}
-        workspaceId={props.workspaceId}
-      />
+      <ActivityViews {...props} title={title} />
     ) : view === 'files' ? (
       <FilesList {...props} renderHeader={renderHeader} />
     ) : view === 'artifacts' ? (
@@ -138,30 +133,80 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
       <SourcesList {...props} renderHeader={renderHeader} />
     ) : (
       <>
-        <WorkbenchListHeader onHide={onHide} title={title} />
+        <WorkbenchListHeader title={title} />
         <div className="min-h-0 flex-1 overflow-hidden">
           <ListBody {...props} />
         </div>
       </>
     );
-  if (asTab)
-    return (
-      <WorkbenchListTabSection onFitWidth={props.onFitWidth} title={title}>
-        {body}
-      </WorkbenchListTabSection>
-    );
   return (
-    <WorkbenchListSection
-      fill={props.fill}
-      onFitWidth={props.onFitWidth}
-      overlay={overlay}
-      title={title}
-      wide={view === 'activity'}
-    >
+    <WorkbenchListTabSection onFitWidth={props.onFitWidth} title={title}>
       {body}
-    </WorkbenchListSection>
+    </WorkbenchListTabSection>
   );
 });
+
+/**
+ * Activity: the causal timeline of this conversation and its child agents
+ * first, then every event as a list, the conversation family graph, then the
+ * context window.
+ */
+function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: string }) {
+  const { sessionView, onActivityViewChange } = props;
+  const switcher =
+    sessionView && props.sessionId && onActivityViewChange ? (
+      <SegmentedControl
+        label="Activity view"
+        onValueChange={onActivityViewChange}
+        options={ACTIVITY_VIEWS}
+        value={props.activityView ?? 'timeline'}
+      />
+    ) : null;
+  const activityView = switcher ? (props.activityView ?? 'timeline') : 'events';
+  if (activityView !== 'events')
+    return (
+      <>
+        <WorkbenchListHeader actions={switcher} title={title} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-slot="activity-session">
+          <ObservabilityViewControl.Provider
+            value={{
+              view:
+                activityView === 'context' || activityView === 'relationships'
+                  ? activityView
+                  : 'activity',
+            }}
+          >
+            {sessionView}
+          </ObservabilityViewControl.Provider>
+        </div>
+      </>
+    );
+  return (
+    <WorkbenchActivityList
+      activeTabId={props.activeTabId}
+      finishedWorkHidden={props.finishedWorkHidden}
+      onOpenArtifact={props.onOpenArtifact}
+      onOpenFile={props.onOpenFile}
+      onOpenSubagent={props.onOpenSubagent}
+      onOpenTab={props.onOpenTab}
+      renderHeader={(actions) => (
+        <WorkbenchListHeader
+          actions={
+            <>
+              {switcher}
+              {actions}
+            </>
+          }
+          title={title}
+        />
+      )}
+      sessionId={props.sessionId}
+      subagents={props.subagents}
+      tabs={props.tabs}
+      workspaceId={props.workspaceId}
+    />
+  );
+}
 
 function WorkbenchListTabSection({
   title,
@@ -186,34 +231,22 @@ function WorkbenchListTabSection({
   );
 }
 
-/** The column beside the tabs: a strip's list, or the open tab's own (a study tree). */
+/** The column beside the tabs that an open tab brings (a study tree). */
 export function WorkbenchListSection({
   title,
   overlay,
-  fill = false,
-  onFitWidth,
-  wide = false,
   children,
 }: {
   title: string;
   overlay: boolean;
-  fill?: boolean;
-  /** Filling the workbench: the width its rows need, as for a list tab. */
-  onFitWidth?: (pixels: number, listWidth: number) => void;
-  /** Activity's wider rows: spec `.bc.w`, 46% rather than `.bc`'s 36%. */
-  wide?: boolean;
   children: ReactNode;
 }) {
-  const { share, sectionRef, resizeTo, commit, reset } = useWorkbenchListWidth(
-    wide ? 'wide' : 'list',
-  );
-  useListFitWidth(sectionRef, fill && !overlay ? onFitWidth : undefined);
+  const { share, sectionRef, resizeTo, commit, reset } = useWorkbenchListWidth('list');
   return (
     <section
       aria-label={`${title} list`}
       data-slot="workbench-list"
       data-overlay={overlay || undefined}
-      data-fill={(fill && !overlay) || undefined}
       ref={sectionRef}
       className={cn(
         'flex min-h-0 shrink-0 flex-col border-l border-border bg-sidebar',
@@ -222,15 +255,12 @@ export function WorkbenchListSection({
         // tab), and a pick closes it.
         overlay
           ? 'absolute inset-y-0 right-11 left-0 z-20 border-l-0'
-          : fill
-            ? // Nothing open beside it: no empty pane, the list takes the workbench.
-              'relative h-full min-w-0 flex-1 border-l-0'
-            : // The tabs keep 280 px beside the list and the 44 px strip.
-              'relative h-full max-w-[calc(100%-324px)] min-w-[180px]',
+          : // The tabs keep 280 px beside the list and the 44 px strip.
+            'relative h-full max-w-[calc(100%-324px)] min-w-[180px]',
       )}
-      style={overlay || fill ? undefined : { width: `${Math.round(share * 1000) / 10}%` }}
+      style={overlay ? undefined : { width: `${Math.round(share * 1000) / 10}%` }}
     >
-      {overlay || fill ? null : (
+      {overlay ? null : (
         <WorkbenchListResizeHandle
           commit={commit}
           reset={reset}

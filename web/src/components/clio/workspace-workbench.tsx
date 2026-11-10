@@ -23,13 +23,13 @@ type WorkspaceData = ReturnType<typeof useWorkspaceData>;
 
 const NO_DIFFS: readonly never[] = [];
 const NO_RESOURCES: readonly never[] = [];
-/** Evidence and the event timeline are the Activity list; the tab keeps the rest. */
-const TIMELINE_VIEWS = ['work', 'context'] as const;
+/** The Activity tab leads with the causal timeline, then conversation relationships and context. */
+const TIMELINE_VIEWS = ['activity', 'relationships', 'context'] as const;
 
 /**
  * The side workbench: files, resources, artifacts, diffs and subagents; the
- * session's records feed its Activity list, and the Gantt and context views its
- * Timeline tab.
+ * session's records feed its Activity list, and the causal timeline and context
+ * views its Activity tab.
  */
 export function WorkspaceWorkbench({
   data,

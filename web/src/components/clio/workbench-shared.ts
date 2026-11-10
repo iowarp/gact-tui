@@ -5,13 +5,17 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { ActivityKind } from './workbench-activity-model';
-import type { WorkbenchTabListView } from './workbench-strip';
+import type { WorkbenchListView, WorkbenchTabListView } from './workbench-strip';
 
-export type WorkbenchTab =
+/**
+ * An item picked in a list tab takes that tab's place; `backTo` names the
+ * list, and the frame bar's Back returns to it.
+ */
+export type WorkbenchTab = WorkbenchTabKind & { backTo?: WorkbenchListView };
+
+type WorkbenchTabKind =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
   | { id: 'work'; kind: 'work'; label: 'Work' }
-  /** The session's Gantt chart and context window; Activity lists the rest. */
-  | { id: 'session'; kind: 'session'; label: 'Timeline' }
   /** One Activity row's detail: a tool call, a task, a question, a source. */
   | {
       id: string;
@@ -34,7 +38,7 @@ export type WorkbenchTab =
   | { id: 'agent'; kind: 'agent'; label: 'Agent' }
   | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | { id: 'science-log'; kind: 'science-log'; label: 'Science log' }
-  /** A strip list (Sources, Artifacts, Activity, Terminal, Browser pages) as a tab. */
+  /** A strip list (Files, Sources, Artifacts, Activity, Terminal, Browser pages) as a tab. */
   | { id: `list:${WorkbenchTabListView}`; kind: 'list'; label: string; view: WorkbenchTabListView }
   | {
       id: string;
@@ -100,6 +104,16 @@ export type WorkbenchTab =
       sessionId: string;
       workspaceId: string;
     };
+
+export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {
+  return {
+    id: `subagent:${subagent.child_session_id ?? subagent.id}`,
+    kind: 'subagent',
+    label: subagent.title,
+    subagent,
+    workspaceId,
+  };
+}
 
 export function fileName(path: string): string {
   return (

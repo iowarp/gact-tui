@@ -106,23 +106,30 @@ Status values:
   whose `data-accelerator` matches.
 - **Right pocket.** `clio/workbench-strip.tsx` is the vertical toolbar
   "Workbench lists": Files, Sources, Artifacts, Activity, Agent, then Science
-  log, Terminal and Browser pages. It is a launcher (iowarp/gact-tui#839): Files
-  shows `clio/workbench-list-column.tsx` as the one column beside the tabs, and
-  every other list opens, or focuses, its own `list:<view>` tab
-  (`listTab` in `clio/workbench-tab-storage.ts`); the lit icon again returns to
-  the tab shown before. The lists use `ListRow` rows with fixed tag and size
-  columns and `StateView` for empty, loading and error. The Files column is
-  resizable from its hairline edge (drag, arrow keys, Home/End; double-click
-  resets), remembered only after a resize (`clio.workbench-list-share.v1`).
-  Sizes in the 44 px column use
+  log, Terminal and Browser pages. It is a launcher (iowarp/gact-tui#839, the
+  user's design over the spec's list column): every list, Files included, opens
+  or focuses its own `list:<view>` tab (`listTab` in
+  `clio/workbench-tab-storage.ts`), rendered by `clio/workbench-list-column.tsx`;
+  the lit icon again returns to the tab shown before. A pick in a list tab shows
+  the item in that tab, and the item's `FrameBar` leads with "Back to <list>"
+  (`primitives/frame-back.ts`); Shift, or a pinned list tab, opens the item in a
+  tab of its own. Anything opened from the conversation gets its own tab. A
+  sparse list tab narrows the pocket to what its rows need. Activity leads with
+  the conversation's causal timeline, then Events and Context, chosen with a
+  `SegmentedControl` in its header. There is never an empty pane: closing the
+  last tab closes the pocket, and a pocket shown empty opens Files. The lists
+  use `ListRow` rows with fixed tag and size columns and `StateView` for empty,
+  loading and error. Sizes in the 44 px column use
   `formatCompactBytes` (`54 KB`; the exact size is in the row's hover name).
   `clio/workbench-tab-row.tsx` is
   one `FrameTab` row that measures itself: full names, then icon-only inactive
   tabs, then an "All N tabs" menu. One context menu offers Pin, Show in Files,
   Copy path, Close, Close others, Close to the right, Move left and Move right.
   The pocket's width is a remembered share of the window
-  (`clio.workbench-share.v1`). Below 440 px the Files column overlays the tabs
-  and steps aside after a pick. An empty narrow pocket shows the column.
+  (`clio.workbench-share.v1`). A tab's own list (the science log's study tree)
+  is the one column beside the tabs, resizable from its hairline edge and
+  remembered only after a resize (`clio.workbench-list-share.v1`); below 440 px
+  it overlays the tab.
 - **Quiet focus.** `primitives/quiet-focus.ts` `focusQuietly(element)` hands
   focus back to a control (after Escape restores a maximized frame) without
   popping its hover name; `NamedTooltip` ignores that focus.

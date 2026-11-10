@@ -86,7 +86,7 @@ export interface WorkbenchTabContentProps {
   onReplaceTab: (tabId: string, replacement: WorkbenchTab) => void;
   onSelectFilesPath: (tabId: string, path: string) => void;
   onSelectWorkspaceFilePath: (tabId: string, path: string) => void;
-  /** A strip list opened as a tab (Sources, Artifacts, Activity, Terminal, Browser pages). */
+  /** A strip list opened as a tab (Files, Sources, Artifacts, Activity, Terminal, Browser pages). */
   renderList: (view: WorkbenchTabListView) => ReactNode;
 }
 
@@ -136,8 +136,6 @@ export function WorkbenchTabContent({
           <KnowledgeSourceView workspaceId={workspaceId} sourceId={tab.sourceId} />
         </Suspense>
       );
-    case 'session':
-      return sessionView;
     case 'activity':
       return (
         <WorkbenchActivityDetail

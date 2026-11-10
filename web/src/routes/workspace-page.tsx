@@ -142,7 +142,7 @@ export function WorkspacePage() {
     sessionId,
     revealSessionView,
   );
-  const openTasks = useCallback(() => openObservability('evidence'), [openObservability]);
+  const openTasks = useCallback(() => openObservability(), [openObservability]);
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   const inStudy = useScienceLog(sessionId).data?.in_study;
   const openAgent = useCallback(
@@ -400,7 +400,7 @@ export function WorkspacePage() {
           statusStrip={
             <WorkspaceLiveStatusStrip
               work={work}
-              onInspectTasks={() => openObservability('evidence')}
+              onInspectTasks={() => openObservability()}
               onOpenWork={openWork}
               sessionId={sessionId}
               sessionState={session.state}

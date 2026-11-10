@@ -2,11 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 
 export const WORKBENCH_LIST_SHARE_KEY = 'clio.workbench-list-share.v1';
 
-export type WorkbenchListKind = 'list' | 'wide';
+export type WorkbenchListKind = 'list';
 type ListShares = Partial<Record<WorkbenchListKind, number>>;
 
-/** Spec `.bc` and `.bc.w`: the list's share of the panel until the user drags it. */
-export const DEFAULT_LIST_SHARE: Record<WorkbenchListKind, number> = { list: 0.36, wide: 0.46 };
+/** Spec `.bc`: the list's share of the panel until the user drags it. */
+export const DEFAULT_LIST_SHARE: Record<WorkbenchListKind, number> = { list: 0.36 };
 export const MIN_LIST_WIDTH = 180;
 /** The tabs keep this much beside the list, plus the 44 px strip. */
 export const MIN_TABS_WIDTH = 280;
@@ -21,7 +21,7 @@ function storedShares(): ListShares {
     );
     if (!value || typeof value !== 'object') return {};
     const shares: ListShares = {};
-    for (const kind of ['list', 'wide'] as const) {
+    for (const kind of ['list'] as const) {
       const share = (value as Record<string, unknown>)[kind];
       if (typeof share === 'number' && share > 0 && share <= MAX_LIST_SHARE) shares[kind] = share;
     }

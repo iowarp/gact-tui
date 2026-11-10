@@ -2,6 +2,7 @@ import {
   forwardRef,
   Fragment,
   memo,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -10,7 +11,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { ChevronRightIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronRightIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { FrameBackContext } from './frame-back';
+import { IconButton } from './icon-button';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
@@ -88,6 +91,7 @@ export const FrameBar = memo(function FrameBar({
   label: string;
   className?: string;
 }) {
+  const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
   // Width and content both start the fit again from nothing folded.
   const [fitKey, setFitKey] = useState('');
@@ -136,6 +140,16 @@ export const FrameBar = memo(function FrameBar({
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
+        {back ? (
+          <IconButton
+            data-slot="frame-back"
+            icon={<ArrowLeftIcon />}
+            label={`Back to ${back.label}`}
+            onClick={back.onBack}
+            size="sm"
+            tooltipSide="bottom"
+          />
+        ) : null}
         {where}
         {what ? (
           <div

@@ -9,8 +9,8 @@ export type WorkbenchListView =
   | 'terminal'
   | 'browser';
 
-/** Files keeps its column beside the tabs; every other list opens as a tab. */
-export type WorkbenchTabListView = Exclude<WorkbenchListView, 'files'>;
+/** Every strip list, Files included, opens as a workbench tab. */
+export type WorkbenchTabListView = WorkbenchListView;
 
 export interface WorkbenchStripItem {
   id: WorkbenchListView | 'agent' | 'science-log';
@@ -18,17 +18,17 @@ export interface WorkbenchStripItem {
   icon: ReactNode;
   /** 1-based place on the strip; Ctrl+Shift+N (⌥⌘N on a Mac) reaches it. */
   position?: number;
-  /** Lit: the Files column is showing, or the item's tab is the one in view. */
+  /** Lit: the item's tab is the one in view. */
   pressed: boolean;
   /** A small count on the corner (child agents running). */
   count?: number;
 }
 
 /**
- * The workbench's outer edge, a launcher: Files shows its column, every other
- * icon opens or focuses its tab, then Terminal and Browser pages. It sits on
- * the window edge so it never moves when the panel is resized. Clicking the
- * lit icon hides the Files column, or goes back to the tab before.
+ * The workbench's outer edge, a launcher: each icon opens or focuses its list
+ * as a tab, then Terminal and Browser pages. It sits on the window edge so it
+ * never moves when the panel is resized. Clicking the lit icon goes back to
+ * the tab before.
  */
 export const WorkbenchStrip = memo(function WorkbenchStrip({
   items,

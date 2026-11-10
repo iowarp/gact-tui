@@ -3,7 +3,7 @@ import { useSessionResourceLoading } from './use-session-resource-loading';
 import { loadSessionResource } from '@/lib/session-resource-loading';
 import { queryKeys } from '@/lib/query-keys';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useInstalledAgents } from '@/hooks/use-session-agent';
@@ -46,7 +46,6 @@ import { useKnownSessions } from './use-known-sessions';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
-import { conversationFamily } from '@/components/clio/conversation-relationships-model';
 import { useProviderCatalog } from './use-provider-catalog';
 import { useSessionLiveStream } from './use-session-live-stream';
 import { useVariantRunHydration } from './use-variant-run-hydration';
@@ -457,22 +456,7 @@ export function useWorkspaceData({
     ...surrounding,
     warmHistory: true,
   });
-  const executionProvenance = useExecutionProvenance(sessionId, undefined, surrounding);
-  const family = useMemo(
-    () => conversationFamily(hierarchySessions, sessionId),
-    [hierarchySessions, sessionId],
-  );
-  const [requestedFamily, setRequestedFamily] = useState('');
-  const loadFamilyProvenance = useCallback(() => setRequestedFamily(sessionId), [sessionId]);
-  const familyExecutionProvenance = useExecutionProvenance(
-    family.sessions[0]?.id ?? sessionId,
-    executionProvenance.provider,
-    {
-      includeChildren: true,
-      ...surrounding,
-      enabled: surrounding.enabled && requestedFamily === sessionId,
-    },
-  );
+  const executionProvenance = useExecutionProvenance(sessionId, surrounding);
   const contextObservability = useSessionObservability(contextTargetId, surrounding);
   const { hideDotFiles } = useAppearancePreferences();
   const workspaceFiles = useQuery({
@@ -696,14 +680,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     entities,
     executionProvenance,
-    familyObservability: {
-      onLoadFamilyProvenance: loadFamilyProvenance,
-      sessions: hierarchySessions,
-      familyProvenance: familyExecutionProvenance.execution.data,
-      familyProvenancePending:
-        familyExecutionProvenance.providers.isLoading ||
-        familyExecutionProvenance.execution.isFetching,
-    },
+    familyObservability: { sessions: hierarchySessions },
     interactionSessionIds,
     interactions,
     // Reads that actually failed to list responses. A failed background-root

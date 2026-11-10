@@ -3,7 +3,6 @@ import {
   BookIcon,
   BotIcon,
   BoxIcon,
-  ChartNoAxesGanttIcon,
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
@@ -23,7 +22,6 @@ import type { WorkbenchTabListView } from './workbench-strip';
 export const workbenchTabIcons = {
   knowledge: BookIcon,
   work: ListChecksIcon,
-  session: ChartNoAxesGanttIcon,
   activity: ActivityIcon,
   files: FolderIcon,
   artifacts: BoxIcon,
@@ -46,6 +44,7 @@ export const workbenchTabIcons = {
 
 /** A list tab wears its strip icon, so the tab and the icon that opened it match. */
 export const workbenchListTabIcons = {
+  files: FolderIcon,
   sources: PaperclipIcon,
   artifacts: BoxIcon,
   activity: ActivityIcon,

@@ -1,72 +1,7 @@
 import { expect, test } from '@playwright/test';
-import {
-  hideWorkbenchList,
-  setupWorkspaceBrowser,
-  showWorkbenchList,
-  workspaceUrl,
-} from './workspace-setup';
+import { setupWorkspaceBrowser, workspaceUrl } from './workspace-setup';
 
 setupWorkspaceBrowser();
-
-test('remembers the resized list width and gives it back to the tabs when hidden', async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 1600, height: 900 });
-  await page.goto(workspaceUrl);
-  await showWorkbenchList(page, 'Files');
-  const canvas = page.getByRole('complementary', { name: 'Workspace canvas', exact: true });
-  const tabs = canvas.locator(':scope > [data-slot="tabs"]');
-  const list = page.getByRole('region', { name: 'Files list', exact: true });
-  const resize = page.getByRole('separator', { name: 'Resize Files list', exact: true });
-  const storedShares = () =>
-    page.evaluate(() => window.localStorage.getItem('clio.workbench-list-share.v1'));
-  // Loading and opening never record a width; only the user's resize does.
-  expect(await storedShares()).toBeNull();
-  const panelWidth = (await canvas.boundingBox())!.width;
-  const originalWidth = (await list.boundingBox())!.width;
-  expect(originalWidth / panelWidth).toBeCloseTo(0.36, 1);
-
-  // The handle shows only on hover or focus; a drag to the left widens the list.
-  const handle = (await resize.boundingBox())!;
-  await page.mouse.move(handle.x + handle.width / 2, handle.y + 200);
-  await page.mouse.down();
-  await page.mouse.move(handle.x - 60, handle.y + 200, { steps: 10 });
-  await page.mouse.up();
-  await expect
-    .poll(async () => (await list.boundingBox())!.width)
-    .toBeGreaterThan(originalWidth + 50);
-  const resizedWidth = (await list.boundingBox())!.width;
-  const stored = JSON.parse((await storedShares())!) as { list: number };
-  expect(stored.list).toBeCloseTo(resizedWidth / panelWidth, 2);
-  await page.screenshot({ path: testInfo.outputPath('list-resized.png') });
-
-  // Arrow keys on the focused handle resize too; left widens, released keys store.
-  await resize.focus();
-  await page.keyboard.press('ArrowLeft');
-  await expect
-    .poll(async () => (await list.boundingBox())!.width)
-    .toBeGreaterThan(resizedWidth + 8);
-  const keyedWidth = (await list.boundingBox())!.width;
-  const keyed = JSON.parse((await storedShares())!) as { list: number };
-  expect(keyed.list).toBeCloseTo(keyedWidth / panelWidth, 2);
-
-  // Hiding the list hands its width to the tabs; showing it again restores the width.
-  const tabsBeside = (await tabs.boundingBox())!.width;
-  await hideWorkbenchList(page);
-  await expect(list).toBeHidden();
-  await expect
-    .poll(async () => (await tabs.boundingBox())!.width)
-    .toBeGreaterThanOrEqual(tabsBeside + keyedWidth - 1);
-  await showWorkbenchList(page, 'Files');
-  await expect
-    .poll(async () => Math.abs((await list.boundingBox())!.width - keyedWidth))
-    .toBeLessThanOrEqual(1);
-  await page.reload();
-  await showWorkbenchList(page, 'Files');
-  await expect
-    .poll(async () => Math.abs((await list.boundingBox())!.width - keyedWidth))
-    .toBeLessThanOrEqual(1);
-});
 
 for (const width of [1100, 1600]) {
   test(`remembers the resized canvas width after closing and reopening at ${width}px`, async ({

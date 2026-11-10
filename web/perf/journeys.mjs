@@ -564,10 +564,11 @@ export async function workbenchJourney(r) {
       { control: button, close: undefined },
     );
   }
-  const activity = page
-    .getByRole('region', { name: 'Activity list' })
-    .locator('[data-kind="tool"], [data-kind="turn"]')
-    .first();
+  // Activity leads with its timeline; its rows are the Events view.
+  const activityList = page.getByRole('region', { name: 'Activity list' });
+  const events = activityList.getByRole('radio', { name: 'Events', exact: true });
+  if (await r.visible(events, 1000)) await events.click();
+  const activity = activityList.locator('[data-kind="tool"], [data-kind="turn"]').first();
   if (await r.visible(activity, 1000)) {
     // The tab takes the row's name; its accessible name adds the status after a comma.
     const name = (await activity.getAttribute('aria-label'))?.split(', ')[0];
@@ -580,24 +581,19 @@ export async function workbenchJourney(r) {
     );
   }
   const activityButton = strip.getByRole('button', { name: 'Activity', exact: true }).first();
-  // The Activity list is a tab: a row opened from it leaves it, so come back to it.
+  // A row shows its detail in the Activity tab: come back to the list.
   if (
     (await r.visible(activityButton, 1000)) &&
     (await activityButton.getAttribute('aria-pressed')) !== 'true'
   )
     await activityButton.click();
-  const timeline = page
-    .getByRole('region', { name: 'Activity list' })
-    .getByRole('button', { name: 'Open timeline and context' });
+  const timeline = activityList.getByRole('radio', { name: 'Timeline', exact: true });
   if (await r.visible(timeline, 1000)) {
     await r.measure(
       'open canvas tab: Timeline',
       'tab',
       () => timeline.click(),
-      {
-        css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]',
-        text: 'Timeline',
-      },
+      { css: '[aria-label="Activity list"] [data-slot="activity-session"]' },
       { control: timeline, close: undefined },
     );
   }

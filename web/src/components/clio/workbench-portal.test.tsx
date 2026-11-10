@@ -2,7 +2,7 @@ import { act, cleanup, render as renderComponent, screen, waitFor } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef, type PropsWithChildren, type ReactElement } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,7 @@ vi.mock('./resource-viewers', () => ({
     <article aria-label={`Artifact view: ${artifact.name}`}>{artifact.name}</article>
   ),
 }));
-// An empty canvas shows the Files list until the first tab opens.
+// A canvas emptied while shown opens its Files tab.
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
@@ -28,7 +28,7 @@ vi.mock('@/providers/appearance-provider', () => ({
   useAppearancePreferences: () => ({ hideDotFiles: false }),
 }));
 
-/** The Files list beside the tabs reads through the real workspace's query context. */
+/** The Files tab reads through the real workspace's query context. */
 function render(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return renderComponent(ui, {
@@ -37,15 +37,6 @@ function render(ui: ReactElement) {
     ),
   });
 }
-
-// These tests concern the maximized portal, not the list beside the tabs.
-beforeEach(() => {
-  for (const workspace of ['workspace_1', 'escape_workspace'])
-    window.localStorage.setItem(
-      `clio.workbench-tabs.v1:${workspace}`,
-      JSON.stringify({ tabs: [], listView: null }),
-    );
-});
 
 afterEach(() => {
   cleanup();
@@ -155,7 +146,7 @@ it.each(['desktop', 'sheet'] as const)(
         files={[]}
         onOpenSubagent={vi.fn()}
         onUndoDiff={vi.fn()}
-        requestedOpen={{ key: 'session', request: { kind: 'session', view: 'work' } }}
+        requestedOpen={{ key: 'session', request: { kind: 'session', view: 'activity' } }}
         sessionId="escape_session"
         sessionView={<DiagramPreview />}
         workspaceId="escape_workspace"

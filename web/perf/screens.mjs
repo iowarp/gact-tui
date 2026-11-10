@@ -115,7 +115,7 @@ async function openCanvas(page) {
   }
 }
 
-/** Show a workbench list from the strip: Files as the column, the others as their tab. */
+/** Show a workbench list from the strip, as its tab. */
 async function stripList(page, name) {
   await openCanvas(page);
   const item = page
@@ -661,7 +661,7 @@ function catalogue({ settings, infrastructure }) {
         SESSION,
         async (page) => {
           await openFile(page, 'results/vertical-displacement.png');
-          // Opening a file closes the list; show it again for the second file.
+          // A file opened from Files takes its tab; open Files again for the second file.
           const files = page
             .getByRole('toolbar', { name: 'Workbench lists' })
             .getByRole('button', { name: 'Files', exact: true })

@@ -5,10 +5,10 @@ import { WORKBENCH_LIST_SHARE_KEY } from './workbench-list-width';
 
 const PANEL = 1000;
 
-function renderList({ wide = false, overlay = false } = {}) {
+function renderList({ overlay = false } = {}) {
   const view = render(
     <div data-testid="panel">
-      <WorkbenchListSection overlay={overlay} title="Artifacts" wide={wide}>
+      <WorkbenchListSection overlay={overlay} title="Artifacts">
         <p>3D printer · Live telemetry dashboard</p>
       </WorkbenchListSection>
     </div>,
@@ -32,10 +32,8 @@ describe('workbench list resize', () => {
   });
 
   it('opens at the spec share and stores nothing until the user resizes', () => {
-    const { list, unmount } = renderList();
+    const { list } = renderList();
     expect(list.style.width).toBe('36%');
-    unmount();
-    expect(renderList({ wide: true }).list.style.width).toBe('46%');
     expect(stored()).toBeNull();
   });
 
@@ -70,14 +68,11 @@ describe('workbench list resize', () => {
     expect(JSON.parse(stored()!)).toEqual({ list: 0.676 });
   });
 
-  it('remembers the list and wide widths separately and resets on double-click', () => {
+  it('restores the stored width and resets on double-click', () => {
     window.localStorage.setItem(WORKBENCH_LIST_SHARE_KEY, JSON.stringify({ list: 0.5 }));
     const { list, unmount } = renderList();
     expect(list.style.width).toBe('50%');
     unmount();
-    const wide = renderList({ wide: true });
-    expect(wide.list.style.width).toBe('46%');
-    wide.unmount();
 
     const again = renderList();
     fireEvent.doubleClick(screen.getByRole('separator', { name: 'Resize Artifacts list' }));
