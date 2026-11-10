@@ -532,7 +532,7 @@ describe('ClioComposer service commands', () => {
     fireEvent.input(editor);
 
     expect(editor).toBeEmptyDOMElement();
-    expect(editor).toHaveAttribute('data-placeholder', 'Reply, or steer the run');
+    expect(editor).toHaveAttribute('data-placeholder', 'Reply');
     expect(document.querySelector('input[name="message"]')).toHaveValue('');
   });
 
