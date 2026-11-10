@@ -3,7 +3,7 @@ import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { NamedTooltip } from './primitives/icon-button';
 import { isQuickFilterToken, quickFilters, toggleQuickFilter } from '@/lib/model-quick-filters';
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import type { FacetChip, FacetTab } from '@/lib/model-facets';
 import { cn } from '@/lib/utils';
@@ -125,13 +125,55 @@ export function ModelPickerSearch({
   }
 
   /** A chip press: off when on; otherwise on, swapping out any default token it replaces. */
-  function toggleChip(chip: FacetChip) {
-    if (tokens.includes(chip.token)) {
-      onTokensChange(tokens.filter((item) => item !== chip.token));
-      return;
-    }
-    onTokensChange([...tokens.filter((item) => !chip.replaces.includes(item)), chip.token]);
-  }
+  const toggleChip = useCallback(
+    (chip: FacetChip) => {
+      if (tokens.includes(chip.token)) {
+        onTokensChange(tokens.filter((item) => item !== chip.token));
+        return;
+      }
+      onTokensChange([...tokens.filter((item) => !chip.replaces.includes(item)), chip.token]);
+    },
+    [tokens, onTokensChange],
+  );
+  const removeToken = useCallback(
+    (token: string) => onTokensChange(tokens.filter((item) => item !== token)),
+    [tokens, onTokensChange],
+  );
+  const closeFacets = useCallback(() => onFacetsOpenChange(false), [onFacetsOpenChange]);
+  // The anchors and the open panel depend on the filters, not the typed query,
+  // so they keep their render between keys.
+  const anchorRow = useMemo(
+    () =>
+      anchors ? (
+        <div className="pt-2">
+          <ModelPickerAnchors
+            onRemoveToken={removeToken}
+            onToggleChip={toggleChip}
+            searching={searching}
+            tabs={facetTabs}
+            tokens={tokens}
+          />
+        </div>
+      ) : null,
+    [anchors, removeToken, toggleChip, searching, facetTabs, tokens],
+  );
+  const facetPanel = useMemo(
+    () =>
+      facetsOpen ? (
+        <ModelPickerFacetPanel
+          onClose={closeFacets}
+          onToggleChip={toggleChip}
+          ranges={
+            maxInputPrice === undefined
+              ? undefined
+              : rangeFilterSections({ tokens, onTokensChange, maxInputPrice, sizes })
+          }
+          ref={panelRef}
+          tabs={facetTabs}
+        />
+      ) : null,
+    [facetsOpen, closeFacets, toggleChip, maxInputPrice, tokens, onTokensChange, sizes, facetTabs],
+  );
 
   // A press anywhere outside the field and the panel closes the panel.
   useEffect(() => {
@@ -307,17 +349,7 @@ export function ModelPickerSearch({
           </>
         ) : null}
       </div>
-      {anchors ? (
-        <div className="pt-2">
-          <ModelPickerAnchors
-            onRemoveToken={(token) => onTokensChange(tokens.filter((item) => item !== token))}
-            onToggleChip={toggleChip}
-            searching={searching}
-            tabs={facetTabs}
-            tokens={tokens}
-          />
-        </div>
-      ) : null}
+      {anchorRow}
       {rowTwo ? (
         <ModelPickerQuickStrip
           extraTokens={rowTokens}
@@ -328,19 +360,7 @@ export function ModelPickerSearch({
           suggestions={suggestions}
         />
       ) : null}
-      {facetsOpen ? (
-        <ModelPickerFacetPanel
-          onClose={() => onFacetsOpenChange(false)}
-          onToggleChip={toggleChip}
-          ranges={
-            maxInputPrice === undefined
-              ? undefined
-              : rangeFilterSections({ tokens, onTokensChange, maxInputPrice, sizes })
-          }
-          ref={panelRef}
-          tabs={facetTabs}
-        />
-      ) : null}
+      {facetPanel}
     </div>
   );
 }

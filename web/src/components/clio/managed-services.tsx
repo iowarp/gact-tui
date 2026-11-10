@@ -7,7 +7,7 @@ import {
   type ManagedServiceDefinition,
   type ProvenanceConnectionInput,
 } from '@clio/core/v3';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CpuIcon, LinkIcon, PlugIcon } from 'lucide-react';
 import { RefreshButton } from './refresh-button';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
@@ -76,6 +76,7 @@ export function ManagedServices({
 }) {
   const desktop = inTauri();
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { isManagedConnection, settings } = useConnectionSettings();
   const targets = useQuery({
     queryKey: ['infrastructure-targets', settings.endpoint],
@@ -206,6 +207,10 @@ export function ManagedServices({
       const operation = await repository.runManagedServiceAction(service_id, body);
       lastOperations.current[service_id] = operation.id;
       setOperationIds((rows) => ({ ...rows, [service_id]: operation.id }));
+      // The inventory follows operations closely only once it sees this one.
+      void queryClient.invalidateQueries({
+        queryKey: ['infrastructure-inventory', settings.endpoint],
+      });
       try {
         return await waitForOperation(repository, operation, undefined, (current) =>
           setProgress((rows) => ({ ...rows, [service_id]: current.progress })),
