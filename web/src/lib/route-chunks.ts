@@ -60,8 +60,10 @@ const IDLE_PREFETCH: readonly RouteChunk[] = [
 
 /**
  * Warm the secondary routes: when a link to one is hovered, focused or touched,
- * and once the app has been idle for a moment. Their modules are a few hundred
- * KB in all; data is still fetched only on navigation. The idle pass also warms
+ * and once the app has been idle for a moment. The workspace route is the
+ * largest (about 1 MB gzip with the conversation renderer), so it stays off the
+ * boot path and arrives here instead; data is still fetched only on
+ * navigation. The idle pass also warms
  * the deferred in-page chunks (math and the science log).
  */
 export function installRoutePrefetch(target: Document = document): () => void {
