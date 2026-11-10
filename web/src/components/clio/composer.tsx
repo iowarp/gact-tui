@@ -26,7 +26,8 @@ import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
-import { ComposerModelControl } from './composer-model-control';
+import { useStableCallback } from '@/hooks/use-stable-callback';
+import { ComposerToolbarControls } from './composer-toolbar-controls';
 import { ComposerToolbarStatus } from './composer-toolbar-status';
 import { useComposerHeldSend } from './use-composer-held-send';
 import { ModelFitNotice } from './model-fit-notice';
@@ -36,13 +37,11 @@ import { useSpotterModelSelection } from '@/hooks/use-spotter-model-selection';
 import { cn } from '@/lib/utils';
 import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { formatBytes } from '@/lib/format';
-import { compactModelName } from '@/lib/model-options';
+import { compactModelName, type ClioModelOption } from '@/lib/model-options';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { composerFailureReason, humanFailureText } from './composer-failure';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue, type ComposerQueueControls } from './composer-queue';
-import { ClioComposerBehaviorControls } from './composer-behavior-controls';
-import { ComposerSpotterModel } from './composer-spotter-model';
 import { defaultReasoningLabel, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type {
   ResourceUploadProgress,
@@ -68,8 +67,6 @@ import { commentSessionParts } from '@/lib/composer-annotations';
 import type { CommentAttachment } from '@clio/core/v3';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
-import { ComposerAddContextButtons } from './composer-add-context-button';
-import { ClioComposerEvidenceControls } from './composer-evidence-controls';
 import { useComposerSources } from './use-composer-sources';
 import { registerComposerReferenceTarget } from '@/lib/composer-reference-requests';
 import {
@@ -195,6 +192,7 @@ export interface ClioComposerProps extends ComposerQueueControls {
 }
 
 const noQueueAction = async () => undefined;
+const NO_MODEL_OPTIONS: NonNullable<ClioComposerProps['modelOptions']> = [];
 
 export function ClioComposer({
   state,
@@ -206,7 +204,7 @@ export function ClioComposer({
   configuredEffort,
   executionMode = 'execute',
   confirmationPolicy = 'ask',
-  modelOptions = [],
+  modelOptions = NO_MODEL_OPTIONS,
   disabled,
   sending = false,
   connecting = false,
@@ -527,6 +525,22 @@ export function ClioComposer({
     });
   };
 
+  // Stable handlers for the memoized toolbar, so a keystroke doesn't re-render its menus.
+  const openSources = useStableCallback(() => connectedSources.open?.());
+  const openReferencePicker = useStableCallback(() => composerReferences.openPicker());
+  const chooseBehavior = useStableCallback(choose);
+  const setSpotterModel = useStableCallback(spotter.set);
+  const retryModelCatalog = useStableCallback((providerId?: string) =>
+    onRetryModelCatalog?.(providerId),
+  );
+  const changeModel = useStableCallback((option: ClioModelOption) => {
+    selectModel(option);
+    keepOfferedEffort(option.reasoning);
+  });
+  // PromptInput's attachment context depends on this; a fresh one per keystroke
+  // re-rendered every attachment consumer.
+  const onAttachmentError = useStableCallback(attachmentRefused);
+
   useLayoutEffect(() => {
     const element = rootRef.current;
     if (variant !== 'docked' || !element || !onHeightChange) return;
@@ -628,10 +642,11 @@ export function ClioComposer({
       <PromptInput
         data-evidence-composer
         data-slot="clio-composer"
+        data-tour="composer"
         className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[14px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[8px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
         maxFileSize={COMPOSER_ATTACHMENT_MAX_BYTES}
         multiple
-        onError={(error) => attachmentRefused(error)}
+        onError={onAttachmentError}
         onSubmit={async ({ files, text }) => {
           if (connectedSources.pending)
             throw new Error('Wait for the folder attachment or remove it before sending.');
@@ -812,38 +827,32 @@ export function ClioComposer({
             className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
             data-slot="composer-toolbar"
           >
-            {attachments || contextReferences || capabilitiesPending ? (
-              <ComposerAddContextButtons
-                attachments={attachments}
-                contextReferences={contextReferences}
-                pending={capabilitiesPending}
-                sourcesPending={connectedSources.probing}
-                disabled={controlsDisabled}
-                onOpenSources={connectedSources.open}
-                onOpenReferences={composerReferences.openPicker}
-                onReturnFocus={focusEditorSoon}
-              />
-            ) : null}
-            <ClioComposerBehaviorControls
-              behavior={messageBehavior}
-              beforeModel={
-                <ClioComposerEvidenceControls
-                  activityControl={activityControl}
-                  workSummary={workSummary}
-                />
-              }
+            <ComposerToolbarControls
+              attachments={attachments}
+              contextReferences={contextReferences}
+              capabilitiesPending={capabilitiesPending}
+              sourcesOffered={Boolean(connectedSources.open)}
+              sourcesPending={connectedSources.probing}
+              disabled={controlsDisabled}
+              onOpenSources={openSources}
+              onOpenReferences={openReferencePicker}
+              onReturnFocus={focusEditorSoon}
+              executionMode={messageBehavior.execution_mode}
+              confirmationPolicy={messageBehavior.confirmation_policy}
+              reasoningEffort={messageBehavior.reasoning_effort}
+              onBehaviorChange={chooseBehavior}
+              activityControl={activityControl}
+              workSummary={workSummary}
               spotterAvailability={spotterAvailability}
-              spotterModelControl={
-                <ComposerSpotterModel
-                  catalogStatus={modelCatalogStatus}
-                  disabled={controlsDisabled}
-                  onChange={spotter.set}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  value={spotter.value}
-                />
-              }
-              reasoningLevels={selectedOption?.reasoning?.levels ?? []}
+              spotterModel={spotter.value}
+              onSpotterModelChange={setSpotterModel}
+              modelCatalogStatus={modelCatalogStatus}
+              modelOptions={modelOptions}
+              onRetryModelCatalog={onRetryModelCatalog ? retryModelCatalog : undefined}
+              selectedModel={selectedOption}
+              modelProblemLabel={modelProblem?.label}
+              modelProblemDetail={modelProblem?.detail}
+              onModelChange={changeModel}
               reasoningPending={
                 (connecting || modelCatalogStatus === 'loading') &&
                 !selectedOption?.reasoning?.levels?.length
@@ -852,23 +861,6 @@ export function ClioComposer({
                 configuredEffort,
                 selectedOption?.reasoning,
               )}
-              disabled={controlsDisabled}
-              modelControl={
-                <ComposerModelControl
-                  catalogStatus={modelCatalogStatus}
-                  onChange={(option) => {
-                    selectModel(option);
-                    keepOfferedEffort(option.reasoning);
-                  }}
-                  onRetryCatalog={onRetryModelCatalog}
-                  options={modelOptions}
-                  problem={modelProblem}
-                  returnFocus={focusEditorSoon}
-                  selected={selectedOption}
-                />
-              }
-              onChange={choose}
-              onReturnFocus={focusEditorSoon}
               unrecognizedEffort={unrecognizedEffort}
             />
             <ComposerToolbarStatus

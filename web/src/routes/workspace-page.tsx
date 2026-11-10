@@ -207,7 +207,7 @@ export function WorkspacePage() {
       endpoint: settings.endpoint,
       focusComposer: focusComposerForAnswer,
       respondInteraction: mutations.respondInteraction.mutateAsync,
-      send: mutations.send.mutateAsync,
+      send: mutations.sendMessage,
       revealSurfaceOwner: workbench.revealSurfaceOwner,
       tray: {
         actionLifecycles: entities.a2ui_action_lifecycles,
