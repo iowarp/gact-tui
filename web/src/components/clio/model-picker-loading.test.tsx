@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -82,10 +82,9 @@ async function dropDefault(user: ReturnType<typeof userEvent.setup>, token: stri
   if (!document.querySelector('[data-slot="facet-panel"]')) {
     await user.click(screen.getByRole('button', { name: /^Filters/u }));
   }
+  const fold = document.querySelector<HTMLElement>('[data-slot="facet-fold"]');
+  if (fold) await user.click(fold);
   const panel = document.querySelector<HTMLElement>('[data-slot="facet-panel"]')!;
-  await user.click(
-    within(panel).getByRole('tab', { name: token.startsWith('input:') ? 'Input' : 'Output' }),
-  );
   const chip = panel.querySelector(`[data-token="${token}"]`);
   if (!(chip instanceof HTMLElement))
     throw new Error(`no ${token} chip in the Filters panel: ${panel.textContent}`);

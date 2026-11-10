@@ -29,6 +29,8 @@ interface PickerRowLabelProps {
     collapsed: boolean;
     /** A narrow picker's group header with no search typed: "OpenRouter 3". */
     plain?: boolean;
+    /** Two columns: the providers column, "name heartbeat 3 ›" (the cascader's chevron). */
+    column?: boolean;
   };
   /** Clicking a row's tag adds its filter token. */
   onTagToken: (token: ModelFilterToken) => void;
@@ -86,6 +88,19 @@ export function PickerRowLabel({
         <span className="ms-auto hidden items-center gap-1 in-data-highlighted:inline-flex">
           <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">→</KeyCap>
           <KeyCap className="h-[18px] min-w-[18px] px-1 text-[10px]">↵</KeyCap>
+        </span>
+      </span>
+    );
+  }
+  if (node.data?.kind === 'search-all') {
+    return (
+      <span className="flex w-full min-w-0 items-center gap-1.5" data-slot="search-all-providers">
+        <span className="min-w-0 flex-1 truncate text-start">{node.label}</span>
+        <span
+          aria-label={`${node.data.matches} models match`}
+          className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+        >
+          {node.data.matches}
         </span>
       </span>
     );
@@ -154,7 +169,17 @@ export function PickerRowLabel({
           />
         ) : null}
         <ProviderHeartbeat group={node.data.group} stage={stage} />
-        {search ? (
+        {search?.column ? (
+          search.count.total > 0 ? (
+            <span
+              aria-label={`${search.count.matches} of ${search.count.total} models match`}
+              className="w-6 shrink-0 text-end font-mono text-[10.5px] text-faint tabular-nums"
+              data-slot="provider-filter-count"
+            >
+              {search.count.matches}
+            </span>
+          ) : null
+        ) : search ? (
           <>
             <CountLabel shown={search.count.matches} total={search.count.total} verb="match" />
             <ChevronDownIcon

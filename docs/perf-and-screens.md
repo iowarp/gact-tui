@@ -66,7 +66,9 @@ resource tables.
 budgets. Interaction budgets are p95 of `readyMs` per category. Layout shift is budgeted per
 interaction (0.05) and per cold load (0.1). Resource
 budgets cover idle and large-data heap, DOM nodes, renderer and desktop RSS,
-idle CPU and unbounded transcript reads. Each budget is checked against the
+idle CPU and unbounded transcript reads. Idle CPU is sampled inside the idle
+window's forced garbage collections, so the harness's own GC is not counted.
+Each budget is checked against the
 [baseline](perf/baseline/README.md); change a budget only with evidence from a
 report.
 
@@ -77,6 +79,28 @@ and closes sessions, viewers and dialogs repeatedly against the built `web/dist`
 It reports heap, DOM nodes, listeners and detached nodes after forced GC. Growth
 that scales with the cycle count is a leak; a fixed step after warm-up is a cache.
 Add `--snapshots` to save heap snapshots that name what grew.
+
+### Selectors that make every overlay slower
+
+Opening a menu, popover or picker writes inline `style` (floating-ui
+positions), `data-state`, `aria-expanded` and, for modal overlays,
+`aria-hidden` on most of the page (Radix `hideOthers`). Blink invalidates
+by selector feature, not by match, so two selector shapes turn those writes
+into restyles of unrelated subtrees:
+
+- An attribute that changes often, followed by a child or descendant combinator
+  ending in `*` or another featureless compound (`div[style*='row'] > *`). Any
+  write to that attribute, on any element, restyles the element's whole
+  subtree. Style the matched element itself instead (the a2ui row-stacking rules
+  in `web/src/index.css` stretch the row's children from the row for this
+  reason).
+- A descendant `:has()` that tests such an attribute (`:has(select[aria-hidden])`).
+  It makes `hideOthers` walk the ancestors of every element it hides. Scope it
+  to children (`:has(> select[aria-hidden])`).
+
+To find the source of forced style recalcs, record a trace with the
+`disabled-by-default-devtools.timeline.invalidationTracking` category. It names
+the invalidation that preceded each `UpdateLayoutTree`.
 
 ## `pnpm screens`
 

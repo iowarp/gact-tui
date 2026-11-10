@@ -178,7 +178,9 @@ export function BoundedResult({
           </ResultDialogContent>
         </Dialog>
       ) : null}
-      <span className="sr-only" role="status">
+      {/* A block starts its hidden text at the result's edge; inline after
+          Show less, it ran past a narrow bubble's edge (#885). */}
+      <span className="sr-only block" role="status">
         {expanded ? 'Complete result revealed' : ''}
       </span>
       {error ? (
