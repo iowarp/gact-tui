@@ -196,7 +196,11 @@ export function ModelAcquisitions({
           ),
           menu: (
             <DropdownMenuItem disabled={downloadDisabled} onSelect={startDownload}>
-              <MenuRow description={unavailable} icon={<DownloadIcon />} label="Download model" />
+              <MenuRow
+                description={unavailable ?? undefined}
+                icon={<DownloadIcon />}
+                label="Download model"
+              />
             </DropdownMenuItem>
           ),
         }}
