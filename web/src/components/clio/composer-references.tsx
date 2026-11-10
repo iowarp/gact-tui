@@ -38,6 +38,7 @@ import {
   ComposerSuggestionPopup,
   Highlighted,
   MatchCount,
+  ROW_CUT_SLOT,
   SuggestionDetail,
   useHoveredRow,
 } from './composer-suggestion-popup';
@@ -192,12 +193,15 @@ const ReferenceOption = memo(function ReferenceOption({
         className: 'size-[15px] shrink-0 text-muted-foreground',
       })}
       {/* The name takes the room it needs; only a name wider than the row is cut. */}
-      <span className="min-w-0 shrink truncate text-foreground">
+      <span className="min-w-0 shrink truncate text-foreground" data-slot={ROW_CUT_SLOT}>
         <Highlighted query={query} text={name} />
       </span>
       {detail ? (
         // A zero basis gives the description only the room the name leaves.
-        <span className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-muted-foreground">
+        <span
+          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-muted-foreground"
+          data-slot={ROW_CUT_SLOT}
+        >
           {detail}
         </span>
       ) : null}
@@ -645,7 +649,11 @@ export function ClioComposerReferenceMenu({
         </div>
       ) : null}
       {described ? (
-        <SuggestionDetail description={rowDetail(described)} name={rowName(described)} />
+        <SuggestionDetail
+          description={rowDetail(described)}
+          name={rowName(described)}
+          rowId={optionId(workspaceReferenceIdentity(described))}
+        />
       ) : null}
       <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
     </ComposerSuggestionPopup>

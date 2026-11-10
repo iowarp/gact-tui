@@ -132,6 +132,10 @@ export function useSessionLiveStream({
         queryClient.invalidateQueries({
           queryKey: queryKeys.sessionContext(settings.endpoint, sessionId),
         }),
+        // A queued message drained while the stream was down leaves no event to replay.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
+        }),
       ]);
     };
     const consume = async () => {
@@ -323,7 +327,12 @@ function isPendingSteerEvent(eventName: string): boolean {
 }
 
 function isQueuedMessageEvent(eventName: string): boolean {
-  return eventName.startsWith('queued_message.');
+  return (
+    eventName.startsWith('queued_message.') ||
+    // The service drains a queued message into the next turn as a new user
+    // message and sends no queued_message.* event for it.
+    eventName === 'message.upserted'
+  );
 }
 
 function isResourceEvent(eventName: string): boolean {
