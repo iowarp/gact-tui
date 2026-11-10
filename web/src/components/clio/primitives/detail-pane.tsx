@@ -50,7 +50,16 @@ export const DetailPane = memo(function DetailPane({
     return () => {
       const active = document.activeElement;
       const focusWasInside = !active || active === document.body || node?.contains(active);
-      if (focusWasInside && opener?.isConnected) opener.focus({ preventScroll: true });
+      if (!focusWasInside || !opener?.isConnected) return;
+      opener.focus({ preventScroll: true });
+      // Below 40rem the list is still hidden while the pane unmounts, so focus can't land
+      // yet; try again once the list shows.
+      if (document.activeElement !== opener)
+        requestAnimationFrame(() => {
+          const now = document.activeElement;
+          if (opener.isConnected && (!now || now === document.body || now.matches('[role=dialog]')))
+            opener.focus({ preventScroll: true });
+        });
     };
   }, []);
 

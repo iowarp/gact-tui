@@ -40,3 +40,12 @@ export const WIDE = 'hidden @min-[32rem]/tools:flex';
 /** Parts of the sub line only a summary row shows. */
 export const NARROW_ONLY = '@min-[32rem]/tools:hidden';
 export const SCRIPT_CELL = 'hidden min-w-0 @min-[56rem]/tools:flex';
+
+/** The table's fold: 0 summary rows, 1 the choices, 2 with the mode's outcome, 3 with the script's too. */
+export type ToolsFold = 0 | 1 | 2 | 3;
+const FOLD_REM = [32, 44, 56] as const;
+
+/** The fold the container queries above choose at a content-box width. */
+export function toolsFold(width: number, remPx: number): ToolsFold {
+  return FOLD_REM.filter((rem) => width >= rem * remPx).length as ToolsFold;
+}

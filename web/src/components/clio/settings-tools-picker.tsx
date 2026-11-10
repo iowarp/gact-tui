@@ -140,7 +140,7 @@ export function ChoicePicker<Value extends string>({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[19.5rem] gap-0 overflow-hidden p-0">
         <Command className="rounded-none! p-0" defaultValue={current?.label} loop>
-          <CommandInput placeholder={search} />
+          <CommandInput aria-label={search} placeholder={search} />
           <CommandList className="max-h-80 p-1">
             <CommandEmpty>No choice matches.</CommandEmpty>
             {options.map((option) => (
@@ -257,7 +257,7 @@ export function SummaryPicker({
           </div>
         ) : null}
         <Command className="rounded-none! p-0" loop>
-          <CommandInput placeholder={search} />
+          <CommandInput aria-label={search} placeholder={search} />
           <CommandList className="max-h-80 p-1">
             <CommandEmpty>No choice matches.</CommandEmpty>
             {groups.map((group) => (
@@ -369,6 +369,8 @@ export function ToolFilterField({
         'flex h-[1.875rem] min-w-0 items-center gap-2 rounded-md border border-input bg-input/30 pr-1 pl-2.5 text-[0.78125rem] focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
         className,
       )}
+      // With text in the field, the first Esc clears it; the window closes only on the next.
+      data-escape-scope={value ? '' : undefined}
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input

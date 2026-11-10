@@ -1,5 +1,12 @@
 import { BoxIcon, LayersIcon, ListIcon, PlugIcon, SearchIcon, SparklesIcon } from 'lucide-react';
-import { startTransition, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,14 +80,26 @@ export function ExtensionToolbar({
   onAddMarketplace: () => void;
 }) {
   const [searching, setSearching] = useState(Boolean(search));
+  const toolbar = useRef<HTMLDivElement>(null);
+  const refocus = useRef(false);
   const closeSearch = () => {
     onSearchChange('');
     onSearchSubmit('');
+    refocus.current = true;
     setSearching(false);
   };
+  // Closing the search unmounts its field; focus returns to the button that opened it.
+  useEffect(() => {
+    if (searching || !refocus.current) return;
+    refocus.current = false;
+    toolbar.current
+      ?.querySelector<HTMLButtonElement>('button[aria-label="Search extensions"]')
+      ?.focus();
+  }, [searching]);
   return (
     <div
       className="flex h-[2.125rem] min-w-0 items-center gap-2"
+      ref={toolbar}
       role="toolbar"
       aria-label="Extensions"
     >
@@ -173,6 +192,8 @@ function ExtensionSearchField({
   return (
     <form
       className="flex min-w-0 basis-[30%] items-center"
+      // Esc closes the search first; the window closes only on the next Esc.
+      data-escape-scope=""
       onSubmit={(event) => {
         event.preventDefault();
         onSearchSubmit(draft);

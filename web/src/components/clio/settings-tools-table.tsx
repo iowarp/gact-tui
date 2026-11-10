@@ -79,6 +79,8 @@ import {
   PERMISSIONS,
   SCRIPT_CELL,
   WIDE,
+  toolsFold,
+  type ToolsFold,
 } from './settings-tools-columns';
 import { HeaderRow } from './settings-tools-header';
 
@@ -222,6 +224,7 @@ const ToolRow = memo(function ToolRow({
   position,
   setSize,
   measure,
+  fold,
 }: {
   tool: ToolSetting;
   mode: string;
@@ -234,7 +237,12 @@ const ToolRow = memo(function ToolRow({
   position?: number;
   setSize?: number;
   measure?: (element: Element | null) => void;
+  /** The table's fold once measured: parts it hides aren't mounted. Unknown mounts every part. */
+  fold?: ToolsFold;
 }) {
+  // What the container queries show at this fold; every part until the width is known.
+  const shows = (from: ToolsFold, below: number = 4) =>
+    fold === undefined || (fold >= from && fold < below);
   const permission = effectivePermission(tool, mode);
   const callers = effectiveCallers(tool);
   const permissionDefault = defaultPermission(tool, mode);
@@ -289,22 +297,28 @@ const ToolRow = memo(function ToolRow({
           // without room for a few letters of its label leaves whole rather
           // than as a bare dot.
           <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
-            <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
-            <ValueSummary
-              chosen={!permission.isDefault}
-              className={NARROW_ONLY}
-              icon={permissionIcon}
-              isDefault={permission.isDefault}
-              label={permissionLabel}
-            />
-            <ValueSummary
-              chosen={!callers.isDefault}
-              className={NARROW_ONLY}
-              icon={callersIcon}
-              isDefault={callers.isDefault && Boolean(callers.value)}
-              label={callersLabel}
-            />
-            {outcome ? (
+            {shows(2) ? (
+              <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
+            ) : null}
+            {shows(0, 1) ? (
+              <ValueSummary
+                chosen={!permission.isDefault}
+                className={NARROW_ONLY}
+                icon={permissionIcon}
+                isDefault={permission.isDefault}
+                label={permissionLabel}
+              />
+            ) : null}
+            {shows(0, 1) ? (
+              <ValueSummary
+                chosen={!callers.isDefault}
+                className={NARROW_ONLY}
+                icon={callersIcon}
+                isDefault={callers.isDefault && Boolean(callers.value)}
+                label={callersLabel}
+              />
+            ) : null}
+            {outcome && shows(0, 2) ? (
               <OutcomeMark
                 className="shrink-0 @min-[44rem]/tools:hidden"
                 text={
@@ -315,82 +329,94 @@ const ToolRow = memo(function ToolRow({
                 value={outcome.direct}
               />
             ) : null}
-            {outcome ? (
+            {outcome && shows(0, 3) ? (
               <OutcomeMark
                 className="max-w-max min-w-0 grow basis-[calc(1.25rem+5ch)] @min-[44rem]/tools:shrink-0 @min-[44rem]/tools:grow-0 @min-[44rem]/tools:basis-auto @min-[56rem]/tools:hidden"
                 text={SCRIPT_OUTCOME_TEXT[outcome.script]}
                 value={outcome.script}
               />
             ) : null}
-            <span
-              className="hidden min-w-0 truncate @min-[44rem]/tools:inline"
-              title={sourceText(tool)}
-            >
-              {sourceText(tool)}
-            </span>
+            {shows(2) ? (
+              <span
+                className="hidden min-w-0 truncate @min-[44rem]/tools:inline"
+                title={sourceText(tool)}
+              >
+                {sourceText(tool)}
+              </span>
+            ) : null}
           </span>
         )}
       </span>
-      <span className={MODE_CELL}>{outcome ? <Outcome value={outcome.direct} /> : null}</span>
-      <span className={SCRIPT_CELL}>{outcome ? <Outcome value={outcome.script} /> : null}</span>
-      <ChoicePicker
-        chosen={!permission.isDefault}
-        className={WIDE}
-        disabled={busy}
-        icon={permissionIcon}
-        iconClassName={
-          permission.isDefault && permission.value === 'deny' ? 'text-destructive' : undefined
-        }
-        isDefault={permission.isDefault}
-        label={permissionLabel}
-        name={`Permission: ${tool.name}`}
-        onChoose={choosePermission}
-        options={permissionOptions(permissionDefault)}
-        search={`Permission for ${tool.name}`}
-        selected={permission.value}
-        title={valueTitle(permissionLabel, permission.isDefault)}
-      />
-      <ChoicePicker
-        chosen={!callers.isDefault}
-        className={WIDE}
-        disabled={busy}
-        icon={callersIcon}
-        isDefault={callers.isDefault && Boolean(callers.value)}
-        label={callersLabel}
-        name={`I/O: ${tool.name}`}
-        onChoose={chooseCallers}
-        options={callersOptions(callersDefault)}
-        search={`I/O for ${tool.name}`}
-        selected={callers.value || undefined}
-        title={
-          callers.value
-            ? valueTitle(callersLabel, callers.isDefault)
-            : "The plugin's default is known once a conversation loads the tool."
-        }
-      />
-      <RowSlot editor={editor} mode={mode} status={status} tool={tool} />
-      <SummaryPicker
-        actions={rowActions(tool, editor)}
-        className={NARROW_ONLY}
-        detail={<ToolFacts mode={mode} tool={tool} />}
-        disabled={busy}
-        groups={[
-          {
-            heading: 'Permission',
-            options: permissionOptions(permissionDefault),
-            selected: permission.value,
-            onChoose: (value) => choosePermission(value as ToolPermission),
-          },
-          {
-            heading: 'I/O',
-            options: callersOptions(callersDefault),
-            selected: callers.value || undefined,
-            onChoose: (value) => chooseCallers(value as ToolCallers),
-          },
-        ]}
-        name={`Permission and I/O: ${tool.name}`}
-        search={`Choices for ${tool.name}`}
-      />
+      <span className={MODE_CELL}>
+        {outcome && shows(2) ? <Outcome value={outcome.direct} /> : null}
+      </span>
+      <span className={SCRIPT_CELL}>
+        {outcome && shows(3) ? <Outcome value={outcome.script} /> : null}
+      </span>
+      {shows(1) ? (
+        <ChoicePicker
+          chosen={!permission.isDefault}
+          className={WIDE}
+          disabled={busy}
+          icon={permissionIcon}
+          iconClassName={
+            permission.isDefault && permission.value === 'deny' ? 'text-destructive' : undefined
+          }
+          isDefault={permission.isDefault}
+          label={permissionLabel}
+          name={`Permission: ${tool.name}`}
+          onChoose={choosePermission}
+          options={permissionOptions(permissionDefault)}
+          search={`Permission for ${tool.name}`}
+          selected={permission.value}
+          title={valueTitle(permissionLabel, permission.isDefault)}
+        />
+      ) : null}
+      {shows(1) ? (
+        <ChoicePicker
+          chosen={!callers.isDefault}
+          className={WIDE}
+          disabled={busy}
+          icon={callersIcon}
+          isDefault={callers.isDefault && Boolean(callers.value)}
+          label={callersLabel}
+          name={`I/O: ${tool.name}`}
+          onChoose={chooseCallers}
+          options={callersOptions(callersDefault)}
+          search={`I/O for ${tool.name}`}
+          selected={callers.value || undefined}
+          title={
+            callers.value
+              ? valueTitle(callersLabel, callers.isDefault)
+              : "The plugin's default is known once a conversation loads the tool."
+          }
+        />
+      ) : null}
+      {shows(1) ? <RowSlot editor={editor} mode={mode} status={status} tool={tool} /> : null}
+      {shows(0, 1) ? (
+        <SummaryPicker
+          actions={rowActions(tool, editor)}
+          className={NARROW_ONLY}
+          detail={<ToolFacts mode={mode} tool={tool} />}
+          disabled={busy}
+          groups={[
+            {
+              heading: 'Permission',
+              options: permissionOptions(permissionDefault),
+              selected: permission.value,
+              onChoose: (value) => choosePermission(value as ToolPermission),
+            },
+            {
+              heading: 'I/O',
+              options: callersOptions(callersDefault),
+              selected: callers.value || undefined,
+              onChoose: (value) => chooseCallers(value as ToolCallers),
+            },
+          ]}
+          name={`Permission and I/O: ${tool.name}`}
+          search={`Choices for ${tool.name}`}
+        />
+      ) : null}
     </li>
   );
 });
@@ -842,26 +868,47 @@ export function ToolSettingsTable({
   const items = useMemo(() => tableItems(sections, collapsed), [sections, collapsed]);
   const windowed = items.length > WINDOW_FROM;
   const list = useRef<HTMLDivElement>(null);
+  const table = useRef<HTMLDivElement>(null);
+  const [fold, setFold] = useState<ToolsFold>();
+  useLayoutEffect(() => {
+    const element = table.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const measureFold = (width: number) =>
+      setFold(
+        toolsFold(width, parseFloat(getComputedStyle(document.documentElement).fontSize) || 16),
+      );
+    measureFold(element.clientWidth);
+    const observer = new ResizeObserver(([entry]) => entry && measureFold(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
-  // Content above the rows can change height on any render, so the offset is read after
-  // each one; state is set only when it moved.
-  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  // Where the rows start in the scroller's content, past the toolbar and column titles. It's
+  // read again whenever the list or anything around it resizes, after layout, so scrolling
+  // never forces one.
   useLayoutEffect(() => {
     const element = list.current;
     if (!windowed || !element) return;
-    const parent = scroller ?? scrollParent(element);
-    if (parent !== scroller) setScroller(parent);
+    const parent = scrollParent(element);
+    setScroller(parent);
     if (!parent) return;
-    // Where the rows start in the scroller's content, past the toolbar and column titles.
-    const offset = Math.round(
-      element.getBoundingClientRect().top -
-        parent.getBoundingClientRect().top -
-        parent.clientTop +
-        parent.scrollTop,
-    );
-    if (Math.abs(offset - scrollMargin) > 1) setScrollMargin(offset);
-  });
+    const read = () => {
+      const offset = Math.round(
+        element.getBoundingClientRect().top -
+          parent.getBoundingClientRect().top -
+          parent.clientTop +
+          parent.scrollTop,
+      );
+      setScrollMargin((current) => (Math.abs(offset - current) > 1 ? offset : current));
+    };
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(read);
+    for (let node: Element | null = element; node && node !== parent; node = node.parentElement)
+      observer.observe(node);
+    return () => observer.disconnect();
+  }, [windowed]);
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: windowed ? items.length : 0,
@@ -872,6 +919,15 @@ export function ToolSettingsTable({
     // Start from where the scroller already is, so mounting never moves it.
     initialOffset: () => scroller?.scrollTop ?? 0,
     initialRect: { width: 0, height: 1000 },
+    // A new row takes the size already known for it; the ResizeObserver reports its real
+    // height after layout. Reading offsetHeight here would force a style recalc of every
+    // new row inside React's commit.
+    measureElement: (element, entry, instance) => {
+      const box = entry?.borderBoxSize?.[0];
+      if (box) return Math.round(box.blockSize);
+      const index = Number(element.getAttribute('data-index'));
+      return instance.measurementsCache[index]?.size ?? ROW_HEIGHT;
+    },
     // Scroll updates render with React's own batching rather than one synchronous commit each.
     useFlushSync: false,
     overscan: 10,
@@ -884,6 +940,7 @@ export function ToolSettingsTable({
     <ToolRow
       busy={editor.busy.has(tool.name)}
       editor={rowEditor}
+      fold={fold}
       index={at?.[0]}
       key={tool.name}
       measure={at ? virtualizer.measureElement : undefined}
@@ -1000,6 +1057,7 @@ export function ToolSettingsTable({
         aria-label={label}
         className="@container/tools min-w-0"
         data-slot="tools-table"
+        ref={table}
         role="group"
       >
         <HeaderRow mode={mode} />
