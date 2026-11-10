@@ -77,6 +77,23 @@ test('global search applies themes from Settings and opens settings, hosts and e
   await expect(page.locator('[id="agent-user%2Fglobal-reviewer"]')).toBeFocused();
 });
 
+test('a setting picked from search opens its row marked, with its control focused', async ({
+  page,
+}) => {
+  await installSearchFixture(page, endpoint);
+  await page.goto('/settings/general');
+  await page.getByRole('button', { name: 'Search everywhere', exact: true }).click();
+  await page.getByPlaceholder(placeholder).fill('interface size');
+  await page.getByRole('option', { name: /^Interface size/u }).click();
+  await expect(page).toHaveURL(/\/settings\/appearance#setting=Interface%20size$/u);
+  const row = page.locator('[data-setting="Interface size"]');
+  await expect(row).toHaveClass(/clio-search-arrival/u);
+  await expect(row.locator('[data-slot="settings-control"] :focus')).toHaveCount(1);
+  // The mark fades after the spec's 2 s; focus stays with the control.
+  await expect(row).not.toHaveClass(/clio-search-arrival/u, { timeout: 4000 });
+  await expect(row.locator('[data-slot="settings-control"] :focus')).toHaveCount(1);
+});
+
 test('a file found from Settings opens in the remembered workspace canvas', async ({ page }) => {
   const fixture = await installSearchFixture(page, endpoint);
   await page.goto(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}`);

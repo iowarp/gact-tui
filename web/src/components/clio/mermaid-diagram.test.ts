@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeMermaidSvg, validateMermaidSource } from './mermaid-security';
+import { sanitizeMermaidSvg, parseDiagramSource } from './mermaid-security';
 
 describe('Mermaid trust boundary', () => {
   it('accepts declarative scientific workflows', () => {
     expect(() =>
-      validateMermaidSource('flowchart LR\n  catalog[Catalog] --> result[Defensible result]'),
+      parseDiagramSource('flowchart LR\n  catalog[Catalog] --> result[Defensible result]'),
     ).not.toThrow();
   });
 
@@ -12,7 +12,7 @@ describe('Mermaid trust boundary', () => {
     '%%{init: {"securityLevel": "loose"}}%%\nflowchart LR\na-->b',
     'flowchart LR\na[<b>unsafe</b>] --> b',
   ])('rejects executable or HTML source', (source) => {
-    expect(() => validateMermaidSource(source)).toThrow(
+    expect(() => parseDiagramSource(source)).toThrow(
       'Diagram contains an unsupported executable or HTML directive',
     );
   });
@@ -20,7 +20,7 @@ describe('Mermaid trust boundary', () => {
   it.each(['javascript:alert(1)', 'call alert()', '"https://example.com/"'])(
     'rejects executable click target %s before rendering or navigation',
     (target) => {
-      expect(() => validateMermaidSource(`flowchart LR\na-->b\nclick a ${target}`)).toThrow(
+      expect(() => parseDiagramSource(`flowchart LR\na-->b\nclick a ${target}`)).toThrow(
         'Diagram contains an unsupported executable or HTML directive',
       );
     },
@@ -28,7 +28,7 @@ describe('Mermaid trust boundary', () => {
 
   it('rejects a folder navigation outside the workspace', () => {
     expect(() =>
-      validateMermaidSource('flowchart LR\na-->b\nclick a "workspace-folder:../private"'),
+      parseDiagramSource('flowchart LR\na-->b\nclick a "workspace-folder:../private"'),
     ).toThrow('Diagram clicks must name a relative workspace-folder target.');
   });
 

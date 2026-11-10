@@ -354,7 +354,9 @@ describe('memory page', () => {
     repository.workspaces.mockResolvedValue([{ id: 'ws_lab', name: 'Synthetic lab' }]);
     const user = userEvent.setup();
     renderPage(<MemorySettings />);
-    await user.click(screen.getByRole('button', { name: /^Import memory/u }));
+    expect(screen.queryByRole('button', { name: 'Import memory' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('radio', { name: /Under review/u }));
+    await user.click(screen.getByRole('button', { name: 'Import memory' }));
     const dialog = await screen.findByRole('dialog', { name: 'Import memory' });
     await user.click(within(dialog).getByRole('radio', { name: 'Another assistant' }));
     await user.click(within(dialog).getByRole('button', { name: 'Remember in' }));

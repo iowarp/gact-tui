@@ -1,18 +1,9 @@
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
+import { ExternalLinkIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,7 +22,17 @@ import {
 } from './resource-dialogs';
 import { downloadSessionExport } from './session-export-download';
 import { SessionExportMenu } from './session-export-menu';
-import { SessionLifecycleMenuItems, SessionOrganizeMenuItems } from './session-management-menu';
+import {
+  SessionHistoryConfirmDialog,
+  type SessionHistoryConfirmation,
+} from './session-history-confirm-dialog';
+import {
+  SessionForkMenuItem,
+  SessionHistoryMenuItems,
+  SessionLifecycleMenuItems,
+  SessionOrganizeMenuItems,
+  SessionShareMenuItem,
+} from './session-management-menu';
 import { TopBarEnd } from './top-bar-end';
 
 export interface ClioSessionActionsProps {
@@ -69,7 +70,7 @@ export function ClioSessionActions({
   onShare,
   onUndo,
 }: ClioSessionActionsProps) {
-  const [confirmation, setConfirmation] = useState<'compact' | 'undo'>();
+  const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
   const [sharing, setSharing] = useState(false);
   const [pending, setPending] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
@@ -114,24 +115,15 @@ export function ClioSessionActions({
   const items = (
     <>
       {management ? (
-        <>
-          <SessionOrganizeMenuItems
-            actions={management.actions}
-            onAction={runManagementAction}
-            onRename={setRenameTarget}
-            session={management.session}
-          />
-          <DropdownMenuSeparator />
-        </>
-      ) : null}
-      {onFork ? (
-        <KeyMenuItem
-          label="Fork into a new conversation"
-          menuKey="F"
-          onSelect={() => void run(onFork)}
+        <SessionOrganizeMenuItems
+          actions={management.actions}
+          onAction={runManagementAction}
+          onRename={setRenameTarget}
+          session={management.session}
         />
       ) : null}
-      <KeyMenuItem label="Share read-only link" menuKey="L" onSelect={() => setSharing(true)} />
+      {onFork ? <SessionForkMenuItem onSelect={() => void run(onFork)} /> : null}
+      <SessionShareMenuItem onSelect={() => setSharing(true)} />
       {management ? (
         <SessionExportMenu
           onExport={(mode) =>
@@ -152,22 +144,13 @@ export function ClioSessionActions({
       <DropdownMenuSeparator />
       {onOpenSystemTerminal ? (
         <KeyMenuItem
+          icon={ExternalLinkIcon}
           label="Open in system terminal"
           menuKey="T"
           onSelect={() => void run(onOpenSystemTerminal)}
         />
       ) : null}
-      <KeyMenuItem
-        label="Compact conversation…"
-        menuKey="C"
-        onSelect={() => setConfirmation('compact')}
-      />
-      <KeyMenuItem
-        label="Remove last message…"
-        menuKey="V"
-        onSelect={() => setConfirmation('undo')}
-        destructive
-      />
+      <SessionHistoryMenuItems onConfirm={setConfirmation} />
       {management ? (
         <>
           <DropdownMenuSeparator />
@@ -225,42 +208,12 @@ export function ClioSessionActions({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open && !pending) setConfirmation(undefined);
-        }}
-        open={confirmation !== undefined}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmation === 'compact' ? 'Compact this conversation?' : 'Remove last message?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmation === 'compact'
-                ? 'The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.'
-                : 'The service will permanently remove the last stored message from this session. This action follows the connected permission policy.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={pending}
-              onClick={(event) => {
-                event.preventDefault();
-                void confirm();
-              }}
-              variant={confirmation === 'undo' ? 'destructive' : 'default'}
-            >
-              {pending
-                ? 'Working…'
-                : confirmation === 'compact'
-                  ? 'Compact conversation'
-                  : 'Remove message'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SessionHistoryConfirmDialog
+        confirmation={confirmation}
+        onCancel={() => setConfirmation(undefined)}
+        onConfirm={() => void confirm()}
+        pending={pending}
+      />
       {management && renameTarget ? (
         <RenameResourceDialog
           actions={management.actions}

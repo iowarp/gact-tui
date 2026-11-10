@@ -36,6 +36,7 @@ import { DeleteIcon, EditIcon, ManageIcon, MoreIcon } from '@/lib/icon-vocabular
 import { isLoopbackAddress } from '@/lib/local-servers';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { agentAvailabilityLabel } from './connection-names';
 import {
   AddAgentDialog,
   RemoveAgentDialog,
@@ -332,7 +333,7 @@ export function ConnectionsSettings() {
                 status={
                   <span
                     className="min-w-0 truncate text-xs"
-                    title={`${connection.availability.label}: ${connection.availability.detail}`}
+                    title={`${agentAvailabilityLabel(connection.availability, false)}: ${connection.availability.detail}`}
                   >
                     <StatusIndicator label={availability.label} tone={availability.tone} />
                   </span>

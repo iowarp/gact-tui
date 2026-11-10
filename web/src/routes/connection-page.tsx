@@ -33,11 +33,10 @@ import {
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
-import { agentIdentity } from '@/components/clio/connection-names';
+import { agentAvailabilityLabel, agentIdentity } from '@/components/clio/connection-names';
 import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { SavedHostsCheck } from '@/components/clio/saved-hosts-check';
 import { queryKeys } from '@/lib/query-keys';
-import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { connectionCapabilities } from '@/lib/connection-capabilities';
 import { Button } from '@/components/ui/button';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
@@ -200,13 +199,6 @@ export function ConnectionPage() {
         : workspace
           ? newConversationRoute(workspace.id)
           : undefined;
-      if (!route) {
-        reportConnectionOutcome({
-          code: 'target_unresolved',
-          endpoint: next.endpoint,
-          reason: 'The service exposed no workspace that could be opened.',
-        });
-      }
       return { next, capabilities, sessions, target: target ?? workspace, workspaces, route };
     },
   });
@@ -476,7 +468,13 @@ export function ConnectionPage() {
                               />
                             ) : (
                               <ConnectionAvailabilityIndicator
-                                availability={availability}
+                                availability={{
+                                  ...availability,
+                                  label: agentAvailabilityLabel(
+                                    availability,
+                                    connection.endpoint === settings.endpoint,
+                                  ),
+                                }}
                                 compact
                                 endpoint={connection.endpoint}
                               />

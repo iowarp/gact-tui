@@ -61,7 +61,6 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ConnectionPage } from './connection-page';
-import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 import { InfrastructureTargetGoneError } from '@/lib/connection';
 import { TransportError } from '@clio/core/v3';
 import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -72,7 +71,6 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   vi.clearAllMocks();
-  clearConnectionOutcomes();
   mocks.credentialsReady = true;
   mocks.inTauri = false;
   mocks.managedConnectionReady = false;
@@ -270,7 +268,9 @@ it('separates saved services from new connection fields and exposes the endpoint
   expect(screen.getByText('Contained campaign qualification')).toBeVisible();
   expect(screen.getByText('127.0.0.1:8788')).toBeVisible();
   expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
-  expect(await screen.findAllByText('Ready')).not.toHaveLength(0);
+  // The agent the app talks to reads Live; "Ready" is a service's or a model's word.
+  expect(await screen.findAllByText('Live')).not.toHaveLength(0);
+  expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: 'Add an agent…' }));
 
@@ -703,7 +703,6 @@ it('auto-connects to a draft without minting a persistent session', async () => 
 
   expect(await screen.findByText('Presentation-only draft')).toBeVisible();
   expect(mocks.repository.createSession).not.toHaveBeenCalled();
-  expect(connectionOutcomes().some((outcome) => outcome.code === 'session_minted')).toBe(false);
 });
 
 // The bounded session reads, answered from this test's session list.

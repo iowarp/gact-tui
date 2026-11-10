@@ -12,19 +12,25 @@ const STORAGE_KEY = 'clio.notifications.v1';
 
 export type AttentionSoundMode = 'off' | 'background' | 'always';
 
+/** Where a finished or stopped run tells you: the bell's While you were away list, that plus a desktop alert, or nowhere. */
+export type FinishedWorkMode = 'bell' | 'desktop' | 'off';
+
 interface NotificationPreferences {
   attentionSound: AttentionSoundMode;
   desktopNotifications: boolean;
+  finishedWork: FinishedWorkMode;
 }
 
 interface NotificationPreferencesContextValue extends NotificationPreferences {
   setAttentionSound: (mode: AttentionSoundMode) => void;
   setDesktopNotifications: (enabled: boolean) => void;
+  setFinishedWork: (mode: FinishedWorkMode) => void;
 }
 
 const defaults: NotificationPreferences = {
   attentionSound: 'off',
   desktopNotifications: false,
+  finishedWork: 'bell',
 };
 
 const NotificationPreferencesContext = createContext<NotificationPreferencesContextValue | null>(
@@ -64,6 +70,7 @@ export function NotificationPreferencesProvider({ children }: PropsWithChildren)
       ...preferences,
       setAttentionSound: (attentionSound) => update({ attentionSound }),
       setDesktopNotifications: (desktopNotifications) => update({ desktopNotifications }),
+      setFinishedWork: (finishedWork) => update({ finishedWork }),
     }),
     [preferences, update],
   );
@@ -103,5 +110,7 @@ function parsePreferences(raw: string | null): NotificationPreferences {
         ? value.attentionSound
         : 'off',
     desktopNotifications: value.desktopNotifications === true,
+    finishedWork:
+      value.finishedWork === 'desktop' || value.finishedWork === 'off' ? value.finishedWork : 'bell',
   };
 }
