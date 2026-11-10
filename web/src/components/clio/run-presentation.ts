@@ -55,7 +55,7 @@ export function compactWhen(iso: string, now: number = Date.now()): string {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
 }
 
-export function runStateLabel(row: RunRow, cancelRequested: boolean): string {
+export function runStateLabel(row: Pick<RunRow, 'state'>, cancelRequested: boolean): string {
   return cancelRequested && !SETTLED.includes(row.state)
     ? 'Cancellation requested'
     : clioStatusLabel(row.state);

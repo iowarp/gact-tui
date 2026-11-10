@@ -154,7 +154,9 @@ export function ChoiceRows<T extends string>({
               <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-[1.3]">
                 <span className="truncate">{row.label}</span>
                 {row.detail || reason ? (
-                  <small className="truncate text-[11px] text-faint">{reason ?? row.detail}</small>
+                  <small className="line-clamp-2 text-[11px] whitespace-normal text-faint [overflow-wrap:anywhere]">
+                    {reason ?? row.detail}
+                  </small>
                 ) : null}
               </span>
             </RadioGroupPrimitive.Item>
@@ -266,7 +268,7 @@ export function SourceStatusLine({
         </span>
       ) : null}
       <span
-        className="min-w-0 flex-1 truncate"
+        className="line-clamp-2 min-w-0 flex-1 leading-[1.35] [overflow-wrap:anywhere]"
         title={typeof children === 'string' ? children : undefined}
       >
         {children}
@@ -307,7 +309,7 @@ export function ProviderSwitch({
             icon: <SourceProviderGlyph provider={option.id} />,
           }))}
         />
-        <span className="ml-1.5 min-w-0 truncate text-[12.5px] text-foreground">
+        <span className="ml-1.5 line-clamp-2 min-w-0 text-[12.5px] leading-[1.3] text-foreground">
           {options.find((option) => option.id === value)?.name}
         </span>
       </div>
