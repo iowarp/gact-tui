@@ -92,6 +92,20 @@ const formats: readonly FormatCase[] = [
     modes: [],
     readableText: undefined,
   },
+  {
+    name: 'opal.ipynb',
+    mediaType: 'application/x-ipynb+json',
+    content: JSON.stringify({
+      nbformat: 4,
+      metadata: {},
+      cells: [
+        { cell_type: 'markdown', source: '# Opal notebook' },
+        { cell_type: 'code', execution_count: 1, source: 'print(1)', outputs: [] },
+      ],
+    }),
+    modes: ['Notebook', 'Source'],
+    readableText: 'Opal notebook',
+  },
 ];
 
 const sourceKinds = ['artifact', 'workspace', 'resource'] as const;
