@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
 import { ItemList, ItemRow } from './primitives/item-row';
@@ -190,8 +191,11 @@ export function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
         info="Access rules decide which actions run, ask first or are blocked. The agent cannot approve its own protected actions."
         title="Permissions"
       />
-      <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
-      <PermissionRequests />
+      {/* Both lists sit in the setting column (spec `.xrw`). */}
+      <div className={SETTINGS_COLUMN}>
+        <PermissionPoliciesPanel initialWorkspaceId={workspaceId} />
+        <PermissionRequests />
+      </div>
     </div>
   );
 }

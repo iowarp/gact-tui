@@ -30,7 +30,7 @@ export function AgentSettings() {
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
-    enabled: supported === true,
+    enabled: supported !== false,
   });
   const local = useQuery({
     // The same namespace the private library reads; saving or deleting an agent refreshes it.
@@ -75,7 +75,11 @@ export function AgentSettings() {
   }
   const all = agents.data ?? [];
   const mine = all.filter((agent) => agent.kind === 'user');
-  const defaultRef = defaults.data?.agent_ref || defaults.data?.default_agent_ref || '';
+  // The person's chosen default when it's still installed, else the service's.
+  const defaultRef =
+    [defaults.data?.agent_ref, defaults.data?.default_agent_ref].find(
+      (ref) => ref && all.some((agent) => agent.ref === ref),
+    ) ?? '';
   // The default leads the installed list; the rest keep the service's order.
   const installed = all
     .filter((agent) => agent.kind !== 'user')

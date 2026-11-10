@@ -131,7 +131,7 @@ function ValueSummary({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5',
+        'inline-flex shrink-0 items-center gap-2',
         chosen ? 'text-primary' : 'text-muted-foreground',
         className,
       )}
@@ -225,7 +225,7 @@ function ToolRow({ tool, mode, editor }: { tool: ToolSetting; mode: string; edit
           // Below 44rem the line wraps inside a one-line clip, so an outcome
           // without room for a few letters of its label leaves whole rather
           // than as a bare dot.
-          <span className="flex h-4 min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
+          <span className="flex h-[21px] min-w-0 flex-wrap gap-x-3 gap-y-2 overflow-hidden text-xs whitespace-nowrap text-faint @min-[44rem]/tools:h-auto @min-[44rem]/tools:flex-nowrap">
             <span className="hidden shrink-0 @min-[44rem]/tools:inline">{flagText(tool)}</span>
             <ValueSummary
               chosen={!permission.isDefault}
