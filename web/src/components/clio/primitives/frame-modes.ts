@@ -8,6 +8,8 @@ export interface FrameModesEntry {
     value: string;
     label: string;
     icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+    /** Catalog id of the key that switches to this mode from anywhere in the tab. */
+    shortcut?: string;
   }[];
 }
 
