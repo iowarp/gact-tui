@@ -3,6 +3,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { CloseIcon } from '@/lib/icon-vocabulary';
+import { DIALOG_SHEET_CLASS } from '@/lib/dialog-sheet';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
@@ -78,6 +79,19 @@ function FooterKey({ keys, className }: { keys: readonly string[]; className?: s
     <span aria-hidden="true" className="inline-flex @max-[28.5rem]:hidden max-[599px]:hidden">
       <ShortcutKeys className={className} keys={keys} variant="inline" />
     </span>
+  );
+}
+
+/** The grab handle a bottom sheet shows below 600 px (see `DIALOG_SHEET_CLASS`). */
+export function DialogSheetHandle({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'mx-auto mt-2 hidden h-1 w-9 shrink-0 rounded-full bg-border max-[599px]:block',
+        className,
+      )}
+    />
   );
 }
 
@@ -183,14 +197,11 @@ export const DialogFrame = memo(function DialogFrame({
         className={cn(
           // 44% of the window, as the spec's frame; the spec caps it at 600 px.
           'top-1/2 w-[clamp(360px,44vw,600px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
-          'max-[599px]:top-auto max-[599px]:bottom-0 max-[599px]:left-0 max-[599px]:w-full max-[599px]:max-w-full max-[599px]:translate-x-0 max-[599px]:translate-y-0 max-[599px]:rounded-t-[14px] max-[599px]:rounded-b-none',
+          DIALOG_SHEET_CLASS,
           className,
         )}
       >
-        <span
-          aria-hidden="true"
-          className="mx-auto mt-2 hidden h-1 w-9 rounded-full bg-border max-[599px]:block"
-        />
+        <DialogSheetHandle />
         <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
           {icon ? (
             <span
