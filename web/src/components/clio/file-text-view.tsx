@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
+import { fileFormatLabel } from '@/lib/media-types';
 import { readNotebook } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 import {
@@ -86,6 +87,10 @@ export function FileTextView({
     [content, format],
   );
   const lines = useMemo(() => content.split('\n').length, [content]);
+  // A code file's one view is its source; the frame names its language (frame-bar 05).
+  const formatLabel = fileFormatLabel(name, mediaType ?? '');
+  const language =
+    format === 'source' && !/^(?:File|Text)$/u.test(formatLabel) ? formatLabel : undefined;
   useFileViewerFacts(
     notebook?.ok
       ? [
@@ -94,7 +99,9 @@ export function FileTextView({
         ]
       : format === 'csv' || dataset
         ? undefined
-        : [`${lines.toLocaleString()} lines`],
+        : language
+          ? [language]
+          : [`${lines.toLocaleString()} lines`],
   );
   const modes: FileMode[] = [
     ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),

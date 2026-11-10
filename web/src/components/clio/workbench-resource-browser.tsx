@@ -410,6 +410,7 @@ export function FileBrowser({
             locator={previewPath === selectedPath ? locator : undefined}
             mediaType={activeFile?.media_type}
             path={previewPath}
+            sessionId={sessionId}
             size={activeFile?.size}
             workspaceId={workspaceId}
           />
