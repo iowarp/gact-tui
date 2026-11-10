@@ -381,20 +381,6 @@ function TimelineRows({
   );
 }
 
-/** HH:MM today, the day before that; the full time is in the row's hover name. */
-function formatTimelineWhen(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const today = new Date();
-  return date.toDateString() === today.toDateString()
-    ? new Intl.DateTimeFormat(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-      }).format(date)
-    : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
-}
-
 const TimelineRow = memo(function TimelineRow({
   item,
   lanes,
@@ -415,15 +401,7 @@ const TimelineRow = memo(function TimelineRow({
   const live = timelineLive(item);
   const status = clioStatusLabel(item.state);
   const when =
-    live && !attention
-      ? item.state === 'queued'
-        ? 'queued'
-        : 'running'
-      : item.timing === 'turn'
-        ? 'turn'
-        : item.at
-          ? formatTimelineWhen(item.at)
-          : '';
+    live && !attention ? (item.state === 'queued' ? 'queued' : 'running') : (item.fact ?? '');
   const hover = [
     item.label,
     lane.label,

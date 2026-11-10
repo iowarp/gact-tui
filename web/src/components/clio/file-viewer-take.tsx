@@ -38,7 +38,7 @@ import {
   type FrameToolEntry,
 } from './primitives/frame-modes';
 import { IconButton } from './primitives/icon-button';
-import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
+import { MenuRow, assignJumpLetters, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { ToolbarAction } from './viewer-toolbar';
 
@@ -210,20 +210,20 @@ export function FoldedTakeRows({ copy, open }: { copy?: CopyTake; open?: OpenTak
     <>
       {copy ? (
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="[&>svg]:hidden">
-            <MenuRow icon={<ClipboardCopyIcon />} label="Copy" submenu />
+          <DropdownMenuSubTrigger data-accelerator="C" className="[&>svg]:hidden">
+            <MenuRow icon={<ClipboardCopyIcon />} label="Copy" accelerator="C" submenu />
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56">
+          <DropdownMenuSubContent className="min-w-56" onKeyDown={menuAcceleratorKeyDown}>
             <TakeMenuRows rows={copy.rows} />
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       ) : null}
       {open ? (
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="[&>svg]:hidden">
-            <MenuRow icon={<ExternalLinkIcon />} label="Open" submenu />
+          <DropdownMenuSubTrigger data-accelerator="O" className="[&>svg]:hidden">
+            <MenuRow icon={<ExternalLinkIcon />} label="Open" accelerator="O" submenu />
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-56">
+          <DropdownMenuSubContent className="min-w-56" onKeyDown={menuAcceleratorKeyDown}>
             <TakeMenuRows rows={otherOpenRows(open.rows)} />
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -251,6 +251,7 @@ export function FrameTalkTake({
   open,
   menu,
   menuLabel = 'More actions',
+  menuLetters = '',
   pending = false,
 }: {
   addToMessage?: AddToMessage;
@@ -261,6 +262,8 @@ export function FrameTalkTake({
   /** Rows the … menu always holds, after any folded ones. */
   menu?: ReactNode;
   menuLabel?: string;
+  /** The jump letters `menu`'s rows use, kept off the folded modes and tools. */
+  menuLetters?: string;
   pending?: boolean;
 }) {
   const [fold, setFold] = useState<{
@@ -269,7 +272,8 @@ export function FrameTalkTake({
     open: boolean;
     modes: FrameModesEntry[];
     tools: FrameToolEntry[];
-  }>({ talk: false, copy: false, open: false, modes: [], tools: [] });
+    letters: string[];
+  }>({ talk: false, copy: false, open: false, modes: [], tools: [], letters: [] });
   const talkRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
   const openRef = useRef<HTMLSpanElement>(null);
@@ -304,14 +308,24 @@ export function FrameTalkTake({
       ) : null}
       <DropdownMenu
         onOpenChange={(next) => {
-          if (next)
-            setFold({
-              talk: folded(talkRef.current),
-              copy: folded(copyRef.current),
-              open: folded(openRef.current),
-              modes: foldedFrameModes(menuRef.current),
-              tools: foldedFrameTools(menuRef.current),
-            });
+          if (!next) return;
+          const modes = foldedFrameModes(menuRef.current);
+          const tools = foldedFrameTools(menuRef.current);
+          setFold({
+            talk: folded(talkRef.current),
+            copy: folded(copyRef.current),
+            open: folded(openRef.current),
+            modes,
+            tools,
+            // Modes first, then tools, in menu order; @, Copy and Open keep their own.
+            letters: assignJumpLetters(
+              [
+                ...modes.flatMap((group) => group.modes.map((mode) => mode.label)),
+                ...tools.map((tool) => tool.label),
+              ],
+              `@CO${menuLetters}`,
+            ),
+          });
         }}
       >
         <span
@@ -341,8 +355,18 @@ export function FrameTalkTake({
                 value={group.value}
                 onValueChange={group.onChange}
               >
-                {group.modes.map((mode) => (
-                  <FileModeMenuItem key={mode.value} mode={mode} />
+                {group.modes.map((mode, modeIndex) => (
+                  <FileModeMenuItem
+                    key={mode.value}
+                    mode={mode}
+                    accelerator={
+                      fold.letters[
+                        fold.modes
+                          .slice(0, index)
+                          .reduce((count, earlier) => count + earlier.modes.length, modeIndex)
+                      ]
+                    }
+                  />
                 ))}
               </DropdownMenuRadioGroup>
             </Fragment>
@@ -350,37 +374,42 @@ export function FrameTalkTake({
           {fold.tools.length > 0 ? (
             <>
               {fold.modes.length > 0 ? <DropdownMenuSeparator /> : null}
-              {fold.tools.map((tool, index) =>
+              {fold.tools.map((tool, index) => {
+                const letter =
+                  fold.letters[
+                    fold.modes.reduce((count, group) => count + group.modes.length, index)
+                  ] || undefined;
+                const row = (
+                  <MenuRow
+                    icon={tool.icon}
+                    label={tool.label}
+                    description={tool.reason}
+                    wrapDescription
+                    accelerator={letter}
+                  />
+                );
                 // A pressed toggle in the bar (Explorer) stays a checked toggle here.
-                tool.checked === undefined ? (
+                return tool.checked === undefined ? (
                   <DropdownMenuItem
                     key={`${index}:${tool.label}`}
+                    data-accelerator={letter}
                     disabled={tool.disabled}
                     onSelect={() => tool.button.click()}
                   >
-                    <MenuRow
-                      icon={tool.icon}
-                      label={tool.label}
-                      description={tool.reason}
-                      wrapDescription
-                    />
+                    {row}
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuCheckboxItem
                     key={`${index}:${tool.label}`}
+                    data-accelerator={letter}
                     checked={tool.checked}
                     disabled={tool.disabled}
                     onSelect={() => tool.button.click()}
                   >
-                    <MenuRow
-                      icon={tool.icon}
-                      label={tool.label}
-                      description={tool.reason}
-                      wrapDescription
-                    />
+                    {row}
                   </DropdownMenuCheckboxItem>
-                ),
-              )}
+                );
+              })}
             </>
           ) : null}
           {fold.modes.length + fold.tools.length > 0 && (anyFolded || menu) ? (

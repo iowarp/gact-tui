@@ -5,6 +5,7 @@ import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
 import { questionToolSummary } from './question-tool-presentation';
 import { taskWaitInterruptionDetail } from './task-wait-presentation';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 
 export interface ToolPresentation {
   title: string;
@@ -275,8 +276,21 @@ export function getToolFailureDetail(tool: ToolInvocation): string | undefined {
 export function getToolActivityTitle(tool: ToolInvocation): string {
   const action = getToolActionLabel(tool);
   const subject = getToolSubject(tool);
-  const label = subject?.label?.trim();
+  let label = subject?.label?.trim();
+  // A path subject names its last segment; the full path stays in the call's details.
+  if (label && TOOL_OPERATIONS[tool.name]?.subjects?.includes('path'))
+    label = label.split(/[\\/]/u).filter(Boolean).at(-1) ?? label;
   return label ? `${action} (${label})` : action;
+}
+
+/** A humane operation name for a call known only by its tool identifier. */
+export function toolOperationLabel(name: string): string {
+  if (TASK_OPERATIONS[name]) return TASK_OPERATIONS[name]!;
+  const operation = TOOL_OPERATIONS[name];
+  if (!operation) return name;
+  if (operation.family === 'wait') return 'Wait for tasks';
+  // "Read result of" or "Run on" need their subject; without it the verb stands alone.
+  return operation.action.replace(/\s+(?:for|of|to|on)$/u, '');
 }
 
 /** An undeclared tool keeps its actual identifier as the fallback label. */

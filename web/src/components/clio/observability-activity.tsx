@@ -5,6 +5,7 @@ import type {
   Message,
   PendingInteraction,
   RunState,
+  ToolInvocation,
 } from '@clio/core/v3';
 import {
   BotIcon,
@@ -29,7 +30,8 @@ import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
-import { humanizeToolName } from './tool-presentation';
+import { toolOperationLabel } from './tool-presentation';
+import { compactDuration, toolActivityName } from './workbench-activity-model';
 import {
   isAgentMcpInteraction,
   isCausalQuestionInteraction,
@@ -52,6 +54,8 @@ export interface ObservabilityActivityItem {
   label: string;
   /** Absent when the record has no summary beyond its labeled state. */
   detail?: string;
+  /** The short trailing fact: a duration or a delta ("40ms", "2.4s"). Clock time is hover-only. */
+  fact?: string;
   state: RunState | ClioStatusValue;
   at?: string;
   groupId?: string;
@@ -195,12 +199,14 @@ export function childProjectionActivityItems(
   processes: readonly AsyncProcess[],
   knownToolIds: ReadonlySet<string> = new Set(),
   onOpenFile?: (path: string) => void,
+  knownTools: readonly ToolInvocation[] = [],
 ): ObservabilityActivityItem[] {
   const lineage = provenance.session_lineage;
   if (!lineage) return [];
   const rootSessionId = provenance.root_session_id ?? provenance.session_id;
   const lineageBySession = new Map(lineage.map((row) => [row.session_id, row]));
   const processByTask = new Map(processes.map((process) => [process.id, process]));
+  const matchTool = spanToolMatcher(knownTools);
   const items: ObservabilityActivityItem[] = [];
 
   for (const owner of lineage) {
@@ -237,10 +243,13 @@ export function childProjectionActivityItems(
       lifecycle: 'open',
     });
     if (closeRowWillFollow) {
+      const opened = Date.parse(process?.created_at ?? owner.created_at ?? '');
+      const closed = Date.parse(closedAt ?? '');
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
         detail: 'Child work returned to its parent',
+        fact: closed >= opened ? compactDuration(closed - opened) : undefined,
         state,
         at: closedAt,
         timing: 'event',
@@ -291,17 +300,34 @@ export function childProjectionActivityItems(
     if (
       span.kind === 'tool' &&
       (knownToolIds.has(span.id) ||
-        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)))
+        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)) ||
+        // Root spans carry no invocation id; the same call is already a transcript row.
+        Boolean(toolName && matchTool(ownerSessionId, toolName, span.start_time, true)))
     ) {
       continue;
     }
     const owner = lineageBySession.get(ownerSessionId);
     const filePath = projectedFilePath(toolName, span.attributes);
+    const permission = span.event_type === 'permission.resolved';
+    const permittedTool =
+      typeof span.attributes.tool_name === 'string' ? span.attributes.tool_name : undefined;
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
-      label: projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
-      detail: projectedActivityDetail(span.kind),
+      label: permission
+        ? permissionActivityLabel(
+            span.label,
+            permittedTool,
+            permittedTool
+              ? matchTool(ownerSessionId, permittedTool, span.start_time, false)
+              : undefined,
+          )
+        : projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
+      detail: permission ? 'Permission' : projectedActivityDetail(span.kind),
+      fact:
+        span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
+          ? compactDuration(span.duration_ms)
+          : undefined,
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -663,6 +689,51 @@ function projectedToolName(toolName: string | undefined, label: string): string 
   return /^Tool\s+([^\s]+)\s+(?:started|completed|failed)\.?$/iu.exec(label)?.[1];
 }
 
+/** How far a provenance span's start may sit from its transcript call's start. */
+const SPAN_MATCH_WINDOW_MS = 2_000;
+
+/**
+ * The transcript call a provenance span records, matched by owner, tool and
+ * start time. Consuming a match keeps two same-named calls from pairing twice.
+ */
+function spanToolMatcher(knownTools: readonly ToolInvocation[]) {
+  const consumed = new Set<string>();
+  return (sessionId: string, toolName: string, at: number | null, consume: boolean) => {
+    if (at === null || !knownTools.length) return undefined;
+    let best: ToolInvocation | undefined;
+    let bestGap = SPAN_MATCH_WINDOW_MS;
+    for (const tool of knownTools) {
+      if (tool.name !== toolName || tool.session_id !== sessionId) continue;
+      if (consume && consumed.has(tool.id)) continue;
+      const gap = Math.abs(Date.parse(tool.started_at ?? '') - at * 1_000);
+      if (gap <= bestGap) {
+        best = tool;
+        bestGap = gap;
+      }
+    }
+    if (best && consume) consumed.add(best.id);
+    return best;
+  };
+}
+
+/** "Approved run command (sbatch …)": the decision and the action, never the request id. */
+function permissionActivityLabel(
+  fallback: string,
+  toolName: string | undefined,
+  tool: ToolInvocation | undefined,
+): string {
+  const decision = /resolved:\s*([a-z_]+)/iu.exec(fallback)?.[1]?.toLocaleLowerCase();
+  const verb =
+    decision === 'allow' || decision === 'approve' || decision === 'approved'
+      ? 'Approved'
+      : decision === 'deny' || decision === 'denied' || decision === 'reject'
+        ? 'Denied'
+        : 'Answered';
+  const action = tool ? toolActivityName(tool) : toolName ? toolOperationLabel(toolName) : '';
+  if (!action) return `${verb} a permission request`;
+  return `${verb} ${action.charAt(0).toLocaleLowerCase()}${action.slice(1)}`;
+}
+
 function projectedActivityLabel(
   kind: string,
   toolName: string | undefined,
@@ -677,7 +748,7 @@ function projectedActivityLabel(
           .map((key) => (input as Record<string, unknown>)[key])
           .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
       : undefined;
-  const operation = provenanceFileFact(toolName) ?? humanizeToolName(toolName);
+  const operation = provenanceFileFact(toolName) ?? toolOperationLabel(toolName);
   if (!qualifier) return operation;
   const compact = qualifier.split(/[\\/]/u).filter(Boolean).at(-1) ?? qualifier;
   return `${operation} ${compact}`;
