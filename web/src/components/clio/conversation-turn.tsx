@@ -483,7 +483,7 @@ function ActivityLane({
           open={runOpen}
           outcome={
             run.failed || run.denied || run.interrupted ? (
-              <>
+              <span>
                 {[
                   run.failed ? (
                     <span key="failed" className="text-destructive">
@@ -499,7 +499,7 @@ function ActivityLane({
                 ]
                   .filter(Boolean)
                   .flatMap((part, index) => (index ? [', ', part] : [part]))}
-              </>
+              </span>
             ) : undefined
           }
           outcomeTitle={
