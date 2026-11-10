@@ -73,6 +73,11 @@ export interface StateViewProps {
    */
   action?: StateAction;
   secondaryAction?: StateAction;
+  /**
+   * A viewer body's named icon actions in order (Source, Open, Download), in
+   * place of `action` and `secondaryAction`.
+   */
+  actions?: readonly StateAction[];
   /** A text link under the action (Details), for a page or a panel. */
   link?: StateAction;
   /** Supplemental facts after the line: a size, an extension, a time. */
@@ -101,6 +106,7 @@ export const StateView = memo(function StateView({
   title,
   action,
   secondaryAction,
+  actions,
   link,
   detail,
   size = 'panel',
@@ -113,6 +119,7 @@ export const StateView = memo(function StateView({
     return (
       <ViewerState
         action={action}
+        actions={actions}
         className={className}
         detail={detail}
         glyph={glyph}
@@ -256,6 +263,7 @@ function ViewerState({
   title,
   action,
   secondaryAction,
+  actions: listed,
   detail,
   icon,
   glyph,
@@ -291,7 +299,8 @@ function ViewerState({
     kind === 'error' && action && (action.label || 'Retry') === 'Retry'
       ? { ...action, label: 'Retry', icon: action.icon ?? <RetryIcon /> }
       : action;
-  const actions = [secondaryAction, retry].filter((entry): entry is StateAction => !!entry);
+  const actions =
+    listed ?? [secondaryAction, retry].filter((entry): entry is StateAction => !!entry);
   return (
     <div
       {...liveRegion(kind)}
@@ -299,18 +308,20 @@ function ViewerState({
       data-size="viewer"
       data-slot="state-view"
       className={cn(
-        'flex size-full min-h-[140px] min-w-0 flex-col items-center justify-center gap-2.5 px-4 py-6 text-center text-[12.5px] text-muted-foreground',
+        'flex size-full min-h-[140px] min-w-0 flex-col items-center justify-center gap-[9px] px-4 py-6 text-center text-[12.5px] text-muted-foreground',
         className,
       )}
     >
       <span aria-hidden="true" className="grid shrink-0 place-items-center text-faint">
         {glyph ?? <IconComponent className="size-[26px]" />}
       </span>
-      <span className="max-w-[min(100%,34rem)] text-balance break-words">{title}</span>
+      <span className="max-w-[min(100%,34rem)] px-3.5 text-[13px] font-medium text-balance break-words text-foreground">
+        {title}
+      </span>
       {detail ? (
         <span
           title={detail}
-          className="line-clamp-3 max-w-[min(100%,34rem)] text-[11.5px] break-words text-muted-foreground"
+          className="line-clamp-4 max-w-[min(100%,256px)] text-[12px] leading-normal break-words text-muted-foreground"
         >
           {detail}
         </span>
