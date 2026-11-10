@@ -50,6 +50,7 @@ import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import { WorkbenchTabContent } from './workbench-tab-content';
 import {
   tabForOpenRequest,
+  variantTryTab,
   type CanvasResourceKind,
   type ClioWorkbenchOpenRequest,
   type TabOpenRequest,
@@ -387,6 +388,13 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               return;
             }
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
+            return;
+          case 'variant-try':
+            // Every try gets its tab; the asked-for one ends in front.
+            for (const item of request.tries)
+              if (item.tryIndex !== request.tryIndex)
+                openTab(variantTryTab(request, item.tryIndex, sessionId, workspaceId));
+            openTab(variantTryTab(request, request.tryIndex, sessionId, workspaceId));
             return;
           default: {
             if (openInBrowser(request, targetWorkspaceId)) return;

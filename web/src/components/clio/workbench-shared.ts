@@ -103,6 +103,16 @@ type WorkbenchTabKind =
       pageId: string;
       sessionId: string;
       workspaceId: string;
+    }
+  /** One try of a variant run (BestOfN / Refine); the run's pick card picks between them. */
+  | {
+      id: string;
+      kind: 'variant-try';
+      label: string;
+      variantsId: string;
+      tryIndex: number;
+      sessionId: string;
+      workspaceId: string;
     };
 
 export function subagentTab(subagent: SubagentRun, workspaceId: string): WorkbenchTab {

@@ -177,6 +177,10 @@ export interface VariantRunView {
   title: string;
   /** How the run chooses: `Best of 3 — you pick`. */
   method: string;
+  /** Its strategy alone: `Best of 3`, `Refine, up to 4 tries`. */
+  strategy: string;
+  /** What one try is called: `Try`, or `Draft` for alternative drafts. */
+  noun: string;
   rubric?: string;
   judge: VariantRun['judge'];
   status: string;
@@ -189,17 +193,20 @@ export interface VariantRunView {
   refinable: boolean;
 }
 
-function tryNoun(run: VariantRun): string {
+export function tryNoun(run: VariantRun): string {
   return run.origin === 'draft_alternatives' ? 'Draft' : 'Try';
 }
 
+function strategyLabel(run: VariantRun): string {
+  return run.strategy === 'refine'
+    ? `Refine, up to ${run.n} tries`
+    : run.n > 0
+      ? `Best of ${run.n}`
+      : 'Best of several';
+}
+
 function methodLabel(run: VariantRun): string {
-  const strategy =
-    run.strategy === 'refine'
-      ? `Refine, up to ${run.n} tries`
-      : run.n > 0
-        ? `Best of ${run.n}`
-        : 'Best of several';
+  const strategy = strategyLabel(run);
   const judge =
     run.judge === 'user' ? 'you pick' : run.judge === 'lm' ? 'judged by the model' : undefined;
   return judge ? `${strategy} — ${judge}` : strategy;
@@ -328,6 +335,8 @@ export function variantRunView(
         ? 'Alternative drafts'
         : `${run.agent_id || 'Agent'} tries`,
     method: methodLabel(run),
+    strategy: strategyLabel(run),
+    noun,
     rubric: run.rubric ?? pick?.rubric,
     judge: run.judge,
     status: statusLabel(run, noun, pick),
