@@ -186,8 +186,8 @@ if ($startSource -notmatch 'sync_preserved_committed_heads') {
 if ($startSource -notmatch 'Add-Member[\s\S]{0,180}?runtime_root[\s\S]{0,300}?Set-Content[\s\S]{0,180}?activeGenerationPath[\s\S]{0,300}?stop_previous_runtime') {
     throw "Start-ClioDev must persist a recovered runtime root before stopping the preserved generation."
 }
-if ($startSource -notmatch 'CLIO_CODEX_TRANSPORT\s*=\s*"sdk"') {
-    throw "Start-ClioDev must configure Codex through the backend's supported official SDK transport."
+if ($startSource -notmatch 'CLIO_CODEX_TRANSPORT\s*=\s*"websocket"') {
+    throw "Start-ClioDev must configure Codex through the backend's websocket transport."
 }
 if ($startSource -match 'CLIO_CODEX_TRANSPORT\s*=\s*"app_server"') {
     throw "Start-ClioDev must not configure the removed Codex app-server transport."
@@ -212,7 +212,7 @@ if (
 if ($startSource -notmatch '-HealthTimeoutSec\s+\$BackendReadinessTimeoutSec') {
     throw "Start-ClioDev must pass its readiness budget through to live preflight."
 }
-if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-RestMethod[\s\S]{0,160}?\$providerUri[\s\S]{0,120}?-TimeoutSec\s+\$BackendReadinessTimeoutSec') {
+if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-ClioDevProviderRequest[\s\S]{0,160}?\$providerUri[\s\S]{0,120}?-TimeoutSec\s+\$BackendReadinessTimeoutSec') {
     throw "Cold provider discovery must share the explicit backend readiness budget."
 }
 if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
