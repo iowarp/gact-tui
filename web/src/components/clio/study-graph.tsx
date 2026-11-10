@@ -2,6 +2,7 @@ import type { ScienceEntry } from '@clio/core/v3';
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   Handle,
   Position,
@@ -13,6 +14,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { EntryKindIcon, ScienceStatus } from './science-log-icons';
@@ -94,12 +96,35 @@ export function StudyGraph({ graph, selectedEntry, onSelectEntry }: StudyGraphPr
         <Background color="var(--border)" gap={16} size={1.2} variant={BackgroundVariant.Dots} />
         <Controls
           aria-label="Study graph controls"
-          className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!fill-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!fill-foreground"
+          className="!m-3 !gap-0.5 !border-0 !bg-transparent !shadow-none [&_button]:!size-7 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-hover [&_button:hover]:!text-foreground [&_svg]:!size-3.5 [&_svg]:!max-h-none [&_svg]:!max-w-none [&_svg]:!fill-none"
+          orientation="horizontal"
           position="bottom-right"
+          showFitView={false}
           showInteractive={false}
-        />
+          showZoom={false}
+        >
+          <GraphZoomButtons />
+        </Controls>
       </ReactFlow>
     </section>
+  );
+}
+
+/** The spec's zoom row: zoom in, zoom out and fit, each named on hover. */
+function GraphZoomButtons() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  return (
+    <>
+      <ControlButton aria-label="Zoom in" onClick={() => void zoomIn()} title="Zoom in">
+        <ZoomIn aria-hidden />
+      </ControlButton>
+      <ControlButton aria-label="Zoom out" onClick={() => void zoomOut()} title="Zoom out">
+        <ZoomOut aria-hidden />
+      </ControlButton>
+      <ControlButton aria-label="Fit view" onClick={() => void fitView()} title="Fit view">
+        <Maximize aria-hidden />
+      </ControlButton>
+    </>
   );
 }
 

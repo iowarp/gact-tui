@@ -121,12 +121,14 @@ function ValueSummary({
   isDefault,
   chosen,
   className,
+  title,
 }: {
   icon: Icon;
   label: string;
   isDefault: boolean;
   chosen: boolean;
   className?: string;
+  title?: string;
 }) {
   return (
     <span
@@ -135,6 +137,7 @@ function ValueSummary({
         chosen ? 'text-primary' : 'text-muted-foreground',
         className,
       )}
+      title={title}
     >
       <ValueMark icon={icon} isDefault={isDefault} />
       {label}
@@ -550,7 +553,17 @@ function GroupRow({
                 </span>
               ))
             )}
-            {summary ? (
+            {summary && permissionLabel === callersLabel ? (
+              // Both settings read the same ("Per tool", "Mixed"): one summary, not a repeat.
+              <ValueSummary
+                chosen={false}
+                className={NARROW_ONLY}
+                icon={permissionIcon}
+                isDefault={false}
+                label={permissionLabel}
+                title={`Permission and I/O: ${permissionLabel}`}
+              />
+            ) : summary ? (
               <>
                 <ValueSummary
                   chosen={permission !== 'mixed' && permission !== 'default'}
@@ -558,6 +571,7 @@ function GroupRow({
                   icon={permissionIcon}
                   isDefault={false}
                   label={permissionLabel}
+                  title={`Permission: ${permissionLabel}`}
                 />
                 <ValueSummary
                   chosen={callers !== 'mixed' && callers !== 'default'}
@@ -565,6 +579,7 @@ function GroupRow({
                   icon={callersIcon}
                   isDefault={false}
                   label={callersLabel}
+                  title={`I/O: ${callersLabel}`}
                 />
               </>
             ) : null}

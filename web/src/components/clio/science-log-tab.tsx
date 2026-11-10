@@ -1,6 +1,6 @@
 import type { ScienceEntry, ScienceStudy, ScienceView, SubagentRun } from '@clio/core/v3';
-import { FocusIcon, GitForkIcon, ListIcon } from 'lucide-react';
-import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { FocusIcon, GitBranchIcon, ListIcon } from 'lucide-react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -9,9 +9,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { useScienceLog } from '@/hooks/use-science-log';
 import { activeA2uiOpenViewRuntime, useStudyViewFocus } from '@/lib/a2ui/open-view';
 import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
+import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useLiveStore } from '@/store/live-store';
 import { FrameCommentsUnavailable } from './comments/frame-comments';
 import { FileModeControls } from './file-mode-controls';
+import { keepFocusInFrame, useFrameKeyRegion } from './file-viewer-modes';
 import { FrameTalkTake } from './file-viewer-take';
 import { FrameBar, FrameCrumbs, type FrameCrumb } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
@@ -113,7 +115,7 @@ type LogFilter =
 
 const MODES = [
   { value: 'log', label: 'Log', icon: ListIcon },
-  { value: 'graph', label: 'Study graph', icon: GitForkIcon },
+  { value: 'graph', label: 'Lineage', icon: GitBranchIcon, shortcut: 'lineage' },
 ] as const;
 
 /**
@@ -178,6 +180,16 @@ export function ScienceLogView({
     chooseStudyMode(study.study, next);
     setModeState(next);
   };
+  const hostRef = useRef<HTMLDivElement>(null);
+  const keyRegion = useFrameKeyRegion(hostRef);
+  useShortcut(
+    'lineage',
+    () => {
+      setMode(mode === 'graph' ? 'log' : 'graph');
+      keepFocusInFrame(hostRef.current);
+    },
+    { region: keyRegion },
+  );
   const [scope, setScope] = useState<StudyGraphScope>('all');
   const search = useWorkbenchListSearch('Search the study');
   const picked = useWorkbenchTabListPicked();
@@ -321,6 +333,7 @@ export function ScienceLogView({
     <Tabs
       className="flex h-full min-h-0 min-w-0 flex-col gap-0"
       onValueChange={(value) => setMode(value === 'graph' ? 'graph' : 'log')}
+      ref={hostRef}
       value={mode}
     >
       <FrameBar

@@ -142,7 +142,6 @@ function ConnectExistingServiceDialog({
   const webSearchAction = webSearchConfigured ? 'Edit connection' : 'Connect';
   return (
     <DialogFrame
-      className="w-[clamp(360px,44vw,600px)]"
       description={`Attach a service to ${agentLabel}. Its deployment remains under your control.`}
       icon={<LinkIcon />}
       onOpenChange={onOpenChange}

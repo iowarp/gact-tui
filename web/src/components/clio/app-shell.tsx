@@ -29,6 +29,8 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { useRegionShortcuts } from '@/lib/shortcuts/regions';
 import { useMenuAction } from '@/tauri/menu-actions';
+import { requestClioMenuOnMount } from '@/lib/clio-menu-request';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
@@ -40,6 +42,7 @@ import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { fitWorkbenchWidthTo } from './workbench-list-fit';
+import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -57,6 +60,20 @@ function TopBarSidebarTrigger() {
       <HeldKeyBadge id="left-pocket" />
     </span>
   );
+}
+
+/** On a phone the CLIO menu sits in the closed left sheet: its key opens the sheet, then the menu. */
+function PhoneClioMenuShortcut() {
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+  useShortcut(
+    'app-menu',
+    () => {
+      requestClioMenuOnMount();
+      setOpenMobile(true);
+    },
+    { enabled: !inTauri() && isMobile && !openMobile },
+  );
+  return null;
 }
 
 export interface ClioAppShellProps {
@@ -174,8 +191,6 @@ const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
 const OPEN_NAVIGATION_WIDTH = 292;
-/** Under this the workbench slides over the conversation instead of sitting beside it. */
-const SPLIT_WORKBENCH_QUERY = '(min-width: 900px)';
 
 /** The workbench width as a share of the window: 40% to start, then what the user dragged. */
 function storedWorkbenchShare(): number {
@@ -483,6 +498,7 @@ export function ClioAppShell({
   return (
     // The route can remount the shell (a draft, a new workspace); keep the bar as left.
     <SidebarProvider defaultOpen={storedSidebarOpen()}>
+      <PhoneClioMenuShortcut />
       {desktopNavigation ? (
         <DesktopNavigationLayout
           collapseForWorkbench={collapseNavigationForWorkbench}
