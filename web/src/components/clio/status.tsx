@@ -244,7 +244,7 @@ export function ClioStatus({
           aria-hidden="true"
           className={cn(
             'size-4',
-            (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin',
+            (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin-steps',
           )}
         />
         <span className="sr-only">{accessibleLabel}</span>
@@ -260,7 +260,7 @@ export function ClioStatus({
         aria-hidden="true"
         className={cn(
           'size-3.5',
-          (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin',
+          (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin-steps',
         )}
       />
       <span>{accessibleLabel}</span>
