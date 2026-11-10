@@ -1,4 +1,4 @@
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { LazyHoverCard } from './primitives/lazy-hover-card';
 import { cn } from '@/lib/utils';
 import {
   formatFreshness,
@@ -19,8 +19,11 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
     ? { ...providerHealthPresentation('checking'), label: stage }
     : providerGroupStatus(group);
   return (
-    <HoverCard openDelay={180}>
-      <HoverCardTrigger asChild>
+    <LazyHoverCard
+      align="start"
+      className="flex w-72 flex-col gap-1 text-xs"
+      openDelay={180}
+      trigger={
         <span
           aria-label={`${group.name} status: ${presentation.label}`}
           className={cn(
@@ -35,14 +38,13 @@ export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stag
         >
           <span aria-hidden="true" className="size-[7px] rounded-full bg-current" />
         </span>
-      </HoverCardTrigger>
-      <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">Provider status</p>
-        <p>Health: {presentation.label}</p>
-        <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
-        {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
-        {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-      </HoverCardContent>
-    </HoverCard>
+      }
+    >
+      <p className="font-medium">Provider status</p>
+      <p>Health: {presentation.label}</p>
+      <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
+      {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
+      {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
+    </LazyHoverCard>
   );
 }

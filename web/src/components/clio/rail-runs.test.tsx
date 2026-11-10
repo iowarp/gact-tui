@@ -65,6 +65,24 @@ it('opens a flow run as a tab and links to every run', async () => {
   expect(screen.getByRole('link', { name: 'All runs' })).toHaveAttribute('href', '/runs');
 });
 
+it('says how long a child agent without a timestamp ran, beside its state', () => {
+  renderRuns({
+    processes: [],
+    subagents: [
+      {
+        id: 'child',
+        session_id: 'session',
+        title: 'QC soil_sites.csv',
+        state: 'completed',
+        duration_ms: 40 * 60_000,
+      },
+    ],
+  });
+  expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+  expect(screen.getByText('done')).toBeVisible();
+  expect(screen.getByTitle('Ran for 40 min')).toHaveTextContent('40m');
+});
+
 it('reports a stop the server refused, naming the run', async () => {
   const user = userEvent.setup();
   renderRuns({ onCancelTask: vi.fn().mockRejectedValue(new Error('Task already finished')) });

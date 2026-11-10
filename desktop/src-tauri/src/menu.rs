@@ -74,6 +74,10 @@ fn quit_label(name: &str) -> String {
     format!("Quit {name}")
 }
 
+fn install_agent_label(name: &str) -> String {
+    format!("Install {} on a Computer…", short_app_name(name))
+}
+
 fn build_predefined<R: Runtime>(
     app: &AppHandle<R>,
     kind: Predefined,
@@ -108,29 +112,44 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
     for spec in MENU_SPEC {
         let submenu = Submenu::new(app, spec.title, true)?;
-        for item in spec.items {
-            match item {
-                Item::Action { id, label, accel } => {
-                    let label = match *id {
-                        "about" => about_label(&native_app_name(app)),
-                        "quit" => quit_label(&native_app_name(app)),
-                        _ => (*label).to_string(),
-                    };
-                    let mi = MenuItem::with_id(app, *id, label, true, *accel)?;
-                    submenu.append(&mi)?;
-                }
-                Item::Predefined(kind) => {
-                    let pi = build_predefined(app, *kind)?;
-                    submenu.append(&pi)?;
-                }
-                Item::Separator => {
-                    submenu.append(&PredefinedMenuItem::separator(app)?)?;
-                }
-            }
-        }
+        append_items(app, &submenu, spec.items)?;
         menu.append(&submenu)?;
     }
     Ok(menu)
+}
+
+fn append_items<R: Runtime>(
+    app: &AppHandle<R>,
+    submenu: &Submenu<R>,
+    items: &'static [Item],
+) -> tauri::Result<()> {
+    for item in items {
+        match item {
+            Item::Action { id, label, accel } => {
+                let label = match *id {
+                    "about" => about_label(&native_app_name(app)),
+                    "quit" => quit_label(&native_app_name(app)),
+                    "install-agent" => install_agent_label(&native_app_name(app)),
+                    _ => (*label).to_string(),
+                };
+                let mi = MenuItem::with_id(app, *id, label, true, *accel)?;
+                submenu.append(&mi)?;
+            }
+            Item::Predefined(kind) => {
+                let pi = build_predefined(app, *kind)?;
+                submenu.append(&pi)?;
+            }
+            Item::Submenu { title, items } => {
+                let nested = Submenu::new(app, *title, true)?;
+                append_items(app, &nested, items)?;
+                submenu.append(&nested)?;
+            }
+            Item::Separator => {
+                submenu.append(&PredefinedMenuItem::separator(app)?)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Hand the Window and Help submenus to AppKit once the menu is installed, so
@@ -191,6 +210,14 @@ mod tests {
         assert_eq!(about_label("GACT Desktop"), "About GACT Desktop");
         assert_eq!(quit_label("CLIO Desktop"), "Quit CLIO Desktop");
         assert_eq!(quit_label("GACT Desktop"), "Quit GACT Desktop");
+        assert_eq!(
+            install_agent_label("CLIO Desktop"),
+            "Install CLIO on a Computer…"
+        );
+        assert_eq!(
+            install_agent_label("GACT Desktop"),
+            "Install GACT on a Computer…"
+        );
         assert_eq!(short_app_name("CLIO Desktop"), "CLIO");
         assert_eq!(short_app_name("GACT Desktop"), "GACT");
         assert_eq!(short_app_name("Other Product"), "Other Product");

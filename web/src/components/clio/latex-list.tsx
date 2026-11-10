@@ -6,7 +6,7 @@ import { ListGroupLabel, ListRow } from './primitives/list-row';
 
 /**
  * Where a problem is: its line in the entry file, or its file and line elsewhere.
- * The line always shows; a long file name truncates before it.
+ * The message comes first: when both do not fit, the place drops whole.
  */
 function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string }) {
   const file = problem.file && problem.file !== entry ? problem.file : '';
@@ -14,11 +14,11 @@ function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string
   if (!file && !line) return null;
   return (
     <span
-      className="flex max-w-[55%] min-w-0 shrink-0 items-baseline text-[12px] text-muted-foreground"
+      className="flex items-baseline text-[12px] text-muted-foreground"
       data-slot="latex-problem-place"
     >
       {file ? (
-        <span className="min-w-0 truncate">
+        <span>
           {file}
           {line ? ',\u00a0' : ''}
         </span>
@@ -56,7 +56,8 @@ function currentSection(rows: readonly LatexOutlineRow[], place?: LatexPlace) {
 /**
  * The LaTeX tab's list: its outline (sections and subsections, indented) and
  * its build problems. Picking an entry shows it in the source and the PDF.
- * `revealProblems` changes to bring the problems into view.
+ * `revealProblems` changes to bring the problems into view; `filtered` says a
+ * search narrowed them.
  */
 export function LatexListSections({
   rows,
@@ -64,6 +65,7 @@ export function LatexListSections({
   entry,
   place,
   revealProblems,
+  filtered = false,
   onSection,
   onProblem,
 }: {
@@ -72,6 +74,8 @@ export function LatexListSections({
   entry: string;
   place?: LatexPlace;
   revealProblems: number;
+  /** A search narrows the rows: an empty part reads as no match, not as none at all. */
+  filtered?: boolean;
   onSection: (node: LatexOutlineNode) => void;
   onProblem: (problem: LatexProblem) => void;
 }) {
@@ -105,7 +109,9 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">No sections yet.</p>
+          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+            {filtered ? 'No matching sections.' : 'No sections yet.'}
+          </p>
         )}
       </nav>
       <section aria-label="Problems" className="scroll-mt-1" ref={problemsRef}>
@@ -137,13 +143,16 @@ export function LatexListSections({
                     role="button"
                     tabIndex={0}
                     title={problem.title}
+                    titleFirst
                   />
                 </div>
               );
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">No problems.</p>
+          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
+            {filtered ? 'No matching problems.' : 'No problems.'}
+          </p>
         )}
       </section>
     </div>

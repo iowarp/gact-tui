@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const initialDefaults = {
   provider_id: '',
@@ -71,6 +71,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { SessionDefaultsSettings } from './settings-session-defaults';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
 
 afterEach(() => {
   cleanup();
@@ -132,6 +133,9 @@ function renderSettings(
     </MemoryRouter>,
   );
 }
+
+// The picker's catalog loads on first open; warm it once so each open renders it at once.
+beforeAll(() => modelPickerCatalog.load());
 
 describe('new session defaults settings', () => {
   it('edits service-owned defaults with product language', async () => {

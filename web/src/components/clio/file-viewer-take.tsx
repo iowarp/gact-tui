@@ -31,7 +31,7 @@ import {
 } from './file-viewer-take-hooks';
 import { foldedFrameModes, type FrameModesEntry } from './primitives/frame-modes';
 import { IconButton } from './primitives/icon-button';
-import { MenuRow } from './primitives/menu-row';
+import { MenuRow, menuAcceleratorKeyDown } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { ToolbarAction } from './viewer-toolbar';
 
@@ -288,7 +288,7 @@ export function FrameTalkTake({
             </ToolbarAction>
           </DropdownMenuTrigger>
         </span>
-        <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuContent align="end" className="w-64" onKeyDown={menuAcceleratorKeyDown}>
           {fold.modes.map((group, index) => (
             <Fragment key={`${index}:${group.label}`}>
               {index > 0 ? <DropdownMenuSeparator /> : null}
@@ -309,6 +309,7 @@ export function FrameTalkTake({
           {fold.modes.length > 0 && (anyFolded || menu) ? <DropdownMenuSeparator /> : null}
           {fold.talk && addToMessage ? (
             <DropdownMenuItem
+              data-accelerator="@"
               disabled={Boolean(addToMessage.reason)}
               onSelect={addToMessage.onSelect}
             >
@@ -316,7 +317,7 @@ export function FrameTalkTake({
                 icon={<AtSignIcon />}
                 label="Add to message"
                 description={addToMessage.reason}
-                shortcut="add-to-message"
+                accelerator="@"
               />
             </DropdownMenuItem>
           ) : null}

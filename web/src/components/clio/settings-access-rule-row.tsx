@@ -24,13 +24,16 @@ import {
   ruleTarget,
 } from './settings-access-rule-model';
 
-/** The inline "Remove this rule?" confirmation in the row's right columns. */
+/** 26px row buttons, the slot height every Settings list shares. */
+const CONFIRM_BUTTON = 'h-[1.625rem] px-2.5 text-xs';
+
+/** The ItemRow `confirm` cell: the question, then Keep and Remove. */
 function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () => void }) {
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => keep.current?.focus(), []);
   return (
     <span
-      className="flex items-center gap-1.5"
+      className="flex min-w-0 items-center justify-end gap-2"
       data-escape-scope=""
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
@@ -40,11 +43,26 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
       role="group"
       aria-label="Remove this rule?"
     >
-      <span className="mr-1.5 text-[0.8125rem] text-foreground">Remove this rule?</span>
-      <Button onClick={onKeep} ref={keep} size="sm" variant="ghost">
-        Keep rule
+      <span className="min-w-0 truncate text-[12.5px] text-destructive" role="alert">
+        Remove this rule?
+      </span>
+      <Button
+        className={CONFIRM_BUTTON}
+        onClick={onKeep}
+        ref={keep}
+        size="sm"
+        type="button"
+        variant="ghost"
+      >
+        Keep
       </Button>
-      <Button onClick={onRemove} size="sm" variant="destructive">
+      <Button
+        className={CONFIRM_BUTTON}
+        onClick={onRemove}
+        size="sm"
+        type="button"
+        variant="destructive"
+      >
         Remove
       </Button>
     </span>
@@ -117,21 +135,10 @@ export function AccessRuleRow({
       {target}
     </span>
   );
-  if (confirming) {
-    return (
-      <ItemRow
-        className="bg-destructive/10 hover:bg-destructive/10"
-        icon={<RuleKindIcon kind={kind} />}
-        meta={meta}
-        slot={<RemoveConfirm onKeep={onKeep} onRemove={onRemove} />}
-        slotWidth={260}
-        title={title}
-      />
-    );
-  }
   return (
     <ItemRow
       {...RULE_COLUMNS}
+      confirm={confirming ? <RemoveConfirm onKeep={onKeep} onRemove={onRemove} /> : undefined}
       actions={
         <>
           {editable ? (
@@ -163,7 +170,7 @@ export function AccessRuleRow({
       }
       icon={<RuleKindIcon kind={kind} />}
       meta={meta}
-      onDoubleClick={editable ? onEdit : undefined}
+      onDoubleClick={editable && !confirming ? onEdit : undefined}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       title={title}
     />
