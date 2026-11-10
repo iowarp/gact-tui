@@ -10,6 +10,7 @@ import type {
   SavedMcpService,
 } from '@clio/core/v3';
 import { toast } from 'sonner';
+import type { ExtensionAdd } from '@/components/clio/extension-add-dialog';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { copyText } from '@/lib/clipboard';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
@@ -25,6 +26,14 @@ export const EXTENSION_TYPE_LABELS: Record<ExtensionType, string> = {
   mcp: 'MCP connections',
   skills: 'Skills',
 };
+
+/** What Add does for the type in view. */
+export function defaultAdd(type: ExtensionType): ExtensionAdd {
+  if (type === 'mcp') return { kind: 'remote', category: 'mcp' };
+  if (type === 'skills') return { kind: 'skill', category: 'skills' };
+  if (type === 'plugins') return { kind: 'plugin', category: 'plugins' };
+  return { kind: 'import' };
+}
 
 export const LOCAL_MARKETPLACE = 'private-local';
 

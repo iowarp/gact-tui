@@ -26,6 +26,8 @@ import {
   type McpServiceKind,
 } from '@/lib/mcp-service-presentation';
 import { reconnectableNamespace } from '@/lib/mcp-preparation';
+import { handleRowMenuKey, ROW_MENU_OPEN_VISIBLE } from '@/lib/settings-row-keys';
+import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { ShortcutKeys } from './primitives/key-chip';
@@ -209,6 +211,7 @@ function McpServiceRow({
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget || confirm) return;
+    if (handleRowMenuKey(event)) return;
     if (event.key === 'Enter' && onDetails) {
       event.preventDefault();
       onDetails();
@@ -290,7 +293,7 @@ function McpServiceRow({
       }
       actionsVisible={reconnecting}
       aria-current={selected || undefined}
-      className={onDetails ? 'cursor-default' : undefined}
+      className={cn(onDetails && 'cursor-default', ROW_MENU_OPEN_VISIBLE)}
       data-mcp-service={entry.key}
       icon={<McpServiceIcon entry={entry} />}
       meta={<McpServiceMeta entry={entry} />}

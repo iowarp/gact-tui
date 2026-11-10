@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { RegistryModel } from '@clio/core/v3';
-import { CheckIcon, CircleAlertIcon, LockIcon } from 'lucide-react';
+import { CheckIcon, LockIcon } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { AddIcon } from '@/lib/icon-vocabulary';
@@ -17,8 +17,7 @@ import { displayedTags, modelCapabilityTagLabel } from '@/lib/model-capability-t
 import { registryModelTags } from '@/lib/registry-model-tags';
 import { modelFactSummary, parameterSizeLabel } from '@/lib/model-facts';
 import { ModelPickerSearch } from './model-picker-search';
-import { StatusIndicator } from './primitives/status-indicator';
-import { SourceStatusLine } from './source-form-parts';
+import { StateView } from './primitives/state-view';
 import { hubSearchFacets } from '@/lib/hub-search-facets';
 
 type RepositoryModel = Pick<
@@ -171,6 +170,7 @@ export function ModelDownloadSearch({
           facetsOpen={facetsOpen}
           onFacetsOpenChange={setFacetsOpen}
           anchors
+          searching={searching}
         />
       </Field>
       <div className="-mx-2 flex min-h-0 min-w-0 flex-1 flex-col">
@@ -180,15 +180,16 @@ export function ModelDownloadSearch({
             {headingAction}
           </div>
         ) : null}
-        {searching ? (
-          <div role="status" className="flex min-h-[30px] items-center px-2 text-[12px]">
-            <StatusIndicator label="Searching models…" tone="running" />
+        {searching ? <StateView kind="loading" size="row" title="Searching models…" /> : null}
+        {error && !searching ? (
+          <div title={error.message}>
+            <StateView
+              action={{ label: 'Retry', onClick: onSearch }}
+              kind="error"
+              size="row"
+              title="The agent could not search Hugging Face."
+            />
           </div>
-        ) : null}
-        {error ? (
-          <SourceStatusLine className="px-2" icon={<CircleAlertIcon />} role="alert" tone="error">
-            {error.message}
-          </SourceStatusLine>
         ) : null}
         {models ? (
           <div
@@ -196,10 +197,11 @@ export function ModelDownloadSearch({
             aria-label="Model search results"
           >
             {!visible.length ? (
-              <p className="px-2 py-1.5 text-[12px] text-pretty text-muted-foreground">
-                No matching repositories. Adjust the search or use Advanced download settings for an
-                exact repository.
-              </p>
+              <StateView
+                kind="empty"
+                size="row"
+                title="No models match. Change the search or the filters."
+              />
             ) : (
               visible.map((model) => {
                 const chosen = selected === model.repository;

@@ -8,12 +8,15 @@ export function ComposerModelControl({
   onChange,
   onRetryCatalog,
   options,
+  returnFocus,
   selected,
 }: {
   catalogStatus: 'error' | 'loading' | 'ready';
   onChange: (option: ClioModelOption) => void;
   onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
+  /** Focus the editor after a pick, or after a shortcut-opened picker closes. */
+  returnFocus?: () => void;
   selected?: ClioModelOption;
 }) {
   return (
@@ -25,6 +28,7 @@ export function ComposerModelControl({
       options={options}
       provider={selected?.providerId}
       placement="composer"
+      returnFocus={returnFocus}
       shortcut="model-picker"
       trigger={
         <ComposerModelButton

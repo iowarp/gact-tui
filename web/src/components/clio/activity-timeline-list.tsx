@@ -248,6 +248,18 @@ export function ClioActivityTimelineList({
     />
   ) : !entries.length ? (
     <StateView
+      action={
+        filtered
+          ? {
+              label: 'Clear filters',
+              onClick: () => {
+                closeSearch();
+                setHidden(new Set());
+                setAgentFilter(null);
+              },
+            }
+          : undefined
+      }
       className="p-4"
       detail={filtered ? 'Clear the search or show more kinds.' : undefined}
       kind="empty"

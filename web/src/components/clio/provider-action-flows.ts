@@ -26,7 +26,7 @@ export const FLOW_STEPS: Record<ProviderActionFlow, readonly FlowStep[]> = {
     { title: 'Loading models', stages: ['Loading models…'] },
   ],
   install: [
-    { title: 'Installing', stages: ['Installing…'] },
+    { title: 'Installing', stages: ['Waiting to install…', 'Installing…'] },
     { title: 'Checking', stages: ['Checking…'] },
     { title: 'Finding models', stages: ['Finding models…'] },
   ],

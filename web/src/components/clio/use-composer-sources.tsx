@@ -104,6 +104,8 @@ export function useComposerSources(
       </div>
     ) : null,
     open: offered ? () => setOpen(true) : undefined,
+    /** The connected-data probe hasn't answered: whether `+` is a menu is not known yet. */
+    probing: Boolean(workspaceId) && sourceProbe.isPending,
     openReference: (reference: WorkspaceReference) => {
       queryClient.setQueryData(
         ['connected-storage-selection', connectionScope(settings), workspaceId],

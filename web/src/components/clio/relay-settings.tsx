@@ -9,6 +9,7 @@ import { mcpServiceEntries } from '@/lib/mcp-service-entries';
 import { serviceKind } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
+import { newItemKey } from '@/lib/settings-row-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ExtensionAddDialog } from './extension-add-dialog';
 import { McpSignInDialog } from './mcp-sign-in';
@@ -101,7 +102,11 @@ export function RelaySettings() {
     );
 
   return (
-    <section aria-label={GROUP} className="grid min-w-0">
+    <section
+      aria-label={GROUP}
+      className="grid min-w-0"
+      onKeyDown={newItemKey(() => setAdding(true))}
+    >
       <SettingsGroupLabel
         addLabel="Add a remote MCP server by URL"
         className="mt-0 mb-1"
