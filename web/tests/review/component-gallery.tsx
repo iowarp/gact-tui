@@ -67,6 +67,8 @@ import { DetailPane, ListDetailLayout } from '../../src/components/clio/primitiv
 import { ItemList, ItemRow } from '../../src/components/clio/primitives/item-row';
 import { StateView, type StateKind } from '../../src/components/clio/primitives/state-view';
 import { ShortcutSheet } from '../../src/components/clio/primitives/shortcut-sheet';
+import { WorkingCopyState } from '../../src/components/clio/document-working-copy';
+import type { DocumentWorkingCopy } from '@clio/core/v3';
 
 // Synthetic labels exercise the shared primitives; nothing here talks to an agent.
 const params = new URLSearchParams(window.location.search);
@@ -134,18 +136,38 @@ const STATES: { kind: StateKind; title: string; detail?: string; action?: string
   { kind: 'unavailable', title: 'Preview unavailable', action: 'Why?' },
   {
     kind: 'too-large',
-    title: 'Too large to show here (2.4 GB)',
-    detail: 'Download it or open it in an application.',
-    action: 'Download',
+    title: '3.4 GB is too large to show here',
+    action: 'Show the last 200 MB',
   },
-  { kind: 'no-preview', title: 'No preview for .h5 files', action: 'Show details' },
+  { kind: 'no-preview', title: 'No viewer for .grib2 yet', action: 'Download' },
   {
     kind: 'changed-elsewhere',
-    title: 'Changed on disk',
-    detail: 'Another tool rewrote this file.',
-    action: 'Reload',
+    title: 'Changed since you opened it',
+    detail: 'CLIO saved version 5 while you were editing. Keep its version, or save yours as version 6.',
+    action: 'Use mine',
   },
 ];
+
+const CONFLICT_COPY: DocumentWorkingCopy = {
+  id: 'wc_review',
+  session_id: 'sess_review',
+  workspace_id: 'ws_review',
+  artifact_name: 'plan.md',
+  base_artifact_id: 'art_4',
+  head_artifact_id: 'art_4',
+  base_version: 4,
+  head_version: 4,
+  base_sha256: 'a',
+  last_sha256: 'b',
+  path: 'plan.md',
+  writable: true,
+  auto_checkpoint: true,
+  status: 'conflict',
+  created_at: '2026-11-10T09:00:00Z',
+  updated_at: '2026-11-10T09:04:00Z',
+  conflict_head_artifact_id: 'art_5',
+  native_comment_fingerprints: [],
+};
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -612,6 +634,15 @@ function States() {
           />
         </div>
       ))}
+      <div className="flex min-h-56 flex-col rounded-lg border border-border" data-review="working-copy-conflict">
+        <WorkingCopyState
+          copy={CONFLICT_COPY}
+          headVersion={5}
+          pending={false}
+          onResolve={noop}
+          onDismiss={noop}
+        />
+      </div>
     </div>
   );
 }

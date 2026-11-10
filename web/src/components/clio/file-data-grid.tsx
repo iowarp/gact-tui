@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { DenseGrid, type DenseGridRow } from './primitives/dense-grid';
 import { formatDataCell } from './data-cell-format';
-import { useFileViewerFacts } from './file-viewer-facts';
+import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
 
 function formatFileCell(value: unknown, key: string): string {
   return value === undefined || value === null || value === '' ? '' : formatDataCell(value, key);
@@ -27,7 +27,7 @@ export function FileDataGrid({
   status?: ReactNode;
 }) {
   const gridColumns = useMemo(() => columns.map((key) => ({ key, label: key })), [columns]);
-  const facts = useMemo(() => [fact], [fact]);
+  const facts = useMemo(() => [fact, FILE_SIZE_FACT], [fact]);
   useFileViewerFacts(facts);
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="file-data-grid">

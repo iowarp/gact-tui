@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import type { CreateScheduledTurnInput, ScheduledTurn } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,7 +53,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
     [sessions.data],
   );
   const workspaceNameById = useMemo(
-    () => new Map((workspaces.data ?? []).map((item) => [item.id, item.display_name])),
+    () => new Map((workspaces.data ?? []).map((item) => [item.id, workspaceName(item)])),
     [workspaces.data],
   );
   const sessionOptions = useMemo<ScheduleSelectOption[]>(

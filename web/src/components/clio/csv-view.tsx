@@ -1,14 +1,17 @@
 import { LogsIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PREVIEW_ROW_LIMIT } from '@/lib/runtime-limits';
 import { parseCsvPreview } from './csv-preview';
 import { FileDataGrid } from './file-data-grid';
+import { FileWindowNoticeShown } from './file-window-context';
 
 /** Parses a bounded CSV sample and renders it in the dense file grid. */
 export function ClioCsvView({ content, title }: { content: string; title: string }) {
   const preview = useMemo(() => parseCsvPreview(content), [content]);
+  const windowed = useContext(FileWindowNoticeShown);
   const fact = `${preview.rows.length.toLocaleString()}${preview.truncated ? '+' : ''} rows`;
+  const limited = preview.truncated && !windowed;
   return (
     <FileDataGrid
       columns={preview.columns}
@@ -16,9 +19,9 @@ export function ClioCsvView({ content, title }: { content: string; title: string
       label={title}
       rows={preview.rows}
       status={
-        preview.truncated || preview.errors.length ? (
+        limited || preview.errors.length ? (
           <>
-            {preview.truncated ? (
+            {limited ? (
               <span className="min-w-0 truncate">
                 Preview limited to the first {PREVIEW_ROW_LIMIT.toLocaleString()} rows.
               </span>
