@@ -169,6 +169,9 @@ function ClioA2UISurfaceContent({
     message: string;
   }>();
   const [validationNotice, setValidationNotice] = useState<{ revision: number; message: string }>();
+  // A degraded update protocol is a producer detail, not the surface's
+  // content: it stays under collapsed Technical details.
+  const [protocolNotice, setProtocolNotice] = useState<string>();
   const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
@@ -252,6 +255,10 @@ function ClioA2UISurfaceContent({
       // Only a real VALIDATION_FAILED belongs on the wire (owner decision
       // 11); a local resolution problem (e.g. openArtifact's own failure,
       // dispatched the same way) is worded in this card and never posted.
+      if (validationError.code === 'a2ui_stamps_unavailable') {
+        setProtocolNotice(validationError.message);
+        return;
+      }
       if (validationError.code !== 'VALIDATION_FAILED') {
         setValidationNotice({ revision: surface.revision, message: validationError.message });
         return;
@@ -418,6 +425,15 @@ function ClioA2UISurfaceContent({
         </p>
       ) : null}
       {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
+      {protocolNotice ? (
+        <TechnicalDetails
+          className="py-1 text-xs text-muted-foreground"
+          hint="Updates reset unsent input"
+          title="Technical details"
+        >
+          <p className="mt-1">{protocolNotice}</p>
+        </TechnicalDetails>
+      ) : null}
     </>
   );
   const statusNotice =

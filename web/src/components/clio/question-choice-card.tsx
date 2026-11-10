@@ -1,7 +1,6 @@
 import { CheckIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
 import { plainQuestionText } from './question-card-model';
 
@@ -16,28 +15,6 @@ export interface QuestionChoice {
  * chooses one for a later submit, `multi` toggles several.
  */
 export type QuestionChoiceMode = 'answer' | 'pick' | 'multi';
-
-function ChoiceMark({ checked, round }: { checked: boolean; round: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'flex size-3.5 shrink-0 items-center justify-center border border-input',
-        round ? 'rounded-full' : 'rounded-[4px]',
-        checked && 'border-primary bg-primary text-primary-foreground',
-      )}
-      data-slot="question-choice-mark"
-    >
-      {checked ? (
-        round ? (
-          <span className="size-1.5 rounded-full bg-current" />
-        ) : (
-          <CheckIcon className="size-3" strokeWidth={3} />
-        )
-      ) : null}
-    </span>
-  );
-}
 
 /** The options of one question as numbered 30px rows with their line of detail. */
 export function QuestionChoiceRows({
@@ -65,12 +42,23 @@ export function QuestionChoiceRows({
         return (
           <AskRow
             aria-checked={mode === 'answer' ? undefined : checked}
-            control={
-              mode === 'answer' ? undefined : (
-                <ChoiceMark checked={checked} round={mode === 'pick'} />
+            // Only the number key leads the row; a chosen row is tinted and ends in a check.
+            className={mode === 'answer' ? undefined : 'aria-checked:bg-foreground/[0.07]'}
+            detail={
+              checked && mode !== 'answer' ? (
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">{detail}</span>
+                  <CheckIcon
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-foreground"
+                    data-slot="question-choice-check"
+                    strokeWidth={2.5}
+                  />
+                </span>
+              ) : (
+                detail
               )
             }
-            detail={detail}
             disabled={disabled}
             highlighted={mode === 'answer' && index === 0}
             key={choice.value}
@@ -113,7 +101,10 @@ export function QuestionWriteIn({
   };
   return (
     <AskSection className="mt-2">
-      <form className="flex min-w-0 items-center gap-1.5" onSubmit={submit}>
+      <form
+        className="flex min-w-0 items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch"
+        onSubmit={submit}
+      >
         <Input
           aria-label={label}
           className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"

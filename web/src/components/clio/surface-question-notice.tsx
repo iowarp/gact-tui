@@ -1,7 +1,10 @@
 import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { useState } from 'react';
 import { ArrowUpRightIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AskButton, AskError, AskOptions, AskSubject } from './ask-card';
+import { IconButton } from './primitives/icon-button';
 import { QuestionCard, QuestionFooter } from './interaction-frame-header';
 import { canDismissQuestion } from './question-card-model';
 import { useQuestionAnswer } from './question-answer-context';
@@ -54,10 +57,25 @@ export function SurfaceQuestionNotice({
       setResponding(false);
     }
   };
+  const onDismiss =
+    onResponse && canDismissQuestion(interaction) ? () => void dismiss() : undefined;
   return (
     <QuestionCard
       data-response-surface="link"
-      heading={interaction.prompt || 'A question is waiting in the interactive view.'}
+      headerActions={
+        onDismiss ? (
+          <TooltipProvider>
+            <IconButton
+              disabled={disabled || responding}
+              icon={<CloseIcon aria-hidden="true" />}
+              label="Close question"
+              onClick={onDismiss}
+              size="sm"
+            />
+          </TooltipProvider>
+        ) : undefined
+      }
+      heading={interaction.prompt || interaction.title || 'Interactive question'}
       interaction={interaction}
       ownerLabel={ownerLabel}
       showOwner={showOwner}
@@ -91,7 +109,7 @@ export function SurfaceQuestionNotice({
       <QuestionFooter
         disabled={disabled || responding}
         interaction={interaction}
-        onDismiss={onResponse && canDismissQuestion(interaction) ? () => void dismiss() : undefined}
+        onDismiss={onDismiss}
       />
     </QuestionCard>
   );

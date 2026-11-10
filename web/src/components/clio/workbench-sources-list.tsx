@@ -41,6 +41,7 @@ export function SourcesList({
   resourcesPending,
   resourcesError,
   onOpenResource,
+  onOpenTab,
   onRefreshFiles,
   tabs,
   activeTabId,
@@ -120,6 +121,18 @@ export function SourcesList({
           <ConnectedSourceRow
             key={source.id}
             onEdit={() => openDialog({ kind: 'source', source, edit: true })}
+            onBrowse={
+              // NDP is a catalog: its row opens the NDP browser tab (spec connect-infrastructure).
+              source.provider === 'ndp'
+                ? () =>
+                    onOpenTab({
+                      id: `ndp:${workspaceId}`,
+                      kind: 'ndp',
+                      label: source.label,
+                      workspaceId,
+                    })
+                : undefined
+            }
             onOpen={() => openDialog({ kind: 'source', source })}
             onRemoved={refresh}
             source={source}
@@ -239,12 +252,15 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
   source,
   workspaceId,
   onOpen,
+  onBrowse,
   onEdit,
   onRemoved,
 }: {
   source: ConnectedSourceState;
   workspaceId: string;
   onOpen: () => void;
+  /** Replaces the row's own open: NDP opens its browser tab. */
+  onBrowse?: () => void;
   onEdit: () => void;
   onRemoved: () => void;
 }) {
@@ -297,8 +313,8 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
         description={<SublineParts parts={parts} />}
         icon={<SourceProviderLogo provider={source.provider} size="icon" />}
         layout="stacked"
-        onClick={onOpen}
-        onKeyDown={activateOnKey(onOpen)}
+        onClick={onBrowse ?? onOpen}
+        onKeyDown={activateOnKey(onBrowse ?? onOpen)}
         role="button"
         tabIndex={0}
         title={source.label}

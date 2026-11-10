@@ -61,7 +61,7 @@ export function ClioNavigation({
     [activeAvailability, knownConnections],
   );
   const switchConnection = useSwitchConnection();
-  const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ResourceTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
@@ -173,7 +173,7 @@ export function ClioNavigation({
               onDownloadSession={downloadSession}
               onEditWorkspace={setWorkspaceEditorId}
               onImportSession={importSession}
-              onNewWorkspace={() => setCreateKind('workspace')}
+              onNewWorkspace={() => setCreateWorkspaceOpen(true)}
               onOpenWorkspaceFiles={onOpenWorkspaceFiles}
               onRename={setRenameTarget}
               sessions={sessions}
@@ -214,11 +214,9 @@ export function ClioNavigation({
       />
       <ClioResourceDialogs
         actions={actions}
-        activeWorkspaceId={activeWorkspaceId}
-        agents={agents}
-        createKind={createKind}
+        createWorkspaceOpen={createWorkspaceOpen}
         deleteTarget={deleteTarget}
-        onCreateKindChange={setCreateKind}
+        onCreateWorkspaceOpenChange={setCreateWorkspaceOpen}
         onDeleteTargetChange={setDeleteTarget}
         onRenameTargetChange={setRenameTarget}
         renameTarget={renameTarget}

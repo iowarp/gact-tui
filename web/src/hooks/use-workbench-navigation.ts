@@ -2,6 +2,7 @@ import type { Artifact, Session, SessionDiff, SubagentRun, WorkspaceResource } f
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge-navigation';
+import { OPEN_VARIANT_TRY_EVENT, type OpenVariantTryDetail } from '@/lib/variant-try-tabs';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
@@ -118,6 +119,15 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     };
     window.addEventListener(OPEN_BROWSER_PAGE_EVENT, show);
     return () => window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, show);
+  }, [revealWorkbench]);
+
+  useEffect(() => {
+    const show = (event: Event) => {
+      const detail = (event as CustomEvent<OpenVariantTryDetail>).detail;
+      revealWorkbench({ kind: 'variant-try', ...detail });
+    };
+    window.addEventListener(OPEN_VARIANT_TRY_EVENT, show);
+    return () => window.removeEventListener(OPEN_VARIANT_TRY_EVENT, show);
   }, [revealWorkbench]);
 
   const repositoryForFiles = useRepository();

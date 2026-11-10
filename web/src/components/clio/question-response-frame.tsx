@@ -1,5 +1,7 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import type { ReactNode } from 'react';
+import type { AskPager } from './ask-card-keys';
+import { AskPagerControls } from './ask-card';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { respondFromControl } from './interaction-control';
@@ -30,6 +32,8 @@ export function QuestionResponseFrame({
   heading,
   meta,
   allowsComposer,
+  composerOnly,
+  pager,
   hints,
   card,
 }: {
@@ -48,6 +52,10 @@ export function QuestionResponseFrame({
   meta?: ReactNode;
   /** The answer may be written in the composer instead. */
   allowsComposer?: boolean;
+  /** The composer is the only way to answer (a written-answer question). */
+  composerOnly?: boolean;
+  /** The card's own pages (a bundle's questions), as ‹ 1/2 › beside ✕. */
+  pager?: AskPager;
   /** Footer hints before the composer and dismiss hints. */
   hints?: ReactNode;
   /** Frame attributes for a card shown outside the tray (the transcript's inline question). */
@@ -57,6 +65,7 @@ export function QuestionResponseFrame({
     return (
       <PendingA2UIResponse
         allowsComposer={allowsComposer}
+        composerOnly={composerOnly}
         interaction={interaction}
         disabled={disabled}
         onResponse={onResponse}
@@ -78,16 +87,21 @@ export function QuestionResponseFrame({
     <QuestionCard
       {...card}
       headerActions={
-        dismiss ? (
-          <TooltipProvider>
-            <IconButton
-              disabled={disabled}
-              icon={<CloseIcon aria-hidden="true" />}
-              label="Close question"
-              onClick={dismiss}
-              size="sm"
-            />
-          </TooltipProvider>
+        pager || dismiss ? (
+          <>
+            {pager ? <AskPagerControls label="Questions" noun="question" pager={pager} /> : null}
+            {dismiss ? (
+              <TooltipProvider>
+                <IconButton
+                  disabled={disabled}
+                  icon={<CloseIcon aria-hidden="true" />}
+                  label="Close question"
+                  onClick={dismiss}
+                  size="sm"
+                />
+              </TooltipProvider>
+            ) : null}
+          </>
         ) : undefined
       }
       heading={heading}
@@ -100,6 +114,7 @@ export function QuestionResponseFrame({
       {children}
       <QuestionFooter
         allowsComposer={allowsComposer}
+        composerOnly={composerOnly}
         disabled={disabled}
         interaction={interaction}
         onDismiss={dismiss}
