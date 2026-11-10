@@ -807,11 +807,23 @@ function transcriptMessages() {
         duration_ms: 6000,
         streaming: false,
       },
+      {
+        id: 'block_prose_plan',
+        type: 'text',
+        channel: 'next_thought',
+        text: "I'll search the EarthScope catalog for stations inside the study box, then run the quality check on what comes back before fitting anything.",
+      },
       { id: 'block_tool', type: 'tool', tool_id: 'tool_earthscope' },
       ...(questionTrayDemo
         ? [{ id: 'block_fixture_question', type: 'tool', tool_id: 'tool_fixture_question' }]
         : []),
       { id: 'block_task', type: 'task', task_id: 'task_quality' },
+      {
+        id: 'block_prose_delegate',
+        type: 'text',
+        channel: 'next_thought',
+        text: "The catalog returned the expected stations and the quality flags are clean enough to proceed. I'm handing the displacement fit to a station analyst so each series is derived the same way.",
+      },
       { id: 'block_subagent', type: 'subagent', subagent_id: 'subagent_station' },
       { id: 'block_artifact', type: 'artifact', artifact_id: 'artifact_plot' },
       ...(mcpV2UiDemo
