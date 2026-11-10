@@ -67,6 +67,7 @@ export function InfraSearchField({
   onValueChange,
   onEscape,
   autoFocus,
+  initialFocus,
   className,
 }: {
   label: string;
@@ -76,6 +77,8 @@ export function InfraSearchField({
   /** Runs after Escape cleared the field (for example, to fold it back into its icon). */
   onEscape?: () => void;
   autoFocus?: boolean;
+  /** Takes the opening focus in a DialogFrame, ahead of its safe button. */
+  initialFocus?: boolean;
   className?: string;
 }) {
   return (
@@ -88,6 +91,7 @@ export function InfraSearchField({
         aria-label={label}
         autoFocus={autoFocus}
         className="h-7 pl-7 text-[12px] md:text-[12px]"
+        data-initial-focus={initialFocus ? '' : undefined}
         onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return;

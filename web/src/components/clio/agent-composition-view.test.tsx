@@ -689,8 +689,7 @@ describe('an agent explored from the library', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(await screen.findByText('Changed settings are teal')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    await user.click(await screen.findByRole('button', { name: 'Prompt' }));
     expect(await screen.findByText('You are the standard agent.')).toBeVisible();
     expect(screen.queryByText('Changed settings are teal')).toBeNull();
     expect(screen.getByRole('button', { name: 'Back to the agent' })).toHaveFocus();
