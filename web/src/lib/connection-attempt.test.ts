@@ -74,9 +74,9 @@ describe('a failed service row', () => {
     return knownServiceFailure(connection, unavailableFromError(error), idle);
   };
 
-  it('says "no answer" only when nothing answered, and names the host only on a named row', () => {
+  it('says "no answer" only when nothing answered, and then names the address', () => {
     const down = new TransportError('down', undefined, 'network_unavailable');
-    expect(row(down)).toBe("Can't connect: no answer");
+    expect(row(down)).toBe("Can't connect: no answer from 127.0.0.1:9");
     expect(row(down, 'Lab')).toBe("Can't connect: no answer from 127.0.0.1:9");
   });
 

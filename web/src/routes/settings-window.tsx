@@ -117,8 +117,9 @@ export function SettingsWindow() {
       destination?.group === 'Agent'
         ? `${agentName}, applies to every conversation on this agent`
         : destination?.group === 'Workspace'
-          ? `${workspaceName} on ${agentName}, kept for this workspace and for you`
+          ? `${workspaceName}, applies to every conversation in this workspace`
           : 'App, applies to this computer',
+    place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
   };
   useEffect(() => {
     if (!sectionsLoaded) return;
@@ -136,7 +137,7 @@ export function SettingsWindow() {
     const mark = (element: Element) => {
       target = element;
       element.classList.add('clio-search-arrival');
-      done = window.setTimeout(() => element.classList.remove('clio-search-arrival'), 1600);
+      done = window.setTimeout(() => element.classList.remove('clio-search-arrival'), 2000);
     };
     if (setting) {
       // A setting's row can wait on its section's data: look for it briefly.
@@ -148,6 +149,15 @@ export function SettingsWindow() {
         if (!row) return;
         row.scrollIntoView({ block: 'center' });
         mark(row);
+        // The spec's arrival keeps focus on the row's control, ring and all.
+        // A choice's radios are all tabindex -1 until focused, so take its checked one.
+        const control = row.querySelector('[data-slot="settings-control"]');
+        (
+          control?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ??
+          control?.querySelector<HTMLElement>(
+            ':is(button, input, select, textarea, [role="combobox"], [role="switch"]):not(:disabled, [aria-hidden="true"], [tabindex="-1"])',
+          )
+        )?.focus({ preventScroll: true });
       }, 100);
       return () => {
         window.clearInterval(poll);

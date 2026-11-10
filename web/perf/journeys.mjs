@@ -379,7 +379,7 @@ export async function composerJourney(r) {
   });
   await r.overlay('model picker', 'button', 'Change model', { category: 'picker' });
   await r.overlay('reasoning effort', 'button', /^Reasoning effort/u);
-  await r.overlay('execution mode', 'button', /^Execution mode/u);
+  await r.overlay('execution mode', 'button', /^Mode: /u);
   await r.overlay('confirmation policy', 'button', /^Confirmation policy/u);
   await attachmentJourney(r);
 }
@@ -784,7 +784,12 @@ export async function settingsJourney(r) {
   await r.overlay('settings search everywhere', 'button', 'Search everywhere', {
     category: 'picker',
   });
-  if (await page.locator('[data-frame="window"]').isVisible()) {
+  await closeSettingsWindow(page);
+}
+
+/** Escape closes the innermost layer first (search, then the Settings window). */
+async function closeSettingsWindow(page) {
+  for (let i = 0; i < 3 && (await page.locator('[data-frame="window"]').isVisible()); i++) {
     await page.keyboard.press('Escape');
     await waitIdle(page);
   }
@@ -830,6 +835,8 @@ export async function exploreJourney(r) {
   }
   await page.goBack();
   await waitIdle(page);
+  // Back can land on a /settings route from the previous journey, which reopens the window.
+  await closeSettingsWindow(page);
   const infra = r.control('link', /^Infrastructure/u);
   await r.measure(
     'open infrastructure',
@@ -871,6 +878,11 @@ export async function exploreJourney(r) {
   if (!(await r.visible(page.locator(MESSAGE).first(), 3000))) {
     await page.goto(new URL('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp', page.url()).href);
   }
+  // Settings is an overlay route; history steps can land back on it.
+  if (await page.locator('[data-frame="window"]').isVisible()) {
+    await page.keyboard.press('Escape');
+    await waitIdle(page);
+  }
   await page.locator(MESSAGE).first().waitFor({ timeout: 30_000 });
   await waitIdle(page, 1000);
   await r.revealRowAction('button', /^New conversation in /u);
@@ -890,11 +902,17 @@ export async function exploreJourney(r) {
   await r.close('Escape');
 }
 
-/** Idle sampling: heap and renderer CPU while a running conversation stays open. */
-export async function idle(r, seconds) {
+/**
+ * Idle sampling: heap and renderer CPU while a running conversation stays open.
+ * `sample` reads process CPU inside the window, after and before the forced
+ * garbage collections, so the harness's own GC is not counted as idle work.
+ */
+export async function idle(r, seconds, sample = async () => null) {
   const before = await cdpMetrics(r.cdp, { gc: true });
   const start = await r.page.evaluate(() => window.__perf.totals());
+  const cpuStart = await sample();
   await r.page.waitForTimeout(seconds * 1000);
+  const cpuEnd = await sample();
   const after = await cdpMetrics(r.cdp, { gc: true });
   const end = await r.page.evaluate(() => window.__perf.totals());
   const step = {
@@ -913,7 +931,7 @@ export async function idle(r, seconds) {
     longTaskMs: round(end.longTaskMs - start.longTaskMs),
   };
   r.steps.push(step);
-  return step;
+  return { step, cpuStart, cpuEnd };
 }
 
 export const marks = {

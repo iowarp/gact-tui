@@ -146,6 +146,16 @@ it('exports HTML through the shared download flow and retains the service base p
   expect(toast.dismiss).toHaveBeenCalled();
 });
 
+it('exports a ZIP from the same download item once files are ticked', async () => {
+  const { actions, user, open } = setup();
+  await open();
+  await user.click(screen.getByRole('menuitem', { name: 'Export' }));
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Artifacts' }));
+  expect(screen.queryByRole('menuitem', { name: 'Download HTML' })).toBeNull();
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Download ZIP' }));
+  expect(actions.exportSession).toHaveBeenCalledWith(session.id, 'effects');
+});
+
 it('shows export failures and does not start a download', async () => {
   const { actions, user, open } = setup();
   vi.mocked(actions.exportSession).mockRejectedValueOnce(new Error('Export failed'));

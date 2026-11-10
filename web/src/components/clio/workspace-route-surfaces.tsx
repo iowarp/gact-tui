@@ -152,25 +152,6 @@ export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetr
   );
 }
 
-export function WorkspaceLoading({
-  description = 'Reading the latest workspace state from the selected agent service.',
-  label = 'Opening conversation',
-}: {
-  description?: string;
-  label?: string;
-} = {}) {
-  return (
-    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
-      <div className="grid justify-items-center gap-3 text-center">
-        <ClioStatus label={label} value="connecting" />
-        {description ? (
-          <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-    </main>
-  );
-}
-
 export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?: string }) {
   return (
     <section

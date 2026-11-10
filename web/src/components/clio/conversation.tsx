@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils';
+import type { QueryKey } from '@tanstack/react-query';
+import { useQueryFetching } from '@/lib/query-notify';
 import { useContext } from 'react';
 import { useInRouterContext, useLocation } from 'react-router-dom';
 import { TranscriptDisclosureContext } from './transcript-disclosure-context';
@@ -88,6 +90,11 @@ export function ClioConversation(props: ClioConversationProps) {
   );
 }
 
+/** Background refreshes must not change the transcript's reading position. */
+function TranscriptSyncingSlot({ loading, queryKey }: { loading?: boolean; queryKey?: QueryKey }) {
+  const fetching = useQueryFetching(queryKey);
+  return loading || fetching ? <TranscriptSyncing /> : null;
+}
 function RoutedConversationBody(props: ClioConversationProps) {
   const location = useLocation();
   return <ConversationBody {...props} searchHash={location.hash} searchKey={location.key} />;
@@ -96,6 +103,7 @@ function RoutedConversationBody(props: ClioConversationProps) {
 function ConversationBody({
   messages: sourceMessages,
   loading,
+  loadingQueryKey,
   awaitingFirstPage,
   error,
   onReload,
@@ -420,7 +428,6 @@ function ConversationBody({
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
-    scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
   // Grow only into the unused margin, leaving a gap before the transcript column.
@@ -515,12 +522,13 @@ function ConversationBody({
   // A load error outranks everything, including a running turn's preparation.
   const turnStarting =
     preparation?.sessionState === 'queued' || preparation?.sessionState === 'running';
+  const emptyFetching = useQueryFetching(loadingQueryKey, messages.length === 0);
   const emptyTranscript =
     messages.length > 0
       ? null
       : error
         ? 'error'
-        : awaitingFirstPage || (loading && !turnStarting)
+        : awaitingFirstPage || ((loading || emptyFetching) && !turnStarting)
           ? 'loading'
           : turnStarting
             ? 'preparing'
@@ -610,9 +618,8 @@ function ConversationBody({
         }}
         tabIndex={0}
       >
-        {messages.length > 0 && loading ? (
-          // Background refreshes must not change the transcript's reading position.
-          <TranscriptSyncing />
+        {messages.length > 0 ? (
+          <TranscriptSyncingSlot loading={loading} queryKey={loadingQueryKey} />
         ) : null}
         {emptyTranscript === 'error' && error ? (
           <TranscriptLoadError error={error} onRetry={onReload} />

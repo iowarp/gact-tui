@@ -632,7 +632,8 @@ export function ClioComposer({
             event.preventDefault();
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
-            if (submit?.disabled) return;
+            // No submit square (Stop shows while work runs with nothing typed): nothing to send.
+            if (!submit || submit.disabled) return;
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}
@@ -688,12 +689,14 @@ export function ClioComposer({
                   options={modelOptions}
                   provider={selectedOption?.providerId}
                   placement="composer"
+                  shortcut="model-picker"
                   trigger={
                     <ComposerModelButton
                       appearance="text"
                       aria-label="Change model"
                       className="max-w-56 @min-[48rem]/composer:max-w-72"
                       option={selectedOption}
+                      shortcut="model-picker"
                       type="button"
                       variant="ghost"
                     />

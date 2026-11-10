@@ -8,7 +8,7 @@ import type {
   SubagentRun,
   ToolInvocation,
 } from '@clio/core/v3';
-import { Clock3Icon, ScanIcon } from 'lucide-react';
+import { ScanIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSharedNow } from '@/lib/shared-clock';
 import { Button } from '@/components/ui/button';
@@ -683,21 +683,4 @@ function formatClock(timestamp: number): string {
 
 function formatWindow(range: TimeRange): string {
   return `${formatClock(range.start)} to ${formatClock(range.end)}`;
-}
-
-export function ProcessSummary({ processes }: { processes: readonly AsyncProcess[] }) {
-  const active = processes.filter((process) =>
-    ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(process.live_state),
-  ).length;
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <Clock3Icon aria-hidden="true" className="size-3.5" />
-      <span>{processes.length.toLocaleString()} observed processes</span>
-      <ClioStatus
-        className="py-0.5"
-        label={active ? `${active} active` : 'All settled'}
-        value={active ? 'running' : 'completed'}
-      />
-    </div>
-  );
 }

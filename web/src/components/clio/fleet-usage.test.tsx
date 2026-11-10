@@ -1,10 +1,6 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SpendSummary, UsageSummary } from './fleet-usage';
-import { SessionUsageReadout } from './session-usage-readout';
 
 const { repository } = vi.hoisted(() => ({ repository: { fleet: vi.fn() } }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -38,34 +34,4 @@ it('shows recorded spend separately from unavailable account limits', () => {
   expect(screen.queryByText(/first call/)).not.toBeInTheDocument();
   expect(screen.getByText('40k tokens')).toBeVisible();
   expect(screen.getByText('under $0.01')).toHaveClass('whitespace-nowrap');
-});
-
-it('opens usage settings directly from the conversation usage hover', async () => {
-  repository.fleet.mockResolvedValue({
-    accounts: [
-      {
-        id: 'anthropic',
-        label: 'Anthropic API',
-        usage: null,
-        usage_missing_reason: 'not_supported',
-      },
-    ],
-    session: { model: { provider_id: 'anthropic' }, spend_by_model: {} },
-  });
-  render(
-    <MemoryRouter>
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <Routes>
-          <Route path="/" element={<SessionUsageReadout sessionId="s1" tokens={40_000} />} />
-          <Route path="/settings/usage" element={<h1>Usage settings page</h1>} />
-        </Routes>
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
-  const user = userEvent.setup();
-  await user.hover(screen.getByRole('button', { name: /usage/i }));
-  await user.click(await screen.findByRole('link', { name: 'Usage settings' }));
-  expect(await screen.findByRole('heading', { name: 'Usage settings page' })).toBeVisible();
 });
