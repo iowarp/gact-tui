@@ -19,7 +19,13 @@ export function RouteErrorBoundary() {
   const background = settingsBackgroundRoute(location, settings.endpoint);
   // The in-app connect dialog opens over the page it came from, so that page
   // keeps its boundary too.
-  const page = { pathname: location.pathname, key: `${location.pathname}${location.search}` };
+  // A page's own query (a selected run, an inventory filter) changes in place:
+  // keying on it would remount the whole app and drop that page's state. Only
+  // the connect screen's intent/mode starts it afresh.
+  const page = {
+    pathname: location.pathname,
+    key: location.pathname === '/' ? `/${location.search}` : location.pathname,
+  };
   const [lastPage, setLastPage] = useState<typeof page | null>(null);
   const connecting =
     location.pathname === '/' && new URLSearchParams(location.search).get('intent') === 'connect';

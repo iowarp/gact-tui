@@ -162,13 +162,12 @@ function RunSummary({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
   if (row.state === 'completed') {
     const end = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
     const time = Number.isNaN(end) ? undefined : elapsed(row.createdAt, end);
-    const line = message ?? (time ? `Finished in ${time}.` : 'Finished.');
+    // The progress message is the last in-flight status ("Working"), not a result.
     return (
       <div className="grid gap-4 px-4 py-3.5">
         <section className="grid text-[12.5px]">
           <h3 className="mb-1.5 font-heading text-[15px] font-semibold text-foreground">Result</h3>
-          <RunLine row={row} text={line} />
-          {progress && progress !== message ? <RunLine row={row} text={progress} /> : null}
+          <RunLine meta={progress} row={row} text={time ? `Finished in ${time}.` : 'Finished.'} />
         </section>
         <RunFacts row={row} />
       </div>
