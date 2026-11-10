@@ -19,7 +19,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
-import { NARROW_HIDDEN } from '@/lib/settings-fold';
+import { NARROW_HIDDEN, SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SpendSummary, UsageSummary } from './fleet-usage';
 import { InfoTip } from './info-tip';
@@ -217,7 +217,7 @@ export function UsageSettings() {
     <section aria-label="Usage" className="@container flex flex-col gap-2">
       {/* The title-row controls end on the list's right edge, also beside the
           details pane (ListDetailLayout's list column is the other 58%). */}
-      <div className={cn('max-w-[760px]', opened && 'w-[58%] @max-[40rem]:w-full')}>
+      <div className={cn(opened ? 'w-[58%] @max-[40rem]:w-full' : SETTINGS_COLUMN)}>
         <SettingsSectionHeading
           actions={
             accounts.length ? (
@@ -252,7 +252,8 @@ export function UsageSettings() {
           }
           list={
             <div className="grid grid-cols-1 gap-2">
-              <div className="max-w-[760px]">
+              {/* One setting column (spec `.xrw`) for the lists and the total rows. */}
+              <div className={cn(!opened && SETTINGS_COLUMN)}>
                 <SettingsGroupLabel
                   actions={
                     <span className="flex items-center gap-1" data-slot="usage-delegation-caption">
@@ -311,10 +312,10 @@ export function UsageSettings() {
                 {totals ? (
                   <>
                     <SettingsGroupLabel>Total</SettingsGroupLabel>
-                    <SettingsRow title="Tokens">
+                    <SettingsRow fullWidth title="Tokens">
                       <UsageTotal>{totals.tokens}</UsageTotal>
                     </SettingsRow>
-                    <SettingsRow title="Cost">
+                    <SettingsRow fullWidth title="Cost">
                       <UsageTotal>{totals.cost ?? 'None recorded'}</UsageTotal>
                     </SettingsRow>
                   </>

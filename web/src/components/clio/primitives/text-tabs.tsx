@@ -62,6 +62,8 @@ function TextTabsImpl<Value extends string>({
         // "More" gathers other kinds and keeps its tone.
         const empty = tab.count === 0 && !selected && !tab.gathers;
         const name = count === undefined ? tab.label : `${tab.label}, ${count}`;
+        // Compact strips draw icons only, but the chosen tab keeps its name.
+        const iconOnly = compact && Boolean(tab.icon) && !selected;
         const button = (
           <button
             aria-controls={controls}
@@ -84,8 +86,8 @@ function TextTabsImpl<Value extends string>({
             type="button"
           >
             {tab.icon}
-            {compact && tab.icon ? null : <span>{tab.label}</span>}
-            {tab.gathers && !(compact && tab.icon) ? (
+            {iconOnly ? null : <span>{tab.label}</span>}
+            {tab.gathers && !iconOnly ? (
               <ChevronDownIcon className="-ml-1 size-3! text-muted-foreground" />
             ) : null}
             {count === undefined ? null : (
