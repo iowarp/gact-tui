@@ -129,7 +129,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
-  // Runs fold into their counted rows only once the whole turn has finished.
+  // A settled run folds into its counted row once the agent moves past it.
   const turnLive =
     active ||
     (liveActivityId !== undefined &&
@@ -366,7 +366,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               followLiveActivity={segment.iterations.some(
                                 (iteration) => iteration.id === liveActivityId,
                               )}
-                              turnLive={turnLive}
+                              turnLive={
+                                // Anything the agent did after these calls means it moved on.
+                                turnLive &&
+                                !segments
+                                  .slice(segmentIndex + 1)
+                                  .some((later) => later.kind !== 'feedback')
+                              }
                               activeMcpAppId={entities.activeMcpAppId}
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}

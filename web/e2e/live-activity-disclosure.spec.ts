@@ -20,11 +20,16 @@ for (const width of [1280, 390]) {
     await expect(read).toHaveAttribute('aria-expanded', 'false');
     await expect(live).toHaveCount(1);
     await page.getByRole('button', { name: 'Show next activity group', exact: true }).click();
-    // Earlier rows never fold away when the next step starts; the running row has nothing to open yet.
+    // Once the agent moves on, the finished run folds into one counted row; the running row has
+    // nothing to open yet.
     const writeRow = page.locator('[data-slot="activity-row"]').filter({ hasText: 'findings.md' });
     await expect(writeRow).toBeVisible();
     await expect(writeRow.getByRole('img', { name: 'Running' })).toBeVisible();
     await expect(write).toHaveCount(0);
+    const runToggle = page.locator('[data-run-summary] [data-slot="activity-disclosure"]');
+    await expect(runToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(read).toHaveCount(0);
+    await runToggle.click();
     await expect(read).toBeVisible();
     await expect(run).toBeVisible();
     // A reader's choice survives the live turn updating and finishing.

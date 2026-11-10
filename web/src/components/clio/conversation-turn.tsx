@@ -66,8 +66,8 @@ interface ConversationTurnProps {
   /** Open the last live group until a newer entry arrives, unless the reader chose otherwise. */
   followLiveActivity?: boolean;
   /**
-   * The turn is still working. Its runs stay as rows while it works and fold
-   * into their counted rows once it finishes, so nothing moves while it is read.
+   * These calls are the agent's latest work and it is still going. They stay as
+   * rows until it moves past them, then fold into their counted row.
    */
   turnLive?: boolean;
   iterations: readonly ConversationIteration[];
@@ -220,7 +220,7 @@ export function ConversationTurn({
               key={section.iterations[0].id}
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
-              turnLive={turnLive}
+              turnLive={turnLive && index === sections.length - 1}
               mode={mode}
               subagents={subagents}
               interactions={activityInteractions}
@@ -292,7 +292,7 @@ export function ConversationTurn({
                 group={[{ ...iteration, thinking: [] }, ...group.slice(1)]}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
-                turnLive={turnLive || followLiveActivity}
+                turnLive={(turnLive || followLiveActivity) && index === groups.length - 1}
                 subagents={subagents}
               >
                 {(item) => (
@@ -400,12 +400,19 @@ function ActivityLane({
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
   const folded = !all && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
-  // One call folds into nothing shorter; thoughts alone stay as they are.
+  // Steps after the last call that only think are the agent moving on; they
+  // stay below the run rather than inside it.
+  let headEnd = group.length;
+  while (headEnd > 0 && !group[headEnd - 1].activity.length && !group[headEnd - 1].interrupted)
+    headEnd -= 1;
+  const head = group.slice(0, headEnd);
+  const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
+  // A settled run folds once the agent has moved past it; one call folds into
+  // nothing shorter, and thoughts alone stay as they are.
   const collapses =
-    !turnLive &&
-    !live &&
-    group.reduce((sum, item) => sum + item.activity.length, 0) > 1 &&
-    runSettled(group);
+    (!turnLive || afterIds.size > 0) &&
+    head.reduce((sum, item) => sum + item.activity.length, 0) > 1 &&
+    runSettled(head);
   const showAll = folded ? (
     <Button
       variant="ghost"
@@ -417,7 +424,7 @@ function ActivityLane({
     </Button>
   ) : null;
   const run = collapses
-    ? transcriptRunSummary(group, (tool) =>
+    ? transcriptRunSummary(head, (tool) =>
         subagentsForTool(tool, subagents).map((subagent) => subagent.id),
       )
     : undefined;
@@ -476,9 +483,10 @@ function ActivityLane({
       {run && !runOpen ? null : (
         <ActivityNest flat={!run} label={`Calls: ${run?.label ?? label}`}>
           {showAll}
-          {shown.map(children)}
+          {shown.filter((item) => !afterIds.has(item.id)).map(children)}
         </ActivityNest>
       )}
+      {shown.filter((item) => afterIds.has(item.id)).map(children)}
     </div>
   );
 }

@@ -266,6 +266,11 @@ function record(...tools: ToolInvocation[]): Record<string, ToolInvocation> {
   return Object.fromEntries(tools.map((tool) => [tool.id, tool]));
 }
 
+/** Ids of the earlier messages a compaction replaced, as the injection records them. */
+function compactedIds(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `msg_earlier_${index + 1}`);
+}
+
 function userMessage(id: string, text: string, created = at(10, 0)): Message {
   return {
     id,
@@ -509,6 +514,7 @@ const STATES: State[] = [
               source: 'summarization',
               trigger: 'auto',
               compaction_id: 'cmp_opal',
+              metadata: { compacted_message_ids: compactedIds(61) },
               text: '61 messages summarized: the SMAP L3 search, the 0.25° grid choice, and the 14 Opal sites to check.',
             },
           ],
@@ -570,6 +576,7 @@ const STATES: State[] = [
               source: 'summarization',
               trigger: 'auto',
               compaction_id: 'cmp_done',
+              metadata: { compacted_message_ids: compactedIds(61) },
               text: 'The SMAP L3 search, the 0.25\u00b0 grid choice, and the 14 Opal sites to check.',
             },
             {
