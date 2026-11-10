@@ -70,7 +70,7 @@ export function ClioSessionContextBar({
               {/* Phones keep the mark so the conversation title gets the width. */}
               <span className={cn('truncate', session && 'max-sm:sr-only')}>{workspaceLabel}</span>
             </button>
-            <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
+            <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-faint" />
           </>
         ) : null}
         <TitleElement aria-label={nativeTitle ? undefined : title} className="flex min-w-0">

@@ -132,19 +132,23 @@ it('keeps focus in the frame when ⇧V or ⇧L replaces the focused view', async
     </QueryClientProvider>,
   );
   const panelWith = (text: string) => screen.getByText(text).closest('[role="tabpanel"]');
-  // The renderer's own panel, around the document's Rendered/Source panels.
+  // The renderer's own panel, around the document's Rendered/Source panels, is the file.
   const host = panelWith('Rendered file')?.parentElement?.closest('[role="tabpanel"]');
-  expect(host).toBeTruthy();
+  expect(host).toHaveAccessibleName('notes.md');
   act(() => (panelWith('Rendered file') as HTMLElement).focus());
   await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
   expect(screen.getByText('Exact source')).toBeVisible();
-  await waitFor(() => expect(document.activeElement).toBe(host));
+  // Focus lands on the mode's own panel, so it is announced as Source, not "Preview".
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Exact source')));
+  expect(document.activeElement).toHaveAccessibleName('Source');
   await user.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
   await waitFor(() => expect(document.activeElement).toBe(panelWith('Recorded lineage')));
   await user.keyboard('{Control>}{Shift>}L{/Shift}{/Control}');
-  await waitFor(() => expect(document.activeElement).toBe(host));
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Exact source')));
   await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}');
   expect(screen.getByText('Rendered file')).toBeVisible();
+  await waitFor(() => expect(document.activeElement).toBe(panelWith('Rendered file')));
+  expect(document.activeElement).toHaveAccessibleName('Read document');
 });
 
 it('keeps refresh progress observable after moving it out of the toolbar', async () => {
