@@ -154,8 +154,8 @@ function AboutValue({
           placeholder
             ? 'text-xs text-faint'
             : mono
-              ? 'font-mono text-xs tabular-nums'
-              : 'text-[0.78125rem]',
+              ? 'font-mono text-xs text-muted-foreground tabular-nums'
+              : 'text-[0.78125rem] text-muted-foreground',
         )}
         data-slot="settings-value"
         title={value}
