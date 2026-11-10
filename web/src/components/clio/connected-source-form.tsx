@@ -63,7 +63,9 @@ export function ConnectedSourceForm({
   );
   const locationLocked = Boolean(source && !source.can_edit_location);
   const [chosenUse, setChosenUse] = useState<SourceUse | undefined>(
-    source ? rememberedSourceAccess(source.id)?.use : undefined,
+    source
+      ? (rememberedSourceAccess(source.id)?.use ?? (source.linked ? 'link' : undefined))
+      : undefined,
   );
   const [confirmed, setConfirmed] = useState(source?.mode === 'write_enabled');
   const [sshFolder, setSshFolder] = useState<{ label: string; startPath?: string }>();

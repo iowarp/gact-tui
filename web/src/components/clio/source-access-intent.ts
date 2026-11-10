@@ -11,14 +11,35 @@ export interface SourceAccessIntent {
   confirmed: boolean;
 }
 
-const intents = new Map<string, SourceAccessIntent>();
+// The choice outlives a reload, so a source used later still follows it.
+const storageKey = 'clio.source-access-intents';
+
+function readIntents(): Record<string, SourceAccessIntent> {
+  try {
+    const stored = globalThis.localStorage?.getItem(storageKey);
+    const parsed: unknown = stored ? JSON.parse(stored) : {};
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, SourceAccessIntent>)
+      : {};
+  } catch {
+    return {};
+  }
+}
 
 export function rememberSourceAccess(sourceId: string, intent: SourceAccessIntent) {
-  intents.set(sourceId, intent);
+  try {
+    globalThis.localStorage?.setItem(
+      storageKey,
+      JSON.stringify({ ...readIntents(), [sourceId]: intent }),
+    );
+  } catch {
+    // Without storage, using the source falls back to its recorded access.
+  }
 }
 
 export function rememberedSourceAccess(sourceId: string): SourceAccessIntent | undefined {
-  return intents.get(sourceId);
+  const intent = readIntents()[sourceId];
+  return intent?.use === 'link' || intent?.use === 'transfer' ? intent : undefined;
 }
 
 /**
