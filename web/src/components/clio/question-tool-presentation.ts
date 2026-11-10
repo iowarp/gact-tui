@@ -1,5 +1,5 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
-import { interactionAnswerLabels } from './agent-answer-domain';
+import { interactionAnswerLabels, isCausalQuestionInteraction } from './agent-answer-domain';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -104,15 +104,23 @@ export function withQuestionPresentation(
   }
   const outer = record(output);
   const receipt = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
-  const interaction = interactions.find((row) => row.task_id === receipt?.handle);
-  // Once answered, the ask folds into the spec's decision row: "Answered · 2020–2023".
-  const answers =
-    receipt?.kind === 'Question' && receipt.accepted === true
-      ? interactions
-          .filter((row) => row.task_id === receipt.handle && row.status === 'answered')
-          .flatMap(interactionAnswerLabels)
+  // The server links a question to its call by `source.invocation_id`; older sessions
+  // only carry the task handle from the call's receipt.
+  const linked = interactions.filter(
+    (row) => row.source.invocation_id === tool.id && isCausalQuestionInteraction(row),
+  );
+  const accepted = linked.length > 0 || (receipt?.kind === 'Question' && receipt.accepted === true);
+  const matches = linked.length
+    ? linked
+    : accepted
+      ? interactions.filter((row) => row.task_id === receipt?.handle)
       : [];
-  if (receipt?.kind === 'Question' && receipt.accepted === true) {
+  const interaction = matches.find((row) => row.status === 'pending') ?? matches[0];
+  // Once answered, the ask folds into the spec's decision row: "Answered · 2020–2023".
+  const answers = matches
+    .filter((row) => row.status === 'answered')
+    .flatMap(interactionAnswerLabels);
+  if (accepted) {
     const status = interaction?.status;
     blocks.push({
       id: 'question-state',
