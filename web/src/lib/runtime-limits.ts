@@ -289,6 +289,13 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
 export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
+ * How long a closed viewer's file bytes stay cached. Unit: milliseconds.
+ * Long enough that reopening or remounting (maximize, restore) doesn't refetch;
+ * short enough that closed PDFs, images and text don't sit in the tab's memory.
+ */
+export const VIEWER_BYTES_GC_TIME_MS = 30_000;
+
+/**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files
  * whose size the listing did not report, are read in ranged windows instead.
  */
