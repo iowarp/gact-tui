@@ -104,8 +104,9 @@ export function SearchResultsTab({
   const loading = !counts.all && (refreshing || results.sessions.isPending);
   const listRef = useRef<HTMLDivElement>(null);
   // Arrive ready for ↑ ↓ and Enter, as the palette was. The palette is still
-  // closing when the tab mounts, and its focus trap holds focus until it goes,
-  // so the list takes focus again while it lands on nothing.
+  // closing when the tab mounts, and its focus trap holds focus until it goes
+  // (later on a busy machine), so the list takes focus again whenever it lands
+  // on nothing, until the user puts it somewhere else.
   useEffect(() => {
     const list = listRef.current;
     list?.focus({ preventScroll: true });
@@ -113,9 +114,10 @@ export function SearchResultsTab({
     const timer = window.setInterval(() => {
       tries += 1;
       const active = document.activeElement;
-      if (list?.isConnected && (!active || active === document.body))
-        list.focus({ preventScroll: true });
-      if (tries >= 12) window.clearInterval(timer);
+      const lost = !active || active === document.body;
+      if (list?.isConnected && lost) list.focus({ preventScroll: true });
+      const elsewhere = !lost && !list?.contains(active) && !active?.closest('[role=dialog]');
+      if (tries >= 60 || elsewhere) window.clearInterval(timer);
     }, 50);
     return () => window.clearInterval(timer);
   }, [tab.id]);

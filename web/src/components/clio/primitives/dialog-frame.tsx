@@ -263,7 +263,7 @@ export const DialogFrame = memo(function DialogFrame({
               '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
-              '[&_[data-slot=settings-label]]:line-clamp-2 [&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
+              '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
               !icon || bodyInset === 'edge'
                 ? 'pl-[18px]'
                 : bodyInset === 'title'
