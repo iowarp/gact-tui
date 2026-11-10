@@ -52,7 +52,12 @@ function pluginSection(
       title: plugin.id,
       hint: plugin.description || plugin.ref,
       bulkLabel: `All ${plugin.id} tools`,
-      meta: [...originText(settings), plural(settings.tools.length, 'tool')],
+      meta: [
+        ...originText(settings),
+        tools.length < settings.tools.length
+          ? `${tools.length} of ${plural(settings.tools.length, 'tool')}`
+          : plural(settings.tools.length, 'tool'),
+      ],
       tools,
     };
   }

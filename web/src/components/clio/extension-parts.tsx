@@ -49,16 +49,19 @@ export function SlotButton({
   label,
   onClick,
   disabled,
+  reason,
 }: {
   children: ReactNode;
   /** The full name when the visible word needs its subject ("Trust the update from clio"). */
   label?: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Why the button is disabled, on hover and for screen readers. */
+  reason?: string;
 }) {
-  return (
+  const button = (
     <Button
-      aria-label={label}
+      aria-label={disabled && reason ? `${label ?? ''} (${reason})`.trim() : label}
       className="h-7 px-2.5 text-xs"
       disabled={disabled}
       onClick={onClick}
@@ -67,6 +70,13 @@ export function SlotButton({
     >
       {children}
     </Button>
+  );
+  return disabled && reason ? (
+    <span className="inline-flex cursor-help" title={reason}>
+      {button}
+    </span>
+  ) : (
+    button
   );
 }
 
