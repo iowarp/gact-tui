@@ -31,6 +31,9 @@ export interface KeyValueItem {
  * left-aligned values. In a narrow container the labels give way to their icons,
  * and a row may swap in its `narrow` value or drop out.
  *
+ * `card` is the hover card's form (conversation-states `.hcd`): 25px rows inset
+ * 8px, the label left and the value right.
+ *
  * `rows` is the settings-sheet form (workbench-right-pocket: Agent): a 118 px
  * label, a left-aligned value, a separator under each row, and a row that
  * highlights when its value is a `KeyValueRowButton`.
@@ -46,7 +49,7 @@ export const KeyValueGrid = memo(function KeyValueGrid({
   /** Keep the action column when no row has an action, to line up with sibling rows. */
   actionColumn?: boolean;
   className?: string;
-  variant?: 'compact' | 'rows' | 'facts';
+  variant?: 'compact' | 'card' | 'rows' | 'facts';
   'aria-label'?: string;
 }) {
   const hasAction = actionColumn || items.some((item) => item.action);
@@ -94,7 +97,9 @@ export const KeyValueGrid = memo(function KeyValueGrid({
       className={cn(
         facts
           ? 'grid auto-rows-[minmax(24px,auto)] items-center gap-x-2.5 text-[12.5px]'
-          : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
+          : variant === 'card'
+            ? 'grid items-center gap-x-3 px-2 text-[12px] [&_dd]:leading-[25px] [&_dt]:h-[25px]'
+            : 'grid items-center gap-x-3 gap-y-1 text-[12px]',
         facts
           ? hasAction
             ? 'grid-cols-[110px_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
