@@ -1,7 +1,8 @@
 import type { PluginEntry, ToolSettings } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { useSeenInView } from '@/hooks/use-seen-in-view';
 import { useAgentPluginsSupported, usePluginCatalog } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -84,54 +85,6 @@ function catalogMeta(plugin: PluginEntry): string {
   return parts.join(', ');
 }
 
-/** How far beyond the visible part of the page a group's tools are read ahead of scrolling. */
-const READ_AHEAD_MARGIN = '600px 0px';
-
-function scrollParent(element: HTMLElement): HTMLElement | null {
-  for (let node = element.parentElement; node; node = node.parentElement) {
-    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
-  }
-  return null;
-}
-
-/**
- * The tool groups (`data-tool-group`) that have come near the visible part of the page.
- * Once seen, a group stays seen, so its settings are read once and kept.
- */
-function useSeenGroups(
-  container: RefObject<HTMLElement | null>,
-  groups: readonly string[],
-  /** Changes whenever the rendered groups may have been replaced (a new filter). */
-  layout: string,
-): ReadonlySet<string> {
-  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
-  const key = groups.join('\n');
-  const observable = typeof IntersectionObserver !== 'undefined';
-  useEffect(() => {
-    const root = container.current;
-    if (!root || !key || !observable) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const hits = entries.flatMap((entry) =>
-          entry.isIntersecting ? [(entry.target as HTMLElement).dataset.toolGroup ?? ''] : [],
-        );
-        setSeen((current) =>
-          hits.every((hit) => !hit || current.has(hit))
-            ? current
-            : new Set([...current, ...hits.filter(Boolean)]),
-        );
-      },
-      { root: scrollParent(root), rootMargin: READ_AHEAD_MARGIN },
-    );
-    root.querySelectorAll<HTMLElement>('[data-tool-group]').forEach((group) => {
-      observer.observe(group);
-    });
-    return () => observer.disconnect();
-  }, [container, key, layout, observable]);
-  // Without an observer (non-browser renderers), every group counts as seen.
-  return observable ? seen : new Set(groups);
-}
-
 /**
  * Settings › Tools and MCP servers › Tools: every installed plugin's tools in one table.
  * The catalog lays the table out at once; a plugin's tool settings are read when its
@@ -152,10 +105,11 @@ export function ToolPermissionsSettings() {
   const [mode, setMode] = useState('');
   const term = filter.trim().toLocaleLowerCase();
   const container = useRef<HTMLDivElement>(null);
-  const seen = useSeenGroups(
+  // Groups (`data-tool-group`) are replaced when the plugins or the filter change.
+  const seen = useSeenInView(
     container,
-    plugins.map((plugin) => plugin.ref),
-    term,
+    'data-tool-group',
+    `${plugins.map((plugin) => plugin.ref).join('\n')}\n${term}`,
   );
   const results = useQueries({
     queries: plugins.map((plugin) => ({
