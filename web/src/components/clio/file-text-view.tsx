@@ -60,6 +60,20 @@ const NotebookView = lazy(() =>
   import('./notebook-view').then((module) => ({ default: module.NotebookView })),
 );
 
+/**
+ * A plan's steps, the frame fact the spec gives a Markdown document ("4 steps"): its
+ * top-level numbered and task-list items, outside code fences.
+ */
+function markdownSteps(content: string) {
+  let fenced = false;
+  let steps = 0;
+  for (const line of content.split('\n')) {
+    if (/^ {0,3}(?:```|~~~)/u.test(line)) fenced = !fenced;
+    else if (!fenced && /^(?:\d{1,9}[.)]|[-*+] \[[ xX]\]) /u.test(line)) steps += 1;
+  }
+  return steps;
+}
+
 /** A file's content contributes representations and Copy to one owning toolbar. */
 export function FileTextView({
   name,
@@ -93,6 +107,10 @@ export function FileTextView({
     [content, format],
   );
   const lines = useMemo(() => content.split('\n').length, [content]);
+  const steps = useMemo(
+    () => (format === 'markdown' ? markdownSteps(content) : 0),
+    [content, format],
+  );
   // A code file's one view is its source; the frame names its language (frame-bar 05).
   const formatLabel = fileFormatLabel(name, mediaType ?? '');
   const language =
@@ -109,7 +127,9 @@ export function FileTextView({
           ? [changes]
           : language
             ? [language]
-            : [`${lines.toLocaleString()} lines`],
+            : steps
+              ? [`${steps.toLocaleString()} ${steps === 1 ? 'step' : 'steps'}`]
+              : [`${lines.toLocaleString()} lines`],
   );
   const modes: FileMode[] = [
     ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),

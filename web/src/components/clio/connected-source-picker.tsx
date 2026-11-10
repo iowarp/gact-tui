@@ -139,7 +139,8 @@ export function ConnectedSourcePicker({
           ? `Choose a provider to bring its files or datasets into this workspace.`
           : undefined
       }
-      className={connect ? 'w-[480px]' : undefined}
+      // The spec's dialog rule (36%, from 340 px) reaching `.c3d`'s 480 px at 1280.
+      className={connect ? 'w-[clamp(340px,37.5vw,480px)]' : undefined}
       titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
     >
       <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">

@@ -1,6 +1,6 @@
 import type { StreamState } from '@clio/core/v3';
 import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
-import { CONNECTION_PROBE_POLL_MS } from '@/lib/runtime-limits';
+import { CONNECTION_LOST_PROBE_POLL_MS, CONNECTION_PROBE_POLL_MS } from '@/lib/runtime-limits';
 import { useLiveStore } from '@/store/live-store';
 
 export type ServiceReachability = 'checking' | 'reachable' | 'unreachable';
@@ -28,9 +28,12 @@ export function connectionIndicatorState(input: {
 export function useConnectionIndicatorState(): StreamState {
   const streamOwned = useLiveStore((state) => state.streamOwners > 0);
   const stream = useLiveStore((state) => state.entities.stream);
-  // Only a route without its own stream needs the probe to notice a drop.
+  // Only a route without its own stream needs the probe to notice a drop; once it has,
+  // it probes faster so the line clears soon after the service is back.
   const { capabilities } = useWorkspaceCapabilities({
-    pollMs: streamOwned ? false : CONNECTION_PROBE_POLL_MS,
+    pollMs: streamOwned
+      ? false
+      : (failed) => (failed ? CONNECTION_LOST_PROBE_POLL_MS : CONNECTION_PROBE_POLL_MS),
   });
   const service: ServiceReachability = capabilities.isError
     ? 'unreachable'

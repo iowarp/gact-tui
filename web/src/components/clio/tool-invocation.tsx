@@ -175,7 +175,8 @@ export function ClioToolInvocation({
         )
     : [];
   const status = getToolStatus(presentedTool);
-  const failure = getToolFailureDetail(presentedTool);
+  // A call paused on the person has no outcome yet, whatever a reload projected.
+  const failure = waitingFor ? undefined : getToolFailureDetail(presentedTool);
   const declaredFailure = presentedTool.presentation?.blocks.some(
     (block) => block.severity === 'error' && (block.text?.trim() || block.content_ref),
   );

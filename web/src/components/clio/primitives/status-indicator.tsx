@@ -56,7 +56,7 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
   success: <CheckIcon className="size-3.5 text-primary" />,
   error: <CircleAlertIcon className="size-3.5 text-destructive" />,
   warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
-  stopped: <OctagonIcon className="size-3.5 text-warning" />,
+  stopped: <OctagonIcon className="size-3.5 text-muted-foreground" />,
 };
 
 /**

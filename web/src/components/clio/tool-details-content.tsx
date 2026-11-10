@@ -12,6 +12,7 @@ export function ToolDetailsContent({
   children,
   bounded = true,
   flush = false,
+  description = 'Original tool arguments, result, and diagnostics.',
 }: {
   inline: boolean;
   title: string;
@@ -20,6 +21,8 @@ export function ToolDetailsContent({
   bounded?: boolean;
   /** The body draws its own header bars and edges (a diff or a command). */
   flush?: boolean;
+  /** The dialog subtitle: what the recorded content is. */
+  description?: string;
 }) {
   return inline ? (
     <CollapsibleContent>
@@ -39,11 +42,7 @@ export function ToolDetailsContent({
       </ActivityBody>
     </CollapsibleContent>
   ) : (
-    <ResultDialogContent
-      icon={<InfoIcon />}
-      title={title}
-      description="Original tool arguments, result, and diagnostics."
-    >
+    <ResultDialogContent icon={<InfoIcon />} title={title} description={description}>
       {children}
     </ResultDialogContent>
   );
