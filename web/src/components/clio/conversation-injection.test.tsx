@@ -97,16 +97,17 @@ describe('ClioConversation harness injection', () => {
       />,
     );
     expect(await screen.findByText(prompt)).toBeVisible();
-    expect(screen.getByText('Parent')).toBeVisible();
     expect(screen.getAllByText('gpt-6.1-sol').length).toBeGreaterThan(0);
     // The answering agent is named in the reply's model card, not a header.
     await userEvent.hover(document.querySelector<HTMLElement>('[data-slot="message-reply-meta"]')!);
     expect(await screen.findByText('Storage analyst', {}, { timeout: 2000 })).toBeVisible();
     expect(screen.queryByText('Agent Workspace')).toBeNull();
     expect(screen.getByText('Preserve the read-only boundary.')).toBeVisible();
-    expect(screen.getByText(raw)).not.toBeVisible();
-    await userEvent.click(screen.getByText('Technical details'));
-    expect(screen.getByText(raw)).toBeVisible();
+    expect(screen.queryByText(raw)).toBeNull();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Technical details for Parent assignment' }),
+    );
+    expect(await screen.findByText(raw)).toBeVisible();
     expect(screen.getAllByText(prompt)).toHaveLength(1);
   });
   it.each(['goal_judgment', 'loop_wake', 'scheduled_wake'])(
