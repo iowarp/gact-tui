@@ -858,7 +858,8 @@ html[data-clio-motion='reduced'] *::after {
   padding-inline: 0.75rem;
 }
 [data-slot='activity-body'] .tool-presentation-body,
-[data-slot='activity-body'] [data-slot='tool-result-panel'] .tool-presentation-body > p,
+[data-slot='activity-body'] .tool-presentation-body > p,
+[data-slot='activity-body'] [data-slot='tool-result-label'],
 [data-slot='activity-body']
   [data-slot='tool-result-panel']
   .tool-presentation-body

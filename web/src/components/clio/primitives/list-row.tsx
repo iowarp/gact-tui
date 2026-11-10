@@ -57,7 +57,8 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * (`leading`) before the icon, 12.5px text, and the right edge ordered
    * badge, hover actions, elapsed, status, ⓘ — so the status sits next to
    * the time it explains. Empty columns keep their width; below 600px the row
-   * drops its hover actions, elapsed and an empty badge so the text keeps room.
+   * drops its hover actions and an empty badge, and below 360px its elapsed, so
+   * the text keeps room.
    *
    * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (one
    * line, cut with … per `.d-nm`; callers give its full text in `hoverText`) and a faint 11px `meta` age in a
@@ -187,8 +188,9 @@ export const ListRow = memo(
           style={style}
           className={cn(
             // A container, so a narrow row sheds columns by its own width (spec U7): below
-            // 600px its empty and hover-only columns; below 280px (`.xc.n2`, a fifth of the
-            // window) its elapsed time, and its name becomes the icon's hover name.
+            // 600px its empty and hover-only columns; below 360px (a quarter of the window, a
+            // phone) its elapsed time; below 280px (`.xc.n2`, a fifth) its name becomes the
+            // icon's hover name.
             'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
@@ -249,7 +251,7 @@ export const ListRow = memo(
           {meta !== undefined ? (
             <span
               className={cn(
-                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[280px]/activity:hidden',
+                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[360px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
             >
