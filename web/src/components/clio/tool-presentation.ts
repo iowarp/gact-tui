@@ -243,7 +243,7 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
 
 // The service records a call the person stopped as failed; its diagnostic says it was cancelled.
 const STOPPED_DIAGNOSTIC =
-  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by the (?:user|client|person)\b|\bturn cancell?ed\b/iu;
+  /^cancell?ed$|\bwas cancell?ed before approval\b|\bcancell?ed by (?:the )?(?:user|client|person)\b|\bturn cancell?ed\b/iu;
 
 function stoppedDiagnostic(tool: ToolInvocation): boolean {
   return [

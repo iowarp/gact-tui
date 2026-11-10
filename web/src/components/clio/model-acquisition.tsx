@@ -2,7 +2,14 @@ import { vocab } from '@/lib/brand-vocabulary';
 import type { ManagedServiceCatalog, ModelAcquisition, ModelDownloadInput } from '@clio/core/v3';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRightIcon, CircleAlertIcon, DownloadIcon, HardDriveIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  CircleAlertIcon,
+  DownloadIcon,
+  HardDriveIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useInfrastructureState } from '@/hooks/use-infrastructure-state';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -24,7 +31,7 @@ import { InfoTip } from './info-tip';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { MenuRow } from './primitives/menu-row';
 import { HostPathPicker } from './host-path-picker';
-import { InstallExpectation } from './install-expectation';
+import { ShortcutKeys } from './primitives/key-chip';
 import { installExpectation } from './install-expectation-model';
 import { ModelDownloadSearch } from './model-download-search';
 import { ModelInventoryRow } from './model-inventory-row';
@@ -57,6 +64,44 @@ function modelRuntime(
       ?.label,
     unavailable: `No compatible runtime for these files on ${hostLabel}. Transformers models need a supported vLLM computer; llama.cpp needs a GGUF file.`,
   };
+}
+
+/** Spec `.c3s` under the facts: whether the chosen model fits the host's free space. */
+function FreeSpaceLine({
+  freeBytes,
+  sizeBytes,
+  hostLabel,
+  path,
+}: {
+  freeBytes: number;
+  sizeBytes?: number | null;
+  hostLabel: string;
+  path: string;
+}) {
+  const free = `${formatBytes(freeBytes)} free on ${hostLabel}`;
+  const tone = !sizeBytes ? 'default' : sizeBytes <= freeBytes ? 'ok' : 'warning';
+  return (
+    <div title={`Free space in ${path}`}>
+      <SourceStatusLine
+        icon={
+          tone === 'ok' ? (
+            <CheckIcon />
+          ) : tone === 'warning' ? (
+            <TriangleAlertIcon />
+          ) : (
+            <HardDriveIcon />
+          )
+        }
+        tone={tone}
+      >
+        {tone === 'ok'
+          ? `Fits: ${free}.`
+          : tone === 'warning'
+            ? `Needs ${formatBytes(sizeBytes ?? 0)}; only ${free}.`
+            : `${free}.`}
+      </SourceStatusLine>
+    </div>
+  );
 }
 
 /** Host-owned acquisition remains visible after navigation and controller restarts. */
@@ -183,6 +228,8 @@ export function ModelAcquisitions({
     setOpen(true);
   };
   const downloadDisabled = !inventory.data || Boolean(unavailable);
+  const downloadBlocked =
+    acquire.isPending || Boolean(unavailable) || !draft.repository.trim() || !draft.revision.trim();
   const downloadEstimate = {
     downloadBytes: chosen?.size_bytes,
     thing: draft.repository.trim() || 'the model files',
@@ -369,6 +416,13 @@ export function ModelAcquisitions({
                 event.preventDefault();
                 acquire.mutate();
               }}
+              // Ctrl+Enter (⌘↩) downloads from anywhere in the chooser, as the button's key shows.
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.shiftKey) return;
+                if (!(event.ctrlKey || event.metaKey) || downloadBlocked) return;
+                event.preventDefault();
+                acquire.mutate();
+              }}
             >
               <div className="grid min-h-0 flex-1 auto-rows-min gap-x-4 gap-y-[13px] overflow-y-auto px-4 pb-3.5 max-[899px]:grid-rows-[minmax(14rem,1fr)_auto] min-[900px]:grid-cols-[calc(48%-8px)_calc(52%-8px)] min-[900px]:grid-rows-[minmax(0,1fr)] min-[900px]:overflow-hidden">
                 <ModelDownloadSearch
@@ -439,6 +493,14 @@ export function ModelAcquisitions({
                       Choose a model to see its capabilities and model card.
                     </p>
                   )}
+                  {draft.repository && capacity.data ? (
+                    <FreeSpaceLine
+                      freeBytes={capacity.data.free_bytes}
+                      hostLabel={hostLabel}
+                      path={capacity.data.path}
+                      sizeBytes={chosen?.size_bytes}
+                    />
+                  ) : null}
                   <Collapsible
                     className="group/advanced -mx-2 flex min-w-0 flex-col"
                     open={advancedOpen}
@@ -543,17 +605,21 @@ export function ModelAcquisitions({
                   ) : null}
                 </div>
               </div>
-              {/* Spec `.df`: what the download involves at the left, then Cancel and Download. */}
+              {/* Spec `.df`: the download size at the left, then Cancel and Download. */}
               <div className="flex shrink-0 items-center gap-2 border-t border-border py-2.5 pr-3 pl-4">
-                <div
-                  className="mr-auto flex min-w-0 overflow-hidden"
+                <p
+                  className={cn(
+                    'mr-auto min-w-0 truncate text-[11.5px] whitespace-nowrap text-faint',
+                    // The hint gives way on a phone; a known size always shows.
+                    !chosen?.size_bytes && 'max-[599px]:invisible',
+                  )}
+                  data-slot="download-size-note"
                   title={installExpectation(downloadEstimate)}
                 >
-                  <InstallExpectation
-                    className="min-w-0 items-center text-[11.5px] whitespace-nowrap text-faint [&>span]:truncate [&>svg]:mt-0"
-                    {...downloadEstimate}
-                  />
-                </div>
+                  {chosen?.size_bytes
+                    ? `${formatBytes(chosen.size_bytes)} to download`
+                    : 'Progress continues if you close this window'}
+                </p>
                 <Button
                   type="button"
                   variant="ghost"
@@ -564,14 +630,20 @@ export function ModelAcquisitions({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={
-                    acquire.isPending ||
-                    Boolean(unavailable) ||
-                    !draft.repository.trim() ||
-                    !draft.revision.trim()
-                  }
+                  className="gap-[7px] bg-clip-border"
+                  disabled={downloadBlocked}
                 >
+                  <DownloadIcon aria-hidden="true" />
                   {acquire.isPending ? 'Starting download…' : `Download to ${hostLabel}`}
+                  {downloadBlocked ? null : (
+                    <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+                      <ShortcutKeys
+                        className="border-current/45"
+                        keys={['Ctrl+Enter']}
+                        variant="inline"
+                      />
+                    </span>
+                  )}
                 </Button>
               </div>
             </form>

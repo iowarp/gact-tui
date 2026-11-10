@@ -28,7 +28,6 @@ import {
   useFileViewerContentsRegistry,
   type FileViewerAction,
 } from './file-viewer-action-context';
-import { useFileViewerFacts } from './file-viewer-facts';
 import { svgIntrinsicSize, svgToPngBlob } from './mermaid-export';
 import { parseDiagramSource } from './mermaid-security';
 import { PresentationNavigation } from './presentation-navigation';
@@ -44,7 +43,7 @@ import {
   type SurfaceCapabilities,
   type SurfaceExportFormat,
 } from './surface-toolbar';
-import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ViewerZoomControls } from './viewer-zoom-controls';
 
 type MermaidView = 'render' | 'source';
 
@@ -445,8 +444,8 @@ export function ClioMermaidDiagram({
 }
 
 /**
- * The framed diagram's Format: zoom out and zoom in, with the zoom as a fact.
- * Wheel or pinch zooms, dragging pans and 0 fits the diagram.
+ * The framed diagram's Format: zoom out and zoom in, with the zoom between
+ * them. Wheel or pinch zooms, dragging pans and 0 fits the diagram.
  */
 function FramedZoom({
   percent,
@@ -459,22 +458,14 @@ function FramedZoom({
   onOut: () => void;
   disabled: boolean;
 }) {
-  useFileViewerFacts(disabled ? undefined : [`${Math.round(percent)}%`]);
   return (
-    <ViewerToolbarContent>
-      <div
-        aria-label="Diagram zoom"
-        className="flex shrink-0 items-center gap-0.5"
-        data-slot="viewer-zoom-controls"
-        role="group"
-      >
-        <ToolbarAction disabled={disabled} label="Zoom out" onClick={onOut}>
-          <ZoomOutIcon aria-hidden="true" />
-        </ToolbarAction>
-        <ToolbarAction disabled={disabled} label="Zoom in" onClick={onIn}>
-          <ZoomInIcon aria-hidden="true" />
-        </ToolbarAction>
-      </div>
-    </ViewerToolbarContent>
+    <ViewerZoomControls
+      label="Diagram zoom"
+      onIn={onIn}
+      onOut={onOut}
+      disabledIn={disabled}
+      disabledOut={disabled}
+      readout={disabled ? undefined : `${Math.round(percent)}%`}
+    />
   );
 }
