@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
+import { useUnofferedSections } from '@/components/clio/settings-unoffered-sections';
 import {
   SettingsNavigation,
   SettingsSearchButton,
@@ -17,6 +18,7 @@ import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { isLoopbackAddress } from '@/lib/local-servers';
 import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
+import { useSettingsWorkspaceName } from '@/lib/settings-workspace-name';
 import {
   arrivedFromSearch,
   historyIndex,
@@ -32,7 +34,6 @@ import {
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useLiveStore } from '@/store/live-store';
 
 // Only the sections load lazily. The window itself mounts once, with the
 // route, so a dialog opened over it (Ctrl K) is never covered by a window
@@ -82,6 +83,7 @@ export function SettingsWindow() {
     retry: false,
   });
   const inbox = memory.data?.inbox ?? 0;
+  const dimmed = useUnofferedSections();
   const content = useRef<HTMLDivElement>(null);
   // A prefetched chunk renders at once; otherwise the section suspends.
   const [SettingsSection] = useState(
@@ -101,13 +103,10 @@ export function SettingsWindow() {
   const fromSearch = arrivedFromSearch(location.state);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
-  const workspace = useLiveStore((state) =>
-    workspaceId ? state.entities.workspaces[workspaceId] : undefined,
-  );
-  const workspaceName = workspace?.display_name || workspace?.name || 'Workspace';
+  const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = settings.label || agentPlaceName(settings.endpoint);
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: 'App', Workspace: workspaceName, Agent: agentName };
+  const scopeLabels = { App: 'App', Workspace: workspaceName.label, Agent: agentName };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'
@@ -117,7 +116,7 @@ export function SettingsWindow() {
       destination?.group === 'Agent'
         ? `${agentName}, applies to every conversation on this agent`
         : destination?.group === 'Workspace'
-          ? `${workspaceName}, applies to every conversation in this workspace`
+          ? workspaceName.line
           : 'App, applies to this computer',
     place: scopeLabels[destination?.group as keyof typeof scopeLabels] ?? 'App',
   };
@@ -186,6 +185,7 @@ export function SettingsWindow() {
     linkState,
     scopeLabels,
     badges: { memory: { count: inbox, label: `${inbox} memory changes waiting for review` } },
+    dimmed,
     filter,
     onClearFilter: () =>
       void navigate(

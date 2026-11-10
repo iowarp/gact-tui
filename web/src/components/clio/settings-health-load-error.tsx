@@ -1,7 +1,70 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StateView } from './primitives/state-view';
 import { notOffered, plainReason } from './settings-health-reason';
+
+type Report = (noun: string, missing: boolean) => void;
+const UnofferedReport = createContext<Report | undefined>(undefined);
+
+function joined(nouns: readonly string[]) {
+  if (nouns.length < 2) return nouns.join('');
+  return `${nouns.slice(0, -1).join(', ')} or ${nouns.at(-1)}`;
+}
+
+/**
+ * Collects the parts of a page the agent does not offer and names them on one
+ * empty line, instead of one "doesn't offer" line per part.
+ */
+export function UnofferedParts({ children, order }: { children: ReactNode; order: string[] }) {
+  const [missing, setMissing] = useState<ReadonlySet<string>>(new Set());
+  const report = useCallback<Report>((noun, off) => {
+    setMissing((current) => {
+      if (current.has(noun) === off) return current;
+      const next = new Set(current);
+      if (off) next.add(noun);
+      else next.delete(noun);
+      return next;
+    });
+  }, []);
+  const nouns = useMemo(
+    () => [
+      ...order.filter((noun) => missing.has(noun)),
+      ...[...missing].filter((noun) => !order.includes(noun)),
+    ],
+    [missing, order],
+  );
+  return (
+    <UnofferedReport.Provider value={report}>
+      {children}
+      {nouns.length ? (
+        <StateView
+          kind="unavailable"
+          size="row"
+          title={`This agent doesn’t offer ${joined(nouns)}.`}
+        />
+      ) : null}
+    </UnofferedReport.Provider>
+  );
+}
+
+/** Tells the page whether the agent lacks this part; the page names it on its one line. */
+function ReportUnoffered({ noun }: { noun: string }) {
+  const report = useContext(UnofferedReport);
+  useEffect(() => {
+    report?.(noun, true);
+    return () => report?.(noun, false);
+  }, [noun, report]);
+  return null;
+}
 
 /**
  * A load failure on the affected row or under its group label: what failed, a
@@ -26,6 +89,8 @@ export function SettingsLoadError({
   className?: string;
 }) {
   const technical = error instanceof Error ? error.message : undefined;
+  const collected = useContext(UnofferedReport);
+  if (noun && notOffered(error) && collected) return <ReportUnoffered noun={noun} />;
   if (noun && notOffered(error))
     return (
       <StateView
