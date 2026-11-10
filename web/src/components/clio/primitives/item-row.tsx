@@ -10,7 +10,7 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   meta?: ReactNode;
   /** Fixed status column: a StatusIndicator with its words. */
   status?: ReactNode;
-  /** Hover actions (IconButtons). Hidden with `visibility`, so they never move the row. */
+  /** Hover actions (IconButtons). Transparent until hover or focus, so they never move the row and Tab still reaches them. */
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
@@ -188,10 +188,10 @@ export const ItemRow = memo(
               className={cn(
                 'flex min-w-0 items-center justify-end gap-px',
                 !actionsVisible &&
-                  'invisible group-focus-within/item-row:visible group-hover/item-row:visible @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
+                  'pointer-events-none opacity-0 group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100 @max-xl:absolute @max-xl:inset-y-0 @max-xl:right-[calc(var(--item-slot)+min(var(--item-status),9.875rem)+1.75rem)] @max-xl:bg-hover @max-xl:pl-1',
                 !actionsVisible && stacks && '@max-sm:right-[calc(var(--item-slot)+1.125rem)]',
                 folds &&
-                  '@xl:pointer-coarse:visible @max-sm:visible @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
+                  '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
               )}
               data-slot="item-row-actions"
             >
