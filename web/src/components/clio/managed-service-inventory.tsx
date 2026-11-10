@@ -339,6 +339,8 @@ function ServiceChooser({
   return (
     <div className="flex flex-col gap-2">
       <InfraSearchField
+        // The chooser mounts when the catalog answers, often after the frame placed its focus.
+        autoFocus
         className="w-full"
         initialFocus
         label="Search services"

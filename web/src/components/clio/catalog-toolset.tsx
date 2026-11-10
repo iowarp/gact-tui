@@ -257,10 +257,18 @@ function McpProvenance({ server }: { server: McpServerDefinition }) {
 
 function ToolContract({ entry }: { entry: ToolEntry }) {
   const { tool, server } = entry;
+  // Some providers send the id title-cased as the title; a known label reads better.
+  const supplied = tool.title?.trim();
+  const plain = (text: string) =>
+    text
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/gu, ' ')
+      .trim();
   const title =
-    tool.title?.trim() ||
+    (supplied && plain(supplied) !== plain(tool.name) ? supplied : undefined) ||
     permissionOperationLabel(tool.name) ||
     TOOL_OPERATIONS[tool.name]?.action ||
+    supplied ||
     humanize(tool.name);
   const [expanded, setExpanded] = useState(false);
   const description = tool.description?.trim() || 'This provider did not supply a description.';
