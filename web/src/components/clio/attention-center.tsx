@@ -488,7 +488,6 @@ export function ClioAttentionCenter({
                         icon={<KindIcon aria-hidden="true" className="text-warning" />}
                         meta={
                           <ClioRelativeTime
-                            age
                             className="text-[11px] text-faint"
                             compact
                             label="Asked"
@@ -568,7 +567,6 @@ export function ClioAttentionCenter({
                       icon={AWAY_ICON[row.tone]}
                       meta={
                         <ClioRelativeTime
-                          age
                           className="text-[11px] text-faint"
                           compact
                           label="Ended"
