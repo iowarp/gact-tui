@@ -403,6 +403,17 @@ export const PDF_PAGE_ESTIMATED_ASPECT_RATIO = 1.4142;
  */
 export const PDF_PAGE_GAP_PX = 12;
 
+/**
+ * Scroll speed above which the PDF viewer treats a scroll as a fling and leaves
+ * pages entering its window unpainted until it settles. Unit: pixels per
+ * millisecond. A wheel notch or PgDn reads well under it; a flick or a held
+ * scrollbar drag passes it, when painting each passing page is wasted work.
+ */
+export const PDF_FLING_PX_PER_MS = 3;
+
+/** Quiet time after a fling before the pages in view paint. Unit: milliseconds. */
+export const PDF_FLING_SETTLE_MS = 140;
+
 // ## Truncation
 // Where generated prose is cut for a compact surface. All of these are applied
 // through `truncate` in `@/lib/format`, which appends the ellipsis within the

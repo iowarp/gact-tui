@@ -61,7 +61,15 @@ export function ImageResourceView({
   useEffect(() => {
     const host = viewportRef.current;
     if (!host) return;
-    const update = () => setViewport({ width: host.clientWidth, height: host.clientHeight });
+    const update = () => {
+      // Hidden (under Lineage or in a background tab) it measures 0: keep the last fit.
+      if (!host.clientWidth && !host.clientHeight) return;
+      setViewport((prev) =>
+        prev.width === host.clientWidth && prev.height === host.clientHeight
+          ? prev
+          : { width: host.clientWidth, height: host.clientHeight },
+      );
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(host);
