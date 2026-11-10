@@ -26,7 +26,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceForm } from './connected-source-form';
 import { connectedSourceErrorMessage } from './connected-source-error';
-import { linkAccessNames } from './connected-source-labels';
+import { linkAccessNames, sourceStatus } from './connected-source-labels';
 import { ConnectedSourceDetail } from './connected-source-detail';
 import { SourceProviderLogo } from './source-provider-logo';
 import { SourceProviderInfo } from './source-provider-info';
@@ -139,7 +139,8 @@ export function ConnectedSourcePicker({
           ? `Choose a provider to bring its files or datasets into this workspace.`
           : undefined
       }
-      className={connect ? 'w-[480px]' : undefined}
+      // The spec's dialog rule (36%, from 340 px) reaching `.c3d`'s 480 px at 1280.
+      className={connect ? 'w-[clamp(340px,37.5vw,480px)]' : undefined}
       titleActions={<div ref={setHeaderActions} className="flex items-center gap-0.5" />}
     >
       <div className="-mx-[18px] max-h-[min(72dvh,680px)] overflow-y-auto px-[18px] text-[12.5px]">
@@ -638,7 +639,7 @@ export function ConnectedSourceContents({
                                   ? 'Linked folder'
                                   : row.materialization === 'not_materialized'
                                     ? 'Ready to use'
-                                    : row.materialization?.replaceAll('_', ' ')}
+                                    : sourceStatus(row).label}
                           </span>
                         </span>
                       </span>

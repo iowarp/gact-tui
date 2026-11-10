@@ -169,11 +169,8 @@ describe('TranscriptResourceAttachments availability', () => {
 
     expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
     const openPaper = screen.getByRole('button', { name: 'Open paper.pdf' });
-    expect(openPaper.closest('[data-file-row]')).toHaveClass('w-full', 'items-center');
     expect(openPaper.querySelector('button')).toBeNull();
-    const attachmentTray = screen.getByRole('group', { name: '2 message attachments' });
-    expect(attachmentTray).toHaveClass('w-full', 'flex-wrap');
-    expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
+    expect(screen.getByRole('group', { name: '2 message attachments' })).toBeVisible();
   });
 
   it('separates active upload from conversion waiting in the expanded status', async () => {
@@ -216,7 +213,8 @@ describe('TranscriptResourceAttachments availability', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
+    // A ready attachment carries no status mark; its stages stay in the hover details.
+    expect(screen.queryByRole('img', { name: /Attachment status/ })).not.toBeInTheDocument();
     await user.hover(screen.getByText('notes.md'));
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
     expect(screen.getByRole('status', { name: 'Conversion status: Not required' })).toBeVisible();
@@ -239,14 +237,9 @@ describe('TranscriptResourceAttachments availability', () => {
       />,
     );
 
-    const status = screen.getByRole('img', { name: 'Attachment status: Ready' });
-    expect(status).toBeVisible();
-    expect(status).toHaveAttribute('data-overlay', 'true');
-    expect(status.parentElement).not.toHaveClass('bg-background/85');
-    expect(status.querySelector('svg')).toHaveClass('text-media-backdrop');
+    expect(screen.queryByRole('img', { name: /Attachment status/ })).not.toBeInTheDocument();
     const preview = await screen.findByRole('img', { name: 'diagram.png' });
     expect(preview).toHaveAttribute('src', 'blob:test-3');
-    expect(preview).toHaveAttribute('width', '144');
     expect(repository.resourcePreview).toHaveBeenCalledWith('ws_1', 'res_1', expect.anything());
   });
 

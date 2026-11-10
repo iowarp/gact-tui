@@ -11,9 +11,10 @@ import { ShortcutKeys } from './key-chip';
 /**
  * Focus goes to the first element marked with this attribute when a frame opens:
  * the safe button, or a body field that is the point of the dialog (Rename's
- * name, its text selected).
+ * name, its text selected). A marked field that is disabled (a picker still
+ * loading) is passed over, or focus would stay behind the dialog.
  */
-const INITIAL_FOCUS = '[data-initial-focus]';
+const INITIAL_FOCUS = '[data-initial-focus]:not(:disabled):not([aria-disabled="true"])';
 
 function focusSafeButton(event: Event) {
   const content = event.currentTarget as HTMLElement | null;
@@ -174,6 +175,8 @@ export const DialogFrame = memo(function DialogFrame({
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (!confirm || confirm.disabled || confirm.keyboard === false) return;
       if (event.key !== 'Enter') return;
+      // Ctrl+Shift+Enter is a dialog's Test key (SSH host, NDP endpoint), never its confirm.
+      if (event.shiftKey) return;
       const plain =
         confirm.key === 'Enter' &&
         !(event.target as Element).closest('input, textarea, select, button, a, [contenteditable]');

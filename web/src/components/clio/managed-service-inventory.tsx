@@ -2,11 +2,11 @@ import type { GpuFact, ManagedServiceDefinition, ModelAcquisition } from '@clio/
 import { useState, type ReactNode } from 'react';
 import { ArrowLeftIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { type ServiceActionFeedback } from './service-management-panel';
-import { ServiceFooterSlot } from './service-footer-slot';
+import { ServiceConfirmSlot, ServiceFooterSlot } from './service-footer-slot';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { DialogFrame } from './primitives/dialog-frame';
+import { DialogFrame, type DialogFrameConfirm } from './primitives/dialog-frame';
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { InfraSearchField } from './infrastructure-filter-menu';
@@ -75,6 +75,7 @@ export function ManagedServiceInventory({
   onAddInstance?: (service: ManagedServiceDefinition, name: string) => void;
 }) {
   const [footerSlot, setFooterSlot] = useState<HTMLElement | null>(null);
+  const [setupConfirm, setSetupConfirm] = useState<DialogFrameConfirm>();
   // The engine whose "Add instance" name field is open, and where.
   const [naming, setNaming] = useState<{ id: string; where: 'inventory' | 'chooser' }>();
   // The chooser lists only engines that take a named instance.
@@ -157,6 +158,7 @@ export function ManagedServiceInventory({
       })}
       <DialogFrame
         cancelLabel={deploying ? 'Cancel' : 'Done'}
+        confirm={deploying && current ? setupConfirm : undefined}
         className="flex flex-col overflow-hidden [&>[data-slot=dialog-frame-body]]:min-h-0 [&>[data-slot=dialog-frame-body]]:flex-1 [&>[data-slot=dialog-frame-body]]:overflow-y-auto [&>[data-slot=dialog-frame-body]]:pl-[18px] [&>[data-slot=dialog-frame-footer]]:border-t [&>[data-slot=dialog-frame-footer]]:border-border [&>[data-slot=dialog-frame-footer]]:pt-3.5"
         footerStart={
           deploying ? (
@@ -210,89 +212,91 @@ export function ManagedServiceInventory({
             : `${current?.label ?? 'Service'} on ${hostLabel}`
         }
       >
-        <ServiceFooterSlot.Provider value={deploying ? null : footerSlot}>
-          {deploying ? (
-            <>
-              <nav
-                aria-label="Deployment steps"
-                className="mb-2 flex h-6 items-center gap-2 text-[12px] text-muted-foreground"
-              >
-                <DeployStep done={Boolean(current)} on={!current} step={1}>
-                  Choose service
-                </DeployStep>
-                <span aria-hidden="true">›</span>
-                <DeployStep on={Boolean(current)} step={2}>
-                  Install
-                </DeployStep>
-              </nav>
-              <KeyValueGrid
-                className="-mx-2 mb-2"
-                items={[
-                  {
-                    label: 'Computer',
-                    icon: <ServerIcon aria-hidden="true" />,
-                    value: hostLabel,
-                    title: hostLabel,
-                  },
-                ]}
-                variant="card"
-              />
-            </>
-          ) : null}
-          <div className="pb-1">
-            {model && deploying ? (
-              <p className="mb-4 text-sm">
-                Choose a runtime for <strong>{model.repository}</strong>. Model files stay on{' '}
-                {hostLabel}.
-              </p>
+        <ServiceConfirmSlot.Provider value={setSetupConfirm}>
+          <ServiceFooterSlot.Provider value={deploying ? null : footerSlot}>
+            {deploying ? (
+              <>
+                <nav
+                  aria-label="Deployment steps"
+                  className="mb-2 flex h-6 items-center gap-2 text-[12px] text-muted-foreground"
+                >
+                  <DeployStep done={Boolean(current)} on={!current} step={1}>
+                    Choose service
+                  </DeployStep>
+                  <span aria-hidden="true">›</span>
+                  <DeployStep on={Boolean(current)} step={2}>
+                    Install
+                  </DeployStep>
+                </nav>
+                <KeyValueGrid
+                  className="-mx-2 mb-2"
+                  items={[
+                    {
+                      label: 'Computer',
+                      icon: <ServerIcon aria-hidden="true" />,
+                      value: hostLabel,
+                      title: hostLabel,
+                    },
+                  ]}
+                  variant="card"
+                />
+              </>
             ) : null}
-            {deploying && !current && !services.length ? (
-              loading ? (
-                <StateView
-                  detail="Installable services appear once the computer answers."
-                  kind="loading"
-                  size="panel"
-                  title={`Inspecting ${hostLabel}`}
+            <div className="pb-1">
+              {model && deploying ? (
+                <p className="mb-4 text-sm">
+                  Choose a runtime for <strong>{model.repository}</strong>. Model files stay on{' '}
+                  {hostLabel}.
+                </p>
+              ) : null}
+              {deploying && !current && !services.length ? (
+                loading ? (
+                  <StateView
+                    detail="Installable services appear once the computer answers."
+                    kind="loading"
+                    size="panel"
+                    title={`Inspecting ${hostLabel}`}
+                  />
+                ) : (
+                  <StateView
+                    detail={
+                      unavailable
+                        ? 'Try again from the Services tab, then install.'
+                        : 'Inspect the computer again from the Services tab, then install.'
+                    }
+                    kind="unavailable"
+                    size="panel"
+                    title={
+                      unavailable
+                        ? `Could not inspect ${hostLabel}`
+                        : `No installable services found on ${hostLabel}`
+                    }
+                  />
+                )
+              ) : deploying && !current ? (
+                <ServiceChooser
+                  addInstance={(service) => addInstance(service, 'chooser')}
+                  canAddInstance={canAddInstance}
+                  inventory={inventory}
+                  model={model}
+                  naming={naming?.where === 'chooser' ? naming.id : undefined}
+                  namedOnly={namedOnly}
+                  onManage={(id) => {
+                    onSelected(id);
+                    onDeploying(false);
+                  }}
+                  onName={(id) => setNaming({ id, where: 'chooser' })}
+                  onSetUp={onSelected}
+                  services={services}
                 />
+              ) : current ? (
+                renderService(current, deploying)
               ) : (
-                <StateView
-                  detail={
-                    unavailable
-                      ? 'Try again from the Services tab, then install.'
-                      : 'Inspect the computer again from the Services tab, then install.'
-                  }
-                  kind="unavailable"
-                  size="panel"
-                  title={
-                    unavailable
-                      ? `Could not inspect ${hostLabel}`
-                      : `No installable services found on ${hostLabel}`
-                  }
-                />
-              )
-            ) : deploying && !current ? (
-              <ServiceChooser
-                addInstance={(service) => addInstance(service, 'chooser')}
-                canAddInstance={canAddInstance}
-                inventory={inventory}
-                model={model}
-                naming={naming?.where === 'chooser' ? naming.id : undefined}
-                namedOnly={namedOnly}
-                onManage={(id) => {
-                  onSelected(id);
-                  onDeploying(false);
-                }}
-                onName={(id) => setNaming({ id, where: 'chooser' })}
-                onSetUp={onSelected}
-                services={services}
-              />
-            ) : current ? (
-              renderService(current, deploying)
-            ) : (
-              <p role="status">Loading service…</p>
-            )}
-          </div>
-        </ServiceFooterSlot.Provider>
+                <p role="status">Loading service…</p>
+              )}
+            </div>
+          </ServiceFooterSlot.Provider>
+        </ServiceConfirmSlot.Provider>
       </DialogFrame>
     </section>
   );
@@ -335,7 +339,10 @@ function ServiceChooser({
   return (
     <div className="flex flex-col gap-2">
       <InfraSearchField
+        // The chooser mounts when the catalog answers, often after the frame placed its focus.
+        autoFocus
         className="w-full"
+        initialFocus
         label="Search services"
         onValueChange={setQuery}
         placeholder="Search services"

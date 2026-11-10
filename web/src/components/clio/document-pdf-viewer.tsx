@@ -14,7 +14,6 @@ import {
 import { StateView } from './primitives/state-view';
 import { useCommentSession } from './comments/comment-session';
 import { useSelectionMarkCommenter, type SelectionMark } from '@/hooks/use-selection-action-file';
-import { useFileViewerFacts } from './file-viewer-facts';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -206,7 +205,15 @@ export function ClioDocumentPdfViewer({
       );
   const pageFact = pageCount ? `${currentPage} / ${pageCount}` : undefined;
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
-  useFileViewerFacts(pageFact ? [pageFact, ...(zoomFact ? [zoomFact] : [])] : undefined);
+  // The page sits between zoom − and + (frame-bar 07), so the bar's fact is the size.
+  const pageCounter = pageFact ? (
+    <span title={`Page ${currentPage} of ${pageCount}`}>
+      <span aria-hidden="true">{pageFact}</span>
+      <span className="sr-only">
+        Page {currentPage} of {pageCount}
+      </span>
+    </span>
+  ) : null;
 
   // The viewer makes its own text marks (pdf-quad): in a comment session's text mode a
   // selection becomes one at once, and the selection menu's Comment makes one too.
@@ -244,19 +251,20 @@ export function ClioDocumentPdfViewer({
         onOut={zoomOut}
         disabledIn={scale >= MAX_ZOOM}
         disabledOut={atFit}
+        readout={
+          pageCounter || zoomFact ? (
+            <>
+              {pageCounter}
+              {zoomFact ? <span>{zoomFact}</span> : null}
+            </>
+          ) : undefined
+        }
       >
         <span
           className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums"
           data-slot="pdf-page-counter"
         >
-          {pageFact ? (
-            <span title={`Page ${currentPage} of ${pageCount}`}>
-              <span aria-hidden="true">{pageFact}</span>
-              <span className="sr-only">
-                Page {currentPage} of {pageCount}
-              </span>
-            </span>
-          ) : null}
+          {pageCounter}
           {zoomFact ? <span>{zoomFact}</span> : null}
         </span>
       </ViewerZoomControls>

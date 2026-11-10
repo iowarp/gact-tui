@@ -9,6 +9,9 @@ export const FileViewerFactsRegistry = createContext<
   ((id: string, facts?: readonly string[]) => void) | undefined
 >(undefined);
 
+/** A renderer fact the shell replaces with the file's size, for bars drawn as "412 rows 38 KB". */
+export const FILE_SIZE_FACT = '\u0001size';
+
 /** Registers a renderer's facts with the enclosing frame bar; changes by content, not identity. */
 export function useFileViewerFacts(facts: readonly string[] | undefined) {
   const register = useContext(FileViewerFactsRegistry);

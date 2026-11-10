@@ -1,3 +1,4 @@
+import { workspaceName } from '@/lib/workspace-labels';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRightIcon, ShieldIcon } from 'lucide-react';
@@ -35,7 +36,7 @@ export function SessionAccess({sessionId}: {sessionId: string}) {
     queryFn: async ({signal}) => {
       const [workspaces, targets] = await Promise.all([repository.workspaces(signal),
         recentSessionsWith(repository, {ids: grantedTargets}, signal)]);
-      const names = new Map(workspaces.map((workspace) => [workspace.id, workspace.display_name || workspace.name]));
+      const names = new Map(workspaces.map((workspace) => [workspace.id, workspaceName(workspace)]));
       return targets.map((session) => ({
         id: session.id, title: session.title, workspace: names.get(session.workspace_id) ?? ''}));
     }});

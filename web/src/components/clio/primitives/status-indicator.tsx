@@ -47,6 +47,8 @@ export interface StatusIndicatorProps {
    * activity rows do; work in progress is the same spinner either way.
    */
   mark?: 'dot' | 'glyph';
+  /** A domain's own 14px glyph for this state (a run's question bubble); replaces the mark. */
+  icon?: ReactNode;
   className?: string;
 }
 
@@ -54,7 +56,7 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
   success: <CheckIcon className="size-3.5 text-primary" />,
   error: <CircleAlertIcon className="size-3.5 text-destructive" />,
   warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
-  stopped: <OctagonIcon className="size-3.5 text-warning" />,
+  stopped: <OctagonIcon className="size-3.5 text-muted-foreground" />,
 };
 
 /**
@@ -66,9 +68,10 @@ export const StatusIndicator = memo(function StatusIndicator({
   label,
   display = 'visible',
   mark: markStyle = 'dot',
+  icon,
   className,
 }: StatusIndicatorProps) {
-  const glyph = markStyle === 'glyph' ? GLYPH[tone] : undefined;
+  const glyph = icon ?? (markStyle === 'glyph' ? GLYPH[tone] : undefined);
   // Work in progress is the shared teal ring; in a glyph column, a wait on the person turns amber.
   const mark =
     glyph ??

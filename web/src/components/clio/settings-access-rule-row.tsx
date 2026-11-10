@@ -72,6 +72,7 @@ function RemoveConfirm({ onKeep, onRemove }: { onKeep: () => void; onRemove: () 
 export function AccessRuleRow({
   policy,
   position,
+  rank,
   workspaces,
   confirming,
   dirty,
@@ -84,6 +85,8 @@ export function AccessRuleRow({
   policy: PermissionPolicy;
   /** 1-based, names the row's actions ("Edit rule 2"). */
   position: number;
+  /** The rule's priority rank (`priorityRanks`), lowest 1. */
+  rank?: number;
   workspaces?: readonly Workspace[];
   confirming: boolean;
   /** Added or changed and waiting in the save bar. */
@@ -107,7 +110,7 @@ export function AccessRuleRow({
     kindLabels[kind],
     ...details.filter((part) => !long(part)),
     ...(showScope ? [scope.label] : []),
-    ...(policy.priority === undefined ? [] : [`Priority ${policy.priority}`]),
+    ...(rank === undefined ? [] : [`Priority ${rank}`]),
     ...details.filter(long),
   ];
   const editable = !BROWSER_KINDS.has(kind);

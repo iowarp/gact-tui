@@ -72,10 +72,19 @@ export function useGlobalSearchMatches(
         ? matchesGlobalSearch(query, item.label, item.group, item.keywords)
         : !item.setting && browsing.includes(item.group),
     );
+    // As in the filtered Settings window, a section is listed by name only when
+    // none of its rows match, so both count the same settings.
+    const withRows = new Set(
+      matched.flatMap((item) => (item.setting ? [item.id.split(':')[1]] : [])),
+    );
     return {
       Actions: matched.filter((item) => item.group === 'Actions'),
       Navigation: matched.filter((item) => item.group === 'Navigation'),
-      Settings: matched.filter((item) => item.group === 'Settings'),
+      Settings: matched.filter(
+        (item) =>
+          item.group === 'Settings' &&
+          !(item.id.startsWith('settings:') && withRows.has(item.id.slice('settings:'.length))),
+      ),
       Infrastructure: matched.filter((item) => item.group === 'Infrastructure'),
     };
   }, [query, scope, searching]);

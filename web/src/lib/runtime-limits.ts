@@ -104,6 +104,13 @@ export const MANAGED_BACKEND_PREPARE_POLL_MS = 500;
 export const CONNECTION_PROBE_POLL_MS = 30_000;
 
 /**
+ * Re-probe cadence for the connected service once it stopped answering, so the line
+ * under CLIO ("Can't reach …, retrying") clears soon after the service is back.
+ * Unit: milliseconds.
+ */
+export const CONNECTION_LOST_PROBE_POLL_MS = 5_000;
+
+/**
  * Re-probe cadence while a remembered service is starting, or has not answered yet
  * (it may have been started together with this page). Unit: milliseconds.
  */
@@ -279,7 +286,7 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
  * Largest artifact the client will read into the tab for an inline preview.
  * Unit: bytes. Above this the card explains the budget instead of fetching.
  */
-export const INLINE_PREVIEW_MAX_BYTES = 8_000_000;
+export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files
