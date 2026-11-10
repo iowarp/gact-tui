@@ -24,6 +24,7 @@ import { ClioToolInvocation } from './tool-invocation';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import {
+  isCausalQuestionInteraction,
   permissionInteractionForTool,
   questionInteractionsForTool,
   splitWaitingQuestion,
@@ -99,11 +100,92 @@ interface ConversationTurnProps {
   flowCards?: boolean;
 }
 
+/**
+ * An answer delivered back to the agent ("Your answer") that its ask's own
+ * "Answered" row already shows is not said a second time.
+ */
+function withoutRestatedAnswers(
+  iterations: readonly ConversationIteration[],
+  interactions: readonly PendingInteraction[] | undefined,
+): readonly ConversationIteration[] {
+  const answered = new Set(
+    (interactions ?? []).flatMap((row) =>
+      row.status === 'answered' && row.task_id && isCausalQuestionInteraction(row)
+        ? [row.task_id]
+        : [],
+    ),
+  );
+  if (!answered.size) return iterations;
+  const restated = (entry: ConversationIteration['activity'][number]) => {
+    if (entry.kind !== 'injection' || entry.block.source !== 'question_answer') return false;
+    const handle = /; Question ([^\s:]+):/u.exec(entry.block.text)?.[1];
+    return Boolean(handle && answered.has(handle));
+  };
+  if (!iterations.some((iteration) => iteration.activity.some(restated))) return iterations;
+  return iterations.flatMap((iteration) => {
+    if (!iteration.activity.some(restated)) return [iteration];
+    const activity = iteration.activity.filter((entry) => !restated(entry));
+    return activity.length || iteration.thinking.length || iteration.nextThoughts.length
+      ? [{ ...iteration, activity }]
+      : [];
+  });
+}
+
+/**
+ * A call held for approval before the service projects it (a write outside the
+ * workspace asks for folder access first) still reads as the run's own row,
+ * "Write file · a.txt · waiting for you", rather than the run looking done.
+ */
+function withWaitingCalls(
+  iterations: readonly ConversationIteration[],
+  interactions: readonly PendingInteraction[] | undefined,
+  sessionId: string | undefined,
+): readonly ConversationIteration[] {
+  const last = iterations.at(-1);
+  if (!last || !sessionId || !interactions?.length) return iterations;
+  const tools = iterations.flatMap((iteration) => iteration.tools);
+  const standIns = interactions.flatMap((interaction): ToolInvocation[] => {
+    const call = interaction.payload?.tool_call;
+    const name = interaction.source.tool_name ?? call?.tool_name;
+    if (
+      interaction.kind !== 'permission' ||
+      interaction.status !== 'pending' ||
+      interaction.owner_session_id !== sessionId ||
+      !name
+    )
+      return [];
+    const invocation = interaction.source.invocation_id;
+    if (invocation && tools.some((tool) => tool.id === invocation)) return [];
+    const standIn: ToolInvocation = {
+      id: invocation || `waiting:${interaction.id}`,
+      session_id: sessionId,
+      name,
+      state: 'pending',
+      input: call?.input,
+    };
+    return tools.some((tool) => permissionInteractionForTool([interaction], tool) === interaction)
+      ? []
+      : [standIn];
+  });
+  if (!standIns.length) return iterations;
+  return [
+    ...iterations.slice(0, -1),
+    {
+      ...last,
+      activity: [
+        ...last.activity,
+        ...standIns.map((tool) => ({ kind: 'tool' as const, id: tool.id, tool })),
+      ],
+      tools: [...last.tools, ...standIns],
+    },
+  ];
+}
+
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
 export function ConversationTurn({
   followLiveActivity = false,
   turnLive = false,
-  iterations,
+  iterations: recordedIterations,
   mode,
   onOpenSubagent,
   subagents,
@@ -118,6 +200,11 @@ export function ConversationTurn({
   messageAttentionIndex,
   flowCards = true,
 }: ConversationTurnProps) {
+  const iterations = withWaitingCalls(
+    withoutRestatedAnswers(recordedIterations, interactions),
+    turnLive ? interactions : undefined,
+    messageSessionId,
+  );
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
   // Split at the owning tool (including mid-iteration) without changing wire order.
