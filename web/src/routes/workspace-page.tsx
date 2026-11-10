@@ -1,6 +1,6 @@
 import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import type { ObservabilityView } from '@/components/clio/observability-view-storage';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -163,9 +163,15 @@ export function WorkspacePage() {
     workspaceId,
   });
   // Stable, so a page render does not re-render every memoized transcript row.
+  // The navigation closes over artifacts and diffs that change while a reply
+  // streams; read the latest at click time instead of re-creating the callback.
+  const openComposerReferenceRef = useRef(openComposerReference);
+  useLayoutEffect(() => {
+    openComposerReferenceRef.current = openComposerReference;
+  }, [openComposerReference]);
   const openReference = useCallback(
-    (reference: WorkspaceReference) => void openComposerReference(reference),
-    [openComposerReference],
+    (reference: WorkspaceReference) => void openComposerReferenceRef.current(reference),
+    [],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
