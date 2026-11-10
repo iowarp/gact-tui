@@ -56,6 +56,9 @@ export function WorkspaceActionsMenu({
   triggerLabel,
 }: WorkspaceActionsMenuProps) {
   const labelText = workspaceLabelText(label);
+  // The default workspace is the fixed Conversations section: never listed under
+  // Pinned, never renamed and never removed, so those items are not offered.
+  const fixed = workspace.id === DEFAULT_WORKSPACE_ID;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -80,23 +83,27 @@ export function WorkspaceActionsMenu({
           onSelect={() => onImportSession?.(workspace.id)}
         />
         <DropdownMenuSeparator />
-        <KeyMenuItem
-          icon={workspace.pinned ? PinOffIcon : PinIcon}
-          label={workspace.pinned ? 'Unpin' : 'Pin'}
-          menuKey="P"
-          onSelect={() =>
-            onAction(
-              () => actions.setWorkspacePinned(workspace.id, !workspace.pinned),
-              workspace.pinned ? 'Workspace unpinned' : 'Workspace pinned',
-            )
-          }
-        />
-        <KeyMenuItem
-          icon={EditIcon}
-          label="Rename"
-          menuKey="R"
-          onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
-        />
+        {fixed ? null : (
+          <>
+            <KeyMenuItem
+              icon={workspace.pinned ? PinOffIcon : PinIcon}
+              label={workspace.pinned ? 'Unpin' : 'Pin'}
+              menuKey="P"
+              onSelect={() =>
+                onAction(
+                  () => actions.setWorkspacePinned(workspace.id, !workspace.pinned),
+                  workspace.pinned ? 'Workspace unpinned' : 'Workspace pinned',
+                )
+              }
+            />
+            <KeyMenuItem
+              icon={EditIcon}
+              label="Rename"
+              menuKey="R"
+              onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
+            />
+          </>
+        )}
         <KeyMenuItem
           icon={SettingsIcon}
           label="Workspace settings…"
@@ -116,14 +123,17 @@ export function WorkspaceActionsMenu({
           label="Copy folder path"
           onSelect={() => void copyText(workspace.path)}
         />
-        <DropdownMenuSeparator />
-        <KeyMenuItem
-          destructive
-          disabled={workspace.id === DEFAULT_WORKSPACE_ID}
-          icon={RemoveIcon}
-          label="Remove workspace…"
-          onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
-        />
+        {fixed ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <KeyMenuItem
+              destructive
+              icon={RemoveIcon}
+              label="Remove workspace…"
+              onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
+            />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
