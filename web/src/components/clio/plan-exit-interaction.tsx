@@ -158,11 +158,20 @@ function PlanPreview({
           <span className="min-w-0 truncate" title={footer}>
             {footer}
           </span>
+          {!keys && content ? (
+            // The row's hover Copy can't be reached by touch or on a phone; the footer carries it there.
+            <span className="ml-auto hidden shrink-0 pointer-coarse:inline-flex max-sm:inline-flex">
+              <CopyAction label="Copy plan" value={content} />
+            </span>
+          ) : null}
           {opens || toggles ? (
             <AskButton
               {...(keys ? askKeyAttributes(['o']) : {})}
               aria-expanded={opens ? undefined : expanded}
-              className="ml-auto h-6 px-2 text-[12px]"
+              className={cn(
+                'h-6 px-2 text-[12px]',
+                keys || !content ? 'ml-auto' : 'ml-auto pointer-coarse:ml-0 max-sm:ml-0',
+              )}
               onClick={() =>
                 opens && artifact ? onOpenArtifact?.(artifact) : setExpanded((value) => !value)
               }

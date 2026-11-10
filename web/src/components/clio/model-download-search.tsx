@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { RegistryModel } from '@clio/core/v3';
 import { CheckIcon, LockIcon } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -63,10 +63,13 @@ function resultFacts(model: RepositoryModel) {
 const ResultRow = memo(function ResultRow({
   model,
   chosen,
+  tabStop,
   onPick,
 }: {
   model: RepositoryModel;
   chosen: boolean;
+  /** The list is one Tab stop; arrow keys move between rows. */
+  tabStop: boolean;
   onPick: (model: RepositoryModel) => void;
 }) {
   const { meta, detail, fullDetail } = resultFacts(model);
@@ -89,6 +92,8 @@ const ResultRow = memo(function ResultRow({
       <button
         type="button"
         aria-pressed={chosen}
+        data-repository={model.repository}
+        tabIndex={tabStop ? 0 : -1}
         className="flex min-w-0 flex-1 flex-col overflow-hidden text-left leading-[1.3] outline-none after:absolute after:inset-0 after:rounded-[6px]"
         onClick={() => onPick(model)}
       >
@@ -239,6 +244,33 @@ export function ModelDownloadSearch({
     },
     [onSelect],
   );
+  // Roving focus: the focused (else chosen, else first) row is the list's one Tab stop.
+  const [focusedRow, setFocusedRow] = useState<string>();
+  const tabStop = visible.some((model) => model.repository === focusedRow)
+    ? focusedRow
+    : visible.some((model) => model.repository === selected)
+      ? selected
+      : visible[0]?.repository;
+  const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    const rows = [
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('button[data-repository]'),
+    ];
+    const at = rows.indexOf(event.target as HTMLButtonElement);
+    if (at < 0) return;
+    const next =
+      event.key === 'ArrowDown'
+        ? Math.min(at + 1, rows.length - 1)
+        : event.key === 'ArrowUp'
+          ? Math.max(at - 1, 0)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? rows.length - 1
+              : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    rows[next].focus();
+  };
   return (
     <div
       className="flex min-h-0 min-w-0 flex-col gap-2.5"
@@ -295,6 +327,12 @@ export function ModelDownloadSearch({
           <div
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
             aria-label="Model search results"
+            onFocus={(event) => {
+              const repository = (event.target as HTMLElement).dataset.repository;
+              if (repository) setFocusedRow(repository);
+            }}
+            onKeyDown={moveFocus}
+            role="group"
           >
             {!visible.length ? (
               <StateView
@@ -309,6 +347,7 @@ export function ModelDownloadSearch({
                   key={model.repository}
                   model={model}
                   onPick={pick}
+                  tabStop={model.repository === tabStop}
                 />
               ))
             )}

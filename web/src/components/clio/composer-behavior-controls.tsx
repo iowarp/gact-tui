@@ -184,6 +184,7 @@ export function ClioComposerBehaviorControls({
                   ? 'text-accent-foreground hover:text-accent-foreground'
                   : undefined,
             )}
+            data-tour="confirmation-policy"
             disabled={disabled}
             icon={<ApprovalIcon />}
             label={`Confirmation policy: ${approvalLabel}`}
@@ -247,6 +248,7 @@ export function ClioComposerBehaviorControls({
           <DropdownMenuTrigger asChild>
             <IconButton
               className="aria-expanded:bg-hover"
+              data-tour="reasoning-effort"
               disabled={disabled}
               icon={
                 <ReasoningBars

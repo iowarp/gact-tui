@@ -33,6 +33,7 @@ import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notifi
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
 import { SettingsWindow } from '@/routes/settings-window';
+import { OnboardingTourProvider } from '@/components/clio/onboarding/onboarding-tour';
 import {
   installRoutePrefetch,
   loadedRouteChunk,
@@ -187,7 +188,7 @@ export default function App() {
   if (location.pathname === '/oauth/mcp') return <McpOAuthReturn />;
 
   const appContent = (
-    <>
+    <OnboardingTourProvider>
       <ProviderCatalogWarmup />
       <SandboxSetupNotification />
       <UpdateRestartRecovery />
@@ -230,7 +231,7 @@ export default function App() {
       <UpdateRestartOverlay />
       {/* One toolbar for every selectable surface; actions register per page. */}
       <ClioSelectionActionToolbar />
-    </>
+    </OnboardingTourProvider>
   );
 
   if (!desktopHost) return appContent;

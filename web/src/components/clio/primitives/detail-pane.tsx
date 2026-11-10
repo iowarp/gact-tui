@@ -42,24 +42,23 @@ export const DetailPane = memo(function DetailPane({
 }: DetailPaneProps) {
   const titleId = useId();
   const pane = useRef<HTMLElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const node = pane.current;
+    const active = document.activeElement;
+    // A StrictMode re-run finds focus already in the pane; keep the first opener.
+    if (active instanceof HTMLElement && !node?.contains(active)) opener.current = active;
     node?.focus({ preventScroll: true });
     return () => {
-      const active = document.activeElement;
-      const focusWasInside = !active || active === document.body || node?.contains(active);
-      if (!focusWasInside || !opener?.isConnected) return;
-      opener.focus({ preventScroll: true });
-      // Below 40rem the list is still hidden while the pane unmounts, so focus can't land
-      // yet; try again once the list shows.
-      if (document.activeElement !== opener)
-        requestAnimationFrame(() => {
-          const now = document.activeElement;
-          if (opener.isConnected && (!now || now === document.body || now.matches('[role=dialog]')))
-            opener.focus({ preventScroll: true });
-        });
+      const now = document.activeElement;
+      const focusWasInside = !now || now === document.body || node?.contains(now);
+      const target = opener.current;
+      if (!focusWasInside || !target) return;
+      // Under 40rem the list stays hidden until this commit ends, and a hidden opener can't take focus.
+      queueMicrotask(() => {
+        if (!node?.isConnected && target.isConnected) target.focus({ preventScroll: true });
+      });
     };
   }, []);
 
