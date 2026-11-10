@@ -14,12 +14,14 @@ import { useRepository } from '@/hooks/use-repository';
 import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
-import { AddIcon } from '@/lib/icon-vocabulary';
+import { ScrollTextIcon } from 'lucide-react';
 import { agentDisplayName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
-import { AgentPluginMenu } from './agent-plugin-menu';
+import { AgentPackageItemDetail } from './agent-package-item-detail';
+import type { PackageItem } from './agent-package-items';
+import { AgentPackages, type AgentPackagesView } from './agent-packages';
 import { AgentSwitchMenu } from './agent-switch-menu';
 import { AgentTabHeader, AgentUseRows, SaveAsSetupLink } from './agent-tab-overview';
 import { AgentRunsWith } from './agent-tab-run-settings';
@@ -33,6 +35,9 @@ import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-
 // the first load. The panel fetches it on mount so opening a row never waits.
 const loadDrillIn = () => import('./agent-tab-drill-in');
 const AgentDrillIn = lazy(() => loadDrillIn().then((module) => ({ default: module.AgentDrillIn })));
+const PluginExplorer = lazy(() =>
+  import('./plugin-explorer').then((module) => ({ default: module.PluginExplorer })),
+);
 
 /** What the agent panel reads and changes: a conversation's agent, or a new conversation's draft. */
 interface AgentChangeSource {
@@ -125,6 +130,9 @@ function AgentComposition({
   );
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<AgentUseKind>();
+  const [packagesView, setPackagesView] = useState<AgentPackagesView>({ category: 'all' });
+  const [item, setItem] = useState<PackageItem>();
+  const [exploring, setExploring] = useState<{ reference: string; skill?: string }>();
   const rows = useRef<HTMLDivElement>(null);
   useEffect(() => {
     void loadDrillIn();
@@ -169,6 +177,13 @@ function AgentComposition({
       failure: `${id} was not added`,
     });
   };
+  const remove = (plugin: string) =>
+    change(deltaWith(delta, { remove: plugin }), {
+      removing: plugin,
+      summary: `Removes ${plugin} from this conversation.`,
+      success: `Removed ${plugin}`,
+      failure: `${plugin} was not removed`,
+    });
 
   if (supported === false) {
     return (
@@ -246,6 +261,17 @@ function AgentComposition({
       rows.current?.querySelector<HTMLElement>(`[data-agent-use="${from}"]`)?.focus(),
     );
   };
+  const backFromItem = () => {
+    const from = item;
+    setItem(undefined);
+    requestAnimationFrame(() =>
+      rows.current
+        ?.querySelector<HTMLElement>(
+          `[data-package-item="${CSS.escape(from?.id ?? '')}"][data-package-category="${from?.category}"]`,
+        )
+        ?.focus(),
+    );
+  };
   return (
     <div
       className={
@@ -256,44 +282,61 @@ function AgentComposition({
       data-slot="agent-tab"
       ref={rows}
     >
-      <AgentTabHeader
-        actions={
-          library && !view ? (
-            <AgentPluginMenu
-              delta={delta}
-              disabled={update.isPending}
-              onAdd={add}
-              plugins={catalog.data?.plugins}
-              pluginsError={catalog.error?.message}
-              resolution={resolution}
-            >
-              <Button className="-my-1 shrink-0" size="xs" variant="outline">
-                <AddIcon aria-hidden="true" /> Add plugin
+      {/* In a library pane's sub-views the header would hold only the legend: drop it. */}
+      {library && embedded && (view || item) && !(changed && !readOnly) ? null : (
+        <AgentTabHeader
+          actions={
+            library && !view && !item ? (
+              <Button
+                className="-my-1 shrink-0"
+                data-agent-use="instructions"
+                onClick={() => setView('instructions')}
+                size="xs"
+                title="The agent’s full prompt, composed from its packages"
+                variant="outline"
+              >
+                <ScrollTextIcon aria-hidden="true" /> Prompt
               </Button>
-            </AgentPluginMenu>
-          ) : undefined
-        }
-        className={library && !embedded ? 'pr-12' : undefined}
-        reset={
-          changed && !readOnly
-            ? {
-                label: 'Reset to setup',
-                description: summary,
-                disabled: update.isPending,
-                onReset: () =>
-                  change(emptyAgentDelta, {
-                    summary: `Restores ${parentName}’s plugins in this conversation.`,
-                    success: `Restored ${parentName}`,
-                    failure: `${parentName} was not restored`,
-                  }),
-              }
-            : undefined
-        }
-        title={title}
-        titleShown={!embedded}
-      />
-      {library ? (
-        <details className="px-3.5 pb-2 text-[12px]">
+            ) : undefined
+          }
+          className={library && !embedded ? 'pr-12' : undefined}
+          reset={
+            changed && !readOnly
+              ? {
+                  label: 'Reset to setup',
+                  description: summary,
+                  disabled: update.isPending,
+                  onReset: () =>
+                    change(emptyAgentDelta, {
+                      summary: `Restores ${parentName}’s plugins in this conversation.`,
+                      success: `Restored ${parentName}`,
+                      failure: `${parentName} was not restored`,
+                    }),
+                }
+              : undefined
+          }
+          title={title}
+          titleShown={!embedded}
+        />
+      )}
+      {library && !view && !item ? (
+        <AgentPackages
+          delta={delta}
+          onAdd={add}
+          onExplore={(plugin) => setExploring({ reference: `${plugin.marketplace}/${plugin.id}` })}
+          onOpenItem={setItem}
+          onRemove={remove}
+          onViewChange={setPackagesView}
+          pending={update.isPending}
+          plugins={catalog.data?.plugins}
+          pluginsError={catalog.error?.message}
+          readOnly={readOnly}
+          resolution={resolution}
+          view={packagesView}
+        />
+      ) : null}
+      {library && !view && !item ? (
+        <details className="px-3.5 pt-1 pb-2 text-[12px]">
           <summary className="w-fit cursor-pointer text-muted-foreground">About this agent</summary>
           <div className="mt-2 grid gap-2 leading-5">
             {resolution.agent.role ? <p>{resolution.agent.role}</p> : null}
@@ -342,14 +385,7 @@ function AgentComposition({
             }
             onBack={back}
             onCompact={onCompact}
-            onRemove={(plugin) =>
-              change(deltaWith(delta, { remove: plugin }), {
-                removing: plugin,
-                summary: `Removes ${plugin} from this conversation.`,
-                success: `Removed ${plugin}`,
-                failure: `${plugin} was not removed`,
-              })
-            }
+            onRemove={remove}
             pending={update.isPending}
             plugins={catalog.data?.plugins}
             pluginsError={catalog.error?.message}
@@ -358,6 +394,19 @@ function AgentComposition({
             value={values[view].text}
           />
         </Suspense>
+      ) : item ? (
+        <AgentPackageItemDetail
+          item={item}
+          onBack={backFromItem}
+          onExplore={(target) => {
+            const plugin = resolution.plugins.find((entry) => entry.id === target.plugin);
+            if (!plugin) return;
+            setExploring({
+              reference: `${plugin.marketplace}/${plugin.id}`,
+              skill: target.category === 'skills' ? target.id : undefined,
+            });
+          }}
+        />
       ) : (
         <>
           <AgentRunsWith
@@ -365,7 +414,7 @@ function AgentComposition({
             sessionId={sessionId}
             setup={setupItem}
           />
-          <AgentUseRows onOpen={setView} values={values} />
+          {library ? null : <AgentUseRows onOpen={setView} values={values} />}
           {readOnly ? null : (
             <SaveAsSetupLink
               disabled={(!changed && !library) || update.isPending || Boolean(agent.isFetching)}
@@ -377,6 +426,15 @@ function AgentComposition({
         </>
       )}
       <PluginChangeDialog {...dialog} />
+      {exploring ? (
+        <Suspense fallback={null}>
+          <PluginExplorer
+            initialSkill={exploring.skill}
+            onClose={() => setExploring(undefined)}
+            reference={exploring.reference}
+          />
+        </Suspense>
+      ) : null}
       {saving ? (
         <SaveUserAgentDialog
           delta={delta}
