@@ -415,7 +415,7 @@ export function ClioActivityTimeline({
       </header>
       <div
         aria-label="Filter activity by agent"
-        className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 [&>*]:shrink-0"
+        className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 pr-6 [mask-image:linear-gradient(90deg,#000_calc(100%-24px),transparent)] [&>*]:shrink-0"
         role="group"
       >
         <Button

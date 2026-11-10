@@ -156,12 +156,16 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   const { sessionView, onActivityViewChange } = props;
   const switcher =
     sessionView && props.sessionId && onActivityViewChange ? (
-      <SegmentedControl
-        label="Activity view"
-        onValueChange={onActivityViewChange}
-        options={ACTIVITY_VIEWS}
-        value={props.activityView ?? 'timeline'}
-      />
+      // Header actions are icon buttons with their own inset; the segmented control needs one.
+      <span className="mr-1.5 flex shrink-0">
+        <SegmentedControl
+          className="@max-[320px]/list-header:[&>*]:px-1.5!"
+          label="Activity view"
+          onValueChange={onActivityViewChange}
+          options={ACTIVITY_VIEWS}
+          value={props.activityView ?? 'timeline'}
+        />
+      </span>
     ) : null;
   const activityView = switcher ? (props.activityView ?? 'timeline') : 'events';
   if (activityView !== 'events')
@@ -289,7 +293,7 @@ export function WorkbenchListHeader({
   return (
     <div
       data-slot="workbench-list-header"
-      className="group/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
+      className="group/list-header @container/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
     >
       <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
         {title}
