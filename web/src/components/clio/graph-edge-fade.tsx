@@ -1,12 +1,10 @@
 import { useStore } from '@xyflow/react';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { graphEdges, type GraphEdges } from './graph-fit';
 
 const EDGE = 'pointer-events-none absolute z-[4] from-background to-transparent';
 const CUE = 'absolute size-4 text-muted-foreground';
-const INSET = 20;
-
-const clamp = (value: number, max: number) => Math.min(Math.max(value, INSET), max - INSET);
 
 /**
  * "More this way": a fade and chevron on each pane edge the drawing continues past, so
@@ -20,20 +18,28 @@ export function GraphEdgeFade({ width, height }: { width: number; height: number
   const zoom = useStore((state) => state.transform[2]);
   const paneWidth = useStore((state) => state.width);
   const paneHeight = useStore((state) => state.height);
-  if (!paneWidth || !paneHeight || !width || !height) return null;
-  const left = x < -1;
-  const top = y < -1;
-  const right = x + width * zoom > paneWidth + 1;
-  const bottom = y + height * zoom > paneHeight + 1;
-  const level = {
-    top: clamp((Math.max(y, 0) + Math.min(y + height * zoom, paneHeight)) / 2, paneHeight),
-  };
-  const across = {
-    left: clamp((Math.max(x, 0) + Math.min(x + width * zoom, paneWidth)) / 2, paneWidth),
-  };
+  return (
+    <GraphEdgeCues
+      edges={graphEdges({
+        x,
+        y,
+        width: width * zoom,
+        height: height * zoom,
+        paneWidth,
+        paneHeight,
+      })}
+    />
+  );
+}
+
+/** The fades and chevrons for `edges`, over a positioned pane. */
+export function GraphEdgeCues({ edges }: { edges: GraphEdges | undefined }) {
+  if (!edges) return null;
+  const level = { top: edges.level };
+  const across = { left: edges.across };
   return (
     <>
-      {left ? (
+      {edges.left ? (
         <div
           aria-hidden
           data-graph-more="left"
@@ -42,7 +48,7 @@ export function GraphEdgeFade({ width, height }: { width: number; height: number
           <ChevronLeftIcon className={cn(CUE, 'left-1 -translate-y-1/2')} style={level} />
         </div>
       ) : null}
-      {right ? (
+      {edges.right ? (
         <div
           aria-hidden
           data-graph-more="right"
@@ -51,7 +57,7 @@ export function GraphEdgeFade({ width, height }: { width: number; height: number
           <ChevronRightIcon className={cn(CUE, 'right-1 -translate-y-1/2')} style={level} />
         </div>
       ) : null}
-      {top ? (
+      {edges.top ? (
         <div
           aria-hidden
           data-graph-more="top"
@@ -60,7 +66,7 @@ export function GraphEdgeFade({ width, height }: { width: number; height: number
           <ChevronUpIcon className={cn(CUE, 'top-1 -translate-x-1/2')} style={across} />
         </div>
       ) : null}
-      {bottom ? (
+      {edges.bottom ? (
         <div
           aria-hidden
           data-graph-more="bottom"

@@ -432,6 +432,10 @@ export function FileViewerShell({
                                     tab.secondary ||
                                     segmentCount < 2 ||
                                     (isHost && renderer !== undefined);
+                                  // With its own modes the renderer names its panels (Render, Source);
+                                  // the wrapper is the file, so neither is announced as "Preview".
+                                  const panelName =
+                                    isHost && renderer !== undefined ? identity.name : tab.label;
                                   const content = isLineage ? (
                                     <FileViewerFactsRegistry.Provider value={registerLineageFacts}>
                                       {tab.content}
@@ -449,7 +453,7 @@ export function FileViewerShell({
                                       {...(isHost ? { forceMount: true as const } : {})}
                                       {...(named
                                         ? {
-                                            'aria-label': tab.label,
+                                            'aria-label': panelName,
                                             'aria-labelledby': undefined,
                                           }
                                         : {})}
