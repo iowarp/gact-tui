@@ -144,8 +144,15 @@ export interface DialogFrameProps {
 }
 
 /**
+ * The one dialog width (spec settings.html F): 44% of the window, 338 px at 768,
+ * capped at 600 px; under 600 px the frame is a full-width bottom sheet. Callers
+ * don't widen it. A dialog built on `DialogContent` uses this class to match.
+ */
+export const DIALOG_FRAME_WIDTH = 'w-[clamp(320px,44vw,600px)]';
+
+/**
  * The one dialog: icon, title, ×, a description under the title, body, buttons on the
- * right. 44% of the window wide (360 to 600 px), a full-width bottom sheet
+ * right. {@link DIALOG_FRAME_WIDTH} wide, a full-width bottom sheet
  * below 600 px. The key chips in the buttons drop first, once the footer is
  * narrower than the spec frame. Esc or × closes, Ctrl+Enter confirms, focus
  * starts on the safe button unless a body field is marked `data-initial-focus`.
@@ -196,8 +203,8 @@ export const DialogFrame = memo(function DialogFrame({
         {...(alert ? { role: 'alertdialog' } : {})}
         data-frame="dialog"
         className={cn(
-          // 44% of the window, as the spec's frame; the spec caps it at 600 px.
-          'top-1/2 w-[clamp(360px,44vw,600px)] max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
+          'top-1/2 max-w-[calc(100%-2rem)] -translate-y-1/2 gap-0 p-0 sm:max-w-[calc(100%-2rem)]',
+          DIALOG_FRAME_WIDTH,
           DIALOG_SHEET_CLASS,
           className,
         )}

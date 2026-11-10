@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import { useExtensionsSupported } from '@/hooks/use-session-agent';
 import { environmentNameProblem, isEnvironmentComment } from '@/lib/environment-names';
@@ -107,6 +108,8 @@ export function McpConnectionDialog({
   );
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Below this the frame can't hold the title and a labelled toggle together.
+  const narrow = useMediaQuery('(max-width: 959px)');
   const [error, setError] = useState('');
   const remote = kind === 'remote';
 
@@ -186,7 +189,6 @@ export function McpConnectionDialog({
 
   return (
     <DialogFrame
-      className="w-[clamp(360px,44vw,720px)]"
       confirm={{
         label: busy ? 'Adding…' : 'Add',
         onConfirm: () => void save(),
@@ -201,6 +203,8 @@ export function McpConnectionDialog({
       titleActions={
         <SegmentedControl
           className="mr-1"
+          // The title keeps its words; the toggle folds to icons first.
+          iconOnly={narrow}
           label="Connection type"
           onValueChange={(value) => {
             setKind(value);
