@@ -39,6 +39,29 @@ function agentArguments(input: unknown): unknown {
   return Object.fromEntries(Object.entries(input).filter(([key]) => !key.startsWith('_clio_')));
 }
 
+/**
+ * Arguments that carry code (run_code's `code`) read as code with its real lines, and the
+ * rest as key-values. Arguments without a multi-line string stay one JSON block.
+ */
+function argumentParts(
+  input: unknown,
+): { blocks: [string, string][]; facts: KeyValueItem[] } | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const entries = Object.entries(input as Record<string, unknown>);
+  const multiline = (value: unknown): value is string =>
+    typeof value === 'string' && value.includes('\n');
+  const blocks = entries.filter((entry): entry is [string, string] => multiline(entry[1]));
+  if (!blocks.length) return undefined;
+  const facts = entries
+    .filter(([, value]) => !multiline(value))
+    .map(([key, value]) => ({
+      label: key,
+      mono: true,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
+    }));
+  return { blocks, facts };
+}
+
 function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
   const input = interaction.payload?.tool_call?.input;
   const fields =
@@ -139,6 +162,13 @@ export function PermissionResponse({
   const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
   const owner = askedBy(interaction, ownerLabel, showOwner);
   const cwd = interaction.payload?.execution?.cwd;
+  const args = toolCall?.input === undefined ? undefined : agentArguments(toolCall.input);
+  const parts = argumentParts(args);
+  const argsLanguage = (args as { language?: unknown } | undefined)?.language;
+  const codeLanguage =
+    argsLanguage === 'python' || (toolName === 'run_code' && argsLanguage === undefined)
+      ? 'python'
+      : undefined;
   const detailFacts: KeyValueItem[] = [
     ...(owner.length
       ? [
@@ -157,6 +187,7 @@ export function PermissionResponse({
     ...((toolName === 'web_fetch' || toolName === 'web_search') && cwd
       ? [{ label: 'Working folder', value: cwd, mono: true }]
       : []),
+    ...(parts?.facts ?? []),
   ];
   return (
     <AskCard
@@ -239,10 +270,27 @@ export function PermissionResponse({
               </div>
             ) : null}
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
-            {toolCall?.input === undefined ? null : (
+            {args === undefined ? null : parts ? (
+              parts.blocks.map(([key, code]) => {
+                const lines = code.replace(/\n$/u, '').split('\n').length;
+                return (
+                  <AskCode
+                    className="mt-1 ml-0"
+                    code={code}
+                    copyLabel={`Copy ${key}`}
+                    key={key}
+                    label={`Argument ${key}`}
+                    language={codeLanguage}
+                    meta={`${codeLanguage === 'python' ? 'Python, ' : ''}${lines} ${lines === 1 ? 'line' : 'lines'}`}
+                    name={key}
+                    previewLines={12}
+                  />
+                );
+              })
+            ) : (
               <AskCode
                 className="mt-1 ml-0"
-                code={JSON.stringify(agentArguments(toolCall.input), null, 2)}
+                code={JSON.stringify(args, null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"
