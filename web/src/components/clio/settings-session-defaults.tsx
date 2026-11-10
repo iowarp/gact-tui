@@ -112,7 +112,7 @@ export function SessionDefaultsSettings() {
   const selectedModel = catalogModel
     ? {
         ...catalogModel,
-        label: compactModelName(catalogModel.providerId, catalogModel.id, catalogModel.label),
+        label: compactModelName(catalogModel.id, catalogModel.label),
       }
     : undefined;
   const reasoning = useModelReasoningLevels(

@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { type ClioModelOption, compactModelName } from '@/lib/model-options';
+import { type ClioModelOption, compactModelName, isVendorApi } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
@@ -10,9 +10,10 @@ import { HeldKeyBadge } from './primitives/key-chip';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
 
 /**
- * Keep both names visible, with the full selection on hover or keyboard focus.
- * The `text` appearance is the composer row's bare `Provider / model` button:
- * a narrow composer drops the provider, a narrower one keeps only the logo.
+ * The route and the model, with the full selection on hover or keyboard focus.
+ * The route is named only when it isn't the model maker's own API (Codex / luna 6.1,
+ * but luna 6.1 through OpenAI). The `text` appearance is the composer row's bare
+ * button: under 400px the composer drops the route, under 270px it keeps the logo.
  */
 export function ComposerModelButton({
   option,
@@ -31,6 +32,7 @@ export function ComposerModelButton({
 }) {
   const text = appearance === 'text';
   const presentation = useShortcutPresentation(shortcut);
+  const route = option && !isVendorApi(option.providerId, option.id);
   const fullName = option
     ? `${option.providerName} / ${option.label}${option.label === option.id ? '' : ` (${option.id})`}`
     : placeholder;
@@ -61,26 +63,30 @@ export function ComposerModelButton({
                   className="flex min-w-0 flex-1 items-center gap-1 text-left"
                   data-slot="model-choice-label"
                 >
+                  {route ? (
+                    <>
+                      <span
+                        className={cn(
+                          'max-w-32 min-w-0 truncate',
+                          text && '@max-[400px]/composer:hidden',
+                        )}
+                        data-slot="model-choice-provider"
+                      >
+                        {option.providerName}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className={cn('shrink-0', text && '@max-[400px]/composer:hidden')}
+                      >
+                        {' / '}
+                      </span>
+                    </>
+                  ) : null}
                   <span
-                    className={cn(
-                      'max-w-32 min-w-0 truncate',
-                      text && '@max-[560px]/composer:hidden',
-                    )}
-                    data-slot="model-choice-provider"
-                  >
-                    {option.providerName}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className={cn('shrink-0', text && '@max-[560px]/composer:hidden')}
-                  >
-                    {' / '}
-                  </span>
-                  <span
-                    className={cn('min-w-0 grow truncate', text && '@max-[420px]/composer:hidden')}
+                    className={cn('min-w-0 grow truncate', text && '@max-[270px]/composer:hidden')}
                     data-slot="model-choice-model"
                   >
-                    {compactModelName(option.providerId, option.id, option.label)}
+                    {compactModelName(option.id, option.label)}
                   </span>
                 </span>
               </>

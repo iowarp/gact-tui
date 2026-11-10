@@ -379,7 +379,7 @@ export async function composerJourney(r) {
   });
   await r.overlay('model picker', 'button', 'Change model', { category: 'picker' });
   await r.overlay('reasoning effort', 'button', /^Reasoning effort/u);
-  await r.overlay('execution mode', 'button', /^Execution mode/u);
+  await r.overlay('execution mode', 'button', /^Mode: /u);
   await r.overlay('confirmation policy', 'button', /^Confirmation policy/u);
   await attachmentJourney(r);
 }

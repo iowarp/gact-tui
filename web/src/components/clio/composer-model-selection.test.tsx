@@ -132,7 +132,7 @@ describe('ClioComposer model selection', () => {
     });
 
     const pill = screen.getByRole('button', { name: 'Change model' });
-    expect(pill).toHaveTextContent('ALCF Metis / gpt-5.6-luna');
+    expect(pill).toHaveTextContent('ALCF Metis / luna 5.6');
     expect(pill).not.toHaveTextContent(/argonne/iu);
   });
 
