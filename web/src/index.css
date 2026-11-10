@@ -98,6 +98,11 @@
   [data-slot='tooltip-content'][data-state] {
     z-index: 120;
   }
+  /* The truncation hint reads cut text on any surface, toasts included. It
+     takes no pointer and closes on any input, so it may cover everything. */
+  [data-slot='truncation-hint'] {
+    z-index: 2147483647;
+  }
   /* Task cancellation can originate inside a popover. Its confirmation must
      cover that originating surface, including the popper wrapper's layer. */
   [data-slot='alert-dialog-overlay'][data-state][data-overlay-layer='task-confirmation'] {
