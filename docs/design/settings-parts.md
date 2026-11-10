@@ -7,14 +7,14 @@ Paths are under `web/src/`.
 
 ## Window and navigation (owned by S3)
 
-| Part            | Path                                                                                | Notes                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc. Sections load lazily.                            |
-| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                         |
-| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter. |
-| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                    |
-| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                          |
-| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.               |
+| Part            | Path                                                                                | Notes                                                                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings window | `routes/settings-window.tsx` `SettingsWindow`                                       | Mounts over the workspace through `WindowShell`; closes with × / Esc or browser Back. It is one history entry: sections replace it, and closing goes back past it. Sections load lazily. |
+| Section switch  | `routes/settings-page.tsx` `SettingsSection({ section, sessionId?, workspaceId? })` | Maps a section id to its body. Add or rename a body here only.                                                                                                                           |
+| Nav entries     | `lib/application-destinations.ts`                                                   | `{ id, label, group: 'App' \| 'Workspace' \| 'Agent', icon, keywords }`. Keywords feed Ctrl K and the Settings filter.                                                                   |
+| Route helpers   | `lib/settings-window-route.ts`                                                      | `isSettingsRoute`, `matchingSettingsSections`, `arrivedFromSearch`.                                                                                                                      |
+| Scope           | `lib/settings-scope-context.ts` `SettingsScopeContext`                              | `{ group, line }`, the scope line shown under the page title.                                                                                                                            |
+| Anchor          | `data-settings-anchor="<id>"`                                                       | Put it on a sub-block that has its own nav id or search hit. The window scrolls to it and highlights it.                                                                                 |
 
 ## Page parts
 
@@ -23,9 +23,11 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, wideControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
+switch. Use `wideControl` for a control that can outgrow the 52% column, such as a
+segmented choice with many options: it sits beside the label while both fit and drops
+under it, left-aligned, when they don't, so it never covers the label. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
 with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
 (group labels with a control, a save bar under rows) use the same `SETTINGS_COLUMN` class
 from `lib/settings-fold.ts`. It applies 60% from a 36rem container, so the 41rem content
