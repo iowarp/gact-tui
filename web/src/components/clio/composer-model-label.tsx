@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { type ClioModelOption, compactModelName } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
+import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
+import { HeldKeyBadge } from './primitives/key-chip';
+import { TOOLTIP_KEY } from './primitives/tooltip-key';
 
 /**
  * Keep both names visible, with the full selection on hover or keyboard focus.
@@ -15,6 +18,7 @@ export function ComposerModelButton({
   option,
   placeholder = 'Choose model',
   appearance = 'pill',
+  shortcut,
   className,
   children,
   ...props
@@ -22,8 +26,11 @@ export function ComposerModelButton({
   option?: ClioModelOption;
   placeholder?: string;
   appearance?: 'pill' | 'text';
+  /** Catalog id of the key that opens the picker: its tooltip and held-key badge show it. */
+  shortcut?: string;
 }) {
   const text = appearance === 'text';
+  const presentation = useShortcutPresentation(shortcut);
   const fullName = option
     ? `${option.providerName} / ${option.label}${option.label === option.id ? '' : ` (${option.id})`}`
     : placeholder;
@@ -34,7 +41,9 @@ export function ComposerModelButton({
           <Button
             {...props}
             aria-description={option ? fullName : undefined}
+            aria-keyshortcuts={presentation?.aria}
             className={cn(
+              shortcut && 'relative',
               text &&
                 'h-[26px] min-w-0 shrink gap-1.5 rounded-[6px] px-1.5 text-[12px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover',
               className,
@@ -79,9 +88,13 @@ export function ComposerModelButton({
               <span className="truncate">{placeholder}</span>
             )}
             {children}
+            {shortcut ? <HeldKeyBadge id={shortcut} side="above" /> : null}
           </Button>
         </TooltipTrigger>
-        <TooltipContent className="break-words">{fullName}</TooltipContent>
+        <TooltipContent className="gap-2 break-words">
+          <span>{fullName}</span>
+          {presentation ? <kbd className={TOOLTIP_KEY}>{presentation.text}</kbd> : null}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
