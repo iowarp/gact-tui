@@ -118,7 +118,7 @@ export function ClioComposerBehaviorControls({
   const [openMenu, setOpenMenu] = useState<BehaviorMenu>();
   const [confirmBypass, setConfirmBypass] = useState(false);
   // Whether the closing menu hands focus to the editor rather than its trigger:
-  // after a choice, or when the menu was opened by the shortcut from the editor.
+  // after a choice or Escape, or when the menu was opened by the shortcut from the editor.
   const toEditor = useRef(false);
   const setMenuOpen = (menu: BehaviorMenu, open: boolean) => {
     if (open) toEditor.current = false;
@@ -196,6 +196,7 @@ export function ClioComposerBehaviorControls({
           className="w-[24rem] max-w-[calc(100vw-1rem)]"
           collisionPadding={8}
           onCloseAutoFocus={closeFocus}
+          onEscapeKeyDown={chose}
           side="top"
         >
           <DropdownMenuLabel className={MENU_LABEL}>Confirmation policy</DropdownMenuLabel>
@@ -267,6 +268,7 @@ export function ClioComposerBehaviorControls({
             className="w-56"
             collisionPadding={8}
             onCloseAutoFocus={closeFocus}
+            onEscapeKeyDown={chose}
             side="top"
           >
             <DropdownMenuLabel className={MENU_LABEL}>Reasoning effort</DropdownMenuLabel>
@@ -340,6 +342,7 @@ export function ClioComposerBehaviorControls({
           className="w-[21rem]"
           collisionPadding={8}
           onCloseAutoFocus={closeFocus}
+          onEscapeKeyDown={chose}
           side="top"
         >
           <DropdownMenuLabel className={MENU_LABEL}>Mode</DropdownMenuLabel>

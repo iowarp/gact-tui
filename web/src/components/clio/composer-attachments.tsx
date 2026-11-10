@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { ComposerAttachmentChip } from './composer-attachment-chip';
+import { focusEditorAtOffset } from './composer-editor-model';
 import {
   readAttachmentBytes,
   type ResourceUploadProgress,
@@ -166,11 +167,29 @@ export function ClioComposerAttachments({
   };
 
   const removeFile = async (file: (typeof attachments.files)[number]) => {
+    // Removing the chip that holds focus keeps focus in the composer: on the
+    // chip that takes its place, the one before it, or else the editor.
+    const focused = document.activeElement;
+    const group =
+      focused instanceof HTMLElement
+        ? focused.closest<HTMLElement>('[aria-label="Pending attachments"]')
+        : null;
+    const at = group ? [...group.children].findIndex((chip) => chip.contains(focused)) : -1;
+    const editor = group
+      ?.closest('[data-slot="clio-composer"]')
+      ?.querySelector<HTMLDivElement>('[contenteditable="true"]');
     preparationControllers.current.get(file.id)?.abort();
     preparationControllers.current.delete(file.id);
     try {
       await onDiscardFiles?.([file]);
       attachments.remove(file.id);
+      if (!group || at < 0) return;
+      window.requestAnimationFrame(() => {
+        const chips = group.isConnected ? [...group.children] : [];
+        const next = chips[Math.min(at, chips.length - 1)]?.querySelector<HTMLElement>('button');
+        if (next) next.focus();
+        else focusEditorAtOffset(editor ?? null);
+      });
     } catch (error) {
       toast.error('Could not remove attachment', {
         description: composerFailureReason(error, 'The service did not remove it.'),

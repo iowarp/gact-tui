@@ -1,4 +1,5 @@
 import { AtSignIcon, DatabaseIcon, PaperclipIcon } from 'lucide-react';
+import { useRef } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import {
   DropdownMenu,
@@ -44,6 +45,8 @@ export function ComposerAddContextButtons({
   onReturnFocus?: () => void;
 }) {
   const files = usePromptInputAttachments();
+  // Escape dismisses the menu back to the editor, not to `+`.
+  const escaped = useRef(false);
   const attach = attachmentEnabled
     ? () => {
         const input = files.fileInputRef.current;
@@ -78,7 +81,20 @@ export function ComposerAddContextButtons({
       {attach && onOpenSources && !plusPending ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64" side="top">
+          <DropdownMenuContent
+            align="start"
+            className="w-64"
+            onCloseAutoFocus={(event) => {
+              if (!escaped.current || !onReturnFocus) return;
+              escaped.current = false;
+              event.preventDefault();
+              onReturnFocus();
+            }}
+            onEscapeKeyDown={() => {
+              escaped.current = true;
+            }}
+            side="top"
+          >
             <DropdownMenuItem className={MENU_ITEM} onSelect={attach}>
               <MenuRow icon={<PaperclipIcon />} label="Upload files…" />
             </DropdownMenuItem>
