@@ -17,7 +17,7 @@ import { studyTopics } from './science-log-model';
 import { ScienceLogView } from './science-log-tab';
 import { StudyTree } from './study-tree';
 import { ClioWorkbench } from './workbench';
-import { saveWorkbenchState, sessionTab } from './workbench-tab-storage';
+import { listTab, saveWorkbenchState } from './workbench-tab-storage';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 const render = (ui: ReactElement, options?: RenderOptions) =>
@@ -198,16 +198,16 @@ function renderWorkbench(inStudy: boolean | undefined) {
 
 describe('Science log tab', () => {
   it('is absent when the session is in no study and present beside the others when it is', async () => {
+    const activity = listTab('activity');
     const restoreTimeline = () =>
       saveWorkbenchState('workspace_1', {
-        tabs: [sessionTab],
-        activeTabId: sessionTab.id,
-        listView: 'files',
+        tabs: [activity],
+        activeTabId: activity.id,
         pinnedIds: [],
       });
     restoreTimeline();
     const { unmount } = renderWorkbench(false);
-    expect(screen.getByRole('tab', { name: 'Timeline' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Activity' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Science log' })).not.toBeInTheDocument();
     unmount();
     window.localStorage.clear();
@@ -216,7 +216,7 @@ describe('Science log tab', () => {
     renderWorkbench(true);
     expect(await screen.findByRole('tab', { name: 'Science log' })).toBeVisible();
     // Offered beside the others, without taking focus from the open tab.
-    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('offers no Views tab of its own: a view is a dashboard attached to a study', () => {

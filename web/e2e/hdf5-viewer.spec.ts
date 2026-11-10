@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { hideWorkbenchList, showWorkbenchList } from './workspace-setup';
+import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const draftRoute = '/workspaces/ws_flat_ndp/new';
@@ -133,14 +133,13 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
   await entry.click();
   await viewer.locator('[role="treeitem"][data-path="/entry/image"]').click();
   await expect(modes.getByRole('button', { name: 'Image', pressed: true })).toBeVisible();
-  // The frame bar folds the file's facts first when it runs out of room; with
-  // the Files list hidden the file has the full width and its shape shows.
-  await hideWorkbenchList(page);
+  // The frame bar folds the file's facts first when it runs out of room; the
+  // file has the maximized canvas to itself, so its shape shows.
   await expect(page.getByText('48 × 48')).toBeVisible();
   await expect.poll(() => calls).toContain('data?dtype=safe&format=bin&path=%2Fentry%2Fimage');
 
-  // Restoring the canvas rebuilds its Files tab, which closes the file.
-  // Opening it again returns to where the user was, not the file root.
+  // Files opens as its tab again; picking the file there returns to its tab,
+  // where the user was, not the file root.
   await showWorkbenchList(page, 'Files');
   await page.getByRole('button', { name: 'Restore canvas beside conversation' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });

@@ -121,11 +121,6 @@ const requiredImports = {
   // git-style causal graph (SVG connector paths across stable agent-strand
   // lanes); Timeline's linear-item model can't represent concurrent strands,
   // so no sourced component composes this view (reviewed 2026-09-12).
-  'web/src/components/clio/observability-evidence.tsx': [
-    '@/components/ai-elements/code-block',
-    '@/components/ui/accordion',
-    './artifact-card',
-  ],
   // a2ui-catalog.tsx moved to web/src/lib/a2ui/kernel-catalog.tsx
   // (docs/design/a2ui-compat-campaign-2026-09.md S6): the registry-driven
   // catalog wiring lives beside the DOM-free registry it feeds, not under

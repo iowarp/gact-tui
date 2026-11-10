@@ -5,7 +5,7 @@ import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { ChevronRightIcon, PanelRightOpenIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import type { TaskActivity } from './task-activity';
 import { flowLabel } from './flow-tool-presentation';
 import { taskProgressLabel } from './task-progress-label';
@@ -36,9 +36,9 @@ export function TaskActivityRow({
   entry: TaskActivity;
   status: string;
   actions?: ReactNode;
-  onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
+  onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
   /** A task that runs a flow opens its run view. */
-  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
+  onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
   compact?: boolean;
 }) {
   const { process: task, subagent } = entry;

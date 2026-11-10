@@ -219,11 +219,8 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
     const rail = await openConversationRail(page);
     await rail.getByRole('button', { name: 'Open full view' }).click();
     const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-    // Full details lands on the Activity list; the Gantt and Context are its Timeline tab.
-    await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
-    // A 320px workbench shows its list as a sheet over the tab; this test reads the tab.
-    const hideActivity = canvas.getByRole('button', { name: 'Hide Activity', exact: true });
-    if (await hideActivity.isVisible()) await hideActivity.click();
+    // Full details lands on the Activity tab, which leads with its timeline.
+    await expect(canvas.locator('[data-slot="activity-session"]')).toBeVisible();
     const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
     const resizeBounds = await resize.boundingBox();
     if (!resizeBounds) throw new Error('Workspace canvas resize handle is missing');
@@ -243,8 +240,7 @@ test('keeps Observability tabs inside the strip and scrolls only their content v
       if (mode === 'maximized') {
         await canvas.getByRole('button', { name: 'Maximize canvas' }).click();
       }
-      // Evidence and the event timeline moved to the Activity list; the tab keeps these.
-      for (const label of ['Gantt', 'Context']) {
+      for (const label of ['Timeline', 'Context']) {
         const tab = strip.getByRole('tab', { name: label, exact: true });
         await tab.click();
         await expect(canvas.getByRole('tabpanel', { name: label, exact: true })).toBeVisible();
@@ -791,14 +787,14 @@ test('indexes the dense flat-NDP transcript in its minimap rail', async ({ page 
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
 });
 
-/** Open the canvas pocket on the dense session; it starts on the Activity list. */
+/** Open the canvas pocket on the dense session; it starts on the Activity tab. */
 async function openDenseFlatNdpCanvas(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openDenseFlatNdp(page);
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
-  await expect(canvas.getByRole('list', { name: 'Activity' })).toBeVisible();
+  await expect(canvas.getByRole('region', { name: 'Activity list' })).toBeVisible();
   return canvas;
 }
 
@@ -808,9 +804,8 @@ test('keeps the dense flat-NDP canvas tabs and maximize accessible', async ({ pa
     animations: 'allow',
     maxDiffPixels: desktopMaxDiffPixels,
   });
-  // A fresh pocket opens on the Activity list; Timeline is one button away.
-  await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
-  const observabilityTab = canvas.getByRole('tab', { name: 'Timeline' });
+  // A fresh pocket opens on the Activity tab, led by its timeline.
+  const observabilityTab = canvas.getByRole('tab', { name: 'Activity' });
   // The X on a tab is a pointer affordance only. A tablist may own nothing but
   // tabs and a tab's children are presentational, so an interactive close
   // control is a critical violation on either side of the trigger; assistive
@@ -832,8 +827,7 @@ test('audits the dense flat-NDP workspace with its canvas open and requests pend
   page,
 }) => {
   const canvas = await openDenseFlatNdpCanvas(page);
-  await canvas.getByRole('button', { name: 'Open timeline and context' }).click();
-  await expect(canvas.getByRole('tab', { name: 'Timeline' })).toHaveAttribute(
+  await expect(canvas.getByRole('tab', { name: 'Activity' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
