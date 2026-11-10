@@ -28,8 +28,11 @@ import { copyText } from '@/lib/clipboard';
 import { CloseIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelDownloadProgress } from './model-download-progress';
+import { cn } from '@/lib/utils';
 import {
+  isErrorLogLine,
   operationDetail,
+  readableLogLines,
   serviceObservationSummary,
 } from './infrastructure-operation-presentation';
 import { InfraProgress, InfraRow, type InfraStatus } from './infrastructure-row';
@@ -113,7 +116,12 @@ export function InfrastructureActivityRow({
       .join('\n\n') ||
     row.detail ||
     '';
-  const inlineLog = row.logs?.trim() || longDetail;
+  const logLines = readableLogLines(row.logs);
+  const inlineLog = logLines.some((line) => line.trim())
+    ? logLines
+    : (longDetail?.split('\n') ?? []);
+  // A failed run stops on its last line, so that line is the error even without a keyword.
+  const failureLine = failed ? inlineLog.findLastIndex((line) => line.trim()) : -1;
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['infrastructure-inventory', settings.endpoint] });
   const act = useMutation({
@@ -227,17 +235,21 @@ export function InfrastructureActivityRow({
                 </p>
               ) : null}
               {row.model && active ? <ModelDownloadProgress model={row.model} /> : null}
-              {inlineLog ? (
+              {inlineLog.length > 0 ? (
                 <pre
                   aria-label={`Log for ${title}`}
-                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7]"
+                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7] text-muted-foreground"
                   tabIndex={0}
                 >
                   {/* Spec .c3log: one line each, cut with an ellipsis; the dialog keeps the full text. */}
-                  {inlineLog.split('\n').map((line, index) => (
+                  {inlineLog.map((line, index) => (
                     // eslint-disable-next-line react/no-array-index-key -- log lines repeat and never reorder
                     <span
-                      className="block overflow-hidden text-ellipsis whitespace-pre"
+                      className={cn(
+                        'block overflow-hidden text-ellipsis whitespace-pre',
+                        (index === failureLine || isErrorLogLine(line)) &&
+                          'text-destructive-text',
+                      )}
                       key={index}
                     >
                       {line || ' '}

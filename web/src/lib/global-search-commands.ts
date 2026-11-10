@@ -69,7 +69,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       icon: CableIcon,
       group: 'Navigation',
       keywords: 'connect service computer host',
-      action: { route: '/' },
+      action: { route: '/?intent=connect' },
     },
     {
       id: 'runs',
