@@ -191,6 +191,7 @@ export function RuntimeSettingsPanel({
           error={current.error}
           onRetry={() => void reload()}
           retrying={current.isFetching}
+          noun="configuration"
           title="Configuration unavailable."
         />
         {trailing}
