@@ -1,6 +1,6 @@
 import type { CompactionTrigger, MessageBlock, PendingCompaction } from '@clio/core/v3';
 import { MessagesSquareIcon, PackageIcon, ScrollTextIcon, TriangleAlertIcon } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { transcriptMessagePreviews } from '@/lib/transcript-message-preview';
 import { ActivityBody, ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { GroundedMessageResponse } from './grounded-message-response';
@@ -36,6 +36,30 @@ export function SummarizationInjection({
   label?: string;
 }) {
   const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
+  const sectionRef = useRef<HTMLElement>(null);
+  const revealRef = useRef(false);
+  useEffect(() => {
+    if (!expanded || !revealRef.current) return undefined;
+    revealRef.current = false;
+    // The virtualizer grows the scroll height and reconciles the pressed
+    // disclosure's offset for a few frames after the record lays out; a scroll
+    // before that settles is clamped or undone.
+    let frame = 0;
+    let last = '';
+    let stable = 0;
+    const attempt = (tries: number) => {
+      frame = window.requestAnimationFrame(() => {
+        const scroller = sectionRef.current?.closest<HTMLElement>('[role="log"]');
+        const state = scroller ? `${scroller.scrollTop}:${scroller.scrollHeight}` : '';
+        stable = state === last ? stable + 1 : 0;
+        last = state;
+        if (stable < 3 && tries < 60) return attempt(tries + 1);
+        if (!revealCompactionRecord(sectionRef.current, tries >= 60)) attempt(tries + 1);
+      });
+    };
+    attempt(0);
+    return () => window.cancelAnimationFrame(frame);
+  }, [expanded]);
   const compacted = stringList(block.metadata?.compacted_message_ids);
   const line = compacted.length
     ? `Compacted here, ${countLabel(compacted.length)} summarized`
@@ -45,11 +69,15 @@ export function SummarizationInjection({
       className="my-px min-w-0 max-w-full"
       data-slot="harness-injection"
       data-source="summarization"
+      ref={sectionRef}
     >
       <TranscriptDivider
         data-slot="compaction-divider"
         icon={PackageIcon}
-        onOpenChange={setExpanded}
+        onOpenChange={(next) => {
+          revealRef.current = next;
+          setExpanded(next);
+        }}
         open={expanded}
         title={compactionTriggerHint(block.trigger)}
       >
@@ -58,6 +86,26 @@ export function SummarizationInjection({
       {expanded ? <CompactionRecord block={block} /> : null}
     </section>
   );
+}
+
+/**
+ * Bring an opened record above the composer. The divider stays in view when
+ * the record is taller than the transcript. Returns false while the scroll
+ * height cannot yet reach the record, unless `force`.
+ */
+function revealCompactionRecord(section: HTMLElement | null, force: boolean) {
+  const scroller = section?.closest<HTMLElement>('[role="log"]');
+  if (!section || !scroller) return true;
+  const view = scroller.getBoundingClientRect();
+  const rect = section.getBoundingClientRect();
+  const inset = Number.parseFloat(getComputedStyle(scroller).scrollPaddingBottom) || 0;
+  const delta = Math.min(rect.bottom - (view.bottom - inset), rect.top - view.top - 8);
+  if (delta <= 0) return true;
+  const room = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+  if (room < delta - 1 && !force) return false;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  scroller.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' });
+  return true;
 }
 
 function stringList(value: unknown): string[] {

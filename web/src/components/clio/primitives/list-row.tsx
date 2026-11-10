@@ -201,7 +201,13 @@ export const ListRow = memo(
           >
             {title}
           </span>
-          <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          {/* When the title is what truncates, what follows it (an outcome) stays whole. */}
+          <span
+            className={cn(
+              'flex flex-1 items-center gap-2 overflow-hidden',
+              titleCollapses ? 'min-w-0' : 'min-w-fit',
+            )}
+          >
             {description}
           </span>
           {columns}

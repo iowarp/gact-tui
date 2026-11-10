@@ -630,7 +630,7 @@ function ConversationBody({
             disengage();
             // A streaming row can finish before a native scroll event fires.
             // Keep the visible reader anchor mounted through that transition.
-            captureReadingAnchor(event.target);
+            captureReadingAnchor(disclosure);
           }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);

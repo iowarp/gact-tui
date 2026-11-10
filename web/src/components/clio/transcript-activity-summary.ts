@@ -121,7 +121,7 @@ export function transcriptRunSummary(
       else if (!startedBy.has(entry.block.subagent_id)) delegated += 1;
     } else if (entry.kind === 'task') {
       tasks += 1;
-    } else if (entry.kind !== 'tool') {
+    } else if (entry.kind !== 'tool' && entry.kind !== 'diff') {
       updates += 1;
     }
   }

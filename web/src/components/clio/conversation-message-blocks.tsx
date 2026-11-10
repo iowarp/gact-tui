@@ -4,19 +4,9 @@ import type { A2UIActionLifecycle, A2UISurface, Artifact, MessageBlock } from '@
 import {
   AlertTriangleIcon,
   ExternalLinkIcon,
-  FileCode2Icon,
-  PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
 import {
   Plan,
   PlanAction,
@@ -26,7 +16,6 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
@@ -44,6 +33,7 @@ import { ClioStatus } from './status';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { TranscriptTextBlock } from './transcript-text-block';
 import { toolOutputDiffKey } from './declared-diff-key';
+import { TranscriptDiffCard } from './transcript-diff-card';
 import { surfaceAwaitsPendingResponse } from './conversation-message-projection';
 import { AnswerHookNotice } from './answer-hook-notice';
 import { ANSWER_HOOK_SOURCE, answerRevisions } from './answer-revisions';
@@ -51,9 +41,7 @@ import { SummarizationInjection, TranscriptNotice } from './conversation-summari
 import { HarnessInjection } from './conversation-harness-injection';
 import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
-import { BoundedResult } from './bounded-result';
 import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
-import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -263,7 +251,6 @@ function MessageBlockView({
   replyStarted,
   retryingMessageId,
 }: MessageBlockViewProps) {
-  const previewLines = useTranscriptPreviewLines();
   switch (block.type) {
     case 'text': {
       return (
@@ -380,34 +367,7 @@ function MessageBlockView({
         </ExternalLink>
       );
     case 'diff':
-      return (
-        <BoundedResult lines={previewLines} title="File changes">
-          <CodeBlock code={withoutFileHeaders(block.unified_diff)} language="diff" showLineNumbers>
-            <CodeBlockHeader>
-              <CodeBlockTitle>
-                <FileCode2Icon aria-hidden="true" className="size-3.5" />
-                <CodeBlockFilename>{block.path}</CodeBlockFilename>
-              </CodeBlockTitle>
-              <CodeBlockActions>
-                {onOpenFile ? (
-                  <Button
-                    aria-label={`Open ${block.path} in workspace`}
-                    onClick={() => onOpenFile(block.path)}
-                    size="icon-xs"
-                    variant="ghost"
-                  >
-                    <PanelsTopLeftIcon aria-hidden="true" />
-                  </Button>
-                ) : null}
-                <CodeBlockCopyButton
-                  aria-label={`Copy diff for ${block.path}`}
-                  value={block.unified_diff}
-                />
-              </CodeBlockActions>
-            </CodeBlockHeader>
-          </CodeBlock>
-        </BoundedResult>
-      );
+      return <TranscriptDiffCard block={block} onOpenFile={onOpenFile} />;
     case 'error':
       return (
         <ReplyError
@@ -606,13 +566,4 @@ export function MessageBlockSequence({
   }
 
   return rendered;
-}
-
-/** A diff's ``---``/``+++`` file lines repeat the path its header shows; the preview's
- *  few lines go to the change itself (Copy keeps the whole diff). */
-function withoutFileHeaders(diff: string): string {
-  const lines = diff.split('\n');
-  let start = 0;
-  while (start < lines.length && /^(---|\+\+\+) /u.test(lines[start]!)) start += 1;
-  return start > 0 && start < lines.length ? lines.slice(start).join('\n') : diff;
 }

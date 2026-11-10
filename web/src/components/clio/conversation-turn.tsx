@@ -37,6 +37,7 @@ import { FlowRunCard } from './flow-run-card';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
+import { TranscriptDiffCard } from './transcript-diff-card';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
@@ -80,6 +81,7 @@ interface ConversationTurnProps {
   messageSessionId?: string;
   artifacts?: Record<string, Artifact>;
   onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenFile?: (path: string) => void;
   onInteractionResponse?: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -103,6 +105,7 @@ export function ConversationTurn({
   messageSessionId,
   artifacts = {},
   onOpenArtifact,
+  onOpenFile,
   onInteractionResponse,
   messageAttentionIndex,
   flowCards = true,
@@ -230,6 +233,7 @@ export function ConversationTurn({
               messageSessionId={messageSessionId}
               artifacts={artifacts}
               onOpenArtifact={onOpenArtifact}
+              onOpenFile={onOpenFile}
               onInteractionResponse={onInteractionResponse}
               messageAttentionIndex={messageAttentionIndex}
               flowCards={false}
@@ -258,6 +262,7 @@ export function ConversationTurn({
               artifacts={artifacts}
               onInteractionResponse={onInteractionResponse}
               onOpenArtifact={onOpenArtifact}
+              onOpenFile={onOpenFile}
               messageAttentionIndex={messageAttentionIndex}
             />
           ))}
@@ -312,6 +317,7 @@ export function ConversationTurn({
                       artifacts={artifacts}
                       onInteractionResponse={onInteractionResponse}
                       onOpenArtifact={onOpenArtifact}
+                      onOpenFile={onOpenFile}
                       messageAttentionIndex={messageAttentionIndex}
                     />
                   </Fragment>
@@ -411,7 +417,10 @@ function ActivityLane({
   // nothing shorter, and thoughts alone stay as they are.
   const collapses =
     (!turnLive || afterIds.size > 0) &&
-    head.reduce((sum, item) => sum + item.activity.length, 0) > 1 &&
+    head.reduce(
+      (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
+      0,
+    ) > 1 &&
     runSettled(head);
   const showAll = folded ? (
     <Button
@@ -519,6 +528,7 @@ function IterationDetail({
   messageSessionId,
   artifacts,
   onOpenArtifact,
+  onOpenFile,
   onInteractionResponse,
   messageAttentionIndex,
 }: {
@@ -538,6 +548,7 @@ function IterationDetail({
   messageSessionId?: string;
   artifacts: Record<string, Artifact>;
   onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenFile?: (path: string) => void;
   messageAttentionIndex?: MessageAttentionIndex;
   onInteractionResponse?: (
     interaction: PendingInteraction,
@@ -655,6 +666,10 @@ function IterationDetail({
                 messageSessionId={messageSessionId}
               />
             )
+          ) : entry.kind === 'diff' ? (
+            <div data-turn-activity={`diff:${entry.id}`} key={`diff:${entry.id}`}>
+              <TranscriptDiffCard block={entry.block} onOpenFile={onOpenFile} />
+            </div>
           ) : showTasks ? (
             <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />
           ) : null,

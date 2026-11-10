@@ -384,6 +384,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               mode={displayMode}
                               onOpenSubagent={entities.onOpenSubagent}
                               onOpenArtifact={entities.onOpenArtifact}
+                              onOpenFile={entities.onOpenFile}
                               onInteractionResponse={entities.onInteractionResponse}
                               subagents={entities.subagents}
                             />
