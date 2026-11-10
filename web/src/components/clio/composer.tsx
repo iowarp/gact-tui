@@ -232,7 +232,7 @@ export function ClioComposer({
   focusRequestKey,
   variant = 'docked',
   placeholder = variant === 'welcome'
-    ? `Ask ${brand.name} anything, or describe a taskâ€¦`
+    ? `Ask ${brand.name} anything, or describe a task…`
     : 'Reply, or steer the run',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
