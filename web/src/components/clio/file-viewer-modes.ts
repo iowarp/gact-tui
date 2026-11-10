@@ -41,12 +41,19 @@ export function keepFocusInFrame(frame: Element | null) {
     if (!frame.isConnected) return;
     const active = document.activeElement;
     if (active && frame.contains(active) && !hidden(active)) return;
+    // A renderer with its own modes nests its panels (Render, Source) in the host's; focus that one.
+    const nested = (panel: Element) =>
+      [...panel.querySelectorAll('[role="tabpanel"][data-state="active"]')].find(
+        (element) =>
+          element.parentElement?.closest('[role="tabpanel"]') === panel && !hidden(element),
+      ) ?? panel;
     // A hidden candidate (the modes fold away when narrow) refuses focus; try the next.
     for (const selector of [
       '[role="tabpanel"][data-state="active"]',
       '[data-slot="viewer-modes"] [data-state="active"]',
     ]) {
-      const next = [...frame.querySelectorAll(selector)].find((element) => !hidden(element));
+      const found = [...frame.querySelectorAll(selector)].find((element) => !hidden(element));
+      const next = found?.getAttribute('role') === 'tabpanel' ? nested(found) : found;
       if (!(next instanceof HTMLElement)) continue;
       next.focus({ preventScroll: true });
       if (document.activeElement === next) return;
