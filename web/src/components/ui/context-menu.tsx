@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useOpenedByRef } from "@/lib/input-modality"
 import { cn } from "@/lib/utils"
 import { ModalShield, useShieldFocusOutside } from "./modal-shield"
 import { useOverlayContainer } from "./overlay-container"
@@ -70,10 +71,12 @@ function ContextMenuRadioGroup({
 function ContextMenuContent({
   className,
   onFocusOutside,
+  ref,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
+  const openedBy = useOpenedByRef(ref)
   const container = useOverlayContainer()
   const modal = React.useContext(ContextMenuModal)
   const focusOutside = useShieldFocusOutside(modal, onFocusOutside)
@@ -86,6 +89,7 @@ function ContextMenuContent({
       ) : null}
       <ContextMenuPrimitive.Portal container={container}>
         <ContextMenuPrimitive.Content
+          ref={openedBy}
           data-slot="context-menu-content"
           // A context menu opens at the pointer and never moves sideways to fit, so
           // near the edge of a narrow window it narrows to the room it has instead.
@@ -148,10 +152,13 @@ function ContextMenuSubTrigger({
 
 function ContextMenuSubContent({
   className,
+  ref,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
+  const openedBy = useOpenedByRef(ref)
   return (
     <ContextMenuPrimitive.SubContent
+      ref={openedBy}
       data-slot="context-menu-sub-content"
       className={cn("z-50 min-w-32 origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
       {...props}

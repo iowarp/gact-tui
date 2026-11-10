@@ -1,5 +1,4 @@
 import {
-  createContext,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -13,6 +12,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  MinusIcon,
+  OctagonMinusIcon,
   PanelRightIcon,
   WrapTextIcon,
   type LucideIcon,
@@ -21,15 +22,19 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { copyText } from '@/lib/clipboard';
-import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
-import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
-import { AskPagerContext, askKeyAttributes, handleAskCardKeys, type AskKey } from './ask-card-keys';
+import {
+  AskPagerContext,
+  askKeyAttributes,
+  handleAskCardKeys,
+  type AskKey,
+  type AskPager,
+} from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
-import { TechnicalDetailsButton } from './technical-details';
+import { TechnicalDetails } from './technical-details';
 
 /**
  * The ask card: the one surface for every moment the agent waits on you
@@ -65,21 +70,31 @@ export function AskKeyChip({ askKey, className }: { askKey: AskKey; className?: 
   );
 }
 
-function AskPagerControls() {
-  const pager = useContext(AskPagerContext);
+/**
+ * ‹ 1/2 › in the header: the queue's position, or a card's own pages (a question bundle).
+ * [ ] step the queue; a card's own pages take them only when there is no queue.
+ */
+export function AskPagerControls({
+  pager: own,
+  label = 'Pending requests',
+  noun = 'request',
+}: { pager?: AskPager; label?: string; noun?: string } = {}) {
+  const queue = useContext(AskPagerContext);
+  const pager = own ?? queue;
   if (!pager || pager.total < 2) return null;
+  const keyed = !own || !queue || queue.total < 2;
   return (
     <TooltipProvider>
       <nav
-        aria-label="Pending requests"
+        aria-label={label}
         className="ml-auto flex shrink-0 items-center font-mono text-[11px] text-muted-foreground"
         data-slot="ask-pager"
       >
         <IconButton
-          {...askKeyAttributes(['['])}
+          {...askKeyAttributes(keyed ? ['['] : [])}
           disabled={pager.index === 0}
           icon={<ChevronLeftIcon aria-hidden="true" />}
-          label="Previous request"
+          label={`Previous ${noun}`}
           onClick={pager.onPrevious}
           size="sm"
         />
@@ -87,10 +102,10 @@ function AskPagerControls() {
           {pager.index + 1}/{pager.total}
         </span>
         <IconButton
-          {...askKeyAttributes([']'])}
+          {...askKeyAttributes(keyed ? [']'] : [])}
           disabled={pager.index === pager.total - 1}
           icon={<ChevronRightIcon aria-hidden="true" />}
-          label="Next request"
+          label={`Next ${noun}`}
           onClick={pager.onNext}
           size="sm"
         />
@@ -105,6 +120,8 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   title: ReactNode;
   /** Full title on hover when it is cut. */
   titleText?: string;
+  /** Let the title take two lines when the card is narrow (questions). */
+  wrapTitle?: boolean;
   /** Muted, one line after the title: a tool id or a file. */
   meta?: ReactNode;
   metaMono?: boolean;
@@ -114,15 +131,13 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   headerActions?: ReactNode;
 }
 
-/** The card's title as text, so its Technical details dialog can name it. */
-const AskTitleContext = createContext<string | undefined>(undefined);
-
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
 export function AskCard({
   kind,
   icon: Icon,
   title,
   titleText,
+  wrapTitle,
   meta,
   metaMono,
   owner,
@@ -143,7 +158,7 @@ export function AskCard({
       }}
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
-        // and the options stay. Technical details open in a dialog, so the cap holds.
+        // and the options stay. Open Technical details scroll inside it, so the cap holds.
         'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-[12.5px] text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
         EDGE[kind],
         className,
@@ -162,7 +177,11 @@ export function AskCard({
       >
         <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
         <h2
-          className="min-w-0 shrink truncate text-[13.5px] leading-5 font-medium"
+          className={cn(
+            'min-w-0 shrink truncate text-[13.5px] leading-5 font-medium',
+            // A question reads whole: at a fifth of the window it takes a second line.
+            wrapTitle && '@max-[420px]/ask:line-clamp-2 @max-[420px]/ask:whitespace-normal',
+          )}
           data-slot="pending-interaction-title"
           title={titleText}
         >
@@ -189,7 +208,7 @@ export function AskCard({
           {owner}
         </div>
       ) : null}
-      <AskTitleContext.Provider value={titleText}>{children}</AskTitleContext.Provider>
+      {children}
     </section>
   );
 }
@@ -320,6 +339,8 @@ export function AskButton({
       className={cn(
         'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
         !primary && 'border-input bg-transparent text-foreground',
+        // A filled button waiting on a choice keeps the 1px edge of every other option.
+        primary && 'disabled:border-input',
         className,
       )}
       data-slot="ask-button"
@@ -433,63 +454,87 @@ export function AskHint({
   );
 }
 
-/** Technical details: a quiet line under the options; it or D opens them in the dialog frame. */
+/**
+ * Technical details: a quiet line under the options; it or D expands them in place. Open, they
+ * scroll inside the card, so the card still stops at its cap and the options stay in view.
+ */
 export function AskDetails({
   children,
   title = 'Technical details',
-  description,
+  hint,
 }: {
   children: ReactNode;
   title?: string;
-  /** What is inside, under the dialog's title. */
-  description?: string;
+  /** What is inside, beside the open line ("raw arguments, as the agent sent them"). */
+  hint?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const subject = useContext(AskTitleContext);
-  // Radix returns focus only to its own trigger; give it back to the card or button that opened it.
-  const opener = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (open || !opener.current) return;
-    opener.current.focus({ preventScroll: true });
-    opener.current = null;
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Its own height when that is less than the floor, so short details never leave a gap.
+  const [natural, setNatural] = useState<number>();
+  // Under the cap the details scroll; their foot fades so the cut reads as "more below".
+  const [clipped, setClipped] = useState(false);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const section = body?.closest<HTMLElement>('[data-slot="ask-details"]');
+    if (!open || !body || !section) return;
+    let scroller: HTMLElement = body;
+    while (scroller.parentElement && scroller !== section) {
+      scroller = scroller.parentElement;
+      if (getComputedStyle(scroller).overflowY === 'auto') break;
+    }
+    const update = () => {
+      const top = scroller.getBoundingClientRect().top - section.getBoundingClientRect().top;
+      setNatural(Math.ceil(top + scroller.scrollHeight));
+      setClipped(
+        scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop > 1 &&
+          scroller.clientHeight > 0,
+      );
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(body);
+    observer?.observe(scroller);
+    scroller.addEventListener('scroll', update, { passive: true });
+    return () => {
+      observer?.disconnect();
+      scroller.removeEventListener('scroll', update);
+    };
   }, [open]);
   return (
     <AskSection
-      className="mt-2 shrink-0 text-[11.5px] text-muted-foreground"
+      // Open, the raw arguments give up height first (down to a few lines that scroll), then
+      // a script, so the facts and options stay whole under the cap.
+      className={cn(
+        'mt-2.5 flex min-h-0 flex-col text-[11.5px] text-muted-foreground',
+        open ? 'shrink-[1000]' : 'shrink-0',
+      )}
       data-slot="ask-details"
+      data-details-clipped={open && clipped ? '' : undefined}
+      style={open ? { minHeight: natural ? `min(8rem, ${natural}px)` : '8rem' } : undefined}
     >
-      <TechnicalDetailsButton
-        {...askKeyAttributes(['d'])}
-        className="h-6"
-        keyChip={<AskKeyChip askKey="d" className="ml-1" />}
-        onClick={(event) => {
-          const active = document.activeElement;
-          opener.current =
-            active instanceof HTMLElement && active !== document.body
-              ? active
-              : event.currentTarget;
-          setOpen(true);
-        }}
-        title={title}
-      />
-      <DialogFrame
-        className="w-[clamp(360px,56vw,760px)]"
-        description={description}
-        icon={<InfoIcon className="size-4" />}
+      <TechnicalDetails
+        className="flex min-h-0 flex-col"
+        contentClassName="clio-scrollbar min-h-0 overflow-y-auto overscroll-contain in-data-details-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]"
+        hint={open ? hint : undefined}
+        // The spec's 16px between the line and its caption; the caption goes first when narrow.
+        hintClassName="ml-2 @max-[420px]/ask:hidden"
         onOpenChange={setOpen}
-        open={open}
-        title={subject ? `${subject}: ${title}` : title}
+        shortcut="D"
+        summaryClassName="h-6 font-normal"
+        title={title}
+        triggerProps={askKeyAttributes(['d'])}
       >
         <div
           aria-label={title}
-          className="-mr-3 grid max-h-[65dvh] min-w-0 gap-3 overflow-auto overscroll-contain pr-3 pb-2 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]"
+          className="grid min-w-0 gap-1.5 pt-1 [overflow-wrap:anywhere]"
           data-slot="ask-details-body"
+          ref={bodyRef}
           role="region"
-          tabIndex={0}
         >
           {children}
         </div>
-      </DialogFrame>
+      </TechnicalDetails>
     </AskSection>
   );
 }
@@ -564,13 +609,37 @@ export function AskCode({
   const [wrap, setWrap] = useState(true);
   const clipped = !expanded && lines.length > previewLines;
   const shown = clipped ? lines.slice(0, previewLines) : lines;
-  const hidden = lines.length - shown.length;
+  // A cap can shrink the preview below its lines, so the footer counts what is really hidden:
+  // lines past the block's visible bottom, a partly cut line included.
+  const preRef = useRef<HTMLPreElement>(null);
+  const [fitting, setFitting] = useState<number>();
+  useLayoutEffect(() => {
+    const pre = preRef.current;
+    if (!pre || !clipped) {
+      setFitting(undefined);
+      return;
+    }
+    const update = () => {
+      const bottom = pre.getBoundingClientRect().top + pre.clientHeight + 0.5;
+      let count = 0;
+      for (const line of pre.querySelectorAll('code')) {
+        if (line.getBoundingClientRect().bottom > bottom) break;
+        count += 1;
+      }
+      setFitting(count);
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(pre);
+    return () => observer?.disconnect();
+  }, [clipped, code, wrap]);
+  const hidden = lines.length - (clipped ? (fitting ?? shown.length) : lines.length);
   const highlighted = useHighlightedLines(code, language);
   const lineContent = (line: string, index: number): ReactNode => {
     if (!line) return ' ';
-    if (language === 'json') return jsonLine(line);
+    // Every block shares the highlighter's palette; JSON reads in its own tones until it loads.
     const tokens = highlighted?.[index];
-    if (!tokens) return line;
+    if (!tokens) return language === 'json' ? jsonLine(line) : line;
     return tokens.map((token, at) => (
       <span key={at} style={{ color: token.color }}>
         {token.content}
@@ -609,6 +678,7 @@ export function AskCode({
         </div>
       ) : null}
       <pre
+        ref={preRef}
         className={cn(
           'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
@@ -642,7 +712,7 @@ export function AskCode({
       </pre>
       {hidden > 0 || onOpen ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden > 0 ? `${hidden} more lines` : null}</span>
+          <span className="truncate">{hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}</span>
           <AskButton
             {...askKeyAttributes(['o'])}
             className="ml-auto h-6 px-2 text-[12px]"
@@ -680,12 +750,13 @@ export function AskError({ error, className }: { error?: Error; className?: stri
   );
 }
 
-/** Once answered, the card folds into one activity row. */
+/** Once answered, the card folds into one activity row: icon, verb, detail, then the outcome. */
 export function AskAnsweredRow({
   icon: Icon,
   verb,
   detail,
   mono,
+  outcome,
   tone = 'ok',
   className,
   ...props
@@ -694,40 +765,52 @@ export function AskAnsweredRow({
   verb: string;
   detail?: ReactNode;
   mono?: boolean;
+  /** Who decided, beside the detail ("you denied it"); warning-toned when denied. */
+  outcome?: string;
   tone?: 'ok' | 'denied' | 'neutral';
 }) {
+  const Status = tone === 'ok' ? CheckIcon : tone === 'denied' ? OctagonMinusIcon : MinusIcon;
   return (
     <div
       className={cn(
-        'flex h-7 min-w-0 items-center gap-2 rounded-md pl-2 text-[12.5px] whitespace-nowrap text-foreground/85',
+        'flex h-7 min-w-0 items-center gap-2 rounded-md pr-[22px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85',
         className,
       )}
       data-slot="ask-answered"
       role="status"
       {...props}
     >
-      <Icon
-        aria-hidden="true"
-        className={cn(
-          'size-3.5 shrink-0',
-          tone === 'ok'
-            ? 'text-primary'
-            : tone === 'denied'
-              ? 'text-destructive'
-              : 'text-muted-foreground',
-        )}
-      />
+      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="shrink-0 text-foreground">{verb}</span>
       {detail ? (
         <span
           className={cn(
-            'min-w-0 truncate text-muted-foreground',
-            mono ? 'font-mono text-[11.5px]' : 'text-[12.5px]',
+            'min-w-0 truncate',
+            mono ? 'font-mono text-[11.5px] text-muted-foreground' : 'text-[12.5px]',
           )}
         >
           {detail}
         </span>
       ) : null}
+      {outcome ? (
+        <span
+          className={cn(
+            'shrink-0 text-[11.5px]',
+            tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
+          )}
+        >
+          {outcome}
+        </span>
+      ) : null}
+      <span aria-hidden="true" className="min-w-1.5 flex-1" />
+      <Status
+        aria-hidden="true"
+        className={cn(
+          'size-3.5 shrink-0',
+          tone === 'ok' ? 'text-primary' : tone === 'denied' ? 'text-warning' : 'text-muted-foreground',
+        )}
+        data-slot="ask-answered-status"
+      />
     </div>
   );
 }

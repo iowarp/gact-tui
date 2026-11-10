@@ -3,7 +3,7 @@ import { Switch } from '@/components/ui/switch';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { SaveBar } from './primitives/save-bar';
-import { AppUpdateSettings } from './settings-app-updates';
+import { AppUpdateSettings, BetaUpdatesRow } from './settings-app-updates';
 import { SettingsNumberField } from './settings-general-number-field';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -87,7 +87,7 @@ export function GeneralSettings() {
       >
         <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
       </SettingsRow>
-      {inTauri() ? <AppUpdateSettings /> : null}
+      {inTauri() ? <AppUpdateSettings /> : <BetaUpdatesRow />}
       <SaveBar
         count={count}
         invalid={Boolean((pasteDirty && pasteError) || (previewDirty && previewError))}

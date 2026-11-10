@@ -15,6 +15,8 @@ export type WorkbenchTab = WorkbenchTabKind & { backTo?: WorkbenchListView };
 
 type WorkbenchTabKind =
   | { id: string; kind: 'knowledge'; sourceId: string; label: string; workspaceId: string }
+  /** The NDP catalog, browsed as a Files tree. */
+  | { id: string; kind: 'ndp'; label: string; workspaceId: string }
   | { id: 'work'; kind: 'work'; label: 'Work' }
   /** One Activity row's detail: a tool call, a task, a question, a source. */
   | {
@@ -101,6 +103,16 @@ type WorkbenchTabKind =
       kind: 'browser';
       label: string;
       pageId: string;
+      sessionId: string;
+      workspaceId: string;
+    }
+  /** One try of a variant run (BestOfN / Refine); the run's pick card picks between them. */
+  | {
+      id: string;
+      kind: 'variant-try';
+      label: string;
+      variantsId: string;
+      tryIndex: number;
       sessionId: string;
       workspaceId: string;
     };

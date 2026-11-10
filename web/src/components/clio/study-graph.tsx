@@ -137,8 +137,11 @@ function EntryCard({ data }: NodeProps<EntryNode>) {
         type="button"
       >
         <EntryKindIcon className="row-span-2 text-muted-foreground" type={type} />
-        <span className="truncate text-[12.5px] leading-4 font-semibold">{entry.title}</span>
-        <ScienceStatus className="justify-start" state={entry.state} />
+        {/* The whole recorded title, on two lines if it must: never cut to "Drought, n…". */}
+        <span className="line-clamp-2 text-[11.5px] leading-[13px] font-semibold break-words">
+          {entry.title}
+        </span>
+        <ScienceStatus className="justify-start text-[10.5px] leading-3" state={entry.state} />
       </button>
       <Handle className={HANDLE} position={Position.Left} type="source" />
     </div>

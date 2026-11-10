@@ -1,13 +1,15 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { CheckIcon, LockIcon, TriangleAlertIcon } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Input } from '@/components/ui/input';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 
 /**
- * The dialog frame drawn in place on a page (connect, first run): the same
- * header, body and footer as the modal frame, without a scrim, 460 px wide.
+ * The connect dialog frame: 460 px, header, body and footer. On a page (first
+ * run) it is drawn in place without a scrim; over the app (`dialog`) it is the
+ * modal's content and a bottom sheet with a grab handle below 600 px.
  */
 export function ConnectFrame({
   icon,
@@ -17,6 +19,7 @@ export function ConnectFrame({
   children,
   footer,
   className,
+  dialog = false,
 }: {
   icon: ReactNode;
   title: string;
@@ -26,7 +29,17 @@ export function ConnectFrame({
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** Rendered inside a modal dialog, which this frame's title names. */
+  dialog?: boolean;
 }) {
+  const heading = (
+    <h1
+      className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground"
+      id="connect-frame-title"
+    >
+      {title}
+    </h1>
+  );
   return (
     <section
       aria-labelledby="connect-frame-title"
@@ -36,6 +49,12 @@ export function ConnectFrame({
       )}
       data-frame="connect"
     >
+      {dialog ? (
+        <span
+          aria-hidden="true"
+          className="mx-auto mt-2 hidden h-1 w-9 rounded-full bg-border max-[599px]:block"
+        />
+      ) : null}
       <header className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
         <span
           aria-hidden="true"
@@ -43,12 +62,7 @@ export function ConnectFrame({
         >
           {icon}
         </span>
-        <h1
-          className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground"
-          id="connect-frame-title"
-        >
-          {title}
-        </h1>
+        {dialog ? <DialogPrimitive.Title asChild>{heading}</DialogPrimitive.Title> : heading}
         {onClose ? (
           <IconButton icon={<CloseIcon />} label={closeLabel} onClick={onClose} type="button" />
         ) : null}

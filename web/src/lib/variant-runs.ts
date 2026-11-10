@@ -177,6 +177,10 @@ export interface VariantRunView {
   title: string;
   /** How the run chooses: `Best of 3 — you pick`. */
   method: string;
+  /** Its strategy alone: `Best of 3`, `Refine, up to 4 tries`. */
+  strategy: string;
+  /** What one try is called: `Try`, or `Draft` for alternative drafts. */
+  noun: string;
   rubric?: string;
   judge: VariantRun['judge'];
   status: string;
@@ -189,17 +193,20 @@ export interface VariantRunView {
   refinable: boolean;
 }
 
-function tryNoun(run: VariantRun): string {
+export function tryNoun(run: VariantRun): string {
   return run.origin === 'draft_alternatives' ? 'Draft' : 'Try';
 }
 
+function strategyLabel(run: VariantRun): string {
+  return run.strategy === 'refine'
+    ? `Refine, up to ${run.n} tries`
+    : run.n > 0
+      ? `Best of ${run.n}`
+      : 'Best of several';
+}
+
 function methodLabel(run: VariantRun): string {
-  const strategy =
-    run.strategy === 'refine'
-      ? `Refine, up to ${run.n} tries`
-      : run.n > 0
-        ? `Best of ${run.n}`
-        : 'Best of several';
+  const strategy = strategyLabel(run);
   const judge =
     run.judge === 'user' ? 'you pick' : run.judge === 'lm' ? 'judged by the model' : undefined;
   return judge ? `${strategy} — ${judge}` : strategy;
@@ -308,15 +315,22 @@ export function variantRunView(
     };
   });
   // A pick opens on the newest refined draft (what the comment asked for),
-  // otherwise on the first draft offered.
+  // otherwise on the best-scored draft offered, otherwise the first.
   const candidates = pick?.candidates ?? [];
   const refined = candidates.filter(
     (candidate) =>
       run.tries.find((item) => item.try_index === candidate.try_index)?.forked_from !== undefined,
   );
+  const scoreOf = (tryIndex: number) =>
+    run.tries.find((item) => item.try_index === tryIndex)?.score ?? -Infinity;
+  const best = candidates.reduce<(typeof candidates)[number] | undefined>(
+    (top, candidate) =>
+      !top || scoreOf(candidate.try_index) > scoreOf(top.try_index) ? candidate : top,
+    undefined,
+  );
   const defaultTab =
     run.selection?.selected_index ??
-    (refined.at(-1) ?? candidates[0])?.try_index ??
+    (refined.at(-1) ?? best)?.try_index ??
     run.tries.find((item) => item.state === 'running')?.try_index ??
     run.tries[0]?.try_index ??
     0;
@@ -328,6 +342,8 @@ export function variantRunView(
         ? 'Alternative drafts'
         : `${run.agent_id || 'Agent'} tries`,
     method: methodLabel(run),
+    strategy: strategyLabel(run),
+    noun,
     rubric: run.rubric ?? pick?.rubric,
     judge: run.judge,
     status: statusLabel(run, noun, pick),

@@ -22,6 +22,7 @@ import {
   FileViewerModeSlotContext,
   isSourceMode,
   keepFocusInFrame,
+  useFrameKeyRegion,
   type FileViewerModeSlot,
   type RendererModes,
 } from './file-viewer-modes';
@@ -214,6 +215,7 @@ export function FileViewerShell({
   );
   const sourceMode = renderer?.modes.find(isSourceMode);
   const hostRef = useRef<HTMLDivElement>(null);
+  const keyRegion = useFrameKeyRegion(hostRef);
   useShortcut(
     'render-source',
     () => {
@@ -229,7 +231,7 @@ export function FileViewerShell({
       renderer.onChange(rendered.value);
       keepFocusInFrame(hostRef.current);
     },
-    { enabled: Boolean(sourceMode), region: hostRef },
+    { enabled: Boolean(sourceMode), region: keyRegion },
   );
   useShortcut(
     'lineage',
@@ -238,7 +240,7 @@ export function FileViewerShell({
       else selectValue(LINEAGE_VIEW);
       keepFocusInFrame(hostRef.current);
     },
-    { enabled: Boolean(lineage), region: hostRef },
+    { enabled: Boolean(lineage), region: keyRegion },
   );
   const {
     slot: commentsSlot,
@@ -284,9 +286,17 @@ export function FileViewerShell({
   const showingSource = frameActive
     ? isSourceMode({ value: selectedValue })
     : sourceMode !== undefined && renderer?.value === sourceMode.value;
-  const positioned = selectedValue === LINEAGE_VIEW || (!showingSource && rendererFacts.length > 0);
+  // A file whose only rendering is its source (code) states its facts there, e.g. its language.
+  const sourceOnly = (renderer?.modes.length ?? 0) < 2;
+  const positioned =
+    selectedValue === LINEAGE_VIEW ||
+    ((!showingSource || sourceOnly) && rendererFacts.length > 0);
   // A view with no mode segment (one representation) states its facts and its size.
-  const what = !positioned ? size : segmentCount < 2 ? [...rendererFacts, ...size] : rendererFacts;
+  const what = !positioned
+    ? size
+    : segmentCount < 2
+      ? [...new Set([...rendererFacts, ...size])]
+      : rendererFacts;
   const contents = [...readers.values()].at(-1);
   return (
     <ViewerToolbarHost.Provider value={toolbarHost}>
@@ -372,7 +382,11 @@ export function FileViewerShell({
                                       />
                                     ) : null}
                                     <div
-                                      className="flex shrink-0 items-center gap-0.5 empty:hidden"
+                                      className={cn(
+                                        'flex shrink-0 items-center gap-0.5 empty:hidden',
+                                        // The renderer stays mounted under Lineage; its tools don't apply there.
+                                        selectedValue === LINEAGE_VIEW && 'hidden',
+                                      )}
                                       data-slot="frame-format-host"
                                       ref={setToolbarHost}
                                     />

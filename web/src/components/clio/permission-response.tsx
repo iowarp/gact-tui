@@ -1,6 +1,7 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
+import { cn } from '@/lib/utils';
 import {
   AskBody,
   AskButton,
@@ -17,8 +18,7 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionOperationLabel } from './permission-operation-labels';
-import type { KeyValueItem } from './primitives/key-value-grid';
-import { TechnicalDetailsFacts } from './tool-technical-details';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 
 const SCOPES = [
   { action: 'allow', label: 'Allow once', name: 'Allow once' },
@@ -39,6 +39,41 @@ function agentArguments(input: unknown): unknown {
   return Object.fromEntries(Object.entries(input).filter(([key]) => !key.startsWith('_clio_')));
 }
 
+/**
+ * Arguments that carry code (run_code's `code`) read as code with its real lines, and the
+ * rest as key-values. Arguments without a multi-line string stay one JSON block. Code the
+ * card already shows as its Script is named, not repeated.
+ */
+function argumentParts(
+  input: unknown,
+  script: string | undefined,
+): { blocks: [string, string][]; facts: KeyValueItem[] } | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const entries = Object.entries(input as Record<string, unknown>);
+  const multiline = (value: unknown): value is string =>
+    typeof value === 'string' && value.includes('\n');
+  const shown = (value: unknown) => script !== undefined && value === script;
+  if (!entries.some(([, value]) => multiline(value) || shown(value))) return undefined;
+  const blocks = entries.filter(
+    (entry): entry is [string, string] => multiline(entry[1]) && !shown(entry[1]),
+  );
+  const facts = entries
+    .filter(([, value]) => !multiline(value) || shown(value))
+    .map(([key, value]): KeyValueItem =>
+      shown(value)
+        ? {
+            label: key,
+            value: <span className="text-muted-foreground">same as Script above</span>,
+          }
+        : {
+            label: key,
+            mono: true,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          },
+    );
+  return { blocks, facts };
+}
+
 function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
   const input = interaction.payload?.tool_call?.input;
   const fields =
@@ -56,6 +91,21 @@ function permissionTitle(interaction: PendingInteraction, toolName: string | und
       : 'Connect source';
   if (toolName === 'connected_data_download') return 'Download source';
   return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
+}
+
+/**
+ * The script the decision is about: the script a tool was called from, or run_code's own code
+ * (spec 04, "A whole script"). Only a script already running has a call to open as a tab.
+ */
+function permissionScript(
+  interaction: PendingInteraction,
+  toolName: string | undefined,
+): { code: string; call_id?: string } | undefined {
+  if (interaction.payload?.script) return interaction.payload.script;
+  const input = interaction.payload?.tool_call?.input;
+  if (toolName !== 'run_code' || !input || typeof input !== 'object') return undefined;
+  const code = (input as Record<string, unknown>).code;
+  return typeof code === 'string' && code.trim() ? { code } : undefined;
 }
 
 /** Who asked, when it is not the conversation on screen. */
@@ -111,20 +161,34 @@ export function PermissionResponse({
   );
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
+  const script = permissionScript(interaction, toolName);
+  const scriptCallId = script?.call_id;
+  // The script block carries the lines run_code's own title summarises ("Run a Python script
+  // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const title = flowTrust
     ? `Running flow ${flowTrust.flow}`
-    : permissionTitle(interaction, toolName);
-  const script = interaction.payload?.script;
+    : script && !interaction.payload?.script
+      ? 'Run script'
+      : permissionTitle(interaction, toolName);
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
   const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
   const owner = askedBy(interaction, ownerLabel, showOwner);
   const cwd = interaction.payload?.execution?.cwd;
+  const args = toolCall?.input === undefined ? undefined : agentArguments(toolCall.input);
+  const parts = argumentParts(args, script?.code);
+  const argsLanguage = (args as { language?: unknown } | undefined)?.language;
+  const codeLanguage =
+    argsLanguage === 'python' || (toolName === 'run_code' && argsLanguage === undefined)
+      ? 'python'
+      : undefined;
   const detailFacts: KeyValueItem[] = [
     ...(owner.length
       ? [
           {
             label: 'Asked by',
             title: owner[0]?.title,
+            // Beside the facts while they show it; here once they give it up, at a fifth.
+            wide: false as const,
             value: (
               <span className="min-w-0 truncate text-accent-foreground">
                 {ownerLabel ?? `session ${interaction.owner_session_id}`}
@@ -137,6 +201,7 @@ export function PermissionResponse({
     ...((toolName === 'web_fetch' || toolName === 'web_search') && cwd
       ? [{ label: 'Working folder', value: cwd, mono: true }]
       : []),
+    ...(parts?.facts ?? []),
   ];
   return (
     <AskCard
@@ -165,8 +230,9 @@ export function PermissionResponse({
       {script ? (
         // Under a cap the script gives up height first, down to two lines with its fade and
         // footer, so the facts above stay whole. The script stands in for the command line.
+        // A script of one or two lines keeps its own height: the floor would only pad it.
         <AskCode
-          className="flex min-h-20 shrink-[100] flex-col"
+          className={cn('flex flex-col', scriptLines > 2 && 'min-h-20 shrink-[100]')}
           code={script.code}
           copyLabel="Copy script"
           icon={FileCode2Icon}
@@ -174,7 +240,11 @@ export function PermissionResponse({
           language="python"
           meta={`Python, ${scriptLines} ${scriptLines === 1 ? 'line' : 'lines'}`}
           name="Script"
-          onOpen={onOpenScript ? () => onOpenScript(interaction, script.call_id) : undefined}
+          onOpen={
+            onOpenScript && scriptCallId
+              ? () => onOpenScript(interaction, scriptCallId)
+              : undefined
+          }
           wrapToggle
         />
       ) : null}
@@ -207,18 +277,41 @@ export function PermissionResponse({
         ) : null}
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
-        <AskDetails description="The tool's arguments, as the agent sent them.">
+        <AskDetails hint="raw arguments, as the agent sent them">
           <div className="grid gap-2.5">
             {detailFacts.length ? (
               <div data-slot="ask-details-facts">
-                <TechnicalDetailsFacts items={detailFacts} />
+                {/* The facts' own 110px label column, so details values share their x;
+                    labels stay as words when narrow (details rows carry no icons). */}
+                <KeyValueGrid
+                  className="@max-[420px]:grid-cols-[110px_minmax(0,1fr)]"
+                  items={detailFacts}
+                  variant="facts"
+                />
               </div>
             ) : null}
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
-            {toolCall?.input === undefined ? null : (
+            {args === undefined ? null : parts ? (
+              parts.blocks.map(([key, code]) => {
+                const lines = code.replace(/\n$/u, '').split('\n').length;
+                return (
+                  <AskCode
+                    className="mt-1 ml-0"
+                    code={code}
+                    copyLabel={`Copy ${key}`}
+                    key={key}
+                    label={`Argument ${key}`}
+                    language={codeLanguage}
+                    meta={`${codeLanguage === 'python' ? 'Python, ' : ''}${lines} ${lines === 1 ? 'line' : 'lines'}`}
+                    name={key}
+                    previewLines={12}
+                  />
+                );
+              })
+            ) : (
               <AskCode
-                className="mt-0 ml-0"
-                code={JSON.stringify(agentArguments(toolCall.input), null, 2)}
+                className="mt-1 ml-0"
+                code={JSON.stringify(args, null, 2)}
                 copyLabel="Copy arguments"
                 label="Arguments"
                 language="json"

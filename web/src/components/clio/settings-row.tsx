@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useContext, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,9 @@ import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { NARROW_HIDDEN, SETTINGS_COLUMN } from '@/lib/settings-fold';
+import { SettingsResultsContext } from '@/lib/settings-search-results';
 import { InfoTip } from './info-tip';
+import { SearchHighlight } from './search-highlight';
 
 /**
  * Setting row (B): label and ⓘ hint on the left, the control on the right, one
@@ -61,9 +63,14 @@ export function SettingsRow({
     ) : (
       (description ?? info)
     );
+  // In the filtered window only the matching rows show, their match marked.
+  const results = useContext(SettingsResultsContext);
+  const match = results?.labels.has(title) ? results.query : undefined;
+  const name = match ? <SearchHighlight query={match} text={title} /> : title;
   return (
     <div
       className={cn('@container w-full', !fullWidth && SETTINGS_COLUMN)}
+      data-setting-match={match !== undefined || undefined}
       data-slot="settings-row-frame"
     >
       <div
@@ -101,10 +108,10 @@ export function SettingsRow({
                 htmlFor={htmlFor}
                 className="block min-w-0 truncate text-[0.8125rem] leading-normal font-normal"
               >
-                {title}
+                {name}
               </Label>
             ) : (
-              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal">{title}</h2>
+              <h2 className="min-w-0 truncate text-[0.8125rem] font-normal">{name}</h2>
             )}
             {hint ? (
               <InfoTip className={cn('text-faint', NARROW_HIDDEN)} label={`About ${title}`}>
@@ -251,7 +258,12 @@ export function SettingsChoice({
             }}
           />
           {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
-          <span className={cn('min-w-0 truncate', Icon && iconOnly && 'sr-only')}>{name}</span>
+          {/* Folded to icons, the selected choice still names itself. */}
+          <span
+            className={cn('min-w-0 truncate', Icon && iconOnly && value !== option && 'sr-only')}
+          >
+            {name}
+          </span>
         </Label>
       ))}
     </RadioGroup>

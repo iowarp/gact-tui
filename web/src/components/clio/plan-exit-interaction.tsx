@@ -18,7 +18,7 @@ type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exi
 
 // One scale: the plan's own title at 15px, section headings 12.5px medium, body 12.5px.
 const PLAN_MARKDOWN =
-  'min-w-0 text-[12.5px] leading-[1.6] text-foreground/90 [overflow-wrap:anywhere] [&>*+*]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-[15px] [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-[15px] [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-[12.5px] [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!my-0.5 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!my-0.5 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-[11.5px]';
+  'min-w-0 text-[12.5px] leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>*+*]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-[15px] [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-[15px] [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-[12.5px] [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-[11.5px]';
 const GUIDANCE_HEADING = 'mt-2.5 text-[12.5px] leading-5 font-medium text-foreground';
 
 /** Where the plan lives, short; the full path is on hover. */
@@ -63,12 +63,12 @@ function missingPlanText(plan: PlanExit | undefined) {
 }
 
 function footerText(plan: PlanExit | undefined) {
+  // Only counts add anything here: "Plan truncated" by Execute already says the rest.
   if (plan?.plan_content_status === 'truncated') {
     const shown = plan.plan_content_included_chars;
     const total = plan.plan_content_chars;
-    return shown !== undefined && total !== undefined
-      ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} characters`
-      : 'Showing part of the plan';
+    if (shown !== undefined && total !== undefined)
+      return `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} characters`;
   }
   return planOutline(plan?.plan_content, plan ?? {});
 }
@@ -149,10 +149,7 @@ function PlanPreview({
           data-slot="plan-preview-footer"
         >
           <span
-            className={cn(
-              'min-w-0 truncate',
-              plan?.plan_content_status === 'truncated' && 'text-warning',
-            )}
+            className="min-w-0 truncate"
             title={footer}
           >
             {footer}

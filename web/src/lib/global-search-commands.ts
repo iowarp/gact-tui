@@ -1,5 +1,14 @@
-import { ActivityIcon, CableIcon, MonitorIcon, MoonIcon, NetworkIcon, SunIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  CableIcon,
+  MonitorIcon,
+  MoonIcon,
+  NetworkIcon,
+  SunIcon,
+  TerminalSquareIcon,
+} from 'lucide-react';
 import type { ThemePreference } from '@/theme/contract';
+import { OPEN_TERMINAL_EVENT } from '@/components/clio/workspace-canvas-visibility-context';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
   INFRASTRUCTURE_SECTIONS,
@@ -14,7 +23,7 @@ import {
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
-  action: { route: string } | { theme: ThemePreference };
+  action: { route: string } | { theme: ThemePreference } | { event: string };
   /** A catalog shortcut that does the same from anywhere. */
   shortcut?: string;
   /** Where the row lives, as muted trailing text: "Settings › App". */
@@ -60,7 +69,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
       icon: CableIcon,
       group: 'Navigation',
       keywords: 'connect service computer host',
-      action: { route: '/' },
+      action: { route: '/?intent=connect' },
     },
     {
       id: 'runs',
@@ -107,6 +116,15 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         action: { route: `/infrastructure/${item.id}` },
       }),
     ),
+    {
+      id: 'terminal',
+      label: 'Open terminal',
+      icon: TerminalSquareIcon,
+      group: 'Actions',
+      keywords: 'terminal shell console command line pty workbench',
+      action: { event: OPEN_TERMINAL_EVENT },
+      shortcut: 'terminal',
+    },
     {
       id: 'theme:light',
       label: 'Switch to light mode',

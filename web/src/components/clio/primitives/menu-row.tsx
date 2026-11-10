@@ -113,11 +113,12 @@ export const MenuRow = memo(function MenuRow({
           {checked ? <CheckIcon className="size-3.5" /> : null}
         </span>
       ) : null}
-      {shortcut ? <ShortcutKeys id={shortcut} variant="text" className="shrink-0 pl-2" /> : null}
+      {shortcut ? <ShortcutKeys id={shortcut} variant="menu" className="pl-2" /> : null}
       {accelerator ? (
         <kbd
           data-slot="menu-accelerator"
-          className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground"
+          // A jump letter is for the keyboard: a menu opened with the mouse shows only keys.
+          className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
         >
           {accelerator}
         </kbd>
