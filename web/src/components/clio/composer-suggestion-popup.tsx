@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { cn } from '@/lib/utils';
@@ -32,6 +40,77 @@ export function Highlighted({ text, query }: { text: string; query: string }): R
     </>
   );
 }
+/** Marks the parts of a row's one line that the detail strip completes when they are cut. */
+export const ROW_CUT_SLOT = 'suggestion-row-cut';
+
+/** Whether any marked part of the row is cut by its ellipsis. */
+function rowIsCut(rowId: string): boolean {
+  const row = document.getElementById(rowId);
+  if (!row) return false;
+  for (const part of row.querySelectorAll<HTMLElement>(`[data-slot="${ROW_CUT_SLOT}"]`))
+    if (part.scrollWidth > part.clientWidth + 1) return true;
+  return false;
+}
+
+/**
+ * The whole name and description of the highlighted (or pointed-at) row, shown
+ * only when the strip says more than the row: its one 30px line cuts the name or
+ * description, or the menu has words the row leaves out (`more`). Whether the row
+ * is cut is read once per described row and written straight to the strip, so
+ * moving the highlight never renders the menu twice. Screen readers already hear
+ * the name and description from the option's label.
+ */
+export function SuggestionDetail({
+  description,
+  mono,
+  more = false,
+  name,
+  rowId,
+}: {
+  description: string;
+  mono?: boolean;
+  /** The description holds words the row does not show. */
+  more?: boolean;
+  name: string;
+  /** The described option, whose cut parts carry ROW_CUT_SLOT. */
+  rowId: string;
+}) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (strip) strip.hidden = !more && !rowIsCut(rowId);
+  }, [description, more, name, rowId]);
+  return (
+    <div
+      aria-hidden="true"
+      className="shrink-0 border-t px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-muted-foreground"
+      data-slot="composer-suggestion-detail"
+      hidden
+      ref={stripRef}
+    >
+      <p className="line-clamp-3 [overflow-wrap:anywhere]">
+        <span
+          className={cn(
+            'mr-2 font-medium text-foreground',
+            mono && 'font-mono text-[11px] font-normal',
+          )}
+        >
+          {name}
+        </span>
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/** The row the pointer is over, which the detail strip follows ahead of the highlight. */
+export function useHoveredRow() {
+  const [hovered, setHovered] = useState<string>();
+  const onHover = useCallback((key: string) => setHovered(key), []);
+  const onLeave = useCallback(() => setHovered(undefined), []);
+  return { hovered, onHover, onLeave };
+}
+
 /** The field's faint count, a bare number as drawn; the word is for screen readers. */
 export function MatchCount({ total }: { total: number }) {
   return (

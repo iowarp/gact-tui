@@ -38,6 +38,9 @@ import {
   ComposerSuggestionPopup,
   Highlighted,
   MatchCount,
+  ROW_CUT_SLOT,
+  SuggestionDetail,
+  useHoveredRow,
 } from './composer-suggestion-popup';
 
 const groups: Array<{
@@ -141,11 +144,17 @@ function rowDetail(reference: WorkspaceReference): string {
 
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
+/** A row's name and description in full, for its tooltip. */
+function rowSummary(name: string, detail: string): string {
+  return detail ? `${name} — ${detail}` : name;
+}
+
 /** One 30px suggestion: kind icon, name, faint folder or detail, and its keys. */
 const ReferenceOption = memo(function ReferenceOption({
   active,
   id,
   name,
+  onHover,
   onPick,
   query,
   reference,
@@ -153,6 +162,8 @@ const ReferenceOption = memo(function ReferenceOption({
   active: boolean;
   id: string;
   name: string;
+  /** The pointer reached this row, so the detail strip shows it. */
+  onHover: (identity: string) => void;
   onPick: (reference: WorkspaceReference) => void;
   query: string;
   reference: WorkspaceReference;
@@ -173,18 +184,24 @@ const ReferenceOption = memo(function ReferenceOption({
       id={id}
       onClick={() => onPick(reference)}
       onMouseDown={keepFocus}
+      onMouseEnter={() => onHover(workspaceReferenceIdentity(reference))}
       role="option"
-      title={conciseDetail(reference) || undefined}
+      title={rowSummary(name, detail)}
     >
       {createElement(referenceKindIcon(reference.kind, reference.label, reference.media_type), {
         'aria-hidden': true,
         className: 'size-[15px] shrink-0 text-muted-foreground',
       })}
-      <span className="min-w-0 shrink truncate text-foreground">
+      {/* The name takes the room it needs; only a name wider than the row is cut. */}
+      <span className="min-w-0 shrink truncate text-foreground" data-slot={ROW_CUT_SLOT}>
         <Highlighted query={query} text={name} />
       </span>
       {detail ? (
-        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-muted-foreground">
+        // A zero basis gives the description only the room the name leaves.
+        <span
+          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-muted-foreground"
+          data-slot={ROW_CUT_SLOT}
+        >
           {detail}
         </span>
       ) : null}
@@ -474,6 +491,10 @@ export function ClioComposerReferenceMenu({
 
   const rowName = (reference: WorkspaceReference) =>
     hdf5.mention ? String(reference.navigation['locator'] ?? reference.label) : reference.label;
+  const hover = useHoveredRow();
+  const described =
+    visibleRows[hover.hovered ? identities.indexOf(hover.hovered) : -1] ??
+    (activeIndex >= 0 ? visibleRows[activeIndex] : undefined);
   const highlight = hdf5.mention ? hdf5.mention.filter : trimmedQuery;
   // How many of each open group's rows fit in this frame's budget, in order.
   const mountedRows = sections.reduce<number[]>((counts, section) => {
@@ -532,6 +553,7 @@ export function ClioComposerReferenceMenu({
         aria-label="Suggestions"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
         id={`${popoverId}-listbox`}
+        onMouseLeave={hover.onLeave}
         role="listbox"
       >
         {visibleRows.length === 0 ? (
@@ -594,6 +616,7 @@ export function ClioComposerReferenceMenu({
                     id={optionId(identity)}
                     key={identity}
                     name={rowName(reference)}
+                    onHover={hover.onHover}
                     onPick={pick}
                     query={highlight}
                     reference={reference}
@@ -624,6 +647,13 @@ export function ClioComposerReferenceMenu({
             </span>
           ) : null}
         </div>
+      ) : null}
+      {described ? (
+        <SuggestionDetail
+          description={rowDetail(described)}
+          name={rowName(described)}
+          rowId={optionId(workspaceReferenceIdentity(described))}
+        />
       ) : null}
       <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
     </ComposerSuggestionPopup>

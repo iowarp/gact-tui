@@ -106,9 +106,16 @@ async function openFixture(page: Page, type?: string, content?: string, shortTra
       .getByRole('region', { name: 'Conversation workspace', exact: true })
       .getByRole('region', { name: 'Agent needs your attention', exact: true }),
   ).toHaveCount(1);
-  await expect(
-    page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
-  ).toBeVisible();
+  // A finished run folds into its counted row; open it to reach its calls.
+  const closedRuns = page.locator(
+    '[data-run-summary] [data-slot="activity-disclosure"][aria-expanded="false"]',
+  );
+  await expect(async () => {
+    for (const run of await closedRuns.all()) await run.click();
+    await expect(
+      page.getByRole('button', { name: 'Technical details for Search EarthScope catalog' }),
+    ).toBeVisible({ timeout: 1000 });
+  }).toPass();
 }
 
 for (const width of [640, 1003]) {
@@ -297,7 +304,9 @@ for (const shortTranscript of [false, true]) {
     const log = page.getByRole('log', { name: 'Conversation', exact: true });
     await log.focus();
     await log.press('Control+Home');
-    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeLessThan(2);
+    // Home may still be settling at 1px; reading the anchor then made the
+    // restored position appear to drift by one pixel.
+    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBe(0);
     const anchor = log.locator('[data-index]').first();
     const topBefore = await anchor.evaluate((e) => e.getBoundingClientRect().top);
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();

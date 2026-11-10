@@ -75,8 +75,11 @@ export function AgentSettings() {
   }
   const all = agents.data ?? [];
   const mine = all.filter((agent) => agent.kind === 'user');
-  const installed = all.filter((agent) => agent.kind !== 'user');
   const defaultRef = defaults.data?.agent_ref || defaults.data?.default_agent_ref || '';
+  // The default leads the installed list; the rest keep the service's order.
+  const installed = all
+    .filter((agent) => agent.kind !== 'user')
+    .sort((a, b) => Number(b.ref === defaultRef) - Number(a.ref === defaultRef));
   const previewing = all.find((agent) => agent.ref === previewRef);
   // A new agent starts as a saved variation of an installed one.
   const starter = installed.find((agent) => agent.ref === defaultRef) ?? installed[0];

@@ -34,9 +34,26 @@ export interface PermissionOperation {
   paths: readonly string[];
 }
 
-function Place({ icon, mono, children }: { icon?: ReactNode; mono?: boolean; children: string }) {
+function Place({
+  icon,
+  mono,
+  fixed,
+  children,
+}: {
+  icon?: ReactNode;
+  mono?: boolean;
+  /** Keeps its width beside a long sibling; it truncates only past 40% of the row. */
+  fixed?: boolean;
+  children: string;
+}) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5" title={children}>
+    <span
+      className={cn(
+        'inline-flex min-w-0 items-center gap-1.5',
+        fixed && 'max-w-[40%] shrink-0',
+      )}
+      title={children}
+    >
       {icon ? (
         <span aria-hidden="true" className="shrink-0 text-muted-foreground [&_svg]:size-3.5">
           {icon}
@@ -117,7 +134,11 @@ function permissionOperation(
             title: [computer, folder].filter(Boolean).join(', '),
             value: (
               <>
-                {computer ? <Place icon={<ServerIcon />}>{computer}</Place> : null}
+                {computer ? (
+                  <Place fixed icon={<ServerIcon />}>
+                    {computer}
+                  </Place>
+                ) : null}
                 {folder ? (
                   <Place icon={<FolderIcon />} mono>
                     {folder}
@@ -129,7 +150,7 @@ function permissionOperation(
             narrow:
               computer && folder ? (
                 <>
-                  <Place>{computer}</Place>
+                  <Place fixed>{computer}</Place>
                   <Place icon={<FolderIcon />} mono>
                     {folder}
                   </Place>

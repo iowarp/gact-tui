@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/components/ai-elements/markdown';
 import { ArchiveConnectionProvider } from '@/providers/connection-provider';
+import { openActivityRuns } from '@/test/open-activity-runs';
 import { ArchiveConversation, type ArchiveTranscriptView } from './archive-conversation';
 
 afterEach(cleanup);
@@ -79,6 +80,7 @@ it('uses native activity controls with the loaded skill and failed command at th
   const user = userEvent.setup();
   expect(screen.getByLabelText('Marked message')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Unmark message' })).not.toBeInTheDocument();
+  openActivityRuns();
   await user.click(screen.getByRole('button', { name: 'Show result for Load skill' }));
   const skillDetails = await screen.findByRole('region', { name: 'Load skill: Result' });
   expect(skillDetails).toHaveTextContent('Recorded audit');
@@ -208,6 +210,10 @@ it('merges captured interactions with authoritative answers at their owning tool
     </QueryClientProvider>,
   );
   expect(screen.queryByText('PRIVATE RESUME ENVELOPE')).not.toBeInTheDocument();
+  expect(
+    await screen.findByRole('button', { name: 'Expand Asked 2 questions' }),
+  ).toBeInTheDocument();
+  openActivityRuns();
   expect(await screen.findByText('Which label is control?')).toBeVisible();
   expect(screen.getByText('The control mapping is unconfirmed.')).toBeVisible();
   expect(screen.getByText('Review the recorded report.')).toBeVisible();

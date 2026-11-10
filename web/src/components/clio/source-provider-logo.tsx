@@ -16,7 +16,7 @@ export function SourceProviderLogo({
   size = 'row',
 }: {
   provider: SourceProviderId;
-  /** `icon` fits the 16px glyph slot of an item row, without a frame. */
+  /** `icon` fits the 15px glyph slot of an item row, without a frame. */
   size?: 'row' | 'detail' | 'icon';
 }) {
   const detail = size === 'detail';
@@ -24,13 +24,13 @@ export function SourceProviderLogo({
   const { mark, wordmark, glyph } = {
     row: { mark: 'size-7', wordmark: 'w-14', glyph: 'size-5' },
     detail: { mark: 'size-14', wordmark: 'w-full', glyph: 'size-10' },
-    icon: { mark: 'size-4', wordmark: 'size-4', glyph: 'size-4' },
+    icon: { mark: 'size-[15px]', wordmark: 'size-[15px]', glyph: 'size-[15px]' },
   }[size];
   return (
     <span
       className={cn(
         'flex shrink-0 items-center justify-center',
-        icon ? 'size-4' : 'rounded-md border bg-muted/20',
+        icon ? 'size-[15px]' : 'rounded-md border bg-muted/20',
         detail && 'h-20 w-48 max-w-[40%] p-2',
         size === 'row' && 'h-9 w-16',
       )}

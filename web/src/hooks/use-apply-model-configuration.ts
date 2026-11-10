@@ -28,6 +28,8 @@ export function useApplyModelConfiguration(onApplied?: () => void) {
       requiresKey: boolean;
     }) => {
       if (requiresKey && !update.api_key) {
+        // Answered from the desktop host's per-launch cache after the first read, so
+        // repeated applies never re-raise the OS keychain prompt.
         const stored = await readProviderCredential(update.provider_id, update.api_base);
         if (stored) update.api_key = stored;
       }

@@ -443,7 +443,7 @@ export function ClioComposer({
         'relative',
         variant === 'docked'
           ? cn(
-              'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 [&>*]:pointer-events-auto lg:px-6',
+              'clio-composer-docked pointer-events-none flex max-h-full min-h-0 flex-col pb-3 *:pointer-events-auto *:max-w-none',
               showCommands || showReferences ? 'overflow-visible' : 'overflow-hidden',
             )
           : 'w-full',

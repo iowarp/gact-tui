@@ -100,3 +100,85 @@ function Get-ClioDevErrorBody {
         }
     }
 }
+
+<#
+.SYNOPSIS
+Decide whether a /v1/health payload is ready for development use.
+
+.DESCRIPTION
+A freshly signed-in provider whose connection has not been exercised yet is
+reported as degraded with reason `auth_unverified`. Nothing is wrong with it;
+the first real request checks the connection. Treat that, and only that, as
+ready. Every other degradation still fails.
+#>
+function Test-ClioDevHealthReady {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        $Health
+    )
+
+    if ($null -eq $Health) {
+        return $false
+    }
+    if ($Health.overall_status -eq "ready") {
+        return $true
+    }
+    if ($Health.overall_status -ne "degraded") {
+        return $false
+    }
+    $blocking = @(
+        $Health.integrations | Where-Object {
+            $_.status -ne "ready" -and [string]$_.reason -ne "auth_unverified"
+        }
+    )
+    return $blocking.Count -eq 0
+}
+
+<#
+.SYNOPSIS
+Call /v1/providers/lm, retrying while durable task services finish starting.
+
+.DESCRIPTION
+The backend answers /v1/health before its durable task runtime is up, and the
+provider route refuses with HTTP 503 `task_runtime_starting` until it is. That
+refusal is recoverable, so retry it until the deadline. Any other failure throws.
+#>
+function Invoke-ClioDevProviderRequest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Uri,
+        [ValidateSet("Get", "Put")]
+        [string]$Method = "Get",
+        [string]$Body = "",
+        [ValidateRange(1, 3600)]
+        [int]$TimeoutSec = 300,
+        [ValidateRange(1, 3600)]
+        [int]$StartingDeadlineSec = 300
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($StartingDeadlineSec)
+    while ($true) {
+        try {
+            if ($Method -eq "Put") {
+                return Invoke-RestMethod `
+                    -Uri $Uri `
+                    -Method Put `
+                    -ContentType "application/json" `
+                    -Body $Body `
+                    -TimeoutSec $TimeoutSec
+            }
+            return Invoke-RestMethod -Uri $Uri -TimeoutSec $TimeoutSec
+        }
+        catch {
+            $starting = "$($_.ErrorDetails.Message) $($_.Exception.Message)" -match "task_runtime_starting"
+            if (-not $starting -or [DateTime]::UtcNow -ge $deadline) {
+                throw
+            }
+            Start-Sleep -Seconds 2
+        }
+    }
+}

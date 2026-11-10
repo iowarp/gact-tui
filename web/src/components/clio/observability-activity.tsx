@@ -20,7 +20,7 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
@@ -328,6 +328,46 @@ export function childProjectionActivityItems(
 }
 
 /** Git-style causal graph with stable agent strands and transcript navigation. */
+const SCROLL_FADE_PX = 24;
+
+/** Fades only the edges a horizontal scroller continues past, read once per frame. */
+function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): CSSProperties | undefined {
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    let frame = 0;
+    const read = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const start = element.scrollLeft > 1;
+        const end = element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+        setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+      });
+    };
+    element.addEventListener('scroll', read, { passive: true });
+    const observer = new ResizeObserver(read);
+    const observeChildren = () => {
+      observer.disconnect();
+      observer.observe(element);
+      for (const child of Array.from(element.children)) observer.observe(child);
+      read();
+    };
+    observeChildren();
+    const mutations = new MutationObserver(observeChildren);
+    mutations.observe(element, { childList: true });
+    return () => {
+      element.removeEventListener('scroll', read);
+      observer.disconnect();
+      mutations.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [ref]);
+  if (!edges.start && !edges.end) return undefined;
+  const mask = `linear-gradient(90deg, ${edges.start ? 'transparent' : '#000'}, #000 ${SCROLL_FADE_PX}px, #000 calc(100% - ${SCROLL_FADE_PX}px), ${edges.end ? 'transparent' : '#000'})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
 export function ClioActivityTimeline({
   items,
   messages,
@@ -337,6 +377,8 @@ export function ClioActivityTimeline({
 }) {
   const [zoom, setZoom] = useState(1);
   const [agentFilter, setAgentFilter] = useState<string | null>(null);
+  const chipRow = useRef<HTMLDivElement>(null);
+  const chipFade = useHorizontalScrollFade(chipRow);
   const rows = useMemo(
     () =>
       items
@@ -416,7 +458,9 @@ export function ClioActivityTimeline({
       <div
         aria-label="Filter activity by agent"
         className="no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto border-b py-2 [&>*]:shrink-0"
+        ref={chipRow}
         role="group"
+        style={chipFade}
       >
         <Button
           aria-pressed={agentFilter === null}
