@@ -70,6 +70,7 @@ function AccountMemoryRow({
     <SettingsRow
       htmlFor="memory-use-account"
       info={`Facts about you that every workspace can use. This switch applies to ${workspaceName}.`}
+      fullWidth
       inlineControl
       note={
         setting.error ? `Could not read this setting. ${memoryErrorText(setting.error)}` : undefined

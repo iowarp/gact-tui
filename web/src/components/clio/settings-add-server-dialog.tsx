@@ -81,8 +81,6 @@ export function SettingsAddServerDialog({
         </p>
       ) : (
         <form
-          // The spec's dialog rows (.xdb .xr): label 36%, control the rest, from a 20rem dialog.
-          className="[&_[data-slot=settings-row]]:@xs:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:@xs:justify-start [&_[data-slot=settings-control]>input]:flex-1"
           data-slot="add-server-dialog"
           onSubmit={(event) => {
             event.preventDefault();
