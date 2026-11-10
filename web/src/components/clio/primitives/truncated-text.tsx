@@ -11,7 +11,12 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
-import { fullTextOf, truncatedTextAt, truncatedTextWithin } from '@/lib/truncation';
+import {
+  fullTextOf,
+  truncatedTextAt,
+  truncatedTextForFocus,
+  truncatedTextWithin,
+} from '@/lib/truncation';
 
 /** The app's tooltip delay (TooltipProvider), so every hover name reads alike. */
 const HINT_DELAY_MS = 450;
@@ -28,8 +33,8 @@ interface Hint {
 /**
  * The app-wide rule: text may be cut, but never unreadable. Mounted once, it
  * shows the whole text of any ellipsized or line-clamped text under the
- * pointer, or inside the control keyboard focus lands on, and only while
- * something is actually cut. A surface opts out with
+ * pointer, or inside the control keyboard focus lands on (or that control's
+ * row), and only while something is actually cut. A surface opts out with
  * `data-truncation-hint="off"`; a cut element with a different full text
  * (a compact label) names it in `data-full-text`.
  */
@@ -49,7 +54,7 @@ export function TruncationHints() {
       shownRef.current = false;
       setHint(null);
     };
-    const schedule = (anchor: HTMLElement, read: () => string | null) => {
+    const schedule = (anchor: HTMLElement, read: () => string | null, place = anchor) => {
       clearTimeout(timer);
       current = anchor;
       const warm = shownRef.current || performance.now() - hiddenAt < HINT_WARM_MS;
@@ -59,7 +64,7 @@ export function TruncationHints() {
           const text = read();
           if (!text) return;
           shownRef.current = true;
-          setHint({ text, anchor: anchor.getBoundingClientRect() });
+          setHint({ text, anchor: place.getBoundingClientRect() });
         },
         warm ? 0 : HINT_DELAY_MS,
       );
@@ -85,16 +90,21 @@ export function TruncationHints() {
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
       if (!(target instanceof HTMLElement) || !target.matches(':focus-visible')) return;
-      const cut = truncatedTextWithin(target);
+      const cut = truncatedTextForFocus(target);
       if (cut.length === 0) {
         if (current) hide();
         return;
       }
       if (shownRef.current) setHint(null);
-      schedule(target, () =>
-        Array.from(new Set(cut.filter((element) => element.isConnected).map(fullTextOf)))
-          .filter(Boolean)
-          .join('\n'),
+      const last = cut.at(-1) ?? target;
+      schedule(
+        target,
+        () =>
+          Array.from(new Set(cut.filter((element) => element.isConnected).map(fullTextOf)))
+            .filter(Boolean)
+            .join('\n'),
+        // A row's cut text sits beside the control: show the hint under it, clear of the control's name.
+        target.contains(last) ? target : last,
       );
     };
     const onFocusOut = (event: FocusEvent) => {

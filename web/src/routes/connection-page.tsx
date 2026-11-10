@@ -20,6 +20,7 @@ import { ConnectAddressFields, ConnectErrorLine } from '@/components/clio/connec
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
+import { useKeysAria } from '@/lib/shortcuts/hooks';
 import { ConnectionWaitingNotice } from '@/components/clio/connection-attempt';
 import {
   attemptErrorFor,
@@ -101,6 +102,7 @@ function knownCandidate(connection: KnownConnection): ConnectionSettings {
 
 export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } = {}) {
   const searchOpen = useCommandMenuVisibility((state) => state.open);
+  const submitAria = useKeysAria(SUBMIT_KEYS);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -444,7 +446,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                   </Button>
                 ) : null}
                 <Button
-                  aria-keyshortcuts="Control+Enter Meta+Enter"
+                  aria-keyshortcuts={submitAria}
                   className={cn(buttonClass, 'bg-clip-border')}
                   disabled={
                     mutation.isPending ||
@@ -457,10 +459,11 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                 >
                   {submitLabel}
                   {/* The sheet under 600 px drops key hints first. */}
-                  <span aria-hidden="true" className="max-[599px]:hidden">
+                  <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
                     <ShortcutKeys
-                      className="font-mono text-[10.5px] text-current opacity-70"
-                      keys={['Ctrl+Enter']}
+                      className="border-current/45"
+                      keys={SUBMIT_KEYS}
+                      variant="inline"
                     />
                   </span>
                 </Button>
@@ -772,3 +775,4 @@ export function ConnectionDialog({ background }: { background: string }) {
 }
 
 const buttonClass = 'h-[30px] rounded-[6px] px-3 text-[12.5px] font-medium';
+const SUBMIT_KEYS = ['Ctrl+Enter'] as const;
