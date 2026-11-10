@@ -16,7 +16,7 @@ vi.mock('@/providers/connection-provider', () => ({
   }),
 }));
 
-import { useProviderCatalog } from './use-provider-catalog';
+import { useProviderCatalog, useProviderCatalogWarmup } from './use-provider-catalog';
 
 const initialCatalog = { authoritative: 'live_handshake', providers: [] };
 const refreshedCatalog = {
@@ -62,5 +62,56 @@ describe('useProviderCatalog', () => {
       expect(repository.providerCatalog).toHaveBeenLastCalledWith(true, undefined, 'claude_code'),
     );
     await waitFor(() => expect(result.current.data).toEqual(refreshedCatalog));
+  });
+
+  it('re-renders a caller only for the fields it reads', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const local = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        return useProviderCatalog().data;
+      },
+      { wrapper: local },
+    );
+    await waitFor(() => expect(result.current).toEqual(initialCatalog));
+    const settled = renders;
+
+    await act(() => client.refetchQueries({ queryKey: ['provider-catalog'] }));
+
+    expect(repository.providerCatalog).toHaveBeenCalledTimes(2);
+    expect(renders).toBe(settled);
+  });
+
+  it('keeps isRefreshing readable for callers that show a refresh', async () => {
+    const { result } = renderHook(() => useProviderCatalog(), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(initialCatalog));
+    expect(result.current.isRefreshing).toBe(false);
+    expect(typeof result.current.refetch).toBe('function');
+  });
+});
+
+describe('useProviderCatalogWarmup', () => {
+  it('fetches the catalog without re-rendering its caller', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const local = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    let renders = 0;
+    renderHook(
+      () => {
+        renders += 1;
+        useProviderCatalogWarmup();
+      },
+      { wrapper: local },
+    );
+    await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalledTimes(1));
+    await act(() => client.refetchQueries({ queryKey: ['provider-catalog'] }));
+
+    expect(repository.providerCatalog).toHaveBeenCalledTimes(2);
+    expect(renders).toBe(1);
   });
 });

@@ -1,5 +1,6 @@
 import type { AgentDelta, AgentResolution, PluginEntry, PromptBasis } from '@clio/core/v3';
 import { ArrowLeftIcon } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { AgentPluginMenu } from './agent-plugin-menu';
@@ -7,6 +8,7 @@ import { AgentPluginTree } from './agent-plugin-tree';
 import { AGENT_USE_FILTERS, AGENT_USE_LABELS, type AgentUseKind } from './agent-tab-values';
 import { ComposedPromptView } from './composed-prompt-view';
 import { IconButton } from './primitives/icon-button';
+import { focusQuietly } from './primitives/quiet-focus';
 
 export interface AgentDrillInProps {
   kind: AgentUseKind;
@@ -50,14 +52,17 @@ export function AgentDrillIn({
   onCompact,
 }: AgentDrillInProps) {
   const title = AGENT_USE_LABELS[kind];
+  const back = useRef<HTMLButtonElement>(null);
+  // Arriving keeps focus on Back without its name covering the view.
+  useEffect(() => focusQuietly(back.current), []);
   return (
     <section aria-label={title} className="flex min-w-0 flex-col">
       <div className="flex min-h-10 min-w-0 items-center gap-2 border-b border-border px-2.5 py-1.5 text-[12px] whitespace-nowrap">
         <IconButton
-          autoFocus
           icon={<ArrowLeftIcon aria-hidden="true" />}
           label="Back to the agent"
           onClick={onBack}
+          ref={back}
           size="sm"
         />
         <h3 className="shrink-0 font-medium text-foreground">{title}</h3>

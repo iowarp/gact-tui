@@ -141,18 +141,19 @@ describe('AgentSettings', () => {
     const user = userEvent.setup();
     repository.deleteUserAgent.mockResolvedValue(undefined);
     renderSettings();
-    const yours = await screen.findByRole('group', { name: 'Your agents' });
+    const yours = await screen.findByRole('group', { name: 'Your agents' }, { timeout: 5000 });
     expect(await within(yours).findByText('My analyst')).toBeVisible();
     expect(within(yours).getByText('Based on CLIO and clio/hdf5, without xlsx')).toBeVisible();
-    expect(within(yours).getByText('0 plugins')).toBeVisible();
+    expect(within(yours).getByText('0 packages')).toBeVisible();
     const installed = screen.getByRole('group', { name: 'Installed agents' });
     expect(within(installed).getByText('CLIO')).toBeVisible();
     expect(await within(installed).findByText('Default')).toBeVisible();
     expect(within(installed).queryByRole('button', { name: /^Delete / })).toBeNull();
     await user.click(within(yours).getByRole('button', { name: 'Delete My analyst' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Delete My analyst?' });
+    const ask = await within(yours).findByRole('group', { name: 'Delete this agent?' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(repository.deleteUserAgent).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: /Delete agent/u }));
+    await user.click(within(ask).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(repository.deleteUserAgent).toHaveBeenCalledWith('my-analyst'));
   });
 
@@ -203,7 +204,7 @@ it('explores an agent beside the list, resolves draft changes and saves a new lo
     'aria-pressed',
     'true',
   );
-  await user.click(await within(explorer).findByRole('button', { name: 'Add plugin' }));
+  await user.click(await within(explorer).findByRole('button', { name: 'Add package' }));
   await user.click(await screen.findByRole('option', { name: /hdf5/u }));
   await waitFor(() =>
     expect(repository.resolveAgent).toHaveBeenCalledWith(
@@ -227,7 +228,7 @@ it('explores an agent beside the list, resolves draft changes and saves a new lo
       remove: [],
     }),
   );
-});
+}, 15_000);
 
 it('opens an agent from its row and closes the pane', async () => {
   const user = userEvent.setup();

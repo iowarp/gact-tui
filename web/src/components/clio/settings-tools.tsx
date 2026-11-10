@@ -1,6 +1,6 @@
-import type { McpServerDefinition, SavedMcpService, Workspace } from '@clio/core/v3';
+import type { McpServerDefinition, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderIcon, UnplugIcon, WrenchIcon } from 'lucide-react';
+import { FolderIcon, WrenchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRepository } from '@/hooks/use-repository';
-import { useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
+import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import { useExtensionsSupported } from '@/hooks/use-session-agent';
 import {
   anyServerPreparing,
@@ -34,14 +34,12 @@ import { McpServerPreparationNote } from './mcp-server-preparation';
 import { McpSignInDialog } from './mcp-sign-in';
 import { SettingsSelectField } from './model-select-field';
 import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
-import { DialogFrame } from './primitives/dialog-frame';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { McpServiceIcon, McpServiceList } from './settings-mcp-services';
-import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SchemaSection } from './tool-schema-section';
 import { humanizeToolName } from './tool-presentation';
@@ -92,10 +90,6 @@ export function ToolsSettings({
   const [workspacePreference, setWorkspacePreference] = useState('');
   const [adding, setAdding] = useState<ExtensionAdd>();
   const [detailKey, setDetailKey] = useState('');
-  const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
-  const [shownDelete, setShownDelete] = useState<McpServerDefinition>();
-  if (deleteServer && deleteServer !== shownDelete) setShownDelete(deleteServer);
-  const [removingSaved, setRemovingSaved] = useState<SavedMcpService>();
   const [signingIn, setSigningIn] = useState('');
   const saved = useSavedMcpServices();
   // The empty list's Add follows the toolbar's Add, which states why it waits.
@@ -161,12 +155,12 @@ export function ToolsSettings({
   const remove = useMutation({
     mutationFn: (server: McpServerDefinition) => repository.deleteMcpServer(server.id),
     onSuccess: async () => {
-      setDeleteServer(undefined);
       await invalidate();
       toast.success('MCP server disconnected');
     },
     onError: (error) => toast.error(error.message),
   });
+  const removeSaved = useRemoveSavedMcp();
   const reconnecting = reconnectSession.isPending
     ? reconnectSession.variables?.id
     : reconnect.isPending
@@ -213,10 +207,10 @@ export function ToolsSettings({
         entries={shown}
         label={embedded ? groupLabel : 'MCP servers'}
         onDetails={(entry) => setDetailKey((key) => (key === entry.key ? '' : entry.key))}
-        onDisconnect={setDeleteServer}
+        onDisconnect={(server) => remove.mutateAsync(server)}
         onReconnect={(server) => reconnect.mutate(server)}
         onReconnectSession={sessionId ? (server) => reconnectSession.mutate(server) : undefined}
-        onRemoveSaved={setRemovingSaved}
+        onRemoveSaved={(service) => removeSaved.mutateAsync(service)}
         reconnecting={reconnecting}
         selectedKey={detailEntry?.key}
       />
@@ -314,7 +308,6 @@ export function ToolsSettings({
         />
       </section>
 
-      <RemoveSavedMcpDialog onClose={() => setRemovingSaved(undefined)} service={removingSaved} />
       {signingIn ? (
         <McpSignInDialog
           name={signingIn}
@@ -333,26 +326,6 @@ export function ToolsSettings({
           onSignIn={setSigningIn}
         />
       ) : null}
-      <DialogFrame
-        confirm={{
-          label: remove.isPending ? 'Disconnecting…' : 'Disconnect',
-          onConfirm: () => {
-            if (deleteServer) remove.mutate(deleteServer);
-          },
-          tone: 'destructive',
-          disabled: remove.isPending || !deleteServer,
-        }}
-        description="Its tools stop being available to agents in this service process."
-        icon={<UnplugIcon />}
-        onOpenChange={(open) => (open ? undefined : setDeleteServer(undefined))}
-        open={Boolean(deleteServer)}
-        title={`Disconnect ${shownDelete ? serviceEntryTitle({ server: shownDelete, name: shownDelete.name }) : 'MCP server'}?`}
-      >
-        <p className="text-[0.8125rem] text-muted-foreground">
-          Existing transcript evidence remains readable. Add the connection again to bring its tools
-          back.
-        </p>
-      </DialogFrame>
     </div>
   );
 }

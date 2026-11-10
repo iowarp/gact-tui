@@ -197,6 +197,7 @@ function initialPlugins() {
       description: 'Search and read the National Data Platform catalog.',
       tools: ['ndp_search'],
       skills: ['ndp-explorer'],
+      subagents: ['dataset-scout'],
       mcp_servers: ['ndp'],
     }),
     plugin({
@@ -205,6 +206,8 @@ function initialPlugins() {
       marketplace: 'clio',
       description: 'Profile and tune parallel I/O on HPC file systems.',
       skills: ['darshan-report', 'lustre-striping'],
+      subagents: ['darshan-analyst', 'striping-advisor'],
+      tools: ['darshan_parse', 'lfs_getstripe'],
     }),
     plugin({
       id: 'dev-tools',
@@ -242,6 +245,7 @@ function initialPlugins() {
       marketplace: 'private-local',
       description: 'Sanity checks for regridded soil-moisture fields.',
       skills: ['regrid-checks'],
+      subagents: ['regrid-validator'],
       tools: ['check_grid_bounds', 'write_regrid_report'],
     }),
   ];
@@ -339,6 +343,25 @@ function initialAgents() {
   ];
 }
 
+/** What each fixture contribution does, as the resolution describes it. */
+const CONTRIBUTION_DESCRIPTIONS = {
+  'workspace-guide': 'How this workspace is laid out and where results go.',
+  'ndp-explorer': 'Find NDP datasets by topic, place and time, then read their resources.',
+  'dataset-scout': 'Searches the NDP catalog in its own context and returns a short list.',
+  'darshan-report': 'Turn a Darshan log into a per-file I/O summary with hot spots.',
+  'lustre-striping': 'Choose a stripe count and size for a file from its access pattern.',
+  'darshan-analyst': 'Reads Darshan logs from a job and explains where its I/O time went.',
+  'striping-advisor': 'Proposes Lustre striping for an output directory and checks it.',
+  'regrid-checks': 'Checks a regridded field for bounds, gaps and conservation.',
+  'regrid-validator': 'Validates a regridded soil-moisture field against its source grid.',
+  darshan_parse: 'Parse a Darshan log into counters per file and rank.',
+  lfs_getstripe: 'Read the Lustre striping of a file or directory.',
+  check_grid_bounds: 'Compare a grid’s extent and resolution with its source.',
+  write_regrid_report: 'Write the regrid checks as a Markdown report.',
+};
+
+const described = (id) => CONTRIBUTION_DESCRIPTIONS[id] ?? '';
+
 /** `/v1/agents/resolve`: an agent's plugins with provenance and a short composed prompt. */
 function resolveAgent(agents, plugins, ref, add, remove) {
   const agent = agents.find((row) => row.ref === ref || row.id === ref);
@@ -384,10 +407,36 @@ function resolveAgent(agents, plugins, ref, add, remove) {
     plugins: kept,
     removed: removed.map((id) => ({ id, reason: 'user', because: '' })),
     tools: kept.flatMap((row) =>
-      (pluginOf(row.id)?.tools ?? []).map((name) => ({ name, plugin: row.id, description: '' })),
+      (pluginOf(row.id)?.tools ?? []).map((name) => ({
+        name,
+        plugin: row.id,
+        description: described(name),
+      })),
     ),
     skills: kept.flatMap((row) =>
-      (pluginOf(row.id)?.skills ?? []).map((id) => ({ id, plugin: row.id, description: '' })),
+      (pluginOf(row.id)?.skills ?? []).map((id) => ({
+        id,
+        plugin: row.id,
+        description: described(id),
+      })),
+    ),
+    subagents: kept.flatMap((row) =>
+      (pluginOf(row.id)?.subagents ?? []).map((id) => ({
+        id,
+        plugin: row.id,
+        description: described(id),
+      })),
+    ),
+    commands: kept.flatMap((row) =>
+      (pluginOf(row.id)?.commands ?? []).map((id) => ({ id, plugin: row.id, description: '' })),
+    ),
+    mcp_servers: Object.fromEntries(
+      kept.flatMap((row) =>
+        (pluginOf(row.id)?.mcp_servers ?? []).map((name) => [
+          name,
+          { plugin: row.id, spec: { type: 'stdio' } },
+        ]),
+      ),
     ),
     prompt: {
       sections: [
@@ -397,7 +446,9 @@ function resolveAgent(agents, plugins, ref, add, remove) {
             {
               id: `${base.id}.identity`,
               plugin: `agent:${base.id}`,
+              section: 'identity',
               text: `You are ${base.name}. ${base.description}`,
+              tokens: 24,
             },
           ],
         },
@@ -406,7 +457,9 @@ function resolveAgent(agents, plugins, ref, add, remove) {
           fragments: kept.map((row) => ({
             id: `${row.id}.guide`,
             plugin: row.id,
+            section: 'plugins',
             text: row.description || `Use ${row.id} when it fits the task.`,
+            tokens: 40,
           })),
         },
       ],

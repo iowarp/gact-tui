@@ -225,10 +225,28 @@ async function tabOnly(page, stripName, tabListTitle) {
   await page.waitForTimeout(800);
 }
 
-/** On a phone the pane holds the tab's list or its body; show the body. */
+/** The workbench list when it is a sheet over the tab (under ~1100px, not only on a phone). */
+function listSheet(page) {
+  return page
+    .locator('section[data-slot="workbench-list"][data-overlay]')
+    .filter({ visible: true })
+    .first();
+}
+
+/**
+ * When the list is a sheet it covers the tab's frame bar (its modes and Maximize);
+ * show the tab body. The sheet takes the pointer, so click its Hide by event.
+ */
 async function phoneTabBody(page, listTitle) {
-  if ((page.viewportSize()?.width ?? 1280) > 480) return;
-  const hide = control(page, 'button', `Hide ${listTitle}`, { exact: true });
+  const sheet = listSheet(page);
+  if (!(await sheet.isVisible().catch(() => false))) return;
+  const named = listTitle
+    ? sheet.getByRole('button', { name: `Hide ${listTitle}`, exact: true })
+    : undefined;
+  const hide =
+    named && (await named.isVisible().catch(() => false))
+      ? named
+      : sheet.getByRole('button', { name: /^Hide / }).first();
   if (await hide.isVisible().catch(() => false)) {
     await hide.dispatchEvent('click');
     await page.waitForTimeout(600);
@@ -809,9 +827,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
         await page.waitForTimeout(300);
       },
@@ -822,9 +838,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived-delete',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
         await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
         await page.waitForTimeout(300);
@@ -891,6 +905,23 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    // workbench-lineage "The tab row, as it narrows": several tabs, the last opened in front.
+    s(
+      'canvas',
+      'tabs-many',
+      SESSION,
+      async (page) => {
+        for (const path of [
+          'ndp/soil_sites.csv',
+          'scripts/soil_qc.py',
+          'ndp/soil_moisture.h5',
+          'plan.md',
+          'diagrams/pipeline.mmd',
+        ])
+          await openFile(page, path);
+      },
+      { scenario: { specFiles: true }, settleMs: 1500 },
+    ),
     // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
     // tab), the modes are a checked list in …. Where the list is a sheet over
     // the tab, it hides first.
@@ -922,6 +953,20 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
+    // A frame bar folded to its active mode and a chevron (390): the modes as a
+    // checked list with the key that works anywhere (workbench-keyboard).
+    s('canvas', 'file-csv-modes', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+      const fallback = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (await folded.isVisible().catch(() => false)) await folded.click();
+      else await fallback.click();
+      await overlay(page);
+    }),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
@@ -936,17 +981,34 @@ function catalogue({ settings, infrastructure }) {
       if (await show.isVisible().catch(() => false)) await show.click();
       await page.waitForTimeout(800);
     }),
+    // Whatever Activity shows for a conversation family: delegated runs that finished,
+    // failed and are still running, and a fork.
+    s(
+      'canvas',
+      'activity-finished',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { fixtureDemo: 'conversation-family', settleMs: 1200 },
+    ),
     s('canvas', 'agent', SESSION, (page) => stripList(page, 'Agent')),
     s('canvas', 'agent-customize', SESSION, async (page) => {
       await press(page, 'button', 'Customize the agent');
       await page.waitForTimeout(800);
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
-      await openCanvas(page);
+      // Maximize a real tab at every width. Where the list is a sheet over the tab it
+      // covers the row's Maximize; opening a file closes the sheet, as a tap does.
+      await openFile(page, 'results/stations.csv');
+      await phoneTabBody(page, 'Files');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
-    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'h3' }),
+    // The welcome title; the left bar's headings are folded away at narrow widths.
+    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'main h1' }),
     ...settings.map(({ href, name }) =>
       s('settings', slug(name), href, null, {
         ready: 'main',
@@ -989,7 +1051,13 @@ function catalogue({ settings, infrastructure }) {
       'state-filter',
       '/runs',
       async (page) => {
-        await press(page, 'radio', /^Waiting for you/u);
+        // Narrow toolbars fold the state chips into one filter menu.
+        const chip = page.getByRole('radio', { name: /^Waiting for you/u });
+        if (await chip.isVisible().catch(() => false)) await chip.click();
+        else {
+          await press(page, 'button', /^Filter by state/u);
+          await press(page, 'menuitem', /^Waiting for you/u);
+        }
         await page.waitForTimeout(400);
       },
       { ready: '[data-run-state]' },
@@ -1095,6 +1163,25 @@ function catalogue({ settings, infrastructure }) {
         settleMs: 1500,
       }),
     ),
+    // A diagram's zoom icons leave the bar with the modes (workbench-lineage
+    // step 6: the name, comments and …) and are rows in its … menu.
+    s(
+      'viewer',
+      'mermaid-more',
+      SESSION,
+      async (page) => {
+        await openFile(page, 'diagrams/pipeline.mmd');
+        await page.waitForTimeout(1200);
+        await page
+          .getByRole('toolbar', { name: 'File' })
+          .filter({ visible: true })
+          .getByRole('button', { name: 'File actions' })
+          .first()
+          .click();
+        await overlay(page);
+      },
+      { scenario: { specFiles: true } },
+    ),
     s(
       'viewer',
       'state-loading',
@@ -1157,6 +1244,7 @@ function catalogue({ settings, infrastructure }) {
         'knowledge-graph',
         async (page) => {
           await openVault(page);
+          await phoneTabBody(page);
           await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
         },
       ],

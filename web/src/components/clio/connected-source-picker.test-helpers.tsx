@@ -32,3 +32,12 @@ export async function assertFolderResourceAttachment(attachSourceFolder: Mock) {
     name: 'OPAL inputs',
   });
 }
+
+/** Pick the conversation that records a source's download or link. */
+export async function chooseTrackingConversation(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+) {
+  await user.click(screen.getByRole('combobox', { name: 'Track work in' }));
+  await user.click(await screen.findByRole('option', { name }));
+}
