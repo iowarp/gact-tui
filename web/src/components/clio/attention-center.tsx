@@ -1,18 +1,18 @@
 import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
   BellRingIcon,
   BrainCircuitIcon,
   CheckIcon,
   ChevronDownIcon,
-  CircleAlertIcon,
   CircleIcon,
   LayoutTemplateIcon,
   MessageCircleQuestionIcon,
   ShieldQuestionIcon,
   TextCursorInputIcon,
   TriangleAlertIcon,
+  XIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -64,7 +64,7 @@ const AWAY_PAGE = 30;
 
 const AWAY_ICON: Record<AwayTone, ReactNode> = {
   success: <CheckIcon className="text-primary" />,
-  error: <CircleAlertIcon className="text-destructive" />,
+  error: <XIcon className="text-destructive" />,
   warning: <TriangleAlertIcon className="text-warning" />,
   stopped: <CircleIcon className="text-muted-foreground" />,
 };
@@ -316,6 +316,37 @@ export function ClioAttentionCenter({
       ),
     [activeSessionId, attentions, finishedWork, known, reads, workspaces],
   );
+  const queryClient = useQueryClient();
+  // Retry in place, as the conversation does: the newest reply, when it is an
+  // assistant turn that ended empty or with a recoverable error, runs again on
+  // the conversation's own model (the agent's choice when none is named). Anything else opens the conversation.
+  const retry = useMutation({
+    mutationFn: async (session: Session) => {
+      const page = await repository.transcript(session.id, undefined, { limit: 1 });
+      const last = page.messages.at(-1);
+      const retryable =
+        last?.role === 'assistant' &&
+        (last.blocks.length === 0 ||
+          last.blocks.some((block) => block.type === 'error' && block.recoverable));
+      if (!last || !retryable) return false;
+      await repository.retryTurn(session.id, last.id, { execute: true });
+      return true;
+    },
+    onSuccess: async (retried, session) => {
+      if (!retried) {
+        setOpen(false);
+        navigate(sessionPath(session));
+        return;
+      }
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.key('session-pages', settings.endpoint),
+      });
+    },
+    onError: (_, session) =>
+      toast.error("Couldn't retry the run", {
+        description: `Open ${session.title} to retry it there.`,
+      }),
+  });
   // Read only while the bell is open: the badge counts Needs you, not these.
   const proposals = useQuery({
     queryKey: ['memory', 'proposals', 'pending'],
@@ -518,7 +549,7 @@ export function ClioAttentionCenter({
               </h3>
               {shownAway.map((row) => (
                 <div
-                  className={cn(rowFrame, row.read && 'opacity-50')}
+                  className={cn(rowFrame, 'relative', row.read && 'opacity-50')}
                   data-read={row.read || undefined}
                   data-slot="attention-away"
                   key={row.session.id}
@@ -540,7 +571,15 @@ export function ClioAttentionCenter({
                           timestamp={row.timestamp}
                         />
                       }
-                      primaryAction={row.action}
+                      primaryAction={
+                        row.action === 'Retry' ? (
+                          <span aria-hidden="true" className="invisible">
+                            Retry
+                          </span>
+                        ) : (
+                          row.action
+                        )
+                      }
                       title={
                         <span title={`${row.session.title} ${row.verb}`}>
                           <span className="font-semibold text-foreground">{row.session.title}</span>{' '}
@@ -550,6 +589,17 @@ export function ClioAttentionCenter({
                       variant="notice"
                     />
                   </Link>
+                  {row.action === 'Retry' ? (
+                    <button
+                      aria-label={`Retry ${row.session.title}`}
+                      className="absolute right-2.5 bottom-2 text-[12px] leading-[1.45] font-medium text-accent-foreground hover:underline disabled:opacity-50"
+                      disabled={retry.isPending && retry.variables?.id === row.session.id}
+                      onClick={() => retry.mutate(row.session)}
+                      type="button"
+                    >
+                      Retry
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </section>

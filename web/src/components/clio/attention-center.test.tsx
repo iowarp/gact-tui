@@ -22,11 +22,18 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8100' } }),
 }));
 vi.mock('@/hooks/use-attention-response', () => ({ useAttentionResponse: () => respond }));
-const proposals = vi.hoisted(() => ({ list: [] as unknown[], recent: [] as unknown[] }));
+const proposals = vi.hoisted(() => ({
+  list: [] as unknown[],
+  recent: [] as unknown[],
+  transcript: [] as unknown[],
+  retryTurn: vi.fn(async () => ({})),
+}));
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({
     memoryProposals: async () => proposals.list,
     sessionPage: async () => ({ sessions: proposals.recent }),
+    transcript: async () => ({ messages: proposals.transcript }),
+    retryTurn: proposals.retryTurn,
   }),
 }));
 vi.mock('@/hooks/use-system-version-status', () => ({
@@ -295,10 +302,12 @@ describe('ClioAttentionCenter', () => {
     expect(
       within(dialog).getByRole('link', { name: 'Run done finished: In Lab' }),
     ).toBeInTheDocument();
-    const failed = within(dialog).getByRole('link', {
-      name: 'Run broke failed: The run ended with an error in Lab',
-    });
-    expect(within(failed).getByText('Open')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('link', {
+        name: 'Run broke stopped: The run ended with an error in Lab',
+      }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Retry Run broke' })).toBeInTheDocument();
     expect(
       within(within(dialog).getByRole('link', { name: /Run held paused/ })).getByText('Review'),
     ).toBeInTheDocument();
@@ -326,7 +335,19 @@ describe('ClioAttentionCenter', () => {
     expect(
       await within(dialog).findByRole('link', { name: /^Run elsewhere finished/ }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole('link', { name: /^Run done failed/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: /^Run done stopped/ })).toBeInTheDocument();
+  });
+  it('retries a stopped run in place', async () => {
+    proposals.transcript = [
+      { id: 'msg_9', role: 'assistant', blocks: [{ type: 'error', recoverable: true }] },
+    ];
+    render(<Center attentions={{}} sessions={[ended('broke', 'failed', 6)]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Retry Run broke' }));
+    await waitFor(() =>
+      expect(proposals.retryTurn).toHaveBeenCalledWith('broke', 'msg_9', { execute: true }),
+    );
   });
   it('leaves finished and stopped runs out with Finished work off, keeping paused ones', async () => {
     window.localStorage.setItem('clio.notifications.v1', JSON.stringify({ finishedWork: 'off' }));

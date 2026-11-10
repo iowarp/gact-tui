@@ -20,17 +20,17 @@ interface AwayKind {
 const AWAY_KINDS: Partial<Record<RunState, AwayKind>> = {
   completed: { verb: 'finished', tone: 'success', ended: true },
   failed: {
-    verb: 'failed',
+    verb: 'stopped',
     detail: 'The run ended with an error',
     tone: 'error',
-    action: 'Open',
+    action: 'Retry',
     ended: true,
   },
   interrupted: {
-    verb: 'was interrupted',
+    verb: 'stopped',
     detail: 'The run stopped before it finished',
-    tone: 'warning',
-    action: 'Open',
+    tone: 'error',
+    action: 'Retry',
     ended: true,
   },
   recovery_required: {
