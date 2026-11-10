@@ -13,8 +13,10 @@ const repository = vi.hoisted(() => ({
   readArtifactBytesFor: vi.fn(),
   readWorkspaceFileBytes: vi.fn(),
   resourceContent: vi.fn(),
+  exportArtifact: vi.fn(),
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/tauri/downloads', () => ({ openDownloads: vi.fn(async () => {}) }));
 vi.mock('@/hooks/use-open-file-in-browser', () => ({ useOpenFileInBrowser: () => vi.fn() }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => host.native }));
 vi.mock('@/tauri/documents', () => ({
@@ -156,4 +158,53 @@ it.each(sources)('reveals original $kind bytes when there is no associated app',
   expect(await screen.findByRole('menuitem', { name: 'No associated apps' })).toBeVisible();
   fireEvent.click(screen.getByRole('menuitem', { name: 'Open in folder' }));
   await waitFor(() => expect(revealFileBytes).toHaveBeenCalledWith('plot.png', bytes));
+});
+
+it('downloads the artifact with its evidence as one ZIP', async () => {
+  host.native = false;
+  repository.exportArtifact.mockResolvedValueOnce(
+    new Uint8Array([99, 80, 75, 3, 4, 99]).subarray(1, 5),
+  );
+  let downloaded: Blob | undefined;
+  const createUrl = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+    downloaded = blob as Blob;
+    return 'blob:evidence';
+  });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    expect(this.download).toBe('Drafts-result.csv.crate.zip');
+  });
+  const [artifact] = sources;
+  if (artifact?.kind !== 'artifact') throw new Error('Expected an artifact source');
+  mount({ ...artifact, artifact: { ...artifact.artifact, name: 'Drafts / π result.csv' } });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Open options' }));
+  await user.click(await screen.findByRole('menuitem', { name: /^Download with evidence/u }));
+  await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+  expect(repository.exportArtifact).toHaveBeenCalledWith('art');
+  expect(downloaded?.type).toBe('application/zip');
+  expect([...new Uint8Array(await downloaded!.arrayBuffer())]).toEqual([80, 75, 3, 4]);
+  createUrl.mockRestore();
+  click.mockRestore();
+});
+
+it('starts no download when the evidence package fails', async () => {
+  repository.exportArtifact.mockRejectedValueOnce(new Error('Packaging failed'));
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  mount();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Open options' }));
+  await user.click(await screen.findByRole('menuitem', { name: /^Download with evidence/u }));
+  await waitFor(() => expect(repository.exportArtifact).toHaveBeenCalled());
+  expect(click).not.toHaveBeenCalled();
+  click.mockRestore();
+});
+
+it('offers evidence only for recorded artifacts', async () => {
+  mount(sources[1]);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Open options' }));
+  expect(await screen.findAllByRole('menuitem')).not.toHaveLength(0);
+  expect(screen.queryByRole('menuitem', { name: /^Download with evidence/u })).toBeNull();
 });

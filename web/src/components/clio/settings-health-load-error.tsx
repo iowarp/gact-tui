@@ -27,7 +27,9 @@ export function SettingsLoadError({
     >
       <span className="flex min-w-0 items-baseline gap-1.5" title={technical}>
         <span className="shrink-0 font-medium text-destructive">{title}</span>
-        <span className="min-w-0 truncate text-destructive/90">{plainReason(error)}</span>
+        <span className="min-w-0 truncate text-destructive/90 max-[599px]:whitespace-normal">
+          {plainReason(error)}
+        </span>
       </span>
       {onRetry ? (
         <Button

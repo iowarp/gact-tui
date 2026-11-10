@@ -76,7 +76,6 @@ export function ClioShareSessionDialog({
 
   return (
     <DialogFrame
-      className="w-[clamp(460px,36vw,560px)]"
       open={open}
       onOpenChange={handleOpenChange}
       icon={<Share2Icon />}
