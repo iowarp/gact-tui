@@ -362,12 +362,12 @@ export function ClioComposer({
   );
   const [commandMenuOpen, setCommandMenuOpen] = useState(true);
   const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
-  // Esc (or âŒ˜ . on a Mac) stops the run while focus is in the composer or its queue.
+  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
   useShortcut('stop', () => onStop?.(), {
     enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
     region: rootRef,
   });
-  // Ctrl+S (âŒ˜S) puts the draft aside in the dash; Up in an empty editor brings
+  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
   // the newest back. Restoring over a draft puts that one aside first.
   const savedDraftKey = sessionId ?? `new:${workspaceId}`;
   const savedDrafts = useSavedDrafts(savedDraftKey);
@@ -724,9 +724,11 @@ export function ClioComposer({
                 attachments={attachments}
                 contextReferences={contextReferences}
                 pending={capabilitiesPending}
+                sourcesPending={connectedSources.probing}
                 disabled={controlsDisabled}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
+                onReturnFocus={focusEditorSoon}
               />
             ) : null}
             <ClioComposerBehaviorControls
@@ -749,7 +751,10 @@ export function ClioComposer({
                 />
               }
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
-              reasoningPending={connecting && !selectedOption}
+              reasoningPending={
+                (connecting || modelCatalogStatus === 'loading') &&
+                !selectedOption?.reasoning?.levels?.length
+              }
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
                 selectedOption?.reasoning,
@@ -764,10 +769,12 @@ export function ClioComposer({
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
+                  returnFocus={focusEditorSoon}
                   selected={selectedOption}
                 />
               }
               onChange={choose}
+              onReturnFocus={focusEditorSoon}
               unrecognizedEffort={unrecognizedEffort}
             />
             <ComposerToolbarStatus
