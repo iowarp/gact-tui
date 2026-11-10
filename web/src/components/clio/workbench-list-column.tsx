@@ -156,18 +156,22 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   const { sessionView, onActivityViewChange } = props;
   const switcher =
     sessionView && props.sessionId && onActivityViewChange ? (
-      <SegmentedControl
-        label="Activity view"
-        onValueChange={onActivityViewChange}
-        options={ACTIVITY_VIEWS}
-        value={props.activityView ?? 'timeline'}
-      />
+      // Header actions are icon buttons with their own inset; the segmented control needs one.
+      <span className="mr-1.5 flex shrink-0">
+        <SegmentedControl
+          className="@max-[320px]/list-header:[&>*]:px-1.5!"
+          label="Activity view"
+          onValueChange={onActivityViewChange}
+          options={ACTIVITY_VIEWS}
+          value={props.activityView ?? 'timeline'}
+        />
+      </span>
     ) : null;
   const activityView = switcher ? (props.activityView ?? 'timeline') : 'events';
   if (activityView !== 'events')
     return (
       <>
-        <WorkbenchListHeader actions={switcher} title={title} />
+        <WorkbenchListHeader actions={switcher} title={title} titleYieldsWhenNarrow />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-slot="activity-session">
           <ObservabilityViewControl.Provider
             value={{
@@ -280,18 +284,29 @@ export function WorkbenchListHeader({
   title,
   actions,
   onHide,
+  titleYieldsWhenNarrow = false,
 }: {
   title: string;
   actions?: ReactNode;
   /** Absent for a list in a tab: its tab closes it. */
   onHide?: () => void;
+  /**
+   * In a narrow header the title (which repeats its tab's name) leaves room
+   * for the actions instead of being cut to a letter; it stays for screen readers.
+   */
+  titleYieldsWhenNarrow?: boolean;
 }) {
   return (
     <div
       data-slot="workbench-list-header"
-      className="group/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
+      className="group/list-header @container/list-header flex h-10 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3.5"
     >
-      <h2 className="min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground">
+      <h2
+        className={cn(
+          'min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground',
+          titleYieldsWhenNarrow && '@max-[360px]/list-header:sr-only',
+        )}
+      >
         {title}
       </h2>
       {actions}

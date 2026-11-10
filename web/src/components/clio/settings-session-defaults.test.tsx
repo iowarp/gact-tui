@@ -297,7 +297,7 @@ describe('new session defaults settings', () => {
     repository.sessionDefaults.mockRejectedValueOnce(new Error('Defaults unavailable'));
     renderSettings();
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('New session defaults could not be loaded.');
+    expect(alert).toHaveTextContent('Session defaults could not be loaded.');
     expect(alert).not.toHaveTextContent('Defaults unavailable');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(

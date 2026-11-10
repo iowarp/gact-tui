@@ -24,6 +24,7 @@ const STATES = [
   'info-dialog',
   'right-edge',
   'message',
+  'message-prompt',
   'inline-states',
   'narrow',
   'narrow-fifth',
@@ -134,7 +135,7 @@ function specBox(state) {
   } else if (state === 'activity-row') nodes = after(caption('In the transcript'));
   else if (state === 'info-dialog') nodes = after(caption('ⓘ opened'));
   else if (state === 'right-edge') nodes = after(caption('The right edge')).slice(0, 1);
-  else if (state === 'message') nodes = after(caption('A message'));
+  else if (state === 'message' || state === 'message-prompt') nodes = after(caption('A message'));
   else if (state === 'inline-states' || state === 'compaction')
     nodes = after(caption('Inline, in the transcript'));
   else if (state === 'narrow' || state === 'narrow-fifth') {
@@ -330,7 +331,10 @@ async function captureImplementation(page, state, width, theme, narrow) {
   if (!box || box.width < 2 || box.height < 2) throw new Error(`Empty implementation: ${state}`);
   const hover = await section.getAttribute('data-spec-hover');
   if (hover) {
-    await section.locator(`[id="message-${hover}"]`).hover();
+    const row = section.locator(`[id="message-${hover}"]`);
+    // A prompt's footer answers to its bubble, not the full-width row around it.
+    const prompt = row.locator('[data-slot="user-message-actions"]').locator('..');
+    await ((await prompt.count()) ? prompt : row).hover();
     await settle(page);
   } else await page.mouse.move(0, 0);
   return shoot(page, box);

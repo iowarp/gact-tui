@@ -21,7 +21,7 @@ export function McpAppResponseMessageRow({
 }) {
   return (
     <div
-      className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
+      className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-(--conversation-gutter) pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50`}
       data-index={index}
       id={`message-${messageId}`}
       ref={measureElement}

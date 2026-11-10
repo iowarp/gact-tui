@@ -34,9 +34,33 @@ describe('attentionMinimapMarks', () => {
   it('sums share per message and orders marks by transcript position', () => {
     const marks = attentionMinimapMarks(
       payload([
-        { message_id: 'msg_2', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.1, mean: 0, runs: [] },
-        { message_id: 'msg_0', part_id: 'u', field: 'text', kind: 'user_text', share: 0.02, mean: 0, runs: [] },
-        { message_id: 'msg_0', part_id: 'u', field: 'text', kind: 'user_text', share: 0.03, mean: 0, runs: [] },
+        {
+          message_id: 'msg_2',
+          part_id: 'a',
+          field: 'text',
+          kind: 'assistant_text',
+          share: 0.1,
+          mean: 0,
+          runs: [],
+        },
+        {
+          message_id: 'msg_0',
+          part_id: 'u',
+          field: 'text',
+          kind: 'user_text',
+          share: 0.02,
+          mean: 0,
+          runs: [],
+        },
+        {
+          message_id: 'msg_0',
+          part_id: 'u',
+          field: 'text',
+          kind: 'user_text',
+          share: 0.03,
+          mean: 0,
+          runs: [],
+        },
       ]),
       messages,
     );
@@ -50,8 +74,24 @@ describe('attentionMinimapMarks', () => {
   it('buckets the heaviest message into the top bucket', () => {
     const marks = attentionMinimapMarks(
       payload([
-        { message_id: 'msg_0', part_id: 'u', field: 'text', kind: 'user_text', share: 0.01, mean: 0, runs: [] },
-        { message_id: 'msg_1', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.5, mean: 0, runs: [] },
+        {
+          message_id: 'msg_0',
+          part_id: 'u',
+          field: 'text',
+          kind: 'user_text',
+          share: 0.01,
+          mean: 0,
+          runs: [],
+        },
+        {
+          message_id: 'msg_1',
+          part_id: 'a',
+          field: 'text',
+          kind: 'assistant_text',
+          share: 0.5,
+          mean: 0,
+          runs: [],
+        },
       ]),
       messages,
       4,
@@ -62,7 +102,17 @@ describe('attentionMinimapMarks', () => {
 
   it('ignores blocks for a message not present in the transcript', () => {
     const marks = attentionMinimapMarks(
-      payload([{ message_id: 'msg_missing', part_id: 'u', field: 'text', kind: 'user_text', share: 0.1, mean: 0, runs: [] }]),
+      payload([
+        {
+          message_id: 'msg_missing',
+          part_id: 'u',
+          field: 'text',
+          kind: 'user_text',
+          share: 0.1,
+          mean: 0,
+          runs: [],
+        },
+      ]),
       messages,
     );
     expect(marks).toEqual([]);
@@ -71,9 +121,33 @@ describe('attentionMinimapMarks', () => {
   it('states each message as a share of the attention on the conversation, and greys tiny ones', () => {
     const marks = attentionMinimapMarks(
       payload([
-        { message_id: 'msg_0', part_id: 'u', field: 'text', kind: 'user_text', share: 0.001, mean: 0, runs: [] },
-        { message_id: 'msg_1', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.145, mean: 0, runs: [] },
-        { message_id: 'msg_2', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.09, mean: 0, runs: [] },
+        {
+          message_id: 'msg_0',
+          part_id: 'u',
+          field: 'text',
+          kind: 'user_text',
+          share: 0.001,
+          mean: 0,
+          runs: [],
+        },
+        {
+          message_id: 'msg_1',
+          part_id: 'a',
+          field: 'text',
+          kind: 'assistant_text',
+          share: 0.145,
+          mean: 0,
+          runs: [],
+        },
+        {
+          message_id: 'msg_2',
+          part_id: 'a',
+          field: 'text',
+          kind: 'assistant_text',
+          share: 0.09,
+          mean: 0,
+          runs: [],
+        },
       ]),
       messages,
     );

@@ -21,17 +21,27 @@ import { TurnModelExhausted } from './turn-model-exhausted';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { useAttentionEvidenceTarget } from '@/hooks/use-attention-evidence-target';
 import { completionFooterShown, MessageCompletionFooter } from './message-completion-footer';
-import { DeferredMessageActions, MessageRowActions } from './message-row-actions';
+import {
+  DeferredMessageActions,
+  MessageRowActions,
+  PendingCancelButton,
+} from './message-row-actions';
 import { Tag } from './primitives/tag';
 import { messageToolCallCounts } from './message-tool-call-counts';
-import { ConversationModelCheckpoint } from './conversation-model-boundary';
-import { modelBoundariesEqual } from './conversation-model-boundaries';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { canGroupUserMessages, feedbackMessage } from './conversation-user-group';
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
 import { ConversationSummonedWork } from './conversation-summoned-work';
 import { DiffusionCanvas } from './diffusion-canvas';
+import { ConversationModelDivider } from './transcript-divider';
+import type { ConversationModelBoundary } from './conversation-model-boundaries';
+
+function modelBoundaryKey(boundary: ConversationModelBoundary | undefined): string {
+  const id = (model: ConversationModelBoundary['model']) =>
+    model ? `${model.provider_id}/${model.model_id}` : '';
+  return boundary ? `${id(boundary.model)}<${id(boundary.previous)}` : '';
+}
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -119,6 +129,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
+  // A settled run folds into its counted row once the agent moves past it.
+  const turnLive =
+    active ||
+    (liveActivityId !== undefined &&
+      turn.iterations.some((iteration) => iteration.id === liveActivityId));
   const executionMode = specialMessageExecutionMode(message);
   const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
@@ -168,7 +183,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     <div
       className={cn(
         virtualized ? 'absolute left-0 top-0' : 'relative',
-        'w-full px-5 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8',
+        'w-full px-(--conversation-gutter) outline-none target:rounded-xl target:ring-2 target:ring-primary/50',
         responseContinued || userContinued ? 'pb-0' : 'pb-1',
       )}
       data-index={index}
@@ -188,7 +203,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           workspaceId={entities.workspaceId}
         />
       ) : null}
-      {modelBoundary ? <ConversationModelCheckpoint boundary={modelBoundary} /> : null}
+      {modelBoundary ? <ConversationModelDivider boundary={modelBoundary} /> : null}
       {message.role === 'assistant' && leadingDelegations.length > 0 ? (
         <ParentDelegationMessage message={{ ...message, blocks: leadingDelegations }} />
       ) : null}
@@ -238,7 +253,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             <div
               className={
                 message.role === 'user'
-                  ? 'group/prompt relative mb-2 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]'
+                  ? 'group/prompt relative mb-1.5 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]'
                   : undefined
               }
             >
@@ -351,6 +366,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               followLiveActivity={segment.iterations.some(
                                 (iteration) => iteration.id === liveActivityId,
                               )}
+                              turnLive={
+                                // Anything the agent did after these calls means it moved on.
+                                turnLive &&
+                                !segments
+                                  .slice(segmentIndex + 1)
+                                  .some((later) => later.kind !== 'feedback')
+                              }
                               activeMcpAppId={entities.activeMcpAppId}
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
@@ -362,6 +384,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                               mode={displayMode}
                               onOpenSubagent={entities.onOpenSubagent}
                               onOpenArtifact={entities.onOpenArtifact}
+                              onOpenFile={entities.onOpenFile}
                               onInteractionResponse={entities.onInteractionResponse}
                               subagents={entities.subagents}
                             />
@@ -407,17 +430,15 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </MessageContent>
               {message.role === 'user' ? (
                 <div
-                  className={cn(
-                    'mt-0.5 flex h-[22px] max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
-                    // Nothing stays in view: the row takes no height; time and actions show on hover.
-                    !pendingSteer && !executionMode && !marked && 'sm:mt-0 sm:h-0',
-                  )}
+                  // The spec's `.rft`: one 24px line under the bubble at every width.
+                  className="flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
                   data-slot="user-message-actions"
                 >
                   {pendingSteer ? (
-                    <Tag tone="info" width="auto">
-                      Queued
-                    </Tag>
+                    <>
+                      <Tag width="auto">Queued</Tag>
+                      <PendingCancelButton entities={entities} message={message} />
+                    </>
                   ) : null}
                   {executionMode ? (
                     <span
@@ -456,13 +477,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   <div
                     className={cn(
                       'flex items-center gap-3',
-                      // On hover it sits in the empty space left of the bubble, so it reserves no
-                      // height under it. Opacity, not visibility, keeps the actions focusable.
-                      !pendingSteer &&
-                        'sm:pointer-events-none sm:absolute sm:right-full sm:bottom-0 sm:mr-2 sm:h-[22px] sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
-                      // A queued prompt keeps only its × in view; time, mark and copy show on hover.
-                      pendingSteer &&
-                        'sm:[&>time]:opacity-0 sm:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-0 sm:group-hover/prompt:[&>time]:opacity-100 sm:group-hover/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100 sm:group-focus-within/prompt:[&>time]:opacity-100 sm:group-focus-within/prompt:[&_[data-slot=message-row-actions]>:not([data-pending-cancel])]:opacity-100',
+                      // Time and actions show on hover; opacity, not visibility, keeps them focusable.
+                      'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
                     )}
                   >
                     <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
@@ -626,7 +642,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
-    !modelBoundariesEqual(left.modelBoundary, right.modelBoundary) ||
+    modelBoundaryKey(left.modelBoundary) !== modelBoundaryKey(right.modelBoundary) ||
     left.forkOrigin !== right.forkOrigin ||
     left.agentName !== right.agentName ||
     left.attentionData !== right.attentionData ||

@@ -11,7 +11,7 @@ import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
-import { storeProviderCredential } from '@/tauri/secure-credentials';
+import { deleteProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { useOwnedState } from './provider-owned-state';
 import { refreshModelsWithClient } from './provider-model-refresh';
 import { verifySignedInProvider } from './provider-sign-in-verify';
@@ -345,7 +345,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       if (!presetId || !preset) throw new Error('Choose a provider first.');
       const resolvedApiBase = apiBase || preset.api_base || '';
       setStage('Removing key…');
-      await storeProviderCredential(presetId, resolvedApiBase, '');
+      await deleteProviderCredential(presetId, resolvedApiBase);
       const configuration = queryClient.getQueryData<{ provider_id?: string; model?: string }>(
         configurationKey,
       );

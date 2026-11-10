@@ -3,7 +3,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSubagentCard, ClioSubagentLifecycleLine } from './subagent-card';
 import { PresentationNavigation } from './presentation-navigation';
 
-afterEach(cleanup);
+const repository = vi.hoisted(() => ({ transcript: vi.fn() }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
+const searchCall = {
+  id: 'call_search',
+  session_id: 'session_child',
+  name: 'ndp_search',
+  state: 'completed' as const,
+  input: { query: 'SMAP_L3_SM_P' },
+  started_at: '2026-08-22T00:00:01Z',
+  duration_ms: 2_100,
+};
+
+afterEach(() => {
+  cleanup();
+  repository.transcript.mockReset();
+});
 
 describe('ClioSubagentCard', () => {
   it('reports an unrecognized child state as unknown instead of completed', () => {
@@ -78,7 +94,7 @@ describe('ClioSubagentCard', () => {
     expect(screen.queryByText('Child agent unavailable')).not.toBeInTheDocument();
   });
 
-  it('reads as one delegate row whose body holds the returned result', () => {
+  it('reads as one delegate row whose body nests its calls and returned result', async () => {
     const onOpen = vi.fn();
     render(
       <ClioSubagentCard
@@ -106,8 +122,22 @@ describe('ClioSubagentCard', () => {
     expect(screen.queryByText('Open conversation')).not.toBeInTheDocument();
     expect(screen.queryByText('main', { exact: true })).not.toBeInTheDocument();
 
+    repository.transcript.mockResolvedValue({ tools: [searchCall] });
     fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
-    expect(screen.getByText('Resolved the region with authoritative coordinates.')).toBeVisible();
+    // Its calls nest one step in as rows, then what it returned; no Assignment box.
+    const calls = screen.getByRole('group', { name: 'Calls by geospatial' });
+    expect(
+      await within(calls).findByRole('button', { name: 'Show result for ndp_search' }),
+    ).toBeInTheDocument();
+    expect(repository.transcript).toHaveBeenCalledWith(
+      'session_child',
+      expect.any(AbortSignal),
+      expect.objectContaining({ limit: expect.any(Number) }),
+    );
+    expect(
+      within(calls).getByText('Resolved the region with authoritative coordinates.'),
+    ).toBeVisible();
+    expect(screen.queryByText('Assignment')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open geospatial' }));
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
@@ -167,7 +197,7 @@ describe('ClioSubagentLifecycleLine', () => {
     return onOpen;
   }
 
-  it('names the agent as a link with its assignment as the argument', () => {
+  it('names the agent as a link with its assignment as the argument', async () => {
     const onOpen = show('delegate.started');
     expect(screen.getByText('Delegate')).toBeVisible();
     expect(screen.getByText('researcher')).toBeVisible();
@@ -175,21 +205,30 @@ describe('ClioSubagentLifecycleLine', () => {
     expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
     expect(screen.queryByText('completed')).not.toBeInTheDocument();
     expect(screen.getByText(child.task)).toBeVisible();
+    repository.transcript.mockResolvedValue({ tools: [] });
     fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
-    expect(screen.getByRole('region', { name: 'Delegate researcher' })).toHaveTextContent(
-      child.task,
-    );
+    // Without calls the opened delegate is one quiet line; it repeats no assignment.
+    const calls = screen.getByRole('group', { name: 'Calls by researcher' });
+    expect(await within(calls).findByText('No calls recorded')).toBeVisible();
+    expect(within(calls).queryByText(child.task)).not.toBeInTheDocument();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open researcher' }));
     expect(onOpen).toHaveBeenCalledWith(child, 'canvas');
   });
 
-  it('shows a return as a turn ending without claiming the assignment succeeded', () => {
+  it('shows a return as a turn ending without claiming the assignment succeeded', async () => {
     show('delegate.completed');
     expect(screen.getByText('Subagent turn ended')).toBeVisible();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+    repository.transcript.mockRejectedValueOnce(new Error('offline'));
     fireEvent.click(screen.getByRole('button', { name: 'Expand Subagent turn ended' }));
     expect(screen.getByText(child.result)).toBeVisible();
+    expect(await screen.findByText('Its calls could not be loaded')).toBeVisible();
+    repository.transcript.mockResolvedValue({ tools: [{ ...searchCall, session_id: 'child' }] });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(
+      await screen.findByRole('button', { name: 'Show result for ndp_search' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps continuations distinct from returned results', () => {
