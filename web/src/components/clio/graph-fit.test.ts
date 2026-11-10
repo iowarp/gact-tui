@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { GRAPH_GAP, GRAPH_MARGIN, GRAPH_MIN_ZOOM, fitColumns, fitHeight } from './graph-fit';
+import {
+  GRAPH_GAP,
+  GRAPH_MARGIN,
+  GRAPH_MIN_ZOOM,
+  fitColumns,
+  fitHeight,
+  fitWidth,
+  graphEdges,
+} from './graph-fit';
 
 const CARD = 120;
 const span = (columns: number, gap: number) => columns * CARD + (columns - 1) * gap;
@@ -27,5 +35,28 @@ describe('graph fit', () => {
     expect(fitHeight(fit, 300, 1200)).toBe(GRAPH_MIN_ZOOM);
     expect(fitHeight(fit, 800, 200)).toBe(1);
     expect(fitHeight(fit, undefined, 200)).toBe(1);
+  });
+
+  it('fits a drawing to the pane width while it stays readable, and scrolls past that', () => {
+    expect(fitWidth(1000, 500, 14)).toBe(1);
+    expect(fitWidth(390, 400, 14)).toBeCloseTo(362 / 400);
+    expect(fitWidth(390, 640, 14)).toBe(GRAPH_MIN_ZOOM);
+    expect(fitWidth(undefined, 640, 14)).toBe(1);
+  });
+
+  it('cues each pane edge the drawing continues past, level with its visible middle', () => {
+    const pane = { paneWidth: 360, paneHeight: 600 };
+    expect(graphEdges({ ...pane, x: 14, y: 14, width: 300, height: 180 })).toEqual({
+      left: false,
+      right: false,
+      top: false,
+      bottom: false,
+      level: 104,
+      across: 164,
+    });
+    const scrolled = graphEdges({ ...pane, x: -40, y: 14, width: 520, height: 180 });
+    expect(scrolled).toMatchObject({ left: true, right: true, top: false, bottom: false });
+    expect(scrolled?.level).toBe(104);
+    expect(graphEdges({ ...pane, x: 0, y: 0, width: 0, height: 0 })).toBeUndefined();
   });
 });
