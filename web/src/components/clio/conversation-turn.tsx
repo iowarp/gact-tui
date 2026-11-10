@@ -13,7 +13,7 @@ import type {
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus } from './status';
 import { TranscriptTaskRow } from './transcript-task-row';
-import { getToolStatus } from './tool-presentation';
+import { isToolStopped } from './tool-presentation';
 import {
   ClioAgentMessageLine,
   ClioSubagentLifecycleLine,
@@ -23,7 +23,11 @@ import { subagentsForTool } from './subagent-tool-link';
 import { ClioToolInvocation } from './tool-invocation';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
-import { questionInteractionsForTool, splitWaitingQuestion } from './agent-answer-domain';
+import {
+  permissionInteractionForTool,
+  questionInteractionsForTool,
+  splitWaitingQuestion,
+} from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
 import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
@@ -299,6 +303,7 @@ export function ConversationTurn({
                 live={followLiveActivity && index === groups.length - 1}
                 turnLive={(turnLive || followLiveActivity) && index === groups.length - 1}
                 subagents={subagents}
+                interactions={interactions}
               >
                 {(item) => (
                   <Fragment key={item.id}>
@@ -391,6 +396,7 @@ function ActivityLane({
   live,
   turnLive,
   subagents,
+  interactions,
   children,
 }: {
   id: string;
@@ -399,6 +405,7 @@ function ActivityLane({
   live: boolean;
   turnLive: boolean;
   subagents: Record<string, SubagentRun>;
+  interactions?: readonly PendingInteraction[];
   children: (item: ConversationIteration) => ReactNode;
 }) {
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
@@ -421,7 +428,7 @@ function ActivityLane({
       (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
       0,
     ) > 1 &&
-    runSettled(head);
+    runSettled(head, interactions);
   const showAll = folded ? (
     <Button
       variant="ghost"
@@ -475,13 +482,18 @@ function ActivityLane({
           onOpenChange={setRunOpen}
           open={runOpen}
           outcome={
-            run.failed ? `${run.failed} failed` : run.interrupted ? 'interrupted' : undefined
+            [
+              run.failed ? `${run.failed} failed` : '',
+              run.interrupted ? `${run.interrupted} stopped` : '',
+            ]
+              .filter(Boolean)
+              .join(', ') || undefined
           }
-          outcomeTone={run.failed ? 'error' : 'warning'}
+          outcomeTone={run.failed ? 'error' : 'muted'}
           status={
             <StatusIndicator
               display="column"
-              label={run.failed ? 'Some calls failed' : run.interrupted ? 'Interrupted' : 'Done'}
+              label={run.failed ? 'Some calls failed' : run.interrupted ? 'Stopped' : 'Done'}
               mark="glyph"
               tone={run.failed ? 'error' : run.interrupted ? 'stopped' : 'success'}
             />
@@ -501,12 +513,19 @@ function ActivityLane({
 }
 
 /** Nothing in the run is still working or waiting, so it can fold. */
-function runSettled(group: readonly ConversationIteration[]): boolean {
+function runSettled(
+  group: readonly ConversationIteration[],
+  interactions: readonly PendingInteraction[] | undefined,
+): boolean {
   return group.every(
     (item) =>
       !item.streaming &&
       item.thinking.every((thought) => !thought.streaming) &&
-      item.tools.every((tool) => !['pending', 'running'].includes(tool.state)) &&
+      item.tools.every(
+        (tool) =>
+          !['pending', 'running'].includes(tool.state) &&
+          !permissionInteractionForTool(interactions, tool),
+      ) &&
       item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
   );
 }
@@ -581,9 +600,10 @@ function IterationDetail({
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
             (() => {
-              const { waiting, rest } = showQuestionInteractions
+              const { waiting: question, rest } = showQuestionInteractions
                 ? splitWaitingQuestion(questionInteractionsForTool(interactions, entry.id))
                 : { waiting: undefined, rest: [] };
+              const waiting = question ?? permissionInteractionForTool(interactions, entry.tool);
               return (
                 <Fragment key={`tool:${entry.id}`}>
                   <div
@@ -674,8 +694,7 @@ function IterationDetail({
             <TranscriptTaskRow key={`task:${entry.id}`} id={entry.id} task={entry.task} />
           ) : null,
         )}
-        {iteration.interrupted &&
-        !iteration.tools.some((tool) => getToolStatus(tool) === 'interrupted') ? (
+        {iteration.interrupted && !iteration.tools.some(isToolStopped) ? (
           <ClioStatus value="interrupted" />
         ) : null}
       </div>

@@ -230,10 +230,18 @@ export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
   // Saved presentation metadata cannot establish an unrecorded completion.
   if (tool.state === 'unknown') return 'unknown';
   if (getToolInterruptionDetail(tool)) return 'interrupted';
+  // A call the person stopped was stopped, whatever its producer called the error it saw.
+  if (tool.state === 'cancelled') return 'cancelled';
   const declared = tool.presentation?.status;
   return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
     ? (declared as ClioStatusValue)
     : tool.state;
+}
+
+/** The call ended because it was stopped or interrupted, not because it failed. */
+export function isToolStopped(tool: ToolInvocation): boolean {
+  const status = getToolStatus(tool);
+  return status === 'interrupted' || status === 'cancelled';
 }
 
 /** Explain an interruption only from authored metadata or a recognized receipt. */

@@ -37,10 +37,16 @@ export function MessageCompletionFooter({
   const duration = replyDuration(message);
   const word = interrupted && !outcomeShown;
   const facts = Boolean(message.model || tokens || duration);
+  // With nothing to say beyond the reply line's own outcome, the hover actions share
+  // that line's row instead of leaving an empty one under it.
+  const actionsOnly = outcomeShown && !word && !facts;
   const timestamp = message.completed_at ?? message.created_at;
   return (
     <div
-      className="mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
+      className={cn(
+        'mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+        actionsOnly && 'sm:pointer-events-none sm:-mt-[31px]',
+      )}
       data-slot="message-completion-footer"
     >
       {word || facts || !outcomeShown ? (
@@ -55,7 +61,12 @@ export function MessageCompletionFooter({
             type="button"
           >
             {word ? (
-              <span className="shrink-0 font-medium text-destructive">
+              <span
+                className={cn(
+                  'shrink-0 font-medium',
+                  failed ? 'text-destructive' : 'text-muted-foreground',
+                )}
+              >
                 {failed ? 'Failed' : 'Stopped'}
               </span>
             ) : null}
@@ -76,7 +87,7 @@ export function MessageCompletionFooter({
       ) : null}
       <div
         className={cn(
-          'ml-auto flex shrink-0 items-center gap-1',
+          'pointer-events-auto ml-auto flex shrink-0 items-center gap-1',
           // Hover names the actions; a pressed one (a mark) stays in view. Touch shows all.
           // Opacity, not visibility: hidden actions stay focusable, so keyboard users
           // reach them and a closing dialog can return focus to its trigger.

@@ -1,4 +1,4 @@
-import { workspaceName } from '@/lib/workspace-labels';
+import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import type { Workspace, WorkspaceSourceFolder } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, FolderIcon, LockIcon } from 'lucide-react';
@@ -173,6 +173,8 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
   };
   const [removing, setRemoving] = useState<string[]>([]);
 
+  // The default workspace is the fixed Conversations section: shown, never renamed.
+  const fixedName = workspace.id === DEFAULT_WORKSPACE_ID ? workspaceName(workspace) : undefined;
   const name = draft.name ?? workspace.display_name;
   const colour = draft.colour ?? appearance.colour;
   const icon = draft.icon ?? appearance.icon;
@@ -255,17 +257,28 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
 
   return (
     <div className="min-w-0">
-      <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
-        <Input
-          aria-invalid={nameDirty && !name.trim() ? true : undefined}
-          className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
-          disabled={save.isPending}
-          id="folders-name"
-          onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-          title={name}
-          value={name}
-        />
-      </SettingsRow>
+      {fixedName ? (
+        <SettingsRow
+          info="Conversations started outside a project folder. This workspace can’t be renamed."
+          title="Name"
+        >
+          <span className="min-w-0 truncate text-[0.78125rem] text-muted-foreground">
+            {fixedName}
+          </span>
+        </SettingsRow>
+      ) : (
+        <SettingsRow dirty={nameDirty} htmlFor="folders-name" title="Name">
+          <Input
+            aria-invalid={nameDirty && !name.trim() ? true : undefined}
+            className="h-[1.875rem] w-full text-[0.78125rem] md:text-[0.78125rem]"
+            disabled={save.isPending}
+            id="folders-name"
+            onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+            title={name}
+            value={name}
+          />
+        </SettingsRow>
+      )}
       <SettingsRow dirty={colourDirty} title="Colour">
         <ColourSwatches
           disabled={save.isPending}

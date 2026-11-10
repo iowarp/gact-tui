@@ -397,6 +397,9 @@ export function ClioAttentionCenter({
           className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
           count={responseCount || undefined}
           countTone="warning"
+          hoverLabel={
+            responseCount === 0 ? undefined : `Notifications, ${responseCount} need you`
+          }
           icon={<BellIcon />}
           label={label}
           shortcut="notifications"

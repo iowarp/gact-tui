@@ -4,14 +4,7 @@ import { PackageIcon, BoxesIcon, CableIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { CapabilitySelection } from './capability-picker';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { DialogFrame } from './primitives/dialog-frame';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -233,160 +226,159 @@ function ExtensionSourceDialog({
     }
   }
   const importing = choice.kind === 'import';
+  const missing = importing
+    ? !source.trim()
+    : !name.trim() ||
+      (choice.kind === 'upload' && !file) ||
+      ((choice.kind === 'skill' || choice.kind === 'plugin') && !description.trim()) ||
+      (choice.kind === 'skill' && !instructions.trim());
   return (
-    <Dialog
-      open
+    <DialogFrame
+      confirm={{
+        label: busy ? 'Adding…' : importing ? 'Install source' : 'Save to private marketplace',
+        onConfirm: () => void save(),
+        disabled: busy || supported !== true || missing,
+      }}
+      description={
+        importing
+          ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
+          : choice.kind === 'plugin'
+            ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
+            : choice.kind === 'upload'
+              ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
+              : 'Save reusable instructions in your private marketplace.'
+      }
+      icon={<PackageIcon />}
       onOpenChange={(open) => {
         if (!open && !busy) onClose();
       }}
+      open
+      title={
+        choice.kind === 'upload' && choice.category
+          ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'}`
+          : TITLES[choice.kind]
+      }
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>
-            {choice.kind === 'upload' && choice.category
-              ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'}`
-              : TITLES[choice.kind]}
-          </DialogTitle>
-          <DialogDescription>
-            {importing
-              ? 'Install a marketplace, plugin or Agent Skills folder. The original source stays unchanged.'
-              : choice.kind === 'plugin'
-                ? 'Combine installed capabilities and saved connections. Credentials stay with their connection.'
-                : choice.kind === 'upload'
-                  ? `Upload a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP to your private marketplace.`
-                  : 'Save reusable instructions in your private marketplace.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
+      <form
+        className="clio-scrollbar grid max-h-[min(62dvh,34rem)] gap-4 overflow-y-auto"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!busy && !missing && supported === true) void save();
+        }}
+      >
+        <Label className="grid gap-2">
+          {importing ? 'Local name (optional)' : 'Name'}
+          <Input
+            data-initial-focus=""
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={
+              choice.kind === 'skill' || choice.category === 'skills'
+                ? 'My skill'
+                : choice.kind === 'plugin' || choice.category === 'plugins'
+                  ? 'My plugin'
+                  : 'My source'
+            }
+            required={!importing}
+          />
+        </Label>
+        {importing ? (
           <Label className="grid gap-2">
-            {importing ? 'Local name (optional)' : 'Name'}
+            Repository URL or folder on the agent host
             <Input
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={
-                choice.kind === 'skill' || choice.category === 'skills'
-                  ? 'My skill'
-                  : choice.kind === 'plugin' || choice.category === 'plugins'
-                    ? 'My plugin'
-                    : 'My source'
-              }
-              required={!importing}
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+              placeholder="https://github.com/homeassistant-ai/skills"
+              required
             />
           </Label>
-          {importing ? (
-            <Label className="grid gap-2">
-              Repository URL or folder on the agent host
-              <Input
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                placeholder="https://github.com/homeassistant-ai/skills"
-                required
-              />
-            </Label>
-          ) : null}
-          {choice.kind === 'upload' ? (
-            <div className="grid gap-2">
-              <Input
-                ref={fileInput}
-                className="sr-only"
-                aria-label={choice.category === 'skills' ? 'Skill ZIP' : 'Plugin ZIP'}
-                type="file"
-                accept=".zip"
-                onChange={(event) => setFile(event.target.files?.[0])}
-              />
-              <button
-                type="button"
-                className={`rounded-lg border-2 border-dashed p-6 text-center text-sm transition-colors ${dragging ? 'border-primary bg-accent' : 'hover:bg-muted/40'}`}
-                onClick={() => fileInput.current?.click()}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setDragging(false);
-                  const dropped = event.dataTransfer.files;
-                  if (dropped.length !== 1) setError('Drop one ZIP file');
-                  else {
-                    setFile(dropped[0]);
-                    setError('');
-                  }
-                }}
-              >
-                {file
-                  ? file.name
-                  : `Drop a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP here, or click to choose`}
-              </button>
-              <span className="text-sm text-muted-foreground">
-                {choice.category === 'skills'
-                  ? 'A skill folder containing SKILL.md and its references.'
-                  : 'A plugin folder containing plugin.json or .claude-plugin/plugin.json.'}{' '}
-                Up to 128 UTF-8 files, 2 MiB uncompressed.
-              </span>
-            </div>
-          ) : null}
-          {choice.kind === 'skill' || choice.kind === 'plugin' ? (
-            <Label className="grid gap-2">
-              Description
-              <Input
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                required
-              />
-            </Label>
-          ) : null}
-          {choice.kind === 'skill' ? (
-            <Label className="grid gap-2">
-              Instructions
-              <Textarea
-                className="min-h-52"
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value)}
-                placeholder="When to use this skill, what to do, and how to verify the outcome."
-                required
-              />
-            </Label>
-          ) : null}
-          {choice.kind === 'plugin' ? (
-            <>
-              <PluginChoices values={refs} onChange={setRefs} />
-              <ConnectionChoices
-                connections={connections}
-                values={selected}
-                onChange={setSelected}
-              />
-            </>
-          ) : null}
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {!importing ? (
-            <p className="text-sm text-muted-foreground">
-              Saves to your Private local marketplace on this agent host. GitHub backup is available
-              from Marketplaces.
-            </p>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || supported !== true}>
-              {busy ? 'Adding…' : importing ? 'Install source' : 'Save to private marketplace'}
-            </Button>
+        ) : null}
+        {choice.kind === 'upload' ? (
+          <div className="grid gap-2">
+            <Input
+              ref={fileInput}
+              className="sr-only"
+              aria-label={choice.category === 'skills' ? 'Skill ZIP' : 'Plugin ZIP'}
+              type="file"
+              accept=".zip"
+              onChange={(event) => setFile(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              className={`rounded-lg border-2 border-dashed p-6 text-center text-sm transition-colors ${dragging ? 'border-primary bg-accent' : 'hover:bg-muted/40'}`}
+              onClick={() => fileInput.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                const dropped = event.dataTransfer.files;
+                if (dropped.length !== 1) setError('Drop one ZIP file');
+                else {
+                  setFile(dropped[0]);
+                  setError('');
+                }
+              }}
+            >
+              {file
+                ? file.name
+                : `Drop a ${choice.category === 'skills' ? 'skill' : 'plugin'} ZIP here, or click to choose`}
+            </button>
+            <span className="text-sm text-muted-foreground">
+              {choice.category === 'skills'
+                ? 'A skill folder containing SKILL.md and its references.'
+                : 'A plugin folder containing plugin.json or .claude-plugin/plugin.json.'}{' '}
+              Up to 128 UTF-8 files, 2 MiB uncompressed.
+            </span>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        ) : null}
+        {choice.kind === 'skill' || choice.kind === 'plugin' ? (
+          <Label className="grid gap-2">
+            Description
+            <Input
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              required
+            />
+          </Label>
+        ) : null}
+        {choice.kind === 'skill' ? (
+          <Label className="grid gap-2">
+            Instructions
+            <Textarea
+              className="min-h-52"
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              placeholder="When to use this skill, what to do, and how to verify the outcome."
+              required
+            />
+          </Label>
+        ) : null}
+        {choice.kind === 'plugin' ? (
+          <>
+            <PluginChoices values={refs} onChange={setRefs} />
+            <ConnectionChoices connections={connections} values={selected} onChange={setSelected} />
+          </>
+        ) : null}
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {!importing ? (
+          <p className="text-sm text-muted-foreground">
+            Saves to your Private local marketplace on this agent host. GitHub backup is available
+            from Marketplaces.
+          </p>
+        ) : null}
+        <button className="sr-only" tabIndex={-1} type="submit">
+          Submit
+        </button>
+      </form>
+    </DialogFrame>
   );
 }
 
