@@ -505,6 +505,11 @@ export function ClioAppShell({
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            // A list search field closes itself on Escape; that press must not close the sheet.
+            onEscapeKeyDown={(event) => {
+              if ((event.target as Element | null)?.closest?.('[data-escape-owner]'))
+                event.preventDefault();
+            }}
             // The spec's narrow layout keeps the folded left bar visible and undimmed.
             overlayClassName="bg-transparent"
             ref={workbenchSheetRef}

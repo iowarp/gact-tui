@@ -33,6 +33,7 @@ export function useWorkbenchListSearch(label: string) {
             aria-label={label}
             autoFocus
             className="h-7 text-xs"
+            data-escape-owner=""
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Escape') return;

@@ -6,15 +6,13 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
-  DatabaseIcon,
   GlobeIcon,
   ListFilterIcon,
   PanelRightCloseIcon,
-  PaperclipIcon,
   SearchIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { memo, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,11 +30,10 @@ import {
 } from '@/lib/artifact-categories';
 import { artifactEvidenceLabel } from '@/lib/artifact-presentation';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
-import { formatCompactBytes, formatResourceSize } from '@/lib/format';
+import { formatResourceSize } from '@/lib/format';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { ArtifactTypeIcon } from './artifact-type-icon';
-import { ConnectedSourcePicker } from './connected-source-picker';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { SegmentedControl, type SegmentedOption } from './primitives/segmented-control';
@@ -48,6 +45,9 @@ import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { WorkbenchActivityList } from './workbench-activity-list';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkbenchListResizeHandle } from './workbench-list-resize';
+import { GroupLabel, Rows } from './workbench-list-rows';
+import { activateOnKey } from './workbench-row-keys';
+import { SourcesList } from './workbench-sources-list';
 import { useListFitWidth } from './workbench-list-fit';
 import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
@@ -402,151 +402,6 @@ function FilesList({
   );
 }
 
-/** Enter and Space open a row, like a click. */
-function activateOnKey(open: () => void) {
-  return (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    open();
-  };
-}
-
-function Rows({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div aria-label={label} className="h-full overflow-y-auto p-1" role="list">
-      {children}
-    </div>
-  );
-}
-
-function SourcesList({
-  resources,
-  resourcesPending,
-  resourcesError,
-  onOpenResource,
-  onRefreshFiles,
-  tabs,
-  activeTabId,
-  workspaceId,
-  sessionId,
-  renderHeader,
-}: WorkbenchListColumnProps & { renderHeader: (actions: ReactNode) => ReactNode }) {
-  const [managing, setManaging] = useState(false);
-  return (
-    <>
-      {renderHeader(
-        <IconButton
-          icon={<DatabaseIcon />}
-          label="Manage sources"
-          onClick={() => setManaging(true)}
-          size="sm"
-          tooltipSide="bottom"
-        />,
-      )}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <SourceRows
-          activeTabId={activeTabId}
-          onOpenResource={onOpenResource}
-          resources={resources}
-          resourcesError={resourcesError}
-          resourcesPending={resourcesPending}
-          tabs={tabs}
-        />
-      </div>
-      <ConnectedSourcePicker
-        manageOnly
-        onChanged={onRefreshFiles}
-        onOpenChange={setManaging}
-        open={managing}
-        sessionId={sessionId}
-        workspaceId={workspaceId}
-      />
-    </>
-  );
-}
-
-function SourceRows({
-  resources,
-  resourcesPending,
-  resourcesError,
-  onOpenResource,
-  tabs,
-  activeTabId,
-}: Pick<
-  WorkbenchListColumnProps,
-  'resources' | 'resourcesPending' | 'resourcesError' | 'onOpenResource' | 'tabs' | 'activeTabId'
->) {
-  if (resourcesPending && !resources.length)
-    return <StateView className="p-4" kind="loading" size="panel" title="Loading sources" />;
-  if (!resources.length)
-    return (
-      <StateView
-        className="p-4"
-        detail={resourcesError}
-        kind={resourcesError ? 'error' : 'empty'}
-        size="panel"
-        title={resourcesError ? 'Sources unavailable' : 'No sources in this workspace'}
-      />
-    );
-  const active = tabs.find((tab) => tab.id === activeTabId);
-  return (
-    <Rows label="Workspace sources">
-      {resources.map((resource) => {
-        const uploading = resource.state === 'uploading';
-        const progress = resource.declared_size
-          ? Math.round((resource.received_size / resource.declared_size) * 100)
-          : 0;
-        return (
-          <SourceRow
-            key={resource.id}
-            onOpen={() => onOpenResource(resource)}
-            progress={uploading ? progress : undefined}
-            resource={resource}
-            selected={active?.kind === 'resource' && active.resource.id === resource.id}
-          />
-        );
-      })}
-    </Rows>
-  );
-}
-
-function SourceRow({
-  resource,
-  progress,
-  selected,
-  onOpen,
-}: {
-  resource: WorkspaceResource;
-  progress?: number;
-  selected: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <div role="listitem" title={`${resource.name}, ${formatResourceSize(resource.received_size)}`}>
-      <ListRow
-        aria-current={selected || undefined}
-        aria-label={`Open ${resource.name}`}
-        badge={
-          progress !== undefined ? (
-            <Tag tone="info">{`${progress}%`}</Tag>
-          ) : resource.state !== 'ready' ? (
-            <Tag tone="neutral">{resource.state}</Tag>
-          ) : undefined
-        }
-        className="cursor-pointer text-[12.5px]"
-        icon={<PaperclipIcon />}
-        meta={<MetaValue>{formatCompactBytes(resource.received_size)}</MetaValue>}
-        onClick={onOpen}
-        onKeyDown={activateOnKey(onOpen)}
-        role="button"
-        selected={selected}
-        tabIndex={0}
-        title={resource.name}
-      />
-    </div>
-  );
-}
-
 function ArtifactsList({
   sessionId,
   artifacts,
@@ -733,17 +588,6 @@ function ArtifactsList({
         ) : null}
       </div>
     </>
-  );
-}
-
-function GroupLabel({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
-      role="listitem"
-    >
-      {children}
-    </div>
   );
 }
 
