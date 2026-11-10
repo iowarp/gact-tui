@@ -547,7 +547,31 @@ export function AskCode({
   const [wrap, setWrap] = useState(true);
   const clipped = !expanded && lines.length > previewLines;
   const shown = clipped ? lines.slice(0, previewLines) : lines;
-  const hidden = lines.length - shown.length;
+  // A cap can shrink the preview below its lines, so the footer counts what is really hidden:
+  // lines past the block's visible bottom, a partly cut line included.
+  const preRef = useRef<HTMLPreElement>(null);
+  const [fitting, setFitting] = useState<number>();
+  useLayoutEffect(() => {
+    const pre = preRef.current;
+    if (!pre || !clipped) {
+      setFitting(undefined);
+      return;
+    }
+    const update = () => {
+      const bottom = pre.getBoundingClientRect().top + pre.clientHeight + 0.5;
+      let count = 0;
+      for (const line of pre.querySelectorAll('code')) {
+        if (line.getBoundingClientRect().bottom > bottom) break;
+        count += 1;
+      }
+      setFitting(count);
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(pre);
+    return () => observer?.disconnect();
+  }, [clipped, code, wrap]);
+  const hidden = lines.length - (clipped ? (fitting ?? shown.length) : lines.length);
   const highlighted = useHighlightedLines(code, language);
   const lineContent = (line: string, index: number): ReactNode => {
     if (!line) return ' ';
@@ -592,6 +616,7 @@ export function AskCode({
         </div>
       ) : null}
       <pre
+        ref={preRef}
         className={cn(
           'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-[11.5px] leading-[1.65] text-foreground/90',
           clipped
@@ -625,7 +650,7 @@ export function AskCode({
       </pre>
       {hidden > 0 || onOpen ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden > 0 ? `${hidden} more lines` : null}</span>
+          <span className="truncate">{hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}</span>
           <AskButton
             {...askKeyAttributes(['o'])}
             className="ml-auto h-6 px-2 text-[12px]"
