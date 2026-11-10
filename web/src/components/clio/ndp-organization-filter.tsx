@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ndpOrganizationsSchema } from '@clio/core/v3';
-import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { sourceInputClass } from './source-form-parts';
 import { useRepository } from '@/hooks/use-repository';
 import { useNdpCache } from '@/hooks/use-ndp-cache';
 import { ndpSearchText } from './use-ndp-catalog';
@@ -51,17 +53,19 @@ export function NDPOrganizationFilter({
   return (
     <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
+        <button
+          type="button"
           role="combobox"
           aria-label="Organization filter"
           aria-expanded={open}
-          className="max-w-full"
+          className={cn(
+            sourceInputClass,
+            'inline-flex max-w-full items-center gap-2 border bg-background text-left outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          )}
         >
           <span className="truncate">{value?.id || 'All organizations'}</span>
-          <ChevronsUpDownIcon />
-        </Button>
+          <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 opacity-60" />
+        </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden p-0">
         <Command
