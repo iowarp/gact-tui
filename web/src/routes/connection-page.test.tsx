@@ -552,8 +552,10 @@ it('keeps a service the probe cannot reach closed, and lets Retry make the real 
 
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
 
-  // The attempt's own reason is shown once, in the form; the row keeps its short state.
-  expect(await screen.findByRole('alert')).toHaveTextContent(/Can't connect\s*Connection refused/u);
+  // The attempt's own reason is shown once, in the form; the row keeps its short state,
+  // so the form line does not repeat the row's "Can't connect".
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(/^Connection refused$/u);
   expect(mocks.repository.capabilities.mock.calls.length).toBeGreaterThan(3);
 });
 

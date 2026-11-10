@@ -40,6 +40,9 @@ export const COLOR_TOKENS = [
   'primary',
   'primary-foreground',
   'action',
+  // The agent's question to you: the ask card's edge and icon. A brand accent may restyle
+  // `action`, never this.
+  'question',
   // Sidebar
   'sidebar',
   'sidebar-foreground',
@@ -60,6 +63,8 @@ export const COLOR_TOKENS = [
   'warning-foreground',
   // A value changed from its setup default (the Agent tab's teal rows)
   'changed',
+  // The faint ring a busy spinner's arc turns on
+  'spin-track',
   // Science states: a tint for the chip or node and a text color for its label and icon
   'status-supported',
   'status-supported-foreground',

@@ -37,7 +37,7 @@ import { StateView } from './primitives/state-view';
 import { SessionPlanBody } from './session-plan-section';
 import { planStatusLabel } from '@/lib/plan-status';
 
-/** Keep parked goals and future monitoring visible in the bottom work finder. */
+/** Keep parked goals and future monitoring visible in the top bar. */
 export function SessionWorkStatus({
   sessionId,
   onOpen,
@@ -45,16 +45,16 @@ export function SessionWorkStatus({
 }: {
   sessionId: string;
   onOpen: () => void;
-  fallback: string;
+  fallback?: string;
 }) {
   const { data } = useSessionWork(sessionId);
   return data && (data.goal || data.loop || data.schedules.length) ? (
-    <div className="flex h-6 min-w-0 max-w-96 items-center">
+    <div className="flex h-7 min-w-0 max-w-48 items-center xl:max-w-72">
       <SessionWorkSummary sessionId={sessionId} onOpen={onOpen} compact />
     </div>
-  ) : (
+  ) : fallback ? (
     <span>{fallback}</span>
-  );
+  ) : null;
 }
 
 /** Compact entry to authoritative work state, independent of transcript expansion. */
@@ -108,7 +108,7 @@ export function SessionWorkSummary({
       onClick={onOpen}
       className={cn(
         'max-w-full min-w-0 justify-start gap-2 px-0 text-left',
-        compact ? 'h-6 text-[0.625rem]' : 'h-7 text-xs',
+        compact ? 'h-7 px-1.5 text-[12px]' : 'h-7 text-xs',
       )}
       aria-label="Open session Work"
       title={current?.title}

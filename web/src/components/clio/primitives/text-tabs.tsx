@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from 'lucide-react';
 import { memo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
@@ -9,6 +10,8 @@ export interface TextTab<Value extends string> {
   icon?: ReactNode;
   /** Results or items behind the tab, right of the label in tabular figures. */
   count?: number;
+  /** A tab that gathers several kinds ("More") carries a chevron after its label. */
+  gathers?: boolean;
 }
 
 export interface TextTabsProps<Value extends string> {
@@ -44,7 +47,10 @@ function TextTabsImpl<Value extends string>({
   return (
     <div
       aria-label={label}
-      className={cn('flex h-8 min-w-0 items-stretch gap-3 overflow-hidden whitespace-nowrap', className)}
+      className={cn(
+        'flex h-8 min-w-0 items-stretch gap-3 overflow-hidden whitespace-nowrap',
+        className,
+      )}
       data-slot="text-tabs"
       role="tablist"
     >
@@ -58,7 +64,7 @@ function TextTabsImpl<Value extends string>({
             aria-selected={selected}
             className={cn(
               'relative inline-flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring',
-              'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground after:opacity-0',
+              'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:opacity-0',
               selected && 'font-medium text-foreground after:opacity-100',
               '[&_svg]:size-3.5 [&_svg]:shrink-0',
             )}
@@ -72,8 +78,13 @@ function TextTabsImpl<Value extends string>({
           >
             {tab.icon}
             {compact && tab.icon ? null : <span>{tab.label}</span>}
+            {tab.gathers && !(compact && tab.icon) ? (
+              <ChevronDownIcon className="-ml-1 size-3! text-muted-foreground" />
+            ) : null}
             {tab.count === undefined ? null : (
-              <span className="text-[11px] text-muted-foreground tabular-nums">{tab.count}</span>
+              <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
+                {tab.count}
+              </span>
             )}
           </button>
         );

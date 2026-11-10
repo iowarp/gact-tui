@@ -19,8 +19,9 @@ test('search orders sessions first, highlights snippets, and focuses the actual 
   const group = (label: string) => headings.findIndex((heading) => heading.startsWith(label));
   expect(group('Conversations')).toBeGreaterThanOrEqual(0);
   expect(group('Conversations')).toBeLessThan(group('Files'));
+  // File rows read basename, then directory, then size.
   await expect(
-    page.getByRole('option', { name: /notes\/plant-study.md/u }).locator('mark'),
+    page.getByRole('option', { name: /^plant-study\.md notes\b/u }).locator('mark'),
   ).toHaveText('plant');
   await input.fill(fixture.phrase);
   const hit = page.getByRole('option', { name: /Open matching passage/u });

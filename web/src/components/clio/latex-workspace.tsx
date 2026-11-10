@@ -33,6 +33,7 @@ import { ClioPdfPreview } from './pdf-preview';
 import { StateView } from './primitives/state-view';
 import { ViewerToolbarContent } from './viewer-toolbar';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { matchesListQuery, useWorkbenchListSearch } from './workbench-list-search';
 import { WorkbenchTabList } from './workbench-tab-list';
 import { WorkbenchTabListSlot } from './workbench-tab-list-context';
 
@@ -173,10 +174,18 @@ export function LatexWorkspace({
     if (problem.file) goToSource({ file: problem.file, line: problem.line });
   };
   const picked = slot?.picked;
+  const search = useWorkbenchListSearch('Search the outline');
+  const shownRows = search.query
+    ? rows.filter((row) => matchesListQuery(`${row.number} ${row.node.title ?? ''}`, search.query))
+    : rows;
+  const shownProblems = search.query
+    ? problems.filter((problem) => matchesListQuery(problem.detail, search.query))
+    : problems;
 
   const list = data ? (
     <LatexListSections
       entry={entry}
+      filtered={Boolean(search.query.trim())}
       onProblem={(problem) => {
         goToProblem(problem);
         picked?.();
@@ -186,9 +195,9 @@ export function LatexWorkspace({
         picked?.();
       }}
       place={chosen}
-      problems={problems}
+      problems={shownProblems}
       revealProblems={revealProblems}
-      rows={rows}
+      rows={shownRows}
     />
   ) : null;
   const format = (
@@ -330,7 +339,11 @@ export function LatexWorkspace({
           body
         )}
       </Tabs>
-      {slot && list ? <WorkbenchTabList title="Outline">{list}</WorkbenchTabList> : null}
+      {slot && list ? (
+        <WorkbenchTabList actions={search.toggle} title="Outline">
+          {search.withField(list)}
+        </WorkbenchTabList>
+      ) : null}
     </section>
   );
 }
