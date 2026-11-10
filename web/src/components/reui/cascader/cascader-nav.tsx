@@ -1,17 +1,13 @@
 import * as React from 'react';
 import { useCascaderActions, useCascaderState } from '@/components/reui/cascader/cascader-context';
 import { resolveCascaderSearchLabel } from '@/components/reui/cascader/cascader-i18n';
-import {
-  getCascaderFooterStops,
-  isCascaderRtl,
-} from '@/components/reui/cascader/cascader-lib';
+import { getCascaderFooterStops, isCascaderRtl } from '@/components/reui/cascader/cascader-lib';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react';
 import { useDirection } from '@base-ui/react/direction-provider';
 import { Slot } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 import { ChevronLeftIcon } from 'lucide-react';
-
 
 /* -------------------------------------------------------------------------- */
 /*                                     Nav                                    */
@@ -283,6 +279,23 @@ function CascaderInput({
           return;
         }
       }
+    }
+
+    // Base UI starts an un-highlighted list from the chosen row, so when that
+    // row is last the first arrow lands on the wrap slot and looks dead. A
+    // person's press always lands on a row: press once more if it did not.
+    if (
+      inline &&
+      (event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
+      !event.altKey &&
+      event.nativeEvent.isTrusted &&
+      !getHighlighted()
+    ) {
+      const key = event.key;
+      queueMicrotask(() => {
+        if (getHighlighted() || document.activeElement !== field) return;
+        field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      });
     }
 
     // The level keys are LOGICAL, not physical: in RTL, ArrowLeft opens a

@@ -1522,10 +1522,10 @@ function Cascader<T>({
       const unchanged =
         nextValues.length === current.length &&
         nextValues.every((entry, i) => entry === current[i]);
-      if (unchanged) return;
+      if (unchanged && reason !== 'reselect') return;
 
       const next = currentMultiple ? nextValues : (nextValues[0] ?? '');
-      setValue(next);
+      if (!unchanged) setValue(next);
 
       if (!emit) return;
 
@@ -1584,7 +1584,11 @@ function Cascader<T>({
       } = latest.current;
 
       if (!currentMultiple) {
-        emitSelection([node.value], node, 'select');
+        emitSelection(
+          [node.value],
+          node,
+          current.length === 1 && current[0] === node.value ? 'reselect' : 'select',
+        );
         if (currentCloseOnSelect) {
           openReasonRef.current = 'item-press';
           setOpen(false);
