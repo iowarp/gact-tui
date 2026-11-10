@@ -1,6 +1,9 @@
 import { memoryErrorText } from './memory-document-helpers';
 
-/** A failed read in one plain red line, with Retry as an inline text action. */
+/**
+ * A failed read in one plain red line, with Retry as an inline text action. Below
+ * 600 px the sentence wraps (Retry stays on its first line) so the reason survives.
+ */
 export function MemoryErrorLine({
   what,
   error,
@@ -15,11 +18,11 @@ export function MemoryErrorLine({
   const text = `${what} ${reason}`;
   return (
     <p
-      className="flex h-7 min-w-0 items-center gap-2 text-[0.71875rem] whitespace-nowrap text-destructive"
+      className="flex h-7 min-w-0 items-center gap-2 text-[0.71875rem] whitespace-nowrap text-destructive max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:items-start max-[599px]:py-1 max-[599px]:whitespace-normal"
       data-slot="memory-error"
       role="alert"
     >
-      <span className="min-w-0 truncate" title={text}>
+      <span className="min-w-0 truncate max-[599px]:whitespace-normal" title={text}>
         {text}
       </span>
       {onRetry ? (

@@ -1,11 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import { ClioModelPicker } from './model-picker';
+import { modelPickerCatalog } from './model-picker-catalog-loader';
+
+// The catalog is a deferred chunk; load it once so the picker opens straight into it.
+beforeAll(() => modelPickerCatalog.load(), 60_000);
 
 const defaultConfiguration = {
   configured: true,
@@ -275,7 +279,7 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByRole('button', { name: /Hide Codex/ })).not.toBeInTheDocument();
   });
 
-  it('reflows to drill navigation instead of compressing columns on a narrow viewport', async () => {
+  it('reflows to one column of provider groups instead of compressing columns on a narrow viewport', async () => {
     setWideViewport(false);
     const user = userEvent.setup();
     renderPicker(
@@ -290,11 +294,96 @@ describe('ClioModelPicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.queryByRole('group', { name: 'Providers and models' })).not.toBeInTheDocument();
-    expect(screen.getByText('Luna')).toBeVisible();
-
-    await user.click(screen.getByRole('button', { name: /Back/i }));
-    expect(screen.getByRole('option', { name: /Codex/ })).toBeVisible();
+    // Every provider is a group header in the one list, above its own models.
+    const codex = screen.getByRole('option', { name: /^Codex/ });
+    expect(codex).toBeVisible();
     expect(screen.getByRole('option', { name: /Local vLLM/ })).toBeVisible();
+    expect(screen.getByText('Luna')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Back/i })).not.toBeInTheDocument();
+    // The provider bar becomes a manage row under each group's models.
+    expect(screen.getByRole('group', { name: 'Manage Codex' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Check updates/i })).not.toBeInTheDocument();
+
+    // Pressing a header folds its models away, and again brings them back.
+    await user.click(codex);
+    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /^Codex/ }));
+    expect(screen.getByText('Luna')).toBeVisible();
+  });
+
+  it('one column opens with the chosen model highlighted, and the keyboard moves it', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        model="gpt-5.6-luna"
+        onChange={vi.fn()}
+        options={options}
+        provider="codex"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const highlighted = () => document.querySelector('[role="option"][data-highlighted]');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Luna'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(highlighted()).not.toHaveTextContent('Luna'));
+    expect(highlighted()).not.toBeNull();
+  });
+
+  it('one column highlights the chosen model after another group, and Enter picks that row', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker
+        model="Qwen/Qwen3-VL-32B"
+        onChange={onChange}
+        options={options}
+        provider="local-vllm"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const highlighted = () => document.querySelector('[role="option"][data-highlighted]');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Qwen3-VL-32B'));
+    await user.keyboard('{ArrowUp}{ArrowUp}');
+    await waitFor(() => expect(highlighted()).toHaveTextContent('Luna'));
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'gpt-5.6-luna', providerId: 'codex' }),
+    );
+  });
+
+  it('one column lists a few models per provider, keeps the chosen one, and "N more" opens the rest', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    const vllm = Array.from({ length: 7 }, (_, index) => ({
+      ...options[1]!,
+      id: `model-${index}`,
+      label: `Model ${index}`,
+    }));
+    renderPicker(
+      <ClioModelPicker
+        model="model-6"
+        onChange={vi.fn()}
+        options={[options[0]!, ...vllm]}
+        provider="local-vllm"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.getByText('Model 0')).toBeVisible();
+    expect(screen.queryByText('Model 2')).not.toBeInTheDocument();
+    expect(screen.getByText('Model 6')).toBeVisible();
+    await user.click(screen.getByRole('option', { name: /^4 more/ }));
+    for (let index = 0; index < 7; index += 1) {
+      expect(screen.getByText(`Model ${index}`)).toBeVisible();
+    }
+    expect(screen.queryByRole('option', { name: /more$/ })).not.toBeInTheDocument();
   });
 
   it('reports unavailable provider failures once instead of listing fake models', async () => {

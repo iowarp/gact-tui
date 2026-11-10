@@ -201,6 +201,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             ? 'Settled'
             : 'No active work';
 
+
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);
     setChildAgentsOpen(false);

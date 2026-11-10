@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { selectFileView } from './file-viewer-setup';
+import { openFrameOpenMenu } from './file-viewer-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 
-test('Export with evidence downloads one intact ZIP from the artifact Versions view', async ({
+test('Download with evidence saves one intact ZIP from the artifact Open menu', async ({
   page,
 }, testInfo) => {
   expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
@@ -23,15 +23,17 @@ test('Export with evidence downloads one intact ZIP from the artifact Versions v
   await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
-  await selectFileView(page, canvas.locator('[data-slot="file-viewer"]'), 'Versions');
+  // The frame bar folds once its content has settled.
+  await expect(
+    canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true }),
+  ).toBeVisible();
   const download = page.waitForEvent('download');
-  await canvas.getByRole('button', { name: 'Export with evidence', exact: true }).click();
+  // A narrow canvas folds Open into the frame's More menu.
+  await openFrameOpenMenu(page, canvas.locator('[data-slot="frame-bar"]'));
+  await page.getByRole('menuitem', { name: /^Download with evidence/u }).click();
   const saved = await download;
   expect(saved.suggestedFilename()).toBe('vertical-displacement.png.crate.zip');
   expect(await readFile((await saved.path())!)).toEqual(bytes);
   expect(exports).toBe(1);
-  await expect(
-    canvas.getByRole('button', { name: 'Export with evidence', exact: true }),
-  ).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath('evidence-zip-download.png') });
 });
