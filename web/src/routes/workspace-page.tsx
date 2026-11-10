@@ -47,7 +47,6 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
-import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 
@@ -80,7 +79,6 @@ export function WorkspacePage() {
   const sessionCommands = useSessionCommands(sessionId, workspaceId);
   const data = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const {
-    agentLabel,
     allSessions,
     attentionInteractions,
     capabilities,
@@ -149,20 +147,10 @@ export function WorkspacePage() {
   const openTasks = useCallback(() => openObservability(), [openObservability]);
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   const inStudy = useScienceLog(sessionId).data?.in_study;
-  const openAgent = useCallback(
-    () => revealWorkbench({ kind: 'resources', section: 'agent' }),
-    [revealWorkbench],
-  );
   const openWork = useCallback(
     () => revealWorkbench({ kind: 'resources', section: 'work' }),
     [revealWorkbench],
   );
-  useDesktopTitleSync({
-    agent: agentLabel,
-    onOpenAgent: openAgent,
-    session: session?.title,
-    workspace: activeWorkspace?.display_name,
-  });
   useRequestedFlow(searchParams.get('flow'), openFlow);
   const workspaceResourceEntities = useWorkspaceResourceMap(data.workspaceResources.data);
   const openComposerReference = useComposerReferenceNavigation({

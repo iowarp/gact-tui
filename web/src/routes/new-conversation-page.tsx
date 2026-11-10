@@ -34,7 +34,6 @@ import {
 import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
-import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
 import { useAgentPluginsSupported } from '@/hooks/use-session-agent';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
@@ -169,7 +168,6 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   const draftRef = agentChoice || defaultRef || '';
   const openAgent = () => revealWorkbench({ kind: 'resources', section: 'agent' });
   const agentsSupported = useAgentPluginsSupported();
-  useDesktopTitleSync({ workspace: workspace?.display_name, session: 'New conversation' });
   const error = data.workspaces.error ?? data.capabilities.error ?? defaults.error;
   if (error || (!data.workspaces.isPending && !workspace)) {
     return (

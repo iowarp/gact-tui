@@ -256,7 +256,7 @@ export const DialogFrame = memo(function DialogFrame({
           {confirm ? (
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
-              variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
+              variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
               // The face fills the whole 28 px, under the border too.
               className="gap-[7px] bg-clip-border"
               disabled={confirm.disabled}
