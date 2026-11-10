@@ -1,11 +1,16 @@
 import type { CompactionTrigger, MessageBlock, PendingCompaction } from '@clio/core/v3';
-import { ChevronRightIcon, PackageIcon, TriangleAlertIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { MessagesSquareIcon, PackageIcon, ScrollTextIcon, TriangleAlertIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { transcriptMessagePreviews } from '@/lib/transcript-message-preview';
+import { ActivityBody, ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { humanizeProtocolValue } from './presentation-labels';
 import { GoalNotice } from './goal-notice';
 import { StateView } from './primitives/state-view';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { TranscriptDivider } from './transcript-divider';
+import { TranscriptMessagePreview } from './transcript-message-preview';
+import { useTranscriptMessages } from './transcript-messages-context';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
@@ -16,9 +21,12 @@ function compactionTriggerHint(trigger: CompactionTrigger | undefined) {
 }
 
 /**
- * The record of a compaction, where it happened: one quiet 28px line,
- * "Compacted here, earlier messages summarized". Pressing it discloses the
- * summary exactly as the agent received it; who started it is its hover name.
+ * The record of a compaction, where it happened: a divider across the
+ * transcript, "Compacted here, 61 messages summarized", with a chevron that
+ * always shows it opens. Open, it reads as what the agent works from now: its
+ * system prompt, the summary (open) and the turns it kept verbatim. Parts the
+ * record does not carry say so instead of opening. Who started it is its hover
+ * name.
  */
 export function SummarizationInjection({
   block,
@@ -28,44 +36,208 @@ export function SummarizationInjection({
   label?: string;
 }) {
   const [expanded, setExpanded] = useTranscriptDisclosure(`summary:${block.id}`);
+  const sectionRef = useRef<HTMLElement>(null);
+  const revealRef = useRef(false);
+  useEffect(() => {
+    if (!expanded || !revealRef.current) return undefined;
+    revealRef.current = false;
+    // The virtualizer grows the scroll height and reconciles the pressed
+    // disclosure's offset for a few frames after the record lays out; a scroll
+    // before that settles is clamped or undone.
+    let frame = 0;
+    let last = '';
+    let stable = 0;
+    const attempt = (tries: number) => {
+      frame = window.requestAnimationFrame(() => {
+        const scroller = sectionRef.current?.closest<HTMLElement>('[role="log"]');
+        const state = scroller ? `${scroller.scrollTop}:${scroller.scrollHeight}` : '';
+        stable = state === last ? stable + 1 : 0;
+        last = state;
+        if (stable < 3 && tries < 60) return attempt(tries + 1);
+        if (!revealCompactionRecord(sectionRef.current, tries >= 60)) attempt(tries + 1);
+      });
+    };
+    attempt(0);
+    return () => window.cancelAnimationFrame(frame);
+  }, [expanded]);
+  const compacted = stringList(block.metadata?.compacted_message_ids);
+  const line = compacted.length
+    ? `Compacted here, ${countLabel(compacted.length)} summarized`
+    : 'Compacted here, earlier messages summarized';
   return (
     <section
       className="my-px min-w-0 max-w-full"
       data-slot="harness-injection"
       data-source="summarization"
+      ref={sectionRef}
     >
-      <StateView
-        className="w-fit max-w-full"
-        kind="marker"
-        size="row"
+      <TranscriptDivider
+        data-slot="compaction-divider"
         icon={PackageIcon}
-        title={
-          <button
-            aria-expanded={expanded}
-            className="group/compaction inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-            onClick={() => setExpanded(!expanded)}
-            title={compactionTriggerHint(block.trigger)}
-            type="button"
-          >
-            <span className="min-w-0 truncate">Compacted here, earlier messages summarized</span>
-            <ChevronRightIcon
-              aria-hidden="true"
-              className={cn(
-                'size-3 shrink-0 motion-safe:transition-[transform,opacity]',
-                expanded
-                  ? 'rotate-90'
-                  : 'opacity-0 group-hover/compaction:opacity-100 group-focus-visible/compaction:opacity-100',
-              )}
-            />
-          </button>
-        }
-      />
-      {expanded ? (
-        <div className="mt-1 mb-2 ml-[11px] min-w-0 max-w-full border-l border-border pl-[19px] break-words text-sm">
+        onOpenChange={(next) => {
+          revealRef.current = next;
+          setExpanded(next);
+        }}
+        open={expanded}
+        title={compactionTriggerHint(block.trigger)}
+      >
+        {line}
+      </TranscriptDivider>
+      {expanded ? <CompactionRecord block={block} /> : null}
+    </section>
+  );
+}
+
+/**
+ * Bring an opened record above the composer. The divider stays in view when
+ * the record is taller than the transcript. Returns false while the scroll
+ * height cannot yet reach the record, unless `force`.
+ */
+function revealCompactionRecord(section: HTMLElement | null, force: boolean) {
+  const scroller = section?.closest<HTMLElement>('[role="log"]');
+  if (!section || !scroller) return true;
+  const view = scroller.getBoundingClientRect();
+  const rect = section.getBoundingClientRect();
+  const inset = Number.parseFloat(getComputedStyle(scroller).scrollPaddingBottom) || 0;
+  const delta = Math.min(rect.bottom - (view.bottom - inset), rect.top - view.top - 8);
+  if (delta <= 0) return true;
+  const room = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+  if (room < delta - 1 && !force) return false;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  scroller.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' });
+  return true;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+function countLabel(count: number) {
+  return `${count} ${count === 1 ? 'message' : 'messages'}`;
+}
+
+function CompactionRecord({ block }: { block: SummarizationBlock }) {
+  const systemPrompt =
+    typeof block.metadata?.system_prompt === 'string' ? block.metadata.system_prompt : '';
+  const keptSent = Array.isArray(block.metadata?.kept_message_ids);
+  const keptIds = stringList(block.metadata?.kept_message_ids);
+  return (
+    <ActivityNest label="What the agent kept">
+      <CompactionSection
+        id={`${block.id}:system`}
+        icon={<ScrollTextIcon aria-hidden="true" />}
+        name="System prompt"
+        absent="Not recorded"
+        absentTitle="The agent had not recorded its system prompt when this compaction ran"
+      >
+        {systemPrompt ? (
+          <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">
+            {systemPrompt}
+          </pre>
+        ) : null}
+      </CompactionSection>
+      <CompactionSection
+        id={`${block.id}:summary`}
+        icon={<PackageIcon aria-hidden="true" />}
+        initiallyOpen
+        name="Summary"
+        framed={false}
+      >
+        <div className="min-w-0 break-words text-sm" data-slot="compaction-summary">
           <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
         </div>
+      </CompactionSection>
+      <CompactionSection
+        id={`${block.id}:kept`}
+        icon={<MessagesSquareIcon aria-hidden="true" />}
+        name="Recent turns kept verbatim"
+        meta={keptIds.length ? countLabel(keptIds.length) : undefined}
+        absent={keptSent ? 'None' : 'Not recorded'}
+        absentTitle={
+          keptSent
+            ? 'The summary replaced every earlier message'
+            : 'This agent does not record which turns it kept'
+        }
+      >
+        {keptIds.length ? <KeptTurns ids={keptIds} /> : null}
+      </CompactionSection>
+    </ActivityNest>
+  );
+}
+
+function CompactionSection({
+  id,
+  icon,
+  name,
+  meta,
+  absent,
+  absentTitle,
+  initiallyOpen = false,
+  framed = true,
+  children,
+}: {
+  id: string;
+  icon: ReactNode;
+  name: string;
+  meta?: string;
+  /** What the row says when the record does not carry this part. */
+  absent?: string;
+  absentTitle?: string;
+  initiallyOpen?: boolean;
+  framed?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useTranscriptDisclosure(`compaction:${id}`, initiallyOpen);
+  const available = Boolean(children);
+  return (
+    <>
+      <ActivityRow
+        data-slot="compaction-section"
+        disclosure={
+          <ActivityDisclosure
+            disabled={!available}
+            label={`${open ? 'Collapse' : 'Expand'} ${name}`}
+            open={available && open}
+            onClick={() => setOpen(!open)}
+          />
+        }
+        icon={icon}
+        name={name}
+        onOpenChange={available ? setOpen : undefined}
+        open={available && open}
+        outcome={available ? meta : absent}
+        outcomeTitle={available ? undefined : absentTitle}
+        outcomeTone="muted"
+      />
+      {available && open ? (
+        <ActivityBody framed={framed} label={name}>
+          {children}
+        </ActivityBody>
       ) : null}
-    </section>
+    </>
+  );
+}
+
+function KeptTurns({ ids }: { ids: readonly string[] }) {
+  const messages = useTranscriptMessages();
+  const previews = useMemo(() => transcriptMessagePreviews(messages), [messages]);
+  return (
+    <ul className="divide-y divide-border">
+      {ids.map((id) => {
+        const preview = previews.get(id);
+        return (
+          <li className="px-3 py-2" key={id}>
+            {preview ? (
+              <TranscriptMessagePreview marked={false} preview={preview} />
+            ) : (
+              <span className="text-xs text-muted-foreground">Not in this view</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

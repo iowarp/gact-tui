@@ -28,9 +28,10 @@ import { ClioTurnWaitFeedback } from './turn-wait-feedback';
 import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
+import { TranscriptMessagesContext } from './transcript-messages-context';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
 import { useSurfaceQuestionNavigation } from './use-surface-question-navigation';
-import { ClioTranscriptMinimap } from './transcript-minimap';
+import { ClioTranscriptOutline } from './transcript-outline';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
@@ -45,6 +46,7 @@ import {
 import { PresentationNavigation, usePresentationNavigation } from './presentation-navigation';
 import { TranscriptDisclosures } from './transcript-disclosures';
 import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
+import { useConversationColumn } from './use-conversation-column';
 import {
   useTranscriptReadingPosition,
   useTranscriptWidth,
@@ -84,7 +86,9 @@ export function ClioConversation(props: ClioConversationProps) {
   return (
     <PresentationNavigation.Provider value={navigation}>
       <TranscriptDisclosures sessionId={props.sessionId ?? props.messages[0]?.session_id}>
-        {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        <TranscriptMessagesContext.Provider value={props.messages}>
+          {inRouter ? <RoutedConversationBody {...props} /> : <ConversationBody {...props} />}
+        </TranscriptMessagesContext.Provider>
       </TranscriptDisclosures>
     </PresentationNavigation.Provider>
   );
@@ -429,15 +433,11 @@ function ConversationBody({
     scrollIntentVersionRef,
     virtualizer,
   });
-  const minimapVisible = conversationViewportWidth >= 760;
-  // Grow only into the unused margin, leaving a gap before the transcript column.
-  const minimapMarkerWidth = Math.min(
-    56,
-    Math.max(
-      24,
-      (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 - 12,
-    ),
-  );
+  // The outline button floats at the top left; once the column fills the
+  // viewport, a gutter keeps the text from scrolling under it.
+  const outlineGutter =
+    (conversationViewportWidth - (conversationWidth === 'wide' ? 1152 : 896)) / 2 < 32;
+  useConversationColumn(scrollRef, conversationWidth === 'wide' ? 1152 : 896);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -516,7 +516,44 @@ function ConversationBody({
     if (followingRef.current && messages.length > 0) scrollToBottom('instant');
   }, [bottomInset, messages, scrollToBottom, followingRef]);
 
-  const jumpVisible = !autoscroll.engaged && autoscroll.scrollable && messages.length > 0;
+  // Pressing a disclosure disengages on pointerdown. Mounting the jump lane
+  // right then would slide it over a control in the last 40px, and the
+  // pointerup and click would land on the lane. Hold it until the press ends.
+  const [pressHold, setPressHold] = useState(false);
+  const pressedRef = useRef<Element | null>(null);
+  useEffect(() => {
+    if (!pressHold) return undefined;
+    let timer = 0;
+    // A task later than pointerup, so the click has been dispatched.
+    const release = () => {
+      timer = window.setTimeout(() => setPressHold(false), 0);
+    };
+    window.addEventListener('pointerup', release, { once: true });
+    window.addEventListener('pointercancel', release, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [pressHold]);
+
+  const jumpVisible =
+    !autoscroll.engaged && autoscroll.scrollable && messages.length > 0 && !pressHold;
+
+  // When the lane appears under the control the reader just pressed, lift the
+  // view by the overlap so that control stays visible and clickable.
+  useLayoutEffect(() => {
+    if (!jumpVisible) return;
+    const pressed = pressedRef.current;
+    pressedRef.current = null;
+    const element = scrollRef.current;
+    const lane = element?.querySelector('[data-slot="transcript-control-lane"]');
+    if (!pressed?.isConnected || !element || !lane) return;
+    const overlap = pressed.getBoundingClientRect().bottom - lane.getBoundingClientRect().top;
+    if (overlap <= 0) return;
+    element.scrollTop += overlap;
+    captureReadingAnchor(pressed);
+  }, [jumpVisible, captureReadingAnchor]);
 
   // An empty list is only "no messages" once the transcript actually arrived.
   // A load error outranks everything, including a running turn's preparation.
@@ -537,19 +574,15 @@ function ConversationBody({
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
-        <>
-          <ClioTranscriptMinimap
-            activeIndex={activeMessageIndex}
-            attention={entities.attentionData}
-            messages={messages}
-            markedMessageIds={entities.markedMessageIds}
-            markingMessageId={entities.markingMessageId}
-            onMarkMessage={entities.onMarkMessage}
-            onJump={jumpToMessage}
-            visible={minimapVisible}
-            maxMarkerWidth={minimapMarkerWidth}
-          />
-        </>
+        <ClioTranscriptOutline
+          activeIndex={activeMessageIndex}
+          attention={entities.attentionData}
+          messages={messages}
+          markedMessageIds={entities.markedMessageIds}
+          markingMessageId={entities.markingMessageId}
+          onMarkMessage={entities.onMarkMessage}
+          onJump={jumpToMessage}
+        />
       ) : null}
       {/* `overflow-anchor: none`: the virtualizer and the autoscroll hook own
           scroll position here. With the browser's own scroll anchoring on, it
@@ -558,13 +591,10 @@ function ConversationBody({
           after they scrolled up, even on a finished conversation. */}
       <div
         aria-label="Conversation"
-        // Without the minimap rail, the outline button floats at the top left; this
-        // gutter keeps the text from scrolling under it.
         className={cn(
           'clio-scrollbar h-full overflow-y-auto overscroll-contain [overflow-anchor:none]',
-          !minimapVisible && 'pl-3',
+          outlineGutter && 'pl-3',
         )}
-        data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (['Enter', ' '].includes(event.key) && target.closest('button[aria-expanded]')) {
@@ -589,12 +619,18 @@ function ConversationBody({
         }}
         onScroll={handleScroll}
         onPointerDown={(event) => {
-          if (event.target instanceof Element && event.target.closest('button[aria-expanded]')) {
+          const disclosure =
+            event.target instanceof Element ? event.target.closest('button[aria-expanded]') : null;
+          if (disclosure) {
+            if (autoscroll.engaged) {
+              pressedRef.current = disclosure;
+              setPressHold(true);
+            }
             markUserScrollIntent();
             disengage();
             // A streaming row can finish before a native scroll event fires.
             // Keep the visible reader anchor mounted through that transition.
-            captureReadingAnchor(event.target);
+            captureReadingAnchor(disclosure);
           }
           if (event.target === event.currentTarget) markUserScrollIntent();
           autoscroll.onPointerDown(event);
@@ -628,7 +664,7 @@ function ConversationBody({
         ) : emptyTranscript === 'preparing' ? null : emptyTranscript === 'empty' ? (
           <>
             {entities.forkOrigin?.message_count === 0 ? (
-              <div className="mx-auto max-w-4xl px-5 lg:px-8">
+              <div className="mx-auto max-w-4xl px-(--conversation-gutter)">
                 <ConversationForkCheckpoint
                   origin={entities.forkOrigin}
                   workspaceId={entities.workspaceId}
@@ -720,7 +756,7 @@ function ConversationBody({
         )}
         {preparation && emptyTranscript !== 'error' && emptyTranscript !== 'loading' ? (
           <div
-            className={`mx-auto w-full px-5 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto w-full px-(--conversation-gutter) ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             ref={autoscroll.observeContent}
           >
             <ClioTurnPreparation {...preparation} messages={sourceMessages} />
@@ -731,13 +767,16 @@ function ConversationBody({
                 tools={entities.tools}
                 tasks={entities.tasks}
                 subagents={entities.subagents}
+                awaitingUser={entities.interactions?.some(
+                  (interaction) => interaction.status === 'pending',
+                )}
               />
             </SessionResponseFeedback>
           </div>
         ) : null}
         {compactionPlacement.trailing.length > 0 ? (
           <div
-            className={`mx-auto grid w-full gap-3 px-5 pb-4 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-3 px-(--conversation-gutter) pb-4 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             data-slot="trailing-compactions"
             ref={autoscroll.observeContent}
           >
@@ -749,7 +788,7 @@ function ConversationBody({
         {detachedSurfaces.length > 0 ? (
           <div
             ref={autoscroll.observeContent}
-            className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            className={`mx-auto grid w-full gap-4 px-(--conversation-gutter) pb-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface

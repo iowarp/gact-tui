@@ -93,6 +93,22 @@ for (const theme of THEMES) {
   }
 }
 
+test('a 260px activity row keeps its name, or its target when it has one', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await open(page, 'theme=dark');
+  const rows = page.getByTestId('narrow-activity-rows').locator('[data-activity-row]');
+  await expect(rows).toHaveCount(2);
+  const nameOnly = rows.nth(0).locator('[data-slot="list-row-title"]');
+  await expect(nameOnly).toBeVisible();
+  expect((await nameOnly.boundingBox())!.width).toBeGreaterThan(80);
+  await expect(nameOnly).toHaveCSS('text-overflow', 'ellipsis');
+  const withTarget = rows.nth(1);
+  expect((await withTarget.locator('[data-slot="list-row-title"]').boundingBox())!.width).toBe(1);
+  expect(
+    (await withTarget.locator('[data-slot="activity-argument"]').boundingBox())!.width,
+  ).toBeGreaterThan(80);
+});
+
 test('Mac keys render with ⌘ and the catalog exceptions', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page, 'theme=dark&platform=mac');

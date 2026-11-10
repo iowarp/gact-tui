@@ -10,6 +10,9 @@ import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
 
+const repository = vi.hoisted(() => ({ transcript: vi.fn(async () => ({ tools: [] })) }));
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
 vi.mock('./mcp-app-surface', () => ({
   McpAppHistoryLine: ({ toolName }: { toolName: string }) => <div>{`${toolName} closed`}</div>,
   McpAppSurface: ({ appInstanceId }: { appInstanceId: string }) => (
@@ -237,10 +240,12 @@ describe('ConversationTurn correlated work placement', () => {
     expect(
       lane.querySelector('[data-turn-activity="subagent:handoff_returned"]'),
     ).toHaveTextContent('Subagent turn ended');
-    // Both rows preview the assignment; only the return carries the result.
+    // Both rows preview the assignment; opening one repeats it nowhere, and only
+    // the return carries the result.
     expect(screen.getAllByText(child.task)).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Expand Delegate' }));
-    expect(screen.getAllByText(child.task)).toHaveLength(3);
+    expect(await screen.findByText('No calls recorded')).toBeVisible();
+    expect(screen.getAllByText(child.task)).toHaveLength(2);
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Expand Subagent turn ended' }));
     expect(await screen.findByText(child.result)).toBeVisible();
@@ -648,6 +653,15 @@ describe('ConversationTurn announced state', () => {
     expect(within(line as HTMLElement).getByRole('img', { name: 'Completed' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
     expect(screen.getByText('Evidence retained with source identity.')).toBeVisible();
+    // Every row carries its ⓘ in the fixed column.
+    fireEvent.click(
+      within(line as HTMLElement).getByRole('button', {
+        name: 'Technical details for task Review station quality',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Task: Technical details' });
+    expect(within(dialog).getByText('task_detail')).toBeVisible();
+    expect(within(dialog).getByText('Evidence retained with source identity.')).toBeVisible();
   });
 
   it('does not leave a task with no detail as an unexplained status row', () => {
@@ -669,7 +683,9 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    expect(document.querySelector('[data-turn-activity="task:task_without_detail"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-turn-activity="task:task_without_detail"]'),
+    ).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
     expect(screen.getByText('No task detail was reported.')).toBeVisible();
   });

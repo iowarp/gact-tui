@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
-import { conversationModelBoundaries, modelBoundariesEqual } from './conversation-model-boundaries';
+import { conversationModelBoundaries } from './conversation-model-boundaries';
 
 const luna = { provider_id: 'codex', model_id: 'gpt-6-luna' };
 const claude = { provider_id: 'claude_code', model_id: 'claude-sonnet-5' };
@@ -77,13 +77,11 @@ describe('recorded model segments', () => {
           : row,
       ),
     );
-    expect(modelBoundariesEqual(original.get('next'), streamed.get('next'))).toBe(true);
+    expect(streamed).toEqual(original);
     expect(conversationModelBoundaries(JSON.parse(JSON.stringify(messages)))).toEqual(original);
-    expect(modelBoundariesEqual(undefined, original.get('first'))).toBe(false);
-    expect(modelBoundariesEqual(original.get('first'), original.get('next'))).toBe(false);
   });
 
-  it('renders the shared checkpoint before the correct prompt and leaves earlier answers in their segment', () => {
+  it('draws a divider where the model changed, not before the first model', () => {
     render(
       <AppearanceProvider>
         <ClioConversation
@@ -101,17 +99,13 @@ describe('recorded model segments', () => {
         />
       </AppearanceProvider>,
     );
-    // The first model is named by each reply's footer, not by a divider.
-    const checkpoints = document.querySelectorAll('[data-slot="model-checkpoint"]');
-    expect(checkpoints).toHaveLength(1);
-    expect(checkpoints[0]).toHaveTextContent('Switched to Claude Code, claude-sonnet-5');
-    expect(checkpoints[0]).toHaveAccessibleName(
-      'Switched to Claude Code, claude-sonnet-5. Previous model: OpenAI Codex, gpt-6-luna',
-    );
-    expect(document.querySelector('[data-message-id="next"]')?.contains(checkpoints[0]!)).toBe(
-      true,
-    );
-    expect(screen.getByText('Content for answer.')).toBeVisible();
-    expect(screen.queryByRole('button', { name: /Switched to/ })).not.toBeInTheDocument();
+    const lines = document.querySelectorAll('[data-slot="model-checkpoint"]');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toHaveAttribute('role', 'separator');
+    expect(lines[0]).toHaveTextContent(/^Switched to .+, claude-sonnet-5$/);
+    expect(lines[0].getAttribute('aria-label')).toMatch(/Previous model: .+, gpt-6-luna$/);
+    expect(document.getElementById('message-next')).toContainElement(lines[0] as HTMLElement);
+    expect(screen.getByText('Content for answer.')).toBeInTheDocument();
+    expect(screen.getByText('Content for reply.')).toBeInTheDocument();
   });
 });
