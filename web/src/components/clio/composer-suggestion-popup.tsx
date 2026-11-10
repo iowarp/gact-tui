@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { cn } from '@/lib/utils';
@@ -32,6 +40,47 @@ export function Highlighted({ text, query }: { text: string; query: string }): R
     </>
   );
 }
+/**
+ * The whole name and description of the highlighted (or pointed-at) row, which its
+ * one 30px line may cut. Screen readers already hear both from the option's label.
+ */
+export function SuggestionDetail({
+  description,
+  mono,
+  name,
+}: {
+  description: string;
+  mono?: boolean;
+  name: string;
+}) {
+  if (!description) return null;
+  return (
+    <div
+      aria-hidden="true"
+      className="shrink-0 border-t px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-muted-foreground"
+      data-slot="composer-suggestion-detail"
+    >
+      <p className="line-clamp-3 [overflow-wrap:anywhere]">
+        <span
+          className={cn('font-medium text-foreground', mono && 'font-mono text-[11px] font-normal')}
+        >
+          {name}
+        </span>
+        <span className="text-faint"> — </span>
+        {description}
+      </p>
+    </div>
+  );
+}
+
+/** The row the pointer is over, which the detail strip follows ahead of the highlight. */
+export function useHoveredRow() {
+  const [hovered, setHovered] = useState<string>();
+  const onHover = useCallback((key: string) => setHovered(key), []);
+  const onLeave = useCallback(() => setHovered(undefined), []);
+  return { hovered, onHover, onLeave };
+}
+
 /** The field's faint count, a bare number as drawn; the word is for screen readers. */
 export function MatchCount({ total }: { total: number }) {
   return (
