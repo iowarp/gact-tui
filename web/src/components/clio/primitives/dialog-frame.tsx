@@ -11,9 +11,10 @@ import { ShortcutKeys } from './key-chip';
 /**
  * Focus goes to the first element marked with this attribute when a frame opens:
  * the safe button, or a body field that is the point of the dialog (Rename's
- * name, its text selected).
+ * name, its text selected). A marked field that is disabled (a picker still
+ * loading) is passed over, or focus would stay behind the dialog.
  */
-const INITIAL_FOCUS = '[data-initial-focus]';
+const INITIAL_FOCUS = '[data-initial-focus]:not(:disabled):not([aria-disabled="true"])';
 
 function focusSafeButton(event: Event) {
   const content = event.currentTarget as HTMLElement | null;
