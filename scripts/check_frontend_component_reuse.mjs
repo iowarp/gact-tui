@@ -62,10 +62,8 @@ const requiredImports = {
     '@/components/ai-elements/message',
     '@/components/ai-elements/sources',
   ],
-  'web/src/components/clio/composer.tsx': [
-    './composer-model-label',
-    '@/components/ai-elements/prompt-input',
-  ],
+  'web/src/components/clio/composer.tsx': ['@/components/ai-elements/prompt-input'],
+  'web/src/components/clio/composer-model-control.tsx': ['./composer-model-label'],
   // The composer and session defaults share the provider/model trigger so both
   // names retain space and the sourced logo, button and tooltip stay composed.
   'web/src/components/clio/composer-model-label.tsx': [

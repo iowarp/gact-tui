@@ -26,7 +26,9 @@ import { PromptInput, PromptInputFooter } from '@/components/ai-elements/prompt-
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ComposerSubmitControls } from './composer-submit-controls';
 import { composerDelivery } from '@/hooks/use-composer-delivery';
-import { ClioModelPicker } from './model-picker';
+import { ComposerModelControl } from './composer-model-control';
+import { ComposerToolbarStatus } from './composer-toolbar-status';
+import { useComposerHeldSend } from './use-composer-held-send';
 import { ModelFitNotice } from './model-fit-notice';
 import { useComposerModelSelection } from './use-composer-model-selection';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
@@ -60,7 +62,6 @@ import { ClioComposerFileUpload } from './composer-file-upload';
 import { ClioComposerAnnotations } from './composer-annotations';
 import { commentSessionParts } from '@/lib/composer-annotations';
 import type { CommentAttachment } from '@clio/core/v3';
-import { ComposerModelButton } from './composer-model-label';
 import { setModelImageInput } from '@/lib/model-image-input';
 import { useCommentSessionAttachment } from './comments/use-comment-session-attachment';
 import { ComposerAddContextButtons } from './composer-add-context-button';
@@ -107,6 +108,11 @@ export interface ClioComposerProps extends ComposerQueueControls {
     aliases?: readonly string[];
   }>;
   disabled?: boolean;
+  /**
+   * The connection's defaults are still loading. The draft stays editable; the
+   * controls and the send wait, and an Enter pressed meanwhile sends once ready.
+   */
+  connecting?: boolean;
   /** Keep the draft editable while the first session catalog is registering. */
   catalogPreparing?: boolean;
   contextReferences?: boolean;
@@ -186,6 +192,7 @@ export function ClioComposer({
   confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
+  connecting = false,
   catalogPreparing = false,
   contextReferences = false,
   workspaceId = '',
@@ -229,7 +236,12 @@ export function ClioComposer({
     : 'Reply, or steer the run',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
-  const { selectedOption, selectModel } = useComposerModelSelection(modelOptions, provider, model);
+  const { selectedOption, selectModel } = useComposerModelSelection(
+    modelOptions,
+    provider,
+    model,
+    connecting,
+  );
   useEffect(() => {
     setModelImageInput(Boolean(selectedOption?.modalities?.includes('image')));
   }, [selectedOption?.modalities]);
@@ -259,6 +271,7 @@ export function ClioComposer({
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
   const nextDeliveryRef = useRef<MessageDelivery | 'queued' | undefined>(undefined);
+  const controlsDisabled = disabled || connecting;
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const latestInputRef = useRef(input);
@@ -301,6 +314,7 @@ export function ClioComposer({
   useCommentSessionAttachment(annotations, onAnnotationsChange);
   const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const heldSend = useComposerHeldSend(connecting, rootRef, nextDeliveryRef);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
   const focusEditorSoon = useCallback((offset?: number) => {
@@ -340,12 +354,12 @@ export function ClioComposer({
   );
   const [commandMenuOpen, setCommandMenuOpen] = useState(true);
   const popoverOpen = (showCommands && commandMenuOpen) || showReferences;
-  // Esc (or ⌘ . on a Mac) stops the run while focus is in the composer or its queue.
+  // Esc (or âŒ˜ . on a Mac) stops the run while focus is in the composer or its queue.
   useShortcut('stop', () => onStop?.(), {
     enabled: Boolean(onStop) && (state === 'running' || state === 'queued'),
     region: rootRef,
   });
-  // Ctrl+S (⌘S) puts the draft aside in the dash; Up in an empty editor brings
+  // Ctrl+S (âŒ˜S) puts the draft aside in the dash; Up in an empty editor brings
   // the newest back. Restoring over a draft puts that one aside first.
   const savedDraftKey = sessionId ?? `new:${workspaceId}`;
   const savedDrafts = useSavedDrafts(savedDraftKey);
@@ -524,7 +538,7 @@ export function ClioComposer({
       <PromptInput
         data-evidence-composer
         data-slot="clio-composer"
-        className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[9px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[7px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
+        className="mx-auto w-full max-w-4xl shrink-0 [&>[data-slot=input-group]]:rounded-[12px] [&>[data-slot=input-group]]:pt-[14px] [&>[data-slot=input-group]]:pr-[10px] [&>[data-slot=input-group]]:pb-[8px] [&>[data-slot=input-group]]:pl-[14px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]>*]:px-0"
         maxFileSize={COMPOSER_ATTACHMENT_MAX_BYTES}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
@@ -668,7 +682,7 @@ export function ClioComposer({
           attachmentsEnabled={attachments}
           activeOptionId={composerReferences.activeOptionId}
           ariaLabel={`Ask ${brand.name}`}
-          className="min-h-[22px] p-0 text-[13px] leading-[22px]"
+          className="min-h-6 p-0 text-[13px] leading-6"
           disabled={disabled}
           expanded={popoverOpen}
           onCaretChange={composerReferences.onCaretChange}
@@ -687,21 +701,25 @@ export function ClioComposer({
             const form = event.currentTarget.closest('form');
             const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
             // No submit square (Stop shows while work runs with nothing typed): nothing to send.
-            if (!submit || submit.disabled) return;
+            if (!submit || submit.disabled) {
+              const delivery = composerDelivery(state, event.ctrlKey || event.metaKey);
+              if (submit && connecting && !draftEmpty) heldSend.hold(delivery);
+              return;
+            }
             nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
             form?.requestSubmit();
           }}
         />
         <TooltipProvider delayDuration={450}>
           <PromptInputFooter
-            className="@container/composer -ml-1.5 w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
+            className="@container/composer mt-3 -ml-1.5 min-h-[30px] w-[calc(100%+0.375rem)] min-w-0 cursor-default flex-nowrap justify-start gap-[2px] p-0 font-normal group-has-[>input]/input-group:pb-0"
             data-slot="composer-toolbar"
           >
             {attachments || contextReferences ? (
               <ComposerAddContextButtons
                 attachments={attachments}
                 contextReferences={contextReferences}
-                disabled={disabled}
+                disabled={controlsDisabled}
                 onOpenSources={connectedSources.open}
                 onOpenReferences={composerReferences.openPicker}
               />
@@ -718,7 +736,7 @@ export function ClioComposer({
               spotterModelControl={
                 <ComposerSpotterModel
                   catalogStatus={modelCatalogStatus}
-                  disabled={disabled}
+                  disabled={controlsDisabled}
                   onChange={spotter.set}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
@@ -730,49 +748,34 @@ export function ClioComposer({
                 configuredEffort,
                 selectedOption?.reasoning,
               )}
-              disabled={disabled}
+              disabled={controlsDisabled}
               modelControl={
-                <ClioModelPicker
+                <ComposerModelControl
                   catalogStatus={modelCatalogStatus}
-                  model={selectedOption?.id}
                   onChange={(option) => {
                     selectModel(option);
                     keepOfferedEffort(option.reasoning);
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
-                  provider={selectedOption?.providerId}
-                  placement="composer"
-                  shortcut="model-picker"
-                  trigger={
-                    <ComposerModelButton
-                      appearance="text"
-                      aria-label="Change model"
-                      className="max-w-56 @min-[48rem]/composer:max-w-72"
-                      option={selectedOption}
-                      shortcut="model-picker"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
+                  selected={selectedOption}
                 />
               }
               onChange={choose}
               unrecognizedEffort={unrecognizedEffort}
             />
-            {catalogPreparing && state !== 'running' ? (
-              <span
-                className="shrink-0 px-1 text-[12px] whitespace-nowrap text-muted-foreground"
-                role="status"
-              >
-                Preparing views…
-              </span>
-            ) : null}
+            <ComposerToolbarStatus
+              connecting={connecting}
+              held={heldSend.held}
+              preparing={catalogPreparing && state !== 'running'}
+            />
             <ComposerSubmitControls
               state={state}
               hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
               disabled={
-                disabled || (catalogPreparing && state !== 'running') || connectedSources.pending
+                controlsDisabled ||
+                (catalogPreparing && state !== 'running') ||
+                connectedSources.pending
               }
               onSubmit={(event) => {
                 nextDeliveryRef.current = composerDelivery(state, event.ctrlKey || event.metaKey);
