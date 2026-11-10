@@ -2,13 +2,14 @@ import type { RunState, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
 import { m, useIsPresent } from 'motion/react';
 import { forwardRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { DeleteResourceDialog, type ResourceActions } from './resource-dialogs';
 import { NamedTooltip } from './primitives/icon-button';
+import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus } from './status';
 import { SessionWorkStatus } from './session-work';
@@ -130,24 +131,23 @@ export function WorkspaceTranscriptAlerts({
   );
 }
 
+/**
+ * The spec's page-level Error state (conversation-states: states): icon, what
+ * failed, the reason, and Retry. Manage connections stays as its text link.
+ */
 export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const navigate = useNavigate();
   return (
     <main className="grid h-full min-h-0 place-items-center bg-background p-6">
-      <Alert className="max-w-xl" variant="destructive">
-        <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>{capitalize(vocab.workspace)} unavailable</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {onRetry ? (
-            <Button onClick={onRetry} variant="outline">
-              Try again here
-            </Button>
-          ) : null}
-          <Button asChild variant="ghost">
-            <Link to="/?intent=connect">Manage connections</Link>
-          </Button>
-        </div>
-      </Alert>
+      <StateView
+        action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        className="w-full max-w-xl"
+        detail={error}
+        kind="error"
+        link={{ label: 'Manage connections', onClick: () => navigate('/?intent=connect') }}
+        size="page"
+        title={`${capitalize(vocab.workspace)} unavailable`}
+      />
     </main>
   );
 }
