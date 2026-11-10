@@ -59,10 +59,10 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * the time it explains. Empty columns keep their width; below 600px the row
    * drops its hover actions, elapsed and an empty badge so the text keeps room.
    *
-   * `notice` is a notification (the bell): the icon, the title (it wraps, so a
-   * narrow popover keeps its verb) and a faint 11px `meta` time right-aligned on
-   * the first line; the `description` under the title runs
-   * to the row's right edge, or stops before a `primaryAction` word pinned to
+   * `notice` is a notification (the bell, spec `.nf`): a 14px icon, the title (it
+   * wraps, so a narrow popover keeps its verb) and a faint 11px `meta` age in a
+   * 52px column on the first line; the faint 11.5px `description` under the title
+   * runs to the row's right edge, or stops before a `primaryAction` word pinned to
    * the bottom right. It carries no padding or fill; its container owns both,
    * so actions under it share the row.
    */
@@ -127,27 +127,27 @@ export const ListRow = memo(
           data-variant="notice"
           style={style}
           className={cn(
-            'grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] gap-x-2.5 text-[12.5px] whitespace-nowrap',
+            'grid min-w-0 grid-cols-[14px_minmax(0,1fr)_52px] gap-x-2 text-[12.5px] whitespace-nowrap',
             className,
           )}
           {...rest}
         >
           <span
             aria-hidden="true"
-            className="mt-px grid size-4 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-[15px]"
+            className="mt-0.5 grid size-3.5 place-items-center text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
           >
             {icon}
           </span>
-          <span className="min-w-0 leading-[1.4] whitespace-normal text-muted-foreground [overflow-wrap:anywhere]">
+          <span className="min-w-0 leading-[18px] whitespace-normal text-muted-foreground [overflow-wrap:anywhere]">
             {title}
           </span>
-          <span className="justify-self-end pt-px text-right text-[11px] text-faint tabular-nums">
+          <span className="justify-self-end pt-px text-right text-[11px] leading-4 text-faint tabular-nums">
             {meta}
           </span>
           {description ? (
             <span
               className={cn(
-                'col-start-2 mt-0.5 min-w-0 truncate leading-[1.45] text-muted-foreground',
+                'col-start-2 mt-0.5 min-w-0 truncate text-[11.5px] leading-[18px] text-faint',
                 primaryAction === undefined && 'col-span-2',
               )}
             >
@@ -155,7 +155,7 @@ export const ListRow = memo(
             </span>
           ) : null}
           {primaryAction !== undefined ? (
-            <span className="col-start-3 self-end pl-2.5 text-right text-[12px] font-medium text-accent-foreground">
+            <span className="col-start-3 self-end text-right text-[11.5px] leading-[18px] font-semibold text-accent-foreground">
               {primaryAction}
             </span>
           ) : null}

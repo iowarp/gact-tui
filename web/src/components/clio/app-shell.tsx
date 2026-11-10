@@ -1,5 +1,13 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -29,6 +37,7 @@ import { NamedTooltip } from './primitives/icon-button';
 import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
+import { fitWorkbenchWidthTo } from './workbench-list-fit';
 
 /** The left bar carries its hide control while open; collapsed, or as a phone sheet, the top bar shows it. */
 function TopBarSidebarTrigger() {
@@ -161,6 +170,14 @@ function workbenchWidth(share: number, windowWidth: number): number {
   return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
 }
 
+/**
+ * The panel's width: the stored share, or less when the active tab is a sparse
+ * list that needs less (never under the workbench minimum, never above the share).
+ */
+function fittedWorkbenchWidth(share: number, windowWidth: number, fit: number | undefined): number {
+  return fitWorkbenchWidthTo(workbenchWidth(share, windowWidth), fit, MIN_WORKBENCH_WIDTH);
+}
+
 /** Up to this the left bar folds whenever the workbench is open (spec "Laptop, 1280px"). */
 const LAPTOP_WIDTH = 1280;
 
@@ -224,14 +241,43 @@ export function ClioAppShell({
       ? `${Math.round(workbenchWidth(initialWorkbenchShare, currentWindowWidth()))}px`
       : '0px',
   );
+  // A list tab's fitted width. The left bar still folds by the stored share, so
+  // switching tabs never folds or unfolds it. A drag while fitted overrides the
+  // fit until the next tab asks again.
+  const workbenchFitRef = useRef<{ pixels?: number; applied?: number; overridden: boolean }>({
+    overridden: false,
+  });
   const applyWorkbenchShare = useCallback(() => {
     const share = workbenchShareRef.current;
     const width = currentWindowWidth();
     setConversationCrowded(conversationNeedsFoldedNavigation(share, width));
+    const fit = workbenchFitRef.current;
+    const pixels = Math.round(
+      fittedWorkbenchWidth(share, width, fit.overridden ? undefined : fit.pixels),
+    );
+    fit.applied = fit.pixels !== undefined && !fit.overridden ? pixels : undefined;
     const panel = workbenchPanelRef.current;
-    if (panel && !panel.isCollapsed())
-      panel.resize(`${Math.round(workbenchWidth(share, width))}px`);
+    if (panel && !panel.isCollapsed()) panel.resize(`${pixels}px`);
   }, []);
+  const [sheetFit, setSheetFit] = useState<number>();
+  const fitWorkbenchWidth = useCallback(
+    (pixels: number | undefined) => {
+      const fit = workbenchFitRef.current;
+      const next = pixels === undefined ? undefined : Math.ceil(pixels);
+      if (next === undefined) {
+        setSheetFit(undefined);
+        if (fit.pixels === undefined && !fit.overridden) return;
+        workbenchFitRef.current = { overridden: false };
+      } else {
+        setSheetFit(Math.max(MIN_WORKBENCH_WIDTH, next));
+        if (fit.pixels === next) return;
+        fit.pixels = next;
+        if (fit.overridden) return;
+      }
+      applyWorkbenchShare();
+    },
+    [applyWorkbenchShare],
+  );
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
       setWorkbenchPreference(open);
@@ -250,8 +296,16 @@ export function ClioAppShell({
     const panel = workbenchPanelRef.current;
     if (!panel) return;
     const collapsed = panel.isCollapsed();
-    if (!collapsed && typeof window !== 'undefined' && window.innerWidth) {
-      const share = Math.round((panel.getSize().inPixels / window.innerWidth) * 1000) / 1000;
+    const fit = workbenchFitRef.current;
+    const pixels = panel.getSize().inPixels;
+    // A click on the separator of a fitted panel is not a new preference.
+    const unchangedFit = fit.applied !== undefined && Math.abs(pixels - fit.applied) <= 1;
+    if (!collapsed && !unchangedFit && typeof window !== 'undefined' && window.innerWidth) {
+      if (fit.applied !== undefined) {
+        fit.overridden = true;
+        fit.applied = undefined;
+      }
+      const share = Math.round((pixels / window.innerWidth) * 1000) / 1000;
       if (share !== workbenchShareRef.current) {
         workbenchShareRef.current = share;
         window.localStorage.setItem(WORKBENCH_SHARE_KEY, String(share));
@@ -306,10 +360,12 @@ export function ClioAppShell({
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),
+      hide: () => setWorkbenchOpen(false),
       pendingStripPosition,
       clearPendingStripPosition: () => setPendingStripPosition(undefined),
+      fitWidth: fitWorkbenchWidth,
     }),
-    [pendingStripPosition, setWorkbenchOpen],
+    [fitWorkbenchWidth, pendingStripPosition, setWorkbenchOpen],
   );
 
   const sessionSurface = (
@@ -413,8 +469,15 @@ export function ClioAppShell({
       {hasWorkbench && !desktopWorkbench ? (
         <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
-            // Under the split breakpoint the workbench slides over the conversation at 86%.
-            className="w-[86vw] p-0 data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            // Under the split breakpoint the workbench slides over the conversation at 86%,
+            // or less for a sparse list that needs less; the spec's shadow sets the
+            // conversation strip beside it underneath, not cut off.
+            className="w-[var(--workbench-sheet-width,86vw)] p-0 shadow-[-14px_0_30px_rgb(0_0_0/0.18)] data-[side=right]:w-[var(--workbench-sheet-width,86vw)] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_rgb(0_0_0/0.45)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            style={
+              sheetFit === undefined
+                ? undefined
+                : ({ '--workbench-sheet-width': `min(86vw, ${sheetFit}px)` } as CSSProperties)
+            }
             // Land on the sheet itself, announced by its title, rather than on whichever icon
             // button comes first (which would also pop its tooltip).
             onOpenAutoFocus={(event) => {
