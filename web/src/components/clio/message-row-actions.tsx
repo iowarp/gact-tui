@@ -1,7 +1,9 @@
 import type { Message } from '@clio/core/v3';
 import { BookmarkIcon, CopyIcon, LoaderCircleIcon } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { copyText } from '@/lib/clipboard';
+import { canDeferHoverControls } from '@/lib/hover-deferral';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { answerRevisions } from './answer-revisions';
@@ -38,6 +40,39 @@ function copyMessage(message: Message) {
       .flatMap((block) => (block.type === 'text' && !revised.has(block.id) ? [block.text] : []))
       .join('\n'),
   );
+}
+
+/**
+ * Hover-only actions mount once the pointer or focus first enters their
+ * message, so a long transcript does not carry every row's hidden buttons (and
+ * their per-message rating reads). Devices without hover, and `keep` (a marked
+ * message, a visible retry), mount them at once.
+ */
+export function DeferredMessageActions({
+  children,
+  keep,
+}: {
+  children: ReactNode;
+  keep?: boolean;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [armed, setArmed] = useState(() => !canDeferHoverControls());
+  useEffect(() => {
+    if (armed || keep) return;
+    const row = anchor.current?.closest('[data-message-id]');
+    if (!row) {
+      setArmed(true);
+      return;
+    }
+    const arm = () => setArmed(true);
+    row.addEventListener('pointerenter', arm);
+    row.addEventListener('focusin', arm);
+    return () => {
+      row.removeEventListener('pointerenter', arm);
+      row.removeEventListener('focusin', arm);
+    };
+  }, [armed, keep]);
+  return armed || keep ? children : <span ref={anchor} hidden />;
 }
 
 /**
