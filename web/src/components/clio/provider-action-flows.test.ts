@@ -7,6 +7,8 @@ describe('provider action flows', () => {
     expect(providerActionStageWord('Loading models…')).toBe('Loading models…');
     expect(providerActionStageWord('Waiting for you to log in…')).toBe('Logging in…');
     expect(providerActionStageWord('Checking…')).toBe('Checking…');
+    expect(providerActionStageWord('Waiting to install…')).toBe('Waiting to install…');
+    expect(providerActionStageWord('Installing…')).toBe('Installing…');
     expect(providerActionStageWord('Saving your key…')).toBe('Saving your key…');
     expect(providerActionStageWord('Logging out…')).toBe('Logging out…');
   });

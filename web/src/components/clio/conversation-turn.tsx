@@ -568,7 +568,8 @@ function runSettled(
       item.tools.every(
         (tool) =>
           !['pending', 'running'].includes(tool.state) &&
-          !permissionInteractionForTool(interactions, tool),
+          !permissionInteractionForTool(interactions, tool) &&
+          !splitWaitingQuestion(questionInteractionsForTool(interactions, tool.id)).waiting,
       ) &&
       item.tasks.every((task) => !['queued', 'running'].includes(task.state)),
   );
@@ -645,7 +646,10 @@ function IterationDetail({
           entry.kind === 'tool' ? (
             (() => {
               const { waiting: question, rest } = showQuestionInteractions
-                ? splitWaitingQuestion(questionInteractionsForTool(interactions, entry.id))
+                ? splitWaitingQuestion(
+                    questionInteractionsForTool(interactions, entry.id),
+                    entry.tool.name,
+                  )
                 : { waiting: undefined, rest: [] };
               const waiting = question ?? permissionInteractionForTool(interactions, entry.tool);
               return (
