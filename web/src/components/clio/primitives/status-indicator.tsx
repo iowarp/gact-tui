@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RingSpinner } from './ring-spinner';
 
 export type StatusTone =
   | 'running'
@@ -14,13 +15,12 @@ export type StatusTone =
   | 'stopped';
 
 /**
- * Shape as well as color, so the mark never relies on color alone: a spinner
- * for work in progress, a hollow ring for idle, a square for stopped, a dot
- * for an outcome, a faint dot for something switched off. A label always goes with it.
+ * Shape as well as color, so the mark never relies on color alone: a turning
+ * ring for work in progress, a hollow ring for idle, a square for stopped, a
+ * dot for an outcome, a faint dot for something switched off. A label always
+ * goes with it.
  */
-const MARK: Record<StatusTone, string> = {
-  running:
-    'size-[11px] rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin',
+const MARK: Record<Exclude<StatusTone, 'running'>, string> = {
   waiting: 'size-1.5 rounded-full bg-action ring-2 ring-action/25',
   success: 'size-1.5 rounded-full bg-success',
   warning: 'size-1.5 rounded-full bg-warning',
@@ -69,24 +69,19 @@ export const StatusIndicator = memo(function StatusIndicator({
   className,
 }: StatusIndicatorProps) {
   const glyph = markStyle === 'glyph' ? GLYPH[tone] : undefined;
-  const mark = (
-    <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
-      {glyph ?? (
-        <span
-          className={cn(
-            'block',
-            MARK[tone],
-            markStyle === 'glyph' &&
-              tone === 'running' &&
-              'size-3 border-2 border-primary/40 border-t-primary',
-            markStyle === 'glyph' &&
-              tone === 'waiting' &&
-              'size-3 rounded-full border-[1.5px] border-warning border-t-transparent bg-transparent ring-0 motion-safe:animate-spin',
-          )}
-        />
-      )}
-    </span>
-  );
+  // Work in progress is the shared teal ring; in a glyph column, a wait on the person turns amber.
+  const mark =
+    glyph ??
+    (tone === 'running' ? (
+      <RingSpinner className={markStyle === 'glyph' ? undefined : 'size-[11px]'} />
+    ) : markStyle === 'glyph' && tone === 'waiting' ? (
+      <span
+        aria-hidden="true"
+        className="block size-3 rounded-full border-[1.5px] border-warning border-t-transparent motion-safe:animate-spin motion-safe:will-change-transform"
+      />
+    ) : (
+      <span aria-hidden="true" className={cn('block', MARK[tone])} />
+    ));
   if (display === 'column') {
     return (
       <span
@@ -110,7 +105,9 @@ export const StatusIndicator = memo(function StatusIndicator({
         className,
       )}
     >
-      {mark}
+      <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
+        {mark}
+      </span>
       <span className="truncate">{label}</span>
     </span>
   );

@@ -25,7 +25,7 @@ export function DocumentViewControls({
       icon: BookOpenIcon,
     },
     ...(markdown || html || (latex && !paper)
-      ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon }]
+      ? [{ value: 'raw', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' }]
       : []),
   ];
   return (

@@ -64,6 +64,7 @@
   --sidebar-ring: #2f6f6a;
   --destructive: #b3261e;
   --destructive-foreground: #8c1d18;
+  --destructive-text: var(--destructive);
   --info: #3a6690;
   --info-foreground: #234b70;
   --success: #2f6f6a;
@@ -171,6 +172,7 @@
   --sidebar-ring: #5fa8a0;
   --destructive: #e5675c;
   --destructive-foreground: #f2b8b5;
+  --destructive-text: #ef9a90;
   --info: #8db4da;
   --info-foreground: #a9c7e6;
   --success: #5fa8a0;
@@ -279,6 +281,7 @@
   --sidebar-ring: oklch(0.63 0.14 205);
   --destructive: oklch(0.5 0.19 25);
   --destructive-foreground: var(--color-red-800);
+  --destructive-text: var(--destructive);
   --info: oklch(0.48 0.13 220);
   --info-foreground: var(--color-violet-900);
   --success: oklch(0.46 0.13 155);
@@ -386,6 +389,7 @@
   --sidebar-ring: oklch(0.77 0.145 198);
   --destructive: oklch(0.69 0.19 24);
   --destructive-foreground: var(--color-red-400);
+  --destructive-text: var(--destructive);
   --info: oklch(0.72 0.14 215);
   --info-foreground: var(--color-violet-400);
   --success: oklch(0.72 0.15 155);
@@ -497,6 +501,7 @@
   --sidebar-ring: #ff0000;
   --destructive: #b30000;
   --destructive-foreground: #8a0000;
+  --destructive-text: var(--destructive);
   --info: #cc0000;
   --info-foreground: #8a0000;
   --success: #d10000;
