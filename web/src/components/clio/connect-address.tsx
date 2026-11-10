@@ -1,5 +1,5 @@
 import { TransportError } from '@clio/core/v3';
-import { ClipboardPasteIcon, FileTextIcon, KeyRoundIcon } from 'lucide-react';
+import { FileTextIcon, KeyRoundIcon, PaperclipIcon } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ConnectField, ConnectStatusLine, ConnectInput } from '@/components/clio/connect-frame';
 import { IconButton } from '@/components/clio/primitives/icon-button';
@@ -81,7 +81,7 @@ export function ConnectAddressFields({
               />
             </span>
             <IconButton
-              icon={<ClipboardPasteIcon />}
+              icon={<PaperclipIcon />}
               label="Paste access token"
               onClick={paste}
               size="sm"

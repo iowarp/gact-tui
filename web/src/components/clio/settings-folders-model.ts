@@ -12,13 +12,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useSyncExternalStore } from 'react';
 
-/** The colours a workspace can carry, drawn from the theme's chart tokens. */
+/** The colours a workspace can carry: the spec's fixed identity palette, the same in every theme. */
 export const WORKSPACE_COLOURS = [
-  { id: 'clay', label: 'Clay', swatch: 'bg-chart-5', text: 'text-chart-5' },
-  { id: 'amber', label: 'Amber', swatch: 'bg-chart-2', text: 'text-chart-2' },
-  { id: 'green', label: 'Green', swatch: 'bg-chart-3', text: 'text-chart-3' },
-  { id: 'blue', label: 'Blue', swatch: 'bg-chart-1', text: 'text-chart-1' },
-  { id: 'violet', label: 'Violet', swatch: 'bg-chart-4', text: 'text-chart-4' },
+  { id: 'clay', label: 'Clay', swatch: 'bg-[#c9785b]' },
+  { id: 'amber', label: 'Amber', swatch: 'bg-[#d9a55b]' },
+  { id: 'green', label: 'Green', swatch: 'bg-[#7fb069]' },
+  { id: 'blue', label: 'Blue', swatch: 'bg-[#5b9fd9]' },
+  { id: 'violet', label: 'Violet', swatch: 'bg-[#a07fd1]' },
 ] as const;
 
 export const WORKSPACE_ICONS: ReadonlyArray<{ id: string; label: string; Icon: LucideIcon }> = [

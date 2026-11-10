@@ -236,7 +236,7 @@ function NDPCatalogPicker({
         />
         <select
           aria-label="Catalog access filter"
-          className="h-8 max-w-full rounded-md border bg-background px-2 text-sm"
+          className={cn(sourceInputClass, 'w-auto max-w-full border bg-background')}
           value={catalog.onlyGroups ? 'groups' : 'all'}
           onChange={(event) => {
             catalog.setOnlyGroups(event.target.value === 'groups');

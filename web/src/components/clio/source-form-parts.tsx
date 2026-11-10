@@ -178,7 +178,10 @@ export function AccessRows(props: {
   return <ChoiceRows label="Access" rows={sourceAccessRows} {...props} />;
 }
 
-/** A chosen folder in the `.c3in` face, with its chooser as a quiet action at the right. */
+/**
+ * A chosen folder in the `.c3in` face: the folder's name, then its full path
+ * cut at the end (whole path in the title), with its chooser as a quiet action at the right.
+ */
 export function FolderFace({
   path,
   empty = 'No folder chosen',
@@ -189,14 +192,28 @@ export function FolderFace({
   /** The chooser (a HostPathPicker with `triggerClassName`). */
   children?: ReactNode;
 }) {
+  const name = path
+    .trim()
+    .replace(/[/\\]+$/, '')
+    .split(/[/\\]/)
+    .pop();
   return (
     <div className="flex h-[30px] min-w-0 items-center gap-2 rounded-[7px] border border-input pr-1 pl-2.5 text-[12.5px] dark:bg-input/30">
       <span
         role="status"
         title={path || undefined}
-        className={cn('min-w-0 flex-1 truncate', path ? 'text-foreground' : 'text-faint')}
+        className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap"
       >
-        {path || empty}
+        {path ? (
+          <>
+            <span className="max-w-[60%] shrink-0 truncate text-foreground">{name || path}</span>
+            {name && name !== path ? (
+              <span className="min-w-0 truncate font-mono text-[11px] text-faint">{path}</span>
+            ) : null}
+          </>
+        ) : (
+          <span className="truncate text-faint">{empty}</span>
+        )}
       </span>
       {children}
     </div>

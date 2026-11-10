@@ -284,7 +284,8 @@ export function ConnectedSourceContents({
     queryFn: ({ signal }) => repository.hostStorageSettings('local', signal),
     retry: false,
   });
-  const hostLabel = host.data?.hostname || `the connected ${vocab.agent}`;
+  // Plain and stable: never the raw machine name, and not swapped once a request lands.
+  const hostLabel = `${vocab.agent}'s computer`;
   const source = sources.data?.find((row) => row.id === selectedId);
   const providerFor = (row: ConnectedSourceState): SourceProvider =>
     providers.data?.providers.find((item) => item.id === row.provider) ?? {

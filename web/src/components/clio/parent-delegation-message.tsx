@@ -11,7 +11,7 @@ import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { BoundedResult } from './bounded-result';
 import { delegationPrompt, isParentDelegation } from './parent-delegation';
 import { IconButton } from './primitives/icon-button';
-import { ToolDetailsContent } from './tool-details-content';
+import { ResultDialogContent } from './result-dialog-content';
 
 type DelegationBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -43,7 +43,7 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
       >
         <MessageContent className="max-w-full">
           <div
-            className="min-w-0 max-w-full rounded-xl bg-secondary px-3.5 py-[9px] font-sans text-[12.5px] leading-normal [overflow-wrap:anywhere]"
+            className="min-w-0 max-w-full rounded-[12px] bg-secondary px-3.5 py-[9px] font-sans text-[12.5px] leading-normal [overflow-wrap:anywhere]"
             data-slot="parent-delegation-bubble"
           >
             <BoundedResult lines={lines} title="Parent assignment">
@@ -52,39 +52,45 @@ function ParentAssignment({ block, createdAt }: { block: DelegationBlock; create
           </div>
         </MessageContent>
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          {/* As a person's prompt: a row under the bubble on phones; from sm it
-              takes no height and shows left of the bubble on hover or focus. */}
+          {/* As a person's prompt (the spec's `.rft`): one 24px line under the
+              bubble at every width; time and actions show on hover or focus. */}
           <div
-            className="mt-0.5 flex h-[22px] max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground sm:pointer-events-none sm:absolute sm:right-full sm:bottom-0 sm:mt-0 sm:mr-2 sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100"
+            className="flex h-6 max-w-full items-center justify-end gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground"
             data-slot="parent-delegation-actions"
           >
-            <time dateTime={createdAt} title={formatDateTime(createdAt)}>
-              {formatClockTime(createdAt)}
-            </time>
-            <TooltipProvider>
-              <div className="flex items-center">
-                <IconButton
-                  icon={<CopyIcon aria-hidden="true" />}
-                  label="Copy parent assignment"
-                  onClick={() => void copyText(prompt)}
-                  size="sm"
-                  type="button"
-                />
-                <IconButton
-                  icon={<InfoIcon aria-hidden="true" />}
-                  label="Technical details for Parent assignment"
-                  onClick={() => setDetailsOpen(true)}
-                  size="sm"
-                  type="button"
-                />
-              </div>
-            </TooltipProvider>
+            <div className="flex items-center gap-3 sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100">
+              <time dateTime={createdAt} title={formatDateTime(createdAt)}>
+                {formatClockTime(createdAt)}
+              </time>
+              <TooltipProvider>
+                <div className="flex items-center">
+                  <IconButton
+                    icon={<CopyIcon aria-hidden="true" />}
+                    label="Copy parent assignment"
+                    onClick={() => void copyText(prompt)}
+                    size="sm"
+                    type="button"
+                  />
+                  <IconButton
+                    icon={<InfoIcon aria-hidden="true" />}
+                    label="Technical details for Parent assignment"
+                    onClick={() => setDetailsOpen(true)}
+                    size="sm"
+                    type="button"
+                  />
+                </div>
+              </TooltipProvider>
+            </div>
           </div>
-          <ToolDetailsContent inline={false} title="Parent assignment: Technical details">
+          <ResultDialogContent
+            icon={<InfoIcon />}
+            title="Parent assignment: Technical details"
+            description="The parent's original assignment."
+          >
             <pre className="min-h-0 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-6 [overflow-wrap:anywhere]">
               {block.text}
             </pre>
-          </ToolDetailsContent>
+          </ResultDialogContent>
         </Dialog>
       </div>
     </Message>
