@@ -473,6 +473,8 @@ export function ClioAppShell({
                 'z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60',
                 !workbenchOpen && 'pointer-events-none',
               )}
+              // Collapsed, the handle, the canvas and its scroller leave the Tab order.
+              inert={!workbenchOpen}
               onKeyUp={synchronizeWorkbenchPanel}
               onPointerUp={synchronizeWorkbenchPanel}
             />
@@ -482,6 +484,7 @@ export function ClioAppShell({
               collapsible
               defaultSize={workbenchDefaultSize}
               groupResizeBehavior="preserve-pixel-size"
+              inert={!workbenchOpen}
               maxSize="70%"
               minSize="320px"
               panelRef={workbenchPanelRef}

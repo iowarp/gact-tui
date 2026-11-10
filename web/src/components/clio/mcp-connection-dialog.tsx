@@ -182,7 +182,13 @@ export function McpConnectionDialog({
         toast.success(`Connected ${name}`, {
           description: `${result.tools_count} ${result.tools_count === 1 ? 'tool' : 'tools'} available. Compose a plugin to add it to an agent.`,
         });
-      else toast.warning('Connection saved; check failed', { description: result.error });
+      else
+        toast.warning(`Saved ${name}, but it couldn’t connect`, {
+          description:
+            remote && /connect|refused|unreachable|timed? ?out/iu.test(result.error ?? '')
+              ? `Nothing answered at ${url.trim()}. Check the address in its details.`
+              : 'Check its settings in its details.',
+        });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not add the connection');
     } finally {

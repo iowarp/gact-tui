@@ -145,6 +145,16 @@ export function ExtensionAddDialog(props: {
   return <ExtensionSourceDialog {...props} />;
 }
 
+/** A failed fetch reads as what happened; the service's own words stay on hover. */
+function plainAddError(error: string): string {
+  if (/repository .*not found|could not read username|authentication failed/iu.test(error))
+    return 'That repository couldn’t be found, or it needs access this agent host doesn’t have.';
+  if (/git (fetch|clone)\b.*failed/iu.test(error)) return 'That repository couldn’t be fetched.';
+  if (/no such file or directory|does not exist/iu.test(error))
+    return 'That folder doesn’t exist on the agent host.';
+  return error;
+}
+
 function ExtensionSourceDialog({
   choice,
   connections,
@@ -371,8 +381,8 @@ function ExtensionSourceDialog({
           </>
         ) : null}
         {error ? (
-          <p className="pt-2 text-xs text-destructive" role="alert">
-            {error}
+          <p className="pt-2 text-xs text-destructive" role="alert" title={error}>
+            {plainAddError(error)}
           </p>
         ) : null}
         {!importing ? (

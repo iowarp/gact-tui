@@ -62,6 +62,7 @@ import {
 } from './model-picker-provider-families';
 import { ProviderFamilyRow } from './model-picker-provider-family-row';
 import { useModelPickerFacets } from './use-model-picker-facets';
+import { useProviderInstallStages } from './provider-install-jobs';
 import { useModelPickerSearchView } from './use-model-picker-search-view';
 
 interface ModelPickerCatalogProps {
@@ -317,6 +318,8 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
     onClose: onOpenSettings,
   });
   const activeStage = panel.stage;
+  // Installs keep running on the agent while another provider is in view.
+  const installStages = useProviderInstallStages();
 
   function hideProvider(group: ProviderGroup): void {
     const nextHidden = setProviderHidden(group.id, true);
@@ -455,8 +458,10 @@ export const ModelPickerCatalog = memo(function ModelPickerCatalog({
         <PickerRowLabel
           flush={grouped}
           stage={
-            node.data?.kind === 'provider' && node.data.group.id === activeGroup?.id
-              ? activeStage
+            node.data?.kind === 'provider'
+              ? node.data.group.id === activeGroup?.id
+                ? activeStage
+                : installStages.get(node.data.group.id)
               : undefined
           }
           eyeAsStaticElement={providerRowsAreTrailButtons}

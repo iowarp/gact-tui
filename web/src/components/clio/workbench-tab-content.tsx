@@ -40,7 +40,7 @@ const NdpBrowserTab = lazy(() =>
 );
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchTabListView } from './workbench-strip';
-import { ResourceLoading } from './resource-states';
+import { StateView } from './primitives/state-view';
 
 const ArtifactView = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.ArtifactView })),
@@ -57,7 +57,7 @@ const ScienceLogTab = deferredComponent(() =>
 );
 
 function CanvasLoading({ label }: { label: string }) {
-  return <ResourceLoading className="p-6" label={label} />;
+  return <StateView kind="loading" size="panel" title={label} />;
 }
 
 export interface WorkbenchTabContentProps {

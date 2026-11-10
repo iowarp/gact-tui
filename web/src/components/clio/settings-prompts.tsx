@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { narrowerThan, useElementWidth } from '@/hooks/use-element-width';
 import { useRepository } from '@/hooks/use-repository';
 import { commandGroups, commandSource } from '@/lib/command-table';
+import { newItemKey } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { reminderMeta } from '@/lib/reminder-meta';
@@ -290,7 +291,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             families.map(promptRow)
           ) : (
             <ListState
-              empty="No prompt families in this view"
+              empty="No prompt families in this view."
               noun="prompt families"
               query={prompts}
             />
@@ -327,13 +328,16 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       <div className="min-w-0">
         <SettingsGroupLabel className="mt-0">Commands</SettingsGroupLabel>
         <ItemList label="Commands">
-          <ListState empty="No commands in this view" noun="commands" query={commands} />
+          <ListState empty="No commands in this view." noun="commands" query={commands} />
         </ItemList>
       </div>
     );
 
   return (
-    <div className="grid min-w-0">
+    <div
+      className="grid min-w-0"
+      onKeyDown={newItemKey(promptsOffered && view !== 'commands' ? () => openEditor() : undefined)}
+    >
       <SettingsSectionHeading info={INFO} title="Prompts & commands" />
       <div
         className={cn(
