@@ -58,6 +58,7 @@ import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { ObservabilityView } from './observability-view-storage';
+import type { ProvenanceEarlier } from './observability-provenance';
 
 import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 
@@ -126,6 +127,8 @@ export interface ClioObservabilityDockProps {
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceProvider?: string;
   provenancePending?: boolean;
+  /** Set while older activity records exist beyond the pages read so far. */
+  provenanceEarlier?: ProvenanceEarlier;
   provenanceDegradation?: ExecutionProvenanceDegradation;
   onProvenanceProviderChange?: (provider: string) => void;
   resources?: readonly WorkspaceResource[];

@@ -112,7 +112,8 @@ export function ContextUsage({
                     COLORS[section.id] ?? 'bg-category-4',
                   )}
                 />
-                <span className="min-w-0 truncate" title={section.label}>
+                {/* On a narrow sheet the name wraps rather than lose to the numbers. */}
+                <span className="min-w-0 break-words" title={section.label}>
                   {section.label}
                 </span>
                 {section.items.length ? (

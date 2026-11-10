@@ -150,6 +150,21 @@ const REFERENCE_DELIVERY: Record<string, string> = {
   workspace_path: 'path only',
 };
 
+/**
+ * How a reference reached the model. Inline text is capped by the backend and
+ * its estimate is `min(size, cap) / 4`, so an estimate short of the file's
+ * size means only the start of the file was sent.
+ */
+function deliveryLabel(delivery: Record<string, unknown>, tokensEstimated: number): string {
+  const mode = 'summary' in delivery ? 'summary' : text(delivery.mode);
+  if (REFERENCE_DELIVERY[mode]) return `sent as ${REFERENCE_DELIVERY[mode]}`;
+  if (mode === 'inline_text') {
+    const size = typeof delivery.size_bytes === 'number' ? delivery.size_bytes : 0;
+    return size > 0 && tokensEstimated * 4 + 4 < size ? 'sent in part' : 'sent in full';
+  }
+  return mode ? `sent as ${humanizeProtocolValue(mode).toLowerCase()}` : '';
+}
+
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -170,7 +185,8 @@ function frameItemRow(item: ContextFrameItem): {
   inclusion: string;
   title: string;
 } {
-  const tokens = `≈${contextTokens(item.tokens_estimated)} tokens`;
+  const amount = contextTokens(item.tokens_estimated);
+  const tokens = `≈${amount} ${amount === '1' ? 'token' : 'tokens'}`;
   if (item.kind === 'context_ref') {
     const delivery = (item.metadata.delivery ?? {}) as Record<string, unknown>;
     const refKind = text(item.metadata.ref_kind);
@@ -184,11 +200,10 @@ function frameItemRow(item: ContextFrameItem): {
       typeof delivery.size_bytes === 'number' && delivery.size_bytes > 0
         ? formatBytes(delivery.size_bytes)
         : '';
-    const mode = 'summary' in delivery ? 'summary' : text(delivery.mode);
     const kind = [
       capitalize(refKind ? referenceKindLabel(refKind) : 'reference'),
       size,
-      REFERENCE_DELIVERY[mode] ? `sent as ${REFERENCE_DELIVERY[mode]}` : '',
+      deliveryLabel(delivery, item.tokens_estimated),
     ]
       .filter(Boolean)
       .join(', ');
