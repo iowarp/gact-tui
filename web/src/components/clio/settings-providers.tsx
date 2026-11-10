@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useSavedServers } from '@/hooks/use-saved-servers';
+import { vocab } from '@/lib/brand-vocabulary';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
 import { SETTINGS_COLUMN } from '@/lib/settings-fold';
@@ -137,53 +138,57 @@ export function ProvidersSettings() {
     // One setting column (spec `.xrw`) for the list and the rows, so their right
     // edges meet; beside an open details pane the column is the list's whole side.
     <div className={cn('pb-4', !opened && SETTINGS_COLUMN)}>
-      <SettingsGroupLabel
-        addLabel="Add server"
-        className="mt-2"
-        info="Model servers on this computer or your own machines."
-        onAdd={() => setAdding(true)}
-      >
-        Model servers
-      </SettingsGroupLabel>
-      {rows.length ? (
-        <ItemList
-          className="border-t border-border/70"
-          label={`Model servers, ${running} of ${rows.length} running`}
+      {/* The list's name is a search result: Ctrl K lands here. */}
+      <div data-setting="Model servers">
+        <SettingsGroupLabel
+          addLabel="Add server"
+          className="mt-2"
+          info="Model servers on this computer or your own machines."
+          onAdd={() => setAdding(true)}
         >
-          {rows.map((row) => (
-            <div
-              className="contents"
-              key={row.id}
-              ref={
-                row.id === requestedProvider
-                  ? (node) => {
-                      requestedControl.current =
-                        node?.querySelector<HTMLElement>('[data-slot="model-server-row"]') ?? null;
-                    }
-                  : undefined
-              }
-            >
-              <ModelServerRow
-                applying={apply.isPending}
-                group={groups.find((group) => group.id === row.preset.id)}
-                isDefault={row.isDefault}
-                onDetails={() => setDetailsId(row.id)}
-                onUse={(address, model) => adoptServer(row.preset, address, model)}
-                preset={row.preset}
-                saved={row.saved}
-                selected={row.id === detailsId}
-              />
-            </div>
-          ))}
-        </ItemList>
-      ) : (
-        <StateView
-          action={{ label: 'Add server', onClick: () => setAdding(true) }}
-          kind="empty"
-          size="row"
-          title="No model servers yet"
-        />
-      )}
+          Model servers
+        </SettingsGroupLabel>
+        {rows.length ? (
+          <ItemList
+            className="border-t border-border/70"
+            label={`Model servers, ${running} of ${rows.length} running`}
+          >
+            {rows.map((row) => (
+              <div
+                className="contents"
+                key={row.id}
+                ref={
+                  row.id === requestedProvider
+                    ? (node) => {
+                        requestedControl.current =
+                          node?.querySelector<HTMLElement>('[data-slot="model-server-row"]') ??
+                          null;
+                      }
+                    : undefined
+                }
+              >
+                <ModelServerRow
+                  applying={apply.isPending}
+                  group={groups.find((group) => group.id === row.preset.id)}
+                  isDefault={row.isDefault}
+                  onDetails={() => setDetailsId(row.id)}
+                  onUse={(address, model) => adoptServer(row.preset, address, model)}
+                  preset={row.preset}
+                  saved={row.saved}
+                  selected={row.id === detailsId}
+                />
+              </div>
+            ))}
+          </ItemList>
+        ) : (
+          <StateView
+            action={{ label: 'Add server', onClick: () => setAdding(true) }}
+            kind="empty"
+            size="row"
+            title="No model servers yet"
+          />
+        )}
+      </div>
       {apply.error ? (
         <p
           className="mt-2 truncate text-xs text-destructive"
@@ -231,9 +236,12 @@ export function ProvidersSettings() {
 
   return (
     <div className="flex flex-col" data-slot="providers-settings">
-      <SettingsSectionHeading title="Providers" />
+      <SettingsSectionHeading
+        info={`Where ${vocab.agent}'s models come from: model servers you run, and cloud or subscription accounts.`}
+        title="Providers"
+      />
       {error ? (
-        <div className="max-w-[760px]">
+        <div className="max-w-[760px]" title={error.message}>
           <StateView
             action={{
               label: 'Retry',
@@ -244,7 +252,7 @@ export function ProvidersSettings() {
             }}
             kind="error"
             size="row"
-            title={error.message}
+            title="The agent could not load providers."
           />
         </div>
       ) : loading ? (

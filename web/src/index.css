@@ -288,6 +288,18 @@
   [data-radix-popper-content-wrapper]:has(> [data-name-tooltip]) {
     pointer-events: none;
   }
+  /* A picker marked as a sheet leaves its anchor below 600 px: Radix's inline
+     position gives way to a full-width bottom sheet over a scrim. */
+  @media (max-width: 599px) {
+    [data-radix-popper-content-wrapper]:has(> [data-picker-sheet]) {
+      inset: auto 0 0 0 !important;
+      min-width: 0 !important;
+      transform: none !important;
+    }
+    :root:has([data-picker-sheet]) [data-slot='modal-shield'] {
+      background: var(--scrim);
+    }
+  }
   input[type='file']:not(:disabled)::file-selector-button {
     cursor: pointer;
   }
@@ -690,6 +702,31 @@ html[data-clio-motion='reduced'] .clio-search-arrival {
   animation: none !important;
   background-color: color-mix(in oklab, var(--primary) 16%, transparent);
   box-shadow: inset 2px 0 var(--primary);
+}
+
+/* The filtered Settings window renders each matching section whole and shows only
+   its matching rows, plus the save bar and the loading line. */
+[data-settings-filter]
+  :not(
+    :has(
+        [data-setting-match],
+        [data-slot='save-bar'],
+        [data-slot='state-view'][data-kind='loading']
+      ),
+    [data-setting-match],
+    [data-setting-match] *,
+    [data-slot='save-bar'],
+    [data-slot='save-bar'] *,
+    [data-slot='state-view'][data-kind='loading'],
+    [data-slot='state-view'][data-kind='loading'] *
+  ) {
+  display: none;
+}
+
+/* Settings the agent didn't render still show, as rows that open their section. */
+[data-settings-filter]:has([data-setting-match], [data-slot='state-view'][data-kind='loading'])
+  + [data-settings-fallback] {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

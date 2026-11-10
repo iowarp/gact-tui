@@ -233,7 +233,9 @@ export function ClioComposer({
   variant = 'docked',
   placeholder = variant === 'welcome'
     ? `Ask ${brand.name} anything, or describe a task…`
-    : 'Reply, or steer the run',
+    : state === 'running' || state === 'queued'
+      ? 'Reply, or steer the run'
+      : 'Reply',
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
   const { selectedOption, selectModel } = useComposerModelSelection(
@@ -551,15 +553,11 @@ export function ClioComposer({
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const { command, qualified } = commandForName(commands, enteredId);
               if (qualified) {
-                toast.error(`${enteredId} names more than one command`, {
-                  description: `Use one of ${qualified.join(', ')}.`,
-                });
+                toast.error(`${enteredId} is ambiguous; use ${qualified.join(' or ')}`);
                 return;
               }
               if (!command) {
-                toast.error('Unknown command', {
-                  description: 'Choose a command reported by the connected service.',
-                });
+                toast.error(`${enteredId} is not a command here`);
                 return;
               }
               if (!command.enabled) {

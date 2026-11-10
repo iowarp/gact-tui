@@ -244,7 +244,13 @@ export function ClioMenuContent({
   return (
     <DropdownMenuContent
       align="start"
-      className="w-[340px] p-0"
+      // Below 600px the picker is a bottom sheet (connect-infrastructure "Picker").
+      className={cn(
+        'w-[340px] p-0',
+        narrow &&
+          'max-h-[85dvh] w-full max-w-full rounded-t-[14px] rounded-b-none data-open:zoom-in-100',
+      )}
+      data-picker-sheet={narrow ? '' : undefined}
       onCloseAutoFocus={() => {
         setQuery('');
         setAdding(false);
@@ -259,6 +265,9 @@ export function ClioMenuContent({
         search.focus();
       }}
     >
+      {narrow ? (
+        <div aria-hidden="true" className="mx-auto mt-2 mb-1 h-1 w-9 rounded-full bg-border" />
+      ) : null}
       {!adding ? (
         <label className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3.5 text-muted-foreground">
           <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />

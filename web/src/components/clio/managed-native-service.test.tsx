@@ -88,8 +88,7 @@ describe('native service lifecycle', () => {
     expect(screen.getByText('Stopped')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled();
     expect(screen.queryByText('Running')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByText('Deployment receipt'));
-    expect(screen.getByText('Not verified')).toBeVisible();
+    expect(screen.getByText('Not verified yet')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'About attention verification' }));
     expect(
       await screen.findByText(/A fresh inference must produce a validated capture/u),

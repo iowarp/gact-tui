@@ -2,7 +2,6 @@ import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
-  BellRingIcon,
   BrainCircuitIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -360,6 +359,10 @@ export function ClioAttentionCenter({
 
   const updateReady = versions.state === 'available';
   const memoryCount = proposals.data?.length ?? 0;
+  const memorySources = suggestedFrom(
+    (proposals.data ?? []).flatMap((proposal) => proposal.evidence.map((item) => item.session)),
+    sessions,
+  );
   const shownAway = showEarlier ? away : away.slice(0, AWAY_VISIBLE);
   const earlier = away.length - shownAway.length;
   const unread = away.some((row) => !row.read);
@@ -390,13 +393,11 @@ export function ClioAttentionCenter({
     >
       <PopoverTrigger asChild>
         <IconButton
-          className={cn(
-            'shrink-0',
-            responseCount > 0 && 'text-action hover:text-action',
-            responseCount === 0 && updateReady && 'text-info',
-          )}
+          // Spec `.nfbell`: the bell stays muted; the warning badge carries Needs you.
+          className={cn('shrink-0', responseCount === 0 && updateReady && 'text-info')}
           count={responseCount || undefined}
-          icon={responseCount > 0 ? <BellRingIcon /> : <BellIcon />}
+          countTone="warning"
+          icon={<BellIcon />}
           label={label}
           shortcut="notifications"
           tooltipSide="bottom"
@@ -405,7 +406,7 @@ export function ClioAttentionCenter({
       <PopoverContent
         align="start"
         alignOffset={-6}
-        className="w-[470px] max-w-[calc(100vw-16px)] gap-0 p-0"
+        className="w-[420px] max-w-[calc(100vw-16px)] gap-0 p-0"
         collisionPadding={8}
         onOpenAutoFocus={(event) => {
           // Start on the first notification, not the header's controls; an
@@ -484,7 +485,11 @@ export function ClioAttentionCenter({
                       to={to}
                     >
                       <ListRow
-                        description={<span title={row.detailText}>{row.detail}</span>}
+                        description={row.detail}
+                        hoverText={{
+                          title: `${session.title} ${row.kind.verb}`,
+                          description: row.detailText,
+                        }}
                         icon={<KindIcon aria-hidden="true" className="text-warning" />}
                         meta={
                           <ClioRelativeTime
@@ -496,10 +501,10 @@ export function ClioAttentionCenter({
                         }
                         primaryAction={row.permission ? undefined : row.kind.action}
                         title={
-                          <span title={`${session.title} ${row.kind.verb}`}>
+                          <>
                             <span className="font-semibold text-foreground">{session.title}</span>{' '}
                             {row.kind.verb}
-                          </span>
+                          </>
                         }
                         variant="notice"
                       />
@@ -563,7 +568,11 @@ export function ClioAttentionCenter({
                     to={sessionPath(row.session)}
                   >
                     <ListRow
-                      description={<span title={row.detail}>{row.detail}</span>}
+                      description={row.detail}
+                      hoverText={{
+                        title: `${row.session.title} ${row.verb}`,
+                        description: row.detail,
+                      }}
                       icon={AWAY_ICON[row.tone]}
                       meta={
                         <ClioRelativeTime
@@ -583,10 +592,10 @@ export function ClioAttentionCenter({
                         )
                       }
                       title={
-                        <span title={`${row.session.title} ${row.verb}`}>
+                        <>
                           <span className="font-semibold text-foreground">{row.session.title}</span>{' '}
                           {row.verb}
-                        </span>
+                        </>
                       }
                       variant="notice"
                     />
@@ -618,6 +627,7 @@ export function ClioAttentionCenter({
                 >
                   <ListRow
                     description={versions.message}
+                    hoverText={{ description: versions.message }}
                     icon={<ProductUpdateIcon state={versions.state} />}
                     primaryAction={
                       versions.desktopShell ? (
@@ -644,12 +654,8 @@ export function ClioAttentionCenter({
                     to="/settings/memory?view=review"
                   >
                     <ListRow
-                      description={suggestedFrom(
-                        proposals.data!.flatMap((proposal) =>
-                          proposal.evidence.map((item) => item.session),
-                        ),
-                        sessions,
-                      )}
+                      description={memorySources}
+                      hoverText={{ description: memorySources }}
                       icon={<BrainCircuitIcon />}
                       primaryAction="Review"
                       title={

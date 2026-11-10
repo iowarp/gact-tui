@@ -1,4 +1,4 @@
-import type { FleetAccount, FleetSpend } from '@clio/core/v3';
+﻿import type { FleetAccount, FleetSpend } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -312,10 +312,10 @@ export function UsageSettings() {
                 {totals ? (
                   <>
                     <SettingsGroupLabel>Total</SettingsGroupLabel>
-                    <SettingsRow fullWidth title="Tokens">
+                    <SettingsRow fullWidth inlineControl title="Tokens">
                       <UsageTotal>{totals.tokens}</UsageTotal>
                     </SettingsRow>
-                    <SettingsRow fullWidth title="Cost">
+                    <SettingsRow fullWidth inlineControl title="Cost">
                       <UsageTotal>{totals.cost ?? 'None recorded'}</UsageTotal>
                     </SettingsRow>
                   </>

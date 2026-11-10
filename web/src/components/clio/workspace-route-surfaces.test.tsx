@@ -186,6 +186,6 @@ describe('WorkspaceHydrating', () => {
     expect(surface).toBeVisible();
     expect(surface).toHaveClass('h-full', 'min-h-0');
     expect(surface).not.toHaveClass('min-h-dvh');
-    expect(screen.getByText(/messages will appear as they arrive/iu)).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Opening conversation');
   });
 });

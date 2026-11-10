@@ -22,6 +22,7 @@ import {
 import type { SshHost } from '@/lib/ssh-hosts';
 import { AddIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { vocab } from '@/lib/brand-vocabulary';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { SshHostPicker } from './ssh-host-picker';
 
 /**
@@ -51,7 +52,7 @@ export function ManagedServiceHostSelector({
   const [open, setOpen] = useState(false);
   const computers = targets.length
     ? targets.filter((host) => host.kind !== 'direct')
-    : [{ id: 'local', label: `This ${vocab.agent}'s computer`, kind: 'local' }];
+    : [{ id: 'local', label: AGENT_COMPUTER, kind: 'local' }];
   const name = (host: { kind: string; label: string }) =>
     host.kind === 'local' ? 'Local' : host.label;
   const selected = computers.find((host) => host.id === targetId);

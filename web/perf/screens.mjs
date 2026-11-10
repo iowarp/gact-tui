@@ -790,13 +790,6 @@ function catalogue({ settings, infrastructure }) {
       },
       { route: 'sandbox-blocked' },
     ),
-    s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
-      await press(page, 'button', 'New workspace', { exact: true });
-      await overlay(page);
-      await press(page, 'radio', 'Session', { exact: true });
-      await press(page, 'button', 'Advanced session behavior');
-      await page.waitForTimeout(300);
-    }),
     s('session', 'dialog-rename-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
       await press(page, 'menuitem', 'Rename', { exact: true });
@@ -1321,6 +1314,15 @@ function catalogue({ settings, infrastructure }) {
           ]);
           await tabOnly(page, 'Files', 'Outline');
           await phoneTabBody(page, 'Outline');
+        },
+      ],
+      [
+        'latex-maximized',
+        async (page) => {
+          await openFile(page, 'paper/opal_paper.tex', { settled: false });
+          await showsAny(page, ['Overfull hbox', 'SMAP L3 soil moisture']);
+          await press(page, 'button', 'Maximize canvas');
+          await page.waitForTimeout(800);
         },
       ],
       // Jupyter notebooks read as cells; Source keeps the JSON as written.

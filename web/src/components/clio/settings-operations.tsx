@@ -12,7 +12,7 @@ import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import { SettingsLoadError } from './settings-health-load-error';
+import { SettingsLoadError, UnofferedParts } from './settings-health-load-error';
 import { notOffered } from './settings-health-reason';
 import { HooksGroup, MetricsGroup, StorageGroup } from './settings-health-views';
 import { SettingsGroupLabel } from './settings-row';
@@ -43,15 +43,28 @@ const integrationTitles: Record<string, string> = {
   gateway: 'Tools',
   api: 'Workspace service',
   clio_core: 'Memory storage',
+  clio_core_attach: 'Memory service attachment',
+  cte_store_location: 'Stored memory location',
+  cte_metadata_log: 'Stored memory log',
   sandbox: 'Protected execution',
   sandbox_conformance: 'Execution protection coverage',
   child_reaper: 'Process cleanup',
   child_processes: 'Background processes',
   child_parentage: 'Background process ownership',
+  compaction_prompt: 'Compaction instructions',
+  browser: 'Browser',
+  ripgrep: 'File search',
+  managed_packages: 'Managed packages',
+  store_migrations: 'Stored data upgrades',
+  arc_store_format: 'Stored data format',
 };
 
 function integrationTitle(name: string) {
-  return integrationTitles[name] ?? humanizeToolName(name);
+  const title = integrationTitles[name] ?? humanizeToolName(name);
+  // An unknown identifier still reads as words, never as snake_case.
+  return /_/u.test(title)
+    ? title.charAt(0).toUpperCase() + title.slice(1).replaceAll('_', ' ')
+    : title;
 }
 
 function integrationCopy(integration: ServiceIntegrationHealth) {
@@ -226,6 +239,8 @@ function QueryState({
   return pending ? <StateView kind="loading" size="row" title={loading} /> : null;
 }
 
+const PARTS = ['health details', 'storage statistics', 'activity metrics', 'hook inspection'];
+
 /** A feature the service does not offer will not appear by polling. */
 const pollUnlessNotOffered = (query: { state: { error: Error | null } }) =>
   notOffered(query.state.error) ? false : OPERATIONS_POLL_MS;
@@ -260,74 +275,84 @@ export function SystemSettings() {
   const ready = integrations.filter((row) => statusValue(row.status) === 'healthy').length;
   // One list-width column, so the rows, counts and integrations share the ItemList edge.
   const list = (
-    <div className="@container min-w-0">
-      <SettingsGroupLabel
-        className="mt-2"
-        actions={
-          integrations.length ? (
-            <span className="tabular-nums">
-              {ready} of {integrations.length} ready
-            </span>
-          ) : undefined
-        }
-        info="Each service the agent depends on. Open one for what to do next."
-      >
-        Health
-      </SettingsGroupLabel>
-      {health.data ? (
-        <IntegrationList
-          integrations={integrations}
-          openName={openName}
-          setOpenName={setOpenName}
+    <UnofferedParts order={PARTS}>
+      <div className="@container min-w-0">
+        {notOffered(health.error) ? null : (
+          <SettingsGroupLabel
+            className="mt-2"
+            actions={
+              integrations.length ? (
+                <span className="tabular-nums">
+                  {ready} of {integrations.length} ready
+                </span>
+              ) : undefined
+            }
+            info="Each service the agent depends on. Open one for what to do next."
+          >
+            Integrations
+          </SettingsGroupLabel>
+        )}
+        {health.data ? (
+          <IntegrationList
+            integrations={integrations}
+            openName={openName}
+            setOpenName={setOpenName}
+          />
+        ) : null}
+        <QueryState
+          error={health.error}
+          loading="Checking service health…"
+          pending={health.isPending}
+          retry={() => void health.refetch()}
+          retrying={health.isFetching}
+          noun="health details"
+          title="Health details unavailable."
         />
-      ) : null}
-      <QueryState
-        error={health.error}
-        loading="Checking service health…"
-        pending={health.isPending}
-        retry={() => void health.refetch()}
-        retrying={health.isFetching}
-        noun="health details"
-        title="Health details unavailable."
-      />
-      <SettingsGroupLabel info="What the agent's memory store holds and how often its cache answers.">
-        Storage
-      </SettingsGroupLabel>
-      {memory.data ? <StorageGroup memory={memory.data} /> : null}
-      <QueryState
-        error={memory.error}
-        loading="Loading memory statistics…"
-        pending={memory.isPending}
-        retry={() => void memory.refetch()}
-        retrying={memory.isFetching}
-        noun="storage statistics"
-        title="Storage statistics unavailable."
-      />
-      <SettingsGroupLabel info="Totals since the agent started.">Metrics</SettingsGroupLabel>
-      {metrics.data ? <MetricsGroup metrics={metrics.data} /> : null}
-      <QueryState
-        error={metrics.error}
-        loading="Loading activity…"
-        pending={metrics.isPending}
-        retry={() => void metrics.refetch()}
-        retrying={metrics.isFetching}
-        noun="activity metrics"
-        title="Activity metrics unavailable."
-      />
-      <SettingsGroupLabel info="Automation that runs before or after tools, and what it recently did.">
-        Hooks
-      </SettingsGroupLabel>
-      {hooks.data ? <HooksGroup hooks={hooks.data} /> : null}
-      <QueryState
-        error={hooks.error}
-        loading="Loading hooks…"
-        pending={hooks.isPending}
-        retry={() => void hooks.refetch()}
-        retrying={hooks.isFetching}
-        noun="hook inspection"
-        title="Hook inspection unavailable."
-      />
-    </div>
+        {notOffered(memory.error) ? null : (
+          <SettingsGroupLabel info="What the agent's memory store holds and how often its cache answers.">
+            Storage
+          </SettingsGroupLabel>
+        )}
+        {memory.data ? <StorageGroup memory={memory.data} /> : null}
+        <QueryState
+          error={memory.error}
+          loading="Loading memory statistics…"
+          pending={memory.isPending}
+          retry={() => void memory.refetch()}
+          retrying={memory.isFetching}
+          noun="storage statistics"
+          title="Storage statistics unavailable."
+        />
+        {notOffered(metrics.error) ? null : (
+          <SettingsGroupLabel info="Totals since the agent started.">Metrics</SettingsGroupLabel>
+        )}
+        {metrics.data ? <MetricsGroup metrics={metrics.data} /> : null}
+        <QueryState
+          error={metrics.error}
+          loading="Loading activity…"
+          pending={metrics.isPending}
+          retry={() => void metrics.refetch()}
+          retrying={metrics.isFetching}
+          noun="activity metrics"
+          title="Activity metrics unavailable."
+        />
+        {notOffered(hooks.error) ? null : (
+          <SettingsGroupLabel info="Automation that runs before or after tools, and what it recently did.">
+            Hooks
+          </SettingsGroupLabel>
+        )}
+        {hooks.data ? <HooksGroup hooks={hooks.data} /> : null}
+        <QueryState
+          error={hooks.error}
+          loading="Loading hooks…"
+          pending={hooks.isPending}
+          retry={() => void hooks.refetch()}
+          retrying={hooks.isFetching}
+          noun="hook inspection"
+          title="Hook inspection unavailable."
+        />
+      </div>
+    </UnofferedParts>
   );
   return (
     <div className="min-w-0">

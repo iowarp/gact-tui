@@ -19,6 +19,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { cn } from '@/lib/utils';
 
 export interface PathChoice {
   name: string;
@@ -34,6 +35,10 @@ interface ClioPathPickerProps {
   placeholder?: string;
   disabled?: boolean;
   inputLabel?: string;
+  /** Lets an outside `<label htmlFor>` name the path field. */
+  inputId?: string;
+  /** Height and type for the field row, e.g. the 30px dialog field. */
+  className?: string;
 }
 
 /** Edit one folder path directly or choose it with the service/native picker. */
@@ -44,6 +49,8 @@ export function ClioPathPicker({
   placeholder = 'Type, paste, or browse for a folder',
   disabled,
   inputLabel = 'Folder path',
+  inputId,
+  className,
 }: ClioPathPickerProps) {
   const [browserOpen, setBrowserOpen] = useState(false);
   const [candidate, setCandidate] = useState(value);
@@ -63,13 +70,15 @@ export function ClioPathPicker({
   return (
     <div className="grid min-w-0 gap-2">
       <div className="flex min-w-0 gap-2">
-        <InputGroup className="min-w-0 flex-1">
+        <InputGroup className={cn('min-w-0 flex-1', className)}>
           <InputGroupAddon>
             <FolderIcon aria-hidden="true" />
           </InputGroupAddon>
           <InputGroupInput
-            aria-label={inputLabel}
+            aria-label={inputId ? undefined : inputLabel}
+            className={cn('h-full', className && 'text-[12.5px] md:text-[12.5px]')}
             disabled={disabled}
+            id={inputId}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
             title={value || undefined}
@@ -77,6 +86,7 @@ export function ClioPathPicker({
           />
         </InputGroup>
         <Button
+          className="h-auto self-stretch"
           disabled={disabled}
           onClick={() => void chooseFolder()}
           type="button"
