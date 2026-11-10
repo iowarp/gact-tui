@@ -1,5 +1,7 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { highlightCode } from '@/components/ai-elements/code-block';
+
+export { jsonLine } from './json-line';
 
 /* The ask card's code preview parts: wrap marks and JSON and Python colouring. */
 
@@ -11,36 +13,6 @@ export const WRAP_MARKS: CSSProperties = {
   maskRepeat: 'repeat-y',
   maskSize: '9px 1.65em',
 };
-
-const JSON_TOKEN =
-  /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/gu;
-
-/** JSON in theme syntax colors: keys, strings, numbers and literals. */
-export function jsonLine(line: string): ReactNode {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  for (const match of line.matchAll(JSON_TOKEN)) {
-    const start = match.index ?? 0;
-    if (start > last) parts.push(line.slice(last, start));
-    const [token, text, colon, number, literal] = match;
-    const tone = colon
-      ? 'text-[var(--syntax-token-constant)]'
-      : text
-        ? 'text-[var(--syntax-token-string-expression)]'
-        : number || literal
-          ? 'text-[var(--syntax-token-function)]'
-          : undefined;
-    parts.push(
-      <span className={tone} key={start}>
-        {colon ? text : token}
-      </span>,
-    );
-    if (colon) parts.push(colon);
-    last = start + token.length;
-  }
-  if (last < line.length) parts.push(line.slice(last));
-  return parts;
-}
 
 type HighlightedLines = NonNullable<ReturnType<typeof highlightCode>>['tokens'];
 

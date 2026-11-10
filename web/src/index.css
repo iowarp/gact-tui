@@ -76,6 +76,12 @@
   [data-slot='alert-dialog-content'][data-state] {
     z-index: 100;
   }
+  /* A dialog opened from another one (a frame inside the Settings window) dims
+     that window too: its scrim joins the content layer, after it in the host. */
+  :where([data-slot='dialog-content'][data-state], [data-slot='alert-dialog-content'][data-state])
+    ~ :is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay'])[data-state] {
+    z-index: 100;
+  }
   [data-slot='dropdown-menu-content'][data-state],
   [data-slot='dropdown-menu-sub-content'][data-state],
   [data-slot='context-menu-content'][data-state],
@@ -184,6 +190,7 @@
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-link: var(--link);
   --color-status-supported: var(--status-supported);
   --color-status-supported-foreground: var(--status-supported-foreground);
@@ -328,18 +335,15 @@
 
 /* A generated Row can hold a map and table with equal weight, but two
    half-width data views become unusable in the transcript. Stack root rows
-   when the surface itself is narrow, including in the workspace canvas. */
+   when the surface itself is narrow, including in the workspace canvas.
+   Stacking is a one-column grid on the row itself: a `[style*=…] > *` rule
+   would make every inline-style write anywhere in the app (popper positions,
+   virtualizer transforms) restyle that element's whole subtree. */
 @container (max-width: 700px) {
   [data-slot='a2ui-surface-root']
     > div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-direction: column !important;
-  }
-
-  [data-slot='a2ui-surface-root']
-    > div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > * {
-    flex: 0 1 auto !important;
-    width: 100%;
+    align-items: stretch !important;
   }
 }
 
@@ -351,15 +355,7 @@
       > [data-slot='a2ui-chart']
     ) {
     flex-direction: column !important;
-  }
-
-  [data-slot='a2ui-surface-root']
-    > div:is([style*='flex-direction: row'], [style*='flex-direction:row']):has(
-      > [data-slot='a2ui-chart']
-    )
-    > * {
-    flex: 0 1 auto !important;
-    width: 100%;
+    align-items: stretch !important;
   }
 }
 
@@ -820,24 +816,15 @@ html[data-clio-motion='reduced'] *::after {
   flex-wrap: wrap;
 }
 
-/* Stack analytical panels in a narrow dock; preserve authored weights when wide. */
+/* Stack analytical panels in a narrow dock; preserve authored weights when wide.
+   Stretching also reaches children of `display: contents` wrappers, which are
+   flex items of the row (see the root-row rule above). */
 @container (max-width: 900px) {
   [data-slot='a2ui-dashboard']
     [data-slot='a2ui-surface-root']
     div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
-    flex-wrap: wrap;
-  }
-  [data-slot='a2ui-dashboard']
-    [data-slot='a2ui-surface-root']
-    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > *,
-  [data-slot='a2ui-dashboard']
-    [data-slot='a2ui-surface-root']
-    div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
-    > [style*='contents']
-    > * {
-    flex: 1 1 100% !important;
-    min-width: 0;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
 }
 
