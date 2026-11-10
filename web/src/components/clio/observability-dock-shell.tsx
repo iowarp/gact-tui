@@ -367,6 +367,8 @@ function RailButton({
   if ((open || failedCount < seenFailed) && seenFailed !== failedCount) setSeenFailed(failedCount);
   const current = look(seenFailed);
   const describedBy = useId();
+  // Only keyboard paths open into the rail. WebKit doesn't count ⇧⌘. as keyboard
+  // modality, so the focus ring is requested explicitly.
   const openIntoRail = () => {
     setOpen(true);
     requestAnimationFrame(() => {
@@ -375,11 +377,9 @@ function RailButton({
       const running = panel?.querySelectorAll<HTMLElement>(
         '[aria-label="Running section"] [data-rail-row]',
       );
-      (
-        running?.[1] ??
-        running?.[0] ??
-        panel?.querySelector<HTMLElement>('[data-rail-row]')
-      )?.focus();
+      const target =
+        running?.[1] ?? running?.[0] ?? panel?.querySelector<HTMLElement>('[data-rail-row]');
+      target?.focus({ focusVisible: true });
     });
   };
   useShortcut('conversation-runs', () => (open ? setOpen(false) : openIntoRail()));
