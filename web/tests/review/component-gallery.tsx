@@ -14,6 +14,7 @@ import {
   MessageSquareIcon,
   PanelRightIcon,
   PlayIcon,
+  SearchIcon,
   TerminalIcon,
 } from 'lucide-react';
 import { ForcedTheme } from '../../src/theme/forced-theme';
@@ -54,6 +55,7 @@ import { MetaValue, Tag, type TagTone } from '../../src/components/clio/primitiv
 import { MiddleTruncate, TruncatedText } from '../../src/components/clio/primitives/truncate';
 import { MenuRow } from '../../src/components/clio/primitives/menu-row';
 import { ListRow } from '../../src/components/clio/primitives/list-row';
+import { ActivityRow } from '../../src/components/clio/activity-row';
 import {
   FrameBar,
   FrameCrumbs,
@@ -354,6 +356,22 @@ function Rows() {
           info={info}
         />
       ))}
+    </div>
+  );
+}
+
+/** Transcript rows in a pane under 280px: a row with a target keeps it; one without keeps its name. */
+function NarrowActivityRows() {
+  const status = <StatusIndicator tone="success" label="Done" display="column" mark="glyph" />;
+  return (
+    <div data-testid="narrow-activity-rows" className="w-[260px] rounded-md border border-border">
+      <ActivityRow icon={<SearchIcon />} name="Search EarthScope catalog" status={status} />
+      <ActivityRow
+        icon={<TerminalIcon />}
+        name="Run command"
+        argument="srun -n 4 python regrid.py --ranks 4"
+        status={status}
+      />
     </div>
   );
 }
@@ -704,6 +722,9 @@ function Gallery() {
             </Section>
             <Section title="List rows">
               <Rows />
+            </Section>
+            <Section title="Narrow activity rows">
+              <NarrowActivityRows />
             </Section>
             <Section title="List and detail pane">
               <ListAndDetail />

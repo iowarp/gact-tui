@@ -158,11 +158,11 @@ function subagent(finished = false): SubagentRun {
   };
 }
 
-function searchTool(parent: string): ToolInvocation {
+/** The delegate's own calls live in its child session, as the service records them. */
+function searchTool(): ToolInvocation {
   return {
     id: 'ndp-search',
-    session_id: SESSION,
-    parent_call_id: parent,
+    session_id: 'sess_ndp',
     name: 'ndp_search',
     state: 'succeeded',
     input: { query: 'SMAP_L3_SM_P', since: '2020-01-01' },
@@ -179,11 +179,10 @@ function searchTool(parent: string): ToolInvocation {
   };
 }
 
-function scriptTool(parent: string, summary: string): ToolInvocation {
+function scriptTool(summary: string): ToolInvocation {
   return {
     id: 'soil-qc',
-    session_id: SESSION,
-    parent_call_id: parent,
+    session_id: 'sess_ndp',
     name: 'run_code',
     state: 'running',
     input: { path: 'scripts/soil_qc.py', language: 'python' },
@@ -267,6 +266,11 @@ function record(...tools: ToolInvocation[]): Record<string, ToolInvocation> {
   return Object.fromEntries(tools.map((tool) => [tool.id, tool]));
 }
 
+/** Ids of the earlier messages a compaction replaced, as the injection records them. */
+function compactedIds(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `msg_earlier_${index + 1}`);
+}
+
 function userMessage(id: string, text: string, created = at(10, 0)): Message {
   return {
     id,
@@ -338,8 +342,8 @@ const conversationTurn = (): ClioConversationProps => ({
     editTool(),
     regridTool(),
     delegateTool(),
-    searchTool('delegate'),
-    scriptTool('delegate', 'waiting for you'),
+    searchTool(),
+    scriptTool('waiting for you'),
   ),
   subagents: { task_ndp: subagent() },
   tasks: {},
@@ -377,8 +381,8 @@ const STATES: State[] = [
         editTool(),
         regridTool(),
         delegateTool(),
-        searchTool('delegate'),
-        scriptTool('delegate', '2 of 5 calls'),
+        searchTool(),
+        scriptTool('2 of 5 calls'),
         readTool('soil-qc'),
         blockedTool('soil-qc'),
       ),
@@ -510,6 +514,7 @@ const STATES: State[] = [
               source: 'summarization',
               trigger: 'auto',
               compaction_id: 'cmp_opal',
+              metadata: { compacted_message_ids: compactedIds(61) },
               text: '61 messages summarized: the SMAP L3 search, the 0.25° grid choice, and the 14 Opal sites to check.',
             },
           ],
@@ -571,6 +576,7 @@ const STATES: State[] = [
               source: 'summarization',
               trigger: 'auto',
               compaction_id: 'cmp_done',
+              metadata: { compacted_message_ids: compactedIds(61) },
               text: 'The SMAP L3 search, the 0.25\u00b0 grid choice, and the 14 Opal sites to check.',
             },
             {
@@ -675,6 +681,13 @@ const STATES: State[] = [
     }),
   },
 ];
+// The spec draws both footers of "A message"; a pointer hovers one, so the prompt gets its own shot.
+const messageState = STATES.find((state) => state.id === 'message')!;
+STATES.splice(STATES.indexOf(messageState) + 1, 0, {
+  ...messageState,
+  id: 'message-prompt',
+  hover: 'prompt',
+});
 
 function Section({ state, children }: { state: State; children: ReactNode }) {
   return (

@@ -306,8 +306,8 @@ describe('ClioConversation transcript viewport', () => {
     expect(scrollTo).toHaveBeenCalled();
   });
 
-  it('keeps the native scrollbar available while the minimap is visible', () => {
-    stubViewport(900);
+  it('keeps the native scrollbar and gives a wide column no outline gutter', () => {
+    stubViewport(1280);
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -320,7 +320,7 @@ describe('ClioConversation transcript viewport', () => {
     );
 
     const log = screen.getByRole('log', { name: 'Conversation' });
-    expect(log).toHaveAttribute('data-minimap-visible', 'true');
+    expect(log).not.toHaveClass('pl-3');
     expect(log).toHaveClass('clio-scrollbar');
     expect(log.className).not.toContain('scrollbar-width:none');
   });
@@ -595,7 +595,7 @@ describe('ClioConversation transcript viewport', () => {
     expect(frames).toHaveLength(0);
   });
 
-  it('derives the active landmark from the virtualizer without reading rail anchors', () => {
+  it('derives the active outline line from the virtualizer without reading DOM anchors', () => {
     stubViewport(900);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1_000);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
@@ -619,6 +619,7 @@ describe('ClioConversation transcript viewport', () => {
     Object.defineProperty(log, 'scrollTop', { configurable: true, value: 400 });
     fireEvent.scroll(log);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Open transcript outline' }));
     expect(screen.getByRole('button', { name: 'Jump to user message 3' })).toHaveAttribute(
       'aria-current',
       'location',

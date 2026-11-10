@@ -31,7 +31,7 @@ export function AboutSettings() {
   const missing = capabilities.isPending ? 'Loading…' : 'Unavailable';
   return (
     <div>
-      <SettingsSectionHeading description="Version and links." title={`About ${brand.name}`} />
+      <SettingsSectionHeading description="Version and links." title="About" />
       <SettingsGroupLabel>This app</SettingsGroupLabel>
       <AboutValue label="Product" value={brand.name} />
       <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
@@ -148,12 +148,14 @@ function AboutValue({
     <SettingsRow title={label}>
       <span
         className={cn(
-          'min-w-0 truncate text-right',
+          // Inline-size containment keeps a long value (a registry URL) from widening the
+          // control column, so the value is cut instead of the label.
+          'min-w-0 flex-1 truncate text-left [contain:inline-size] @xs:text-right max-[1023px]:in-data-window-content:text-left!',
           placeholder
             ? 'text-xs text-faint'
             : mono
-              ? 'font-mono text-xs tabular-nums'
-              : 'text-[0.78125rem]',
+              ? 'font-mono text-xs text-muted-foreground tabular-nums'
+              : 'text-[0.78125rem] text-muted-foreground',
         )}
         data-slot="settings-value"
         title={value}

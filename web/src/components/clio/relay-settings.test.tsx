@@ -78,7 +78,7 @@ it('lists only the MCP servers reached by URL, with their state in words', async
 it('says when there are no remote tools, and when the servers cannot be listed', async () => {
   repository.mcpServers.mockResolvedValue([LOCAL]);
   renderRemote();
-  expect(await screen.findByText('No remote tools yet')).toBeVisible();
+  expect(await screen.findByText('No remote MCP servers yet.')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Add by URL' })).toBeVisible();
   cleanup();
 

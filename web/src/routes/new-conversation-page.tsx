@@ -32,6 +32,7 @@ import {
   canUseContextReferences,
 } from '@/components/clio/workspace-route-state';
 import { useComposerDraft, useComposerDraftValue } from '@/hooks/use-composer-draft';
+import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { useRepository } from '@/hooks/use-repository';
@@ -97,7 +98,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
   // Plugin changes made to the agent before the first message (the Agent tab).
   const [draftDelta, setDraftDelta] = useState<AgentDelta>(emptyAgentDelta);
   const draftChanges = draftDelta.add.length + draftDelta.remove.length;
-  const { send, prepareFiles, discardFiles } = useSessionMutations({
+  const { send, runDraftCommand, prepareFiles, discardFiles } = useSessionMutations({
     activeProvider: provider,
     activeModel: model,
     sessionId: '',
@@ -107,6 +108,7 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
     draftAgentDelta: draftDelta,
   });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, '');
+  const commands = useSessionCommands('', workspaceId);
   const sessions = data.allSessions.data ?? data.sessions.data ?? [];
   const workspace = data.workspaces.data?.find((item) => item.id === workspaceId);
   const {
@@ -307,9 +309,14 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
           <ClioComposer
             attachments={canUploadWorkspaceResources(data.capabilities.data?.capabilities)}
             contextReferences={canUseContextReferences(data.capabilities.data?.capabilities)}
-            disabled={send.isPending}
+            disabled={send.isPending || runDraftCommand.isPending}
             connecting={!workspace || defaults.isPending}
-            state={send.isPending ? 'queued' : 'completed'}
+            state={send.isPending || runDraftCommand.isPending ? 'queued' : 'completed'}
+            commands={commands.commands}
+            commandsState={commands.commandsState}
+            onCommand={async (value) => {
+              await runDraftCommand.mutateAsync(value);
+            }}
             provider={provider}
             model={model}
             modelOptions={data.modelOptions}

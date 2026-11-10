@@ -30,7 +30,7 @@ describe('ConversationProcessSequence task blocks', () => {
     const user = userEvent.setup();
     renderTask(task);
 
-    const trigger = screen.getByRole('button', { name: /Review station quality/ });
+    const trigger = screen.getByRole('button', { name: 'Expand task Review station quality' });
     expect(screen.queryByText('Evidence retained with source identity.')).not.toBeInTheDocument();
     await user.tab();
     expect(trigger).toHaveFocus();
@@ -42,7 +42,7 @@ describe('ConversationProcessSequence task blocks', () => {
     const user = userEvent.setup();
     renderTask({ ...task, detail: '' });
 
-    await user.click(screen.getByRole('button', { name: /Review station quality/ }));
+    await user.click(screen.getByRole('button', { name: 'Expand task Review station quality' }));
 
     expect(screen.getByText('No task detail was reported.')).toBeVisible();
   });

@@ -40,33 +40,63 @@ export function Highlighted({ text, query }: { text: string; query: string }): R
     </>
   );
 }
+/** Marks the parts of a row's one line that the detail strip completes when they are cut. */
+export const ROW_CUT_SLOT = 'suggestion-row-cut';
+
+/** Whether any marked part of the row is cut by its ellipsis. */
+function rowIsCut(rowId: string): boolean {
+  const row = document.getElementById(rowId);
+  if (!row) return false;
+  for (const part of row.querySelectorAll<HTMLElement>(`[data-slot="${ROW_CUT_SLOT}"]`))
+    if (part.scrollWidth > part.clientWidth + 1) return true;
+  return false;
+}
+
 /**
- * The whole name and description of the highlighted (or pointed-at) row, which its
- * one 30px line may cut. Screen readers already hear both from the option's label.
+ * The whole name and description of the highlighted (or pointed-at) row, shown
+ * only when the strip says more than the row: its one 30px line cuts the name or
+ * description, or the menu has words the row leaves out (`more`). Whether the row
+ * is cut is read once per described row and written straight to the strip, so
+ * moving the highlight never renders the menu twice. Screen readers already hear
+ * the name and description from the option's label.
  */
 export function SuggestionDetail({
   description,
   mono,
+  more = false,
   name,
+  rowId,
 }: {
   description: string;
   mono?: boolean;
+  /** The description holds words the row does not show. */
+  more?: boolean;
   name: string;
+  /** The described option, whose cut parts carry ROW_CUT_SLOT. */
+  rowId: string;
 }) {
-  if (!description) return null;
+  const stripRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (strip) strip.hidden = !more && !rowIsCut(rowId);
+  }, [description, more, name, rowId]);
   return (
     <div
       aria-hidden="true"
       className="shrink-0 border-t px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-muted-foreground"
       data-slot="composer-suggestion-detail"
+      hidden
+      ref={stripRef}
     >
       <p className="line-clamp-3 [overflow-wrap:anywhere]">
         <span
-          className={cn('font-medium text-foreground', mono && 'font-mono text-[11px] font-normal')}
+          className={cn(
+            'mr-2 font-medium text-foreground',
+            mono && 'font-mono text-[11px] font-normal',
+          )}
         >
           {name}
         </span>
-        <span className="text-faint"> — </span>
         {description}
       </p>
     </div>

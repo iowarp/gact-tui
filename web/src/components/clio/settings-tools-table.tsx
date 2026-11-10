@@ -77,6 +77,8 @@ export interface ToolTableSection {
   tools: ToolSetting[];
   /** Instead of tools: why there are none yet ("Not loaded yet"). */
   notice?: { text: string; status: string; tone: StatusTone; title?: string };
+  /** While its tools load: how many rows to hold space for, so the page doesn't jump. */
+  reserveRows?: number;
 }
 
 function Outcome({ value, className }: { value: ToolOutcome; className?: string }) {
@@ -515,7 +517,11 @@ function GroupRow({
         </button>
       ) : (
         <span aria-hidden="true" className="grid place-items-center text-faint">
-          <ChevronRightIcon className="size-3.5" />
+          {section.reserveRows ? (
+            <ChevronDownIcon className="size-3.5" />
+          ) : (
+            <ChevronRightIcon className="size-3.5" />
+          )}
         </span>
       )}
       <span
@@ -707,6 +713,13 @@ export function ToolSettingsTable({
                     <ToolRow editor={editor} key={tool.name} mode={mode} tool={tool} />
                   ))}
                 </ul>
+              ) : open && section.reserveRows ? (
+                // Empty rows, each the height of a tool row, until the tools arrive.
+                <div aria-hidden="true" className="grid">
+                  {Array.from({ length: section.reserveRows }, (_, index) => (
+                    <span className="min-h-11 border-b border-border/70" key={index} />
+                  ))}
+                </div>
               ) : null}
             </section>
           );

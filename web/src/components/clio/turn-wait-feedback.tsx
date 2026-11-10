@@ -12,6 +12,11 @@ interface TurnWaitFeedbackProps extends TurnPreparationProps {
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, Task>;
   subagents: Record<string, SubagentRun>;
+  /**
+   * A question or permission waits on the user. The turn is blocked on them, not the
+   * model, and the decision card follows the last row directly.
+   */
+  awaitingUser?: boolean;
 }
 
 /** Keep quiet model waits visible after startup, without inventing provider activity. */
@@ -24,8 +29,9 @@ export function ClioTurnWaitFeedback({
   tools,
   tasks,
   subagents,
+  awaitingUser,
 }: TurnWaitFeedbackProps) {
-  if (sessionState !== 'running' && sessionState !== 'queued') return null;
+  if (awaitingUser || (sessionState !== 'running' && sessionState !== 'queued')) return null;
   const current = currentTurnAssistantMessages(messages, activeTurnId);
   const hasContent = current.some((message) =>
     message.blocks.some((block) =>

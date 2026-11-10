@@ -152,10 +152,11 @@ export function AskCard({
     >
       {/* When the dock scrolls an uncapped card, the title and pager stay. The
           header repeats the card's top edge (border, radius, kind edge) so it stays with them, and
-          shows a hairline once content scrolls under it. */}
+          shows a hairline once content scrolls under it. The hairline is an inset shadow, not a
+          bottom border, so the kind edge does not mitre into a notch where the header ends. */}
       <header
         className={cn(
-          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -mb-px -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-l-[3px] border-border border-b-transparent bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:border-b-border group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
+          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
           EDGE[kind],
         )}
       >

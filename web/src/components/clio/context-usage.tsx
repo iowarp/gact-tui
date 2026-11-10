@@ -13,7 +13,7 @@ const COLORS: Record<string, string> = {
   results: 'bg-category-11',
   reasoning: 'bg-category-9',
 };
-const GRID = 'grid grid-cols-[minmax(0,1fr)_4rem_3.5rem] items-center gap-2';
+const GRID = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3rem] items-center gap-2';
 
 /** The thin multicolour bar: each section's share of the model's window. */
 export function ContextCompositionBar({
@@ -112,7 +112,9 @@ export function ContextUsage({
                     COLORS[section.id] ?? 'bg-category-4',
                   )}
                 />
-                <span className="min-w-0 break-words">{section.label}</span>
+                <span className="min-w-0 truncate" title={section.label}>
+                  {section.label}
+                </span>
                 {section.items.length ? (
                   <ChevronRightIcon
                     aria-hidden="true"
@@ -139,12 +141,12 @@ export function ContextUsage({
         {limit ? (
           <>
             <div className={cn(GRID, 'mt-1 border-t pt-2 text-muted-foreground')}>
-              <span>Compaction buffer</span>
+              <span className="truncate">Compaction buffer</span>
               <span className="text-right">{contextTokens(reserve)}</span>
               <span className="text-right">{contextPercent(reserve, limit)}</span>
             </div>
             <div className={cn(GRID, 'py-1 text-muted-foreground')}>
-              <span>Free space</span>
+              <span className="truncate">Free space</span>
               <span className="text-right">{contextTokens(free)}</span>
               <span className="text-right">{contextPercent(free, limit)}</span>
             </div>
@@ -156,7 +158,8 @@ export function ContextUsage({
       ) : null}
       {context?.cache_tokens_measured && used ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Prompt cache: {contextTokens(cacheRead)} reused ({contextPercent(cacheRead, used)})
+          Prompt cache: {contextTokens(cacheRead)} reused (
+          {contextPercent(Math.min(cacheRead, used), used)} of the prompt)
           {context.cache_write_tokens
             ? `, ${contextTokens(context.cache_write_tokens)} written`
             : ''}

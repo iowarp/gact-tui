@@ -25,6 +25,26 @@ function clock(at: string): string {
     : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function useNestedCalls(parentId: string): ToolInvocation[] {
+  // A conversation that carries its own calls (an offline export) supplies them; the live
+  // view reads the store the stream fills.
+  const provided = useContext(PresentationNavigation)?.tools;
+  const live = useLiveStore((state) => state.entities.tools);
+  const tools = provided ?? live;
+  return useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
+}
+
+/** A script's source, shown only while it has no calls of its own to show instead (spec: an opened script lists its calls). */
+export function UnlessNestedCalls({
+  parentId,
+  children,
+}: {
+  parentId: string;
+  children: ReactNode;
+}) {
+  return useNestedCalls(parentId).length ? null : children;
+}
+
 /**
  * The tool calls a run_code script made, nested under its row. Each child renders as
  * a compact tool row (`renderCall`), so it keeps its own status words, duration and
@@ -37,12 +57,7 @@ export function NestedToolCalls({
   parentId: string;
   renderCall: (tool: ToolInvocation) => ReactNode;
 }) {
-  // A conversation that carries its own calls (an offline export) supplies them; the live
-  // view reads the store the stream fills.
-  const provided = useContext(PresentationNavigation)?.tools;
-  const live = useLiveStore((state) => state.entities.tools);
-  const tools = provided ?? live;
-  const children = useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
+  const children = useNestedCalls(parentId);
   const [all, setAll] = useState(false);
   if (!children.length) return null;
   const failed = children.filter((tool) => tool.state === 'failed').length;

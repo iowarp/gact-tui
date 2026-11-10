@@ -34,6 +34,7 @@ import { copyText } from '@/lib/clipboard';
 import { normalizeEndpoint, type ConnectionSettings } from '@/lib/connection';
 import { DeleteIcon, EditIcon, ManageIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { isLoopbackAddress } from '@/lib/local-servers';
+import { SETTINGS_COLUMN } from '@/lib/settings-fold';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { agentAvailabilityLabel } from './connection-names';
@@ -208,10 +209,24 @@ export function ConnectionsSettings() {
                   : `${runtime.degradations.length} features`}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 text-xs">
-              <ul className="grid list-disc gap-1.5 pl-4 text-muted-foreground">
-                {runtime.degradations.map((reason, index) => (
-                  <li key={`${index}-${reason}`}>{reason}</li>
+            <PopoverContent
+              align="start"
+              aria-label="Not available on this agent"
+              className="w-72 max-w-(--radix-popover-content-available-width) p-0 text-xs"
+              collisionPadding={16}
+            >
+              <p className="px-3 pt-2.5 pb-1.5 font-medium text-foreground">
+                Not available on this agent
+              </p>
+              <ul className="grid pb-1.5">
+                {runtime.degradations.map((feature) => (
+                  <li
+                    className="truncate px-3 py-1 text-muted-foreground"
+                    key={feature}
+                    title={feature}
+                  >
+                    {feature}
+                  </li>
                 ))}
               </ul>
             </PopoverContent>
@@ -219,7 +234,7 @@ export function ConnectionsSettings() {
         </SettingsRow>
       ) : null}
 
-      <div className="w-full">
+      <div className={cn('w-full', SETTINGS_COLUMN)}>
         <SettingsGroupLabel
           actions={
             <IconButton

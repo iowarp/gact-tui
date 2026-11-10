@@ -2,14 +2,17 @@ import { toolResultRecord, asRecord } from './tool-result-shared';
 import type {
   AttentionBlock,
   PendingInteraction,
+  SubagentRun,
   ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { lazy, Suspense, useContext, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
-import { NestedToolCalls } from './nested-tool-calls';
+import { NestedToolCalls, UnlessNestedCalls } from './nested-tool-calls';
+import { DelegateCalls } from './delegate-calls';
+import { delegateTone } from './delegate-tone';
 import { TranscriptDiffBody, TranscriptTerminalBody } from './transcript-tool-bodies';
 import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
@@ -197,6 +200,21 @@ export function ClioToolInvocation({
     operation.tasks?.length === 1 &&
     !operation.tasks[0]!.error &&
     !failure;
+  // The child's calls live in its own session; a run without one keeps the parent's nested calls.
+  const delegateChild = delegateOnly
+    ? delegateRun(operation.tasks![0]!.key, tool, navigation?.subagents)
+    : undefined;
+  // An opened script lists the calls it made; its source alone is not repeated above them.
+  const sourceOnly =
+    surface !== 'evidence' &&
+    operation.kind === 'declared' &&
+    !flow?.handle &&
+    !failure &&
+    !declaredFailure &&
+    contentBlocks.length > 0 &&
+    contentBlocks.every((block) => block.type === 'code');
+  const gateSource = (node: ReactNode) =>
+    sourceOnly ? <UnlessNestedCalls parentId={tool.id}>{node}</UnlessNestedCalls> : node;
   return (
     <div
       className="min-w-0 scroll-m-6 rounded-[6px] focus:outline-2 focus:outline-offset-2 focus:outline-primary"
@@ -242,48 +260,62 @@ export function ClioToolInvocation({
             )}
           </ToolDetailsContent>
         ) : expanded && !delegateOnly ? (
-          <ToolDetailsContent
-            inline
-            title={`${actionLabel}: Result`}
-            bounded={!presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')}
-          >
-            {failure && !declaredFailure ? (
-              <p
-                role="alert"
-                className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
-              >
-                {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
-              </p>
-            ) : null}
-            {flowResult && flow?.handle && (sessionId || tool.session_id) ? (
-              <Suspense fallback={<p role="status">Loading flow…</p>}>
-                <OperationFlow
-                  flow={{ ...flow, handle: flow.handle }}
-                  sessionId={sessionId || tool.session_id}
+          gateSource(
+            <ToolDetailsContent
+              inline
+              title={`${actionLabel}: Result`}
+              bounded={
+                !presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')
+              }
+            >
+              {failure && !declaredFailure ? (
+                <p
+                  role="alert"
+                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${status === 'unknown' ? 'text-warning' : 'text-destructive'}`}
+                >
+                  {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+                </p>
+              ) : null}
+              {flowResult && flow?.handle && (sessionId || tool.session_id) ? (
+                <Suspense fallback={<p role="status">Loading flow…</p>}>
+                  <OperationFlow
+                    flow={{ ...flow, handle: flow.handle }}
+                    sessionId={sessionId || tool.session_id}
+                  />
+                </Suspense>
+              ) : operation.kind !== 'declared' ? (
+                <ToolOperationResult operation={operation} tool={presentedTool} />
+              ) : isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
+                <p className="text-muted-foreground">
+                  Widget catalog loaded. Use technical details to inspect the full catalog.
+                </p>
+              ) : (
+                <ToolResultPresentation
+                  tool={withoutRowQuery(presentedTool, operation.query)}
+                  subjectId={subject?.id}
+                  summaryInHeader
                 />
-              </Suspense>
-            ) : operation.kind !== 'declared' ? (
-              <ToolOperationResult operation={operation} tool={presentedTool} />
-            ) : isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
-              <p className="text-muted-foreground">
-                Widget catalog loaded. Use technical details to inspect the full catalog.
-              </p>
-            ) : (
-              <ToolResultPresentation
-                tool={withoutRowQuery(presentedTool, operation.query)}
-                subjectId={subject?.id}
-                summaryInHeader
-              />
-            )}
-            {operation.scope ? (
-              <p className="text-muted-foreground">
-                Scope: <PresentationLink block={operation.scope} />
-              </p>
-            ) : null}
-          </ToolDetailsContent>
+              )}
+              {operation.scope ? (
+                <p className="text-muted-foreground">
+                  Scope: <PresentationLink block={operation.scope} />
+                </p>
+              ) : null}
+            </ToolDetailsContent>,
+          )
         ) : null}
         {/* A script's own tool calls are rows one step in under it, not repeated in its result. */}
-        {expanded ? <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} /> : null}
+        {expanded && delegateChild ? (
+          <DelegateCalls
+            name={operation.subjects[0]?.label || delegateChild.title || 'Child agent'}
+            result={
+              delegateTone(delegateChild.state) === 'running' ? undefined : delegateChild.result
+            }
+            subagent={delegateChild}
+          />
+        ) : expanded ? (
+          <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} />
+        ) : null}
       </Collapsible>
       {open ? (
         <ToolTechnicalDetailsDialog
@@ -333,6 +365,22 @@ function withoutRowQuery(tool: ToolInvocation, query: string | undefined): ToolI
   return blocks.length === tool.presentation.blocks.length
     ? tool
     : { ...tool, presentation: { ...tool.presentation, blocks } };
+}
+
+/** The run a single delegate launched, by its task handle or the child session it returned. */
+function delegateRun(
+  handle: string,
+  tool: ToolInvocation,
+  subagents: Record<string, SubagentRun> | undefined,
+): SubagentRun | undefined {
+  if (!subagents) return undefined;
+  const sessionId = asRecord(tool.output)?.child_session_id;
+  const run =
+    subagents[handle] ??
+    Object.values(subagents).find(
+      (row) => typeof sessionId === 'string' && row.child_session_id === sessionId,
+    );
+  return run?.child_session_id ? run : undefined;
 }
 
 function renderNestedCall(child: ToolInvocation) {

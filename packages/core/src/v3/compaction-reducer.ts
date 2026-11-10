@@ -15,12 +15,19 @@ const compactionEventFields = {
 /** `compaction.started`: a compaction began; `turn_id` is `""` between turns. */
 export const compactionStartedSchema = z.object(compactionEventFields);
 
-/** `compaction.completed`: the summary is the `part_id` block of `message_id`. */
+/**
+ * `compaction.completed`: the summary is the `part_id` block of `message_id`.
+ * `replaced_count` counts context segments; `summarized_message_count` and the
+ * id lists name transcript messages, as the summary block's metadata does.
+ */
 export const compactionCompletedSchema = z.object({
   ...compactionEventFields,
   message_id: z.string().min(1),
   part_id: z.string().min(1),
   replaced_count: z.number().int().nonnegative(),
+  summarized_message_count: z.number().int().nonnegative().optional(),
+  compacted_message_ids: z.array(z.string()).optional(),
+  kept_message_ids: z.array(z.string()).optional(),
 });
 
 /**

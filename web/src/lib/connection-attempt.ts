@@ -14,6 +14,8 @@ import {
   CONNECTION_RETRY_MAX_MS,
   CONNECTION_RETRY_MIN_MS,
   CONNECTION_WAIT_FOR_START_MS,
+  QUERY_RETRY_COUNT,
+  STARTING_READ_RETRIES,
 } from '@/lib/runtime-limits';
 
 /** The connect attempt as the page's mutation exposes it. */
@@ -144,6 +146,25 @@ export function connectRetryDelayMs(retry: number, retryAfterMs = 0): number {
     CONNECTION_RETRY_MIN_MS * 2 ** Math.max(0, retry),
   );
   return Math.max(backoff, retryAfterMs);
+}
+
+/**
+ * Default retry for reads: a service still starting is waited out with the connect
+ * backoff, so lists fill in by themselves after a restart; any other failure gets the
+ * ordinary single retry.
+ */
+export function retryRead(failures: number, error: Error): boolean {
+  return serviceStillStarting(error)
+    ? failures < STARTING_READ_RETRIES
+    : failures < QUERY_RETRY_COUNT;
+}
+
+/** Delay before retrying a read; the starting backoff honors the service's `Retry-After`. */
+export function readRetryDelayMs(failures: number, error: Error): number {
+  if (serviceStillStarting(error)) {
+    return connectRetryDelayMs(failures, (error as TransportError).retryAfterMs);
+  }
+  return Math.min(1_000 * 2 ** failures, 30_000);
 }
 
 /**

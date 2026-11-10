@@ -251,7 +251,7 @@ describe('ClioConversation recovery actions', () => {
       .getByText('Analyze this filing.')
       .closest<HTMLElement>('[data-slot="message-text"]');
     expect(textBubble).toHaveClass(
-      'group-[.is-user]:rounded-xl',
+      'group-[.is-user]:rounded-[12px]',
       'group-[.is-user]:bg-secondary',
       'group-[.is-user]:px-3.5',
       'group-[.is-user]:py-[9px]',

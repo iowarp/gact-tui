@@ -33,7 +33,7 @@ export function TranscriptTextBlock({
         'min-w-0 max-w-full group-[.is-assistant]:mt-1.5 group-[.is-assistant]:mb-1',
         AGENT_PROSE_CLASS,
         // A prompt is the reader's own words: a sans bubble, not agent prose.
-        'group-[.is-user]:rounded-xl group-[.is-user]:bg-secondary group-[.is-user]:px-3.5 group-[.is-user]:py-[9px] group-[.is-user]:font-sans group-[.is-user]:text-[13.5px] group-[.is-user]:leading-normal',
+        'group-[.is-user]:rounded-[12px] group-[.is-user]:bg-secondary group-[.is-user]:px-3.5 group-[.is-user]:py-[9px] group-[.is-user]:font-sans group-[.is-user]:text-[13.5px] group-[.is-user]:leading-normal',
       )}
       data-field="text"
       data-message-id={messageId}

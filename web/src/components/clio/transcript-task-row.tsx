@@ -1,7 +1,11 @@
 import type { Task } from '@clio/core/v3';
 import { ListChecksIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ActivityBody, ActivityDisclosure, ActivityRow } from './activity-row';
+import { useState } from 'react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
+import { ActivityBody, ActivityDisclosure, ActivityInfoButton, ActivityRow } from './activity-row';
+import { DialogFrame } from './primitives/dialog-frame';
+import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
 import { delegateTone } from './delegate-tone';
@@ -19,6 +23,7 @@ export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
   const tone = state ? delegateTone(state) : 'idle';
   const label = state ? clioStatusLabel(state) : 'Unavailable';
   const outcome = tone === 'success' || tone === 'running' ? undefined : label.toLowerCase();
+  const [details, setDetails] = useState(false);
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <ActivityRow
@@ -47,13 +52,66 @@ export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
         }
         elapsed={null}
         status={<StatusIndicator tone={tone} label={label} display="column" mark="glyph" />}
-        info={null}
+        info={
+          task ? (
+            <ActivityInfoButton
+              label={`Technical details for task ${title}`}
+              hint="View the task, its state, and what it reported"
+              onClick={() => setDetails(true)}
+            />
+          ) : null
+        }
       />
       <CollapsibleContent>
         <ActivityBody label={`Task ${title}`} framed={false} className="text-muted-foreground">
           {task?.detail || 'No task detail was reported.'}
         </ActivityBody>
       </CollapsibleContent>
+      {details && task ? (
+        <TaskDetailsDialog open={details} onOpenChange={setDetails} task={task} label={label} />
+      ) : null}
     </Collapsible>
+  );
+}
+
+/** ⓘ on a task: what the agent tracked, its state and the handle it was recorded under. */
+function TaskDetailsDialog({
+  open,
+  onOpenChange,
+  task,
+  label,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: Task;
+  label: string;
+}) {
+  const items: KeyValueItem[] = [
+    { label: 'Task', value: task.title || 'Untitled' },
+    { label: 'State', value: label },
+    { label: 'Handle', value: task.id, mono: true },
+  ];
+  return (
+    <DialogFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<InfoIcon className="size-4" />}
+      title="Task: Technical details"
+      description="The task the agent tracked, its state, and what it reported."
+      className="w-[clamp(360px,56vw,760px)]"
+    >
+      <div className="grid max-h-[65dvh] min-w-0 gap-4 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
+        <KeyValueGrid
+          items={items}
+          className="grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-y-1.5 text-[12.5px] [&_dd]:text-left"
+        />
+        {task.detail ? (
+          <section className="space-y-1.5">
+            <h4 className="font-medium text-foreground">Detail</h4>
+            <p className="whitespace-pre-wrap text-muted-foreground">{task.detail}</p>
+          </section>
+        ) : null}
+      </div>
+    </DialogFrame>
   );
 }

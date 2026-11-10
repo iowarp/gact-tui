@@ -23,9 +23,9 @@ import type { McpAppResponseActivityData } from './mcp-app-surface';
 import type { FileSearchLocation } from '@/lib/search-matches';
 import type { SubagentOpenTarget } from './subagent-card';
 import type { TurnPreparationProps } from './turn-preparation';
-import type { ConversationModelBoundary } from './conversation-model-boundaries';
 import type { ConversationForkOrigin } from './conversation-fork-origin';
 import type { ConversationTurnPresentation } from './conversation-turn-model';
+import type { ConversationModelBoundary } from './conversation-model-boundaries';
 
 /** Older messages of a paged transcript, loaded when the reader reaches the top. */
 export interface EarlierMessagesControl {
@@ -157,6 +157,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   mcpAppResponse?: McpAppResponseActivityData;
   /** The compactions positioned after this message's content. */
   messageCompactions?: readonly PendingCompaction[];
-  /** A recorded provider/model segment beginning at this message. */
+  /** The model changed at this prompt. */
   modelBoundary?: ConversationModelBoundary;
 }

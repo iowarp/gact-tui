@@ -36,10 +36,62 @@ export interface ConnectionRuntime {
   status: { tone: StatusTone; label: string; detail: string };
   /** The capabilities request failed: the row shows the error and a Retry. */
   unreachable: boolean;
-  /** What this connection cannot do, in the agent's own words. */
+  /** Features this agent lacks, in plain words; internal protocol gaps are left out. */
   degradations: string[];
   checking: boolean;
   recheck: () => void;
+}
+
+/** Product names for the capability flags an agent can report as missing. */
+const FEATURE_NAMES: Record<string, string> = {
+  a2ui: 'Rich results',
+  agent_routing: 'Agent routing',
+  agent_write: 'Creating and editing agents',
+  attachments_upload: 'Attachment upload',
+  commands: 'Commands',
+  cost_tracking: 'Cost tracking',
+  diffs: 'Change review',
+  edit_modes: 'Edit modes',
+  files: 'Files',
+  hooks: 'Hooks',
+  integration_health: 'Integration health',
+  lsp: 'Code intelligence',
+  mcp: 'MCP servers',
+  memory: 'Memory',
+  metrics: 'Usage',
+  multimodal_image_parts: 'Images in messages',
+  permissions: 'Permissions',
+  plan_mode: 'Plan mode',
+  providers: 'Providers',
+  scheduled_sessions: 'Scheduled work',
+  search_messages: 'Message search',
+  session_branching: 'Branching conversations',
+  session_export: 'Conversation export',
+  session_sharing: 'Conversation sharing',
+  session_summary: 'Conversation summaries',
+  session_tasks: 'Tasks',
+  sessions: 'Conversations',
+  skills_extraction: 'Skill extraction',
+  subagents: 'Subagents',
+  thinking_blocks: 'Thinking',
+  voice: 'Voice input',
+  workspaces: 'Workspaces',
+};
+
+/**
+ * The missing features a person can act on, named as the product names them.
+ * Protocol extensions (`x_*`) and unmapped transport flags are not features.
+ */
+export function unavailableFeatures(
+  degradations: { code: string; reason: string; capability?: string }[],
+): string[] {
+  const names = degradations.flatMap((item) => {
+    if (item.code === 'capability_projection_dropped') return [];
+    if (!item.capability) return item.code === 'capability_unavailable' ? [] : [item.reason];
+    const name = FEATURE_NAMES[item.capability];
+    return name ? [name] : [];
+  });
+  return [...new Set(names)];
 }
 
 /** This app's build version, stamped by `vite.config.ts`. */
@@ -129,7 +181,7 @@ export function useConnectionRuntime(): ConnectionRuntime {
     latestVersion,
     status,
     unreachable: capabilities.isError,
-    degradations: (capabilities.data?.degradations ?? []).map((item) => item.reason),
+    degradations: unavailableFeatures(capabilities.data?.degradations ?? []),
     checking,
     recheck,
   };

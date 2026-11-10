@@ -43,6 +43,44 @@ function copyMessage(message: Message) {
 }
 
 /**
+ * Withdraws a queued prompt. It stays beside the prompt's Queued badge, outside the
+ * hover-only actions, so it is always in view.
+ */
+export function PendingCancelButton({
+  message,
+  entities,
+}: {
+  message: Message;
+  entities: MessageRowActionEntities;
+}) {
+  const cancelling = entities.cancellingPendingMessageId === message.id;
+  if (
+    message.role !== 'user' ||
+    !entities.pendingMessageIds?.has(message.id) ||
+    !entities.cancellablePendingMessageIds?.has(message.id)
+  )
+    return null;
+  return (
+    <TooltipProvider delayDuration={450}>
+      <IconButton
+        disabled={cancelling || !entities.onCancelPendingSteer}
+        icon={
+          cancelling ? (
+            <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
+          ) : (
+            <CloseIcon aria-hidden="true" />
+          )
+        }
+        label={cancelling ? 'Cancelling pending message' : 'Cancel pending message'}
+        onClick={() => void entities.onCancelPendingSteer?.(message.id)}
+        size="sm"
+        type="button"
+      />
+    </TooltipProvider>
+  );
+}
+
+/**
  * Hover-only actions mount once the pointer or focus first enters their
  * message, so a long transcript does not carry every row's hidden buttons (and
  * their per-message rating reads). Devices without hover, windows narrower than
@@ -101,11 +139,6 @@ export function MessageRowActions({
 }) {
   const assistant = message.role === 'assistant';
   const retrying = entities.retryingMessageId === message.id;
-  const cancelling = entities.cancellingPendingMessageId === message.id;
-  const cancellable =
-    message.role === 'user' &&
-    entities.pendingMessageIds?.has(message.id) &&
-    entities.cancellablePendingMessageIds?.has(message.id);
   const marked = entities.markedMessageIds?.has(message.id) ?? false;
   return (
     <TooltipProvider delayDuration={450}>
@@ -113,23 +146,6 @@ export function MessageRowActions({
         className={cn('flex shrink-0 items-center gap-0.5', className)}
         data-slot="message-row-actions"
       >
-        {cancellable ? (
-          <IconButton
-            data-pending-cancel=""
-            disabled={cancelling || !entities.onCancelPendingSteer}
-            icon={
-              cancelling ? (
-                <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
-              ) : (
-                <CloseIcon aria-hidden="true" />
-              )
-            }
-            label={cancelling ? 'Cancelling pending message' : 'Cancel pending message'}
-            onClick={() => void entities.onCancelPendingSteer?.(message.id)}
-            size="sm"
-            type="button"
-          />
-        ) : null}
         {canRetry ? (
           <IconButton
             disabled={retrying || !entities.onRetryMessage}
