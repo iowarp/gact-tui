@@ -131,18 +131,14 @@ export function RunsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled: category === 'flows',
   });
+  // Waiting for you is a subset of active, so it reads the same active-only query.
+  const activeOnly =
+    category === 'executions' && (stateFilter === 'active' || stateFilter === 'waiting_user');
   const runs = useInfiniteQuery({
-    queryKey: queryKeys.key(
-      'tasks',
-      settings.endpoint,
-      category === 'executions' && stateFilter === 'active',
-    ),
+    queryKey: queryKeys.key('tasks', settings.endpoint, activeOnly),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ signal, pageParam }) =>
-      repository.queryTasks(
-        { cursor: pageParam, activeOnly: category === 'executions' && stateFilter === 'active' },
-        signal,
-      ),
+      repository.queryTasks({ cursor: pageParam, activeOnly }, signal),
     getNextPageParam: (page) => page.cursor ?? undefined,
     refetchInterval: RUNS_POLL_MS,
   });
@@ -353,8 +349,7 @@ export function RunsPage() {
       />
     );
   };
-  // Counts are exact only for what is loaded: the active view loads active runs.
-  const activeOnly = category === 'executions' && stateFilter === 'active';
+  // Counts are exact only for what is loaded: the active views load active runs.
   const stateCount = (value: string) =>
     rows.filter((row) => matchesRunState(row.state, value)).length;
   const stateOptions = STATE_OPTIONS.map((option) => ({

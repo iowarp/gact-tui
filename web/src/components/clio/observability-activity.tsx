@@ -5,6 +5,7 @@ import type {
   Message,
   PendingInteraction,
   RunState,
+  ToolInvocation,
 } from '@clio/core/v3';
 import {
   BotIcon,
@@ -29,13 +30,21 @@ import { flowLabel } from './flow-tool-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
-import { humanizeToolName } from './tool-presentation';
+import { compactDuration } from './workbench-activity-model';
 import {
   isAgentMcpInteraction,
   isCausalQuestionInteraction,
   questionInteractionRequestLabel,
 } from './agent-answer-domain';
-import { provenanceFileFact } from './session-evidence-projection';
+import {
+  permissionActivityLabel,
+  projectedActivityDetail,
+  projectedActivityLabel,
+  projectedFilePath,
+  projectedKind,
+  projectedToolName,
+  spanToolMatcher,
+} from './activity-projection-labels';
 import {
   CAUSAL_ATTENTION_STATES,
   causalAttentionTone,
@@ -52,6 +61,8 @@ export interface ObservabilityActivityItem {
   label: string;
   /** Absent when the record has no summary beyond its labeled state. */
   detail?: string;
+  /** The short trailing fact: a duration or a delta ("40ms", "2.4s"). Clock time is hover-only. */
+  fact?: string;
   state: RunState | ClioStatusValue;
   at?: string;
   groupId?: string;
@@ -195,12 +206,14 @@ export function childProjectionActivityItems(
   processes: readonly AsyncProcess[],
   knownToolIds: ReadonlySet<string> = new Set(),
   onOpenFile?: (path: string) => void,
+  knownTools: readonly ToolInvocation[] = [],
 ): ObservabilityActivityItem[] {
   const lineage = provenance.session_lineage;
   if (!lineage) return [];
   const rootSessionId = provenance.root_session_id ?? provenance.session_id;
   const lineageBySession = new Map(lineage.map((row) => [row.session_id, row]));
   const processByTask = new Map(processes.map((process) => [process.id, process]));
+  const matchTool = spanToolMatcher(knownTools);
   const items: ObservabilityActivityItem[] = [];
 
   for (const owner of lineage) {
@@ -237,10 +250,13 @@ export function childProjectionActivityItems(
       lifecycle: 'open',
     });
     if (closeRowWillFollow) {
+      const opened = Date.parse(process?.created_at ?? owner.created_at ?? '');
+      const closed = Date.parse(closedAt ?? '');
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
         detail: 'Child work returned to its parent',
+        fact: closed >= opened ? compactDuration(closed - opened) : undefined,
         state,
         at: closedAt,
         timing: 'event',
@@ -291,17 +307,34 @@ export function childProjectionActivityItems(
     if (
       span.kind === 'tool' &&
       (knownToolIds.has(span.id) ||
-        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)))
+        Boolean(span.invocation_id && knownToolIds.has(span.invocation_id)) ||
+        // Root spans carry no invocation id; the same call is already a transcript row.
+        Boolean(toolName && matchTool(ownerSessionId, toolName, span.start_time, true)))
     ) {
       continue;
     }
     const owner = lineageBySession.get(ownerSessionId);
     const filePath = projectedFilePath(toolName, span.attributes);
+    const permission = span.event_type === 'permission.resolved';
+    const permittedTool =
+      typeof span.attributes.tool_name === 'string' ? span.attributes.tool_name : undefined;
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
-      label: projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
-      detail: projectedActivityDetail(span.kind),
+      label: permission
+        ? permissionActivityLabel(
+            span.label,
+            permittedTool,
+            permittedTool
+              ? matchTool(ownerSessionId, permittedTool, span.start_time, false)
+              : undefined,
+          )
+        : projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
+      detail: permission ? 'Permission' : projectedActivityDetail(span.kind),
+      fact:
+        span.kind === 'tool' && span.duration_ms !== null && span.duration_ms > 0
+          ? compactDuration(span.duration_ms)
+          : undefined,
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -635,64 +668,6 @@ export function ActivityGlyph({
   if (item.kind === 'interaction') return <MessageCircleQuestionIcon {...props} />;
   if (item.kind === 'resource') return <WaypointsIcon {...props} />;
   return <BotIcon {...props} />;
-}
-
-function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
-  if (kind === 'artifact') return 'artifact';
-  if (kind === 'resource') return 'resource';
-  if (kind === 'interaction' || kind === 'interactive_work') return 'interaction';
-  return 'tool';
-}
-
-function projectedActivityDetail(kind: string): string | undefined {
-  const detail =
-    kind === 'tool'
-      ? undefined
-      : kind === 'artifact'
-        ? 'Produced artifact'
-        : kind === 'resource'
-          ? 'Evidence source'
-          : kind === 'interaction'
-            ? 'Human interaction'
-            : 'Interactive surface or MCP task';
-  return detail;
-}
-
-function projectedToolName(toolName: string | undefined, label: string): string | undefined {
-  if (toolName) return toolName;
-  return /^Tool\s+([^\s]+)\s+(?:started|completed|failed)\.?$/iu.exec(label)?.[1];
-}
-
-function projectedActivityLabel(
-  kind: string,
-  toolName: string | undefined,
-  fallback: string,
-  attributes: Record<string, unknown>,
-): string {
-  if (kind !== 'tool' || !toolName) return fallback;
-  const input = attributes.tool_input;
-  const qualifier =
-    input && typeof input === 'object'
-      ? ['path', 'uri', 'resource_id', 'task_id']
-          .map((key) => (input as Record<string, unknown>)[key])
-          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      : undefined;
-  const operation = provenanceFileFact(toolName) ?? humanizeToolName(toolName);
-  if (!qualifier) return operation;
-  const compact = qualifier.split(/[\\/]/u).filter(Boolean).at(-1) ?? qualifier;
-  return `${operation} ${compact}`;
-}
-
-function projectedFilePath(
-  toolName: string | undefined,
-  attributes: Record<string, unknown>,
-): string | undefined {
-  // Only the file tools' `path` names a file; the listing and search tools' names a folder.
-  if (!toolName || !provenanceFileFact(toolName)) return undefined;
-  const input = attributes.tool_input;
-  if (!input || typeof input !== 'object') return undefined;
-  const value = (input as Record<string, unknown>).path;
-  return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
 function timestampString(value: number | null): string | undefined {

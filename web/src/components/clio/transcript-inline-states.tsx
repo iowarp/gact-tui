@@ -83,16 +83,9 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
   );
 }
 
-/** A background refresh, floating over the top so the reading position holds. */
+/** A background refresh, at row height in the control lane so it never covers a message. */
 export function TranscriptSyncing() {
-  return (
-    <StateView
-      className="pointer-events-none absolute top-2 left-1/2 z-20 w-fit -translate-x-1/2 rounded-full border border-border bg-background px-2.5 shadow-sm"
-      kind="loading"
-      size="row"
-      title="Syncing history…"
-    />
-  );
+  return <StateView className="w-fit" kind="loading" size="row" title="Syncing history…" />;
 }
 
 /** Height of the lane above the composer that holds the transcript's floating controls. */
@@ -109,16 +102,20 @@ export const TRANSCRIPT_CONTROL_LANE_PX = 40;
  */
 export const TranscriptControlLane = memo(function TranscriptControlLane({
   onJump,
+  syncing,
 }: {
   /** Present while the reader is away from the latest message. */
   onJump?: () => void;
+  /** A background refresh of the history is in flight. */
+  syncing?: boolean;
 }) {
   return (
     <div
-      className="sticky bottom-0 z-20 flex items-center justify-center bg-background"
+      className="sticky bottom-0 z-20 flex items-center justify-center gap-3 bg-background"
       data-slot="transcript-control-lane"
       style={{ height: TRANSCRIPT_CONTROL_LANE_PX }}
     >
+      {syncing ? <TranscriptSyncing /> : null}
       {onJump ? (
         <TooltipProvider>
           <IconButton

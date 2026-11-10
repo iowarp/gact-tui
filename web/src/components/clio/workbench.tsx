@@ -6,24 +6,12 @@ import type {
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
-import {
-  ActivityIcon,
-  BotIcon,
-  BoxIcon,
-  FlaskConicalIcon,
-  FolderIcon,
-  GlobeIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  PaperclipIcon,
-  TerminalSquareIcon,
-} from 'lucide-react';
+import { Maximize2Icon, Minimize2Icon } from 'lucide-react';
 import {
   forwardRef,
   startTransition,
   useCallback,
   useEffect,
-  useEffectEvent,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -33,22 +21,22 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Root as DismissableLayer } from '@radix-ui/react-dismissable-layer';
-import { useOverlayContainer } from '@/components/ui/overlay-container';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
-import { focusQuietly } from './primitives/quiet-focus';
-import { FrameBackContext, type FrameBack } from './primitives/frame-back';
+import type { FrameBack } from './primitives/frame-back';
 import type { SubagentOpenTarget } from './subagent-card';
 import {
-  OPEN_TERMINAL_EVENT,
   useWorkspaceCanvasControl,
   useWorkspaceCanvasVisibility,
 } from './workspace-canvas-visibility-context';
-import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import { WorkbenchTabContent } from './workbench-tab-content';
+import { WorkbenchTabFrame } from './workbench-tab-frame';
+import { PendingStripDispatcher, WorkbenchRequestDispatcher } from './workbench-dispatchers';
+import { useWorkbenchMaximize } from './use-workbench-maximize';
+import { useWorkbenchStrip } from './use-workbench-strip';
 import {
   tabForOpenRequest,
   variantTryTab,
@@ -64,7 +52,6 @@ import {
   subagentTab,
   type WorkbenchTab,
 } from './workbench-shared';
-import { PresentationNavigation } from './presentation-navigation';
 import {
   htmlBrowserTarget,
   OPEN_FILE_IN_BROWSER_EVENT,
@@ -80,7 +67,6 @@ import { refocusActiveCanvasTab, WorkbenchTabRow } from './workbench-tab-row';
 import {
   WorkbenchStrip,
   type WorkbenchListView,
-  type WorkbenchStripItem,
   type WorkbenchTabListView,
 } from './workbench-strip';
 import {
@@ -148,7 +134,6 @@ const REPLACING_KINDS = new Set<WorkbenchTab['kind']>([
   'subagent',
   'workspace-file',
 ]);
-const RUNNING_STATES = new Set<SubagentRun['state']>(['queued', 'running', 'recovering']);
 
 function parentDirectory(path: string): string {
   const index = path.lastIndexOf('/');
@@ -211,7 +196,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [listDirectory, setListDirectory] = useState<string>();
     // Unknown until the panel is first measured.
     const [narrow, setNarrow] = useState<boolean>();
-    const [maximized, setMaximized] = useState(false);
+    const {
+      maximized,
+      setMaximized,
+      toggleMaximized,
+      restore,
+      maximizeButtonRef,
+      portalHost,
+      inSection,
+    } = useWorkbenchMaximize();
     // Tab bodies wait until the latest open request is delivered: revealing
     // the canvas must not mount the previous tab only to replace it.
     const subscribedRequest = useWorkbenchRequest(requests);
@@ -219,12 +212,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [deliveredKey, setDeliveredKey] = useState<string>();
     const requestsSettled =
       deliveredKey !== undefined && (!pendingRequest || pendingRequest.key === deliveredKey);
-    const [maximizeHost, setMaximizeHost] = useState<Element | null>(null);
-    // A bare host (no sheet, no workspace section) maximizes into the overlay
-    // host, never <body>: a body child restyles the whole app root.
-    const overlayHost = useOverlayContainer();
     const asideRef = useRef<HTMLElement>(null);
-    const maximizeButtonRef = useRef<HTMLButtonElement>(null);
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
@@ -239,15 +227,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       const observer = new ResizeObserver(update);
       observer.observe(aside);
       return () => observer.disconnect();
-    }, [maximized]);
-
-    // Floating surfaces over the conversation (the rail) hide under a maximized
-    // canvas. A body attribute, unlike `body:has(...)`, does not make every DOM
-    // mutation re-check and restyle the whole document.
-    useEffect(() => {
-      if (!maximized) return;
-      document.body.setAttribute('data-canvas-maximized', '');
-      return () => document.body.removeAttribute('data-canvas-maximized');
     }, [maximized]);
 
     const canvasVisible = useWorkspaceCanvasVisibility();
@@ -416,125 +395,18 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
 
-    const toggleMaximized = (trigger?: Element | null) => {
-      // Maximize covers the conversation only: the left bar stays, and the
-      // strip comes along inside the canvas.
-      setMaximizeHost(
-        trigger?.closest('[data-slot=sheet-content]') ??
-          trigger?.closest('[data-workbench-maximize-host]') ??
-          overlayHost ??
-          document.body,
-      );
-      setMaximized((value) => !value);
-      // The canvas remounts in its new host, so a focused control inside it is gone:
-      // return to the active tab when a tab had focus, else to Maximize/Restore.
-      const fromTab = document.activeElement?.closest('[data-slot=canvas-tab-row] [role=tab]');
-      requestAnimationFrame(() => {
-        if (document.activeElement && document.activeElement !== document.body) return;
-        let canvas = maximizeButtonRef.current?.parentElement;
-        while (canvas && !canvas.querySelector('[data-slot=canvas-tab-row]')) {
-          canvas = canvas.parentElement;
-        }
-        const activeTab = canvas?.querySelector<HTMLElement>(
-          '[data-slot=canvas-tab-row] [role=tab][aria-selected=true]',
-        );
-        focusQuietly(fromTab && activeTab ? activeTab : maximizeButtonRef.current);
+    const { stripItems, selectStripItem, takePendingStripPosition, pendingStripPosition } =
+      useWorkbenchStrip({
+        activeTabId,
+        closeTabOrCanvas,
+        inStudy,
+        onOpenTerminal,
+        openTab,
+        previousTab,
+        setActiveTabId,
+        subagents,
+        tabList,
       });
-    };
-
-    const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
-    const listIsPressed = (id: WorkbenchListView) => activeTabId === listTab(id).id;
-    const stripItems: WorkbenchStripItem[] = [];
-    const listItem = (id: WorkbenchListView, label: string, icon: ReactNode, count?: number) =>
-      stripItems.push({
-        id,
-        label,
-        icon,
-        position: stripItems.filter((item) => item.position).length + 1,
-        pressed: listIsPressed(id),
-        count,
-      });
-    listItem('files', 'Files', <FolderIcon />);
-    listItem('sources', 'Sources', <PaperclipIcon />);
-    listItem('artifacts', 'Artifacts', <BoxIcon />);
-    listItem('activity', 'Activity', <ActivityIcon />, runningSubagents);
-    stripItems.push({
-      id: 'agent',
-      label: 'Agent',
-      icon: <BotIcon />,
-      position: 5,
-      pressed: activeTabId === agentTab.id,
-    });
-    if (inStudy === true)
-      stripItems.push({
-        id: 'science-log',
-        label: 'Science log',
-        icon: <FlaskConicalIcon />,
-        pressed: activeTabId === scienceLogTab.id,
-      });
-    // Always on the strip: where terminals can't run, its list says so.
-    listItem('terminal', 'Terminal', <TerminalSquareIcon />);
-    listItem('browser', 'Browser pages', <GlobeIcon />);
-
-    /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */
-    const toggleTab = (tab: WorkbenchTab) => {
-      if (activeTabId !== tab.id) {
-        if (tab.kind === 'list' && tab.view === 'artifacts') void loadResourceViewers();
-        openTab(tab);
-      } else if (previousTab) setActiveTabId(previousTab.id);
-      else closeTabOrCanvas(tab.id);
-    };
-
-    const selectStripItem = (id: WorkbenchStripItem['id']) => {
-      if (id === 'agent') {
-        toggleTab(agentTab);
-        return;
-      }
-      if (id === 'science-log') {
-        // The open log's strip item shows or hides its study tree; otherwise it opens the log.
-        if (activeTabId === scienceLogTab.id && tabList.slot.title) {
-          tabList.setShown(!tabList.slot.shown);
-          return;
-        }
-        openTab(scienceLogTab);
-        return;
-      }
-      toggleTab(listTab(id));
-    };
-
-    useShortcut('strip-position', (_event, position) => {
-      const item = stripItems.find((candidate) => candidate.position === position);
-      if (!item) return;
-      if (canvasVisible) {
-        selectStripItem(item.id);
-        return;
-      }
-      // Closed: open the pocket at this item rather than toggling it off.
-      canvasControl?.show();
-      if (!item.pressed) selectStripItem(item.id);
-    });
-    // A chord pressed while the pocket was unmounted (closed Sheet) lands here.
-    const takePendingStripPosition = (position: number | 'terminal') => {
-      canvasControl?.clearPendingStripPosition();
-      const item = stripItems.find((candidate) =>
-        position === 'terminal' ? candidate.id === 'terminal' : candidate.position === position,
-      );
-      if (item) selectStripItem(item.id);
-    };
-    // Where no terminal can run, the chord still lands on Terminal's list, which says so.
-    const openTerminal = () => {
-      if (!canvasVisible) canvasControl?.show();
-      if (onOpenTerminal) void onOpenTerminal();
-      else openTab(listTab('terminal'));
-    };
-    useShortcut('terminal', openTerminal);
-    useShortcut('new-terminal', openTerminal, { enabled: Boolean(onOpenTerminal) });
-    const onOpenTerminalEvent = useEffectEvent(openTerminal);
-    useEffect(() => {
-      const open = () => onOpenTerminalEvent();
-      window.addEventListener(OPEN_TERMINAL_EVENT, open);
-      return () => window.removeEventListener(OPEN_TERMINAL_EVENT, open);
-    }, []);
     const stepTabByKey = (delta: -1 | 1) => {
       stepTab(delta);
       refocusActiveCanvasTab(asideRef.current);
@@ -672,7 +544,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         className={cn(
           'relative z-30 flex h-full min-w-0 flex-row bg-background',
           maximized &&
-            (maximizeHost?.hasAttribute('data-workbench-maximize-host')
+            (inSection
               ? 'absolute inset-0 z-[80] bg-background'
               : 'fixed inset-0 z-[80] bg-background shadow-2xl'),
         )}
@@ -750,74 +622,52 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   {/* Only the active tab: Radix Presence renders an outgoing panel once more
                     before unmounting it, which would mount a tab that is being left. */}
                   {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
-                    <WorkbenchTabErrorBoundary
-                      label={tab.label}
+                    <WorkbenchTabFrame
+                      artifacts={artifacts}
+                      back={backFor(tab)}
                       onClose={() => closeTabOrCanvas(tab.id)}
+                      onOpen={openRequest}
+                      onOpenSubagent={onOpenSubagent}
+                      resources={resources}
+                      sessionId={sessionId}
+                      subagents={subagents}
+                      tab={tab}
+                      workspaceId={workspaceId}
                     >
-                      <PresentationNavigation.Provider
-                        value={{
-                          workspaceId: 'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                          sessionId,
-                          artifacts: Object.fromEntries(artifacts.map((item) => [item.id, item])),
-                          resources: Object.fromEntries(resources.map((item) => [item.id, item])),
-                          subagents: Object.fromEntries(subagents.map((item) => [item.id, item])),
-                          onOpenFile: (path) =>
-                            openRequest(
-                              { kind: 'workspace-file', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenFolder: (path) =>
-                            openRequest(
-                              { kind: 'workspace-folder', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenFileReference: (path, location) =>
-                            openRequest(
-                              { ...location, kind: 'workspace-file', path },
-                              'workspaceId' in tab ? tab.workspaceId : workspaceId,
-                            ),
-                          onOpenArtifact: (artifact) => openRequest({ kind: 'artifact', artifact }),
-                          onOpenResource: (resource) => openRequest({ kind: 'resource', resource }),
-                          onOpenSubagent,
-                        }}
-                      >
-                        <FrameBackContext.Provider value={backFor(tab)}>
-                          <WorkbenchTabContent
-                            artifacts={artifacts}
-                            artifactsError={artifactsError}
-                            artifactsPending={artifactsPending}
-                            artifactsTruncated={artifactsTruncated}
-                            diffActionError={diffActionError}
-                            diffActionPending={diffActionPending}
-                            diffs={diffs}
-                            files={files}
-                            filesError={filesError}
-                            filesFetching={filesFetching}
-                            filesPending={filesPending}
-                            filesTruncated={filesTruncated}
-                            filesNextOffset={filesNextOffset}
-                            maximized={maximized}
-                            onOpenSubagent={onOpenSubagent}
-                            onOpenTab={openTab}
-                            onRefreshFiles={onRefreshFiles}
-                            onShowFolder={showFolder}
-                            onUndoDiff={onUndoDiff}
-                            onReplaceTab={replaceTab}
-                            onSelectFilesPath={selectFilesPath}
-                            onSelectWorkspaceFilePath={selectWorkspaceFilePath}
-                            renderList={renderList}
-                            resources={resources}
-                            resourcesError={resourcesError}
-                            resourcesPending={resourcesPending}
-                            sessionId={sessionId}
-                            sessionView={sessionView}
-                            agentView={agentView}
-                            tab={tab}
-                            workspaceId={workspaceId}
-                          />
-                        </FrameBackContext.Provider>
-                      </PresentationNavigation.Provider>
-                    </WorkbenchTabErrorBoundary>
+                      <WorkbenchTabContent
+                        artifacts={artifacts}
+                        artifactsError={artifactsError}
+                        artifactsPending={artifactsPending}
+                        artifactsTruncated={artifactsTruncated}
+                        diffActionError={diffActionError}
+                        diffActionPending={diffActionPending}
+                        diffs={diffs}
+                        files={files}
+                        filesError={filesError}
+                        filesFetching={filesFetching}
+                        filesPending={filesPending}
+                        filesTruncated={filesTruncated}
+                        filesNextOffset={filesNextOffset}
+                        maximized={maximized}
+                        onOpenSubagent={onOpenSubagent}
+                        onOpenTab={openTab}
+                        onRefreshFiles={onRefreshFiles}
+                        onShowFolder={showFolder}
+                        onUndoDiff={onUndoDiff}
+                        onReplaceTab={replaceTab}
+                        onSelectFilesPath={selectFilesPath}
+                        onSelectWorkspaceFilePath={selectWorkspaceFilePath}
+                        renderList={renderList}
+                        resources={resources}
+                        resourcesError={resourcesError}
+                        resourcesPending={resourcesPending}
+                        sessionId={sessionId}
+                        sessionView={sessionView}
+                        agentView={agentView}
+                        tab={tab}
+                        workspaceId={workspaceId}
+                      />
+                    </WorkbenchTabFrame>
                   ) : null}
                 </TabsContent>
               ))}
@@ -838,10 +688,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           onDelivered={setDeliveredKey}
           onOpen={openRequest}
         />
-        <PendingStripDispatcher
-          onTake={takePendingStripPosition}
-          position={canvasControl?.pendingStripPosition}
-        />
+        <PendingStripDispatcher onTake={takePendingStripPosition} position={pendingStripPosition} />
         {maximized
           ? createPortal(
               <DismissableLayer
@@ -851,51 +698,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   // event. A handled Escape must never dismiss its parent too.
                   if (event.defaultPrevented) return;
                   event.preventDefault();
-                  setMaximized(false);
-                  requestAnimationFrame(() => focusQuietly(maximizeButtonRef.current));
+                  restore();
                 }}
                 onInteractOutside={(event) => event.preventDefault()}
               >
                 {canvas}
               </DismissableLayer>,
-              maximizeHost ?? overlayHost ?? document.body,
+              portalHost,
             )
           : canvas}
       </>
     );
   },
 );
-
-function PendingStripDispatcher({
-  onTake,
-  position,
-}: {
-  onTake: (position: number | 'terminal') => void;
-  position?: number | 'terminal';
-}) {
-  const take = useEffectEvent(onTake);
-  useEffect(() => {
-    if (position !== undefined) take(position);
-  }, [position]);
-  return null;
-}
-
-function WorkbenchRequestDispatcher({
-  active,
-  onDelivered,
-  onOpen,
-}: {
-  active?: { key: string; request: ClioWorkbenchOpenRequest };
-  onDelivered: (key: string) => void;
-  onOpen: (request: ClioWorkbenchOpenRequest) => void;
-}) {
-  // Compact layouts mount the workbench only after their sheet opens. Keeping
-  // the event in props lets this mounted child deliver the first resource
-  // request instead of silently showing only the default Activity tab.
-  // Layout effects: the first request lands before paint, in the mount's own commit.
-  useLayoutEffect(() => {
-    if (active) onOpen(active.request);
-    onDelivered(active?.key ?? '');
-  }, [onDelivered, onOpen, active]);
-  return null;
-}

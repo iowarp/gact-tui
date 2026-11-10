@@ -194,7 +194,6 @@ export function McpSignInDialog({
   return (
     <DialogFrame
       cancelLabel={flow?.state === 'connected' ? 'Done' : 'Cancel'}
-      className="w-[clamp(360px,40vw,600px)]"
       confirm={
         canStart
           ? { label: flow ? 'Try signing in again' : 'Sign in', onConfirm: () => void start() }
