@@ -23,7 +23,7 @@ export function ParentDelegationMessage({ message }: { message: DomainMessage })
             it the bubble sizes to its longest unbreakable run (a path), and the
             end-aligned column pushes that overflow off its left edge (#834). */}
         <div
-          className="mb-2 ml-auto flex w-fit min-w-0 max-w-[85%] flex-col items-end sm:max-w-[72%]"
+          className="mb-1.5 ml-auto flex w-fit min-w-0 max-w-[80%] flex-col items-end"
           data-slot="parent-delegation-frame"
         >
           <div
@@ -41,7 +41,7 @@ export function ParentDelegationMessage({ message }: { message: DomainMessage })
           </div>
           <MessageContent className="max-w-full">
             <div
-              className="min-w-0 max-w-full rounded-xl bg-secondary px-3.5 py-[9px] font-sans text-[13.5px] leading-normal [overflow-wrap:anywhere]"
+              className="min-w-0 max-w-full rounded-xl bg-secondary px-3.5 py-[9px] font-sans text-[12.5px] leading-normal [overflow-wrap:anywhere]"
               data-slot="parent-delegation-bubble"
             >
               <BoundedResult lines={lines} title="Parent assignment">
