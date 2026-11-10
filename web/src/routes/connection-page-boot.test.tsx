@@ -103,7 +103,7 @@ it('stays on the boot screen through a starting task runtime and opens the works
   const form = watchForConnectForm();
   renderFirstLaunch();
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting local ${brand.agentName}` })).toBeVisible();
   expect(await screen.findByText('Workspace opened', {}, { timeout: 8_000 })).toBeVisible();
   form.stop();
 

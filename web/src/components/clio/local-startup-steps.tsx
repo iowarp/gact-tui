@@ -26,25 +26,16 @@ function useStepClock(current: number, running: boolean) {
   return { starts, now };
 }
 
-function latestLine(log: string): string | undefined {
-  return log
-    .split('\n')
-    .filter((line) => line.trim() && !line.startsWith('==='))
-    .at(-1);
-}
-
 function startupSteps({
   current,
   failed,
   starts,
   now,
-  line,
 }: {
   current: number;
   failed: boolean;
   starts: Record<number, number>;
   now: number;
-  line?: string;
 }): StepListStep[] {
   return STEPS.map(({ id, label }, index) => {
     const state =
@@ -60,14 +51,13 @@ function startupSteps({
         state !== 'todo' && started !== undefined && ended !== undefined
           ? formatDuration(ended - started, 'compact')
           : undefined,
-      log: index === current ? line : undefined,
     };
   });
 }
 
 /**
- * The local service's startup as a step list: each step's time, the latest
- * boot-log line under the current one, and the whole log in Startup details.
+ * The local service's startup as a step list with each step's time. Tool output (the
+ * boot log) stays out of the steps and shows only in Startup details.
  */
 export function LocalStartupSteps({
   current,
@@ -87,13 +77,13 @@ export function LocalStartupSteps({
   className?: string;
 }) {
   const { starts, now } = useStepClock(current, running);
-  const steps = startupSteps({ current, failed, starts, now, line: latestLine(log) });
+  const steps = startupSteps({ current, failed, starts, now });
   return (
     <div className={cn('flex min-w-0 flex-col', className)}>
       <p role="status" className="sr-only">
         {STEPS[current]?.label}
       </p>
-      <StepList label="Startup progress" logPlacement="end" steps={steps} />
+      <StepList label="Startup progress" steps={steps} />
       {detail || log ? (
         <TechnicalDetails
           title="Startup details"

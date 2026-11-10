@@ -256,8 +256,18 @@ describe('skill observations at three levels', () => {
     const result = screen.getByRole('region', { name: 'Read skill references: Result' });
     await user.click(within(result).getByText('Source', { exact: true }));
     await user.click(within(result).getByRole('button', { name: 'references/streams.md' }));
-    const dialog = screen.getByRole('dialog', { name: 'references/streams.md' });
-    expect(dialog).toHaveAccessibleDescription(`${root}/references/streams.md`);
+    const dialog = screen.getByRole('dialog', { name: 'streams.md' });
+    expect(within(dialog).getByRole('region', { name: 'Scrollable result content' })).toHaveFocus();
+    expect(dialog).toHaveAccessibleDescription('work-with-ndp › references');
+    expect(within(dialog).getByText('work-with-ndp › references')).toHaveAttribute(
+      'title',
+      `${root}/references/streams.md`,
+    );
+    expect(within(dialog).getByRole('button', { name: 'Copy path' })).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: 'Copy references/streams.md' }),
+    ).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Download streams.md' })).toBeVisible();
     expect(within(dialog).getByRole('heading', { name: 'Stream windows' })).toBeVisible();
     expect(dialog).toHaveTextContent('Align to the hour.');
     expect(dialog).not.toHaveTextContent('Chart');
