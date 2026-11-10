@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { canForkSession, isSessionRunning, isUserBranch } from '@/lib/session-state';
 import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
@@ -156,6 +157,8 @@ function SessionRow({
   // One menu for ⋯ and right-click; the hover card stays out of its way while open.
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
+  // The phone sheet leaves no room beside it for the preview, and touch has no hover.
+  const isMobile = useIsMobile();
   const [confirmation, setConfirmation] = useState<SessionHistoryConfirmation>();
   const [historyPending, setHistoryPending] = useState(false);
   const { forkSession, shareSession, openSystemTerminal, compactSession, undoSession } = actions;
@@ -184,7 +187,7 @@ function SessionRow({
       <HoverCard
         closeDelay={100}
         onOpenChange={setHoverOpen}
-        open={hoverOpen && !menuOpen}
+        open={hoverOpen && !menuOpen && !isMobile}
         openDelay={260}
       >
         <HoverCardTrigger asChild>
