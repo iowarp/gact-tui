@@ -14,6 +14,7 @@ mod brand_backend;
 mod clio_core_daemon;
 mod clio_core_registry;
 mod commands;
+mod credential_cache;
 mod credential_chunks;
 mod credentials;
 mod document_apps;
@@ -251,6 +252,7 @@ pub fn run() {
             credentials::credential_delete,
             credentials::provider_credential_store,
             credentials::provider_credential_read,
+            credentials::provider_credential_delete,
             credentials::ssh_identity_store,
             gact_http::gact_http,
             update_channel::check_release_update,

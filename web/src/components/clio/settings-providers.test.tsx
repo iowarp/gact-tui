@@ -54,6 +54,7 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 vi.mock('@/tauri/secure-credentials', () => ({
   storeProviderCredential: vi.fn().mockResolvedValue(undefined),
+  deleteProviderCredential: vi.fn().mockResolvedValue(undefined),
   readProviderCredential: vi.fn().mockResolvedValue(undefined),
 }));
 
