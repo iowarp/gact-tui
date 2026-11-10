@@ -104,7 +104,7 @@ export function ComposerModelButton({
               <span className="truncate">{placeholder}</span>
             )}
             {children}
-            {shortcut ? <HeldKeyBadge id={shortcut} side="above" /> : null}
+            {shortcut ? <HeldKeyBadge id={shortcut} side="under-icon" /> : null}
           </Button>
         </TooltipTrigger>
         <TooltipContent className="gap-2 break-words">

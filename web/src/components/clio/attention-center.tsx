@@ -455,7 +455,7 @@ export function ClioAttentionCenter({
             <section aria-labelledby="attention-needs-you">
               <h3 className={cn('flex items-center gap-1.5', groupLabel)} id="attention-needs-you">
                 <span>Needs you</span>
-                <span className="text-warning tabular-nums">{responseCount}</span>
+                <span className="text-faint tabular-nums">{responseCount}</span>
               </h3>
               {rows.map((row) => {
                 const KindIcon = row.kind.icon;
@@ -523,7 +523,7 @@ export function ClioAttentionCenter({
                           disabled={deciding}
                           onClick={() => decide('deny')}
                           size="xs"
-                          variant="outline"
+                          variant="secondary"
                         >
                           Deny
                         </Button>
