@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 import { useOverlayContainer } from "./overlay-container"
+import { useModalFocusReturn } from "./modal-focus"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -53,6 +54,8 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   overlayClassName,
+  ref,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -60,6 +63,7 @@ function SheetContent({
   /** Styles the dismiss layer behind the sheet, e.g. to leave the page undimmed. */
   overlayClassName?: string
 }) {
+  const focusReturn = useModalFocusReturn({ ref, onCloseAutoFocus })
   return (
     <SheetPortal>
       <SheetOverlay className={overlayClassName} />
@@ -71,6 +75,7 @@ function SheetContent({
           className
         )}
         {...props}
+        {...focusReturn}
       >
         {children}
         {showCloseButton && (

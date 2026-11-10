@@ -15,6 +15,8 @@ const TEXT_APPLICATION_TYPES = new Set([
   'application/json',
   'application/xml',
   'application/javascript',
+  // A Jupyter notebook is JSON.
+  'application/x-ipynb+json',
   // LaTeX source, as Windows' registry and some servers name it.
   'application/x-tex',
   'application/x-latex',

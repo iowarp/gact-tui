@@ -40,7 +40,7 @@ export function ContextReferenceLink({
       data-reference-revision={block.revision}
       disabled={!onOpenReference}
       onClick={() => onOpenReference?.(reference)}
-      title={kind}
+      title={`${block.label} — ${kind}`}
       type="button"
     >
       {createElement(referenceKindIcon(block.ref_kind, block.label), {

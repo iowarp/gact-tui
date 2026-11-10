@@ -9,8 +9,8 @@ import {
   TerminalSquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { AddIcon, RetryIcon } from '@/lib/icon-vocabulary';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AddIcon, CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
 import { DesktopBoot } from '@/components/clio/desktop-boot';
@@ -75,6 +75,17 @@ function connectionSourceIcon(connection: KnownConnection) {
   return ServerIcon;
 }
 
+function sameEndpoint(left: string, right: string): boolean {
+  try {
+    return normalizeEndpoint(left) === normalizeEndpoint(right);
+  } catch {
+    return left === right;
+  }
+}
+
+/** A stopped attempt must not open the agent it was connecting to. */
+class ConnectStopped extends Error {}
+
 function knownCandidate(connection: KnownConnection): ConnectionSettings {
   return {
     endpoint: connection.endpoint,
@@ -94,6 +105,7 @@ export function ConnectionPage() {
     settings,
     recents,
     credentialsReady,
+    managedConnection,
     managedConnectionReady,
     managedBackendStatus,
     credentialError,
@@ -115,7 +127,6 @@ export function ConnectionPage() {
     knownConnections[0];
   const requestedMode = searchParams.get('mode');
   const [manualModeRequested, setManualModeRequested] = useState(requestedMode === 'address');
-  const showManualForm = manualModeRequested || knownConnections.length === 0;
   const [selectedEndpoint, setSelectedEndpoint] = useState(
     initialKnownConnection?.endpoint ?? settings.endpoint,
   );
@@ -153,9 +164,19 @@ export function ConnectionPage() {
     (recents.length > 0 || managedConnectionReady || servedProbe.pending || servedProbe.answered) &&
     connectionIntent !== 'connect';
   const waitingForManagedService = inTauri() && !credentialsReady && connectionIntent !== 'connect';
+  const autoConnectTarget = useMemo<ConnectionSettings>(
+    () =>
+      recents.length === 0 && !managedConnectionReady && servedAgent
+        ? { endpoint: servedAgent }
+        : settings,
+    [managedConnectionReady, recents.length, servedAgent, settings],
+  );
+  // Bumped by "Stop connecting"; an attempt from an older generation never opens.
+  const attemptGeneration = useRef(0);
 
   const mutation = useMutation({
     mutationFn: async (candidate: ConnectionSettings) => {
+      const generation = attemptGeneration.current;
       const next = await resolveConnection({
         ...candidate,
         endpoint: normalizeEndpoint(candidate.endpoint),
@@ -189,6 +210,7 @@ export function ConnectionPage() {
         connectionWorkspaceForRoute(rememberedRoute, workspaces) ??
         recent?.workspace ??
         workspaces[0];
+      if (generation !== attemptGeneration.current) throw new ConnectStopped();
       await connect(next);
       queryClient.setQueryData(queryKeys.key('capabilities', next.endpoint), capabilities);
       queryClient.setQueryData(queryKeys.key('workspaces', next.endpoint), workspaces);
@@ -252,22 +274,16 @@ export function ConnectionPage() {
       return;
     autoConnectStarted.current = true;
     setAutoConnectDispatched(true);
-    mutation.mutate(
-      recents.length === 0 && !managedConnectionReady && servedAgent
-        ? { endpoint: servedAgent }
-        : settings,
-    );
+    mutation.mutate(autoConnectTarget);
   }, [
+    autoConnectTarget,
     connectionIntent,
     searchOpen,
     credentialsReady,
     managedConnectionReady,
     mutation,
     recents.length,
-    servedAgent,
     servedProbe.answered,
-    settings,
-    settings.endpoint,
   ]);
 
   const submit = (event: FormEvent) => {
@@ -287,20 +303,18 @@ export function ConnectionPage() {
     return <DesktopBoot stage={managedBootStage(managedBackendStatus)} />;
   }
 
-  if (
+  const bootHold =
     shouldConnectAutomatically &&
     // `mutation.status === 'idle'` alone used to gate this, to cover the one
     // render between mount and the auto-connect effect actually dispatching
     // (avoiding a flash of the form first). But `mutation.reset()` ALSO
     // returns status to 'idle' -- "Add an agent…" and its Cancel call
     // it to clear a stale error/success from a previous attempt -- which
-    // made this full-screen boot screen come BACK after the one-shot
-    // auto-connect (gated by `autoConnectStarted`, see the effect above) had
-    // already settled and would never fire again: the person clicked "Add a
-    // service" and landed on a screen that could never finish "opening".
-    // Once auto-connect has been dispatched at all, 'idle' no longer means
-    // "about to auto-connect" -- only `isPending` (a real attempt in
-    // flight) does.
+    // made the boot hold come BACK after the one-shot auto-connect (gated by
+    // `autoConnectStarted`, see the effect above) had already settled and
+    // would never fire again. Once auto-connect has been dispatched at all,
+    // 'idle' no longer means "about to auto-connect" -- only `isPending` (a
+    // real attempt in flight) does.
     (!credentialsReady ||
       (!autoConnectDispatched && mutation.status === 'idle') ||
       mutation.isPending ||
@@ -308,8 +322,13 @@ export function ConnectionPage() {
       // retries, and a resolved attempt renders once before navigating. Neither may
       // flash the form in between.
       (autoConnectDispatched && waiting.retrying) ||
-      (Boolean(resolvedRoute) && !searchOpen))
-  ) {
+      (Boolean(resolvedRoute) && !searchOpen));
+  const attemptEndpoint = mutation.variables?.endpoint ?? autoConnectTarget.endpoint;
+  // Only the desktop's own agent starts on this computer; anything else is reached, not started.
+  const attemptIsLocal =
+    !credentialsReady ||
+    (managedConnection !== undefined && sameEndpoint(attemptEndpoint, managedConnection.endpoint));
+  if (bootHold && attemptIsLocal) {
     return (
       <DesktopBoot
         detail={waiting.availability?.starting ? waiting.availability.detail : undefined}
@@ -318,18 +337,55 @@ export function ConnectionPage() {
     );
   }
 
+  // Connecting to an agent elsewhere shows its progress in that agent's row (spec
+  // connect-infrastructure "Connecting"): one line, one action.
+  const connectingEndpoint =
+    mutation.isPending || waiting.retrying || (Boolean(resolvedRoute) && !searchOpen)
+      ? mutation.variables?.endpoint
+      : bootHold
+        ? autoConnectTarget.endpoint
+        : undefined;
+  const connectingKnown =
+    connectingEndpoint === undefined
+      ? undefined
+      : knownConnections.find((connection) =>
+          sameEndpoint(connection.endpoint, connectingEndpoint),
+        );
+  // An agent-served page with nothing remembered is connecting to its own origin.
+  const connectingRow: KnownConnection | undefined =
+    connectingEndpoint !== undefined && connectingKnown === undefined && !manualModeRequested
+      ? {
+          endpoint: connectingEndpoint,
+          label: mutation.variables?.label,
+          source: 'recent',
+          availability: { state: 'checking', label: 'Connecting', detail: 'Connecting…' },
+        }
+      : undefined;
+  const rows = connectingRow ? [connectingRow, ...knownConnections] : knownConnections;
+  const showManualForm = manualModeRequested || rows.length === 0;
+  const isConnectingRow = (connection: KnownConnection) =>
+    connectingEndpoint !== undefined && sameEndpoint(connection.endpoint, connectingEndpoint);
+  const stopConnecting = () => {
+    attemptGeneration.current += 1;
+    autoConnectStarted.current = true;
+    setAutoConnectDispatched(true);
+    mutation.reset();
+  };
+
   const knownMode = !showManualForm;
+  const connectingInRow = knownMode && connectingEndpoint !== undefined;
   const emptyService = mutation.isSuccess && !mutation.data.target;
   const canCancelManual = showManualForm && knownConnections.length > 0;
   const backToKnown = () => {
     setManualModeRequested(false);
     mutation.reset();
   };
-  const submitLabel = mutation.isPending
-    ? 'Connecting…'
-    : showManualForm
-      ? 'Connect'
-      : 'Open workspace';
+  // In the list, progress shows only in the connecting row; the manual form has no row.
+  const submitLabel = showManualForm
+    ? mutation.isPending
+      ? 'Connecting…'
+      : 'Connect'
+    : 'Open workspace';
   // A known service that does not answer cannot be opened; its row says so and offers Retry.
   const selectedFailed =
     knownMode &&
@@ -385,7 +441,10 @@ export function ConnectionPage() {
                   aria-keyshortcuts="Control+Enter Meta+Enter"
                   className={cn(buttonClass, 'bg-clip-border')}
                   disabled={
-                    mutation.isPending || (knownMode && !selectedConnection) || selectedFailed
+                    mutation.isPending ||
+                    connectingInRow ||
+                    (knownMode && !selectedConnection) ||
+                    selectedFailed
                   }
                   form="connect-form"
                   type="submit"
@@ -439,7 +498,7 @@ export function ConnectionPage() {
             >
               {knownMode ? (
                 <div className="-mx-2 flex min-w-0 flex-col" role="group" aria-label="Switch to">
-                  {knownConnections.map((connection) => {
+                  {rows.map((connection) => {
                     const selected = connection.endpoint === selectedEndpoint;
                     const Icon = connectionSourceIcon(connection);
                     // The CLIO menu's identity: the name leads; the address is secondary.
@@ -449,14 +508,18 @@ export function ConnectionPage() {
                       connection.location,
                     );
                     const name = identity.name;
+                    const connecting = isConnectingRow(connection);
                     const availability = availabilityAfterAttempt(connection, mutation);
-                    const failed = availabilityFailed(availability);
+                    const failed = !connecting && availabilityFailed(availability);
+                    const connectingDetail = connection.availability.starting
+                      ? connection.availability.detail
+                      : 'Connecting…';
                     return (
                       <ListRow
                         className="min-h-[30px]"
                         columns={
                           <span className="flex w-[104px] shrink-0 justify-end">
-                            {failed ? (
+                            {connecting ? null : failed ? (
                               <IconButton
                                 className="z-10"
                                 disabled={mutation.isPending}
@@ -482,7 +545,19 @@ export function ConnectionPage() {
                           </span>
                         }
                         description={
-                          failed ? (
+                          connecting ? (
+                            <span
+                              className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+                              role="status"
+                              title={connectingDetail}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="block size-[9px] shrink-0 rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin"
+                              />
+                              <span className="min-w-0 truncate">{connectingDetail}</span>
+                            </span>
+                          ) : failed ? (
                             <span
                               className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
                               title={
@@ -507,25 +582,37 @@ export function ConnectionPage() {
                         key={connection.endpoint}
                         layout="stacked"
                         primaryAction={
-                          <span className="relative z-10">
-                            <KnownServiceActions
-                              canForget={connection.source !== 'managed'}
-                              known={knownConnections}
-                              name={name}
-                              onForget={() => {
-                                const next = knownConnections.find(
-                                  (candidate) => candidate.endpoint !== connection.endpoint,
-                                );
-                                void forget(connection.endpoint);
-                                if (selectedEndpoint === connection.endpoint) {
-                                  if (next) setSelectedEndpoint(next.endpoint);
-                                  else setManualModeRequested(true);
-                                }
-                              }}
-                              onRename={(label) => rename(connection, label)}
-                              service={connection}
-                            />
-                          </span>
+                          connecting ? (
+                            <span className="relative z-10">
+                              <IconButton
+                                icon={<CloseIcon aria-hidden="true" />}
+                                label="Stop connecting"
+                                onClick={stopConnecting}
+                                size="sm"
+                                type="button"
+                              />
+                            </span>
+                          ) : (
+                            <span className="relative z-10">
+                              <KnownServiceActions
+                                canForget={connection.source !== 'managed'}
+                                known={knownConnections}
+                                name={name}
+                                onForget={() => {
+                                  const next = knownConnections.find(
+                                    (candidate) => candidate.endpoint !== connection.endpoint,
+                                  );
+                                  void forget(connection.endpoint);
+                                  if (selectedEndpoint === connection.endpoint) {
+                                    if (next) setSelectedEndpoint(next.endpoint);
+                                    else setManualModeRequested(true);
+                                  }
+                                }}
+                                onRename={(label) => rename(connection, label)}
+                                service={connection}
+                              />
+                            </span>
+                          )
                         }
                         selected={selected}
                         selectedTone="accent"
@@ -546,6 +633,7 @@ export function ConnectionPage() {
                   <button
                     className="flex min-h-[30px] items-center gap-2.5 rounded-[6px] px-2 text-left text-[12.5px] text-accent-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
                     onClick={() => {
+                      attemptGeneration.current += 1;
                       setManualModeRequested(true);
                       setEndpointDraft(defaultEndpoint());
                       setServiceNameDraft('');
@@ -569,10 +657,10 @@ export function ConnectionPage() {
                 />
               )}
 
-              {mutation.error && waiting.waiting ? (
+              {mutation.error && waiting.waiting && !connectingInRow ? (
                 <ConnectionWaitingNotice availability={waiting.availability} />
               ) : null}
-              {mutation.error && !waiting.waiting && !errorShownInRow ? (
+              {mutation.error && !waiting.waiting && !errorShownInRow && !connectingInRow ? (
                 <ConnectErrorLine
                   error={mutation.error}
                   onRetry={

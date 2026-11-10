@@ -13,11 +13,12 @@ interface Walk {
 }
 
 /**
- * Keeps a row highlighted in the one-column picker, as the spec's narrow picker
- * does: the last highlighted row while it is listed, else the first match while
- * searching, else the chosen model, else the first model. Base UI's inline list
- * opens with none and has no setter, so this presses the arrow keys, one per
- * committed highlight. Hover and the keyboard move it as usual.
+ * Keeps a row highlighted in the picker, as the spec's narrow picker does: the
+ * last highlighted row while it is listed, else the first match while
+ * searching, else the chosen model, else the provider it sits under (a column
+ * back), else the first model. Base UI's inline list opens with none and has
+ * no setter, so this presses the arrow keys, one per committed highlight.
+ * Hover and the keyboard move it as usual.
  */
 export function ModelPickerHighlightSeed() {
   const anchor = useRef<HTMLSpanElement>(null);
@@ -25,7 +26,7 @@ export function ModelPickerHighlightSeed() {
   const walk = useRef<Walk | null>(null);
   const highlight = useCascaderHighlight();
   const { renderedItems, selectedValues, query } = useCascaderState();
-  const { getHighlighted } = useCascaderActions();
+  const { getHighlighted, index } = useCascaderActions();
 
   useLayoutEffect(() => {
     const panel = anchor.current?.closest('[data-slot="cascader-panel"]');
@@ -33,6 +34,16 @@ export function ModelPickerHighlightSeed() {
     if (!panel || !field) return;
     const position = (value: string | null | undefined) =>
       value ? renderedItems.findIndex((node) => node.value === value) : -1;
+    // Stepping back a column lists the provider, not the model: land on it.
+    const ancestor = (value: string | null | undefined) => {
+      let parent = value ? index.parentOf.get(value) : null;
+      while (parent) {
+        const at = position(parent);
+        if (at >= 0) return at;
+        parent = index.parentOf.get(parent);
+      }
+      return -1;
+    };
     const press = (key: 'ArrowDown' | 'ArrowUp') => {
       // Marked so the search field does not treat it as the person moving (which closes Filters).
       field.dataset.seeding = '';
@@ -83,8 +94,10 @@ export function ModelPickerHighlightSeed() {
       position(last.current),
       query.trim() ? firstModel : -1,
       position(selectedValues[0]),
+      ancestor(last.current),
+      ancestor(selectedValues[0]),
       firstModel,
-    ].find((index) => index >= 0);
+    ].find((at) => at >= 0);
     if (target === undefined) return;
     if (pressed) walk.current = { target: renderedItems[target].value, steps: 0, at: -1 };
     // Base UI registers the rows a frame after they mount, so an early press
@@ -112,7 +125,7 @@ export function ModelPickerHighlightSeed() {
       cancelAnimationFrame(frame);
       field.removeEventListener('focus', onFocus);
     };
-  }, [highlight.value, renderedItems, selectedValues, query, getHighlighted]);
+  }, [highlight.value, renderedItems, selectedValues, query, getHighlighted, index]);
 
   return <span hidden ref={anchor} />;
 }

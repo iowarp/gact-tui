@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { vocab } from '@/lib/brand-vocabulary';
-import { AdjustIcon } from '@/lib/icon-vocabulary';
+import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
   type AttentionSoundMode,
   type FinishedWorkMode,
@@ -146,7 +146,7 @@ export function NotificationSettings() {
         <BellIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
         <span className="flex min-w-0 items-center gap-1 truncate">
           {'The bell\u2019s'}
-          <AdjustIcon
+          <SettingsIcon
             aria-label="Notification settings"
             role="img"
             className="size-[0.8125rem] shrink-0"

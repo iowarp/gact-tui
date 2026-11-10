@@ -1,7 +1,15 @@
 import { lazy, Suspense, useContext, useMemo, useRef, useState, type Ref } from 'react';
-import { BookOpenIcon, FileCode2Icon, GitBranchIcon, Table2Icon, WrapTextIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  FileCode2Icon,
+  GitBranchIcon,
+  NotebookTextIcon,
+  Table2Icon,
+  WrapTextIcon,
+} from 'lucide-react';
 import { MoreIcon } from '@/lib/icon-vocabulary';
 import { renderedFileText, textFileFormat, type TextFileFormat } from '@/lib/file-presentation';
+import { readNotebook } from '@/lib/notebook';
 import { cn } from '@/lib/utils';
 import {
   DOCUMENT_MARKDOWN_CLASS_NAME,
@@ -42,6 +50,11 @@ const ClioCsvView = lazy(() =>
   import('./csv-view').then((module) => ({ default: module.ClioCsvView })),
 );
 
+// The notebook reader loads with the first notebook opened.
+const NotebookView = lazy(() =>
+  import('./notebook-view').then((module) => ({ default: module.NotebookView })),
+);
+
 /** A file's content contributes representations and Copy to one owning toolbar. */
 export function FileTextView({
   name,
@@ -67,9 +80,23 @@ export function FileTextView({
     [content, format, name],
   );
   const diagram = !explicitFormat && /\.(?:mmd|mermaid)$/i.test(name);
+  const notebook = useMemo(
+    () => (format === 'notebook' ? readNotebook(content) : undefined),
+    [content, format],
+  );
   const lines = useMemo(() => content.split('\n').length, [content]);
-  useFileViewerFacts(format === 'csv' || dataset ? undefined : [`${lines.toLocaleString()} lines`]);
+  useFileViewerFacts(
+    notebook?.ok
+      ? [
+          `${notebook.notebook.cells.length.toLocaleString()} ${notebook.notebook.cells.length === 1 ? 'cell' : 'cells'}`,
+          ...(notebook.notebook.kernel ? [notebook.notebook.kernel] : []),
+        ]
+      : format === 'csv' || dataset
+        ? undefined
+        : [`${lines.toLocaleString()} lines`],
+  );
   const modes: FileMode[] = [
+    ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),
     ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: GitBranchIcon }] : []),
     ...(format === 'markdown'
       ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
@@ -140,6 +167,18 @@ export function FileTextView({
             />
           </TooltipProvider>
         )}
+        {notebook ? (
+          <TabsContent value="notebook" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
+            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+              <NotebookView
+                name={name}
+                onShowSource={view ? undefined : () => setChosen('source')}
+                read={notebook}
+                readingRef={reading}
+              />
+            </Suspense>
+          </TabsContent>
+        ) : null}
         {format === 'markdown' ? (
           <TabsContent value="read" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
             <FileReadView name={name} content={content} format={format} readingRef={reading} />
@@ -193,7 +232,7 @@ export function FileTextView({
                 ? 'markdown'
                 : format === 'html'
                   ? 'html'
-                  : format === 'json'
+                  : format === 'json' || format === 'notebook'
                     ? 'json'
                     : undefined
             }

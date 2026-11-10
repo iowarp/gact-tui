@@ -377,6 +377,9 @@ export function ClioComposer({
     region: inputRef,
     allowInTextField: true,
   });
+  useShortcut('composer-focus', () => focusComposerEditor(inputRef.current), {
+    enabled: !disabled,
+  });
   const addReferenceRef = useRef<(reference: WorkspaceReference) => void>(() => undefined);
   useEffect(() => {
     addReferenceRef.current = (reference) =>

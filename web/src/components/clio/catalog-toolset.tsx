@@ -203,7 +203,13 @@ function toolStatus(tool: ToolCatalogItem, permission?: ToolPermission): InfraSt
 }
 
 function toolSummary(tool: ToolCatalogItem): string | undefined {
-  const line = tool.description?.trim().split(/\r?\n/u)[0]?.trim();
+  // Descriptions are written for the model; their RST/Markdown code quotes read as plain words here.
+  const line = tool.description
+    ?.trim()
+    .split(/\r?\n/u)[0]
+    ?.replace(/``(.+?)``/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .trim();
   return line || tool.title?.trim() || undefined;
 }
 

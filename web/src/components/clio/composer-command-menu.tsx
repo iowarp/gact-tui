@@ -22,6 +22,8 @@ import {
   ComposerSuggestionPopup,
   Highlighted,
   MatchCount,
+  SuggestionDetail,
+  useHoveredRow,
 } from './composer-suggestion-popup';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
@@ -112,12 +114,15 @@ const CommandOption = memo(function CommandOption({
   active,
   command,
   id,
+  onHover,
   onPick,
   query,
 }: {
   active: boolean;
   command: CommandDefinition;
   id: string;
+  /** The pointer reached this row, so the detail strip shows it. */
+  onHover: (key: string) => void;
   onPick: (command: CommandDefinition) => void;
   /** What follows the typed `/`, marked in the name. */
   query: string;
@@ -125,6 +130,7 @@ const CommandOption = memo(function CommandOption({
   const source = commandSource(command);
   const detail = commandDetail(command);
   const status = CommandStatus({ command });
+  const summary = commandSummary(command);
   return (
     // The editor keeps focus and the keys; a press only picks.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -140,8 +146,9 @@ const CommandOption = memo(function CommandOption({
       id={id}
       onClick={command.enabled ? () => onPick(command) : undefined}
       onMouseDown={keepFocus}
+      onMouseEnter={() => onHover(commandKey(command))}
       role="option"
-      title={commandSummary(command) || undefined}
+      title={summary ? `${command.id}\n${summary}` : command.id}
     >
       <span
         className={cn(
@@ -152,7 +159,7 @@ const CommandOption = memo(function CommandOption({
         <Highlighted query={query} text={command.id.replace(/^\//u, '')} />
       </span>
       {detail ? (
-        <span className="min-w-0 shrink-[100] truncate text-[11.5px] text-faint">{detail}</span>
+        <span className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint">{detail}</span>
       ) : null}
       {status || source || active ? (
         <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
@@ -297,6 +304,10 @@ export function ClioComposerCommandMenu({
   }, [popoverId]);
 
   const dismiss = useCallback(() => setDismissedQuery(query), [query]);
+  const hover = useHoveredRow();
+  const described =
+    groups.flatMap((group) => group.rows).find((command) => commandKey(command) === hover.hovered) ??
+    active;
 
   if (!open) return null;
   return (
@@ -315,6 +326,7 @@ export function ClioComposerCommandMenu({
       <div
         aria-label="Suggestions"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
+        onMouseLeave={hover.onLeave}
         role="listbox"
       >
         {total === 0 ? (
@@ -334,6 +346,7 @@ export function ClioComposerCommandMenu({
                 command={command}
                 id={optionId(command)}
                 key={commandKey(command)}
+                onHover={hover.onHover}
                 onPick={onPick}
                 query={query.replace(/^\//u, '')}
               />
@@ -341,6 +354,13 @@ export function ClioComposerCommandMenu({
           </div>
         ))}
       </div>
+      {described ? (
+        <SuggestionDetail
+          description={commandSummary(described).replaceAll('\n', ' — ')}
+          mono
+          name={described.id}
+        />
+      ) : null}
       {total ? (
         <MenuKeyHints className="h-[34px] shrink-0 px-2.5 text-faint" hints={KEY_HINTS} />
       ) : null}

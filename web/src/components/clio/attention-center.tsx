@@ -27,7 +27,7 @@ import { playAttentionSound } from '@/lib/attention-sound';
 import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
-import { AdjustIcon, InfoIcon } from '@/lib/icon-vocabulary';
+import { SettingsIcon, InfoIcon } from '@/lib/icon-vocabulary';
 import {
   markAllNotificationsRead,
   markConversationSeen,
@@ -433,7 +433,7 @@ export function ClioAttentionCenter({
             Mark all read
           </button>
           <IconButton
-            icon={<AdjustIcon />}
+            icon={<SettingsIcon />}
             label="Notification settings"
             onClick={() => {
               setOpen(false);
@@ -455,7 +455,7 @@ export function ClioAttentionCenter({
             <section aria-labelledby="attention-needs-you">
               <h3 className={cn('flex items-center gap-1.5', groupLabel)} id="attention-needs-you">
                 <span>Needs you</span>
-                <span className="text-warning tabular-nums">{responseCount}</span>
+                <span className="text-faint tabular-nums">{responseCount}</span>
               </h3>
               {rows.map((row) => {
                 const KindIcon = row.kind.icon;
@@ -523,7 +523,7 @@ export function ClioAttentionCenter({
                           disabled={deciding}
                           onClick={() => decide('deny')}
                           size="xs"
-                          variant="outline"
+                          variant="secondary"
                         >
                           Deny
                         </Button>
