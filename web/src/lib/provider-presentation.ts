@@ -28,24 +28,6 @@ const providerIdNames: Record<string, string> = {
   argonne_local_vllm: 'vLLM',
 };
 
-const providerSummaries: Record<string, string> = {
-  amsc_mag: 'Use models available through your American Science Cloud project allocation.',
-  codex: 'Use models included with your Codex subscription.',
-  claude_code: 'Use models included with your Claude subscription.',
-  copilot: 'Use models included with your GitHub Copilot plan.',
-  inception: 'Use Mercury diffusion models through your Inception account.',
-  openai: 'Use OpenAI models connected to this agent.',
-  anthropic: 'Use Anthropic models connected to this agent.',
-  openrouter: 'Use models available through your OpenRouter account.',
-  lm_studio: 'Use models served by LM Studio on the connected agent.',
-  ollama: 'Use models served by Ollama on the connected agent.',
-  argonne_metis: 'Use Metis models available through your ALCF account.',
-  argonne_sophia: 'Use Sophia models available through your ALCF account.',
-  argonne_minerva: 'Use Minerva models available through your ALCF account.',
-  argonne_tara: 'Use Tara models available through your ALCF account.',
-  argonne_local_vllm: 'Use a compatible model service connected to this agent.',
-};
-
 /**
  * Return the product-facing name for a provider: the service's own label when
  * a preset is known, else a service-reported name or id passed as fallback.
@@ -59,17 +41,6 @@ export function providerDisplayName(
     (fallbackName ? providerIdNames[fallbackName] : undefined) ||
     fallbackName ||
     'Provider'
-  );
-}
-
-/** Explain a provider in product language rather than exposing its adapter details. */
-export function providerSummary(
-  preset: LanguageModelPreset | undefined,
-  fallbackName?: string,
-): string {
-  return (
-    (preset ? providerSummaries[preset.id] : undefined) ??
-    `Use models made available by ${fallbackName || preset?.label || 'this provider'}.`
   );
 }
 

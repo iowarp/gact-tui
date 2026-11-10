@@ -194,34 +194,6 @@ export function ViewerNoPreview({ source }: { source: FileViewerSource }) {
   );
 }
 
-/**
- * Changed elsewhere: the file changed after it was opened (a working-copy
- * conflict). Keep current takes the other version; Use mine keeps the edits.
- */
-export function ChangedElsewhereState({
-  onKeepCurrent,
-  onUseMine,
-  detail,
-  className,
-}: {
-  onKeepCurrent: () => void;
-  onUseMine: () => void;
-  detail?: string;
-  className?: string;
-}) {
-  return (
-    <StateView
-      action={{ label: 'Use mine', onClick: onUseMine }}
-      className={className}
-      detail={detail}
-      kind="changed-elsewhere"
-      secondaryAction={{ label: 'Keep current', onClick: onKeepCurrent }}
-      size="viewer"
-      title="Changed since you opened it"
-    />
-  );
-}
-
 function fileExtension(name: string): string {
   const match = /\.[^./\\]+$/u.exec(name);
   return match ? match[0].toLowerCase() : '';

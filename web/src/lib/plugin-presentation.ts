@@ -6,9 +6,7 @@ import {
   type PluginDiagnostic,
   type PluginProvenance,
   type PromptFragment,
-  type RemovalPreview,
   type RemovedPlugin,
-  type ResolvedPlugin,
 } from '@clio/core/v3';
 
 /**
@@ -96,30 +94,6 @@ export function unwrapFragmentText(text: string): string {
     if (fence) fenced = !fenced;
   }
   return out.join('\n');
-}
-
-/** The pack each active plugin arrived through, so a member can name its pack. */
-export function packOf(plugin: ResolvedPlugin): string | undefined {
-  return plugin.provenance.source === 'pack' && plugin.provenance.via
-    ? plugin.provenance.via
-    : undefined;
-}
-
-/** Plugins whose own provenance names `pluginId` (pack members, cascaded requirements). */
-export function broughtBy(resolution: AgentResolution, pluginId: string): ResolvedPlugin[] {
-  return resolution.plugins.filter(
-    (plugin) =>
-      plugin.id !== pluginId &&
-      (plugin.provenance.source === 'pack' || plugin.provenance.source === 'required') &&
-      plugin.provenance.via === pluginId,
-  );
-}
-
-/** Every plugin that leaves with a removal, the removed plugin first. */
-export function removalSet(preview: RemovalPreview): string[] {
-  const own = preview.removes.find((row) => row.id === preview.plugin);
-  const rest = preview.removes.filter((row) => row.id !== preview.plugin).map((row) => row.id);
-  return [own?.id ?? preview.plugin, ...rest];
 }
 
 /** A short name for an agent reference when the installed list does not carry it. */

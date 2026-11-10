@@ -47,18 +47,6 @@ export function splitWaitingQuestion(questions: readonly PendingInteraction[]): 
   return { waiting, rest: questions.filter((interaction) => interaction !== waiting) };
 }
 
-/** Return questions owned by an asynchronous task. */
-export function questionInteractionsForTask(
-  interactions: readonly PendingInteraction[] | undefined,
-  taskId: string,
-): PendingInteraction[] {
-  return (interactions ?? [])
-    .filter(
-      (interaction) => interaction.task_id === taskId && isCausalQuestionInteraction(interaction),
-    )
-    .sort(compareQuestionInteractions);
-}
-
 /** Human-readable identity that stays honest about request versus protocol round. */
 export function questionInteractionRequestLabel(interaction: PendingInteraction): string {
   const kind =
