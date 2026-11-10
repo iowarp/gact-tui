@@ -264,10 +264,16 @@ export function ViewerTooLarge({
 export function ViewerNoPreview({
   source,
   onShowText,
+  format,
+  reason,
 }: {
   source: FileViewerSource;
   /** Read the file as text in this viewer. */
   onShowText?: () => void;
+  /** Names the format when its extension alone would mislead (classic NetCDF is a .nc). */
+  format?: string;
+  /** Why this file has no viewer, a sentence before what still works. */
+  reason?: string;
 }) {
   const identity = fileViewerIdentity(source);
   const extension = fileExtension(identity.name);
@@ -279,13 +285,15 @@ export function ViewerNoPreview({
   return (
     <StateView
       actions={actions}
-      detail={`You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`}
+      detail={`${reason ? `${reason} ` : ''}You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`}
       kind="no-preview"
       size="viewer"
       title={
-        extension
-          ? `No viewer for ${extension} yet`
-          : `No viewer for ${identity.mediaType || 'this format'} yet`
+        format
+          ? `No viewer for ${format} yet`
+          : extension
+            ? `No viewer for ${extension} yet`
+            : `No viewer for ${identity.mediaType || 'this format'} yet`
       }
     />
   );
