@@ -1,4 +1,3 @@
-import { CheckIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
@@ -42,23 +41,8 @@ export function QuestionChoiceRows({
         return (
           <AskRow
             aria-checked={mode === 'answer' ? undefined : checked}
-            // Only the number key leads the row; a chosen row is tinted and ends in a check.
-            className={mode === 'answer' ? undefined : 'aria-checked:bg-foreground/[0.07]'}
-            detail={
-              checked && mode !== 'answer' ? (
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate">{detail}</span>
-                  <CheckIcon
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0 text-foreground"
-                    data-slot="question-choice-check"
-                    strokeWidth={2.5}
-                  />
-                </span>
-              ) : (
-                detail
-              )
-            }
+            // Only the number key leads the row; a chosen row ends in the check column.
+            detail={detail}
             disabled={disabled}
             highlighted={mode === 'answer' && index === 0}
             key={choice.value}

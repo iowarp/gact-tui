@@ -156,7 +156,11 @@ async function captureState(composer, state, width, theme) {
       open: document.documentElement.dataset.reviewOpen,
     }));
     if (open) {
-      await tab.getByRole('button', { name: open }).first().click();
+      await tab
+        .getByRole('button', { name: open })
+        .or(tab.getByRole('checkbox', { name: open }))
+        .first()
+        .click();
       await tab.waitForTimeout(300);
     }
     const target = tab.locator('[data-review-capture]').first();
