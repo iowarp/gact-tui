@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   timestamp: string;
   compact?: boolean;
+  /** With `compact`, the spec's bare age (`.d-age`): "8m", "1h", "Tue", then the date. */
+  age?: boolean;
   label?: string;
 }
 
@@ -17,6 +19,7 @@ interface ClioRelativeTimeProps extends Omit<HTMLAttributes<HTMLElement>, 'child
 export function ClioRelativeTime({
   timestamp,
   compact = false,
+  age = false,
   label = 'Last interaction',
   className,
   ...props
@@ -40,7 +43,7 @@ export function ClioRelativeTime({
         title={`${label} ${fullLabel}`}
         {...props}
       >
-        {compactTimestamp(time)}
+        {compactTimestamp(time, age)}
       </time>
     );
   }
@@ -64,18 +67,23 @@ export function ClioRelativeTime({
   );
 }
 
-function compactTimestamp(time: Date): string {
+function compactTimestamp(time: Date, age = false): string {
   const now = new Date();
   const elapsedMilliseconds = Math.max(0, now.getTime() - time.getTime());
   const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
+  const ago = age ? '' : ' ago';
   if (elapsedMinutes < 1) return 'Now';
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m${ago}`;
 
   const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  if (elapsedHours < 24) return `${elapsedHours}h${ago}`;
 
   const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+  if (elapsedDays < 7) {
+    return age
+      ? new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(time)
+      : `${elapsedDays}d ago`;
+  }
 
   if (time.getFullYear() === now.getFullYear()) {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(time);

@@ -63,8 +63,8 @@ const AWAY_VISIBLE = 5;
 const AWAY_PAGE = 30;
 
 const AWAY_ICON: Record<AwayTone, ReactNode> = {
-  success: <CheckIcon className="text-primary" />,
-  error: <XIcon className="text-destructive" />,
+  success: <CheckIcon className="text-accent-foreground" />,
+  error: <XIcon className="text-destructive-text" />,
   warning: <TriangleAlertIcon className="text-warning" />,
   stopped: <CircleIcon className="text-muted-foreground" />,
 };
@@ -375,8 +375,10 @@ export function ClioAttentionCenter({
             ? `${entries[0]!.session.title} needs your response`
             : `${entries.length} sessions need your response`
         }; ${responseCount} ${responseCount === 1 ? 'response' : 'responses'} pending`;
-  const groupLabel = 'px-2.5 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground';
-  const rowFrame = 'rounded-[8px] px-2.5 py-2 hover:bg-hover has-[a:focus-visible]:bg-hover';
+  const groupLabel = 'px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground';
+  // Spec `.nf`: at least 46px, 6px 8px, so the age and the action share the right column.
+  const rowFrame =
+    'min-h-[46px] rounded-[6px] px-2 py-1.5 hover:bg-hover has-[a:focus-visible]:bg-hover';
 
   return (
     <Popover
@@ -486,6 +488,7 @@ export function ClioAttentionCenter({
                         icon={<KindIcon aria-hidden="true" className="text-warning" />}
                         meta={
                           <ClioRelativeTime
+                            age
                             className="text-[11px] text-faint"
                             compact
                             label="Asked"
@@ -505,11 +508,11 @@ export function ClioAttentionCenter({
                     {row.permission ? (
                       <div
                         aria-label={`Decide: ${session.title} ${row.kind.verb}`}
-                        className="mt-2 flex items-center gap-4 pl-[26px] text-[12px]"
+                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-[11.5px]"
                         role="group"
                       >
                         <Button
-                          className="h-6 rounded-[6px] px-3 text-[12px] font-semibold"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-semibold"
                           disabled={deciding}
                           onClick={() => decide('allow')}
                           size="xs"
@@ -517,17 +520,17 @@ export function ClioAttentionCenter({
                           Allow
                         </Button>
                         <Button
-                          className="h-6 px-0 text-[12px] font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-[11.5px] font-normal"
                           disabled={deciding}
                           onClick={() => decide('deny')}
                           size="xs"
-                          variant="ghost"
+                          variant="outline"
                         >
                           Deny
                         </Button>
                         <Link
                           aria-hidden="true"
-                          className="ml-auto font-medium text-accent-foreground hover:underline"
+                          className="ml-auto leading-6 font-semibold text-accent-foreground hover:underline"
                           data-duplicate-link=""
                           onClick={() => setOpen(false)}
                           tabIndex={-1}
@@ -565,6 +568,7 @@ export function ClioAttentionCenter({
                       icon={AWAY_ICON[row.tone]}
                       meta={
                         <ClioRelativeTime
+                          age
                           className="text-[11px] text-faint"
                           compact
                           label="Ended"
@@ -592,7 +596,7 @@ export function ClioAttentionCenter({
                   {row.action === 'Retry' ? (
                     <button
                       aria-label={`Retry ${row.session.title}`}
-                      className="absolute right-2.5 bottom-2 text-[12px] leading-[1.45] font-medium text-accent-foreground hover:underline disabled:opacity-50"
+                      className="absolute right-2 bottom-1.5 text-[11.5px] leading-[18px] font-semibold text-accent-foreground hover:underline disabled:opacity-50"
                       disabled={retry.isPending && retry.variables?.id === row.session.id}
                       onClick={() => retry.mutate(row.session)}
                       type="button"
@@ -610,7 +614,10 @@ export function ClioAttentionCenter({
                 {vocab.agent}
               </h3>
               {updateReady ? (
-                <div className="rounded-[8px] px-2.5 py-2" data-slot="attention-update">
+                <div
+                  className="min-h-[46px] rounded-[6px] px-2 py-1.5"
+                  data-slot="attention-update"
+                >
                   <ListRow
                     description={versions.message}
                     icon={<ProductUpdateIcon state={versions.state} />}
@@ -661,7 +668,7 @@ export function ClioAttentionCenter({
           ) : null}
           {earlier > 0 ? (
             <button
-              className="flex h-7 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left text-[11.5px] text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
+              className="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-left text-[11.5px] text-faint outline-none hover:bg-hover hover:text-muted-foreground focus-visible:bg-hover"
               onClick={() => setShowEarlier(true)}
               type="button"
             >
