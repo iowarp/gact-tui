@@ -46,10 +46,7 @@ const FIELDS =
 
 function SectionHeading() {
   return (
-    <SettingsSectionHeading
-      title="Session defaults"
-      description="Choose how new sessions start."
-    />
+    <SettingsSectionHeading title="Session defaults" description="Choose how new sessions start." />
   );
 }
 
@@ -133,7 +130,7 @@ export function SessionDefaultsSettings() {
             className={ROW_STATE_WRAP}
             kind="error"
             size="row"
-            title="New session defaults could not be loaded."
+            title="Session defaults could not be loaded."
           />
         </div>
       </div>
