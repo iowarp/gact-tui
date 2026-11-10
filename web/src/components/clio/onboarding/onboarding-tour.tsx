@@ -232,11 +232,11 @@ function TourSession({
       if (!element) return;
       if (wait === 'interact') {
         if (watched === element) return;
-        watched?.removeEventListener('wheel', interacted);
-        watched?.removeEventListener('pointerdown', interacted);
+        watched?.removeEventListener('wheel', interacted, true);
+        watched?.removeEventListener('pointerdown', interacted, true);
         watched = element;
-        element.addEventListener('wheel', interacted, { passive: true });
-        element.addEventListener('pointerdown', interacted);
+        element.addEventListener('wheel', interacted, { capture: true, passive: true });
+        element.addEventListener('pointerdown', interacted, true);
         return;
       }
       const signature = anchorSignature(element);
@@ -248,8 +248,8 @@ function TourSession({
     }, POLL_MS);
     return () => {
       window.clearInterval(timer);
-      watched?.removeEventListener('wheel', interacted);
-      watched?.removeEventListener('pointerdown', interacted);
+      watched?.removeEventListener('wheel', interacted, true);
+      watched?.removeEventListener('pointerdown', interacted, true);
     };
   }, [step, scope]);
 

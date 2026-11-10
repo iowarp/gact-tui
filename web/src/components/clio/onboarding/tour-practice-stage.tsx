@@ -8,6 +8,7 @@ import { ClioConversation } from '@/components/clio/conversation';
 import { ArtifactView } from '@/components/clio/resource-viewers';
 import { ADD_COMMENT_SESSION_EVENT } from '@/components/clio/comments/comment-model';
 import { IconButton } from '@/components/clio/primitives/icon-button';
+import { ConnectionStateOverride } from '@/hooks/use-connection-indicator-state';
 import { shareA2uiCatalogRows } from '@/lib/a2ui/shared-catalog-rows';
 import {
   disposeA2uiSessionRegistry,
@@ -312,92 +313,94 @@ export function TourPracticeStage({
   return (
     <QueryClientProvider client={client}>
       <RepositoryOverrideProvider repository={repository}>
-        <SelectionActionsContext.Provider value={selectionActions}>
-          <section
-            aria-label="Practice conversation"
-            className={
-              area
-                ? 'pointer-events-auto fixed z-40 flex flex-col overflow-hidden bg-background'
-                : 'pointer-events-auto fixed inset-x-3 top-[5dvh] bottom-[5dvh] z-40 mx-auto flex max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl'
-            }
-            data-selection-actions="local"
-            ref={stageRef}
-            style={area}
-            {...tourAnchor('practice-conversation')}
-          >
-            <header className="flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-2">
-              <h2 className="text-sm font-medium">Practice conversation</h2>
-              <p className="text-xs text-muted-foreground">Scripted. Nothing is sent or saved.</p>
-            </header>
-            <div className="relative flex min-h-0 flex-1">
-              <div className="relative flex min-w-0 flex-1 flex-col">
-                {progress.turns === 0 ? (
-                  <div
-                    className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground"
-                    style={{ paddingBottom: composerHeight }}
-                  >
-                    Your conversation with {vocab.agent} appears here.
-                  </div>
-                ) : (
-                  <ClioConversation
-                    {...conversation}
-                    agentName={vocab.agent}
-                    bottomInset={composerHeight}
-                    onOpenArtifact={() => {
-                      setViewer(true);
-                      emit.current('artifact-opened');
-                    }}
-                  />
-                )}
-                <div className="pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end">
-                  <ClioComposer
-                    annotations={annotations}
-                    attachments
-                    confirmationPolicy="ask"
-                    contextReferences
-                    model="gpt-5"
-                    modelOptions={[...PRACTICE_MODELS]}
-                    onAnnotationsChange={setAnnotations}
-                    onHeightChange={setComposerHeight}
-                    onSubmit={send}
-                    onValueChange={setDraft}
-                    provider="openai"
-                    state={progress.working ? 'running' : 'completed'}
-                    value={draft}
-                    variant="docked"
-                    workspaceId={TOUR_PRACTICE_WORKSPACE_ID}
-                  />
-                </div>
-              </div>
-              {viewer ? (
-                <aside
-                  aria-label={PRACTICE_PLOT.name}
-                  className="absolute inset-0 z-30 flex min-w-0 flex-col border-l border-border bg-background md:static md:w-[46%] md:shrink-0"
-                  {...tourAnchor('practice-artifact-viewer')}
-                >
-                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border py-1 pr-1 pl-3">
-                    <h3 className="truncate text-sm font-medium">{PRACTICE_PLOT.name}</h3>
-                    <IconButton
-                      icon={<XIcon />}
-                      label={`Close ${PRACTICE_PLOT.name}`}
-                      onClick={() => setViewer(false)}
-                      size="toolbar"
-                      type="button"
+        <ConnectionStateOverride.Provider value="live">
+          <SelectionActionsContext.Provider value={selectionActions}>
+            <section
+              aria-label="Practice conversation"
+              className={
+                area
+                  ? 'pointer-events-auto fixed z-40 flex flex-col overflow-hidden bg-background'
+                  : 'pointer-events-auto fixed inset-x-3 top-[5dvh] bottom-[5dvh] z-40 mx-auto flex max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl'
+              }
+              data-selection-actions="local"
+              ref={stageRef}
+              style={area}
+              {...tourAnchor('practice-conversation')}
+            >
+              <header className="flex shrink-0 items-baseline gap-3 border-b border-border px-4 py-2">
+                <h2 className="text-sm font-medium">Practice conversation</h2>
+                <p className="text-xs text-muted-foreground">Scripted. Nothing is sent or saved.</p>
+              </header>
+              <div className="relative flex min-h-0 flex-1">
+                <div className="relative flex min-w-0 flex-1 flex-col">
+                  {progress.turns === 0 ? (
+                    <div
+                      className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground"
+                      style={{ paddingBottom: composerHeight }}
+                    >
+                      Your conversation with {vocab.agent} appears here.
+                    </div>
+                  ) : (
+                    <ClioConversation
+                      {...conversation}
+                      agentName={vocab.agent}
+                      bottomInset={composerHeight}
+                      onOpenArtifact={() => {
+                        setViewer(true);
+                        emit.current('artifact-opened');
+                      }}
                     />
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-auto">
-                    <ArtifactView
-                      artifact={PRACTICE_PLOT}
-                      files={[]}
-                      sessionId={TOUR_PRACTICE_SESSION_ID}
+                  )}
+                  <div className="pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end">
+                    <ClioComposer
+                      annotations={annotations}
+                      attachments
+                      confirmationPolicy="ask"
+                      contextReferences
+                      model="gpt-5"
+                      modelOptions={[...PRACTICE_MODELS]}
+                      onAnnotationsChange={setAnnotations}
+                      onHeightChange={setComposerHeight}
+                      onSubmit={send}
+                      onValueChange={setDraft}
+                      provider="openai"
+                      state={progress.working ? 'running' : 'completed'}
+                      value={draft}
+                      variant="docked"
                       workspaceId={TOUR_PRACTICE_WORKSPACE_ID}
                     />
                   </div>
-                </aside>
-              ) : null}
-            </div>
-          </section>
-        </SelectionActionsContext.Provider>
+                </div>
+                {viewer ? (
+                  <aside
+                    aria-label={PRACTICE_PLOT.name}
+                    className="absolute inset-0 z-30 flex min-w-0 flex-col border-l border-border bg-background md:static md:w-[46%] md:shrink-0"
+                    {...tourAnchor('practice-artifact-viewer')}
+                  >
+                    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border py-1 pr-1 pl-3">
+                      <h3 className="truncate text-sm font-medium">{PRACTICE_PLOT.name}</h3>
+                      <IconButton
+                        icon={<XIcon />}
+                        label={`Close ${PRACTICE_PLOT.name}`}
+                        onClick={() => setViewer(false)}
+                        size="toolbar"
+                        type="button"
+                      />
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      <ArtifactView
+                        artifact={PRACTICE_PLOT}
+                        files={[]}
+                        sessionId={TOUR_PRACTICE_SESSION_ID}
+                        workspaceId={TOUR_PRACTICE_WORKSPACE_ID}
+                      />
+                    </div>
+                  </aside>
+                ) : null}
+              </div>
+            </section>
+          </SelectionActionsContext.Provider>
+        </ConnectionStateOverride.Provider>
       </RepositoryOverrideProvider>
     </QueryClientProvider>
   );
