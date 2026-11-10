@@ -225,10 +225,28 @@ async function tabOnly(page, stripName, tabListTitle) {
   await page.waitForTimeout(800);
 }
 
-/** On a phone the pane holds the tab's list or its body; show the body. */
+/** The workbench list when it is a sheet over the tab (under ~1100px, not only on a phone). */
+function listSheet(page) {
+  return page
+    .locator('section[data-slot="workbench-list"][data-overlay]')
+    .filter({ visible: true })
+    .first();
+}
+
+/**
+ * When the list is a sheet it covers the tab's frame bar (its modes and Maximize);
+ * show the tab body. The sheet takes the pointer, so click its Hide by event.
+ */
 async function phoneTabBody(page, listTitle) {
-  if ((page.viewportSize()?.width ?? 1280) > 480) return;
-  const hide = control(page, 'button', `Hide ${listTitle}`, { exact: true });
+  const sheet = listSheet(page);
+  if (!(await sheet.isVisible().catch(() => false))) return;
+  const named = listTitle
+    ? sheet.getByRole('button', { name: `Hide ${listTitle}`, exact: true })
+    : undefined;
+  const hide =
+    named && (await named.isVisible().catch(() => false))
+      ? named
+      : sheet.getByRole('button', { name: /^Hide / }).first();
   if (await hide.isVisible().catch(() => false)) {
     await hide.dispatchEvent('click');
     await page.waitForTimeout(600);
@@ -956,8 +974,30 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // The former Work tab is now the Activity list's finished work.
-    s('canvas', 'work', SESSION, async (page) => {
+    // The Timeline tab's Gantt: the conversation family's recorded turns, with
+    // delegated runs that finished, failed and are still running, and a fork.
+    s(
+      'canvas',
+      'work',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await control(page, 'button', 'Open timeline and context', { exact: true }).click();
+        await page.waitForTimeout(600);
+        await phoneTabBody(page, 'Activity');
+        await pickMode(page, ['Gantt']);
+        await page
+          .getByRole('region', { name: 'Conversation family Gantt' })
+          .filter({ visible: true })
+          .first()
+          .waitFor({ state: 'visible', timeout: 8000 });
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { fixtureDemo: 'conversation-family', settleMs: 1200 },
+    ),
+    // The Activity list's finished work (the former Work tab).
+    s('canvas', 'activity-finished', SESSION, async (page) => {
       await stripList(page, 'Activity');
       const show = page
         .getByRole('region', { name: 'Activity list' })
@@ -974,9 +1014,14 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
       await openCanvas(page);
-      // Under 900px the list is a sheet over the tab and covers the row's Maximize;
+      // Under ~1100px the list is a sheet over the tab and covers the row's Maximize;
       // opening a file closes the sheet, as a tap on a narrow window does.
-      if ((page.viewportSize()?.width ?? 1280) < 900) await openFile(page, 'results/stations.csv');
+      if (
+        await listSheet(page)
+          .isVisible()
+          .catch(() => false)
+      )
+        await openFile(page, 'results/stations.csv');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
@@ -1191,6 +1236,7 @@ function catalogue({ settings, infrastructure }) {
         'knowledge-graph',
         async (page) => {
           await openVault(page);
+          await phoneTabBody(page);
           await pickMode(page, ['Lineage', 'Note graph', 'Graph']);
         },
       ],
