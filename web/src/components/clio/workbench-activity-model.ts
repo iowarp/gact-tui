@@ -212,7 +212,10 @@ const ABSOLUTE_PATH = String.raw`(?<![\w.])(?:[A-Za-z]:[\\/]|\\\\|/)[^\s"'),;]+`
 function withoutAbsolutePaths(text: string): string {
   return text
     .replace(new RegExp(String.raw`\s+(?:located\s+)?(?:at|in|under)\s+${ABSOLUTE_PATH}`, 'gu'), '')
-    .replace(new RegExp(ABSOLUTE_PATH, 'gu'), (path) => path.split(/[\\/]/u).filter(Boolean).at(-1) ?? path)
+    .replace(
+      new RegExp(ABSOLUTE_PATH, 'gu'),
+      (path) => path.split(/[\\/]/u).filter(Boolean).at(-1) ?? path,
+    )
     .replace(/[\s,:]+$/u, '');
 }
 
