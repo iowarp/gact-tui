@@ -135,7 +135,7 @@ export function MemoryImportDialog({
                 {file ? (
                   <span className="truncate">{file.name}</span>
                 ) : (
-                  <span className="truncate text-faint">No file chosen</span>
+                  <span className="truncate text-faint">No file</span>
                 )}
               </span>
               <Button
@@ -199,7 +199,7 @@ export function MemoryImportDialog({
               label="Remember in"
               onChange={() => undefined}
               options={[]}
-              placeholder="Where the export kept each memory"
+              placeholder="As in the export"
               searchPlaceholder="Search workspaces…"
               value=""
             />
