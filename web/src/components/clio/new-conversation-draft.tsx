@@ -15,7 +15,8 @@ export function NewConversationBreadcrumb({ workspaceLabel }: { workspaceLabel?:
     <nav aria-label="Breadcrumb" className="min-w-0">
       <ol className="flex min-w-0 items-center gap-1.5 text-[13px] whitespace-nowrap">
         {workspaceLabel ? (
-          <li className="flex min-w-0 shrink-[3] items-center gap-1.5 text-muted-foreground">
+          // Phones drop the workspace crumb, as the conversation top bar does.
+          <li className="flex min-w-0 shrink-[3] items-center gap-1.5 text-muted-foreground max-sm:hidden">
             <span className="min-w-[4ch] truncate" title={workspaceLabel}>
               {workspaceLabel}
             </span>
