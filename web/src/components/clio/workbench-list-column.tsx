@@ -134,7 +134,8 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
       <SourcesList {...props} renderHeader={renderHeader} />
     ) : (
       <>
-        <WorkbenchListHeader title={title} />
+        {/* Terminal's tab already names it, and its header would carry no actions. */}
+        {view === 'terminal' ? null : <WorkbenchListHeader title={title} />}
         <div className="min-h-0 flex-1 overflow-hidden">
           <ListBody {...props} />
         </div>

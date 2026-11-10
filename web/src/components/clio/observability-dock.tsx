@@ -16,7 +16,8 @@ import { ClioActivityTimelineList } from './activity-timeline-list';
 import { ActivityRecordFooter, ProvenanceSourceBar } from './observability-provenance';
 import { WorkspaceFoldersBar } from './workspace-folders';
 import { ClioStatus } from './status';
-import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
+import { getToolStatus, getToolSummary } from './tool-presentation';
+import { compactDuration, toolActivityName, toolDurationMs } from './workbench-activity-model';
 import type { SubagentOpenTarget } from './subagent-card';
 
 import type { ObservabilityView } from './observability-view-storage';
@@ -139,6 +140,7 @@ export function ClioObservabilityView({
             run.elapsed_ms === undefined
               ? 'Agent run'
               : `${formatDuration(run.elapsed_ms)} elapsed`,
+          fact: run.elapsed_ms === undefined ? undefined : compactDuration(run.elapsed_ms),
           state: run.state,
           at: run.completed_at ?? run.started_at,
           timing: run.completed_at || run.started_at ? 'event' : undefined,
@@ -162,12 +164,14 @@ export function ClioObservabilityView({
         ) {
           return [];
         }
+        const duration = toolDurationMs(tool);
         return [
           {
             id: tool.id,
             kind: 'tool',
-            label: getToolActivityTitle(tool),
+            label: toolActivityName(tool),
             detail: getToolSummary(tool),
+            fact: duration === undefined ? undefined : compactDuration(duration),
             state: getToolStatus(tool),
             at: eventAt ?? turnContext?.at,
             groupId: turnContext?.turnId,
@@ -189,7 +193,13 @@ export function ClioObservabilityView({
       // missing read — it must still fall back to the plain processes list, or
       // every background process renders zero rows here.
       ...(projected && projected.length > 0
-        ? childProjectionActivityItems(executionProvenance, processes, knownToolIds, onOpenFile)
+        ? childProjectionActivityItems(
+            executionProvenance,
+            processes,
+            knownToolIds,
+            onOpenFile,
+            tools,
+          )
         : processes.map(
             (process): ObservabilityActivityItem => ({
               id: process.id,

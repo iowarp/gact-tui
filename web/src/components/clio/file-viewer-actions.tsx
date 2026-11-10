@@ -19,7 +19,11 @@ import type { FileViewerAction, FileViewerContentsReader } from './file-viewer-a
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { FrameTalkTake } from './file-viewer-take';
 import { useCopyTake, useOpenTake, type AddToMessage } from './file-viewer-take-hooks';
+import { MenuRow, assignJumpLetters } from './primitives/menu-row';
 import { WorkspaceResourceRemoveDialog } from './workspace-resource-remove';
+
+/** Jump letters of the … menu's own rows, and of @, Copy and Open once folded. */
+const FIXED_LETTERS = '@COIFWD';
 
 /**
  * The frame bar's Talk and Take for uploads, artifacts and workspace files:
@@ -66,6 +70,10 @@ export function FileViewerActions({
   const canRemove =
     source.kind === 'resource' &&
     ['ready', 'failed', 'quarantined'].includes(source.resource.state);
+  const otherLetters = assignJumpLetters(
+    otherActions.map((action) => action.label),
+    FIXED_LETTERS,
+  );
   return (
     <>
       <FrameTalkTake
@@ -74,67 +82,94 @@ export function FileViewerActions({
         copy={copy}
         open={open}
         menuLabel="File actions"
+        menuLetters={FIXED_LETTERS + otherLetters.join('')}
         pending={otherActions.some((action) => action.pending)}
         menu={
           <>
             {otherActions.map(
-              ({
-                label,
-                description,
-                icon: Icon,
-                onSelect,
-                disabled,
-                kind,
-                selected,
-                pending: actionPending,
-              }) =>
-                kind === 'view' ? (
+              (
+                {
+                  label,
+                  description,
+                  icon: Icon,
+                  onSelect,
+                  disabled,
+                  kind,
+                  selected,
+                  pending: actionPending,
+                },
+                index,
+              ) => {
+                const letter = otherLetters[index] || undefined;
+                const row = (
+                  <MenuRow
+                    icon={
+                      <Icon
+                        className={
+                          actionPending ? 'animate-spin motion-reduce:animate-none' : undefined
+                        }
+                      />
+                    }
+                    label={label}
+                    accelerator={letter}
+                  />
+                );
+                return kind === 'view' ? (
                   <DropdownMenuCheckboxItem
                     key={label}
+                    data-accelerator={letter}
                     checked={selected}
                     onSelect={onSelect}
                     disabled={disabled}
                     title={description}
                   >
-                    <Icon />
-                    {label}
+                    {row}
                   </DropdownMenuCheckboxItem>
                 ) : (
                   <DropdownMenuItem
                     key={label}
+                    data-accelerator={letter}
                     onSelect={onSelect}
                     disabled={disabled}
                     aria-busy={actionPending}
                     title={description}
                   >
-                    <Icon
-                      className={
-                        actionPending ? 'animate-spin motion-reduce:animate-none' : undefined
-                      }
-                    />
-                    {label}
+                    {row}
                   </DropdownMenuItem>
-                ),
+                );
+              },
             )}
             {otherActions.length ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem onSelect={() => setInformationOpen(true)}>
-              <InfoIcon />
-              File information
+            <DropdownMenuItem data-accelerator="I" onSelect={() => setInformationOpen(true)}>
+              <MenuRow icon={<InfoIcon />} label="File information" accelerator="I" />
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onFullscreen}>
-              {fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
-              {fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
+            <DropdownMenuItem data-accelerator="F" onSelect={onFullscreen}>
+              <MenuRow
+                icon={fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
+                label={fullscreen ? 'Exit file fullscreen' : 'View file fullscreen'}
+                accelerator="F"
+              />
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!identity.available} onSelect={() => setCopyOpen(true)}>
-              <CopyPlusIcon />
-              Copy to another workspace
+            <DropdownMenuItem
+              data-accelerator="W"
+              disabled={!identity.available}
+              onSelect={() => setCopyOpen(true)}
+            >
+              <MenuRow icon={<CopyPlusIcon />} label="Copy to another workspace" accelerator="W" />
             </DropdownMenuItem>
             {canRemove ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => setRemoveOpen(true)}>
-                  <DeleteIcon />
-                  Remove from this workspace
+                <DropdownMenuItem
+                  data-accelerator="D"
+                  variant="destructive"
+                  onSelect={() => setRemoveOpen(true)}
+                >
+                  <MenuRow
+                    icon={<DeleteIcon />}
+                    label="Remove from this workspace"
+                    accelerator="D"
+                  />
                 </DropdownMenuItem>
               </>
             ) : null}
