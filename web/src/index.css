@@ -802,6 +802,11 @@ html[data-clio-motion='reduced'] *::after {
   min-width: 0;
   padding: 0.5rem 0.75rem;
 }
+/* An edit's change reads at the transcript's code size, like a prose code block. */
+[data-slot='transcript-diff-card'] .tool-presentation-body :is(pre, code) {
+  font-size: 11.5px;
+  line-height: 1.65;
+}
 
 /* A result surface, not another outer tool card. Tokens adapt to both themes. */
 [data-slot='tool-human-result'] [data-language] {
@@ -831,6 +836,191 @@ html[data-clio-motion='reduced'] *::after {
    table scrolls in its frame. */
 [data-streamdown='inline-code'] {
   overflow-wrap: break-word;
+}
+/* Transcript markdown follows the conversation spec's `.md`, `.cbk` and `.tbl`:
+   one frame per block, a 30px header, compact rows and tight list rhythm. */
+[data-slot='message-text'] .space-y-4 > :not(:last-child) {
+  margin-block-end: 10px;
+}
+[data-slot='message-text'] :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
+  margin-block-end: 6px;
+}
+[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
+  margin-block-start: 14px;
+}
+[data-slot='message-text'] h1[data-streamdown] {
+  font-size: 18px;
+}
+[data-slot='message-text'] h2[data-streamdown] {
+  font-size: 17px;
+}
+[data-slot='message-text'] h3[data-streamdown] {
+  font-size: 15px;
+}
+[data-slot='message-text'] :is(h4, h5, h6)[data-streamdown] {
+  font-size: 14px;
+}
+[data-slot='message-text']
+  :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
+  list-style-position: outside;
+  padding-left: 20px;
+}
+[data-slot='message-text'] li[data-streamdown='list-item'] {
+  margin: 3px 0;
+  padding: 0;
+}
+[data-slot='message-text']
+  li
+  > :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
+  margin-top: 3px;
+  padding-left: 20px;
+}
+[data-slot='message-text'] [data-streamdown='blockquote'] {
+  margin: 0;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  font-style: normal;
+  color: var(--muted-foreground);
+}
+[data-slot='message-text'] :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
+  position: relative;
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  padding: 0;
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'],
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'] > span {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+[data-slot='message-text'] [data-streamdown='code-block-header'] > span:empty::before {
+  content: 'Code';
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+  gap: 0;
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child::before {
+  content: 'Table';
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+[data-slot='message-text']
+  [data-streamdown='code-block']
+  > div:has(> [data-streamdown='code-block-actions']) {
+  top: 0;
+  height: 30px;
+  margin-top: -30px;
+  padding-right: 4px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-actions'] {
+  gap: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  backdrop-filter: none;
+}
+[data-slot='message-text'] :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child) button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+}
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button:hover {
+  background: var(--hover);
+}
+[data-slot='message-text']
+  :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
+  button
+  svg {
+  width: 13px;
+  height: 13px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 10px 6px 0;
+  overflow-x: auto;
+  font: 11.5px/1.65 var(--font-mono);
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] :is(pre, code) {
+  font: inherit;
+  white-space: pre;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] code > span {
+  padding-left: 34px;
+}
+[data-slot='message-text'] [data-streamdown='code-block-body'] code > span::before {
+  box-sizing: border-box;
+  width: 34px;
+  margin: 0 0 0 -34px;
+  padding-right: 12px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:last-child {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+[data-slot='message-text'] [data-streamdown='table-header'] {
+  background: transparent;
+}
+/* A table takes its content width up to max(100%, 48em) and scrolls past the column, so a
+   narrow transcript gives long prose cells room instead of a one-word-wide column. */
+[data-slot='message-text'] [data-streamdown='table'] {
+  width: max-content;
+  min-width: 100%;
+  max-width: max(100%, 48em);
+}
+[data-slot='message-text'] [data-streamdown='table-header-cell'] {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font: 500 11px var(--font-sans);
+  color: var(--muted-foreground);
+}
+[data-slot='message-text'] [data-streamdown='table-cell'] {
+  min-width: 6em;
+  padding: 6px 8px;
+  vertical-align: top;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+[data-slot='message-text'] [data-streamdown='table-row'] > :first-child {
+  padding-left: 10px;
 }
 [data-diff-line='addition'] {
   background: color-mix(in srgb, var(--success) 16%, transparent);
