@@ -150,9 +150,10 @@ describe('AgentSettings', () => {
     expect(await within(installed).findByText('Default')).toBeVisible();
     expect(within(installed).queryByRole('button', { name: /^Delete / })).toBeNull();
     await user.click(within(yours).getByRole('button', { name: 'Delete My analyst' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Delete My analyst?' });
+    const ask = await within(yours).findByRole('group', { name: 'Delete this agent?' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(repository.deleteUserAgent).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: /Delete agent/u }));
+    await user.click(within(ask).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(repository.deleteUserAgent).toHaveBeenCalledWith('my-analyst'));
   });
 

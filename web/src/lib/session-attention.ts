@@ -13,6 +13,11 @@ export interface SessionAttention {
    * person to answer something this app cannot even show them.
    */
   unknownIds: readonly string[];
+  /**
+   * The real pending requests, oldest first. A session that only reports a
+   * waiting state has none; its counts above still hold the synthetic marker.
+   */
+  requests?: readonly PendingInteraction[];
   total: number;
 }
 
@@ -22,6 +27,7 @@ interface MutableSessionAttention {
   mcpTaskInputIds: Set<string>;
   a2uiIds: Set<string>;
   unknownIds: Set<string>;
+  requests: PendingInteraction[];
 }
 
 /** Builds durable attention state using the server's attended-session projection. */
@@ -41,6 +47,7 @@ export function buildSessionAttentionMap(
       mcpTaskInputIds: new Set(),
       a2uiIds: new Set(),
       unknownIds: new Set(),
+      requests: [],
     };
     pendingBySession.set(rootId, created);
     return created;
@@ -49,7 +56,9 @@ export function buildSessionAttentionMap(
   for (const interaction of interactions) {
     if (interaction.status !== 'pending' || interaction.requires_human_response === false) continue;
     const target = pending(interaction.attended_session_id);
-    interactionIdsForKind(target, interaction.kind).add(interaction.id);
+    const ids = interactionIdsForKind(target, interaction.kind);
+    if (!ids.has(interaction.id)) target.requests.push(interaction);
+    ids.add(interaction.id);
   }
 
   // Snapshot the REAL pending counts per root before adding any synthetic
@@ -96,6 +105,7 @@ export function buildSessionAttentionMap(
           mcpTaskInputIds,
           a2uiIds,
           unknownIds,
+          requests: [...value.requests].sort((a, b) => a.created_at.localeCompare(b.created_at)),
           total:
             permissionIds.length +
             questionIds.length +
