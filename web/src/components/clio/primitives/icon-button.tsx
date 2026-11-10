@@ -69,6 +69,8 @@ export interface IconButtonProps
   size?: 'default' | 'toolbar' | 'sm';
   /** A small count on the corner (comments, unread). */
   count?: number;
+  /** `warning` is the bell's Needs-you badge (spec `.nfbell b`): a 15px warning pill. */
+  countTone?: 'muted' | 'warning';
   tooltipSide?: NamedTooltipProps['side'];
   /** Skip the tooltip when the name is already visible next to the icon. */
   tooltip?: boolean;
@@ -88,6 +90,7 @@ export const IconButton = memo(function IconButton({
   shortcutSide,
   size = 'default',
   count,
+  countTone = 'muted',
   tooltipSide,
   tooltip = true,
   disabledReason,
@@ -124,7 +127,12 @@ export const IconButton = memo(function IconButton({
       {count !== undefined && count > 0 ? (
         <span
           aria-hidden="true"
-          className="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[8.5px] leading-[11px] font-semibold text-background tabular-nums"
+          className={cn(
+            'absolute tabular-nums',
+            countTone === 'warning'
+              ? '-top-[1.5px] -right-[2.5px] h-[15px] min-w-[15px] rounded-full bg-warning px-1 text-center text-[9.5px] leading-[15px] font-bold text-background'
+              : '-top-0.5 -right-0.5 min-w-3.5 rounded-md bg-muted-foreground px-[3px] text-[8.5px] leading-[11px] font-semibold text-background',
+          )}
         >
           {count > 99 ? '99+' : count}
         </span>

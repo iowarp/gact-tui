@@ -6,7 +6,7 @@ import type {
   PendingInteraction,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { PermissionResponse } from './permission-response';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -96,6 +96,21 @@ export function ClioPendingInteractions({
   const selected = pending[index];
   const selectedId = selected?.id;
   const viewportRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLElement>(null);
+  const docked = pending.length > 0 || Boolean(error) || Boolean(capabilityError);
+  useLayoutEffect(() => {
+    // The cap is 45% of the conversation, not of the window: publish its height to the dock.
+    const dock = dockRef.current;
+    const conversation = dock?.closest<HTMLElement>('[data-slot=session-transcript]');
+    if (!dock || !conversation) return;
+    const update = () =>
+      dock.style.setProperty('--conversation-h', `${conversation.clientHeight}px`);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(conversation);
+    return () => observer.disconnect();
+  }, [docked]);
   useEffect(() => {
     // Synchronize the conversation-owned draft store with server removals.
     if (selectedId && (selection.id !== selectedId || selection.index !== index)) {
@@ -160,10 +175,9 @@ export function ClioPendingInteractions({
     onNext: () => navigate(index + 1),
   };
 
-  // A script ask shows its first lines whole (the spec's 8-line preview), not two.
-  const scriptCap = Boolean(selected?.payload?.script);
   return (
     <section
+      ref={dockRef}
       aria-label="Agent needs your attention"
       // A separate card docked 8px above the composer, at the composer's width.
       className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
@@ -176,13 +190,10 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation; a script's preview and a visual
-          // answer get more.
+          // The card stops at 45% of the conversation's height; a visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : scriptCap
-              ? 'max-h-[min(62dvh,34rem)]'
-              : 'max-h-[45dvh]',
+            : 'max-h-[calc(var(--conversation-h,100dvh)*0.45)]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -208,7 +219,7 @@ export function ClioPendingInteractions({
               'flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
               !hasInteractiveSurface &&
-                (scriptCap ? '[--ask-card-max:min(62dvh,34rem)]' : '[--ask-card-max:45dvh]'),
+                '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
