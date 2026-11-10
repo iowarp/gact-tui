@@ -14,6 +14,7 @@ import {
   getShortcut,
   listShortcuts,
   registerShortcutHandler,
+  shortcutAlternatives,
   shortcutAria,
   shortcutDefinitionsVersion,
   shortcutLabels,
@@ -38,6 +39,42 @@ export function useShortcutDefinition(id: string | undefined): ShortcutDefinitio
   return useSyncExternalStore(subscribeShortcutDefinitions, read, read);
 }
 
+/**
+ * Ad hoc keys outside the catalog (a dialog footer's `Ctrl+Enter`), in the
+ * same platform form `ShortcutKeys` shows: their text and `aria-keyshortcuts`.
+ */
+export function useKeysPresentation(
+  keys: readonly string[] | undefined,
+  mac?: readonly string[],
+): { text: string; alternatives: string[]; aria: string | undefined } | undefined {
+  const platform = useKeyPlatform();
+  const keyList = keys?.join('\n');
+  const macList = mac?.join('\n');
+  return useMemo(() => {
+    if (keyList === undefined) return undefined;
+    const definition: ShortcutDefinition = {
+      id: '',
+      name: '',
+      group: 'anywhere',
+      keys: keyList.split('\n'),
+      mac: macList?.split('\n'),
+    };
+    return {
+      text: shortcutText(definition, platform),
+      alternatives: shortcutAlternatives(definition, platform),
+      aria: shortcutAria(definition, platform),
+    };
+  }, [keyList, macList, platform]);
+}
+
+/** The `aria-keyshortcuts` value for ad hoc keys (see `useKeysPresentation`). */
+export function useKeysAria(
+  keys: readonly string[] | undefined,
+  mac?: readonly string[],
+): string | undefined {
+  return useKeysPresentation(keys, mac)?.aria;
+}
+
 let listCache: { version: number; list: ShortcutDefinition[] } | undefined;
 
 function shortcutListSnapshot(): ShortcutDefinition[] {
@@ -58,6 +95,8 @@ export interface ShortcutPresentation {
   definition: ShortcutDefinition;
   /** One line: `Ctrl Shift L` or `⇧⌘L`. */
   text: string;
+  /** Each alternative's text, for one chip apiece with "or" between. */
+  alternatives: string[];
   /** Key caps per chord. */
   labels: string[][];
   /** For `aria-keyshortcuts`. */
@@ -97,6 +136,7 @@ export function useShortcutPresentation(
     return {
       definition,
       text: shortcutText(definition, platform),
+      alternatives: shortcutAlternatives(definition, platform),
       labels: shortcutLabels(definition, platform),
       aria: shortcutAria(definition, platform),
     };

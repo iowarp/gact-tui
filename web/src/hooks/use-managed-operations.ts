@@ -10,7 +10,11 @@ export function useManagedOperations(endpoint: string, targetId: string) {
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
-    refetchInterval: 3000,
+    // Closely while an operation is underway; otherwise a slow check for ones started elsewhere.
+    refetchInterval: (query) =>
+      query.state.data?.operations.some((row) => row.state === 'queued' || row.state === 'running')
+        ? 3000
+        : 30_000,
   });
   const rows = inventory.data?.operations.filter((row) => row.target_id === targetId) ?? [];
   const revision = rows

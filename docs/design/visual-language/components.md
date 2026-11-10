@@ -102,9 +102,12 @@ Status values:
   `useShortcutPresentation(id, position)` name the n-th entry of a positional
   chord (`strip-position`), and `HeldKeyBadge` shows it while `Ctrl` or `⌘` is
   held.
-- **Menu accelerators.** `MenuRow`'s `accelerator` shows a one-letter key in
-  the key column; `menuAcceleratorKeyDown` on the menu content picks the item
-  whose `data-accelerator` matches.
+- **Menu accelerators.** `MenuRow`'s `accelerator` is a jump letter taken from
+  the label. It is underlined in the label only when the menu was opened from
+  the keyboard (`data-opened-by="keyboard"`); the key column keeps the global
+  shortcut. A letter the label lacks falls back to a key-column cap.
+  `menuAcceleratorKeyDown` on the menu content picks the item whose
+  `data-accelerator` matches.
 - **Right pocket.** `clio/workbench-strip.tsx` is the vertical toolbar
   "Workbench lists": Files, Sources, Artifacts, Activity, Agent, then Science
   log, Terminal and Browser pages. It is a launcher (iowarp/gact-tui#839, the

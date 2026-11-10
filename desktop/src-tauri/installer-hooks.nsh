@@ -589,6 +589,7 @@ FunctionEnd
   RMDir /r "$INSTDIR\data\clio-agent\data\cte"
   RMDir /r "$INSTDIR\data\clio-agent\cache"
   RMDir /r "$INSTDIR\data\huggingface"
+  Delete "$INSTDIR\data\runtime-install.log"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.installing"
   RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.previous"

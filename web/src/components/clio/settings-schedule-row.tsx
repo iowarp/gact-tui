@@ -198,7 +198,7 @@ export const ScheduleRow = memo(function ScheduleRow({
                 <EditIcon aria-hidden="true" />
                 Edit
                 <DropdownMenuShortcut>
-                  <ShortcutKeys keys={['Enter']} />
+                  <ShortcutKeys keys={['Enter']} variant="menu" />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -206,7 +206,7 @@ export const ScheduleRow = memo(function ScheduleRow({
                 <DeleteIcon aria-hidden="true" />
                 Delete
                 <DropdownMenuShortcut>
-                  <ShortcutKeys keys={['Delete']} mac={['Backspace']} />
+                  <ShortcutKeys keys={['Delete']} mac={['Backspace']} variant="menu" />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuContent>

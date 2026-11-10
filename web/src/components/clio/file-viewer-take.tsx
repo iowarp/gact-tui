@@ -368,13 +368,13 @@ export function FrameTalkTake({
             open: folded(openRef.current),
             modes,
             tools,
-            // Modes first, then tools, in menu order; @, Copy and Open keep their own.
+            // Modes first, then tools, in menu order; Add to message, Copy and Open keep their own.
             letters: assignJumpLetters(
               [
                 ...modes.flatMap((group) => group.modes.map((mode) => mode.label)),
                 ...tools.map((tool) => tool.label),
               ],
-              `@CO${menuLetters}`,
+              `ACO${menuLetters}`,
             ),
           });
         }}
@@ -468,7 +468,7 @@ export function FrameTalkTake({
           ) : null}
           {fold.talk && addToMessage ? (
             <DropdownMenuItem
-              data-accelerator="@"
+              data-accelerator="A"
               disabled={Boolean(addToMessage.reason)}
               onSelect={addToMessage.onSelect}
             >
@@ -477,7 +477,7 @@ export function FrameTalkTake({
                 label="Add to message"
                 description={addToMessage.reason}
                 wrapDescription
-                accelerator="@"
+                accelerator="A"
                 shortcut="add-to-message"
               />
             </DropdownMenuItem>
@@ -485,7 +485,7 @@ export function FrameTalkTake({
           <FoldedTakeRows
             copy={fold.copy ? copy : undefined}
             open={fold.open ? open : undefined}
-            taken={`@${fold.letters.join('')}${menuLetters}`}
+            taken={`A${fold.letters.join('')}${menuLetters}`}
           />
           {anyFolded && menu ? <DropdownMenuSeparator /> : null}
           {menu}
