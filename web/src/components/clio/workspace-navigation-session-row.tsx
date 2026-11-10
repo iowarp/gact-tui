@@ -298,6 +298,7 @@ function SessionRow({
               topLevel ? 'pl-2.5' : 'pl-[34px]',
             )}
             data-session-row={session.id}
+            data-rail-item={`session:${session.id}`}
             // Its hover card (on pointer and focus) shows the whole title.
             data-truncation-hint={isMobile ? undefined : 'off'}
             meta={
@@ -347,6 +348,7 @@ function SessionRow({
                       : 'text-foreground/85 group-hover/list-row:text-foreground',
                 )}
                 data-active={active}
+                data-rail-focus=""
                 onClick={(event) => {
                   holdPreviews(event.clientX, event.clientY);
                   setHoverOpen(false);

@@ -14,6 +14,8 @@ export function useSessionMoveSupported(): boolean {
   const capabilities = useQuery({
     queryKey: queryKeys.key('capabilities', settings.endpoint, connectionScope(settings)),
     queryFn: ({ signal }) => repository.capabilities(signal),
+    // A service's capabilities hold for the connection; a menu opening need not ask again.
+    staleTime: 5 * 60_000,
   });
   return capabilities.data?.capabilities.x_clio_session_move === true;
 }

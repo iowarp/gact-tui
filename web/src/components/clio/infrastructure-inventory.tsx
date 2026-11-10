@@ -37,7 +37,16 @@ export function InfrastructureInventory({
   const inventory = useQuery({
     queryKey: ['infrastructure-inventory', settings.endpoint],
     queryFn: ({ signal }) => repository.infrastructureInventory(signal),
-    refetchInterval: 5000,
+    // Close follow-up only while work is underway; otherwise a slow check for outside changes.
+    refetchInterval: (query) =>
+      query.state.data?.operations.some(
+        (operation) => operation.state === 'queued' || operation.state === 'running',
+      ) ||
+      query.state.data?.model_acquisitions.some(
+        (model) => model.state === 'queued' || model.state === 'running',
+      )
+        ? 5000
+        : 30_000,
   });
   const {
     targetId,

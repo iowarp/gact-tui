@@ -79,6 +79,19 @@ export function noAnswer(error: Error | null | undefined): boolean {
   return error instanceof TransportError && error.code === 'network_unavailable';
 }
 
+/**
+ * The request never reached the agent, in the browser or through the Desktop host. The
+ * connection line already reports this, so a surface shouldn't add its own error for it.
+ */
+export function serviceUnreachable(error: Error | null | undefined): boolean {
+  return (
+    noAnswer(error) ||
+    (error instanceof TransportError &&
+      error.status === undefined &&
+      error.code === 'native_transport_failed')
+  );
+}
+
 const FAILURE_CAUSE: Readonly<Record<Exclude<UnavailableReason, 'failed'>, string>> = {
   'no-answer': 'no answer',
   timeout: 'no response in time',

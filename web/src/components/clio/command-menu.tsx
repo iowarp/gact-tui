@@ -34,6 +34,8 @@ import { CommandMenuResultGroups } from './command-menu-result-groups';
 import { CommandMenuNoMatch } from './command-menu-no-match';
 import { TextTabs } from './primitives/text-tabs';
 import { PickerFooter, type PickerHint } from './primitives/picker-footer';
+import { StateView } from './primitives/state-view';
+import { isOfflineError } from '@/lib/list-state';
 import { isSettingsRoute } from '@/lib/settings-window-route';
 import {
   returnRouteFromState,
@@ -250,9 +252,19 @@ export function ClioCommandMenu({
   const { fetching } = results;
   const emptyText = memory.isFetching
     ? 'Searching conversations…'
-    : !searching && (activeScope === 'files' || activeScope === 'artifacts')
-      ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
-      : 'Nothing here yet.';
+    : results.sessions.isLoading || results.workspaces.isLoading
+      ? 'Loading conversations…'
+      : !searching && (activeScope === 'files' || activeScope === 'artifacts')
+        ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
+        : 'Nothing here yet.';
+  // A list the search reads failed: say which, with Retry, above whatever did load.
+  const failure = (
+    [
+      [results.sessions, 'Conversations could not be listed'],
+      [results.workspaces, 'Workspaces could not be listed'],
+      [memory, 'Conversations could not be searched'],
+    ] as const
+  ).filter(([query]) => query.isError && query.data === undefined);
   const canAsk = credentialsReady && Boolean(searchWorkspaceId);
 
   return (
@@ -393,6 +405,21 @@ export function ClioCommandMenu({
                       </p>
                     ) : null}
                     <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
+                      {failure.length ? (
+                        <StateView
+                          action={{
+                            label: 'Retry',
+                            onClick: () => {
+                              for (const [query] of failure) void query.refetch();
+                            },
+                          }}
+                          className="px-3"
+                          detail={isOfflineError(failure[0]![0].error) ? 'Offline' : undefined}
+                          kind="error"
+                          size="row"
+                          title={failure[0]![1]}
+                        />
+                      ) : null}
                       {noMatch ? (
                         <CommandMenuNoMatch
                           canAsk={canAsk}
