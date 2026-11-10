@@ -447,8 +447,8 @@ export function AskDetails({
       // Open, the raw arguments give up height first (down to a few lines that scroll), then
       // a script, so the facts and options stay whole under the cap.
       className={cn(
-        'mt-2.5 flex min-h-0 shrink-[1000] flex-col text-[11.5px] text-muted-foreground',
-        open && 'min-h-32',
+        'mt-2.5 flex min-h-0 flex-col text-[11.5px] text-muted-foreground',
+        open ? 'min-h-32 shrink-[1000]' : 'shrink-0',
       )}
       data-slot="ask-details"
     >
