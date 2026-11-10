@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { DismissToastsOnOpen } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
+import { useModalFocusReturn } from './modal-focus';
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -43,10 +44,13 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  ref,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  const focusReturn = useModalFocusReturn({ ref, onCloseAutoFocus });
   return (
     <DialogPortal container={useOverlayContainer()}>
       <DialogOverlay />
@@ -59,6 +63,7 @@ function DialogContent({
           className,
         )}
         {...props}
+        {...focusReturn}
       >
         <DismissToastsOnOpen />
         {children}
