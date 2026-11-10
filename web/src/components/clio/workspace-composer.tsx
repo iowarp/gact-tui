@@ -133,6 +133,10 @@ export function WorkspaceComposer({
       key={docked ? 'docked' : `welcome:${sessionId}`}
       layout
       layoutId="session-composer"
+      // Measure only for the welcome-to-docked handoff (Motion resumes a shared
+      // layout only across differing dependencies). Without it every render
+      // snapshots the page layout, twice per transcript commit.
+      layoutDependency={variant}
     >
       {isManagedChildSession(session) ? (
         <ClioChildSessionFooter

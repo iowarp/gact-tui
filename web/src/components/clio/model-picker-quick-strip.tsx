@@ -1,32 +1,11 @@
-import {
-  BrainIcon,
-  CircleDollarSignIcon,
-  EyeIcon,
-  GiftIcon,
-  GlobeIcon,
-  ScrollTextIcon,
-  WrenchIcon,
-  type LucideIcon,
-} from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { RemoveIcon, ScheduleIcon } from '@/lib/icon-vocabulary';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
-import type { QuickFilter, QuickFilterId } from '@/lib/model-quick-filters';
+import type { QuickFilter } from '@/lib/model-quick-filters';
 import { cn } from '@/lib/utils';
+import { QUICK_FILTER_ICONS as QUICK_ICONS } from './model-quick-filter-icons';
 import { IconButton } from './primitives/icon-button';
 import { ShortcutKeys } from './primitives/key-chip';
-
-/** The same glyphs the rows' facts and the Filters panel use for these tags. */
-const QUICK_ICONS: Record<QuickFilterId, LucideIcon> = {
-  tools: WrenchIcon,
-  vision: EyeIcon,
-  reasoning: BrainIcon,
-  web: GlobeIcon,
-  free: GiftIcon,
-  context: ScrollTextIcon,
-  cost: CircleDollarSignIcon,
-  recent: ScheduleIcon,
-};
 
 interface ModelPickerQuickStripProps {
   filters: readonly QuickFilter[];

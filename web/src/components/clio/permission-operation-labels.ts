@@ -1,3 +1,5 @@
+import type { PendingInteraction } from '@clio/core/v3';
+
 const OPERATIONS: Record<string, string> = {
   fs_read_file: 'Read file',
   fs_write_file: 'Write file',
@@ -21,4 +23,22 @@ export function permissionOperationLabel(
 ): string | undefined {
   if (name === 'web_fetch' && input.to_file === true) return 'Save web source';
   return OPERATIONS[name];
+}
+
+/** The command a permission would run and the computer it runs on, when the request names them. */
+export function permissionCommand(interaction: PendingInteraction): {
+  command: string;
+  computer: string;
+} {
+  const access = interaction.payload?.access;
+  const input = interaction.payload?.tool_call?.input;
+  const command =
+    access?.command ||
+    (input &&
+    typeof input === 'object' &&
+    typeof (input as { command?: unknown }).command === 'string'
+      ? (input as { command: string }).command
+      : '');
+  const computer = access?.computer || interaction.payload?.execution?.computer || '';
+  return { command, computer };
 }

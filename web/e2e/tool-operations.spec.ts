@@ -211,10 +211,22 @@ for (const width of [1440, 390]) {
     const skillFile = page.getByRole('dialog', { name: 'catalog.json#/components/Widget6' });
     await expect(skillFile).toContainText('"title": "Widget 6"');
     await expect(skillFile).not.toContainText('Widget 9');
+    // Every kind of skill file gets the same copy and download actions.
+    await expect(skillFile.getByRole('button', { name: 'Download catalog.json' })).toBeVisible();
+    await expect(
+      skillFile.getByRole('button', { name: 'Copy catalog.json#/components/Widget6' }),
+    ).toBeVisible();
     await page.keyboard.press('Escape');
     await row('skill').getByRole('button', { name: 'references/observation-guide-11.md' }).click();
-    const guide = page.getByRole('dialog', { name: 'references/observation-guide-11.md' });
+    const guide = page.getByRole('dialog', { name: 'observation-guide-11.md' });
     await expect(guide.getByRole('heading', { name: 'Observation guide 11' })).toBeVisible();
+    await expect(guide.getByText('work-with-ndp › references', { exact: true })).toHaveAttribute(
+      'title',
+      `${skillRoot}/references/observation-guide-11.md`,
+    );
+    await expect(
+      guide.getByRole('button', { name: 'Download observation-guide-11.md' }),
+    ).toBeVisible();
     await page.screenshot({ path: test.info().outputPath(`skill-file-${width}.png`) });
     expect(await guide.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
     await page.keyboard.press('Escape');

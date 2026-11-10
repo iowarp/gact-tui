@@ -37,12 +37,54 @@ export function skillFileSection(
 
 /** Present a loaded skill file as its own kind of document: prose, JSON or source. */
 export function skillFileBlock(file: string, text: string): ToolPresentationBlock {
-  const path = file.split('#', 1)[0] ?? file;
-  const extension = /\.([a-z0-9]+)$/iu.exec(path)?.[1]?.toLowerCase();
+  const extension = extensionOf(file);
   if (!extension || extension === 'md' || extension === 'markdown')
     return { id: `skill-file:${file}`, type: 'markdown', text };
   if (extension === 'json')
     return { id: `skill-file:${file}`, type: 'code', language: 'json', text };
   if (extension === 'txt') return { id: `skill-file:${file}`, type: 'text', text };
   return { id: `skill-file:${file}`, type: 'code', language: extension, text };
+}
+
+/** The download name and type for a loaded skill file (a `#fragment` names part of one file). */
+export function skillFileDownload(file: string): { filename: string; mimeType: string } {
+  const filename = segments(file).at(-1) || 'skill-file.txt';
+  const extension = extensionOf(file);
+  const mimeType =
+    !extension || extension === 'md' || extension === 'markdown'
+      ? 'text/markdown'
+      : extension === 'json'
+        ? 'application/json'
+        : 'text/plain';
+  return { filename: extension ? filename : `${filename}.md`, mimeType };
+}
+
+/**
+ * The folders that lead to a skill file, starting at the skill itself, such as
+ * `work-with-ndp › references`. Install locations are long and say nothing
+ * about the skill, so the full path stays supplemental detail.
+ */
+export function skillFileTrail(path: string, directory?: string): string {
+  const folders = segments(path).slice(0, -1);
+  const root = directory ? segments(directory) : [];
+  const within =
+    root.length > 0 &&
+    root.length <= folders.length &&
+    root.every((segment, index) => segment.toLowerCase() === folders[index]?.toLowerCase());
+  return (within ? folders.slice(root.length - 1) : folders.slice(-2)).join(' › ');
+}
+
+/** A skill file's own name, keeping a `#fragment` that names part of the file. */
+export function skillFileTitle(file: string): string {
+  const [path = file, ...fragment] = file.split('#');
+  const name = segments(path).at(-1) ?? path;
+  return fragment.length ? `${name}#${fragment.join('#')}` : name;
+}
+
+function segments(path: string): string[] {
+  return (path.split('#', 1)[0] ?? path).replaceAll('\\', '/').split('/').filter(Boolean);
+}
+
+function extensionOf(file: string): string | undefined {
+  return /\.([a-z0-9]+)$/iu.exec(file.split('#', 1)[0] ?? file)?.[1]?.toLowerCase();
 }

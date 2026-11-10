@@ -39,5 +39,10 @@ export function useModelPickerFacets(
       ),
     [entries],
   );
-  return { facetTabs, maxInputPrice };
+  // The Size filter needs a stated parameter count; without one it is hidden.
+  const hasSizes = useMemo(
+    () => entries.some((entry) => Boolean(entry.facts.parameters?.total)),
+    [entries],
+  );
+  return { facetTabs, maxInputPrice, hasSizes };
 }

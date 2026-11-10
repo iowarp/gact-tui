@@ -50,6 +50,7 @@ import {
 } from './use-transcript-reading-position';
 
 const VIRTUALIZATION_THRESHOLD = 80;
+const ESTIMATED_ROW_PX = 180;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 interface ActiveMcpApp {
@@ -270,14 +271,24 @@ function ConversationBody({
           ),
       )
     : -1;
-  const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
+  // A paged transcript is a window onto a longer history: mount only its
+  // visible tail instead of laying out the whole first page. Latched so the
+  // last older page does not switch every row back into the document flow.
+  const [paged, setPaged] = useState(Boolean(earlier?.hasEarlier));
+  if (earlier?.hasEarlier && !paged) setPaged(true);
+  const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD || paged;
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
+    // Attach once rows exist, starting from the estimated tail, so the first
+    // rows mounted are the ones the initial scroll-to-end reveals.
+    enabled: messages.length > 0,
+    initialOffset: () => Math.max(0, messages.length * ESTIMATED_ROW_PX - window.innerHeight),
+    initialRect: { width: 0, height: window.innerHeight },
     // Height corrections can scroll during commit; let React batch the range
     // update instead of trying to flush another render inside that commit.
     useFlushSync: false,
-    estimateSize: () => 180,
+    estimateSize: () => ESTIMATED_ROW_PX,
     getScrollElement: () => scrollRef.current,
     overscan: 7,
     rangeExtractor: useCallback(
@@ -409,7 +420,6 @@ function ConversationBody({
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
-    scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
   // Grow only into the unused margin, leaving a gap before the transcript column.
