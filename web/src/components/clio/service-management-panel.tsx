@@ -339,7 +339,8 @@ export function ManagedServiceCard({
         ? {
             label: 'Configuration revision',
             icon: <LayersIcon aria-hidden="true" />,
-            value: revision,
+            value: revision.length > 12 ? revision.slice(0, 12) : revision,
+            title: revision,
             mono: true,
           }
         : undefined,

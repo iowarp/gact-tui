@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DialogFrame } from './primitives/dialog-frame';
 import { KeyValueGrid } from './primitives/key-value-grid';
-import { ManagedServiceLogo } from './managed-service-identity';
-import { ServiceMethodAvailability } from './service-installation-method';
+import { ItemList, ItemRow } from './primitives/item-row';
+import { InfraSearchField } from './infrastructure-filter-menu';
 import { AddInstanceForm } from './managed-service-instance';
 import { engineId, instanceName } from './managed-service-gpus';
 import { InfraList } from './infrastructure-row';
@@ -77,6 +77,8 @@ export function ManagedServiceInventory({
   const [footerSlot, setFooterSlot] = useState<HTMLElement | null>(null);
   // The engine whose "Add instance" name field is open, and where.
   const [naming, setNaming] = useState<{ id: string; where: 'inventory' | 'chooser' }>();
+  // The chooser lists only engines that take a named instance.
+  const [namedOnly, setNamedOnly] = useState(false);
   const inventory = services.filter(
     (service) =>
       service.state === 'running' ||
@@ -87,6 +89,7 @@ export function ManagedServiceInventory({
   const current = services.find((service) => service.id === selected);
   const close = () => {
     setNaming(undefined);
+    setNamedOnly(false);
     onSelected('');
     onDeploying(false);
   };
@@ -162,12 +165,27 @@ export function ManagedServiceInventory({
                 <ArrowLeftIcon />
                 Back
               </Button>
+            ) : services.some(
+                (service) =>
+                  canAddInstance(service) && service.variants.some((row) => row.compatible),
+              ) ? (
+              <Button
+                aria-pressed={namedOnly}
+                className="-ml-2"
+                onClick={() => {
+                  setNaming(undefined);
+                  setNamedOnly(!namedOnly);
+                }}
+                variant="ghost"
+              >
+                {namedOnly ? <ArrowLeftIcon /> : <AddIcon />}
+                {namedOnly ? 'All services' : 'Add named instance'}
+              </Button>
             ) : null
           ) : (
             <div className="-ml-1.5 flex items-center gap-0.5" ref={setFooterSlot} />
           )
         }
-        growDown
         icon={
           !current ? (
             <PackageIcon />
@@ -253,100 +271,21 @@ export function ManagedServiceInventory({
                 />
               )
             ) : deploying && !current ? (
-              <div className="space-y-5">
-                {groups
-                  .filter(
-                    (group) =>
-                      (!model || group.id === 'model_runtime') &&
-                      services.some((service) => groupFor(service) === group.id),
-                  )
-                  .map((group) => (
-                    <section key={group.id}>
-                      <h3 className="mb-2 text-sm font-semibold">{group.label}</h3>
-                      <div className="space-y-2">
-                        {services
-                          .filter(
-                            (service) =>
-                              groupFor(service) === group.id &&
-                              // Instances not on this computer are set up through Add instance.
-                              (!instanceName(service) ||
-                                inventory.some((row) => row.id === service.id)),
-                          )
-                          .map((service) => (
-                            <div key={service.id}>
-                              <button
-                                aria-label={
-                                  inventory.some((row) => row.id === service.id)
-                                    ? `Manage ${service.label}`
-                                    : service.variants.some((row) => row.compatible)
-                                      ? `Set up ${service.label}`
-                                      : `${service.label} unavailable`
-                                }
-                                disabled={
-                                  (!inventory.some((row) => row.id === service.id) &&
-                                    !service.variants.some((row) => row.compatible)) ||
-                                  Boolean(model && modelRuntimeRequirement(service, model))
-                                }
-                                className="flex w-full items-center gap-3 border-b py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:[&_svg]:opacity-40"
-                                onClick={() => {
-                                  onSelected(service.id);
-                                  if (inventory.some((row) => row.id === service.id))
-                                    onDeploying(false);
-                                }}
-                              >
-                                <ManagedServiceLogo service={service} />
-                                <span className="flex-1">
-                                  <span className="font-medium">{service.label}</span>
-                                  <span className="mt-1 block text-xs text-muted-foreground">
-                                    {service.description}
-                                  </span>
-                                  <ServiceMethodAvailability service={service} />
-                                  {model && modelRuntimeRequirement(service, model) ? (
-                                    <span className="mt-1 block text-xs text-warning-foreground">
-                                      {modelRuntimeRequirement(service, model)}
-                                    </span>
-                                  ) : !service.variants.some((row) => row.compatible) ? (
-                                    <span className="mt-1 block text-xs text-warning-foreground">
-                                      {service.variants.find(
-                                        (row) => row.id === service.recommended_variant,
-                                      )?.reason || service.variants[0]?.reason}
-                                    </span>
-                                  ) : null}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {inventory.some((row) => row.id === service.id)
-                                    ? 'Manage'
-                                    : service.variants.some((row) => row.compatible)
-                                      ? 'Set up'
-                                      : 'Unavailable'}
-                                </span>
-                              </button>
-                              {canAddInstance(service) &&
-                              service.variants.some((row) => row.compatible) &&
-                              !(model && modelRuntimeRequirement(service, model)) ? (
-                                naming?.id === service.id && naming.where === 'chooser' ? (
-                                  <div className="border-b py-3 pl-[3.25rem]">
-                                    {addInstance(service, 'chooser')}
-                                  </div>
-                                ) : (
-                                  <Button
-                                    aria-label={`Add ${service.label} instance`}
-                                    className="mt-1 ml-[3.25rem]"
-                                    onClick={() => setNaming({ id: service.id, where: 'chooser' })}
-                                    size="sm"
-                                    variant="ghost"
-                                  >
-                                    <AddIcon />
-                                    Add named instance
-                                  </Button>
-                                )
-                              ) : null}
-                            </div>
-                          ))}
-                      </div>
-                    </section>
-                  ))}
-              </div>
+              <ServiceChooser
+                addInstance={(service) => addInstance(service, 'chooser')}
+                canAddInstance={canAddInstance}
+                inventory={inventory}
+                model={model}
+                naming={naming?.where === 'chooser' ? naming.id : undefined}
+                namedOnly={namedOnly}
+                onManage={(id) => {
+                  onSelected(id);
+                  onDeploying(false);
+                }}
+                onName={(id) => setNaming({ id, where: 'chooser' })}
+                onSetUp={onSelected}
+                services={services}
+              />
             ) : current ? (
               renderService(current, deploying)
             ) : (
@@ -359,6 +298,124 @@ export function ManagedServiceInventory({
   );
 }
 
+/** Step 1 of Install: one compact row per service, grouped, with a search field. */
+function ServiceChooser({
+  services,
+  inventory,
+  model,
+  namedOnly,
+  naming,
+  canAddInstance,
+  addInstance,
+  onSetUp,
+  onManage,
+  onName,
+}: {
+  services: ManagedServiceDefinition[];
+  inventory: ManagedServiceDefinition[];
+  model?: ModelAcquisition;
+  namedOnly: boolean;
+  naming?: string;
+  canAddInstance: (service: ManagedServiceDefinition) => boolean;
+  addInstance: (service: ManagedServiceDefinition) => ReactNode;
+  onSetUp: (id: string) => void;
+  onManage: (id: string) => void;
+  onName: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const shown = services.filter(
+    (service) =>
+      // Instances not on this computer are set up through Add named instance.
+      (!instanceName(service) || inventory.some((row) => row.id === service.id)) &&
+      (!model || groupFor(service) === 'model_runtime') &&
+      (!namedOnly || (canAddInstance(service) && service.variants.some((row) => row.compatible))) &&
+      (!needle || `${service.label} ${service.description}`.toLowerCase().includes(needle)),
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <InfraSearchField
+        className="w-full"
+        label="Search services"
+        onValueChange={setQuery}
+        placeholder="Search services"
+        value={query}
+      />
+      {namedOnly ? (
+        <p className="text-xs text-muted-foreground">
+          Choose the engine for the new named instance.
+        </p>
+      ) : null}
+      {!shown.length ? (
+        <StateView kind="empty" size="row" title={`No services match “${query.trim()}”`} />
+      ) : null}
+      {groups.map((group) => {
+        const rows = shown.filter((service) => groupFor(service) === group.id);
+        if (!rows.length) return null;
+        const GroupIcon = group.icon ?? ServerIcon;
+        return (
+          <ItemList key={group.id} label={group.label}>
+            <h3 className="px-2 pt-1 pb-0.5 text-[11.5px] font-medium text-muted-foreground">
+              {group.label}
+            </h3>
+            {rows.map((service) => {
+              const installed = inventory.some((row) => row.id === service.id);
+              const requirement = model ? modelRuntimeRequirement(service, model) : undefined;
+              const compatible = service.variants.some((row) => row.compatible);
+              const reason =
+                requirement ??
+                (compatible
+                  ? undefined
+                  : service.variants.find((row) => row.id === service.recommended_variant)
+                      ?.reason || service.variants[0]?.reason);
+              const blocked = Boolean(requirement) || (!installed && !compatible);
+              return (
+                <div key={service.id}>
+                  <ItemRow
+                    className={cn('border-b-0 rounded-md', blocked && '[&>span]:opacity-55')}
+                    icon={<GroupIcon />}
+                    meta={reason ?? service.description}
+                    size="sm"
+                    slot={
+                      blocked ? (
+                        <span className="text-xs text-faint" title={reason}>
+                          Unavailable
+                        </span>
+                      ) : namedOnly ? (
+                        <Button
+                          aria-label={`Add ${service.label} instance`}
+                          onClick={() => onName(service.id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Name…
+                        </Button>
+                      ) : (
+                        <Button
+                          aria-label={`${installed ? 'Manage' : 'Set up'} ${service.label}`}
+                          onClick={() => (installed ? onManage(service.id) : onSetUp(service.id))}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {installed ? 'Manage' : 'Set up'}
+                        </Button>
+                      )
+                    }
+                    slotWidth={96}
+                    title={service.label}
+                  />
+                  {naming === service.id ? (
+                    <div className="pt-1 pb-2 pl-[2.375rem]">{addInstance(service)}</div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </ItemList>
+        );
+      })}
+    </div>
+  );
+}
 /** One numbered step of the install crumb: the current one in the text tone. */
 function DeployStep({
   step,
