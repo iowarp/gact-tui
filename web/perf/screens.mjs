@@ -191,10 +191,19 @@ async function pickMode(page, names) {
       }
     }
   }
-  // A narrow frame bar folds its modes to the active icon and a menu.
-  const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
-  if (await folded.isVisible().catch(() => false)) {
-    await folded.click();
+  // A narrow frame bar folds its modes to the active icon and a menu; narrowest,
+  // the frame lists them in its … menu (workbench-lineage step 6).
+  const menus = [
+    page.locator('[data-modes-folded]').filter({ visible: true }).first(),
+    page
+      .locator('[data-fold-modes-menu]')
+      .filter({ visible: true })
+      .first()
+      .getByRole('button', { name: /^(?:File|More) actions$/u }),
+  ];
+  for (const trigger of menus) {
+    if (!(await trigger.isVisible().catch(() => false))) continue;
+    await trigger.click();
     for (const name of names) {
       const item = page.getByRole('menuitemradio', { name, exact: true }).first();
       if (await item.isVisible().catch(() => false)) {
@@ -1316,6 +1325,17 @@ function catalogue({ settings, infrastructure }) {
           await phoneTabBody(page, 'Outline');
         },
       ],
+      // Jupyter notebooks read as cells; Source keeps the JSON as written.
+      ['notebook', (page) => openFile(page, 'analysis/opal-gnss.ipynb')],
+      [
+        'notebook-source',
+        async (page) => {
+          await openFile(page, 'analysis/opal-gnss.ipynb');
+          await pickMode(page, ['Source']);
+        },
+      ],
+      ['notebook-cut-off', (page) => openFile(page, 'analysis/draft-cut-off.ipynb')],
+      ['notebook-empty', (page) => openFile(page, 'analysis/untitled.ipynb')],
     ].map(([state, setup]) =>
       s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
     ),
