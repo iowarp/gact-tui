@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { cleanup, screen, within } from '@testing-library/react';
 import { renderWithTooltips as render } from '@/test/render-with-tooltips';
 import userEvent from '@testing-library/user-event';
@@ -139,14 +140,16 @@ it('forgetting the selected service selects the next one', async () => {
   expect(screen.getByRole('button', { name: /laptop/u, pressed: true })).toBeVisible();
 });
 
-it('lets This computer be renamed but never forgotten', async () => {
+it('lets the local service be renamed but never forgotten', async () => {
   mocks.inTauri = true;
   mocks.managedConnectionReady = true;
   mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211', token: 'supervisor-token' };
   const user = userEvent.setup();
   renderPage();
 
-  await user.click(screen.getByRole('button', { name: 'Service actions for This computer' }));
+  await user.click(
+    screen.getByRole('button', { name: `Service actions for ${brand.agentName} local` }),
+  );
   expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeVisible();
   expect(screen.queryByRole('menuitem', { name: /Forget/u })).not.toBeInTheDocument();
 });

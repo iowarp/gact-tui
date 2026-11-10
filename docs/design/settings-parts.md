@@ -23,9 +23,11 @@ Paths are under `web/src/`.
 page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
-`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, fullWidth?, dirty? }`.
+`{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, wideControl?, fullWidth?, dirty? }`.
 The label column sits on the left and the control on the right. Use `inlineControl` for a
-switch. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
+switch. Use `wideControl` for a control that can outgrow the 52% column, such as a
+segmented choice with many options: it sits beside the label while both fit and drops
+under it, left-aligned, when they don't, so it never covers the label. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
 with no rem cap, and its control column is 52% of the row. Wrappers that stand in for rows
 (group labels with a control, a save bar under rows) use the same `SETTINGS_COLUMN` class
 from `lib/settings-fold.ts`. It applies 60% from a 36rem container, so the 41rem content
@@ -181,12 +183,12 @@ muted track without a border, 24 px items at 12 px, and the selected item raised
 for in-page modes and pane tabs. A choice between a few setting values uses `SettingsChoice`.
 
 **`StepList`** `components/clio/primitives/step-list.tsx`
-`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label, logPlacement?: 'step' | 'end' }`.
+`{ steps: { id, label, state: 'done' | 'current' | 'todo' | 'failed', meta?, progress?, log? }[], label }`.
 The steps of a long operation in 28 px rows: a check, a 12 px teal ring on its track (the spec's
 `.spin`; it stays still with reduced motion), an open circle or an alert, the
 state also as a screen-reader word, and `meta` (a time, a percentage) right-aligned in mono.
-`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step by
-default; `logPlacement="end"` puts it after the whole list instead, as the local startup does.
+`progress` draws a 3 px bar under its step. `log` is the latest output line, under its step; the
+local startup passes none and keeps its output in Startup details.
 Used by the update page and the local startup (`LocalStartupSteps`).
 
 Other primitives (status indicator, tags, split button, key chips) are in `components/clio/primitives/` and

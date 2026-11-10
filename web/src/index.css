@@ -125,6 +125,12 @@
   --text-title--line-height: 1.3;
   --text-welcome: 1.125rem; /* 18px: the welcome title */
   --text-welcome--line-height: 1.3;
+  /*
+   * Status marks that stay on screen for a whole run turn in 12 steps a second.
+   * A smooth spin makes the compositor draw every frame while a conversation
+   * idles; the steps draw 12.
+   */
+  --animate-spin-steps: spin 1s steps(12, end) infinite;
 }
 
 @theme inline {
@@ -190,6 +196,7 @@
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
   --color-link: var(--link);
   --color-status-supported: var(--status-supported);
   --color-status-supported-foreground: var(--status-supported-foreground);
@@ -725,6 +732,11 @@ html[data-clio-motion='reduced'] *::after {
 .tool-presentation-body {
   font-size: 0.875rem;
   line-height: 1.5rem;
+}
+/* The parent's assignment is a prompt: it reads at its bubble's size. */
+[data-slot='parent-delegation-bubble'] .tool-presentation-body {
+  font-size: inherit;
+  line-height: inherit;
 }
 /* A bounded preview measures its rendered lines to decide how much to show. A code
    block's content-visibility skip (rendering deferred while clipped) left nothing to
