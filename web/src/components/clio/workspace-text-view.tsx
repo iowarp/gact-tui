@@ -235,6 +235,16 @@ function WorkspaceTextWindowView({
       : head.capped
         ? `Showing the first ${formatBytes(head.loadedBytes)}${total}. The rest is too large to show here.`
         : `Showing the first ${formatBytes(head.loadedBytes)}${total}.`;
+  // A phone-width pane keeps the status whole in its short form beside the button; the
+  // frame bar's fact already gives the file's size.
+  const shortStatus =
+    showEnd || !head
+      ? textWindow.tailError
+        ? "The end couldn't be read"
+        : table
+          ? `Last ${PREVIEW_ROW_LIMIT.toLocaleString()} rows`
+          : `Last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`
+      : `First ${formatBytes(head.loadedBytes)}`;
   return (
     <div
       className="@container/text-window flex h-full min-h-0 min-w-0 flex-col"
@@ -273,7 +283,14 @@ function WorkspaceTextWindowView({
             : undefined
         }
         size="row"
-        title={status}
+        title={
+          <>
+            <span className="@max-[420px]/text-window:hidden">{status}</span>
+            <span className="hidden @max-[420px]/text-window:inline" title={status}>
+              {shortStatus}
+            </span>
+          </>
+        }
       />
     </div>
   );
