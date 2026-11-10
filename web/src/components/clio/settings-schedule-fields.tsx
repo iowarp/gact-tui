@@ -93,7 +93,7 @@ export function ScheduleSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="max-w-80 min-w-(--radix-dropdown-menu-trigger-width)"
+        className="max-w-[min(30rem,var(--radix-dropdown-menu-content-available-width))] min-w-(--radix-dropdown-menu-trigger-width)"
       >
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
           {options.map((option) => (
@@ -107,7 +107,10 @@ export function ScheduleSelect({
                 {option.label}
               </span>
               {option.hint ? (
-                <span className="max-w-32 shrink-0 truncate text-xs text-faint">{option.hint}</span>
+                // The title keeps priority; the workspace hint truncates first.
+                <span className="max-w-32 min-w-10 shrink-[999] truncate text-xs text-faint">
+                  {option.hint}
+                </span>
               ) : null}
             </DropdownMenuRadioItem>
           ))}
