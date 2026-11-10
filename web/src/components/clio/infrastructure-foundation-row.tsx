@@ -110,7 +110,7 @@ function HealthFoundationRow({ integration }: { integration: ServiceIntegrationH
   // The raw health record stands in when the server gave no summary, so the
   // row always offers its technical details beside the fix.
   const technical =
-    [integration.summary, integration.detail].filter(Boolean).join('\n') ||
+    [...new Set([integration.summary, integration.detail].filter(Boolean))].join('\n') ||
     JSON.stringify(integration, null, 2);
   const actionLink = action ? (
     <Button asChild className="px-[9px] text-[11.5px]" size="xs" variant="outline">
