@@ -276,6 +276,8 @@ export interface AskFact {
   value: ReactNode;
   title?: string;
   mono?: boolean;
+  /** The value may take a second line (a note under it). */
+  wrap?: boolean;
   /** At a fifth of the window: a shorter value, or `false` to move the row behind ⓘ. */
   narrow?: ReactNode | false;
 }
@@ -293,6 +295,7 @@ export function AskFacts({ facts, className }: { facts: readonly AskFact[]; clas
             value: fact.value,
             title: fact.title,
             mono: fact.mono,
+            wrap: fact.wrap,
             narrow: fact.narrow,
           }),
         )}
