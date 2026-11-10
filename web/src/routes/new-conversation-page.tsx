@@ -20,6 +20,7 @@ import {
 } from '@/components/clio/new-conversation-draft';
 import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioDraftActions } from '@/components/clio/draft-actions';
+import { TopBarEnd } from '@/components/clio/top-bar-end';
 import { ClioDownloadsButton } from '@/components/clio/downloads-button';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import {
@@ -205,14 +206,18 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
             <NewConversationBreadcrumb
+              workspaceId={workspace?.id}
               workspaceLabel={workspace ? workspaceName(workspace) : undefined}
             />
           </div>
-          <ClioDraftActions
-            disabled={!workspace || send.isPending}
-            onOpen={(section) => revealWorkbench({ kind: 'resources', section })}
-            onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
-          />
+          {/* The ⋯ ends the top bar, after the canvas icon, as on a conversation. */}
+          <TopBarEnd>
+            <ClioDraftActions
+              disabled={!workspace || send.isPending}
+              onOpen={(section) => revealWorkbench({ kind: 'resources', section })}
+              onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
+            />
+          </TopBarEnd>
           <ClioDownloadsButton />
         </div>
       }

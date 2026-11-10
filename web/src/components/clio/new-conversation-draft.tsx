@@ -3,13 +3,21 @@ import { ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { BrandIcon } from './brand-icon';
+import { WorkspaceCrumbMark } from './workspace-mark';
 
 /**
- * Where the draft lives: the workspace name, then the italic "New
- * conversation" that marks a conversation not yet created. Desktop draws
- * the same trail in its native title bar.
+ * Where the draft lives: the workspace's mark and name (a chat bubble for
+ * Conversations), then the italic "New conversation" that marks a
+ * conversation not yet created. Desktop draws the same trail in its native
+ * title bar.
  */
-export function NewConversationBreadcrumb({ workspaceLabel }: { workspaceLabel?: string }) {
+export function NewConversationBreadcrumb({
+  workspaceId,
+  workspaceLabel,
+}: {
+  workspaceId?: string;
+  workspaceLabel?: string;
+}) {
   if (inTauri()) return null;
   return (
     <nav aria-label="Breadcrumb" className="min-w-0">
@@ -17,6 +25,7 @@ export function NewConversationBreadcrumb({ workspaceLabel }: { workspaceLabel?:
         {workspaceLabel ? (
           // Phones drop the workspace crumb, as the conversation top bar does.
           <li className="flex min-w-0 shrink-[3] items-center gap-1.5 text-muted-foreground max-sm:hidden">
+            {workspaceId ? <WorkspaceCrumbMark id={workspaceId} /> : null}
             <span className="min-w-[4ch] truncate" title={workspaceLabel}>
               {workspaceLabel}
             </span>
