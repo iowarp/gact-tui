@@ -1,4 +1,6 @@
 import type { Session } from '@clio/core/v3';
+import { ArchiveIcon, GitForkIcon, PinIcon, PinOffIcon, Share2Icon } from 'lucide-react';
+import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { KeyMenuItem } from './menu-key-items';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 
@@ -20,6 +22,7 @@ export function SessionOrganizeMenuItems({
   return (
     <>
       <KeyMenuItem
+        icon={session.pinned ? PinOffIcon : PinIcon}
         label={session.pinned ? 'Unpin' : 'Pin'}
         menuKey="P"
         onSelect={() =>
@@ -30,6 +33,7 @@ export function SessionOrganizeMenuItems({
         }
       />
       <KeyMenuItem
+        icon={EditIcon}
         label="Rename"
         menuKey="R"
         onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
@@ -40,12 +44,21 @@ export function SessionOrganizeMenuItems({
 
 /** Fork, shared by the title and left bar menus so both name it the same way. */
 export function SessionForkMenuItem({ onSelect }: { onSelect: () => void }) {
-  return <KeyMenuItem label="Fork into a new conversation" menuKey="F" onSelect={onSelect} />;
+  return (
+    <KeyMenuItem
+      icon={GitForkIcon}
+      label="Fork into a new conversation"
+      menuKey="F"
+      onSelect={onSelect}
+    />
+  );
 }
 
 /** Share, shared by the title and left bar menus; it opens the share dialog. */
 export function SessionShareMenuItem({ onSelect }: { onSelect: () => void }) {
-  return <KeyMenuItem label="Share read-only link" menuKey="L" onSelect={onSelect} />;
+  return (
+    <KeyMenuItem icon={Share2Icon} label="Share read-only link" menuKey="L" onSelect={onSelect} />
+  );
 }
 
 /** Archive and delete use the same service actions and confirmation entry point. */
@@ -58,11 +71,13 @@ export function SessionLifecycleMenuItems({
   return (
     <>
       <KeyMenuItem
+        icon={ArchiveIcon}
         label="Archive"
         menuKey="A"
         onSelect={() => onAction(() => actions.archiveSession(session.id), 'Conversation archived')}
       />
       <KeyMenuItem
+        icon={DeleteIcon}
         label="Delete…"
         menuKey="D"
         onSelect={() => onDelete({ kind: 'session', id: session.id, label: session.title })}

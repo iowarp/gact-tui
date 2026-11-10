@@ -192,7 +192,11 @@ describe('session navigation state', () => {
 });
 
 describe('row menu', () => {
-  function renderMenuRow(rowActions: ResourceActions, row: Session = session) {
+  function renderMenuRow(
+    rowActions: ResourceActions,
+    row: Session = session,
+    workspacePath?: string,
+  ) {
     const onAction = vi.fn((action: () => Promise<void>) => void action());
     render(
       <MemoryRouter>
@@ -207,6 +211,7 @@ describe('row menu', () => {
             onVisit={vi.fn()}
             session={row}
             workspaceId="ws_ndp"
+            workspacePath={workspacePath}
           />
         </TooltipProvider>
       </MemoryRouter>,
@@ -258,6 +263,24 @@ describe('row menu', () => {
     await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
     expect(screen.queryByRole('menuitem', { name: /Fork/u })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /Share/u })).toBeNull();
+  });
+
+  it('opens the system terminal at the workspace folder only when desktop knows it', async () => {
+    const user = userEvent.setup();
+    const openSystemTerminal = vi.fn().mockResolvedValue(undefined);
+    renderMenuRow({ ...actions, openSystemTerminal }, session, 'D:\\data\\ndp');
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(items.findIndex((label) => /^Open in system terminal/u.test(label ?? ''))).toBe(
+      items.findIndex((label) => /^Archive/u.test(label ?? '')) - 1,
+    );
+    await user.keyboard('t');
+    expect(openSystemTerminal).toHaveBeenCalledWith('D:\\data\\ndp');
+    cleanup();
+
+    renderMenuRow({ ...actions, openSystemTerminal });
+    await user.click(screen.getByRole('button', { name: 'Session actions for Evidence review' }));
+    expect(screen.queryByRole('menuitem', { name: /system terminal/u })).toBeNull();
   });
 });
 

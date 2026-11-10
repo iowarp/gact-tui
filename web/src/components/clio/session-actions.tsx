@@ -1,5 +1,6 @@
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { MoreIcon } from '@/lib/icon-vocabulary';
+import { ExternalLinkIcon, PackageOpenIcon, Undo2Icon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { Session } from '@clio/core/v3';
 import { toast } from 'sonner';
@@ -119,15 +120,12 @@ export function ClioSessionActions({
   const items = (
     <>
       {management ? (
-        <>
-          <SessionOrganizeMenuItems
-            actions={management.actions}
-            onAction={runManagementAction}
-            onRename={setRenameTarget}
-            session={management.session}
-          />
-          <DropdownMenuSeparator />
-        </>
+        <SessionOrganizeMenuItems
+          actions={management.actions}
+          onAction={runManagementAction}
+          onRename={setRenameTarget}
+          session={management.session}
+        />
       ) : null}
       {onFork ? <SessionForkMenuItem onSelect={() => void run(onFork)} /> : null}
       <SessionShareMenuItem onSelect={() => setSharing(true)} />
@@ -151,17 +149,20 @@ export function ClioSessionActions({
       <DropdownMenuSeparator />
       {onOpenSystemTerminal ? (
         <KeyMenuItem
+          icon={ExternalLinkIcon}
           label="Open in system terminal"
           menuKey="T"
           onSelect={() => void run(onOpenSystemTerminal)}
         />
       ) : null}
       <KeyMenuItem
+        icon={PackageOpenIcon}
         label="Compact conversation…"
         menuKey="C"
         onSelect={() => setConfirmation('compact')}
       />
       <KeyMenuItem
+        icon={Undo2Icon}
         label="Remove last message…"
         menuKey="V"
         onSelect={() => setConfirmation('undo')}

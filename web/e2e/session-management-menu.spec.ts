@@ -37,11 +37,13 @@ for (const theme of ['light', 'dark']) {
         await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
       }
       const box = (await menu.boundingBox())!;
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      // Menus keep an 8px inset from the viewport edge (MN4).
+      expect(box.x).toBeGreaterThanOrEqual(8);
+      expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
       expect(box.y + box.height).toBeLessThanOrEqual(900);
       await page.screenshot({ path: testInfo.outputPath(`${theme}-${width}-header-menu.png`) });
-      await menu.getByRole('menuitem', { name: 'Export', exact: true }).hover();
+      // A click opens Export beside its menu, or in place on a phone (MN5).
+      await menu.getByRole('menuitem', { name: 'Export', exact: true }).click();
       await expect(
         page.getByRole('menuitem', { name: 'Download HTML', exact: true }),
       ).toBeVisible();
@@ -56,6 +58,18 @@ for (const theme of ['light', 'dark']) {
       const subBox = (await submenu.boundingBox())!;
       expect(subBox.x).toBeGreaterThanOrEqual(0);
       expect(subBox.x + subBox.width).toBeLessThanOrEqual(width);
+      if (width >= 600) {
+        // The submenu sits beside the menu, overlapping its padding by at most
+        // 4px as the spec draws it, not over the rows it belongs to.
+        expect(subBox.x >= box.x + box.width - 5 || subBox.x + subBox.width <= box.x + 5).toBe(
+          true,
+        );
+      } else {
+        await expect(menu.getByRole('menuitem', { name: 'Export', exact: true })).toHaveAttribute(
+          'aria-expanded',
+          'true',
+        );
+      }
       await page.screenshot({ path: testInfo.outputPath(`${theme}-${width}-export-menu.png`) });
       await page.keyboard.press('Escape');
       await page.keyboard.press('Escape');

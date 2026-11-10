@@ -7,7 +7,12 @@ import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { closeEmbeddedTerminalsForSession } from '@/tauri/workspace-terminal';
+import { toast } from 'sonner';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import {
+  closeEmbeddedTerminalsForSession,
+  openWorkspaceTerminal,
+} from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
 
 /**
@@ -166,6 +171,20 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         const shared = await repository.shareSession(targetSessionId, ttlSeconds);
         return new URL(shared.url, settings.endpoint).toString();
       },
+      openSystemTerminal: inTauri()
+        ? async (workspacePath) => {
+            try {
+              await openWorkspaceTerminal(workspacePath);
+            } catch (error) {
+              toast.error('Could not open the workspace terminal', {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : 'No supported terminal could be started.',
+              });
+            }
+          }
+        : undefined,
       restoreSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: false });
         await refreshNavigation();

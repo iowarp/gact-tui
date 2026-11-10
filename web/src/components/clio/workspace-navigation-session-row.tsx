@@ -1,5 +1,12 @@
 import type { Session, SessionExportMode } from '@clio/core/v3';
-import { BellRingIcon, GitForkIcon, PinIcon, PinOffIcon } from 'lucide-react';
+import {
+  BellRingIcon,
+  ExternalLinkIcon,
+  GitForkIcon,
+  MessageSquareIcon,
+  PinIcon,
+  PinOffIcon,
+} from 'lucide-react';
 import { EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -38,6 +45,8 @@ import { ClioShareSessionDialog } from './share-session-dialog';
 interface SessionNavigationRowProps {
   session: Session;
   workspaceId: string;
+  /** The workspace folder, when known; desktop offers the system terminal there. */
+  workspacePath?: string;
   activeSessionId: string;
   seenRevision?: string;
   /** The name of the agent the conversation runs. */
@@ -58,6 +67,7 @@ interface SessionNavigationRowProps {
 export function SessionNavigationRow({
   session,
   workspaceId,
+  workspacePath,
   activeSessionId,
   seenRevision,
   agentLabel,
@@ -88,6 +98,7 @@ export function SessionNavigationRow({
       session={session}
       topLevel={topLevel}
       workspaceId={workspaceId}
+      workspacePath={workspacePath}
     />
   );
   if (!forkLabel && !nestedDepth) return row;
@@ -113,6 +124,7 @@ export function SessionNavigationRow({
 function SessionRow({
   session,
   workspaceId,
+  workspacePath,
   activeSessionId,
   seenRevision,
   agentLabel,
@@ -136,7 +148,7 @@ function SessionRow({
   const active = session.id === activeSessionId;
   const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
-  const { forkSession, shareSession } = actions;
+  const { forkSession, shareSession, openSystemTerminal } = actions;
   const href = `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
   return (
     <>
@@ -157,6 +169,7 @@ function SessionRow({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[290px]" onKeyDown={selectMenuKey}>
                   <KeyMenuItem
+                    icon={MessageSquareIcon}
                     label="Open"
                     menuKey="Enter"
                     onSelect={() => {
@@ -164,7 +177,6 @@ function SessionRow({
                       navigate(href);
                     }}
                   />
-                  <DropdownMenuSeparator />
                   <SessionOrganizeMenuItems
                     actions={actions}
                     onAction={onAction}
@@ -178,7 +190,6 @@ function SessionRow({
                       }
                     />
                   ) : null}
-                  <DropdownMenuSeparator />
                   {shareSession ? <SessionShareMenuItem onSelect={() => setSharing(true)} /> : null}
                   <SessionExportMenu
                     onExport={(mode) =>
@@ -188,6 +199,17 @@ function SessionRow({
                       )
                     }
                   />
+                  {openSystemTerminal && workspacePath ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <KeyMenuItem
+                        icon={ExternalLinkIcon}
+                        label="Open in system terminal"
+                        menuKey="T"
+                        onSelect={() => void openSystemTerminal(workspacePath)}
+                      />
+                    </>
+                  ) : null}
                   <DropdownMenuSeparator />
                   <SessionLifecycleMenuItems
                     actions={actions}

@@ -196,6 +196,7 @@ export function WorkspaceNavigation({
       session={session}
       topLevel={topLevel}
       workspaceId={session.workspace_id}
+      workspacePath={workspaces.find((workspace) => workspace.id === session.workspace_id)?.path}
     />
   );
 
