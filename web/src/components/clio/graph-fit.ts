@@ -25,30 +25,42 @@ export interface PaneSize {
 export interface ColumnFit {
   /** Gap between columns, in graph units. */
   gap: number;
-  /** The canvas scale: 1 when the columns fit, never below `GRAPH_MIN_ZOOM`. */
+  /** The canvas scale: 1 when the columns fit, never below the floor (`GRAPH_MIN_ZOOM`). */
   zoom: number;
 }
 
 /**
  * Fit `columns` cards of `width` to a pane: the gap shrinks first, then the whole
- * drawing scales down to `GRAPH_MIN_ZOOM`; past that the reader pans.
+ * drawing scales down to `floor`; past that the reader pans.
  */
 export function fitColumns(
   paneWidth: number | undefined,
   columns: number,
   width: number,
+  floor: number = GRAPH_MIN_ZOOM,
 ): ColumnFit {
   // Not measured yet (or no layout at all): the spec's size until the pane reports.
   if (!paneWidth) return { gap: GRAPH_GAP.max, zoom: 1 };
   const room = paneWidth - 2 * GRAPH_MARGIN;
-  if (columns <= 1)
-    return { gap: GRAPH_GAP.max, zoom: Math.max(GRAPH_MIN_ZOOM, Math.min(1, room / width)) };
+  if (columns <= 1) return { gap: GRAPH_GAP.max, zoom: Math.max(floor, Math.min(1, room / width)) };
   const gap = Math.min(
     GRAPH_GAP.max,
     Math.max(GRAPH_GAP.min, (room - columns * width) / (columns - 1)),
   );
   const span = columns * width + (columns - 1) * gap;
-  return { gap, zoom: Math.max(GRAPH_MIN_ZOOM, Math.min(1, room / span)) };
+  return { gap, zoom: Math.max(floor, Math.min(1, room / span)) };
+}
+
+/** The scale that also fits a drawing `drawingHeight` tall to the pane, never below `floor`. */
+export function fitHeight(
+  fit: ColumnFit,
+  paneHeight: number | undefined,
+  drawingHeight: number,
+  floor: number = GRAPH_MIN_ZOOM,
+): number {
+  if (!paneHeight || drawingHeight <= 0) return fit.zoom;
+  const room = paneHeight - 2 * GRAPH_MARGIN;
+  return Math.max(floor, Math.min(fit.zoom, room / drawingHeight));
 }
 
 /** The drawing anchored at the pane's top-left, as the spec lays graphs out. */

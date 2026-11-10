@@ -27,6 +27,7 @@ import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
   isSourceMode,
+  keepFocusInFrame,
   type FileViewerModeSlot,
 } from './file-viewer-modes';
 
@@ -125,15 +126,19 @@ function FileModeShortcut({
   useShortcut(
     id,
     () => {
+      const frame = region.current;
       if (value !== target) {
         cameFrom.current = value;
         onChange(target);
+        keepFocusInFrame(frame);
         return;
       }
       const back =
         modes.find((mode) => mode.value === cameFrom.current && mode.value !== target) ??
         modes.find((mode) => mode.value !== target);
-      if (back) onChange(back.value);
+      if (!back) return;
+      onChange(back.value);
+      keepFocusInFrame(frame);
     },
     { region },
   );
