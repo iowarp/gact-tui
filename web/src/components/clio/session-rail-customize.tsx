@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel } from '@/components/clio/primitives/list-row';
+import { useKeysPresentation } from '@/lib/shortcuts/hooks';
 import {
   RAIL_GROUP_LABELS,
   railGroupSections,
@@ -16,6 +17,9 @@ import {
   type SessionRailLayout,
   type SessionRailSectionId,
 } from './session-rail-layout';
+
+/** A section moves up or down with Alt (⌥) and the arrow. */
+const MOVE_KEYS = ['Alt+Up', 'Alt+Down'] as const;
 
 /** Order, add and remove the rail's sections; saved on this device. */
 export function SessionRailCustomize({
@@ -77,6 +81,7 @@ function SectionOrder({
   label: string;
   onChange: (layout: SessionRailLayout) => void;
 }) {
+  const moveKeys = useKeysPresentation(MOVE_KEYS);
   return (
     <Sortable
       value={order}
@@ -108,7 +113,8 @@ function SectionOrder({
                 size="sm"
                 className="h-8 min-w-0 flex-1 cursor-grab touch-none justify-start gap-2 px-2 text-[13px] font-normal active:cursor-grabbing"
                 aria-label={`Drag ${name} in layout`}
-                title="Drag to reorder. Alt+Up or Alt+Down moves with the keyboard."
+                aria-keyshortcuts={moveKeys?.aria}
+                title={`Drag to reorder, or ${moveKeys?.text ?? ''}`}
                 onKeyDown={(event) => {
                   if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
                     event.preventDefault();

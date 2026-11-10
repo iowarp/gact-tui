@@ -267,7 +267,12 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, 'onSubmit' 
   maxFiles?: number;
   // bytes
   maxFileSize?: number;
-  onError?: (err: { code: 'max_files' | 'max_file_size' | 'accept'; message: string }) => void;
+  onError?: (err: {
+    code: 'max_files' | 'max_file_size' | 'accept';
+    message: string;
+    /** Names of the files this error left out. */
+    files?: string[];
+  }) => void;
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>,
@@ -362,12 +367,17 @@ export const PromptInput = ({
       }
       const withinSize = (f: File) => (maxFileSize ? f.size <= maxFileSize : true);
       const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
+      const oversized = accepted.filter((f) => !withinSize(f)).map((f) => f.name);
+      if (oversized.length > 0) {
         onError?.({
           code: 'max_file_size',
-          message: 'All files exceed the maximum size.',
+          message:
+            sized.length === 0
+              ? 'All files exceed the maximum size.'
+              : 'Some files exceed the maximum size.',
+          files: oversized,
         });
-        return;
+        if (sized.length === 0) return;
       }
 
       setItems((prev) => {
@@ -423,12 +433,17 @@ export const PromptInput = ({
       }
       const withinSize = (f: File) => (maxFileSize ? f.size <= maxFileSize : true);
       const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
+      const oversized = accepted.filter((f) => !withinSize(f)).map((f) => f.name);
+      if (oversized.length > 0) {
         onError?.({
           code: 'max_file_size',
-          message: 'All files exceed the maximum size.',
+          message:
+            sized.length === 0
+              ? 'All files exceed the maximum size.'
+              : 'Some files exceed the maximum size.',
+          files: oversized,
         });
-        return;
+        if (sized.length === 0) return;
       }
 
       const currentCount = files.length;

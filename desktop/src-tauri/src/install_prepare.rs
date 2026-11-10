@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::{brand_backend, execution_install, runtime_pack, sidecar_setup};
+use crate::{brand_backend, execution_install, install_log, runtime_pack, sidecar_setup};
 
 /// The platform's per-user local data folder, as the app's path resolver uses it.
 fn data_local_dir() -> Result<PathBuf, String> {
@@ -43,26 +43,31 @@ fn prepare() -> Result<(), String> {
         .map_err(|error| format!("prepare managed storage: {error}"))?;
     let runtime = runtime_pack::prepare_bundled_runtime(&resource_dir, &managed_storage)?
         .ok_or("this desktop package does not carry its agent runtime")?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: bundled runtime ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare the desktop workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare desktop storage: {error}"))?;
     execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: managed packages ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     Ok(())
 }
 
 /// Run the step; on failure the text says what failed. A later launch repeats
 /// whatever did not finish, so a failure here never leaves the app unusable.
 pub fn prepare_runtime_command() -> Result<(), String> {
-    prepare().map_err(|error| format!("Desktop setup did not finish: {error}"))
+    install_log::start(None);
+    prepare().map_err(|error| {
+        let report = format!("Desktop setup did not finish: {error}");
+        install_log::record(&report);
+        report
+    })
 }
 
 #[cfg(test)]

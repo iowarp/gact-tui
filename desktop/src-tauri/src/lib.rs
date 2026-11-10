@@ -26,6 +26,7 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+mod install_log;
 #[cfg(not(windows))]
 mod install_prepare;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -528,19 +529,19 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
             .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
     let runtime = runtime_pack::prepare_runtime_for_installer(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: bundled runtime ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     let workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
         .map_err(|error| format!("prepare package workspace: {error}"))?;
     let user = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
         .map_err(|error| format!("prepare package storage: {error}"))?;
     execution_install::prepare_packages_for_install(&runtime, &workspace, &user)?;
-    println!(
+    install_log::line(&format!(
         "Installer checkpoint: managed packages ready {:.3}s",
         started.elapsed().as_secs_f64()
-    );
+    ));
     Ok(())
 }
 
@@ -552,7 +553,17 @@ pub fn prepare_runtime_command() -> Result<(), String> {
     let install_dir = std::env::current_exe()
         .ok()
         .and_then(|executable| executable.parent().map(std::path::Path::to_path_buf));
-    match prepare_runtime_for_install() {
+    install_log::start(
+        install_dir
+            .as_ref()
+            .map(|dir| dir.join("data").join("runtime-install.log"))
+            .as_deref(),
+    );
+    let outcome = prepare_runtime_for_install();
+    if let Err(error) = &outcome {
+        install_log::record(&format!("Installer failed: {error}"));
+    }
+    match outcome {
         Ok(()) => {
             if let Some(dir) = &install_dir {
                 runtime_install_report::clear_failure(dir);

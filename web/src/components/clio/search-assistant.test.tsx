@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ClioSearchAssistant } from './search-assistant';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { vocab } from '@/lib/brand-vocabulary';
 
 const mocks = vi.hoisted(() => ({
@@ -73,14 +74,16 @@ function show(onQueryChange = vi.fn(), onBack = vi.fn()) {
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <MemoryRouter>
-        <ClioSearchAssistant
-          workspaceId="ws_current"
-          parentSessionId="parent_1"
-          query="Where did we discuss the plant?"
-          onQueryChange={onQueryChange}
-          onBack={onBack}
-          onClose={vi.fn()}
-        />
+        <TooltipProvider>
+          <ClioSearchAssistant
+            workspaceId="ws_current"
+            parentSessionId="parent_1"
+            query="Where did we discuss the plant?"
+            onQueryChange={onQueryChange}
+            onBack={onBack}
+            onClose={vi.fn()}
+          />
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

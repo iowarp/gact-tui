@@ -122,7 +122,9 @@ export function useSourceFrameFooter(footer: SourceFooter): ReactNode {
           onClick={footer.onConfirm}
         >
           {footer.confirm.label}
-          <ShortcutKeys keys={['Ctrl+Enter']} variant="inline" className="border-current/45" />
+          <span aria-hidden="true" className="inline-flex">
+            <ShortcutKeys keys={['Ctrl+Enter']} variant="inline" className="border-current/45" />
+          </span>
         </Button>
       ) : null}
     </div>
