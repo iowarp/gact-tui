@@ -9,7 +9,7 @@ import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-st
 import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availability';
 import type { ConnectionSettings } from '@/lib/connection';
 import { useClioMenuRequest } from '@/lib/clio-menu-request';
-import { isSettingsRoute } from '@/lib/settings-window-route';
+import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
@@ -64,9 +64,10 @@ export function NavigationAgentMenu({
   const tooltip = `${brand.name}: ${line.text}${streamError ? `. ${streamError}` : ''}`;
   const [menuOpen, setMenuOpen] = useState(false);
   // In a browser Alt Space opens the CLIO menu; Desktop keeps it for its window menu.
-  useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri() });
-  // Behind Settings the CLIO menu is covered, so the request falls through.
-  useClioMenuRequest(() => setMenuOpen(true), !isSettingsRoute(currentPath));
+  // Under the Settings window the window's own CLIO menu takes the key and requests.
+  const uncovered = () => !settingsWindowOpen();
+  useShortcut('app-menu', () => setMenuOpen(true), { enabled: !inTauri(), when: uncovered });
+  useClioMenuRequest(() => setMenuOpen(true), uncovered);
 
   return (
     <DropdownMenu
@@ -84,7 +85,19 @@ export function NavigationAgentMenu({
           size="lg"
           tooltip={tooltip}
         >
-          <BrandIcon className="size-[26px]! shrink-0 text-primary" />
+          <span className="relative grid shrink-0 place-items-center">
+            <BrandIcon className="size-[26px]! shrink-0 text-primary" />
+            {line.tone === 'error' || line.tone === 'warning' || line.tone === 'running' ? (
+              // Folded to icons the status line is hidden; its shaped glyph stays on the mark.
+              <StatusIndicator
+                className="absolute -right-[3px] -bottom-[3px] hidden size-3 rounded-full bg-sidebar group-data-[collapsible=icon]:inline-grid [&>*]:size-3!"
+                display="column"
+                label={line.text}
+                mark="glyph"
+                tone={line.tone}
+              />
+            ) : null}
+          </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
               <span className="truncate font-heading text-[15px] font-semibold">

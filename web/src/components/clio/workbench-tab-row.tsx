@@ -65,6 +65,8 @@ import type { WorkbenchTab } from './workbench-shared';
 const TAB_GAP_PX = 2;
 /** The "N more tabs" button (px-1.5, count and chevron) and the header gap before it. */
 const OVERFLOW_BUTTON_PX = 44;
+/** An icon-only tab (px-2 and a 14px icon), to estimate what compacting one saves. */
+const COMPACT_TAB_PX = 30;
 
 export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
   if (tab.kind === 'artifact' && tab.artifact)
@@ -187,14 +189,16 @@ export function WorkbenchTabRow({
   const fitKey = `${width}|${activeTabId}|${pinnedKey}|${tabs
     .map((tab) => `${tab.id}:${tabLabel(tab)}`)
     .join('|')}`;
-  const [measured, setMeasured] = useState<{ key: string; fit: TabRowFit; shown: number }>({
-    key: fitKey,
-    fit: 'full',
-    shown: 0,
-  });
+  const [measured, setMeasured] = useState<{
+    key: string;
+    fit: TabRowFit;
+    shown: number;
+    compacted: number;
+  }>({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   // Any change starts again from full names; the layout effect below then
   // steps down while the row still overflows, before the browser paints.
-  if (measured.key !== fitKey) setMeasured({ key: fitKey, fit: 'full', shown: 0 });
+  if (measured.key !== fitKey)
+    setMeasured({ key: fitKey, fit: 'full', shown: 0, compacted: 0 });
   const fit = measured.key === fitKey ? measured.fit : 'full';
   // Tab ids, the most recently open first: the list at the end takes the least recent.
   const [recency, setRecency] = useState<string[]>([]);
@@ -206,12 +210,35 @@ export function WorkbenchTabRow({
   const hidden = fit === 'overflow' ? overflowTabs(tabs, activeTabId, recency, measured.shown) : [];
   const hiddenIds = new Set(hidden.map((tab) => tab.id));
   const shownTabs = hidden.length ? tabs.filter((tab) => !hiddenIds.has(tab.id)) : tabs;
+  // Inactive named tabs, the least recently used first: they become icons one
+  // at a time, so the rest keep their names while there is room.
+  const compactOrder = overflowTabs(tabs, activeTabId, recency, 0)
+    .filter((tab) => !pinnedIds.has(tab.id))
+    .reverse();
+  const compactIds =
+    fit === 'compact'
+      ? new Set(compactOrder.slice(0, measured.compacted).map((tab) => tab.id))
+      : undefined;
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host || host.scrollWidth <= host.clientWidth + 1) return;
+    const excess = host.scrollWidth - host.clientWidth;
     setMeasured((current) => {
       if (current.key !== fitKey) return current;
-      if (current.fit === 'full') return { key: fitKey, fit: 'compact', shown: 0 };
+      if (current.fit === 'full') {
+        // Estimate how many icons it takes; the next pass adds one more if short.
+        let saved = 0;
+        let compacted = 0;
+        for (const tab of compactOrder) {
+          if (saved >= excess) break;
+          const node = host.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(tab.id)}"]`);
+          saved += Math.max(0, (node?.offsetWidth ?? 0) - COMPACT_TAB_PX);
+          compacted += 1;
+        }
+        return { key: fitKey, fit: 'compact', shown: 0, compacted: Math.max(1, compacted) };
+      }
+      if (current.fit === 'compact' && current.compacted < compactOrder.length)
+        return { ...current, compacted: current.compacted + 1 };
       if (current.fit === 'compact') {
         // Into the list in one pass: the compact widths are the ones the
         // shown tabs keep, so count how many fit beside the list button.
@@ -232,11 +259,11 @@ export function WorkbenchTabRow({
           if (used <= room) break;
           shown -= 1;
         }
-        return { key: fitKey, fit: nextTabRowFit(current.fit), shown };
+        return { ...current, fit: nextTabRowFit(current.fit), shown };
       }
       return current.shown > 0 ? { ...current, shown: current.shown - 1 } : current;
     });
-  }, [activeTabId, fit, fitKey, measured.shown, recency, tabs]);
+  }, [activeTabId, compactOrder, fit, fitKey, measured.compacted, measured.shown, recency, tabs]);
 
   const closeTabKeys = useShortcutPresentation('close-tab')?.aria;
   useShortcut(
@@ -334,7 +361,7 @@ export function WorkbenchTabRow({
                         changed={tabChanged(tab, changedPaths)}
                         // The row is a size container: one tab never outgrows it.
                         className="max-w-[min(14rem,100cqw)]"
-                        compact={fit !== 'full'}
+                        compact={fit === 'overflow' || Boolean(compactIds?.has(tab.id))}
                         data-tab-id={tab.id}
                         icon={<WorkbenchTabIcon tab={tab} />}
                         label={label}

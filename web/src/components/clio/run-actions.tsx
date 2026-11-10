@@ -14,21 +14,26 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-/** Stop and the run's menu, sized for a row's hover action column. */
+/**
+ * Stop and the run's menu, sized for a row's hover action column. `menu` leaves
+ * Stop out for a run tab, whose frame bar draws Stop before its rule.
+ */
 export function RunActions({
   onCancel,
   pending,
   row,
+  part = 'all',
 }: {
   onCancel: () => void;
   pending: boolean;
   row: RunRow;
+  part?: 'all' | 'menu';
 }) {
   const cancellable = row.cancellable;
   const href = runConversationHref(row);
   return (
     <div className="flex items-center gap-0.5">
-      {cancellable && (
+      {cancellable && part === 'all' && (
         <NamedTooltip label={row.cancelRequested ? 'Cancellation requested' : 'Stop'}>
           <Button
             aria-label={`Cancel ${row.taskKind ?? 'task'}: ${row.assignment || row.label}`}

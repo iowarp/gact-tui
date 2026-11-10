@@ -1,6 +1,6 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import { createElement, Fragment, useState, type ReactNode } from 'react';
-import { CheckIcon, CopyIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon, OctagonMinusIcon, ShieldQuestionIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { copyText } from '@/lib/clipboard';
@@ -58,6 +58,8 @@ export function ToolCompactRow({
   const success = status === 'succeeded';
   const interrupted = status === 'interrupted';
   const cancelled = status === 'cancelled';
+  // A call the person refused folds into the spec's decision row: "Denied · target · you denied it".
+  const denied = !waiting && status === 'denied';
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   const action = operation.action || getToolActionLabel(tool);
@@ -65,16 +67,18 @@ export function ToolCompactRow({
   // call has already returned, so the row never shows a done mark beside it.
   const statusLabel = waiting
     ? 'Waiting for you'
-    : interrupted
-      ? failure || clioStatusLabel(status)
-      : cancelled
-        ? 'Stopped'
-        : failure
-          ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
-          : clioStatusLabel(status);
+    : denied
+      ? 'Denied'
+      : interrupted
+        ? failure || clioStatusLabel(status)
+        : cancelled
+          ? 'Stopped'
+          : failure
+            ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+            : clioStatusLabel(status);
   const tone: StatusTone = waiting
     ? 'running'
-    : interrupted || cancelled
+    : interrupted || cancelled || denied
       ? 'stopped'
       : active
         ? 'running'
@@ -86,6 +90,7 @@ export function ToolCompactRow({
   const codeArgument = operation.subjects.some(
     (subject) =>
       subject.id === 'operation-command' ||
+      subject.id === 'question-answer' ||
       subject.target === 'file' ||
       /^(fs_|shell_|run_code|ssh_)/u.test(tool.name),
   );
@@ -141,6 +146,7 @@ export function ToolCompactRow({
   // partial outcome is counted in words by the operation's own metadata.
   const failureWord =
     !waiting &&
+    !denied &&
     !active &&
     !success &&
     !interrupted &&
@@ -155,10 +161,16 @@ export function ToolCompactRow({
     </span>
   ) : null;
   const outcome =
-    waiting || metadata || failureWord ? (
+    waiting || metadata || failureWord || denied ? (
       <>
         {metadata}
         {waiting}
+        {denied ? (
+          <span data-slot="tool-outcome" className="text-warning">
+            {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')
+              ?.text || 'you denied it'}
+          </span>
+        ) : null}
         {failureWord ? (
           <span
             data-slot="tool-outcome"
@@ -193,7 +205,7 @@ export function ToolCompactRow({
           />
         ) : null
       }
-      icon={createElement(toolKindIcon(tool.name))}
+      icon={denied ? <ShieldQuestionIcon aria-hidden="true" /> : createElement(toolKindIcon(tool.name))}
       name={
         <CollapsibleTrigger asChild>
           <button
@@ -203,7 +215,7 @@ export function ToolCompactRow({
             data-slot="tool-action-text"
             className="cursor-pointer rounded-[3px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
           >
-            {action}
+            {denied ? 'Denied' : action}
           </button>
         </CollapsibleTrigger>
       }
@@ -242,7 +254,19 @@ export function ToolCompactRow({
           </span>
         ) : null
       }
-      status={<StatusIndicator tone={tone} label={statusLabel} display="column" mark="glyph" />}
+      status={
+        <StatusIndicator
+          tone={tone}
+          label={statusLabel}
+          display="column"
+          mark="glyph"
+          icon={
+            denied ? (
+              <OctagonMinusIcon aria-hidden="true" className="size-3.5 text-warning" />
+            ) : undefined
+          }
+        />
+      }
       info={info}
     />
   );

@@ -65,6 +65,8 @@ interface ClioMenuContentProps {
   connectionAvailabilities: ConnectionAvailabilityMap;
   connections: readonly ConnectionSettings[];
   onConnect: (connection: ConnectionSettings) => void | Promise<void>;
+  /** Where focus goes on close when the menu has no visible trigger to return to. */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 const MENU_HINTS = [
@@ -184,6 +186,7 @@ export function ClioMenuContent({
   connectionAvailabilities,
   connections,
   onConnect,
+  onCloseAutoFocus,
 }: ClioMenuContentProps) {
   const runtime = useRuntimeVersion();
   const update = useUpdateStatus(runtime.version);
@@ -251,9 +254,10 @@ export function ClioMenuContent({
           'max-h-[85dvh] w-full max-w-full rounded-t-[14px] rounded-b-none data-open:zoom-in-100',
       )}
       data-picker-sheet={narrow ? '' : undefined}
-      onCloseAutoFocus={() => {
+      onCloseAutoFocus={(event) => {
         setQuery('');
         setAdding(false);
+        onCloseAutoFocus?.(event);
       }}
       onKeyDownCapture={(event) => {
         // Typing anywhere in the menu searches the agents instead of jumping by first letter.

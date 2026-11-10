@@ -24,9 +24,9 @@ import {
   actionLabels,
   editableKinds,
   kindLabels,
-  priorityError,
   subjectFor,
   type PolicyDraft,
+  type PriorityChoice,
   type PolicyKind,
 } from './settings-access-rule-model';
 
@@ -60,7 +60,7 @@ function RuleSelect({
 }: {
   id: string;
   value: string;
-  options: ReadonlyArray<{ value: string; label: string; icon?: ReactNode }>;
+  options: ReadonlyArray<{ value: string; label: string; icon?: ReactNode; hint?: string }>;
   onChange: (value: string) => void;
   icon?: ReactNode;
   disabled?: boolean;
@@ -83,12 +83,20 @@ function RuleSelect({
           <SelectItem key={option.value} value={option.value}>
             {option.icon}
             {option.label}
+            {option.hint ? (
+              <span className="ml-auto min-w-0 truncate pl-3 text-muted-foreground">
+                {option.hint}
+              </span>
+            ) : null}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
   );
 }
+
+/** Radix Select reserves '' for no value, so leaving placement to the agent needs a token. */
+const AFTER = 'after';
 
 const fieldClass =
   'h-[1.875rem] w-full min-w-0 text-[0.78125rem] placeholder:font-sans md:text-[0.78125rem]';
@@ -104,6 +112,7 @@ export function AccessRuleDialog({
   draft,
   onDraftChange,
   workspaces,
+  priorities,
   onConfirm,
 }: {
   open: boolean;
@@ -112,13 +121,14 @@ export function AccessRuleDialog({
   draft: PolicyDraft;
   onDraftChange: (draft: PolicyDraft) => void;
   workspaces?: readonly Workspace[];
+  /** Where the rule can rank, in the rows' terms (see `priorityChoices`). */
+  priorities: readonly PriorityChoice[];
   onConfirm: () => void;
 }) {
   const [touched, setTouched] = useState(false);
   const set = (patch: Partial<PolicyDraft>) => onDraftChange({ ...draft, ...patch });
   const subject = subjectFor(draft.kind);
   const subjectMissing = !draft.subject.trim();
-  const priorityProblem = priorityError(draft.priority);
   const domain = draft.kind === 'domain';
   const scope = domain ? 'workspace' : draft.scope;
   const changeOpen = (next: boolean) => {
@@ -133,7 +143,7 @@ export function AccessRuleDialog({
           setTouched(false);
           onConfirm();
         },
-        disabled: subjectMissing || Boolean(priorityProblem),
+        disabled: subjectMissing,
       }}
       icon={<ShieldIcon className="size-4" />}
       onOpenChange={changeOpen}
@@ -268,19 +278,15 @@ export function AccessRuleDialog({
           </SettingsRow>
         )}
         <SettingsRow
-          info="Higher priority wins. A tie goes to the stricter rule. Leave blank to place the rule after existing rules."
-          error={priorityProblem}
+          info="Higher priority wins. A tie goes to the stricter rule."
           htmlFor="access-rule-priority"
           title="Priority"
         >
-          <Input
-            aria-invalid={priorityProblem ? true : undefined}
-            className={cn(fieldClass, 'text-right font-mono tabular-nums')}
+          <RuleSelect
             id="access-rule-priority"
-            inputMode="numeric"
-            onChange={(event) => set({ priority: event.target.value })}
-            placeholder="After existing rules"
-            value={draft.priority}
+            onChange={(priority) => set({ priority: priority === AFTER ? '' : priority })}
+            options={priorities.map((choice) => ({ ...choice, value: choice.value || AFTER }))}
+            value={draft.priority || AFTER}
           />
         </SettingsRow>
       </div>

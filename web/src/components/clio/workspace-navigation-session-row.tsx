@@ -31,10 +31,12 @@ import { conversationForkOrigin, forkAuthorLabel } from './conversation-fork-ori
 import { KeyMenuItem } from './menu-key-items';
 import { selectMenuKey } from './select-menu-key';
 import { ClioRelativeTime } from './relative-time';
+import { holdPreviews, previewsHeld } from './row-preview-hold';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 import { SessionExportMenu } from './session-export-menu';
+import { SessionMoveMenu } from './session-move-menu';
 import {
   SessionHistoryConfirmDialog,
   type SessionHistoryConfirmation,
@@ -47,28 +49,6 @@ import {
   SessionShareMenuItem,
 } from './session-management-menu';
 import { ClioShareSessionDialog } from './share-session-dialog';
-
-/*
- * Opening a conversation can reorder the list (the draft row goes away), which
- * moves another row under a pointer that never moved. Previews stay closed
- * until the pointer really moves.
- */
-let previewsHeldAt: { x: number; y: number } | null = null;
-
-function releasePreviews(event: PointerEvent) {
-  if (
-    !previewsHeldAt ||
-    Math.hypot(event.clientX - previewsHeldAt.x, event.clientY - previewsHeldAt.y) > 3
-  ) {
-    previewsHeldAt = null;
-    window.removeEventListener('pointermove', releasePreviews);
-  }
-}
-
-function holdPreviews(x: number, y: number) {
-  previewsHeldAt = { x, y };
-  window.addEventListener('pointermove', releasePreviews);
-}
 
 interface SessionNavigationRowProps {
   session: Session;
@@ -209,7 +189,7 @@ function SessionRow({
       <HoverCard
         closeDelay={100}
         onOpenChange={(next) => {
-          if (next && previewsHeldAt) return;
+          if (next && previewsHeld()) return;
           setHoverOpen(next);
         }}
         open={hoverOpen && !menuOpen && !isMobile}
@@ -263,6 +243,7 @@ function SessionRow({
                       }
                     />
                   ) : null}
+                  <SessionMoveMenu actions={actions} onAction={onAction} session={session} />
                   {shareSession ? <SessionShareMenuItem onSelect={() => setSharing(true)} /> : null}
                   <SessionExportMenu
                     onExport={(mode) =>

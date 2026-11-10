@@ -160,6 +160,7 @@ export function WorkspaceComposer({
           contextReferences={workspaceRouteState.canUseContextReferences(
             data.capabilities.data?.capabilities,
           )}
+          capabilitiesPending={data.capabilities.isPending}
           commands={commands.commands}
           commandsState={commands.commandsState}
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}

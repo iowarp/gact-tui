@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { WindowShell } from '@/components/clio/primitives/dialog-frame';
+import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { SettingsNavRail } from '@/components/clio/settings-nav-rail';
 import {
@@ -241,6 +242,8 @@ export function SettingsWindow() {
       }
       title="Settings"
     >
+      {/* Alt Space over Settings: the CLIO menu from the window's top-left (DialogContent is fixed). */}
+      <FrameClioMenu className="top-12 left-3" />
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">
           <SettingsScopeContext.Provider value={scopeLine}>

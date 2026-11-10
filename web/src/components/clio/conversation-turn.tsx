@@ -27,6 +27,7 @@ import {
   permissionInteractionForTool,
   questionInteractionsForTool,
   splitWaitingQuestion,
+  withPermissionDecision,
 } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { bucketIntensity } from '@/lib/attention-text';
@@ -440,8 +441,13 @@ function ActivityLane({
     </Button>
   ) : null;
   const run = collapses
-    ? transcriptRunSummary(head, (tool) =>
-        subagentsForTool(tool, subagents).map((subagent) => subagent.id),
+    ? transcriptRunSummary(
+        head.map((item) => ({
+          ...item,
+          // A call the person refused is counted as denied, not failed.
+          tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
+        })),
+        (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
       )
     : undefined;
   return (
@@ -482,20 +488,58 @@ function ActivityLane({
           onOpenChange={setRunOpen}
           open={runOpen}
           outcome={
+            run.failed || run.denied || run.interrupted ? (
+              <span>
+                {[
+                  run.failed ? (
+                    <span key="failed" className="text-destructive">
+                      {run.failed} failed
+                    </span>
+                  ) : null,
+                  run.denied ? (
+                    <span key="denied" className="text-warning">
+                      {run.denied} denied
+                    </span>
+                  ) : null,
+                  run.interrupted ? <span key="stopped">{run.interrupted} stopped</span> : null,
+                ]
+                  .filter(Boolean)
+                  .flatMap((part, index) => (index ? [', ', part] : [part]))}
+              </span>
+            ) : undefined
+          }
+          outcomeTitle={
             [
               run.failed ? `${run.failed} failed` : '',
+              run.denied ? `${run.denied} denied` : '',
               run.interrupted ? `${run.interrupted} stopped` : '',
             ]
               .filter(Boolean)
               .join(', ') || undefined
           }
-          outcomeTone={run.failed ? 'error' : 'muted'}
+          outcomeTone="muted"
           status={
             <StatusIndicator
               display="column"
-              label={run.failed ? 'Some calls failed' : run.interrupted ? 'Stopped' : 'Done'}
+              label={
+                run.failed
+                  ? 'Some calls failed'
+                  : run.denied
+                    ? 'Some calls were denied'
+                    : run.interrupted
+                      ? 'Stopped'
+                      : 'Done'
+              }
               mark="glyph"
-              tone={run.failed ? 'error' : run.interrupted ? 'stopped' : 'success'}
+              tone={
+                run.failed
+                  ? 'error'
+                  : run.denied
+                    ? 'warning'
+                    : run.interrupted
+                      ? 'stopped'
+                      : 'success'
+              }
             />
           }
         />

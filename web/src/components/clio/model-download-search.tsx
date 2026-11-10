@@ -170,6 +170,7 @@ export function ModelDownloadSearch({
           facetTabs={facets}
           facetsOpen={facetsOpen}
           onFacetsOpenChange={setFacetsOpen}
+          anchors
         />
       </Field>
       <div className="-mx-2 flex min-h-0 min-w-0 flex-1 flex-col">

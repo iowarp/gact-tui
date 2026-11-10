@@ -10,6 +10,12 @@ export interface MenuRowProps {
   label: string;
   /** Muted words after the label; cut with an ellipsis, full text on hover. */
   description?: string;
+  /**
+   * The description is a reason the row is unavailable and must be read whole:
+   * it stays after the label when it fits, else it wraps onto lines of its own
+   * under the label instead of being cut (a ⋯ menu on a phone).
+   */
+  wrapDescription?: boolean;
   /** A small muted second line under the label (a host, what a choice does). */
   detail?: string;
   /**
@@ -50,6 +56,7 @@ export const MenuRow = memo(function MenuRow({
   icon,
   label,
   description,
+  wrapDescription = false,
   detail,
   status,
   tag,
@@ -83,14 +90,22 @@ export const MenuRow = memo(function MenuRow({
           </span>
         </span>
       ) : (
-        <span className="flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap">
+        <span
+          className={cn(
+            'flex min-w-0 flex-1 items-baseline gap-2 whitespace-nowrap',
+            wrapDescription && 'flex-wrap gap-y-0 py-0.5',
+          )}
+        >
           <span className={cn('max-w-full shrink-0 truncate', muted && 'text-muted-foreground')}>
             {label}
           </span>
           {description ? (
             <span
-              title={description}
-              className="min-w-0 truncate text-[12px] text-muted-foreground"
+              title={wrapDescription ? undefined : description}
+              className={cn(
+                'min-w-0 text-[12px] text-muted-foreground',
+                wrapDescription ? 'leading-[1.35] whitespace-normal' : 'truncate',
+              )}
             >
               {description}
             </span>
@@ -114,15 +129,7 @@ export const MenuRow = memo(function MenuRow({
         </span>
       ) : null}
       {shortcut ? <ShortcutKeys id={shortcut} variant="menu" className="pl-2" /> : null}
-      {accelerator ? (
-        <kbd
-          data-slot="menu-accelerator"
-          // A jump letter is for the keyboard: a menu opened with the mouse shows only keys.
-          className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
-        >
-          {accelerator}
-        </kbd>
-      ) : null}
+      {accelerator ? <MenuAcceleratorKey letter={accelerator} /> : null}
       {submenu ? (
         <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       ) : null}
@@ -130,6 +137,39 @@ export const MenuRow = memo(function MenuRow({
     </span>
   );
 });
+
+/** A row's jump letter, in the last key column; the menu host handles the key. */
+export function MenuAcceleratorKey({ letter }: { letter: string }) {
+  return (
+    <kbd
+      data-slot="menu-accelerator"
+      // A jump letter is for the keyboard: a menu opened with the mouse shows only keys.
+      className="w-4 shrink-0 pl-2 text-right font-sans text-[11.5px] text-muted-foreground [[data-opened-by=pointer]_&]:hidden"
+    >
+      {letter}
+    </kbd>
+  );
+}
+
+/**
+ * Jump letters for rows whose names are only known at run time (folded modes
+ * and tools): a word's first letter, then any letter of the name, then a
+ * digit, skipping letters `taken` by the menu's fixed rows and each other.
+ */
+// oxlint-disable-next-line react/only-export-components
+export function assignJumpLetters(labels: readonly string[], taken: Iterable<string>): string[] {
+  const used = new Set([...taken].map((letter) => letter.toLocaleUpperCase()));
+  return labels.map((label) => {
+    const letters = label.toLocaleUpperCase().replace(/[^A-Z0-9 ]/gu, '');
+    const initials = letters.split(' ').map((word) => word.charAt(0));
+    const letter = [...initials, ...letters.replace(/ /gu, ''), ...'123456789'].find(
+      (candidate) => candidate && !used.has(candidate),
+    );
+    if (!letter) return '';
+    used.add(letter);
+    return letter;
+  });
+}
 
 /**
  * The keydown handler for a menu whose rows carry `accelerator` letters: the
@@ -139,6 +179,8 @@ export const MenuRow = memo(function MenuRow({
 // oxlint-disable-next-line react/only-export-components
 export function menuAcceleratorKeyDown(event: KeyboardEvent<HTMLElement>): void {
   if (event.altKey || event.ctrlKey || event.metaKey || event.key.length !== 1) return;
+  // A submenu's keys reach this menu through React's tree; they belong to the submenu.
+  if (!event.currentTarget.contains(event.target as Node)) return;
   const key = event.key.toLocaleUpperCase();
   const item = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-accelerator]')].find(
     (candidate) =>
