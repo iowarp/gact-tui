@@ -73,7 +73,9 @@ sizes. Avoid arbitrary `text-[Npx]` values.
 | `text-welcome` | 18 px   | The welcome title, in `font-heading`    |
 
 `--faint` is for decoration and placeholders only; informational text uses
-`text-muted-foreground`.
+`text-muted-foreground`. The pages draw only dark (`#6f695f`). Light uses
+`#8a8378`, which steps down from muted text about as far as dark does and keeps
+3:1 on every light surface.
 
 ## Open questions
 

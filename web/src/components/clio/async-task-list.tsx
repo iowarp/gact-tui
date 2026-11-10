@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { ClioEvidenceViewProps } from './observability-evidence';
+import type { SessionEvidenceActions } from './session-evidence-types';
 import { showCompletedWork, type TaskPageControls } from './task-history';
 export type { TaskPageControls } from './task-history';
 
@@ -69,8 +69,8 @@ export interface AsyncTaskListProps {
   compact?: boolean;
   processes: readonly AsyncProcess[];
   subagents?: readonly SubagentRun[];
-  onOpenSubagent?: ClioEvidenceViewProps['onOpenSubagent'];
-  onOpenFlow?: ClioEvidenceViewProps['onOpenFlow'];
+  onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
+  onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
   onCancelTask?: (task: AsyncProcess) => Promise<void>;
   onControlTask?: (task: AsyncProcess, action: 'pause' | 'resume' | 'restart') => Promise<void>;
   pagination?: TaskPageControls;

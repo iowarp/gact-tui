@@ -69,13 +69,19 @@ function compactTimestamp(time: Date): string {
   const elapsedMilliseconds = Math.max(0, now.getTime() - time.getTime());
   const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
   if (elapsedMinutes < 1) return 'Now';
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
 
   const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  if (elapsedHours < 24) return `${elapsedHours}h`;
 
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+  // Within the past week the spec names the weekday; calendar days keep last week's
+  // same weekday from reading as today.
+  const startOfDay = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const calendarDays = Math.round((startOfDay(now) - startOfDay(time)) / 86_400_000);
+  if (calendarDays < 7) {
+    return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(time);
+  }
 
   if (time.getFullYear() === now.getFullYear()) {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(time);
