@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { ChevronDownIcon, CpuIcon } from 'lucide-react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
-import type { ClioModelOption } from '@/lib/model-options';
+import { type ClioModelOption, compactModelName } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioModelPicker } from './model-picker';
@@ -107,7 +107,7 @@ export function ModelSelectField({
   /** The value is inherited: show it, but leave the picker without a current row so choosing it pins it. */
   inherited?: boolean;
 }) {
-  const model = option?.label ?? modelId;
+  const model = option ? compactModelName(option.id, option.label) : modelId;
   const provider = providerName ?? option?.providerName;
   return (
     <ClioModelPicker

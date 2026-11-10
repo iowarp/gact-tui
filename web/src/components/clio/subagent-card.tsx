@@ -22,7 +22,8 @@ import {
 } from './activity-row';
 import { CopyAction } from './tool-compact-row';
 import { DialogFrame } from './primitives/dialog-frame';
-import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import type { KeyValueItem } from './primitives/key-value-grid';
+import { DetailsSection, TechnicalDetailsFacts } from './tool-technical-details';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
 import { delegateTone } from './delegate-tone';
@@ -120,7 +121,11 @@ function DelegateDetailsDialog({
   action: string;
 }) {
   const items: KeyValueItem[] = [
-    { label: 'Agent', value: agentName(subagent), mono: true },
+    {
+      label: 'Agent',
+      value: <span className="min-w-0 truncate text-accent-foreground">{agentName(subagent)}</span>,
+      title: agentName(subagent),
+    },
     ...(subagent?.title && subagent.title !== agentName(subagent)
       ? [{ label: 'Run', value: subagent.title }]
       : []),
@@ -139,19 +144,19 @@ function DelegateDetailsDialog({
       onOpenChange={onOpenChange}
       icon={<InfoIcon className="size-4" />}
       title={`${action}: Technical details`}
-      description="The delegated assignment, the agent that ran it, and its timing."
+      description={
+        subagent?.duration_ms !== undefined
+          ? 'The delegated assignment, the agent that ran it, and its timing.'
+          : 'The delegated assignment and the agent that ran it.'
+      }
       className="w-[clamp(360px,56vw,760px)]"
     >
-      <div className="grid max-h-[65dvh] min-w-0 gap-4 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
-        <KeyValueGrid
-          items={items}
-          className="grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-y-1.5 text-[12.5px] [&_dd]:text-left"
-        />
+      <div className="grid max-h-[65dvh] min-w-0 gap-2.5 overflow-auto text-[12.5px] [overflow-wrap:anywhere]">
+        <TechnicalDetailsFacts items={items} />
         {task ? (
-          <section className="space-y-1.5">
-            <h4 className="font-medium text-foreground">Assignment</h4>
+          <DetailsSection title="Assignment" copy={task}>
             <p className="whitespace-pre-wrap text-muted-foreground">{task}</p>
-          </section>
+          </DetailsSection>
         ) : null}
       </div>
     </DialogFrame>

@@ -303,9 +303,7 @@ describe('Extensions: marketplaces', () => {
       gact_versions: [],
     });
     renderLibrary();
-    expect(
-      await screen.findByText(/Update the connected agent service to add or compose extensions/u),
-    ).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Why Add is unavailable' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   }, 20_000);
 

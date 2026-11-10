@@ -17,6 +17,8 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionOperationLabel } from './permission-operation-labels';
+import type { KeyValueItem } from './primitives/key-value-grid';
+import { TechnicalDetailsFacts } from './tool-technical-details';
 
 const SCOPES = [
   { action: 'allow', label: 'Allow once', name: 'Allow once' },
@@ -136,6 +138,26 @@ export function PermissionResponse({
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
   const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
   const owner = askedBy(interaction, ownerLabel, showOwner);
+  const cwd = interaction.payload?.execution?.cwd;
+  const detailFacts: KeyValueItem[] = [
+    ...(owner.length
+      ? [
+          {
+            label: 'Asked by',
+            title: owner[0]?.title,
+            value: (
+              <span className="min-w-0 truncate text-accent-foreground">
+                {ownerLabel ?? `session ${interaction.owner_session_id}`}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(toolName && !flowTrust ? [{ label: 'Tool', value: toolName, mono: true }] : []),
+    ...((toolName === 'web_fetch' || toolName === 'web_search') && cwd
+      ? [{ label: 'Working folder', value: cwd, mono: true }]
+      : []),
+  ];
   return (
     <AskCard
       data-interaction-kind="permission"
@@ -210,27 +232,11 @@ export function PermissionResponse({
       </AskOptions>
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint="raw arguments, as the agent sent them">
-          <div className="grid gap-1.5">
-            {owner.length ? (
-              <p
-                className="min-w-0 truncate"
-                data-slot="ask-details-owner"
-                title={owner[0]?.title}
-              >
-                Asked by{' '}
-                <span className="text-foreground/90">
-                  {ownerLabel ?? `session ${interaction.owner_session_id}`}
-                </span>
-              </p>
-            ) : null}
-            {toolName && !flowTrust ? (
-              <p className="min-w-0 truncate" title={toolName}>
-                Tool <span className="font-mono text-foreground/90">{toolName}</span>
-              </p>
-            ) : null}
-            {(toolName === 'web_fetch' || toolName === 'web_search') &&
-            interaction.payload?.execution?.cwd ? (
-              <p className="break-all">Working folder: {interaction.payload.execution.cwd}</p>
+          <div className="grid gap-2.5">
+            {detailFacts.length ? (
+              <div data-slot="ask-details-facts">
+                <TechnicalDetailsFacts items={detailFacts} />
+              </div>
             ) : null}
             <PermissionPaths paths={interaction.payload?.access?.paths ?? []} />
             {toolCall?.input === undefined ? null : (
