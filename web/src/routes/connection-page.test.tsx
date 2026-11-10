@@ -132,7 +132,7 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByRole('heading', { name: `Starting ${brand.agentName} local` })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting local ${brand.agentName}` })).toBeVisible();
   expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(
     'Starting the local service',
   );
@@ -411,7 +411,7 @@ it('shows the manual form -- never a reconnect screen -- after "Add a service" o
   expect(screen.getByLabelText('Service name')).toBeVisible();
   expect(screen.getByLabelText('Connection address')).toBeVisible();
   expect(
-    screen.queryByRole('heading', { name: `Starting ${brand.agentName} local` }),
+    screen.queryByRole('heading', { name: `Starting local ${brand.agentName}` }),
   ).not.toBeInTheDocument();
   expect(mocks.connect).not.toHaveBeenCalled();
 });

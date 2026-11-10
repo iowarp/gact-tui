@@ -31,7 +31,7 @@ export function DesktopBoot({
           kind="loading"
           className="min-h-0 py-0 pb-3"
           title={
-            <h1 className="m-0 inline text-[length:inherit] font-[inherit]">{`Starting ${vocab.agent} local`}</h1>
+            <h1 className="m-0 inline text-[length:inherit] font-[inherit]">{`Starting local ${vocab.agent}`}</h1>
           }
         />
         <LocalStartupSteps
