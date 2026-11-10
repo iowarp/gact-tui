@@ -16,17 +16,22 @@ export function fileRowTint(name: string, mediaType = ''): string {
   );
 }
 
-export type TextFileFormat = 'markdown' | 'html' | 'json' | 'csv' | 'source';
+export type TextFileFormat = 'markdown' | 'html' | 'json' | 'notebook' | 'csv' | 'source';
+
+/** The media type Jupyter registers for .ipynb files. */
+export const NOTEBOOK_MEDIA_TYPE = 'application/x-ipynb+json';
 
 /** A declared UI role is not a file format. Keep known filenames consistent across entry paths. */
 export function textFileFormat(name: string, mediaType = ''): TextFileFormat {
   const extension = name.split('.').at(-1)?.toLowerCase();
-  if (extension === 'json' || extension === 'ipynb') return 'json';
+  if (extension === 'ipynb') return 'notebook';
+  if (extension === 'json') return 'json';
   if (extension === 'md' || extension === 'markdown') return 'markdown';
   if (extension === 'html' || extension === 'htm') return 'html';
   if (extension === 'csv') return 'csv';
   if (!['text', 'plain', 'plaintext'].includes(String(languageForPath(name)))) return 'source';
   const type = mediaType.split(';', 1)[0].trim().toLowerCase();
+  if (type === NOTEBOOK_MEDIA_TYPE) return 'notebook';
   if (type === 'application/json' || type.endsWith('+json')) return 'json';
   if (type === 'text/markdown' || type === 'text/x-markdown') return 'markdown';
   if (type === 'text/html') return 'html';

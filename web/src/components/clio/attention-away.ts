@@ -7,7 +7,7 @@ export type AwayTone = 'success' | 'error' | 'warning' | 'stopped';
 interface AwayKind {
   /** Follows the conversation's name: "Survey finished". */
   verb: string;
-  /** What happened, when the place alone does not say it. */
+  /** What happened, when the conversation's place is unknown. */
   detail?: string;
   tone: AwayTone;
   /** The row's one action word; a finished run needs none. */
@@ -94,13 +94,8 @@ export function awayRows(
     const ended = time(session.updated_at);
     if (ended <= since || ended <= time(reads.seen[session.id])) continue;
     const place = names.get(session.workspace_id);
-    const detail = kind.detail
-      ? place
-        ? `${kind.detail} in ${place}`
-        : kind.detail
-      : place
-        ? `In ${place}`
-        : 'Its turn is done';
+    // The run's own reason is not in the session yet, so the place is the detail.
+    const detail = place ? `In ${place}` : (kind.detail ?? 'Its turn is done');
     rows.push({
       session,
       verb: kind.verb,

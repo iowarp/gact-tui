@@ -41,40 +41,6 @@ function firstIncomingRelations(provenance: ExecutionProvenanceResult, kinds: re
   }
   return relations;
 }
-/**
- * Typed execution-provenance ownership for artifacts: the `generated` edges
- * `sessionSources` deliberately excludes from the Sources section (an
- * artifact already has its own Artifacts section) are the same edges that
- * answer "who produced this artifact" here.
- */
-export function artifactOwnerLabels(
-  provenance: ExecutionProvenanceResult | undefined,
-): Map<string, string> {
-  const labels = new Map<string, string>();
-  if (!provenance) return labels;
-  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
-  const relations = firstIncomingRelations(provenance, ['generated']);
-  const lineageBySession = new Map(
-    provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
-  );
-  for (const node of provenance.nodes) {
-    if (node.kind !== 'artifact') continue;
-    const artifactId = stringAttribute(node.attributes, 'artifact_id');
-    if (!artifactId) continue;
-    const relation = relations.get(node.id);
-    if (!relation) continue;
-    const ownerNode = nodeById.get(relation.source);
-    const ownerSessionId =
-      stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
-      ownerNode?.session_id ||
-      stringAttribute(node.attributes, 'owner_session_id') ||
-      node.session_id;
-    const owner = lineageBySession.get(ownerSessionId);
-    const label = ownerNode?.label || owner?.label;
-    if (label) labels.set(artifactId, label);
-  }
-  return labels;
-}
 export function sessionSources(
   messages: readonly Message[],
   processes: readonly AsyncProcess[],
@@ -312,11 +278,6 @@ function evidenceFieldLabel(value: string): string {
       return index === 0 ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : normalized;
     })
     .join(' ');
-}
-
-export function sourceDisplayValue(value: string): string {
-  if (value.toLowerCase() === 'osm_nominatim') return 'OpenStreetMap Nominatim';
-  return value;
 }
 
 function isWebLink(value: string): boolean {

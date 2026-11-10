@@ -63,10 +63,8 @@ import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
 export interface ClioObservabilityDockProps {
   /** Opens a shared browser page in the workbench (the Work rail's Browser pages). */
   onOpenBrowser?: (request: Extract<ClioWorkbenchOpenRequest, { kind: 'browser' }>) => void;
+  /** The conversation family shown by the Relationships view. */
   sessions?: readonly Session[];
-  familyProvenance?: ExecutionProvenanceResult;
-  familyProvenancePending?: boolean;
-  onLoadFamilyProvenance?: () => void;
   artifacts: readonly Artifact[];
   contextFiles: readonly ContextFile[];
   contextFrames: readonly ContextFrame[];
@@ -110,7 +108,7 @@ export interface ClioObservabilityDockProps {
   onOpenFlow?: (handle: string, title: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
-  /** The views offered; the workbench lists evidence and the timeline in Activity instead. */
+  /** The views offered; the workbench lists recorded work in its Activity list instead. */
   views?: readonly ObservabilityView[];
   onOpenWork?: () => void;
   onOpenArtifact?: (artifact: Artifact) => void;

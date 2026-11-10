@@ -564,10 +564,11 @@ export async function workbenchJourney(r) {
       { control: button, close: undefined },
     );
   }
-  const activity = page
-    .getByRole('region', { name: 'Activity list' })
-    .locator('[data-kind="tool"], [data-kind="turn"]')
-    .first();
+  // Activity leads with its timeline; its rows are the Events view.
+  const activityList = page.getByRole('region', { name: 'Activity list' });
+  const events = activityList.getByRole('radio', { name: 'Events', exact: true });
+  if (await r.visible(events, 1000)) await events.click();
+  const activity = activityList.locator('[data-kind="tool"], [data-kind="turn"]').first();
   if (await r.visible(activity, 1000)) {
     // The tab takes the row's name; its accessible name adds the status after a comma.
     const name = (await activity.getAttribute('aria-label'))?.split(', ')[0];
@@ -579,18 +580,20 @@ export async function workbenchJourney(r) {
       { control: activity, close: undefined },
     );
   }
-  const timeline = page
-    .getByRole('region', { name: 'Activity list' })
-    .getByRole('button', { name: 'Open timeline and context' });
+  const activityButton = strip.getByRole('button', { name: 'Activity', exact: true }).first();
+  // A row shows its detail in the Activity tab: come back to the list.
+  if (
+    (await r.visible(activityButton, 1000)) &&
+    (await activityButton.getAttribute('aria-pressed')) !== 'true'
+  )
+    await activityButton.click();
+  const timeline = activityList.getByRole('radio', { name: 'Timeline', exact: true });
   if (await r.visible(timeline, 1000)) {
     await r.measure(
       'open canvas tab: Timeline',
       'tab',
       () => timeline.click(),
-      {
-        css: '[aria-label="Workspace canvas"] [role="tab"][aria-selected="true"]',
-        text: 'Timeline',
-      },
+      { css: '[aria-label="Activity list"] [data-slot="activity-session"]' },
       { control: timeline, close: undefined },
     );
   }
@@ -618,10 +621,25 @@ export async function workbenchJourney(r) {
       { close: 'Escape', control: activeTab },
     );
   }
-  const tabs = await page.locator('[aria-label="Workspace canvas"] [role="tab"]').all();
-  for (const tab of tabs.slice(0, 8)) {
-    const name = (await tab.textContent())?.trim() || 'tab';
-    if ((await tab.getAttribute('aria-selected')) === 'true') continue;
+  // Lists are tabs too, so a narrow canvas folds some into the overflow menu;
+  // re-query after every switch because activating a tab changes what fits.
+  const visibleTabs = page
+    .locator('[aria-label="Workspace canvas"] [role="tab"]')
+    .filter({ visible: true });
+  const switched = new Set();
+  for (let index = 0; index < 8; index += 1) {
+    let tab;
+    let name = '';
+    for (const candidate of await visibleTabs.all()) {
+      const text = (await candidate.textContent())?.trim() || 'tab';
+      if (switched.has(text) || (await candidate.getAttribute('aria-selected')) === 'true')
+        continue;
+      tab = candidate;
+      name = text;
+      break;
+    }
+    if (!tab) break;
+    switched.add(name);
     await r.measure(
       `switch canvas tab: ${name}`,
       'tab',

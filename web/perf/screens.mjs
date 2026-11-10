@@ -115,7 +115,7 @@ async function openCanvas(page) {
   }
 }
 
-/** Show one of the workbench lists (Files, Sources, ?) from the strip. */
+/** Show a workbench list from the strip, as its tab. */
 async function stripList(page, name) {
   await openCanvas(page);
   const item = page
@@ -191,10 +191,19 @@ async function pickMode(page, names) {
       }
     }
   }
-  // A narrow frame bar folds its modes to the active icon and a menu.
-  const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
-  if (await folded.isVisible().catch(() => false)) {
-    await folded.click();
+  // A narrow frame bar folds its modes to the active icon and a menu; narrowest,
+  // the frame lists them in its … menu (workbench-lineage step 6).
+  const menus = [
+    page.locator('[data-modes-folded]').filter({ visible: true }).first(),
+    page
+      .locator('[data-fold-modes-menu]')
+      .filter({ visible: true })
+      .first()
+      .getByRole('button', { name: /^(?:File|More) actions$/u }),
+  ];
+  for (const trigger of menus) {
+    if (!(await trigger.isVisible().catch(() => false))) continue;
+    await trigger.click();
     for (const name of names) {
       const item = page.getByRole('menuitemradio', { name, exact: true }).first();
       if (await item.isVisible().catch(() => false)) {
@@ -209,7 +218,7 @@ async function pickMode(page, names) {
   throw new Error(`no mode control named ${names.join(' or ')}`);
 }
 
-/** Hide the strip list a scenario opened from, and show the tab's own list if it has one. */
+/** Leave the strip list a scenario opened from, and show the tab's own list if it has one. */
 async function tabOnly(page, stripName, tabListTitle) {
   const item = page
     .getByRole('toolbar', { name: 'Workbench lists' })
@@ -277,7 +286,7 @@ async function openVault(page) {
   // The narrow canvas sheet sits under the dialog and takes the pointer; click by event.
   await dialog.getByRole('button').filter({ hasText: 'Opal vault' }).first().dispatchEvent('click');
   await page.getByRole('button', { name: 'Open knowledge' }).dispatchEvent('click');
-  // The vault opens as a tab under the Sources list; close the list to show it.
+  // The vault opens as its own tab; a Sources tab still lit goes back to it.
   const sources = page
     .getByRole('toolbar', { name: 'Workbench lists' })
     .getByRole('button', { name: 'Sources', exact: true })
@@ -679,7 +688,7 @@ function catalogue({ settings, infrastructure }) {
         SESSION,
         async (page) => {
           await openFile(page, 'results/vertical-displacement.png');
-          // Opening a file closes the list; show it again for the second file.
+          // A file opened from Files takes its tab; open Files again for the second file.
           const files = page
             .getByRole('toolbar', { name: 'Workbench lists' })
             .getByRole('button', { name: 'Files', exact: true })
@@ -922,12 +931,12 @@ function catalogue({ settings, infrastructure }) {
       },
       { scenario: { specFiles: true }, settleMs: 1500 },
     ),
-    // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
-    // tab), the modes are a checked list in …. Where the list is a sheet over
+    // workbench-lineage "Step 6, … open": narrowest (the Files column beside the
+    // tab), the modes are a checked list in …. Where the column is a sheet over
     // the tab, it hides first.
     s('canvas', 'file-csv-more', SESSION, async (page) => {
       await openFile(page, 'results/stations.csv');
-      await stripList(page, 'Activity');
+      await stripList(page, 'Files');
       const more = page
         .getByRole('toolbar', { name: 'File' })
         .filter({ visible: true })
@@ -970,9 +979,63 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
-    // The former Work tab is now the Activity list's finished work.
+    // Activity leads with the causal timeline.
+    s(
+      'canvas',
+      'activity-finished',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(800);
+      },
+      { settleMs: 1200 },
+    ),
+    s(
+      'canvas',
+      'activity-relationships',
+      SESSION,
+      async (page) => {
+        await stripList(page, 'Activity');
+        await pickMode(page, ['Relationships']);
+        await page.mouse.move(2, 2);
+      },
+      { settleMs: 1500 },
+    ),
+    // A pick in a list tab takes the tab's place, with Back to the list.
+    s('canvas', 'artifact-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
+      await page
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    // Shift opens the pick in a tab of its own and keeps the list.
+    s('canvas', 'artifact-shift-picked', SESSION, async (page) => {
+      await stripList(page, 'Artifacts');
+      await page
+        .getByRole('region', { name: 'Artifacts list' })
+        .getByRole('button')
+        .filter({ hasText: /\.\w+/u })
+        .filter({ visible: true })
+        .first()
+        .click({ modifiers: ['Shift'] });
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(1200);
+    }),
+    s('canvas', 'file-picked', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      await page.mouse.move(2, 2);
+    }),
+    // The former Work tab is now Activity's Events view, with its finished work.
     s('canvas', 'work', SESSION, async (page) => {
       await stripList(page, 'Activity');
+      await pickMode(page, ['Events']);
       const show = page
         .getByRole('region', { name: 'Activity list' })
         .getByRole('button', { name: 'Show finished work' })
@@ -1000,11 +1063,15 @@ function catalogue({ settings, infrastructure }) {
       await page.waitForTimeout(800);
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
-      // Maximize a real tab at every width. Where the list is a sheet over the tab it
-      // covers the row's Maximize; opening a file closes the sheet, as a tap does.
+      // Maximize a real tab at every width: the tabs fill the canvas.
       await openFile(page, 'results/stations.csv');
-      await phoneTabBody(page, 'Files');
       await press(page, 'button', 'Maximize canvas');
+      await page.waitForTimeout(600);
+    }),
+    s('canvas', 'maximized-activity', SESSION, async (page) => {
+      await stripList(page, 'Activity');
+      await press(page, 'button', 'Maximize canvas');
+      await page.mouse.move(2, 2);
       await page.waitForTimeout(600);
     }),
     // The welcome title; the left bar's headings are folded away at narrow widths.
@@ -1270,6 +1337,17 @@ function catalogue({ settings, infrastructure }) {
           await phoneTabBody(page, 'Outline');
         },
       ],
+      // Jupyter notebooks read as cells; Source keeps the JSON as written.
+      ['notebook', (page) => openFile(page, 'analysis/opal-gnss.ipynb')],
+      [
+        'notebook-source',
+        async (page) => {
+          await openFile(page, 'analysis/opal-gnss.ipynb');
+          await pickMode(page, ['Source']);
+        },
+      ],
+      ['notebook-cut-off', (page) => openFile(page, 'analysis/draft-cut-off.ipynb')],
+      ['notebook-empty', (page) => openFile(page, 'analysis/untitled.ipynb')],
     ].map(([state, setup]) =>
       s('viewer', state, SESSION, setup, { fixtureDemo: 'science-views', settleMs: 1500 }),
     ),

@@ -3,7 +3,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { responseTrayInteractions } from './workspace-route-state';
-import { OpenQuestionsSection } from './open-question-list';
+import { openHumanQuestions } from '@/lib/inline-question';
+import { OpenQuestionList } from './open-question-list';
 import { AgentAnswerActivity } from './agent-answer-activity';
 import { ATTENTION_REVEAL_EVENT } from './interaction-control';
 import { AgentQuestionDialog } from './agent-question-dialog';
@@ -47,14 +48,15 @@ describe('explicit agent question modes', () => {
       <QuestionAnswerContext.Provider
         value={{ interactions, openQuestion, startAnswer: vi.fn(), stopAnswer: vi.fn() }}
       >
-        <OpenQuestionsSection />
+        <OpenQuestionList questions={openHumanQuestions(interactions)} />
       </QuestionAnswerContext.Provider>
     );
     const view = render(content(rows));
     await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 2' }));
     expect(openQuestion).toHaveBeenCalledWith(rows[1]);
     view.rerender(content([{ ...rows[0]!, status: 'answered' }, rows[1]!]));
-    expect(screen.getByRole('button', { name: 'Open questions, 1 recorded' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Read and answer question 1' }));
+    expect(openQuestion).toHaveBeenLastCalledWith(rows[1]);
     expect(
       screen.queryByRole('button', { name: 'Read and answer question 2' }),
     ).not.toBeInTheDocument();

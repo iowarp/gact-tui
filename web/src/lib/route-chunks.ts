@@ -52,7 +52,7 @@ const IDLE_PREFETCH: readonly RouteChunk[] = ['runs', 'settings', 'infrastructur
  * Warm the secondary routes: when a link to one is hovered, focused or touched,
  * and once the app has been idle for a moment. Their modules are a few hundred
  * KB in all; data is still fetched only on navigation. The idle pass also warms
- * the deferred in-page chunks (math, the Gantt and the science log).
+ * the deferred in-page chunks (math and the science log).
  */
 export function installRoutePrefetch(target: Document = document): () => void {
   const prefetchLink = (event: Event) => {
