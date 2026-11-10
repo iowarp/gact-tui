@@ -17,6 +17,7 @@ import { HostBridge, createExportURL, observeSelection } from './bridge';
 import { hostOriginFor } from './host-origin';
 import { dtypeName, entityKind, firstArrayDataset, observeView, shapeOf } from './modes';
 import { applyPalette, applyTheme } from './theme';
+import { observeSlicers } from './slicer';
 import { HDF5_VIEWER_PROTOCOL, VIEWER_SOURCE, type HostMessage } from './protocol';
 
 type Init = Extract<HostMessage, { type: 'init' }>;
@@ -31,6 +32,7 @@ function Viewer() {
   const [locator, setLocator] = useState('/');
   const rootRef = useRef<HTMLDivElement>(null);
   const showRef = useRef<((message: Show) => void) | undefined>(undefined);
+  const openedRef = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -67,8 +69,12 @@ function Viewer() {
       bridge.post({ source: VIEWER_SOURCE, type: 'modes', ...state }),
     );
     showRef.current = view.show;
+    openedRef.current = view.opened;
+    const stopSlicers = observeSlicers(root);
     return () => {
       showRef.current = undefined;
+      openedRef.current = undefined;
+      stopSlicers();
       view.dispose();
     };
   }, [bridge, init]);
@@ -90,7 +96,7 @@ function Viewer() {
           <Suspense fallback={null}>
             <EntityReport
               locator={locator}
-              onEntity={(entity) =>
+              onEntity={(entity) => {
                 bridge.post({
                   source: VIEWER_SOURCE,
                   type: 'entity',
@@ -98,8 +104,9 @@ function Viewer() {
                   kind: entityKind(entity),
                   shape: shapeOf(entity),
                   dtype: 'type' in entity && entity.type ? dtypeName(entity.type) : undefined,
-                })
-              }
+                });
+                if (entityKind(entity) === 'dataset') openedRef.current?.();
+              }}
             />
           </Suspense>
         </ReportBoundary>

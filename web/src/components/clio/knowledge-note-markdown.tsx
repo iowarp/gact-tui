@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  type ComponentProps,
-  type RefObject,
-} from 'react';
+import { createContext, useContext, useRef, type ComponentProps } from 'react';
 import { defaultRemarkPlugins, type ExtraProps } from 'streamdown';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,6 +7,7 @@ import {
   READ_TYPE_SCALE,
   normalizeConvertedMarkdown,
 } from '@/lib/document-markdown';
+import { TABLE_SCROLL_CUE_CLASS_NAME, useTableScrollCue } from '@/lib/use-table-scroll-cue';
 import { cn } from '@/lib/utils';
 import { ContentMarkdown } from './content-markdown';
 import { MarkdownContentLink } from './markdown-content-link';
@@ -66,57 +60,9 @@ function KnowledgeMarkdownLink(props: ComponentProps<'a'> & ExtraProps) {
 const COMPONENTS = { a: KnowledgeMarkdownLink };
 const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkKnowledgeWikiLinks];
 
-/** Wide tables scroll in place: a thin visible scrollbar and a right-edge fade while more columns follow. */
-const TABLE_SCROLL =
-  '[&_[data-knowledge-table-scroll]]:[scrollbar-width:thin] [&_[data-knowledge-table-scroll]]:[scrollbar-color:color-mix(in_oklch,var(--muted-foreground)_36%,transparent)_transparent] [&_[data-scroll-more]]:[mask-image:linear-gradient(to_left,transparent,#000_32px)]';
 /** The spec's document table cells (`.ttab`): 10px either side, so a short table fits a phone. */
 const TABLE_CELLS =
   '[&_[data-streamdown=table-cell]]:px-2.5 [&_[data-streamdown=table-header-cell]]:px-2.5';
-
-/** Marks each table's scroller while columns remain to its right. */
-function useTableScrollCue(root: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const element = root.current;
-    if (!element) return;
-    const watched = new Map<HTMLElement, () => void>();
-    const update = (scroller: HTMLElement) =>
-      scroller.toggleAttribute(
-        'data-scroll-more',
-        scroller.scrollWidth - scroller.clientWidth - scroller.scrollLeft > 1,
-      );
-    const resize =
-      typeof ResizeObserver === 'undefined'
-        ? undefined
-        : new ResizeObserver((entries) => {
-            for (const entry of entries) {
-              const target = entry.target as HTMLElement;
-              const scroller = target.tagName === 'TABLE' ? target.parentElement : target;
-              if (scroller) update(scroller);
-            }
-          });
-    const scan = () => {
-      for (const table of element.querySelectorAll('table')) {
-        const scroller = table.parentElement;
-        if (!scroller || watched.has(scroller)) continue;
-        scroller.setAttribute('data-knowledge-table-scroll', '');
-        const onScroll = () => update(scroller);
-        scroller.addEventListener('scroll', onScroll, { passive: true });
-        resize?.observe(scroller);
-        resize?.observe(table);
-        watched.set(scroller, () => scroller.removeEventListener('scroll', onScroll));
-        update(scroller);
-      }
-    };
-    scan();
-    const mutations = new MutationObserver(scan);
-    mutations.observe(element, { childList: true, subtree: true });
-    return () => {
-      mutations.disconnect();
-      resize?.disconnect();
-      for (const stop of watched.values()) stop();
-    };
-  }, [root]);
-}
 
 /**
  * A vault note rendered for reading: the file viewers' layout and type scale,
@@ -147,7 +93,7 @@ export function KnowledgeNoteMarkdown({
             <CodeBlock code={frontmatter[1]} language="yaml" />
           </details>
         ) : null}
-        <div ref={reading} className={cn(TABLE_SCROLL, TABLE_CELLS)}>
+        <div ref={reading} className={cn(TABLE_SCROLL_CUE_CLASS_NAME, TABLE_CELLS)}>
           <KnowledgeWikiNavigation.Provider value={{ resolve, open: onOpen }}>
             <ContentMarkdown
               className={cn(DOCUMENT_MARKDOWN_CLASS_NAME, READ_TYPE_SCALE)}

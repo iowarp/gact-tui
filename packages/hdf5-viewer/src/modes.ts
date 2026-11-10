@@ -88,8 +88,17 @@ export function readView(root: ParentNode, previous?: ViewState): ViewState {
  * is; viewer.css keeps the tree visible there while this says open.
  */
 const EXPLORER = 'data-explorer';
-/** The narrowest pane, in CSS pixels, that fits the tree beside a plot. */
-const MIN_EXPLORER_PANE = 420;
+/**
+ * The narrowest pane, in CSS pixels, that fits the tree beside a plot: h5web
+ * keeps about 200px of a heatmap's width for its axis and colour bar, so a
+ * narrower split leaves the data a sliver. Below it the tree starts closed,
+ * and opening it shows the tree in the plot's place (viewer.css).
+ */
+export const MIN_EXPLORER_PANE = 720;
+
+function paneFitsExplorer(root: Element): boolean {
+  return (root.ownerDocument.defaultView?.innerWidth ?? Infinity) >= MIN_EXPLORER_PANE;
+}
 
 function explorerOpen(root: ParentNode): boolean {
   const state = root instanceof Element ? root.getAttribute(EXPLORER) : null;
@@ -149,10 +158,18 @@ export function observeView(root: Element, onChange: (state: ViewState) => void)
     attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', EXPLORER],
   });
   // The tree opens beside the data, as the Array view draws it, unless the pane
-  // is too narrow to show both; the Explorer toggle opens it there.
-  if (!root.hasAttribute(EXPLORER)) {
-    setExplorer(root, (root.ownerDocument.defaultView?.innerWidth ?? Infinity) >= MIN_EXPLORER_PANE);
-  }
+  // is too narrow to show both; the Explorer toggle opens it there, in the
+  // plot's place. Crossing that width while reading closes or reopens it.
+  let wide = paneFitsExplorer(root);
+  if (!root.hasAttribute(EXPLORER)) setExplorer(root, wide);
+  const win = root.ownerDocument.defaultView;
+  const onResize = () => {
+    const next = paneFitsExplorer(root);
+    if (next === wide) return;
+    wide = next;
+    setExplorer(root, next);
+  };
+  win?.addEventListener('resize', onResize);
   check();
   return {
     show({ mode, explorer }: { mode?: Hdf5Mode; explorer?: boolean }) {
@@ -160,7 +177,14 @@ export function observeView(root: Element, onChange: (state: ViewState) => void)
       if (mode) pending = selectMode(root, mode) ? undefined : mode;
       check();
     },
-    dispose: () => observer.disconnect(),
+    /** A dataset was opened: where the tree covers the plot, it steps aside. */
+    opened() {
+      if (!wide && explorerOpen(root)) setExplorer(root, false);
+    },
+    dispose: () => {
+      observer.disconnect();
+      win?.removeEventListener('resize', onResize);
+    },
   };
 }
 
