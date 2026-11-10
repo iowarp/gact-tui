@@ -1,10 +1,20 @@
-import { lazy, memo, Suspense, useState, type ComponentType, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { brand } from '@brand';
 import { useEffect } from 'react';
-import { Navigate, Route, Routes, useNavigate, useLocation, type Location } from 'react-router-dom';
+import {
+  Navigate,
+  NavigationType,
+  Route,
+  Routes,
+  UNSAFE_LocationContext as LocationContext,
+  useNavigate,
+  useLocation,
+  type Location,
+} from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { requestClioMenu } from '@/lib/clio-menu-request';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { NewConversationPage } from '@/routes/new-conversation-page';
@@ -13,7 +23,7 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useProviderCatalog } from '@/hooks/use-provider-catalog';
+import { useProviderCatalogWarmup } from '@/hooks/use-provider-catalog';
 import { ClioSelectionActionToolbar } from '@/components/clio/selection-actions';
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
@@ -81,14 +91,23 @@ function UnknownRouteRedirect() {
 }
 
 function ProviderCatalogWarmup() {
-  useProviderCatalog();
+  useProviderCatalogWarmup();
   return null;
 }
 
 /** The app's own routes, re-rendered only when the location they show changes. */
 const BackgroundRoutes = memo(
   function BackgroundRoutes({ location, children }: { location: Location; children: ReactNode }) {
-    return <Routes location={location}>{children}</Routes>;
+    // <Routes> reads the router's location even when given its own, so without
+    // this every settings section switch re-rendered the whole workspace behind
+    // the window. Its descendants already see `location`; this keeps <Routes>
+    // itself off the router's location too.
+    const frozen = useMemo(() => ({ location, navigationType: NavigationType.Pop }), [location]);
+    return (
+      <LocationContext.Provider value={frozen}>
+        <Routes location={location}>{children}</Routes>
+      </LocationContext.Provider>
+    );
   },
   (previous, next) => previous.location === next.location,
 );
@@ -137,8 +156,14 @@ export default function App() {
     navigate('/settings/connections', { state: settingsReturnState }),
   );
   useMenuAction('manage-agents', () => navigate('/?intent=connect'));
+  // A static native menu can't list the saved agents: it opens the CLIO menu,
+  // or the agent picker when no CLIO menu is on screen.
+  useMenuAction('switch-agent', () => {
+    if (!requestClioMenu()) navigate('/?intent=connect');
+  });
   useMenuAction('connect-by-address', () => navigate('/?intent=connect&mode=address'));
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
+  useMenuAction('install-agent', () => navigate('/?intent=connect&mode=deploy'));
   const openInfrastructure = () => navigate('/infrastructure', { state: settingsReturnState });
   useShortcut('infrastructure', openInfrastructure);
   useMenuAction('open-infrastructure', openInfrastructure);

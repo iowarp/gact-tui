@@ -63,7 +63,7 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
 }) => {
   await page.goto(workspaceUrl);
   await expect(page.getByRole('heading', { name: 'EarthScope NDP evidence review' })).toBeVisible();
-  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-connection-state="live"]')).toBeVisible();
 
   const published = await page.request.post(`${fixtureEndpoint}/__test/a2ui-login-form`);
   expect(published.ok()).toBe(true);

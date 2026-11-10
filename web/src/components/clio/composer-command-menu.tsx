@@ -17,7 +17,12 @@ import { cn } from '@/lib/utils';
 import { MenuKeyHints } from './primitives/menu-key-hints';
 import { ShortcutKeys } from './primitives/key-chip';
 import { publishActiveOption } from './composer-reference-controller-active-option';
-import { ComposerSuggestionPopup, Highlighted, MatchCount } from './composer-suggestion-popup';
+import {
+  COMPOSER_GROUP_HEADING,
+  ComposerSuggestionPopup,
+  Highlighted,
+  MatchCount,
+} from './composer-suggestion-popup';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
@@ -160,6 +165,41 @@ const CommandOption = memo(function CommandOption({
   );
 });
 
+/** Whether the command list is the agent's yet: an empty menu says why it is empty. */
+export type CommandListState = 'loading' | 'failed' | 'ready';
+
+function EmptyCommands({
+  available,
+  query,
+  state,
+}: {
+  available: number;
+  query: string;
+  state: CommandListState;
+}) {
+  const typed = query.replace(/^\//u, '');
+  const reason =
+    state === 'loading' ? (
+      'Loading this agent’s commands…'
+    ) : state === 'failed' ? (
+      'This agent’s commands couldn’t be loaded. Delete the / to send a message.'
+    ) : available === 0 ? (
+      'This agent has no commands. Delete the / to send a message.'
+    ) : typed ? (
+      <>
+        No command matches <b className="font-medium text-foreground">{typed}</b>.
+      </>
+    ) : (
+      'No command matches.'
+    );
+  return (
+    <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-[12.5px] text-muted-foreground">
+      <SquareSlashIcon aria-hidden="true" className="size-4 shrink-0 text-faint" />
+      <span className="min-w-0">{reason}</span>
+    </div>
+  );
+}
+
 /**
  * The `/` menu above the composer: one line per command, grouped by where it
  * comes from. The editor keeps focus; the arrows move a highlight, Tab fills
@@ -169,6 +209,7 @@ const CommandOption = memo(function CommandOption({
  */
 export function ClioComposerCommandMenu({
   commands,
+  commandsState = 'ready',
   query,
   onPick,
   onRun,
@@ -176,6 +217,7 @@ export function ClioComposerCommandMenu({
   popoverId,
 }: {
   commands: readonly CommandDefinition[];
+  commandsState?: CommandListState;
   query: string;
   /** Fills the command into the composer so arguments can follow (Tab, or a press). */
   onPick: (command: CommandDefinition) => void;
@@ -276,13 +318,11 @@ export function ClioComposerCommandMenu({
         role="listbox"
       >
         {total === 0 ? (
-          <div className="flex h-[30px] min-w-0 items-center px-2 text-[12px] text-muted-foreground">
-            <span className="truncate">No command matches.</span>
-          </div>
+          <EmptyCommands available={commands.length} query={query} state={commandsState} />
         ) : null}
         {groups.map((group) => (
           <div aria-label={group.heading} key={group.heading} role="group">
-            <div className="flex min-w-0 items-center gap-[7px] px-2 pt-[9px] pb-[3px] text-[11px] font-semibold whitespace-nowrap text-muted-foreground">
+            <div className={COMPOSER_GROUP_HEADING}>
               <span className="min-w-0 truncate">{group.heading}</span>
               <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
                 {group.rows.length}

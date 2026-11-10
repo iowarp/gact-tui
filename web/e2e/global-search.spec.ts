@@ -84,7 +84,7 @@ test('a file found from Settings opens in the remembered workspace canvas', asyn
   await page.goto('/settings/appearance');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(
     new RegExp(`/workspaces/${fixture.workspace.id}/sessions/${fixture.session.id}$`, 'u'),
   );
@@ -104,20 +104,20 @@ test('a file found from a new conversation retains its unsent draft and route', 
   await composer.fill('Keep this unsent review draft.');
   await page.keyboard.press('Control+k');
   await page.getByPlaceholder(placeholder).fill('plant-study.md');
-  await page.getByRole('option', { name: 'notes/plant-study.md', exact: true }).click();
+  await page.getByRole('option', { name: /^plant-study\.md notes\b/u }).click();
   await expect(page).toHaveURL(new RegExp(`${route}$`, 'u'));
   await expect(page.getByRole('heading', { name: 'Plant study notes', exact: true })).toBeVisible();
   await expect(composer).toHaveText('Keep this unsent review draft.');
   expect(fixture.state.created).toBe(0);
 });
 
-test('the compact Settings menu hands focus to the shared global search', async ({ page }) => {
+test('the compact Settings picker hands focus to the shared global search', async ({ page }) => {
   await installSearchFixture(page, endpoint);
-  await page.setViewportSize({ width: 640, height: 800 });
+  await page.setViewportSize({ width: 560, height: 800 });
   await page.goto('/settings/general');
   await page.getByRole('button', { name: 'Choose settings section' }).click();
-  await page.getByRole('menuitem', { name: 'Search everywhere from settings menu' }).click();
-  await expect(page.getByRole('menu')).toHaveCount(0);
+  await page.getByRole('option', { name: 'Search everywhere from settings menu' }).click();
+  await expect(page.getByPlaceholder('Search sections…')).toHaveCount(0);
   await expect(page.getByPlaceholder(placeholder)).toBeFocused();
   await page.keyboard.type('dark');
   await expect(

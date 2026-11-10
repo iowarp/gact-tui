@@ -13,13 +13,19 @@ for (const theme of ['light', 'dark'] as const) {
       { connection: endpoint, theme },
     );
     await page.goto('/workspaces/ws_flat_ndp/new');
-    const newSession = page.getByRole('button', { name: 'New session in flat-NDP', exact: true });
+    const newSession = page.getByRole('button', {
+      name: 'New conversation in flat-NDP',
+      exact: true,
+      includeHidden: true,
+    });
+    await page.getByRole('button', { name: /^(?:Collapse|Expand) workspace flat-NDP$/u }).hover();
     await newSession.hover();
     await expect(newSession).toHaveCSS('cursor', 'pointer');
     await expect(newSession.locator('svg')).toHaveCSS('cursor', 'pointer');
-    await newSession.click();
+    await page.getByRole('button', { name: 'New workspace', exact: true }).click();
 
     const create = page.getByRole('dialog', { name: 'Create', exact: true });
+    await create.getByRole('radio', { name: 'Session', exact: true }).click();
     await expect(create.getByRole('radio', { name: 'Workspace', exact: true })).toHaveCSS(
       'cursor',
       'pointer',
@@ -40,11 +46,13 @@ for (const theme of ['light', 'dark'] as const) {
     const overflow = page.getByRole('button', {
       name: 'Workspace actions for flat-NDP',
       exact: true,
+      includeHidden: true,
     });
+    await page.getByRole('button', { name: /^(?:Collapse|Expand) workspace flat-NDP$/u }).hover();
     await overflow.hover();
     await expect(overflow).toHaveCSS('cursor', 'pointer');
     await overflow.click();
-    const editWorkspace = page.getByRole('menuitem', { name: 'Edit workspace', exact: true });
+    const editWorkspace = page.getByRole('menuitem', { name: 'Workspace settings…', exact: true });
     await editWorkspace.hover();
     await expect(editWorkspace).toHaveCSS('cursor', 'pointer');
     await page.keyboard.press('Escape');
@@ -84,7 +92,9 @@ for (const theme of ['light', 'dark'] as const) {
 
     const sessionLink = page.getByRole('link', { name: /^EarthScope NDP evidence review/ });
     await expect(sessionLink).toHaveCSS('cursor', 'pointer');
-    await expect(sessionLink.locator('[role="status"]')).toHaveCSS('cursor', 'pointer');
+    await expect(
+      page.locator('[data-session-row]').filter({ has: sessionLink }).locator('[role="status"]'),
+    ).toHaveCSS('cursor', 'pointer');
     await sessionLink.click();
     const sessionActions = page.getByRole('button', {
       name: 'Session actions for EarthScope NDP evidence review',

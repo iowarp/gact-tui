@@ -9,20 +9,19 @@ import { imageRegionAnchor, pdfRegionAnchor } from './comments/region-anchors';
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { EyeIcon, HistoryIcon, GitBranchIcon } from 'lucide-react';
+import { EyeIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { FileTextView } from './file-text-view';
 import { textFileFormat } from '@/lib/file-presentation';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
 import { useHdf5ViewerSupported } from '@/hooks/use-hdf5-viewer-supported';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 
-import { ArtifactProvenance } from './artifact-provenance';
+import { ArtifactLineageView, type LineageActivity } from './artifact-lineage-view';
 import {
   ArtifactRecoveryError,
   isMissingArtifactPayload,
@@ -239,6 +238,8 @@ type ArtifactViewProps = {
   files: readonly WorkspaceFileEntry[];
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenWorkspaceFile?: (path: string) => void;
+  /** Opens a lineage action's row in Activity. */
+  onOpenActivity?: (activity: LineageActivity) => void;
   /** The open conversation, which holds a stream's watch lease while it is shown. */
   sessionId?: string;
 };
@@ -258,6 +259,7 @@ function ArtifactFileView({
   files,
   onOpenArtifact,
   onOpenWorkspaceFile,
+  onOpenActivity,
 }: Omit<ArtifactViewProps, 'sessionId'>) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -384,7 +386,7 @@ function ArtifactFileView({
         error={
           text.error instanceof ArtifactRecoveryError
             ? text.error.message
-            : 'The service remembers this result, but its saved content is no longer available. Lineage and Versions still show where it came from.'
+            : 'The service remembers this result, but its saved content is no longer available. Lineage still shows where it came from.'
         }
         onRetry={() => void text.refetch()}
       />
@@ -459,33 +461,14 @@ function ArtifactFileView({
             </>
           ),
         },
-        {
-          value: 'versions',
-          secondary: true,
-          label: 'Versions',
-          icon: HistoryIcon,
-          content: (
-            <ScrollArea className="h-full min-w-0 p-3">
-              <ArtifactProvenance artifact={artifact} view="versions" />
-            </ScrollArea>
-          ),
-        },
-        {
-          value: 'lineage',
-          label: 'Lineage',
-          icon: GitBranchIcon,
-          shortcut: 'lineage',
-          content: (
-            <ScrollArea className="h-full min-w-0 p-3">
-              <ArtifactProvenance
-                artifact={artifact}
-                onOpenArtifact={onOpenArtifact}
-                view="lineage"
-              />
-            </ScrollArea>
-          ),
-        },
       ]}
+      lineage={
+        <ArtifactLineageView
+          artifact={artifact}
+          onOpenArtifact={onOpenArtifact}
+          onOpenActivity={onOpenActivity}
+        />
+      }
     />
   );
 }
