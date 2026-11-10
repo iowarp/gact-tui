@@ -1,5 +1,7 @@
 import { brand } from '@brand';
+import { withArticle } from '@/lib/brand-vocabulary';
 import {
+  ArrowLeftIcon,
   CheckIcon,
   ChevronRightIcon,
   CircleAlertIcon,
@@ -11,11 +13,12 @@ import {
   Link2Icon,
   LoaderCircleIcon,
   PlugIcon,
+  RocketIcon,
   SearchIcon,
   ServerIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenuContent,
@@ -32,6 +35,7 @@ import { MenuKeyHints } from '@/components/clio/primitives/menu-key-hints';
 import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRuntimeVersion } from '@/hooks/use-runtime-version';
 import { useUpdateStatus, type UpdateStatus } from '@/hooks/use-update-status';
 import {
@@ -67,6 +71,13 @@ const MENU_HINTS = [
   { id: 'menu-move', label: 'move' },
   { id: 'menu-pick', label: 'switch' },
   { id: 'menu-open', label: 'open' },
+] as const;
+
+/** Drilled into Add an agent at narrow widths: Enter chooses a way, Left goes back. */
+const ADD_HINTS = [
+  { id: 'menu-move', label: 'move' },
+  { id: 'menu-pick', label: 'choose' },
+  { id: 'menu-back', label: 'back' },
 ] as const;
 
 /** A short state word for the 62px status column; the full sentence is on hover. */
@@ -178,6 +189,18 @@ export function ClioMenuContent({
   const update = useUpdateStatus(runtime.version);
   const desktop = inTauri();
   const [query, setQuery] = useState('');
+  // Below 600px the submenu has no room beside the menu, so it opens in place.
+  const narrow = useMediaQuery('(max-width: 599px)');
+  const [adding, setAdding] = useState(false);
+  const backRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLDivElement>(null);
+  const wasAdding = useRef(false);
+  useEffect(() => {
+    // Keyboard focus follows the drill-in: onto Back, then back to Add an agent.
+    if (adding) backRef.current?.focus();
+    else if (wasAdding.current) addRef.current?.focus();
+    wasAdding.current = adding;
+  }, [adding]);
   const searchRef = useRef<HTMLInputElement>(null);
   const identity = agentIdentity(endpoint, activeLabel, activeLocation);
   const active = connectionAvailability(connectionAvailabilities, endpoint);
@@ -222,7 +245,10 @@ export function ClioMenuContent({
     <DropdownMenuContent
       align="start"
       className="w-[340px] p-0"
-      onCloseAutoFocus={() => setQuery('')}
+      onCloseAutoFocus={() => {
+        setQuery('');
+        setAdding(false);
+      }}
       onKeyDownCapture={(event) => {
         // Typing anywhere in the menu searches the agents instead of jumping by first letter.
         const search = searchRef.current;
@@ -233,151 +259,204 @@ export function ClioMenuContent({
         search.focus();
       }}
     >
-      <label className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3.5 text-muted-foreground">
-        <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />
-        <input
-          aria-label="Search agents"
-          className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault();
-              focusFirstItem(event.currentTarget);
-            } else if (event.key !== 'Escape' && event.key !== 'Tab') {
-              event.stopPropagation();
-            }
-          }}
-          placeholder="Search agents"
-          ref={searchRef}
-          type="search"
-          value={query}
-        />
-        {desktop ? null : <ShortcutKeys id="app-menu" variant="caps" />}
-      </label>
-      <div className="p-1.5 text-[12.5px]">
-        <DropdownMenuLabel className={GROUP_LABEL}>Talking to</DropdownMenuLabel>
-        <div
-          className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[5px] bg-accent px-2 py-[3px] text-accent-foreground"
-          title={`${active.label}: ${active.detail}`}
-        >
-          <span aria-hidden="true" className="shrink-0 [&_svg]:size-[15px]">
-            {KIND_ICON[identity.kind]}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
-            <span className="truncate font-medium">{identity.name}</span>
-            <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
-          </span>
-          <span className="mr-[34px] flex min-w-[62px] shrink-0">
-            <StatusIndicator
-              className="text-[11px] text-accent-foreground"
-              label={activeStatus.label}
-              tone={activeStatus.tone}
-            />
-          </span>
-        </div>
-        <div className="mr-2 mb-1 ml-[15px] border-l border-border py-0.5 pl-4">
-          <AddressFact address={addressOf(endpoint)} />
-          <KeyValueGrid actionColumn className={FACT_GRID} items={facts} />
-          {update ? <UpdateFact update={update} /> : null}
-          <DropdownMenuItem asChild className={cn(FACT_ITEM, 'text-link')}>
-            <Link state={returnState} to="/settings/connections">
-              <span className={cn(FACT_LABEL, 'col-span-2')}>
-                <ConnectionSettingsIcon aria-hidden="true" />
-                <span className="truncate">Connection settings</span>
-              </span>
-              <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
-                <ChevronRightIcon />
-              </span>
-            </Link>
-          </DropdownMenuItem>
-        </div>
-        <DropdownMenuSeparator className="my-1.5" />
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <DropdownMenuLabel className={GROUP_LABEL}>Switch to</DropdownMenuLabel>
+      {!adding ? (
+        <label className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3.5 text-muted-foreground">
+          <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />
+          <input
+            aria-label="Search agents"
+            className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                focusFirstItem(event.currentTarget);
+              } else if (event.key !== 'Escape' && event.key !== 'Tab') {
+                event.stopPropagation();
+              }
+            }}
+            placeholder="Search agents"
+            ref={searchRef}
+            type="search"
+            value={query}
+          />
+          {desktop ? null : <ShortcutKeys id="app-menu" variant="caps" />}
+        </label>
+      ) : null}
+      {adding ? (
+        <div className="p-1.5 text-[12.5px]">
           <DropdownMenuItem
-            asChild
-            className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-[11px] font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
+            className="min-h-[30px] py-[3px] text-[12.5px]"
+            onSelect={(event) => {
+              event.preventDefault();
+              setAdding(false);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowLeft') return;
+              event.preventDefault();
+              setAdding(false);
+            }}
+            ref={backRef}
           >
-            <Link to="/?intent=connect">
-              <LayersIcon aria-hidden="true" />
-              Manage agents
-            </Link>
+            <MenuRow className="gap-[9px]" icon={<ArrowLeftIcon />} label="Add an agent" />
           </DropdownMenuItem>
+          <DropdownMenuSeparator className="my-1.5" />
+          <AddAgentItems desktop={desktop} />
         </div>
-        {others.length ? (
-          others.map(({ connection }) => (
-            <SwitchAgentItem
-              availability={connectionAvailability(connectionAvailabilities, connection.endpoint)}
-              connection={connection}
-              key={connection.endpoint}
-              onConnect={onConnect}
-            />
-          ))
-        ) : (
-          <p className="truncate px-2 py-1.5 text-[12px] text-muted-foreground">
-            {needle ? 'No saved agent matches' : 'No other saved agents'}
-          </p>
-        )}
-        <DropdownMenuSeparator className="my-1.5" />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="min-h-[30px] text-[12.5px] text-link">
-            <MenuRow
-              className="gap-[9px]"
-              icon={<AddIcon className="text-link" />}
-              label="Add an agent…"
-            />
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent
-            className="w-[292px] text-[12.5px] [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
-            alignOffset={-7}
-            sideOffset={12}
+      ) : (
+        <div className="p-1.5 text-[12.5px]">
+          <DropdownMenuLabel className={GROUP_LABEL}>Talking to</DropdownMenuLabel>
+          <div
+            className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[5px] bg-accent px-2 py-[3px] text-accent-foreground"
+            title={`${active.label}: ${active.detail}`}
           >
-            <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
-              <Link to="/?intent=connect&mode=address">
-                <MenuRow
-                  className="gap-[9px]"
-                  detail="Already running at an address"
-                  icon={<Link2Icon />}
-                  label="Connect by address"
-                />
+            <span aria-hidden="true" className="shrink-0 [&_svg]:size-[15px]">
+              {KIND_ICON[identity.kind]}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+              <span className="truncate font-medium">{identity.name}</span>
+              <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
+            </span>
+            <span className="mr-[34px] flex min-w-[62px] shrink-0">
+              <StatusIndicator
+                className="text-[11px] text-accent-foreground"
+                label={activeStatus.label}
+                tone={activeStatus.tone}
+              />
+            </span>
+          </div>
+          <div className="mr-2 mb-1 ml-[15px] border-l border-border py-0.5 pl-4">
+            <AddressFact address={addressOf(endpoint)} />
+            <KeyValueGrid actionColumn className={FACT_GRID} items={facts} />
+            {update ? <UpdateFact update={update} /> : null}
+            <DropdownMenuItem asChild className={cn(FACT_ITEM, 'text-link')}>
+              <Link state={returnState} to="/settings/connections">
+                <span className={cn(FACT_LABEL, 'col-span-2')}>
+                  <ConnectionSettingsIcon aria-hidden="true" />
+                  <span className="truncate">Connection settings</span>
+                </span>
+                <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
+                  <ChevronRightIcon />
+                </span>
               </Link>
             </DropdownMenuItem>
+          </div>
+          <DropdownMenuSeparator className="my-1.5" />
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <DropdownMenuLabel className={GROUP_LABEL}>Switch to</DropdownMenuLabel>
             <DropdownMenuItem
               asChild
-              className="min-h-[30px] py-[3px] text-[12.5px]"
-              disabled={!desktop}
+              className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-[11px] font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
             >
-              <Link to="/?intent=connect&mode=deploy">
-                <MenuRow
-                  className="gap-[9px]"
-                  detail={desktop ? 'A saved host, or add one' : 'In the desktop app'}
-                  icon={<TerminalSquareIcon />}
-                  label="Connect over SSH"
-                />
+              <Link to="/?intent=connect">
+                <LayersIcon aria-hidden="true" />
+                Manage agents
               </Link>
             </DropdownMenuItem>
+          </div>
+          {others.length ? (
+            others.map(({ connection }) => (
+              <SwitchAgentItem
+                availability={connectionAvailability(connectionAvailabilities, connection.endpoint)}
+                connection={connection}
+                key={connection.endpoint}
+                onConnect={onConnect}
+              />
+            ))
+          ) : (
+            <p className="truncate px-2 py-1.5 text-[12px] text-muted-foreground">
+              {needle ? 'No saved agent matches' : 'No other saved agents'}
+            </p>
+          )}
+          <DropdownMenuSeparator className="my-1.5" />
+          {narrow ? (
             <DropdownMenuItem
-              asChild
-              className="min-h-[30px] py-[3px] text-[12.5px]"
-              disabled={!desktop}
+              className="min-h-[30px] text-[12.5px] text-link"
+              onSelect={(event) => {
+                event.preventDefault();
+                setAdding(true);
+              }}
+              onKeyDown={(event) => {
+                // The same key as the submenu it stands in for.
+                if (event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                setAdding(true);
+              }}
+              ref={addRef}
             >
-              <Link to="/?intent=connect&mode=deploy">
+              <MenuRow
+                className="gap-[9px]"
+                icon={<AddIcon className="text-link" />}
+                label="Add an agent…"
+                submenu
+              />
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="min-h-[30px] text-[12.5px] text-link">
                 <MenuRow
                   className="gap-[9px]"
-                  detail={desktop ? 'Set it up over SSH, then connect' : 'In the desktop app'}
-                  icon={<DownloadIcon />}
-                  label={`Install ${brand.agentName} on a computer`}
+                  icon={<AddIcon className="text-link" />}
+                  label="Add an agent…"
                 />
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      </div>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className="w-[292px] text-[12.5px] [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
+                alignOffset={-7}
+                sideOffset={12}
+              >
+                <AddAgentItems desktop={desktop} />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+        </div>
+      )}
       <div className="flex items-center border-t border-border/70 pr-1">
-        <MenuKeyHints className="min-w-0 flex-1 border-t-0 pl-3.5" hints={MENU_HINTS} />
+        <MenuKeyHints
+          className="min-w-0 flex-1 border-t-0 pl-3.5"
+          hints={adding ? ADD_HINTS : MENU_HINTS}
+          keysFirst
+        />
         <InfrastructureItem returnState={returnState} />
       </div>
     </DropdownMenuContent>
+  );
+}
+
+/** The three ways to add an agent: the submenu's rows, or the narrow menu's drill-in. */
+function AddAgentItems({ desktop }: { desktop: boolean }) {
+  return (
+    <>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
+        <Link to="/?intent=connect&mode=address">
+          <MenuRow
+            className="gap-[9px]"
+            detail={`${withArticle(brand.agentName)} that is already running`}
+            icon={<GlobeIcon />}
+            label="Connect by address"
+          />
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+        <Link to="/?intent=connect&mode=deploy">
+          <MenuRow
+            className="gap-[9px]"
+            detail={desktop ? 'A saved host, or add one' : 'In the desktop app'}
+            icon={<TerminalSquareIcon />}
+            label="Connect over SSH"
+          />
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+        <Link to="/?intent=connect&mode=deploy">
+          <MenuRow
+            className="gap-[9px]"
+            detail={desktop ? 'Set it up over SSH, then connect' : 'In the desktop app'}
+            icon={<RocketIcon />}
+            label={`Install ${brand.agentName} on a computer`}
+          />
+        </Link>
+      </DropdownMenuItem>
+    </>
   );
 }
 
