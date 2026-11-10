@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @clio/hdf5-viewer build && vite --host 127.0.0.1",
-    "build": "pnpm --filter @clio/hdf5-viewer build && tsc -b && vite build && vite build --config vite.offline.config.ts",
+    "build": "pnpm run build:bundle",
+    "build:bundle": "pnpm --filter @clio/hdf5-viewer build && vite build && vite build --config vite.offline.config.ts",
     "build:offline": "vite build --config vite.offline.config.ts",
     "lint": "oxlint src/components/ai-elements src/components/kibo-ui src/components/mermaidcn src/components/reui src/components/theokit src/components/ui --quiet && oxlint src/components/clio src/routes src/providers src/hooks src/lib src/store src/tauri src/theme src/App.tsx src/main.tsx --deny-warnings",
     "typecheck": "tsc -b --pretty false",
@@ -82,6 +83,7 @@
     "react-pdf": "10.4.1",
     "react-resizable-panels": "^4.12.3",
     "react-router-dom": "^7.18.2",
+    "remark-math": "^6.0.0",
     "shadcn": "^4.19.0",
     "shiki": "^4.4.3",
     "sonner": "^2.0.8",

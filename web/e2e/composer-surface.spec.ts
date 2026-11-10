@@ -161,7 +161,8 @@ for (const theme of ['dark', 'light'] as const) {
 
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.getByRole('heading', { name: 'EarthScope NDP evidence review' }).click();
+      // The title opens the conversation menu; release editor focus directly.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       // Resizing can leave a final Motion layout transform on the composer.
       // Capture idle geometry only after native and frame-driven motion settle;
       // the focus assertion below still requires exactly the same bounds.
@@ -306,4 +307,57 @@ test('a paste in the composer joins the browser undo stack', async ({ page }) =>
   await expect(editor).toHaveText(/^keep (cut)?$/u);
   if ((await editor.textContent()) === 'keep ') await page.keyboard.press('ControlOrMeta+z');
   await expect(editor).toHaveText('keep cut');
+});
+
+test('keeps the composer height while a short-viewport queue scrolls to its end', async ({
+  page,
+}) => {
+  // At short heights the queue and the pending responses share the composer's
+  // bounded height. Scrolling the queue must not resize either: a strip that
+  // grew at its end would shrink the responses' range and clamp their offset.
+  expect((await page.request.post(`${endpoint}/__test/reset`)).ok()).toBe(true);
+  expect((await page.request.post(`${endpoint}/__test/queue-demo`)).ok()).toBe(true);
+  await page.addInitScript((endpoint) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+  }, endpoint);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const height of [400, 520, 600]) {
+    await page.setViewportSize({ height, width: 848 });
+    await page.goto('/workspaces/ws_flat_ndp/sessions/sess_flat_ndp');
+    const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
+    const queue = page.locator('[aria-label="Queued messages"]:visible');
+    await expect(pendingResponses).toHaveCount(1);
+    await expect(queue).toHaveCount(1);
+    const responses = pendingResponses.getByRole('region', { name: '2 pending responses' });
+    const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+    await pendingResponses.getByRole('button', { name: 'Technical details' }).click();
+    await expect(queueViewport).toBeVisible();
+    const heights = () =>
+      page.evaluate(
+        ([queueSelector]) => {
+          const queue = document.querySelector<HTMLElement>(queueSelector!)!;
+          const viewport = queue.querySelector<HTMLElement>('[role="region"]')!;
+          const stack = document.querySelector<HTMLElement>('[data-slot="clio-composer-stack"]')!;
+          return [stack, queue, viewport].map((node) => node.getBoundingClientRect().height);
+        },
+        ['[aria-label="Queued messages"]'],
+      );
+    // Park the responses at their end, then read the resting geometry.
+    await responses.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const parked = await responses.evaluate((element) => element.scrollTop);
+    const before = await heights();
+    const responsesBefore = await responses.evaluate((element) => element.clientHeight);
+    await queueViewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect.poll(() => queue.getByRole('button', { name: /^\d+ more$/u }).count()).toBe(0);
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    expect(await heights(), `heights at ${height}px tall`).toEqual(before);
+    expect(await responses.evaluate((element) => element.clientHeight)).toBe(responsesBefore);
+    expect(await responses.evaluate((element) => element.scrollTop)).toBe(parked);
+  }
 });

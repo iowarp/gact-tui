@@ -1,4 +1,5 @@
-import type { RunState } from '@clio/core/v3';
+import type { RunState, WorkspaceReference } from '@clio/core/v3';
+import type { ObservabilityView } from '@/components/clio/observability-view-storage';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -133,16 +134,25 @@ export function WorkspacePage() {
 
   const workbench = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const { openArtifact, openFlow, openSubagent, revealWorkbench } = workbench;
-  const { openObservability, requestedView } = useObservabilityNavigation(sessionId, (view) =>
-    revealWorkbench({ kind: 'session', view }),
+  const revealSessionView = useCallback(
+    (view?: ObservabilityView) => revealWorkbench({ kind: 'session', view }),
+    [revealWorkbench],
   );
+  const { openObservability, requestedView } = useObservabilityNavigation(
+    sessionId,
+    revealSessionView,
+  );
+  const openTasks = useCallback(() => openObservability('evidence'), [openObservability]);
   const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
   const inStudy = useScienceLog(sessionId).data?.in_study;
   const openAgent = useCallback(
     () => revealWorkbench({ kind: 'resources', section: 'agent' }),
     [revealWorkbench],
   );
-  const openWork = () => revealWorkbench({ kind: 'resources', section: 'work' });
+  const openWork = useCallback(
+    () => revealWorkbench({ kind: 'resources', section: 'work' }),
+    [revealWorkbench],
+  );
   useDesktopTitleSync({
     agent: agentLabel,
     onOpenAgent: openAgent,
@@ -159,6 +169,11 @@ export function WorkspacePage() {
     sessionId,
     workspaceId,
   });
+  // Stable, so a page render does not re-render every memoized transcript row.
+  const openReference = useCallback(
+    (reference: WorkspaceReference) => void openComposerReference(reference),
+    [openComposerReference],
+  );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
   useDashboardReviewOpening(
@@ -318,7 +333,7 @@ export function WorkspacePage() {
       onHeightChange={setDockedComposerHeight}
       onReturnToParent={() => workbench.openParentSession(session)}
       onOpenResource={workbench.openWorkspaceResource}
-      onOpenReference={(reference) => void openComposerReference(reference)}
+      onOpenReference={openReference}
     />
   );
   return (
@@ -356,13 +371,12 @@ export function WorkspacePage() {
             <WorkspaceContextBar
               session={session}
               parentSession={data.parentSession}
-              agentLabel={agentLabel}
               workspaceLabel={activeWorkspace?.display_name}
               endpoint={settings.endpoint}
               history={sessionHistory}
               navigationActions={navigationActions}
               terminalActions={terminalActions}
-              onOpenAgent={openAgent}
+              onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
             />
           }
           workbench={
@@ -412,8 +426,8 @@ export function WorkspacePage() {
             showWelcome={showConversationWelcome}
             dockedComposerHeight={dockedComposerHeight}
             composer={renderComposer}
-            onOpenReference={(reference) => void openComposerReference(reference)}
-            onOpenTasks={() => openObservability('evidence')}
+            onOpenReference={openReference}
+            onOpenTasks={openTasks}
             onInteractionResponse={handleInteractionResponse}
           />
         </ClioAppShell>

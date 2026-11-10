@@ -19,9 +19,12 @@ import { loadedRouteChunk, loadRouteChunk } from '@/lib/route-chunks';
 import { type SettingsScope, SettingsScopeContext } from '@/lib/settings-scope-context';
 import {
   arrivedFromSearch,
+  historyIndex,
   settingsBackgroundRoute,
+  settingsCloseStep,
   withoutSearchArrival,
 } from '@/lib/settings-window-route';
+import { settingFromHash } from '@/lib/settings-search-rows';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   returnRouteFromState,
@@ -68,6 +71,8 @@ export function SettingsWindow() {
   const location = useLocation();
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
+  // The history entry the window opened on; closing goes back past it.
+  const [openedAt] = useState(historyIndex);
   const destinations = settingsDestinations(inTauri());
   const repository = useRepository();
   const memory = useQuery({
@@ -125,19 +130,43 @@ export function SettingsWindow() {
   }, [section, destination?.host, sectionsLoaded]);
   useEffect(() => {
     if (!fromSearch || !sectionsLoaded) return;
-    const target = destination?.host
+    const setting = settingFromHash(location.hash);
+    let target: Element | null | undefined;
+    let done: number | undefined;
+    const mark = (element: Element) => {
+      target = element;
+      element.classList.add('clio-search-arrival');
+      done = window.setTimeout(() => element.classList.remove('clio-search-arrival'), 1600);
+    };
+    if (setting) {
+      // A setting's row can wait on its section's data: look for it briefly.
+      const started = Date.now();
+      const find = () => content.current?.querySelector(`[data-setting="${CSS.escape(setting)}"]`);
+      const poll = window.setInterval(() => {
+        const row = find();
+        if (row || Date.now() - started > 3000) window.clearInterval(poll);
+        if (!row) return;
+        row.scrollIntoView({ block: 'center' });
+        mark(row);
+      }, 100);
+      return () => {
+        window.clearInterval(poll);
+        window.clearTimeout(done);
+        target?.classList.remove('clio-search-arrival');
+      };
+    }
+    const heading = destination?.host
       ? content.current?.querySelector(
           `[data-settings-anchor="${section}"] h2, [data-settings-anchor="${section}"] h1`,
         )
       : content.current?.querySelector('h1');
-    if (!target) return;
-    target.classList.add('clio-search-arrival');
-    const done = window.setTimeout(() => target.classList.remove('clio-search-arrival'), 1600);
+    if (!heading) return;
+    mark(heading);
     return () => {
       window.clearTimeout(done);
-      target.classList.remove('clio-search-arrival');
+      target?.classList.remove('clio-search-arrival');
     };
-  }, [fromSearch, section, destination?.host, location.key, sectionsLoaded]);
+  }, [fromSearch, section, destination?.host, location.key, location.hash, sectionsLoaded]);
   if (section === 'desktop') {
     return <Navigate replace to={`/settings/general${location.search}`} state={location.state} />;
   }
@@ -162,13 +191,16 @@ export function SettingsWindow() {
       icon={<SettingsIcon />}
       navigation={<SettingsNavigation {...navigation} />}
       onOpenChange={(open) => {
-        if (!open) void navigate(background ?? workspaceRoute);
+        if (open) return;
+        const step = settingsCloseStep(openedAt, historyIndex());
+        if (step !== undefined) void navigate(step);
+        else void navigate(background ?? workspaceRoute, { replace: true });
       }}
       open
+      picker={<SettingsSectionPicker {...navigation} />}
       rail={<SettingsNavRail {...navigation} />}
       search={<SettingsSearchButton />}
       title="Settings"
-      toolbar={<SettingsSectionPicker {...navigation} />}
     >
       <main className="px-5 pt-4 pb-5 sm:px-7">
         <div className="pb-12">

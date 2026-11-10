@@ -152,14 +152,14 @@ export function InfrastructureOverview({
       ) : null}
       <nav
         aria-label="More infrastructure"
-        className="flex min-w-0 items-center gap-1 overflow-hidden px-0.5 pt-2 pb-1"
+        className="flex min-w-0 items-center gap-1.5 overflow-hidden px-0.5 pt-2 pb-1"
       >
         {MORE.map(({ to, label, icon: Icon }) => (
           <Button
             asChild
-            className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground"
+            className="min-w-0 shrink gap-1.5 text-foreground [&_svg]:size-3.5"
             key={to}
-            size="xs"
+            size="compact"
             variant="ghost"
           >
             <Link title={label} to={to}>

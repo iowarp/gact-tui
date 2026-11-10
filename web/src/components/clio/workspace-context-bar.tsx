@@ -6,34 +6,31 @@ import type { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal
 import { ClioSessionContextBar } from './session-context-bar';
 
 /**
- * The session's title bar: its agent, its parent, and the history actions
+ * The conversation's breadcrumb: its workspace, its parent, and the history actions
  * (fork, compact, undo, share) with their shared pending state.
  */
 export function WorkspaceContextBar({
   session,
   parentSession,
-  agentLabel,
   workspaceLabel,
   endpoint,
   history,
   navigationActions,
   terminalActions,
-  onOpenAgent,
+  onOpenWorkspace,
 }: {
   session: Session;
   parentSession: Session | undefined;
-  agentLabel: string | undefined;
   workspaceLabel: string | undefined;
   endpoint: string;
   history: ReturnType<typeof useSessionHistoryActions>;
   navigationActions: ReturnType<typeof useWorkspaceNavigationActions>['navigationActions'];
   terminalActions: ReturnType<typeof useWorkspaceTerminalActions>;
-  onOpenAgent: () => void;
+  onOpenWorkspace?: () => void;
 }) {
   const navigate = useNavigate();
   return (
     <ClioSessionContextBar
-      agentLabel={agentLabel}
       workspaceLabel={workspaceLabel}
       management={{ session, actions: navigationActions, endpoint }}
       actionsPending={history.isPending}
@@ -43,7 +40,7 @@ export function WorkspaceContextBar({
       onFork={async () => {
         await history.fork.mutateAsync(undefined);
       }}
-      onOpenAgent={onOpenAgent}
+      onOpenWorkspace={onOpenWorkspace}
       onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
       onReturnToParent={(parent) =>
         navigate(

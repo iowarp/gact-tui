@@ -98,7 +98,10 @@ readers handle the content; `ToolResultPresentation` retains the existing file,
 terminal, resource, memory, question and media renderers. Add semantics to the
 declaration or the owning adapter, not another per-tool viewer. Resource and
 artifact links reuse workbench navigation. Unsupported URI schemes never become
-executable links. The four obsolete tool aliases are omitted from this registry.
+executable links. A loaded skill's files live with the installed skill, outside
+every workspace: their links open the text that call loaded, read-only, rather
+than the workspace file reader. The four obsolete tool aliases are omitted from
+this registry.
 
 The row and expansion have separate responsibilities. The row explains the
 operation and target. Expansion shows the actual assignment, message, match,

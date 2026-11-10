@@ -53,8 +53,12 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(page.getByRole('menuitemradio', { name: 'flat-NDP' })).toBeChecked();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
-  await expect(page.getByText('No active work', { exact: true })).toBeVisible();
-  await expect(page.getByText('Tokens: 0', { exact: true })).toBeVisible();
+  // The top bar reports only live or unresolved work; idle "No active work" and
+  // token usage live in the conversation rail, not the bar.
+  const topBarStatus = page.locator('[data-slot="top-bar-status"]');
+  await expect(topBarStatus).toBeAttached();
+  await expect(topBarStatus).not.toContainText('Tokens');
+  await expect(topBarStatus).not.toContainText('No active work');
   await page.getByRole('button', { name: 'New conversation actions' }).click();
   await page.getByRole('menuitem', { name: 'Workspace files', exact: true }).click();
   const filesList = page.getByRole('region', { name: 'Files list', exact: true });
@@ -247,4 +251,19 @@ test('first send creates exactly one session and negotiates interactive UI befor
   expect(creationCount).toBe(1);
   expect(messageCount).toBe(1);
   expect(errors).toEqual([]);
+});
+
+test('the folded rail new-conversation button opens the draft at 768px', async ({ page }) => {
+  const reset = await page.request.post(`${endpoint}/__test/reset`);
+  expect(reset.ok()).toBe(true);
+  await page.addInitScript((connection) => {
+    localStorage.setItem('clio.recent-connections', JSON.stringify([connection]));
+  }, endpoint);
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto(sessionRoute);
+  const navigation = page.getByRole('navigation', { name: 'Workspace navigation' });
+  await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeAttached();
+  await navigation.getByRole('button', { name: 'New conversation', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${draftRoute}$`));
+  await expect(page.getByRole('combobox', { name: /^Ask / })).toBeEnabled();
 });

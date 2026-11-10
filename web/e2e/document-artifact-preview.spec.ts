@@ -273,9 +273,9 @@ for (const layout of [
         }
         const toolbar = canvas.locator('[data-slot="frame-bar"]');
         await expect(toolbar).toHaveCount(1);
-        // A phone-width frame bar folds the modes to one menu; their state holds.
+        // A phone-width frame bar folds the modes to one menu; the document's Read mode holds.
         const previewTab = toolbar.getByRole('tab', {
-          name: 'Preview',
+          name: 'Read document',
           exact: true,
           includeHidden: true,
         });
@@ -333,7 +333,7 @@ for (const layout of [
           });
           await page.evaluate(() => window.document.documentElement.classList.remove('dark'));
         }
-        await selectFileView(page, viewer, 'Preview');
+        await selectFileView(page, viewer, 'Read document');
         await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();
         const document = canvas.getByRole('region', { name: 'Document workspace' });
         // A folded bar keeps its facts in the DOM, so the page fact is attached, not visible.
@@ -459,8 +459,8 @@ for (const layout of [
           .toBe('rgba(0, 0, 0, 0)');
         await expect(canvas.getByText('Render PDF preview', { exact: true })).toBeVisible();
         const graph = canvas.getByRole('region', { name: 'Artifact lineage graph', exact: true });
-        const sourceNode = graph.getByTestId(`rf__node-${sourceId}`);
-        const previewNode = graph.getByTestId(`rf__node-${pdfId}`);
+        const sourceNode = graph.locator(`[data-lineage-id="${sourceId}"]`);
+        const previewNode = graph.locator(`[data-lineage-id="${pdfId}"]`);
         await expect(sourceNode).toBeVisible();
         await expect(previewNode).toBeVisible();
         await expect(sourceNode).toContainText(name);
@@ -472,8 +472,7 @@ for (const layout of [
           path: testInfo.outputPath(`${item.extension}-preview-lineage.png`),
           fullPage: true,
         });
-        await selectFileView(page, viewer, 'Versions');
-        await selectFileView(page, viewer, 'Preview');
+        await selectFileView(page, viewer, 'Read document');
         holdRefresh = true;
         const fileActions = canvas.getByRole('button', { name: 'File actions', exact: true });
         await fileActions.click();

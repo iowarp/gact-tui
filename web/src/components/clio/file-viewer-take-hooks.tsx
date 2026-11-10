@@ -9,6 +9,7 @@ import {
   GitBranchIcon,
   GlobeIcon,
   LinkIcon,
+  PackageIcon,
 } from 'lucide-react';
 import { useContext, useState, type ReactNode, type RefObject } from 'react';
 import { toast } from 'sonner';
@@ -353,6 +354,24 @@ export function useOpenTake(
       onSelect: () =>
         run(async () => downloadBytes(await bytes(), identity.mediaType, identity.name)),
     },
+    ...(source.kind === 'artifact'
+      ? [
+          {
+            id: 'evidence',
+            label: 'Download with evidence',
+            icon: <PackageIcon />,
+            accelerator: 'E',
+            onSelect: () =>
+              run(async () =>
+                downloadBytes(
+                  await repository.exportArtifact(source.artifact.id),
+                  'application/zip',
+                  `${safeFileName(source.artifact.name)}.crate.zip`,
+                ),
+              ),
+          } satisfies TakeRow,
+        ]
+      : []),
     ...formats.map(
       (action): TakeRow => ({
         id: `export:${action.label}`,
@@ -377,4 +396,8 @@ export function useOpenTake(
           icon: <ExternalLinkIcon aria-hidden="true" />,
         };
   return { rows, face, busy: busy || renderer.some((action) => action.pending) };
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/giu, '-').replace(/^-|-$/gu, '') || 'artifact';
 }

@@ -28,7 +28,8 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FrameDivider } from '@/components/clio/primitives/frame-bar';
 import { ClioAppShell } from '@/components/clio/app-shell';
-import { IconButton } from '@/components/clio/primitives/icon-button';
+import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
+import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { SegmentedControl } from '@/components/clio/primitives/segmented-control';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { RunActions } from '@/components/clio/run-actions';
@@ -52,6 +53,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -354,6 +361,8 @@ export function RunsPage() {
           ? stateCount(option.value)
           : undefined,
   }));
+  const currentState =
+    stateOptions.find((option) => option.value === stateFilter) ?? stateOptions[0];
   const canIndexMore =
     category === 'flows' &&
     (flowScanLimit < orderedFlowSessions.length || Boolean(flowSessionPages.hasNextPage));
@@ -413,15 +422,47 @@ export function RunsPage() {
       />
       <FrameDivider />
       <SegmentedControl
+        className="hidden @[440px]/runbar:flex"
         iconOnly
         label="Filter by state"
         onValueChange={setStateFilter}
         options={stateOptions}
         value={stateFilter}
       />
+      <DropdownMenu modal={false}>
+        <NamedTooltip label={`Filter by state: ${currentState.label}`}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Filter by state: ${currentState.label}${
+                currentState.count === undefined ? '' : `, ${currentState.count}`
+              }`}
+              className="h-7 shrink-0 gap-1 rounded-[7px] bg-muted px-2 text-[12px] font-normal text-foreground @[440px]/runbar:hidden [&_svg:not([class*=size-])]:size-3.5"
+              size="sm"
+              variant="ghost"
+            >
+              {currentState.icon}
+              {currentState.count === undefined ? null : (
+                <span className="tabular-nums">{currentState.count}</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+        </NamedTooltip>
+        <DropdownMenuContent align="start" className="w-56">
+          {stateOptions.map((option) => (
+            <DropdownMenuItem key={option.value} onSelect={() => setStateFilter(option.value)}>
+              <MenuRow
+                checked={option.value === stateFilter}
+                icon={option.icon}
+                label={option.label}
+                value={option.count === undefined ? undefined : String(option.count)}
+              />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {category === 'executions' ? (
         <SegmentedControl
-          className="hidden @[440px]/runbar:flex"
+          className="hidden @[480px]/runbar:flex"
           iconOnly
           label="Filter by execution type"
           onValueChange={setSourceFilter}
@@ -429,7 +470,8 @@ export function RunsPage() {
           value={sourceFilter}
         />
       ) : null}
-      <span className="ml-auto shrink-0 text-[11.5px] text-muted-foreground tabular-nums">
+      <span aria-hidden="true" className="flex-1" />
+      <span className="hidden shrink-0 text-[11.5px] text-muted-foreground tabular-nums @[520px]/runbar:inline">
         {filteredRows.length} {filteredRows.length === 1 ? noun.slice(0, -1) : noun}
       </span>
       {searchOpen || search ? (
@@ -503,7 +545,11 @@ export function RunsPage() {
         )
       ) : (
         groups.map(({ group, rows: groupRows }) => (
-          <section aria-labelledby={`runs-group-${group}`} className="mb-1" key={group}>
+          <section
+            aria-labelledby={`runs-group-${group}`}
+            className="mb-1 max-w-[840px]"
+            key={group}
+          >
             <h2
               className="flex h-6 items-center gap-2 px-2 text-[11px] font-semibold text-muted-foreground"
               id={`runs-group-${group}`}
@@ -527,7 +573,7 @@ export function RunsPage() {
         ))
       )}
       {showFooter && !(filteredRows.length === 0 && category === 'flows' && !search) ? (
-        <div className="mt-1 flex h-8 min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-[11.5px] whitespace-nowrap text-muted-foreground">
           {footerNote ? <span className="min-w-0 truncate">{footerNote}</span> : null}
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {filteredRows.length > visibleLimit ? (

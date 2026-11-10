@@ -55,12 +55,35 @@ const control = (page, role, name, options = {}) =>
     .filter({ visible: true })
     .first();
 
+/**
+ * Row actions in the left bar stay hidden until their row is hovered; hover the
+ * row that owns a hidden match so the action can be pressed like a person would.
+ */
+async function revealRowAction(page, role, name, options) {
+  const matches = page.getByRole(role, { name, includeHidden: true, ...options });
+  const count = Math.min(await matches.count(), 20);
+  for (let index = 0; index < count; index += 1) {
+    const row = matches.nth(index).locator('xpath=ancestor::*[@data-slot="list-row"][1]');
+    if (!(await row.isVisible().catch(() => false))) continue;
+    // Hover the trailing edge, where the actions column appears, so the pointer
+    // stays on the row (and off any hover card) while the action is pressed.
+    const box = await row.boundingBox();
+    await row.hover(box ? { position: { x: Math.max(1, box.width - 14), y: box.height / 2 } } : {});
+    await page.waitForTimeout(150);
+    return true;
+  }
+  return false;
+}
+
 async function press(page, role, name, options) {
   const target = control(page, role, name, options);
-  const visible = await target
+  let visible = await target
     .waitFor({ state: 'visible', timeout: 1500 })
     .then(() => true)
     .catch(() => false);
+  if (!visible && (await revealRowAction(page, role, name, options))) {
+    visible = await target.isVisible().catch(() => false);
+  }
   if (!visible) {
     // Narrow layouts move the left bar into a sheet behind the sidebar trigger.
     const trigger = page
@@ -71,6 +94,9 @@ async function press(page, role, name, options) {
       await trigger.click();
       await page.waitForTimeout(500);
     }
+  }
+  if (!(await target.isVisible().catch(() => false))) {
+    await revealRowAction(page, role, name, options);
   }
   await target.waitFor({ state: 'visible', timeout: 4000 });
   await target.click();
@@ -199,12 +225,23 @@ async function tabOnly(page, stripName, tabListTitle) {
   await page.waitForTimeout(800);
 }
 
+/** On a phone the pane holds the tab's list or its body; show the body. */
+async function phoneTabBody(page, listTitle) {
+  if ((page.viewportSize()?.width ?? 1280) > 480) return;
+  const hide = control(page, 'button', `Hide ${listTitle}`, { exact: true });
+  if (await hide.isVisible().catch(() => false)) {
+    await hide.dispatchEvent('click');
+    await page.waitForTimeout(600);
+  }
+}
+
 /** Open the study's science log from the workbench strip. */
 async function openScienceLog(page) {
   await stripList(page, 'Science log');
   // A list left open on the strip covers the study's own; show the study.
   const show = control(page, 'button', 'Show Study', { exact: true });
-  if (await show.isVisible().catch(() => false)) await show.click();
+  // On a phone the canvas sheet takes the pointer; click by event.
+  if (await show.isVisible().catch(() => false)) await show.dispatchEvent('click');
   await showsText(page, 'Was 2022 below baseline?');
   await page.waitForTimeout(800);
 }
@@ -334,7 +371,13 @@ function seededSettingsShots() {
     seeded('providers-remove-confirm', '/settings/providers', async (page) => {
       const server = row(page, 'model-server-row', 'Workstation');
       await server.hover();
-      await server.getByRole('button', { name: 'Remove', exact: true }).click();
+      const remove = server.getByRole('button', { name: 'Remove', exact: true });
+      // On a phone the row's actions fold into its ⋯ menu.
+      if (await remove.isVisible()) await remove.click();
+      else {
+        await press(page, 'button', 'More for Workstation');
+        await page.getByRole('menuitem', { name: /^Remove/u }).click();
+      }
       await page.waitForTimeout(300);
     }),
     seeded('providers-details', '/settings/providers', async (page) => {
@@ -634,16 +677,15 @@ function catalogue({ settings, infrastructure }) {
       ),
     ]),
     menu('menu-search-work', 'button', 'Search work'),
-    menu('menu-create-or-import', 'button', 'Create or import'),
     menu('menu-workspace-actions', 'button', /^Workspace actions for /u),
     menu('menu-session-actions', 'button', /^Session actions for /u),
-    menu('menu-attention-inbox', 'button', /needs your response/u),
+    menu('menu-attention-inbox', 'button', /^Notifications|needs your response/u),
     s(
       'session',
       'menu-service-status',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^Workspace Service status/u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
       },
@@ -654,7 +696,7 @@ function catalogue({ settings, infrastructure }) {
       'menu-clio-add-agent',
       SESSION,
       async (page) => {
-        await press(page, 'button', /^Workspace Service status/u);
+        await press(page, 'button', /^[^:]+: .+, this computer$/u);
         await overlay(page);
         await settleSavedAgents(page);
         // By key, so moving the pointer away before the capture keeps it open.
@@ -665,7 +707,7 @@ function catalogue({ settings, infrastructure }) {
       { savedAgents: true },
     ),
     s('session', 'infrastructure-status-expanded', SESSION, async (page) => {
-      await press(page, 'button', 'Show infrastructure status');
+      await press(page, 'button', /^Infrastructure: /u);
       await page.waitForTimeout(500);
     }),
     menu('menu-conversation-actions', 'button', /^Actions for /u),
@@ -676,12 +718,6 @@ function catalogue({ settings, infrastructure }) {
       await page.keyboard.press('ArrowRight');
       await page.waitForTimeout(400);
     }),
-    menu(
-      'menu-version-status',
-      'button',
-      /^(Version status|Checking versions|Software update available|Could not check for updates|.+ (is|are) up to date$)/u,
-    ),
-    menu('menu-usage', 'button', /^Usage for this conversation/u),
     menu('composer-model-picker', 'button', 'Change model'),
     menu('composer-reasoning-effort', 'button', /^Reasoning effort/u),
     menu('composer-execution-mode', 'button', /^Execution mode/u),
@@ -704,13 +740,17 @@ function catalogue({ settings, infrastructure }) {
       await overlay(page);
     }),
     s('session', 'dialog-new-session', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
+      // New conversation is a draft in place (full-picture/08), not a dialog.
+      await press(page, 'button', 'New conversation', { exact: true });
+      await page.waitForTimeout(300);
+    }),
+    s('session', 'held-keys', SESSION, async (page) => {
+      // Holding the command key alone shows each control's shortcut badge.
+      await page.keyboard.down('Control');
+      await page.waitForTimeout(900);
     }),
     s('session', 'dialog-new-workspace', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
-      await overlay(page);
-      await press(page, 'radio', 'Workspace', { exact: true });
+      await press(page, 'button', 'New workspace', { exact: true });
       await page.waitForTimeout(300);
     }),
     s(
@@ -718,14 +758,17 @@ function catalogue({ settings, infrastructure }) {
       'dialog-allow-folder',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Allow opal');
+        // From the keyboard, so the focus ring shows where it starts (Cancel), as the spec draws.
+        await control(page, 'button', 'Allow opal').focus();
+        await page.keyboard.press('Enter');
         await overlay(page);
       },
       { route: 'sandbox-blocked' },
     ),
     s('session', 'dialog-new-session-advanced', SESSION, async (page) => {
-      await press(page, 'button', /^New session in /u);
+      await press(page, 'button', 'New workspace', { exact: true });
       await overlay(page);
+      await press(page, 'radio', 'Session', { exact: true });
       await press(page, 'button', 'Advanced session behavior');
       await page.waitForTimeout(300);
     }),
@@ -736,7 +779,7 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('session', 'dialog-delete-session', SESSION, async (page) => {
       await press(page, 'button', /^Actions for /u);
-      await press(page, 'menuitem', 'Delete?', { exact: true });
+      await press(page, 'menuitem', 'Delete…', { exact: true });
       await overlay(page);
     }),
     s('keyboard', 'shortcut-sheet', SESSION, async (page) => {
@@ -766,9 +809,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('dialog', { name: 'Archived conversations' }).waitFor();
         await page.waitForTimeout(300);
       },
@@ -779,9 +820,7 @@ function catalogue({ settings, infrastructure }) {
       'dialog-archived-delete',
       SESSION,
       async (page) => {
-        await press(page, 'button', 'Create or import');
-        await overlay(page);
-        await page.getByRole('menuitem', { name: 'Archived conversations' }).click();
+        await press(page, 'button', 'Archived conversations', { exact: true });
         await page.getByRole('button', { name: 'Delete Soil moisture regrid' }).click();
         await page.getByRole('dialog', { name: 'Delete Soil moisture regrid?' }).waitFor();
         await page.waitForTimeout(300);
@@ -848,6 +887,23 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'files-list', SESSION, (page) => stripList(page, 'Files')),
     s('canvas', 'files-list-expanded', SESSION, (page) => expandedFiles(page, 4)),
     s('canvas', 'file-csv', SESSION, (page) => openFile(page, 'results/stations.csv')),
+    // workbench-lineage "The tab row, as it narrows": several tabs, the last opened in front.
+    s(
+      'canvas',
+      'tabs-many',
+      SESSION,
+      async (page) => {
+        for (const path of [
+          'ndp/soil_sites.csv',
+          'scripts/soil_qc.py',
+          'ndp/soil_moisture.h5',
+          'plan.md',
+          'diagrams/pipeline.mmd',
+        ])
+          await openFile(page, path);
+      },
+      { scenario: { specFiles: true }, settleMs: 1500 },
+    ),
     // workbench-lineage "Step 6, … open": narrowest (the Activity list beside the
     // tab), the modes are a checked list in …. Where the list is a sheet over
     // the tab, it hides first.
@@ -879,6 +935,20 @@ function catalogue({ settings, infrastructure }) {
     s('canvas', 'file-image', SESSION, (page) =>
       openFile(page, 'results/vertical-displacement.png'),
     ),
+    // A frame bar folded to its active mode and a chevron (390): the modes as a
+    // checked list with the key that works anywhere (workbench-keyboard).
+    s('canvas', 'file-csv-modes', SESSION, async (page) => {
+      await openFile(page, 'results/stations.csv');
+      const folded = page.locator('[data-modes-folded]').filter({ visible: true }).first();
+      const fallback = page
+        .getByRole('toolbar', { name: 'File' })
+        .filter({ visible: true })
+        .getByRole('button', { name: 'File actions' })
+        .first();
+      if (await folded.isVisible().catch(() => false)) await folded.click();
+      else await fallback.click();
+      await overlay(page);
+    }),
     s('canvas', 'sources-list', SESSION, (page) => stripList(page, 'Sources')),
     s('canvas', 'artifacts-list', SESSION, (page) => stripList(page, 'Artifacts')),
     s('canvas', 'activity-list', SESSION, (page) => stripList(page, 'Activity')),
@@ -900,10 +970,14 @@ function catalogue({ settings, infrastructure }) {
     }),
     s('canvas', 'maximized', SESSION, async (page) => {
       await openCanvas(page);
+      // Under 900px the list is a sheet over the tab and covers the row's Maximize;
+      // opening a file closes the sheet, as a tap on a narrow window does.
+      if ((page.viewportSize()?.width ?? 1280) < 900) await openFile(page, 'results/stations.csv');
       await press(page, 'button', 'Maximize canvas');
       await page.waitForTimeout(600);
     }),
-    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'h3' }),
+    // The welcome title; the left bar's headings are folded away at narrow widths.
+    s('new-conversation', 'welcome', '/workspaces/ws_flat_ndp/new', null, { ready: 'main h1' }),
     ...settings.map(({ href, name }) =>
       s('settings', slug(name), href, null, {
         ready: 'main',
@@ -946,7 +1020,13 @@ function catalogue({ settings, infrastructure }) {
       'state-filter',
       '/runs',
       async (page) => {
-        await press(page, 'radio', /^Waiting for you/u);
+        // Narrow toolbars fold the state chips into one filter menu.
+        const chip = page.getByRole('radio', { name: /^Waiting for you/u });
+        if (await chip.isVisible().catch(() => false)) await chip.click();
+        else {
+          await press(page, 'button', /^Filter by state/u);
+          await press(page, 'menuitem', /^Waiting for you/u);
+        }
         await page.waitForTimeout(400);
       },
       { ready: '[data-run-state]' },
@@ -992,6 +1072,21 @@ function catalogue({ settings, infrastructure }) {
         await page.waitForTimeout(300);
       },
       { ready: 'h1', settleMs: 1200 },
+    ),
+    // A computer row with its hover actions showing (narrow, laid over the row's end).
+    // Touch layouts have no hover, so the row takes keyboard focus instead.
+    s(
+      'infrastructure',
+      'agent-hosts-hover',
+      '/infrastructure/agent',
+      async (page) => {
+        const host = page.locator('[data-slot="list-row"]', { hasText: 'utah-cluster' }).first();
+        await host.hover();
+        // The actions are hidden until then, so focus goes to the name's button.
+        await host.locator('button[aria-expanded]').first().focus();
+        await page.waitForTimeout(300);
+      },
+      { ready: 'h1', settleMs: 1200, keepPointer: true },
     ),
     s('not-found', 'unknown-route', '/this-route-does-not-exist', null, { ready: 'body' }),
     s('scale', 'long-conversation-tail', HUGE, null, {
@@ -1098,9 +1193,10 @@ function catalogue({ settings, infrastructure }) {
         'science-log',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           // The spec opens one observation in place.
           const row = page.locator('[data-entry-row]').filter({ hasText: '2022 is' }).first();
-          if (await row.isVisible().catch(() => false)) await row.click();
+          if (await row.isVisible().catch(() => false)) await row.dispatchEvent('click');
           await page.waitForTimeout(600);
         },
       ],
@@ -1108,6 +1204,7 @@ function catalogue({ settings, infrastructure }) {
         'study-graph',
         async (page) => {
           await openScienceLog(page);
+          await phoneTabBody(page, 'Study');
           await pickMode(page, ['Lineage', 'Study graph', 'Graph']);
         },
       ],
@@ -1138,6 +1235,7 @@ function catalogue({ settings, infrastructure }) {
             'SMAP L3 soil moisture',
           ]);
           await tabOnly(page, 'Files', 'Outline');
+          await phoneTabBody(page, 'Outline');
         },
       ],
     ].map(([state, setup]) =>
