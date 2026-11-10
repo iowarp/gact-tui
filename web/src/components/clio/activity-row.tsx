@@ -203,7 +203,8 @@ export const ActivityRow = memo(
             <>
               {link ? (
                 // The agent name stays whole when it fits; if the row is narrower, it ends in …
-                <span className="flex min-w-0 max-w-[min(16rem,100%)] shrink-0 items-center [&>*]:min-w-0">
+                // It takes the room before the argument does.
+                <span className="flex w-0 min-w-0 max-w-fit grow-[100] items-center [&>*]:min-w-0 [&>*]:max-w-[16rem]">
                   {link}
                 </span>
               ) : null}
@@ -212,9 +213,8 @@ export const ActivityRow = memo(
                   data-slot="activity-argument"
                   title={argumentTitle}
                   className={cn(
-                    'min-w-0 shrink truncate',
-                    // Too narrow to show any of it: the outcome keeps the room instead.
-                    hasOutcome && '@max-[64px]/desc:hidden',
+                    // No intrinsic width: it fills what the outcome leaves, up to its own length.
+                    'w-0 min-w-0 max-w-fit grow truncate',
                     argumentStyle === 'code'
                       ? 'font-mono text-[11.5px] text-muted-foreground'
                       : 'text-[12.5px] text-foreground/85',
@@ -243,6 +243,7 @@ export const ActivityRow = memo(
           badge={badge ?? null}
           actions={armed ? (actions ?? null) : null}
           meta={elapsed ?? null}
+          metaYields={hasOutcome}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}

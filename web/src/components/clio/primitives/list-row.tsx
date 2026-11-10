@@ -88,6 +88,11 @@ export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * keeps its name, cut with …, since the icon alone would say nothing.
    */
   titleCollapses?: boolean;
+  /**
+   * `activity` rows whose description ends in an outcome word: the elapsed
+   * column drops below 480px so the outcome never clips.
+   */
+  metaYields?: boolean;
   selected?: boolean;
   /**
    * `highlight` marks the selected row with the menu-highlight tone. `accent`
@@ -126,6 +131,7 @@ export const ListRow = memo(
       expanded = false,
       leading,
       titleCollapses = true,
+      metaYields = false,
       selected = false,
       selectedTone = 'highlight',
       className,
@@ -219,21 +225,15 @@ export const ListRow = memo(
           <span
             data-slot="list-row-title"
             className={cn(
-              'text-foreground',
-              titleCollapses ? 'shrink-0 @max-[280px]/activity:sr-only' : 'min-w-0 shrink truncate',
+              'min-w-0 shrink truncate text-foreground',
+              titleCollapses && '@max-[280px]/activity:sr-only',
             )}
           >
             {title}
           </span>
-          {/* When the title is what truncates, what follows it (an outcome) stays whole. */}
-          <span
-            className={cn(
-              'flex flex-1 items-center gap-2 overflow-hidden',
-              // A container, so a collapsing argument can leave whole (gap and all)
-              // when there is no room left to show any of it.
-              titleCollapses ? '@container/desc min-w-0' : 'min-w-fit',
-            )}
-          >
+          {/* At least as wide as its outcome: an argument (no intrinsic width) gives up
+              its room first, then the name, so the outcome stays whole. */}
+          <span className="flex min-w-min flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
           {columns}
@@ -260,6 +260,7 @@ export const ListRow = memo(
             <span
               className={cn(
                 'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[360px]/activity:hidden',
+                metaYields && '@max-[480px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
             >
