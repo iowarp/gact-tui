@@ -430,9 +430,12 @@ export function ClioCommandMenu({
       setAiMode(true);
       return;
     }
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && settingsRoute) {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      // Ctrl Enter is the "All results" key, never a second Enter: with every
+      // result a setting it opens Settings filtered to them; mixed results wait
+      // for the spec's All results workbench tab.
       event.preventDefault();
-      openRoute(settingsRoute);
+      if (settingsRoute) openRoute(settingsRoute);
       return;
     }
     if (event.key === 'Backspace' && !query && scope !== 'all') {
