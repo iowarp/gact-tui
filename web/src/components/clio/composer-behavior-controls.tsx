@@ -167,7 +167,11 @@ export function ClioComposerBehaviorControls({
             type="button"
           />
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[24rem] max-w-[calc(100vw-1rem)]" side="top">
+        <DropdownMenuContent
+          className="w-[24rem] max-w-[calc(100vw-1rem)]"
+          collisionPadding={8}
+          side="top"
+        >
           <DropdownMenuLabel className={MENU_LABEL}>Confirmation policy</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
@@ -232,7 +236,7 @@ export function ClioComposerBehaviorControls({
               type="button"
             />
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" side="top">
+          <DropdownMenuContent className="w-56" collisionPadding={8} side="top">
             <DropdownMenuLabel className={MENU_LABEL}>Reasoning effort</DropdownMenuLabel>
             {unknownEffort ? (
               <p className="px-2 pb-1.5 text-xs text-muted-foreground">
@@ -299,7 +303,7 @@ export function ClioComposerBehaviorControls({
             </Button>
           </DropdownMenuTrigger>
         </NamedTooltip>
-        <DropdownMenuContent align="end" className="w-[21rem]" side="top">
+        <DropdownMenuContent align="end" className="w-[21rem]" collisionPadding={8} side="top">
           <DropdownMenuLabel className={MENU_LABEL}>Mode</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
