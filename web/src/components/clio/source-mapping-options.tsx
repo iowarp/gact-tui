@@ -1,14 +1,65 @@
 import { DownloadIcon, LinkIcon, ShieldCheckIcon } from 'lucide-react';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { useId } from 'react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { vocab } from '@/lib/brand-vocabulary';
 
 import { linkAccessNames, type LinkAccess, type DownloadAccess } from './connected-source-labels';
+import { SettingsSelectField } from './model-select-field';
 
 const explanations: Record<LinkAccess, string> = {
   read_only: 'Use the files without changing them.',
   publish_later: `Keep edits in ${vocab.agent}. Review and publish when you are ready.`,
   write_through: 'Each saved edit changes the original file at the source.',
 };
+
+const downloadOptions = [
+  { value: 'editable', label: 'Editable copy' },
+  { value: 'read_only', label: 'Read only' },
+];
+
+/** A labelled choice in a mapping card: the shared select field over the shared menu. */
+function AccessSelect({
+  label,
+  name,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string; disabled?: boolean }>;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1 text-xs">
+      <label htmlFor={id} className="font-medium">
+        {label}
+      </label>
+      <Select disabled={disabled} value={value} onValueChange={onChange}>
+        <SelectPrimitive.Trigger asChild>
+          <SettingsSelectField
+            id={id}
+            aria-label={name}
+            value={options.find((option) => option.value === value)?.label}
+          />
+        </SelectPrimitive.Trigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 /** Mapping and access are separate choices made when bringing a folder into CLIO. */
 export function SourceMappingOptions({
@@ -61,19 +112,14 @@ export function SourceMappingOptions({
               Save files in this workspace. Available offline. Changes stay here and never update
               the originals.
             </p>
-            <label className="space-y-1 text-xs">
-              <span className="font-medium">Your copy</span>
-              <select
-                aria-label="Downloaded copy access"
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                value={downloadAccess}
-                onChange={(e) => onDownloadAccess(e.target.value as DownloadAccess)}
-                disabled={disabled}
-              >
-                <option value="editable">Editable copy</option>
-                <option value="read_only">Read only</option>
-              </select>
-            </label>
+            <AccessSelect
+              label="Your copy"
+              name="Downloaded copy access"
+              value={downloadAccess}
+              options={downloadOptions}
+              onChange={(value) => onDownloadAccess(value as DownloadAccess)}
+              disabled={disabled}
+            />
             <Button variant="outline" onClick={onDownload} disabled={disabled}>
               <DownloadIcon />
               {selectionKind === 'files' ? 'Download selected files' : 'Download all'}
@@ -96,25 +142,23 @@ export function SourceMappingOptions({
             {readOnlyLink ? (
               <p className="text-xs font-medium">Read-only link</p>
             ) : (
-              <label className="space-y-1 text-xs">
-                <span className="font-medium">Through this link</span>
-                <select
-                  aria-label="Linked folder access"
-                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                  value={linkAccess}
-                  onChange={(e) => {
-                    onLinkAccess(e.target.value as LinkAccess);
-                    onConfirmed(false);
-                  }}
-                  disabled={disabled || linkLocked}
-                >
-                  {(['read_only', 'publish_later', 'write_through'] as const).map((value) => (
-                    <option key={value} value={value} disabled={!allowed.includes(value)}>
-                      {linkAccessNames[value]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <AccessSelect
+                label="Through this link"
+                name="Linked folder access"
+                value={linkAccess}
+                options={(['read_only', 'publish_later', 'write_through'] as const).map(
+                  (value) => ({
+                    value,
+                    label: linkAccessNames[value],
+                    disabled: !allowed.includes(value),
+                  }),
+                )}
+                onChange={(value) => {
+                  onLinkAccess(value as LinkAccess);
+                  onConfirmed(false);
+                }}
+                disabled={disabled || linkLocked}
+              />
             )}
             {!readOnlyLink ? (
               <p className="text-xs leading-relaxed">{explanations[linkAccess]}</p>
