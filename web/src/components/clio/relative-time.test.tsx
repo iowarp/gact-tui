@@ -22,9 +22,7 @@ describe('ClioRelativeTime', () => {
   });
 
   it('keeps an exact, discoverable interaction timestamp', () => {
-    const { container } = render(
-      <ClioRelativeTime compact timestamp="2026-08-23T23:21:00Z" />,
-    );
+    const { container } = render(<ClioRelativeTime compact timestamp="2026-08-23T23:21:00Z" />);
 
     const timestamp = container.querySelector('time');
     expect(timestamp).toHaveAttribute('dateTime', '2026-08-23T23:21:00Z');
