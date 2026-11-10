@@ -118,6 +118,7 @@ export const ScheduleRow = memo(function ScheduleRow({
         actionsWidth={0}
         aria-label={schedule.question}
         className="bg-destructive/8 hover:bg-destructive/8"
+        data-escape-scope=""
         icon={<Clock3Icon />}
         meta={meta}
         onKeyDown={onKeyDown}
