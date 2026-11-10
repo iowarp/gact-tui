@@ -218,7 +218,11 @@ export function ModelServerRow({
         </span>
         {detail ? (
           <span
-            className={cn('min-w-0 shrink-[100] truncate', error && 'text-destructive')}
+            className={cn(
+              'min-w-0 shrink-[100] truncate',
+              // On a phone the status line under the name says this; the address keeps the width.
+              error ? 'text-destructive' : '@max-sm:hidden',
+            )}
             role={error ? 'alert' : undefined}
             title={detail}
           >

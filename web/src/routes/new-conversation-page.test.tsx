@@ -114,7 +114,6 @@ vi.mock('@/hooks/use-workspace-terminal-actions', () => ({
   useWorkspaceTerminalActions: () => ({}),
 }));
 vi.mock('@/hooks/use-workspace-warmup', () => ({ useWorkspaceWarmup: () => ({}) }));
-vi.mock('@/hooks/use-desktop-title-sync', () => ({ useDesktopTitleSync: () => undefined }));
 vi.mock('@/components/clio/app-shell', () => ({
   ClioAppShell: ({
     children,

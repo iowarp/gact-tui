@@ -105,13 +105,7 @@ export function SessionDefaultsSettings() {
 
   const providerId = form?.provider_id || modelConfiguration.data?.provider_id;
   const modelId = form?.provider_id ? form.model_id : modelConfiguration.data?.model;
-  const catalogModel = findSelectedModelOption(options, providerId, modelId);
-  const selectedModel = catalogModel
-    ? {
-        ...catalogModel,
-        label: compactModelName(catalogModel.id, catalogModel.label),
-      }
-    : undefined;
+  const selectedModel = findSelectedModelOption(options, providerId, modelId);
   const reasoning = useModelReasoningLevels(
     providerId,
     modelId,
@@ -161,7 +155,7 @@ export function SessionDefaultsSettings() {
     approvalOptions.find((option) => option.value === form.approval_mode) ?? approvalOptions[0];
   const pinned = Boolean(form.provider_id);
   const modelName = selectedModel
-    ? `${selectedModel.providerName ? `${selectedModel.providerName} / ` : ''}${selectedModel.label}`
+    ? `${selectedModel.providerName ? `${selectedModel.providerName} / ` : ''}${compactModelName(selectedModel.id, selectedModel.label)}`
     : modelId || 'Choose model';
 
   function chooseModel(choice: ClioModelOption) {

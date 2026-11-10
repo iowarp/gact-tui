@@ -140,10 +140,7 @@ describe('ClioComposerQueue reorder commit', () => {
 
     await waitFor(() =>
       expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
-        'Queued messages changed on the service',
-        expect.objectContaining({
-          description: expect.stringContaining('latest order'),
-        }),
+        'Queue changed elsewhere, so your new order was not applied',
       ),
     );
     // The drag is dropped rather than replayed, and the surface falls back to

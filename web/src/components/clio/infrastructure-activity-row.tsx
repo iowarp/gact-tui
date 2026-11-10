@@ -230,10 +230,19 @@ export function InfrastructureActivityRow({
               {inlineLog ? (
                 <pre
                   aria-label={`Log for ${title}`}
-                  className="clio-scrollbar max-h-48 overflow-auto rounded-md bg-muted/50 px-3 py-2 font-mono text-[11.5px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]"
+                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7]"
                   tabIndex={0}
                 >
-                  {inlineLog}
+                  {/* Spec .c3log: one line each, cut with an ellipsis; the dialog keeps the full text. */}
+                  {inlineLog.split('\n').map((line, index) => (
+                    // eslint-disable-next-line react/no-array-index-key -- log lines repeat and never reorder
+                    <span
+                      className="block overflow-hidden text-ellipsis whitespace-pre"
+                      key={index}
+                    >
+                      {line || ' '}
+                    </span>
+                  ))}
                 </pre>
               ) : null}
               {act.error ? (

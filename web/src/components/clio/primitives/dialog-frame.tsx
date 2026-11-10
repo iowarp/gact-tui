@@ -226,15 +226,19 @@ export const DialogFrame = memo(function DialogFrame({
         {children ? (
           <div
             data-slot="dialog-frame-body"
-            // The footer rule closes the body, so a last settings row drops its own.
-            className="min-w-0 px-[18px] pt-2 pb-2.5 text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0"
+            // The body starts under the title text (spec `.xd .bd`: 16px icon + 10px gap).
+            // No rule closes it, so a last settings row drops its own too.
+            className={cn(
+              'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              icon ? 'pl-[42px]' : 'pl-[18px]',
+            )}
           >
             {children}
           </div>
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="@container mt-1.5 flex min-w-0 items-center justify-end gap-2 border-t border-border py-2.5 pr-3 pl-[18px]"
+          className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
             <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
@@ -256,7 +260,7 @@ export const DialogFrame = memo(function DialogFrame({
           {confirm ? (
             <Button
               key={confirmOnly ? 'only' : 'confirm'}
-              variant={confirm.tone === 'destructive' ? 'destructive' : 'default'}
+              variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
               // The face fills the whole 28 px, under the border too.
               className="gap-[7px] bg-clip-border"
               disabled={confirm.disabled}

@@ -96,6 +96,8 @@ export function ModelPickerSearch({
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<FacetPanelHandle>(null);
+  // Nothing narrowed out: the total alone ("3"), as the spec's count reads; "2 / 3" once something is.
+  const totalOnly = single || shown === total;
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
   const chosen = tokens.filter((token) => !quietTokens.includes(token));
   const strip = quickFilters(facetTabs, tokens, maxInputPrice !== undefined, sizes);
@@ -222,15 +224,15 @@ export function ModelPickerSearch({
         </div>
         <span
           aria-label={
-            single
-              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
+            totalOnly
+              ? `${shown} ${countScope === 'loaded' ? 'loaded results' : 'models'}${single ? ' match' : ''}`
               : `${shown} of ${total} ${countScope === 'loaded' ? 'loaded results' : 'models'} match`
           }
           className="ms-1 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
           data-slot="model-count"
         >
           {shown}
-          {single ? '' : ` / ${total}`}
+          {totalOnly ? '' : ` / ${total}`}
           {countScope === 'loaded' ? ' loaded' : ''}
         </span>
         {hasFilters ? (
