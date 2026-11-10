@@ -8,6 +8,7 @@ import { createHash, webcrypto } from 'node:crypto';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { OPEN_BROWSER_PAGE_EVENT } from '@/lib/html-in-browser';
 import { rangeReadsFromText } from '@/test/workspace-file-range';
+import { narrowFrameBars } from '@/test/narrow-frame-bars';
 import { ArtifactView, WorkspaceFileView } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
@@ -501,6 +502,47 @@ describe('WorkspaceFileView', () => {
       'paper/main.tex',
       expect.anything(),
     );
+  });
+
+  it('moves Build this paper into the frame’s … menu at the narrowest fold', async () => {
+    const restore = narrowFrameBars();
+    try {
+      repository.readWorkspaceFile.mockResolvedValue(
+        '\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}',
+      );
+      repository.commentTarget.mockResolvedValue(null);
+      repository.createCommentTarget.mockReturnValue(new Promise(() => {}));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/sessions/sess_1']}>
+            <Routes>
+              <Route
+                element={
+                  <WorkspaceFileView
+                    mediaType="application/x-tex"
+                    path="paper/main.tex"
+                    workspaceId="workspace_1"
+                  />
+                }
+                path="/sessions/:sessionId"
+              />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      const build = await screen.findByRole('button', { name: 'Build this paper' });
+      expect(build).toHaveAttribute('data-frame-tool');
+      await waitFor(() => expect(build).toBeEnabled());
+      await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Build this paper' }));
+      expect(repository.createCommentTarget).toHaveBeenCalledWith('workspace_1', {
+        path: 'paper/main.tex',
+        session_id: 'sess_1',
+      });
+    } finally {
+      restore();
+    }
   });
 
   it('aborts the previous text preview when selection changes', async () => {
