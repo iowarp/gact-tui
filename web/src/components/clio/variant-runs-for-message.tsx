@@ -3,16 +3,18 @@ import { useContext, useMemo } from 'react';
 import { variantRunsForMessage, variantRunView } from '@/lib/variant-runs';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
-import { VariantTabsBlock } from './variant-tabs-block';
+import { VariantRunRecord } from './variant-pick-card';
 
 const NO_INTERACTIONS: readonly PendingInteraction[] = [];
 const NO_MESSAGES: readonly Message[] = [];
 
 /**
- * The variant runs (draft tabs) that belong at one assistant message. It reads
- * the runs from the live store and the conversation's messages, interactions
- * and answer route from the conversation context, so a streaming try repaints
- * its tab without re-rendering the (memoized) message row around it.
+ * The variant runs that belong at one assistant message: the pick card while
+ * a run waits for the user, otherwise one folded row; the tries themselves
+ * open as workbench tabs. It reads the runs from the live store and the
+ * conversation's messages, interactions and answer route from the
+ * conversation context, so a streaming try never re-renders the (memoized)
+ * message row around it.
  */
 export function VariantRunsForMessage({ message }: { message: Message }) {
   const navigation = useContext(PresentationNavigation);
@@ -31,7 +33,7 @@ export function VariantRunsForMessage({ message }: { message: Message }) {
         const view = variantRunView(run, interactions, messages);
         const interaction = view.pick?.interaction;
         return (
-          <VariantTabsBlock
+          <VariantRunRecord
             key={run.variants_id}
             onPick={
               interaction && onResponse

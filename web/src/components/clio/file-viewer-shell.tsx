@@ -22,6 +22,7 @@ import {
   FileViewerModeSlotContext,
   isSourceMode,
   keepFocusInFrame,
+  useFrameKeyRegion,
   type FileViewerModeSlot,
   type RendererModes,
 } from './file-viewer-modes';
@@ -214,6 +215,7 @@ export function FileViewerShell({
   );
   const sourceMode = renderer?.modes.find(isSourceMode);
   const hostRef = useRef<HTMLDivElement>(null);
+  const keyRegion = useFrameKeyRegion(hostRef);
   useShortcut(
     'render-source',
     () => {
@@ -229,7 +231,7 @@ export function FileViewerShell({
       renderer.onChange(rendered.value);
       keepFocusInFrame(hostRef.current);
     },
-    { enabled: Boolean(sourceMode), region: hostRef },
+    { enabled: Boolean(sourceMode), region: keyRegion },
   );
   useShortcut(
     'lineage',
@@ -238,7 +240,7 @@ export function FileViewerShell({
       else selectValue(LINEAGE_VIEW);
       keepFocusInFrame(hostRef.current);
     },
-    { enabled: Boolean(lineage), region: hostRef },
+    { enabled: Boolean(lineage), region: keyRegion },
   );
   const {
     slot: commentsSlot,

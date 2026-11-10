@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { groupedSettingsSections, hostSection } from '@/lib/settings-window-route';
 import { cn } from '@/lib/utils';
-import { NavBadge, type SettingsNavigationProps } from './settings-navigation';
+import { NavBadge, ResultCount, type SettingsNavigationProps } from './settings-navigation';
 
 /**
  * The section list folded to a rail of the three scopes (App, workspace,
@@ -25,7 +25,7 @@ export function SettingsNavRail({
   linkState,
   scopeLabels,
   badges = {},
-  filter = '',
+  counts,
 }: SettingsNavigationProps) {
   const [openScope, setOpenScope] = useState<string | null>(null);
   // A flyout opened by hover closes when the pointer leaves it and its icon.
@@ -52,14 +52,16 @@ export function SettingsNavRail({
   // left open is the topmost layer and would take the Esc meant for Settings.
   const triggers = useRef(new Map<string, HTMLButtonElement>());
   const pressedOutside = useRef(false);
-  const current = hostSection(sections, section);
-  const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
+  // The filtered window shows no one section, so none is current.
+  const current = counts ? undefined : hostSection(sections, section);
   return (
     <div className="flex flex-col items-center gap-1" role="list">
-      {groupedSettingsSections(sections, filter).map(({ group, items }) => {
+      {groupedSettingsSections(sections).map(({ group, items }) => {
         const label = scopeLabels[group] ?? group;
         const active = items.some((item) => item.id === current);
-        const waiting = items.reduce((sum, item) => sum + (badges[item.id]?.count ?? 0), 0);
+        const waiting = counts
+          ? 0
+          : items.reduce((sum, item) => sum + (badges[item.id]?.count ?? 0), 0);
         return (
           <div key={group} role="listitem">
             <DropdownMenu
@@ -130,13 +132,18 @@ export function SettingsNavRail({
                   >
                     <Link
                       aria-current={id === current ? 'page' : undefined}
+                      className={cn(counts && !counts[id] && 'text-faint')}
                       replace
                       state={linkState}
-                      to={`/settings/${id}${search}`}
+                      to={`/settings/${id}`}
                     >
                       <Icon aria-hidden="true" />
                       <span className="truncate">{name}</span>
-                      <NavBadge badge={badges[id]} />
+                      {counts ? (
+                        <ResultCount count={counts[id]} />
+                      ) : (
+                        <NavBadge badge={badges[id]} />
+                      )}
                     </Link>
                   </DropdownMenuItem>
                 ))}

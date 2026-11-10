@@ -47,6 +47,7 @@ import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-
 import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
+import { workspaceName } from '@/lib/workspace-labels';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 
@@ -363,7 +364,7 @@ export function WorkspacePage() {
             <WorkspaceContextBar
               session={session}
               parentSession={data.parentSession}
-              workspaceLabel={activeWorkspace?.display_name}
+              workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
               endpoint={settings.endpoint}
               history={sessionHistory}
               navigationActions={navigationActions}
