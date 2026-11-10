@@ -339,7 +339,22 @@ for (const layout of [
         // A folded bar keeps its facts in the DOM, so the page fact is attached, not visible.
         await expect(toolbar.getByText(`1 / ${item.pages}`, { exact: true })).toBeAttached();
         await expect(canvas.getByRole('button', { name: 'Use paged PDF view' })).toHaveCount(0);
-        await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        // Maximized on a phone the bar stays at its narrowest fold, so the zoom
+        // icons are rows in its ? menu rather than buttons in the bar.
+        const zoomFolded = (await toolbar.getAttribute('data-fold-modes-menu')) !== null;
+        const zoomRow = (name: string) =>
+          page.getByRole('menuitem', { name: new RegExp(`^${name}`, 'u') });
+        const openFrameMenu = () =>
+          toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+        if (zoomFolded) {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeHidden();
+          await openFrameMenu();
+          await expect(zoomRow('Zoom in')).toBeVisible();
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom in')).toBeHidden();
+        } else {
+          await expect(canvas.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+        }
         await expect(document.getByText(item.text, { exact: true })).toBeVisible();
         await expect(document.locator('.react-pdf__Page__canvas').first()).toBeVisible();
         const pageCanvas = document.locator('.react-pdf__Page__canvas').first();
@@ -372,9 +387,23 @@ for (const layout of [
           await page.evaluate(() => ({ width: innerWidth, density: devicePixelRatio })),
         ).toEqual(windowGeometry);
         // Zooming out stops where the page fits.
-        await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        if (zoomFolded) {
+          await openFrameMenu();
+          await zoomRow('Zoom out').click();
+        } else {
+          await toolbar.getByRole('button', { name: 'Zoom out', exact: true }).click();
+        }
         await expect(toolbar.getByText('115%', { exact: true })).toHaveCount(0);
-        await expect(toolbar.getByRole('button', { name: 'Zoom out', exact: true })).toBeDisabled();
+        if (zoomFolded) {
+          await openFrameMenu();
+          await expect(zoomRow('Zoom out')).toHaveAttribute('aria-disabled', 'true');
+          await page.keyboard.press('Escape');
+          await expect(zoomRow('Zoom out')).toBeHidden();
+        } else {
+          await expect(
+            toolbar.getByRole('button', { name: 'Zoom out', exact: true }),
+          ).toBeDisabled();
+        }
         await expect.poll(pageWidth).toBe(fittedWidth);
         await expect.poll(pageFits).toBe(true);
         await expect
