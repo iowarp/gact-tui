@@ -575,7 +575,9 @@ test('renders and answers dense flat-NDP attention requests over the transcript'
 }, testInfo) => {
   await openDenseFlatNdp(page);
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / luna 5.6');
+  await expect(page.getByRole('button', { name: 'Change model' })).toContainText(
+    'Codex / luna 5.6',
+  );
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your attention' });
   await expect(pendingResponses).toBeVisible();
