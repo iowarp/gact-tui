@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
+import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 import { SANDBOX_INACTIVE_POLL_MS, SANDBOX_RESOLVING_POLL_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { TruncatedText } from './primitives/truncate';
@@ -39,6 +40,7 @@ export function SandboxInactiveBanner() {
     queryKey: queryKeys.key('service-health', endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
     enabled: credentialsReady && sandbox.isError && !sandbox.data,
+    notifyOnChangeProps: QUERY_RESULT_FIELDS,
   });
   const verdict = sandboxVerdict(
     sandbox.data ??

@@ -1,6 +1,8 @@
 import { ChevronDownIcon, LogInIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +16,11 @@ interface ProviderLoginButtonProps {
   onLogIn: () => void;
   /** Offered as the secondary choice behind the chevron when present. */
   onUseCode?: () => void;
+  /** More ways in, behind the same chevron (e.g. setting it up in Settings). */
+  menuItems?: ReactNode;
   disabled?: boolean;
-  size?: 'sm' | 'default';
+  /** `xs`: the 22px split of a picker's manage row. */
+  size?: 'xs' | 'sm' | 'default';
 }
 
 /**
@@ -27,16 +32,24 @@ export function ProviderLoginButton({
   label = 'Log in',
   onLogIn,
   onUseCode,
+  menuItems,
   disabled = false,
   size = 'sm',
 }: ProviderLoginButtonProps) {
+  const xs = size === 'xs';
   const login = (
-    <Button disabled={disabled} onClick={onLogIn} size={size} type="button">
+    <Button
+      className={xs ? 'h-[22px] gap-[5px] px-2 text-[11px] [&_svg]:size-3' : undefined}
+      disabled={disabled}
+      onClick={onLogIn}
+      size={size}
+      type="button"
+    >
       <LogInIcon data-icon="inline-start" />
       {label}
     </Button>
   );
-  if (!onUseCode) return login;
+  if (!onUseCode && !menuItems) return login;
   return (
     <ButtonGroup data-slot="provider-login-button">
       {login}
@@ -44,16 +57,22 @@ export function ProviderLoginButton({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label="More ways to log in"
-            className="border-s border-primary-foreground/25"
+            className={cn(
+              'border-s border-primary-foreground/25',
+              xs && 'size-[22px] w-4 [&_svg]:size-3',
+            )}
             disabled={disabled}
-            size={size === 'sm' ? 'icon-sm' : 'icon'}
+            size={size === 'default' ? 'icon' : size === 'sm' ? 'icon-sm' : 'icon-xs'}
             type="button"
           >
             <ChevronDownIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onUseCode}>Log in with a code instead</DropdownMenuItem>
+          {onUseCode ? (
+            <DropdownMenuItem onSelect={onUseCode}>Log in with a code instead</DropdownMenuItem>
+          ) : null}
+          {menuItems}
         </DropdownMenuContent>
       </DropdownMenu>
     </ButtonGroup>

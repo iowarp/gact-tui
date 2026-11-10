@@ -26,8 +26,11 @@ import { cn } from '@/lib/utils';
  * `data-frame-position`), then the modes folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
- * `useFrameModes`), then the group rules go and the gaps tighten. Children hide
- * on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
+ * `useFrameModes`), then the group rules go and the gaps tighten. A name still cut
+ * short of `FRAME_NAME_MIN` then goes too (`where`): the tab names it, and "o…"
+ * says nothing. Last, a renderer's zoom icons (`zoom`, `data-slot="viewer-zoom-controls"`;
+ * Ctrl or ⌘ with the wheel still zooms), so Download and … are never cut. Children
+ * hide on the bar's `data-fold-*` flags (`group-data-[fold-open]/frame:hidden`).
  */
 const FRAME_FOLDS = [
   'facts',
@@ -40,6 +43,8 @@ const FRAME_FOLDS = [
   'name',
   'modes-menu',
   'rules',
+  'where',
+  'zoom',
 ] as const;
 
 /** How narrow the name may truncate (its full path is the hover name) before a group folds. */
@@ -144,7 +149,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [&_[data-slot=viewer-zoom-controls]]:group-data-[fold-zoom]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]))]:hidden"
         >
           <FrameDivider />
           {format}
@@ -177,8 +182,8 @@ export interface FrameCrumb {
 
 /**
  * Where the shown thing lives. When the bar folds, the folders become one …
- * that lists them, then go entirely; the last part (the name) always shows
- * and the full path is the hover name.
+ * that lists them, then go entirely; the last part (the name) shows unless
+ * the bar cannot fit a readable part of it, and the full path is the hover name.
  */
 export const FrameCrumbs = memo(function FrameCrumbs({
   parts,
@@ -194,7 +199,10 @@ export const FrameCrumbs = memo(function FrameCrumbs({
     <nav
       aria-label="Location"
       title={full}
-      className={cn('flex min-w-0 items-center gap-1 text-[12.5px]', className)}
+      className={cn(
+        'flex min-w-0 items-center gap-1 text-[12.5px] group-data-[fold-where]/frame:hidden',
+        className,
+      )}
     >
       {folders.length ? (
         <span className="hidden items-center gap-1 group-data-[fold-folders]/frame:inline-flex group-data-[fold-name]/frame:hidden">

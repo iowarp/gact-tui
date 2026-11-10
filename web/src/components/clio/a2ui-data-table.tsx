@@ -1,6 +1,6 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
@@ -24,7 +24,6 @@ import {
   mergeFilters,
 } from './data-query-filters';
 import {
-  ClioDataTable,
   type ClioDataColumn,
   type ClioDataRow,
   type ClioDataTableServerControl,
@@ -56,6 +55,11 @@ import {
   type TableDataQuery,
   useTableQueryRows,
 } from './table-query-rows';
+
+// The grid (TanStack Table) loads with the first table instead of with the app.
+const ClioDataTable = lazy(() =>
+  import('./data-table').then((module) => ({ default: module.ClioDataTable })),
+);
 
 /**
  * Page sizes offered for a `dataUri` table, paging through the whole dataset
@@ -327,28 +331,30 @@ export function ClioSelectableDataTable({
   };
 
   return (
-    <ClioDataTable
-      capabilities={toolbarCapabilities}
-      columns={columns}
-      description={a2uiAccessibilityDescription(accessibility)}
-      label={heading}
-      showLabel={Boolean(a2uiAccessibilityLabel(accessibility))}
-      onRowClick={selectRow}
-      rows={visibleRows}
-      selectedRows={selectedRows}
-      selectedOnly={selectedOnly && Boolean(state?.values.length)}
-      selectedCount={server ? (state?.values.length ?? 0) : selectedFilteredValues.length}
-      onSelectedOnlyChange={server ? server.onSelectedOnlyChange : setLocalSelectedOnly}
-      externalSelection={Boolean(
-        state?.values.length && state.source && state.source !== componentId,
-      )}
-      server={server}
-      initialPageSize={pageSize}
-      inlineFilters={server ? undefined : inlineFilters}
-      onInlineFilterChange={server ? undefined : changeInlineFilter}
-      inlineSort={server ? undefined : inlineSort}
-      onInlineSortChange={server ? undefined : setInlineSort}
-    />
+    <Suspense fallback={<LoadingFeedback label="Loading table…" variant="skeleton" />}>
+      <ClioDataTable
+        capabilities={toolbarCapabilities}
+        columns={columns}
+        description={a2uiAccessibilityDescription(accessibility)}
+        label={heading}
+        showLabel={Boolean(a2uiAccessibilityLabel(accessibility))}
+        onRowClick={selectRow}
+        rows={visibleRows}
+        selectedRows={selectedRows}
+        selectedOnly={selectedOnly && Boolean(state?.values.length)}
+        selectedCount={server ? (state?.values.length ?? 0) : selectedFilteredValues.length}
+        onSelectedOnlyChange={server ? server.onSelectedOnlyChange : setLocalSelectedOnly}
+        externalSelection={Boolean(
+          state?.values.length && state.source && state.source !== componentId,
+        )}
+        server={server}
+        initialPageSize={pageSize}
+        inlineFilters={server ? undefined : inlineFilters}
+        onInlineFilterChange={server ? undefined : changeInlineFilter}
+        inlineSort={server ? undefined : inlineSort}
+        onInlineSortChange={server ? undefined : setInlineSort}
+      />
+    </Suspense>
   );
 }
 
@@ -707,7 +713,9 @@ const dataTableDataProperties = {
   // A dataset column name; required when `selection` is bound (mirrors the chart's selectionField).
   selectionField: fieldNameSchema.optional(),
   action: CommonSchemas.Action.optional(),
-  pageSize: z.union([z.literal(10), z.literal(25), z.literal(50), z.literal(100), z.literal(500)]).optional(),
+  pageSize: z
+    .union([z.literal(10), z.literal(25), z.literal(50), z.literal(100), z.literal(500)])
+    .optional(),
   accessibility: CommonSchemas.AccessibilityAttributes.optional(),
   weight: z.number().optional(),
 };

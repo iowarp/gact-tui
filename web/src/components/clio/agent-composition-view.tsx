@@ -250,8 +250,8 @@ function AgentComposition({
     <div
       className={
         embedded
-          ? 'flex min-w-0 flex-col'
-          : 'clio-scrollbar flex h-full min-h-0 min-w-0 flex-col overflow-y-auto'
+          ? '@container/agent-tab flex min-w-0 flex-col'
+          : 'clio-scrollbar @container/agent-tab flex h-full min-h-0 min-w-0 flex-col overflow-y-auto'
       }
       data-slot="agent-tab"
       ref={rows}
@@ -273,7 +273,7 @@ function AgentComposition({
             </AgentPluginMenu>
           ) : undefined
         }
-        className={library ? 'pr-12' : undefined}
+        className={library && !embedded ? 'pr-12' : undefined}
         reset={
           changed && !readOnly
             ? {
@@ -290,6 +290,7 @@ function AgentComposition({
             : undefined
         }
         title={title}
+        titleShown={!embedded}
       />
       {library ? (
         <details className="px-3.5 pb-2 text-[12px]">

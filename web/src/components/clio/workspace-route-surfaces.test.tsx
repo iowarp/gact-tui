@@ -12,8 +12,6 @@ import {
   TranscriptPresenceSurface,
 } from './workspace-route-surfaces';
 
-const tauri = vi.hoisted(() => ({ inTauri: vi.fn(() => false) }));
-
 it('gives the transition its DOM node so an exiting welcome can leave the flex layout', () => {
   const ref = createRef<HTMLDivElement>();
   render(
@@ -24,13 +22,6 @@ it('gives the transition its DOM node so an exiting welcome can leave the flex l
   expect(ref.current).toBe(screen.getByText('Welcome'));
 });
 
-vi.mock('./navigation-version-status', () => ({
-  SystemVersionStatus: () => <button type="button">System version</button>,
-}));
-vi.mock('./live-connection-indicator', () => ({
-  LiveConnectionIndicator: () => <span data-testid="live-connection-indicator">Live pill</span>,
-}));
-vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: tauri.inTauri }));
 // The usage readout reads the fleet for a session; it stays pending here.
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({ fleet: () => new Promise(() => undefined) }),
@@ -82,69 +73,35 @@ describe('WorkspaceStatusStrip', () => {
       unresolvedWorkCount: 2,
       sessionState: 'running',
       stream: 'live',
+      onInspectTasks: vi.fn(),
     });
-    expect(screen.getByText(/running; 2 tasks need inspection/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Inspect unresolved tasks' })).toHaveTextContent(
+      /2 to inspect.*running; 2 tasks need inspection/u,
+    );
     view.rerender(
       <TooltipProvider>
         <WorkspaceStatusStrip activeWorkCount={0} unresolvedWorkCount={0} stream="live" />
       </TooltipProvider>,
     );
-    expect(screen.getByText('No active work')).toBeVisible();
-    expect(screen.queryByText(/need.*inspection/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/inspect/u)).not.toBeInTheDocument();
   });
 
-  it('shows the live connection indicator once on web, with no "Up to date" pill', () => {
-    tauri.inTauri.mockReturnValue(false);
+  it('leaves connection and version to the agent menu, and says nothing while idle', () => {
     renderStrip({ activeWorkCount: 0, cursor: 'checkpoint-1849', stream: 'live' });
 
-    expect(screen.getByTestId('live-connection-indicator')).toBeVisible();
-    expect(screen.queryByText('Up to date')).not.toBeInTheDocument();
-    expect(screen.queryByText(/cursor|checkpoint/u)).not.toBeInTheDocument();
-  });
-
-  it('drops the live connection indicator on desktop -- the title bar already shows it once', () => {
-    tauri.inTauri.mockReturnValue(true);
-    renderStrip({ activeWorkCount: 0, stream: 'live' });
-
     expect(screen.queryByTestId('live-connection-indicator')).not.toBeInTheDocument();
-  });
-
-  it('reports 0 tokens (never "Unavailable") before any turn has run', () => {
-    renderStrip({ activeWorkCount: 0, stream: 'live' });
-
-    expect(screen.getByText('No active work')).toBeVisible();
-    expect(screen.getByText('Tokens: 0')).toBeVisible();
-    expect(screen.queryByText(/unavailable/iu)).not.toBeInTheDocument();
-  });
-
-  it('shows a real token count and cost once the session has usage', () => {
-    renderStrip({ activeWorkCount: 0, cost: 0.0032, stream: 'live', tokens: 150 });
-
-    expect(screen.getByText('Tokens: 150')).toBeVisible();
-    expect(screen.getByText('Cost: $0.0032')).toBeVisible();
-  });
-
-  it('shows a muted dash, never "Unavailable", when the provider reports no cost', () => {
-    renderStrip({ activeWorkCount: 0, stream: 'live', tokens: 300 });
-
-    expect(screen.getByText('—')).toBeVisible();
-    expect(screen.queryByText(/unavailable/iu)).not.toBeInTheDocument();
-  });
-
-  it('places the single system-version control in the bottom status strip', () => {
-    renderStrip({ activeWorkCount: 0, stream: 'live' });
-
-    expect(screen.getByRole('button', { name: 'System version' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'System version' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No active work')).not.toBeInTheDocument();
+    expect(screen.queryByText(/cursor|checkpoint/u)).not.toBeInTheDocument();
   });
 
   it('describes recovery in user terms while retaining the checkpoint as metadata', () => {
     renderStrip({ activeWorkCount: 2, cursor: 'checkpoint-1849', stream: 'reconnecting' });
 
-    expect(screen.getByText('Resuming updates')).toHaveAttribute(
+    expect(screen.getByText('Resuming updates').parentElement).toHaveAttribute(
       'title',
       'Recovery checkpoint point-1849',
     );
-    expect(screen.getByText('2 active items')).toBeVisible();
   });
 });
 

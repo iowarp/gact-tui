@@ -2,12 +2,11 @@ import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
-import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { AskButton, AskCard, AskError, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { PlanDecision, PlanDecisionControls } from './plan-decision-controls';
 import { planArtifact } from './plan-artifact';
@@ -27,6 +26,9 @@ function planFileName(path: string) {
   const parts = path.split(/[\\/]/u).filter(Boolean);
   return parts.slice(-2).join('/');
 }
+
+/** A plan's own "Steps" heading; the preview drops it (the full plan keeps it). */
+const STEPS_HEADING = /^#{2,6}[ \t]+steps?[ \t]*:?[ \t]*(?:\r?\n|$)/imu;
 
 /** The payload's guidance when the markdown does not already carry it. */
 function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
@@ -90,6 +92,8 @@ function PlanPreview({
   const plan = interaction.payload?.plan_exit;
   const content = plan?.plan_content?.trim();
   const [expanded, setExpanded] = useAttentionDraft(`${interaction.id}:plan-expanded`, false);
+  // The glance goes from the summary straight to the numbered steps, as the spec draws.
+  const glance = expanded ? content : content?.replace(STEPS_HEADING, '');
   const [overflowing, setOverflowing] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -127,7 +131,7 @@ function PlanPreview({
       >
         <div ref={bodyRef}>
           {content ? (
-            <MessageResponse className={PLAN_MARKDOWN}>{content}</MessageResponse>
+            <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
             <div className="grid gap-1 text-[12.5px] leading-[1.6]">
               {plan?.summary ? <p className="text-foreground/90">{plan.summary}</p> : null}
@@ -297,18 +301,6 @@ export function PlanExitResponse({
   return (
     <AskCard
       data-interaction-kind="plan_exit"
-      headerActions={
-        actions.includes('cancel') ? (
-          <IconButton
-            {...askKeyAttributes(['Escape'])}
-            disabled={disabled}
-            icon={<CloseIcon aria-hidden="true" />}
-            label="Dismiss plan review"
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'cancel' }))}
-            size="sm"
-          />
-        ) : undefined
-      }
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="plan"

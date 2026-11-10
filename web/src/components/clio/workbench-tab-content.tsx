@@ -21,7 +21,7 @@ import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
-import { ScienceLogTab } from './science-log-tab';
+import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 const BrowserSurface = lazy(() =>
@@ -40,6 +40,11 @@ const WorkspaceResourceCarousel = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
     default: module.WorkspaceResourceCarousel,
   })),
+);
+
+// The study graph brings its graph layout libraries; most visits never open it.
+const ScienceLogTab = deferredComponent(() =>
+  import('./science-log-tab').then((module) => module.ScienceLogTab),
 );
 
 function CanvasLoading({ label }: { label: string }) {
@@ -139,20 +144,22 @@ export function WorkbenchTabContent({
       );
     case 'science-log':
       return (
-        <ScienceLogTab
-          key={sessionId}
-          onOpenFolder={(path) =>
-            onShowFolder(
-              workspaceFilePath(
-                path,
-                useLiveStore.getState().entities.workspaces[workspaceId]?.path,
-              ),
-            )
-          }
-          onOpenSubagent={onOpenSubagent}
-          sessionId={sessionId}
-          workspaceId={workspaceId}
-        />
+        <Suspense fallback={<CanvasLoading label="Loading science log" />}>
+          <ScienceLogTab
+            key={sessionId}
+            onOpenFolder={(path) =>
+              onShowFolder(
+                workspaceFilePath(
+                  path,
+                  useLiveStore.getState().entities.workspaces[workspaceId]?.path,
+                ),
+              )
+            }
+            onOpenSubagent={onOpenSubagent}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+          />
+        </Suspense>
       );
     case 'files':
       return (
