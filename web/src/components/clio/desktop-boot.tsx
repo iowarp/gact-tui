@@ -36,6 +36,7 @@ export function DesktopBoot({
           current={STARTUP_STEP_OF[stage]}
           detail={detail ?? STAGE_DETAIL[stage]}
           log={log}
+          running
         />
       </section>
     </main>

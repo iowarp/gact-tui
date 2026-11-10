@@ -46,7 +46,12 @@ import { displayReleaseVersion } from '@/lib/release-version';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
-import { agentAvailabilityLabel, agentIdentity, type AgentIdentity } from './connection-names';
+import {
+  AGENT_AVAILABILITY_TONE,
+  agentAvailabilityLabel,
+  agentIdentity,
+  type AgentIdentity,
+} from './connection-names';
 
 interface ClioMenuContentProps {
   endpoint: string;
@@ -69,15 +74,15 @@ function availabilityStatus(
   availability: ConnectionAvailability,
   active: boolean,
 ): { label: string; tone: StatusTone } {
+  const tone = AGENT_AVAILABILITY_TONE[availability.state];
   switch (availability.state) {
     case 'healthy':
-      return { label: agentAvailabilityLabel(availability, active), tone: 'success' };
-    case 'degraded':
-      return { label: 'Limited', tone: 'warning' };
     case 'unavailable':
-      return { label: agentAvailabilityLabel(availability, active), tone: 'idle' };
+      return { label: agentAvailabilityLabel(availability, active), tone };
+    case 'degraded':
+      return { label: 'Limited', tone };
     default:
-      return { label: 'Checking', tone: 'running' };
+      return { label: 'Checking', tone };
   }
 }
 

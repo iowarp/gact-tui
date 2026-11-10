@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { StepList, type StepListStep } from './primitives/step-list';
 import { TechnicalDetails } from './technical-details';
@@ -9,20 +11,58 @@ const STEPS = [
   { id: 'opening', label: 'Opening the workspace' },
 ] as const;
 
-function startupSteps(current: number, failed: boolean): StepListStep[] {
-  return STEPS.map(({ id, label }, index) => ({
-    id,
-    label,
-    state: index < current ? 'done' : index === current ? (failed ? 'failed' : 'current') : 'todo',
-  }));
+/** When each step was first seen current, and a clock that ticks while one runs. */
+function useStepClock(current: number, running: boolean) {
+  const [starts, setStarts] = useState<Record<number, number>>(() => ({ [current]: Date.now() }));
+  const [now, setNow] = useState(() => Date.now());
+  // A step's start is recorded in the render that first shows it current.
+  if (starts[current] === undefined)
+    setStarts((previous) => ({ ...previous, [current]: previous[current] ?? Date.now() }));
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  return { starts, now };
+}
+
+function startupSteps({
+  current,
+  failed,
+  starts,
+  now,
+}: {
+  current: number;
+  failed: boolean;
+  starts: Record<number, number>;
+  now: number;
+}): StepListStep[] {
+  return STEPS.map(({ id, label }, index) => {
+    const state =
+      index < current ? 'done' : index === current ? (failed ? 'failed' : 'current') : 'todo';
+    const started = starts[index];
+    const next = STEPS.findIndex((_, later) => later > index && starts[later] !== undefined);
+    const ended = state === 'done' ? (next >= 0 ? starts[next] : undefined) : now;
+    return {
+      id,
+      label,
+      state,
+      meta:
+        state !== 'todo' && started !== undefined && ended !== undefined
+          ? formatDuration(ended - started, 'compact')
+          : undefined,
+    };
+  });
 }
 
 /**
- * The local service's startup as a step list (connect-infrastructure, Local startup).
+ * The local service's startup as a step list (connect-infrastructure, Local startup),
+ * with each step's time in the step's meta column as conversation-states draws it.
  * Tool output (the boot log) stays out of the steps and shows only in Startup details.
  */
 export function LocalStartupSteps({
   current,
+  running,
   failed = false,
   log,
   detail,
@@ -30,13 +70,15 @@ export function LocalStartupSteps({
 }: {
   /** The index of the current step: see `STARTUP_STEP_OF`. */
   current: number;
+  running: boolean;
   failed?: boolean;
   log: string;
   /** A sentence on what the current step is doing, shown in Startup details. */
   detail?: string;
   className?: string;
 }) {
-  const steps = startupSteps(current, failed);
+  const { starts, now } = useStepClock(current, running);
+  const steps = startupSteps({ current, failed, starts, now });
   return (
     <div className={cn('flex min-w-0 flex-col', className)}>
       <p role="status" className="sr-only">
