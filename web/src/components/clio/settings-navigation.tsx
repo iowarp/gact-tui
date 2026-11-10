@@ -32,6 +32,8 @@ export interface SettingsNavigationProps {
   scopeLabels: Record<string, string>;
   /** Items waiting on a section (e.g. memory changes to review), shown as a count. */
   badges?: Record<string, { count: number; label: string }>;
+  /** Sections the connected service doesn't offer, dimmed, with the reason on hover. */
+  unavailable?: Record<string, string>;
   /** A search from the global search (`?q=`): only matching sections are listed. */
   filter?: string;
   /** Lists every section again. */
@@ -49,6 +51,7 @@ export function SettingsNavigation({
   linkState,
   scopeLabels,
   badges = {},
+  unavailable = {},
   filter = '',
   onClearFilter,
 }: SettingsNavigationProps) {
@@ -80,11 +83,12 @@ export function SettingsNavigation({
                 'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
+                unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
               )}
               key={id}
               replace
               state={linkState}
-              title={label}
+              title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
               to={`/settings/${id}${search}`}
             >
               <span className="min-w-0 truncate">{label}</span>
@@ -127,6 +131,7 @@ export function SettingsSectionPicker({
   linkState,
   scopeLabels,
   badges = {},
+  unavailable = {},
   filter = '',
   onClearFilter,
 }: SettingsNavigationProps) {
@@ -224,7 +229,10 @@ export function SettingsSectionPicker({
                     value={id}
                   >
                     <Icon aria-hidden="true" className="text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate" title={label}>
+                    <span
+                      className={cn('min-w-0 flex-1 truncate', unavailable[id] && 'text-faint')}
+                      title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
+                    >
                       {label}
                     </span>
                     <NavBadge badge={badges[id]} />
