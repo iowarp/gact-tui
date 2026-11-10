@@ -48,21 +48,24 @@ A fresh installation:
 1. deletes and recreates the owned root;
 2. clones the exact committed backend and frontend heads into `worktrees` inside it;
 3. initializes pinned submodules;
-4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the repository's pinned official SDK dependency for Codex;
+4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, using uv-managed Python only (Microsoft Store Python virtualizes AppData);
 5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
 6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root;
 7. installs the bundled marketplace launcher in the contained tool directory;
-8. starts one backend and one UI; and
-9. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
-10. runs mandatory preflight.
+8. on Windows without symlink permission (WinError 1314 in huggingface_hub), downloads Docling's models once into `%LOCALAPPDATA%\clio-dev\cache\docling-artifacts` and starts the document processor with `DOCLING_ARTIFACTS_PATH` pointing there; a caller-set `DOCLING_ARTIFACTS_PATH` wins;
+9. starts one backend, with `CLIO_CORE_PORT` set from `-CtePort` so clio-core never binds another stack's default port, and one UI; and
+10. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
+11. runs mandatory preflight.
 
 Defaults:
 
 - source backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
 - source frontend: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
 - backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
-- provider/model: Codex SDK and `gpt-5.6-luna`
+- provider/model: Codex over its websocket transport and `gpt-5.6-luna`
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
+
+The backend reports healthy before its durable task services are up, and the provider route answers `503 task_runtime_starting` until they are. Provider reconciliation retries that refusal; any other provider error still fails. A provider that is signed in but not yet exercised (`auth_unverified`) counts as ready.
 
 Override source paths, ports, provider, model, or CTE capacity only when the task identifies another exact head or contract. Commit intended source changes before qualification; runtime clones deliberately exclude dirty or uncommitted filesystem state.
 
@@ -95,14 +98,14 @@ Preserved installations may need to rehydrate large session ledgers on the first
 
 Containment fails when generated paths escape the owned root or a legacy runtime root exists. Live preflight fails when:
 
-- the API is not `ready`;
+- the API is not `ready` (a signed-in but unexercised provider is accepted);
 - ARC is not backed by the live clio-core/CTE daemon;
-- provider, model, or SDK transport differs from the requested values;
-- bundled marketplace agents are absent, or the default marketplace is untrusted or reports errors;
-- SPOTTER's implementation or native-provider configuration is missing;
+- provider, model, or transport differs from the requested values;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
 - the UI is unreachable.
+
+Missing bundled marketplace agents, an untrusted or erroring default marketplace, and a missing SPOTTER implementation or configuration are reported in the preflight's `warnings`, not as failures. A fresh generation without them still runs CLIO sessions. Check the warnings before a campaign that needs those agents.
 
 The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its plugin-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
 
