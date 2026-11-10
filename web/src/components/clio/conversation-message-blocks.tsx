@@ -189,7 +189,7 @@ export function ReplyErrorLine({
     ? { label: retrying ? 'Retrying' : 'Retry', disabled: retrying, onClick: onRetry }
     : undefined;
   return (
-    <div className="w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
+    <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
       <StateView
         action={retry}
         icon={icon}

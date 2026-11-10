@@ -2,18 +2,21 @@ import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { useRef, useState } from 'react';
 import type { ApplicationDestination } from '@/lib/application-destinations';
 import { groupedSettingsSections, hostSection } from '@/lib/settings-window-route';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { SettingsScopeIcon } from '@/components/clio/settings-scope-icon';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PickerFooter } from '@/components/clio/primitives/picker-footer';
 import { cn } from '@/lib/utils';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
@@ -79,6 +82,7 @@ export function SettingsNavigation({
                 id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
               )}
               key={id}
+              replace
               state={linkState}
               title={label}
               to={`/settings/${id}${search}`}
@@ -114,7 +118,10 @@ export function SettingsSearchButton() {
   );
 }
 
-/** Below 768 px the section list folds into this menu in the title row. */
+/**
+ * Below 600 px the section list folds into this picker in the title's place:
+ * the current section's icon and name, opening the one searchable Picker.
+ */
 export function SettingsSectionPicker({
   sections,
   section,
@@ -125,25 +132,34 @@ export function SettingsSectionPicker({
   onClearFilter,
 }: SettingsNavigationProps) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const search = filter.trim() ? `?q=${encodeURIComponent(filter.trim())}` : '';
   const openingSearch = useRef(false);
   const current = hostSection(sections, section);
   const active = sections.find((item) => item.id === current);
+  const ActiveIcon = active?.icon;
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
           aria-label="Choose settings section"
-          className="h-7 min-w-0 max-w-44 shrink gap-1 px-2 text-xs min-[768px]:hidden"
-          variant="outline"
+          className={cn(
+            'flex h-7 max-w-52 min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
+            'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
+          )}
+          title={active ? `${active.label}: choose another section` : 'Choose a section'}
+          type="button"
         >
-          <span className="truncate">{active?.label ?? 'Sections'}</span>
-          <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="max-h-[70dvh] w-72 overflow-y-auto"
+          {ActiveIcon ? (
+            <ActiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+          ) : null}
+          <span className="min-w-0 truncate">{active?.label ?? 'Sections'}</span>
+          <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(18rem,calc(100vw-1rem))] gap-0 overflow-hidden p-0"
         onCloseAutoFocus={(event) => {
           if (!openingSearch.current) return;
           event.preventDefault();
@@ -152,48 +168,82 @@ export function SettingsSectionPicker({
           queueMicrotask(openGlobalSearch);
         }}
       >
-        <DropdownMenuItem
-          aria-label="Search everywhere from settings menu"
-          onSelect={() => {
-            openingSearch.current = true;
-          }}
+        <Command
+          filter={(_value, query, keywords) =>
+            (keywords ?? []).join(' ').toLowerCase().includes(query.trim().toLowerCase()) ? 1 : 0
+          }
+          label="Settings sections"
         >
-          <SearchIcon aria-hidden="true" />
-          Search everywhere
-          <ShortcutKeys id="search" className="ml-auto text-[10px]" />
-        </DropdownMenuItem>
-        {search && onClearFilter ? (
-          <DropdownMenuItem onSelect={onClearFilter}>
-            <CloseIcon aria-hidden="true" />
-            <span className="truncate">Show every section</span>
-          </DropdownMenuItem>
-        ) : null}
-        {groupedSettingsSections(sections, filter).map(({ group, items }) => (
-          <div key={group}>
-            <DropdownMenuLabel className="truncate">
-              {scopeLabels[group] ?? group}
-            </DropdownMenuLabel>
-            {items.map(({ id, label, icon: Icon }) => (
-              <DropdownMenuItem
-                asChild
-                className="aria-[current=page]:bg-menu-highlight aria-[current=page]:text-foreground"
-                key={id}
+          <CommandInput placeholder="Search sections…" />
+          <CommandList className="max-h-[min(70dvh,28rem)]">
+            <CommandEmpty>No section matches</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                aria-label="Search everywhere from settings menu"
+                keywords={['Search everywhere']}
+                onSelect={() => {
+                  openingSearch.current = true;
+                  setOpen(false);
+                }}
+                value="search-everywhere"
               >
-                <Link
-                  aria-current={id === current ? 'page' : undefined}
-                  state={linkState}
-                  to={`/settings/${id}${search}`}
+                <SearchIcon aria-hidden="true" className="text-muted-foreground" />
+                Search everywhere
+                <CommandShortcut>
+                  <ShortcutKeys id="search" variant="inline" />
+                </CommandShortcut>
+              </CommandItem>
+              {search && onClearFilter ? (
+                <CommandItem
+                  keywords={['Show every section']}
+                  onSelect={() => {
+                    onClearFilter();
+                    setOpen(false);
+                  }}
+                  value="show-every-section"
                 >
-                  <Icon aria-hidden="true" />
-                  <span className="truncate">{label}</span>
-                  <NavBadge badge={badges[id]} />
-                </Link>
-              </DropdownMenuItem>
+                  <CloseIcon aria-hidden="true" className="text-muted-foreground" />
+                  <span className="truncate">Show every section</span>
+                </CommandItem>
+              ) : null}
+            </CommandGroup>
+            {groupedSettingsSections(sections, filter).map(({ group, items }) => (
+              <CommandGroup heading={scopeLabels[group] ?? group} key={group}>
+                {items.map(({ id, label, icon: Icon }) => (
+                  <CommandItem
+                    aria-current={id === current ? 'page' : undefined}
+                    data-checked={id === current || undefined}
+                    key={id}
+                    keywords={[label, scopeLabels[group] ?? group]}
+                    onSelect={() => {
+                      setOpen(false);
+                      void navigate(`/settings/${id}${search}`, {
+                        replace: true,
+                        state: linkState,
+                      });
+                    }}
+                    value={id}
+                  >
+                    <Icon aria-hidden="true" className="text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate" title={label}>
+                      {label}
+                    </span>
+                    <NavBadge badge={badges[id]} />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
             ))}
-          </div>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </CommandList>
+        </Command>
+        <PickerFooter
+          hints={[
+            { label: 'Move', shortcut: 'menu-move', optional: true },
+            { label: 'Open', shortcut: 'menu-pick' },
+            { label: 'Close', shortcut: 'menu-close', onSelect: () => setOpen(false) },
+          ]}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 

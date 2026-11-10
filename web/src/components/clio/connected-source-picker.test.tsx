@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectionScope } from '@/lib/connection-scope';
 import { TransportError } from '@clio/core/v3';
-import { assertFolderResourceAttachment } from './connected-source-picker.test-helpers';
+import {
+  assertFolderResourceAttachment,
+  chooseTrackingConversation,
+} from './connected-source-picker.test-helpers';
 
 const fixtures = vi.hoisted(() => ({
   endpoint: 'https://clio-one',
@@ -262,10 +265,7 @@ describe('connected source picker', () => {
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
     await screen.findByText(/Downloaded to workspace Files/);
     expect(onSelect).not.toHaveBeenCalled();
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Track work in' }),
-      await screen.findByRole('option', { name: 'Source work' }),
-    );
+    await chooseTrackingConversation(user, 'Source work');
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
     expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
@@ -305,10 +305,7 @@ describe('connected source picker', () => {
       if (downloads) expect(downloadFile).toBeEnabled();
       else expect(downloadFile).toBeDisabled();
       expect(screen.getByText(/Keep files at their source/)).toBeVisible();
-      await user.selectOptions(
-        screen.getByRole('combobox', { name: 'Track work in' }),
-        await screen.findByRole('option', { name: 'Source work' }),
-      );
+      await chooseTrackingConversation(user, 'Source work');
       await user.click(screen.getByRole('button', { name: 'Link folder' }));
       await waitFor(() =>
         expect(fixtures.repository.linkConnectedSource).toHaveBeenCalledWith(
@@ -637,10 +634,7 @@ describe('connected source picker', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Your sources' }));
     await user.click(await screen.findByRole('button', { name: /^OPAL inputs/ }));
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Track work in' }),
-      await screen.findByRole('option', { name: 'Source work' }),
-    );
+    await chooseTrackingConversation(user, 'Source work');
     await user.click(screen.getByRole('button', { name: 'Download all' }));
     await waitFor(() =>
       expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
