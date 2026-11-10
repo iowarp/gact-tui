@@ -6,6 +6,7 @@ import { useTaskCancellation } from '@/hooks/use-task-cancellation';
 import { useSubagentControl } from '@/hooks/use-subagent-control';
 import { useMessageMarks } from '@/hooks/use-message-marks';
 import { useEarlierMessages } from '@/hooks/use-earlier-messages';
+import { useShallowStableRecord } from '@/hooks/use-shallow-stable-record';
 import { conversationForkOrigin } from './conversation-fork-origin';
 import { ClioConversation, type ClioConversationProps } from './conversation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
@@ -82,17 +83,19 @@ export function WorkspaceLiveConversation({
         .sort((left, right) => left.created_at.localeCompare(right.created_at)),
     [messageEntities, sessionId],
   );
-  const artifacts = useMemo(
-    () =>
-      Object.fromEntries(
-        [
-          ...Object.values(artifactEntities).filter(
-            (artifact) => artifact.session_id === sessionId,
-          ),
-          ...artifactList,
-        ].map((artifact) => [artifact.id, artifact]),
-      ),
-    [artifactEntities, artifactList, sessionId],
+  const artifacts = useShallowStableRecord(
+    useMemo(
+      () =>
+        Object.fromEntries(
+          [
+            ...Object.values(artifactEntities).filter(
+              (artifact) => artifact.session_id === sessionId,
+            ),
+            ...artifactList,
+          ].map((artifact) => [artifact.id, artifact]),
+        ),
+      [artifactEntities, artifactList, sessionId],
+    ),
   );
   const surfaces = useMemo(
     () =>
@@ -108,12 +111,14 @@ export function WorkspaceLiveConversation({
       Object.values(compactionEntities).filter((compaction) => compaction.session_id === sessionId),
     [compactionEntities, sessionId],
   );
-  const subagents = useMemo(
-    () => ({
-      ...subagentEntities,
-      ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
-    }),
-    [subagentEntities, subagentList],
+  const subagents = useShallowStableRecord(
+    useMemo(
+      () => ({
+        ...subagentEntities,
+        ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
+      }),
+      [subagentEntities, subagentList],
+    ),
   );
   const earlier = useEarlierMessages(sessionId, hasEarlierMessages, messages[0]?.id);
   const { pendingMessageIds: listedPending, cancellablePendingMessageIds: listedCancellable } =
