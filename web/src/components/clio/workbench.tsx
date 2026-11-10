@@ -52,7 +52,7 @@ import {
   type CanvasResourceKind,
   type ClioWorkbenchOpenRequest,
 } from './workbench-open-request';
-import { changedPathSet, fileName, loadResourceViewers } from './workbench-shared';
+import { changeCountMap, changedPathSet, fileName, loadResourceViewers } from './workbench-shared';
 import { PresentationNavigation } from './presentation-navigation';
 import {
   htmlBrowserTarget,
@@ -242,6 +242,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       hideStripList,
     });
     const changedPaths = useMemo(() => changedPathSet(diffs), [diffs]);
+    const changeCounts = useMemo(() => changeCountMap(diffs), [diffs]);
 
     // `TabsContent` unmounts inactive panels (Radix Presence, no forceMount),
     // so "the Files list is showing, or a foreign workspace's Files tab is
@@ -451,6 +452,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         artifactsError={artifactsError}
         artifactsPending={artifactsPending}
         artifactsTruncated={artifactsTruncated}
+        changeCounts={changeCounts}
         changedPaths={changedPaths}
         directory={listDirectory}
         files={files}

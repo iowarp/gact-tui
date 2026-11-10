@@ -8,6 +8,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { workspaceDirectoryQueryKey } from '@/lib/workspace-directory-cache';
 import { FileTypeIcon } from './file-type-icon';
 import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
+import type { ChangeCounts } from './workbench-shared';
 
 interface TreeProps {
   directory?: string;
@@ -17,6 +18,7 @@ interface TreeProps {
   onSelect: (path: string) => void;
   filter?: string;
   changedPaths?: ReadonlySet<string>;
+  changeCounts?: ChangeCounts;
 }
 
 interface DirectoryListing {
@@ -87,6 +89,7 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
             name: name(entry),
             depth,
             alignWithFolders,
+            size: entry.size,
             icon: (
               <FileTypeIcon className="size-3.5" mediaType={entry.media_type} name={entry.path} />
             ),
@@ -148,6 +151,7 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
         />
       ))}
       <WindowedFileTree
+        changeCounts={props.changeCounts}
         changedPaths={props.changedPaths}
         onSelect={props.onSelect}
         onToggle={toggle}
