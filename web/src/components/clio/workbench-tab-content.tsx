@@ -22,6 +22,7 @@ import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
+import { WorkbenchVariantTryTab } from './workbench-variant-try-tab';
 import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
 import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
@@ -381,6 +382,8 @@ export function WorkbenchTabContent({
       );
     case 'list':
       return renderList(tab.view);
+    case 'variant-try':
+      return <WorkbenchVariantTryTab tab={tab} />;
     default:
       return assertNever(tab);
   }

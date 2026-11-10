@@ -37,6 +37,7 @@ export const workbenchTabIcons = {
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
   list: ListIcon,
+  'variant-try': BotIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>

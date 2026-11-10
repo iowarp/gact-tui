@@ -39,6 +39,7 @@ import { useWorkbenchMaximize } from './use-workbench-maximize';
 import { useWorkbenchStrip } from './use-workbench-strip';
 import {
   tabForOpenRequest,
+  variantTryTab,
   type CanvasResourceKind,
   type ClioWorkbenchOpenRequest,
   type TabOpenRequest,
@@ -367,6 +368,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               return;
             }
             openTab(tabForOpenRequest(request, sessionId, workspaceId, targetWorkspaceId));
+            return;
+          case 'variant-try':
+            // Every try gets its tab, in try order; the asked-for one is then shown.
+            for (const item of request.tries)
+              openTab(variantTryTab(request, item.tryIndex, sessionId, workspaceId));
+            openTab(variantTryTab(request, request.tryIndex, sessionId, workspaceId));
             return;
           default: {
             if (openInBrowser(request, targetWorkspaceId)) return;
