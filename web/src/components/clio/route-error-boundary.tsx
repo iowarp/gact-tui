@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { matchPath } from 'react-router-dom';
 import App from '@/App';
 import { useLiveLocation } from '@/lib/live-location';
-import { settingsBackgroundRoute } from '@/lib/settings-window-route';
+import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ComposerDraftSessionBoundary } from '@/components/ai-elements/composer-draft-session-boundary';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -18,8 +18,19 @@ export function RouteErrorBoundary() {
   // route boundary and its own search owner underneath.
   const background = settingsBackgroundRoute(location, settings.endpoint);
   // The in-app connect dialog opens over the page it came from, so that page
-  // keeps its boundary too.
-  const page = { pathname: location.pathname, key: `${location.pathname}${location.search}` };
+  // keeps its boundary too. A page's own query (a selected run, an inventory
+  // filter) changes in place: keying on it would remount the whole app and drop
+  // that page's state. Only the connect screen's intent/mode starts it afresh. A
+  // detached Settings window (no workspace behind it) is one page: moving between
+  // its sections must not remount the app either.
+  const page = {
+    pathname: location.pathname,
+    key: isSettingsRoute(location.pathname)
+      ? '/settings'
+      : location.pathname === '/'
+        ? `/${location.search}`
+        : location.pathname,
+  };
   const [lastPage, setLastPage] = useState<typeof page | null>(null);
   const connecting =
     location.pathname === '/' && new URLSearchParams(location.search).get('intent') === 'connect';

@@ -4,6 +4,7 @@ import type {
   SubagentRun,
   WorkspaceResource,
 } from '@clio/core/v3';
+import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
@@ -50,7 +51,17 @@ export type ClioWorkbenchOpenRequest =
   /** One page of the shared browser, labelled by its session (a subagent's by its task). */
   | { kind: 'browser'; pageId: string; sessionId?: string; label?: string }
   /** One tool call's Activity detail, in the session that made it. */
-  | { kind: 'tool-call'; callId: string; sessionId?: string; label: string };
+  | { kind: 'tool-call'; callId: string; sessionId?: string; label: string }
+  /** Ctrl K's results for a query, as a tab (Ctrl Enter on mixed results). */
+  | { kind: 'search'; query: string; scope?: CommandMenuScope }
+  /** A variant run's tries as tabs, `tryIndex` in front. */
+  | {
+      kind: 'variant-try';
+      variantsId: string;
+      tryIndex: number;
+      tries: readonly { tryIndex: number; label: string }[];
+      sessionId?: string;
+    };
 
 /** The requests whose tab depends only on the request and the conversation. */
 export type TabOpenRequest = Exclude<
@@ -152,11 +163,39 @@ export function tabForOpenRequest(
         sessionId: request.sessionId ?? sessionId,
         workspaceId,
       };
+    case 'search':
+      return {
+        id: `search:${request.query}`,
+        kind: 'search',
+        label: request.query,
+        query: request.query,
+        scope: request.scope,
+      };
     case 'tool-call':
       return activityTab(
         { id: `tool:${request.callId}`, kind: 'tool', name: request.label },
         request.sessionId ?? sessionId,
         workspaceId,
       );
+    case 'variant-try':
+      return variantTryTab(request, request.tryIndex, sessionId, workspaceId);
   }
+}
+
+/** One try's tab of a `variant-try` request. */
+export function variantTryTab(
+  request: Extract<ClioWorkbenchOpenRequest, { kind: 'variant-try' }>,
+  tryIndex: number,
+  sessionId: string,
+  workspaceId: string,
+): WorkbenchTab {
+  return {
+    id: `variant-try:${request.variantsId}:${tryIndex}`,
+    kind: 'variant-try',
+    label: request.tries.find((item) => item.tryIndex === tryIndex)?.label ?? `Try ${tryIndex + 1}`,
+    variantsId: request.variantsId,
+    tryIndex,
+    sessionId: request.sessionId ?? sessionId,
+    workspaceId,
+  };
 }

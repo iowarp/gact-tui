@@ -65,6 +65,8 @@ let lastBlurred: HTMLElement | null = null;
 // opener; a key press clears it, so a shortcut keeps the focused element.
 const PRESSABLE =
   'button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [contenteditable="true"], [tabindex]';
 let lastPressed: HTMLElement | null = null;
 if (typeof document !== 'undefined') {
   document.addEventListener(
@@ -95,6 +97,9 @@ if (typeof document !== 'undefined') {
 function pressedWithin(candidate: Element | null): HTMLElement | null {
   const pressed = lastPressed;
   if (!pressed?.isConnected || pressed === candidate) return null;
+  // An option of an active-descendant list (Ctrl K, All results) cannot take
+  // focus: the list that holds focus is the opener then.
+  if (!pressed.matches(FOCUSABLE)) return null;
   if (!candidate || candidate === document.body || candidate.contains(pressed)) return pressed;
   return null;
 }

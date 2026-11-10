@@ -81,9 +81,10 @@ export function WorkspaceFileView({
   /** The open conversation, whose recorded artifacts give the file its Lineage. */
   sessionId?: string;
 }) {
-  // A listing's generic octet-stream says nothing: the name decides (a .tex is text).
+  // A listing's generic octet-stream says nothing: the name decides (a .tex is text), as it
+  // does for NetCDF, whose version 4 files are HDF5.
   const detected =
-    (mediaType && mediaType !== 'application/octet-stream' ? mediaType : '') ||
+    (mediaType && !NAME_DECIDES.has(mediaType) ? mediaType : '') ||
     inferredWorkspaceMediaType(path);
   const hdf5Viewer = useHdf5ViewerSupported();
   const [previewAnyway, setPreviewAnyway] = useState(false);
@@ -177,6 +178,11 @@ export function WorkspaceFileView({
 }
 
 const HDF5_MEDIA_TYPE = 'application/x-hdf5';
+const NAME_DECIDES = new Set([
+  'application/octet-stream',
+  'application/x-netcdf',
+  'application/netcdf',
+]);
 
 const Hdf5ViewerFrame = lazy(() =>
   import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),
@@ -586,6 +592,9 @@ function isTextArtifact(mediaType: string, name: string): boolean {
       'bst',
       'cls',
       'sty',
+      // Patches read as their changed lines.
+      'patch',
+      'diff',
     ].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
   );
 }
@@ -656,9 +665,9 @@ function inferredWorkspaceMediaType(path: string): string {
   if (extension === 'ipynb') return NOTEBOOK_MEDIA_TYPE;
   if (extension === 'xml') return 'application/xml';
   if (extension === 'mmd' || extension === 'mermaid') return 'text/vnd.mermaid';
-  // HDF5 and formats built on it (HDF-EOS5, NeXus). `.hdf` is left out: it is
-  // usually HDF4.
-  if (['h5', 'hdf5', 'he5', 'nxs'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
+  // HDF5 and formats built on it (HDF-EOS5, NeXus, NetCDF-4). `.hdf` is left out: it is
+  // usually HDF4. A classic NetCDF file fails to open and says so.
+  if (['h5', 'hdf5', 'he5', 'nxs', 'nc', 'nc4'].includes(extension ?? '')) return HDF5_MEDIA_TYPE;
   if (isTextArtifact('', path)) return 'text/plain';
   return 'application/octet-stream';
 }

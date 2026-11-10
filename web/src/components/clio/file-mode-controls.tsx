@@ -22,7 +22,7 @@ import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
-import { ShortcutKeys } from './primitives/key-chip';
+import { HeldKeyBadge, ShortcutKeys } from './primitives/key-chip';
 import { ToolbarAction } from './viewer-toolbar';
 import {
   FileViewerModeSlotContext,
@@ -71,6 +71,7 @@ export function FileModeTrigger({
           {...(inactive ? { 'aria-selected': false, 'data-state': 'inactive' } : {})}
         >
           <Icon aria-hidden="true" className="size-3.5" />
+          {shortcut ? <HeldKeyBadge id={shortcut} /> : null}
         </TabsTrigger>
       </span>
     </NamedTooltip>
@@ -96,7 +97,7 @@ export function FileModeMenuItem({ mode }: { mode: FileMode }) {
           aria-hidden="true"
           className="-mr-6 ml-auto pl-4 group-data-[state=checked]/mode:hidden"
         >
-          <ShortcutKeys id={shortcut} />
+          <ShortcutKeys id={shortcut} variant="menu" />
         </span>
       ) : null}
     </DropdownMenuRadioItem>

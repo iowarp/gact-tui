@@ -19,6 +19,11 @@ export interface SettingsSearchRow {
   section: string;
   keywords?: string;
   value?: SettingsSearchValue;
+  /**
+   * A list on the page rather than one setting: the filtered window shows it as
+   * one row that opens its section.
+   */
+  list?: boolean;
 }
 
 export function settingsSearchRows(): readonly SettingsSearchRow[] {
@@ -65,6 +70,12 @@ export function settingsSearchRows(): readonly SettingsSearchRow[] {
     { label: `${vocab.agent} Search`, section: 'fleet', keywords: 'search helper model' },
     { label: 'SPOTTER review', section: 'fleet', keywords: 'spotter judge review model' },
     { label: 'Suggest Explore while searching', section: 'fleet', keywords: 'explore nudge' },
+    {
+      label: 'Model servers',
+      section: 'providers',
+      keywords: 'local server ollama running',
+      list: true,
+    },
     { label: 'Keys and sign-ins', section: 'providers', keywords: 'api key login sign in' },
     { label: 'Model', section: 'session-defaults', keywords: 'new session model' },
     { label: 'Agent', section: 'session-defaults', keywords: 'new session agent' },

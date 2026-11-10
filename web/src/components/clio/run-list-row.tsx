@@ -1,8 +1,15 @@
-import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import {
+  BotIcon,
+  CheckIcon,
+  MessageCircleQuestionIcon,
+  TriangleAlertIcon,
+  WorkflowIcon,
+  WrenchIcon,
+} from 'lucide-react';
 import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { formatDuration } from '@/lib/format';
-import { HelpIcon } from '@/lib/icon-vocabulary';
+import { CloseIcon, HelpIcon } from '@/lib/icon-vocabulary';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
@@ -26,6 +33,64 @@ const SOURCE_ICONS: Record<RunSource, typeof BotIcon> = {
 export function RunSourceIcon({ source, className }: { source: RunSource; className?: string }) {
   const Icon = SOURCE_ICONS[source];
   return <Icon aria-hidden="true" className={className} />;
+}
+
+/** The ring of a run that has not started (spec `.ring`). */
+const QUEUED_RING = (
+  <span aria-hidden="true" className="block size-3 rounded-full border-[1.5px] border-faint" />
+);
+
+/**
+ * A run's own 14px glyph (spec `.d-st`): a question bubble while it waits on you,
+ * ⚠ when it failed or needs inspecting, a ring when queued, ✓ when done, × when
+ * stopped; work in progress keeps the shared spinner.
+ */
+function runStatusGlyph(state: RunRow['state']): ReactNode {
+  switch (state) {
+    case 'waiting_user':
+    case 'waiting_permission':
+      return <MessageCircleQuestionIcon className="size-3.5 text-warning" />;
+    case 'failed':
+      return <TriangleAlertIcon className="size-3.5 text-destructive-text" />;
+    case 'interrupted':
+    case 'task_state_uncertain':
+    case 'recovery_required':
+      return <TriangleAlertIcon className="size-3.5 text-warning" />;
+    case 'queued':
+    case 'yielded':
+      return QUEUED_RING;
+    case 'completed':
+      return <CheckIcon className="size-3.5 text-accent-foreground" />;
+    case 'cancelled':
+    case 'stopped':
+    case 'paused':
+      return <CloseIcon className="size-3.5 text-muted-foreground" />;
+    default:
+      return undefined;
+  }
+}
+
+/** The status column of a run: its glyph, named by the state in words on hover. */
+export function RunStatusMark({
+  row,
+  cancelRequested,
+  className,
+}: {
+  row: Pick<RunRow, 'state'>;
+  cancelRequested: boolean;
+  className?: string;
+}) {
+  const look = runLook(row);
+  const label = runStateLabel(row, cancelRequested);
+  return (
+    <StatusIndicator
+      className={cn('size-3.5', className)}
+      display="column"
+      icon={cancelRequested ? undefined : runStatusGlyph(row.state)}
+      label={label}
+      tone={cancelRequested ? 'running' : look.tone}
+    />
+  );
 }
 
 function fullWhen(iso: string): string {
@@ -126,14 +191,7 @@ export const RunListRow = memo(function RunListRow({
       layout={reason ? 'stacked' : 'inline'}
       onClick={select}
       selected={selected}
-      status={
-        <StatusIndicator
-          display="column"
-          label={stateLabel}
-          mark={rail ? 'glyph' : 'dot'}
-          tone={look.tone}
-        />
-      }
+      status={<RunStatusMark cancelRequested={cancelRequested} row={row} />}
       title={
         <button
           aria-current={selected ? 'true' : undefined}

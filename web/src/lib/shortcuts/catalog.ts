@@ -62,7 +62,7 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
   def('new-conversation-browser', 'New conversation', 'anywhere', ['Ctrl+Shift+O'], {
     host: 'browser',
   }),
-  def('import-conversation', 'Import conversation?', 'anywhere', ['Ctrl+I']),
+  def('import-conversation', 'Import conversation…', 'anywhere', ['Ctrl+I']),
   def('left-pocket', 'Left pocket', 'anywhere', ['Ctrl+B']),
   def('right-pocket', 'Right pocket', 'anywhere', ['Ctrl+Shift+B']),
   def('previous-conversation', 'Previous conversation', 'anywhere', ['Alt+Up'], {
@@ -117,6 +117,9 @@ export const SHORTCUT_CATALOG: readonly ShortcutDefinition[] = [
 
   def('render-source', 'Render, Source', 'tab', ['Ctrl+Shift+V']),
   def('lineage', 'Lineage', 'tab', ['Ctrl+Shift+L']),
+  def('show-end', 'Show the last part', 'tab', ['L'], {
+    when: 'On a file too large to show',
+  }),
   def('add-to-message', 'Add to message', 'tab', ['Ctrl+Shift+Enter']),
   def('comment', 'Comment on the selection', 'tab', ['Ctrl+Alt+M'], { mac: ['Alt+Cmd+A'] }),
   def('comments', 'Comments', 'tab', ['Ctrl+Shift+K']),

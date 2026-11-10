@@ -286,7 +286,7 @@ export const EXECUTION_PROVENANCE_LIMIT = 10_000;
  * Largest artifact the client will read into the tab for an inline preview.
  * Unit: bytes. Above this the card explains the budget instead of fetching.
  */
-export const INLINE_PREVIEW_MAX_BYTES = 8_000_000;
+export const INLINE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
  * Largest workspace text file read whole. Unit: bytes. Larger files, and files

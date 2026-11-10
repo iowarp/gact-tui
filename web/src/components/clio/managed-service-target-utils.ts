@@ -13,6 +13,9 @@ import type { SavedSshRoute } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
 import type { ManagedTargetKind } from './managed-service-target';
 
+/** The agent's own computer, by the agent's name and never the host's raw label (#938). */
+export const AGENT_COMPUTER = `${vocab.agent}'s computer`;
+
 export function targetLabel(target: ManagedTargetKind, host?: SshHost): string {
   return target === 'local' ? 'this computer' : host?.label || 'the SSH host';
 }

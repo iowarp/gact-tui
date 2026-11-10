@@ -58,6 +58,8 @@ export interface StateAction {
   /** In a viewer body, an action with an icon is a named icon button. */
   icon?: ReactNode;
   disabled?: boolean;
+  /** Catalog id of the key that runs it; a named icon shows it in its tooltip. */
+  shortcut?: string;
 }
 
 export interface StateViewProps {
@@ -345,6 +347,7 @@ function ViewerState({
                 icon={entry.icon}
                 label={entry.label}
                 onClick={entry.onClick}
+                shortcut={entry.shortcut}
               />
             ) : (
               <Button

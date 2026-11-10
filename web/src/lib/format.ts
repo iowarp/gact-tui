@@ -6,16 +6,16 @@
  * time, and the same overlong summary read identically wherever they appear.
  */
 
-const BYTES_PER_KILOBYTE = 1_000;
+const BYTES_PER_KILOBYTE = 1_024;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_MINUTE = 60_000;
 
 const BYTE_UNITS = ['KB', 'MB', 'GB', 'TB'] as const;
 
 /**
- * Formats a byte count with SI (decimal) units, matching the `KB`/`MB`/`GB`
- * labels every surface renders. Byte counts on the wire are decimal, so a
- * binary divisor would print a number that does not match its own label.
+ * Formats a byte count in binary units with the spec's `KB`/`MB`/`GB` labels,
+ * as file managers do: 3,650,722,201 bytes is "3.4 GB", 512 KiB is "512 KB".
+ * One decimal, dropped when it is `.0` from ten up ("200 MB", "5.0 GB").
  */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes)) return '';
@@ -23,11 +23,12 @@ export function formatBytes(bytes: number): string {
   if (magnitude < BYTES_PER_KILOBYTE) return `${Math.round(bytes)} B`;
   let value = bytes / BYTES_PER_KILOBYTE;
   let index = 0;
-  while (Math.abs(value) >= BYTES_PER_KILOBYTE && index < BYTE_UNITS.length - 1) {
+  while (Math.abs(value) >= 999.95 && index < BYTE_UNITS.length - 1) {
     value /= BYTES_PER_KILOBYTE;
     index += 1;
   }
-  return `${value.toFixed(1)} ${BYTE_UNITS[index]}`;
+  const text = value.toFixed(1);
+  return `${Math.abs(value) >= 10 && text.endsWith('.0') ? text.slice(0, -2) : text} ${BYTE_UNITS[index]}`;
 }
 
 /**

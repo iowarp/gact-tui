@@ -20,6 +20,7 @@ import { managedServiceStatus } from '@/lib/managed-service-status';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
+import { AGENT_COMPUTER } from './managed-service-target-utils';
 
 type NodeTone = 'ok' | 'self' | 'active' | 'attention' | 'failed' | 'idle';
 
@@ -290,13 +291,14 @@ function topologyLayout(
     const host = band.target;
     const isLocal = !host || host.kind === 'local';
     const state = isLocal ? undefined : hostState(host);
+    const hostName = isLocal ? AGENT_COMPUTER : host.label;
     nodes.push({
       id: hostId,
       column: 2,
       row: row + (span - 1) / 2,
       icon: isLocal ? <MonitorIcon /> : <ServerIcon />,
-      title: isLocal ? host?.label || 'Local' : host.label,
-      detail: isLocal ? `${vocab.agent} computer` : state!.detail,
+      title: hostName,
+      detail: isLocal ? 'Local' : state!.detail,
       brief: state?.brief,
       tone: state?.tone ?? 'ok',
       action:
@@ -310,7 +312,7 @@ function topologyLayout(
           : {
               kind: 'link',
               to: `/infrastructure/services?target=${encodeURIComponent(band.id)}`,
-              label: `Services on ${host?.label || 'Local'}`,
+              label: `Services on ${hostName}`,
               hint: 'Enter to open its services.',
             },
     });
@@ -349,7 +351,7 @@ function topologyLayout(
         action: {
           kind: 'link',
           to: `/infrastructure/services?target=${encodeURIComponent(band.id)}&service=${encodeURIComponent(service.service_id)}`,
-          label: `Manage ${name} on ${host?.label || 'Local'}`,
+          label: `Manage ${name} on ${hostName}`,
           hint: 'Enter to manage it.',
         },
       });

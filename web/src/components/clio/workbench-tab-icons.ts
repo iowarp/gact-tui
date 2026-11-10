@@ -3,6 +3,7 @@ import {
   BookIcon,
   BotIcon,
   BoxIcon,
+  DatabaseIcon,
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
@@ -11,6 +12,7 @@ import {
   ListChecksIcon,
   ListIcon,
   PaperclipIcon,
+  SearchIcon,
   TerminalSquareIcon,
   WorkflowIcon,
 } from 'lucide-react';
@@ -21,6 +23,7 @@ import type { WorkbenchTabListView } from './workbench-strip';
 
 export const workbenchTabIcons = {
   knowledge: BookIcon,
+  ndp: DatabaseIcon,
   work: ListChecksIcon,
   activity: ActivityIcon,
   files: FolderIcon,
@@ -37,6 +40,8 @@ export const workbenchTabIcons = {
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
   list: ListIcon,
+  search: SearchIcon,
+  'variant-try': BotIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
