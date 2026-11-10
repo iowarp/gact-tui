@@ -157,6 +157,7 @@ function AccountUsageRow({ sessionId }: { sessionId: string }) {
             align="end"
             aria-label="Usage for this conversation's account"
             className="w-[min(340px,calc(100vw-24px))] px-1 py-1.5 outline-none"
+            collisionPadding={12}
             data-slot="session-usage-card"
             onBlur={(event) => {
               const next = event.relatedTarget as Node | null;
@@ -288,13 +289,13 @@ function limitRows(account: FleetAccount): KeyValueItem[] {
   });
   const balance = snapshot.balance;
   if (balance && balance.remaining !== null) {
-    const amount =
+    const money = (value: number) =>
       balance.currency === 'USD'
-        ? `$${balance.remaining.toFixed(2)}`
-        : `${balance.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
+        ? `$${value.toFixed(2)}`
+        : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${balance.currency}`;
     rows.push({
       label: 'Balance',
-      value: `${amount} left${balance.limit !== null ? ` of ${balance.limit}` : ''}`,
+      value: `${money(balance.remaining)} left${balance.limit !== null ? ` of ${money(balance.limit)}` : ''}`,
     });
   }
   if (snapshot.read_failure)
