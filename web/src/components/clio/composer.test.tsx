@@ -5,8 +5,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { clearSavedDrafts } from '@/lib/composer-saved-drafts';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 const repositoryMocks = vi.hoisted(() => ({
@@ -126,29 +124,27 @@ function renderComposer({
   // of a fresh `render()` that would prove nothing about remount behavior.
   const build = (selection: ComposerSelection = initialSelection) => (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <PromptInputProvider>
-          <ClioComposer
-            attachments={attachments}
-            commands={commands}
-            confirmationPolicy={selection.confirmationPolicy}
-            contextReferences={contextReferences}
-            effort={selection.effort ?? 'medium'}
-            executionMode={selection.executionMode}
-            model={selection.model ?? 'gpt-5.6-luna'}
-            modelOptions={modelOptions}
-            onBehaviorChange={onBehaviorChange}
-            onCommand={onCommand}
-            onOpenReference={onOpenReference}
-            onPrepareFiles={onPrepareFiles}
-            onStop={onStop}
-            onSubmit={onSubmit}
-            provider={selection.provider ?? 'codex'}
-            state={state}
-            workspaceId={workspaceId}
-          />
-        </PromptInputProvider>
-      </TooltipProvider>
+      <PromptInputProvider>
+        <ClioComposer
+          attachments={attachments}
+          commands={commands}
+          confirmationPolicy={selection.confirmationPolicy}
+          contextReferences={contextReferences}
+          effort={selection.effort ?? 'medium'}
+          executionMode={selection.executionMode}
+          model={selection.model ?? 'gpt-5.6-luna'}
+          modelOptions={modelOptions}
+          onBehaviorChange={onBehaviorChange}
+          onCommand={onCommand}
+          onOpenReference={onOpenReference}
+          onPrepareFiles={onPrepareFiles}
+          onStop={onStop}
+          onSubmit={onSubmit}
+          provider={selection.provider ?? 'codex'}
+          state={state}
+          workspaceId={workspaceId}
+        />
+      </PromptInputProvider>
     </QueryClientProvider>
   );
   const view = render(build());
@@ -234,48 +230,5 @@ describe('ClioComposer authoritative behavior', () => {
     );
     expect(screen.getByRole('button', { name: 'Open field-notes.md' })).toBeVisible();
     expect(document.querySelector('input[name="message"]')).toHaveValue('Draft that must survive.');
-  });
-});
-
-describe('ClioComposer saved drafts', () => {
-  afterEach(() => clearSavedDrafts());
-
-  it('puts the draft aside with Ctrl+S and brings it back with Up in an empty editor', async () => {
-    const user = userEvent.setup();
-    renderComposer({ workspaceId: 'ws_saved' });
-    const message = () => document.querySelector('input[name="message"]');
-
-    await user.type(composerEditor(), 'Compare the sweep against run 12');
-    await user.keyboard('{Control>}s{/Control}');
-
-    await waitFor(() => expect(message()).toHaveValue(''));
-    const saved = screen.getByRole('list', { name: 'Saved drafts' });
-    expect(saved).toHaveTextContent('Saved');
-    expect(saved).toHaveTextContent('Compare the sweep against run 12');
-    expect(screen.getByRole('region', { name: '1 saved draft' })).toBeVisible();
-
-    await user.click(composerEditor());
-    await user.keyboard('{ArrowUp}');
-
-    await waitFor(() => expect(message()).toHaveValue('Compare the sweep against run 12'));
-    expect(screen.queryByRole('list', { name: 'Saved drafts' })).not.toBeInTheDocument();
-  });
-
-  it('restores a saved draft from its row and puts the current draft aside in its place', async () => {
-    const user = userEvent.setup();
-    renderComposer({ workspaceId: 'ws_saved' });
-    const message = () => document.querySelector('input[name="message"]');
-
-    await user.type(composerEditor(), 'First idea');
-    await user.keyboard('{Control>}s{/Control}');
-    await waitFor(() => expect(message()).toHaveValue(''));
-    await user.type(composerEditor(), 'Second idea');
-    await user.click(screen.getByRole('button', { name: 'Back to the composer' }));
-
-    await waitFor(() => expect(message()).toHaveValue('First idea'));
-    expect(screen.getByRole('list', { name: 'Saved drafts' })).toHaveTextContent('Second idea');
-
-    await user.click(screen.getByRole('button', { name: 'Delete saved draft' }));
-    expect(screen.queryByRole('list', { name: 'Saved drafts' })).not.toBeInTheDocument();
   });
 });

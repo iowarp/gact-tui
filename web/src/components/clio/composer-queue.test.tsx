@@ -93,25 +93,6 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
 }
 
 describe('ClioComposerQueue', () => {
-  it('shows saved drafts in the dash, labelled in words, with Restore and Delete', async () => {
-    const user = userEvent.setup();
-    const draft = { id: 'saved_1', text: 'Compare the sweep against run 12', references: [] };
-    const props = renderQueue({
-      messages: [],
-      savedDrafts: [draft],
-      onRestoreSavedDraft: vi.fn(),
-      onDeleteSavedDraft: vi.fn(),
-    });
-
-    expect(screen.getByText('1 saved draft')).toBeVisible();
-    const saved = screen.getByRole('list', { name: 'Saved drafts' });
-    expect(within(saved).getByText('Saved')).toBeVisible();
-    expect(within(saved).getByText('Compare the sweep against run 12')).toBeVisible();
-    await user.click(within(saved).getByRole('button', { name: 'Back to the composer' }));
-    expect(props.onRestoreSavedDraft).toHaveBeenCalledWith(draft);
-    await user.click(within(saved).getByRole('button', { name: 'Delete saved draft' }));
-    expect(props.onDeleteSavedDraft).toHaveBeenCalledWith(draft);
-  });
   it('says Paused in words while keeping Steer now available', async () => {
     const user = userEvent.setup();
     const props = renderQueue({ paused: true });

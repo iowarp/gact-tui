@@ -229,7 +229,7 @@ export function ClioComposerQueue({
           viewportProps={{
             'aria-label': countLabel,
             className:
-              'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none',
+              'overscroll-contain rounded-[6px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none [&>div]:!block [&>div]:min-w-0',
             id: viewportId,
             ref: setViewport,
             role: 'region',
