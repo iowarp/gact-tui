@@ -83,10 +83,12 @@ export function ConnectedSourceDetail({
   // Access is chosen in the Connect dialog; using the source follows that choice.
   const intent = rememberedSourceAccess(source.id);
   const mode = intent?.mode ?? source.mode ?? 'read_only';
+  // A link without recorded access reads the originals, as its badge says.
+  const currentLinkAccess: LinkAccess = source.link_access ?? 'read_only';
   const linkAccess: LinkAccess = intent
     ? sourceModeLinkAccess[intent.mode]
     : source.linked
-      ? (source.link_access ?? sourceModeLinkAccess[mode])
+      ? currentLinkAccess
       : sourceModeLinkAccess[mode];
   const downloadAccess: DownloadAccess = intent
     ? intent.mode === 'read_only'
@@ -132,7 +134,7 @@ export function ConnectedSourceDetail({
   const pendingUse =
     !ready &&
     use !== undefined &&
-    !(use === 'link' && source.linked && source.link_access === linkAccess);
+    !(use === 'link' && source.linked && currentLinkAccess === linkAccess);
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: queryPrefix.slice(0, 2) });
     await queryClient.invalidateQueries({
@@ -220,7 +222,7 @@ export function ConnectedSourceDetail({
         | 'discard-edits',
     ) => {
       const relink =
-        kind === 'unlink' || !source.linked || manageOnly || linkAccess !== source.link_access;
+        kind === 'unlink' || !source.linked || manageOnly || linkAccess !== currentLinkAccess;
       const trackingSession =
         kind === 'transfer' || (kind === 'link' && relink) ? await tracking.resolve() : undefined;
       if (kind === 'transfer') {

@@ -131,8 +131,13 @@ it('configures the selected remote vault and starts the managed client with inde
   await screen.findByRole('option', { name: 'Research' });
   await user.selectOptions(screen.getByLabelText('Obsidian Sync vault'), 'remote-id');
   await user.type(screen.getByLabelText(/Vault encryption password/), 'vault-secret');
-  await user.selectOptions(screen.getByLabelText('Sync direction'), 'bidirectional');
-  expect(screen.getByRole('checkbox', { name: /create and edit notes/ })).not.toBeChecked();
+  const direction = screen.getByRole('combobox', { name: 'Sync direction' });
+  expect(direction).toHaveTextContent('Download remote changes');
+  await user.click(direction);
+  await user.click(await screen.findByRole('option', { name: 'Sync changes both ways' }));
+  expect(direction).toHaveTextContent('Sync changes both ways');
+  expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Read and write link/ })).not.toBeChecked();
   await user.click(screen.getByRole('button', { name: 'Connect vault' }));
   await waitFor(() => expect(onConnected).toHaveBeenCalledWith(source));
   expect(fixtures.repository.setupObsidianVault).toHaveBeenCalledWith('remote-id', 'vault-secret');
@@ -224,7 +229,10 @@ it('starts Connect on existing notes with read-only access and no account requir
     </QueryClientProvider>,
   );
   expect(screen.getByRole('radio', { name: 'Attach an existing vault or folder' })).toBeChecked();
-  expect(screen.getByRole('checkbox', { name: /create and edit notes/ })).not.toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Read only' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Read and write link/ })).not.toBeChecked();
+  expect(screen.getByRole('radio', { name: /^Editable download/ })).toBeDisabled();
+  expect(screen.queryByRole('checkbox', { name: /^Allow changes to original files/ })).toBeNull();
   expect(screen.getByRole('button', { name: 'Connect vault' })).toBeDisabled();
   expect(fixtures.repository.obsidianStatus).not.toHaveBeenCalled();
 });

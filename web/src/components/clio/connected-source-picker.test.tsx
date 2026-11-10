@@ -255,6 +255,7 @@ describe('connected source picker', () => {
     fixtures.repository.transferConnectedSource.mockImplementation(async () => {
       const completed = { ...oldOperation, id: 'new', created_at: '2026-10-04' };
       fixtures.repository.sourceOperations.mockResolvedValue([oldOperation, completed]);
+      fixtures.repository.connectedSources.mockResolvedValue([source]);
       return completed;
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -271,6 +272,14 @@ describe('connected source picker', () => {
     await chooseTrackingConversation(user, 'Source work');
     await user.click(screen.getByRole('button', { name: 'Add source to message' }));
     await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
+    expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
+      'w',
+      's1',
+      undefined,
+      'draft_test',
+      'editable',
+      'session_sources',
+    );
     expect(fixtures.repository.attachSourceFolder).toHaveBeenCalledWith(
       'w',
       's1',
@@ -700,7 +709,14 @@ describe('connected source picker', () => {
           screen.getByLabelText('Google Drive folder link'),
           'https://drive.google.com/drive/folders/abc',
         );
-        await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+        expect(screen.queryByRole('radiogroup', { name: 'Files' })).toBeNull();
+        const connect = screen.getByRole('button', { name: 'Connect folder' });
+        expect(connect).toBeDisabled();
+        await user.click(
+          screen.getByRole('checkbox', { name: /^Allow changes to original files/ }),
+        );
+        expect(connect).toBeEnabled();
+        await user.click(connect);
         await waitFor(() =>
           expect(fixtures.repository.createConnectedSource).toHaveBeenCalledWith(
             'w',
@@ -710,6 +726,76 @@ describe('connected source picker', () => {
       }
     },
   );
+
+  it('downloads a copy when the user chose Download a copy for Files while connecting', async () => {
+    fixtures.repository.storageProviders.mockResolvedValue({
+      providers: [
+        {
+          id: 'google_drive',
+          name: 'Google Drive',
+          authentication: 'browser',
+          configured: true,
+          capabilities: {
+            supported_modes: ['read_only', 'working_copy', 'write_enabled'],
+            unavailable_reasons: {},
+          },
+        },
+      ],
+    });
+    const created = {
+      ...source,
+      id: 'drive_copy',
+      provider: 'google_drive',
+      label: 'Drive inputs',
+      root: 'input_data',
+      mode: 'read_only',
+      materialization: 'not_materialized',
+      local_path: null,
+      can_edit_location: true,
+      link_available: true,
+      linked: false,
+    };
+    fixtures.repository.createConnectedSource.mockImplementation(async () => {
+      fixtures.repository.connectedSources.mockResolvedValue([source, created]);
+      return created;
+    });
+    fixtures.repository.transferConnectedSource.mockResolvedValue({
+      id: 'op_copy',
+      state: 'queued',
+      created_at: '2026-11-09',
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ConnectedSourcePicker workspaceId="w" open onOpenChange={vi.fn()} onSelect={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /^Connect$/ }));
+    const files = screen.getByRole('radiogroup', { name: 'Files' });
+    expect(within(files).getByRole('radio', { name: 'Link to the originals' })).toBeChecked();
+    await user.click(within(files).getByRole('radio', { name: 'Download a copy' }));
+    expect(within(files).getByRole('radio', { name: 'Download a copy' })).toBeChecked();
+    await user.type(
+      screen.getByLabelText('Google Drive folder link'),
+      'https://drive.google.com/drive/folders/abc',
+    );
+    await user.click(screen.getByRole('button', { name: 'Connect folder' }));
+    expect(await screen.findByRole('heading', { name: 'Drive inputs' })).toBeVisible();
+    await chooseTrackingConversation(user, 'Source work');
+    await user.click(screen.getByRole('button', { name: 'Add source to message' }));
+    await waitFor(() =>
+      expect(fixtures.repository.transferConnectedSource).toHaveBeenCalledWith(
+        'w',
+        'drive_copy',
+        undefined,
+        'draft_test',
+        'read_only',
+        'session_sources',
+      ),
+    );
+    expect(fixtures.repository.linkConnectedSource).not.toHaveBeenCalled();
+  });
 
   it('disables modes the provider cannot deliver and explains them on tap', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
