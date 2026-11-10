@@ -49,7 +49,29 @@ export type ViewerMessage =
       mode?: Hdf5Mode;
       /** Whether the object tree is open. */
       explorer: boolean;
-    };
+    }
+  /** What the reader has set up, for the host to hand back when the page reloads. */
+  | { source: typeof VIEWER_SOURCE; type: 'view'; view: Hdf5ViewMemory };
+
+/**
+ * One dimension in h5web's dimension mapper: the slice index shown, the axis
+ * it is drawn along, or `null` where h5web locks it.
+ */
+export type Hdf5DimSlot = number | 'x' | 'y' | null;
+
+/**
+ * A reader's view of one object. The host keeps it while the file stays open:
+ * moving the viewer's iframe in the page (maximizing the canvas does) reloads
+ * the page, and `init` hands it back so the reader returns to the same slice.
+ */
+export interface Hdf5ViewMemory {
+  locator: string;
+  mode?: Hdf5Mode;
+  explorer: boolean;
+  /** Whether the pane fit the tree beside the data when this was read. */
+  wide: boolean;
+  mapping?: Hdf5DimSlot[];
+}
 
 /**
  * How the viewer shows the current object. The host draws these in its own
@@ -86,6 +108,29 @@ function isMode(value: unknown): value is Hdf5Mode {
   return (HDF5_MODES as readonly unknown[]).includes(value);
 }
 
+function isDimSlot(value: unknown): value is Hdf5DimSlot {
+  return (
+    value === null ||
+    value === 'x' ||
+    value === 'y' ||
+    (typeof value === 'number' && Number.isInteger(value) && value >= 0)
+  );
+}
+
+export function isViewMemory(value: unknown): value is Hdf5ViewMemory {
+  return (
+    isRecord(value) &&
+    typeof value.locator === 'string' &&
+    (value.mode === undefined || isMode(value.mode)) &&
+    typeof value.explorer === 'boolean' &&
+    typeof value.wide === 'boolean' &&
+    (value.mapping === undefined ||
+      (Array.isArray(value.mapping) &&
+        value.mapping.length <= 32 &&
+        value.mapping.every(isDimSlot)))
+  );
+}
+
 export type HostMessage =
   | {
       source: typeof HOST_SOURCE;
@@ -101,6 +146,8 @@ export type HostMessage =
       theme?: 'light' | 'dark';
       /** The host theme's colors for the viewer's chrome. Absent: h5web's own. */
       palette?: Hdf5Palette;
+      /** The reader's last view of `locator`, to restore after a reload. */
+      view?: Hdf5ViewMemory;
     }
   /** Show the current object another way, or open or close the object tree. */
   | { source: typeof HOST_SOURCE; type: 'show'; mode?: Hdf5Mode; explorer?: boolean }
@@ -149,6 +196,8 @@ export function isViewerMessage(value: unknown): value is ViewerMessage {
         (value.mode === undefined || isMode(value.mode)) &&
         typeof value.explorer === 'boolean'
       );
+    case 'view':
+      return isViewMemory(value.view);
     default:
       return false;
   }
@@ -164,7 +213,8 @@ export function isHostMessage(value: unknown): value is HostMessage {
         typeof value.revision === 'number' &&
         (value.locator === undefined || typeof value.locator === 'string') &&
         (value.theme === undefined || value.theme === 'light' || value.theme === 'dark') &&
-        (value.palette === undefined || isPalette(value.palette))
+        (value.palette === undefined || isPalette(value.palette)) &&
+        (value.view === undefined || isViewMemory(value.view))
       );
     case 'response':
       return (
