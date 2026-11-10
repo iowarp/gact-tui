@@ -68,13 +68,6 @@ export function agentIdentity(endpoint: string, label?: string, location?: strin
   };
 }
 
-/** One plain line for a row: the location, plus a user-defined agent name when there is one. */
-export function connectionDisplayName(endpoint: string, label?: string, location?: string): string {
-  const displayLocation = connectionLocation(endpoint, location);
-  const name = connectionAgentName(label, displayLocation);
-  return name === vocab.agent ? displayLocation : `${displayLocation} ${name}`;
-}
-
 export function connectionAgentName(label: string | undefined, location: string): string {
   const trimmed = label?.trim();
   if (!trimmed) return vocab.agent;

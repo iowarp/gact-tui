@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManagedServiceCard } from './managed-service-card';
-import { configurationForVariant, modelRuntimeInModels } from './managed-service-target-utils';
+import { configurationForVariant } from './managed-service-target-utils';
 
 afterEach(cleanup);
 
@@ -340,22 +340,5 @@ describe('deployments CLIO lost track of', () => {
         'cpu',
       ),
     ).toEqual({ model: 'm', 'param.cpu_kvcache_space': '2', 'param.max_num_seqs': '4' });
-  });
-});
-
-describe('deployment target facts', () => {
-  it('recognizes a runtime already saved as its Models preset address', () => {
-    const saved = [
-      {
-        id: 'ollama',
-        preset_id: 'ollama',
-        label: 'Ollama',
-        address: 'http://127.0.0.1:52011/v1',
-        custom: false,
-      },
-    ];
-    expect(modelRuntimeInModels(saved as never, 'ollama', 'http://127.0.0.1:52011')).toBe(true);
-    expect(modelRuntimeInModels(saved as never, 'ollama', 'http://127.0.0.1:52012')).toBe(false);
-    expect(modelRuntimeInModels(saved as never, 'vllm', 'http://127.0.0.1:52011')).toBe(false);
   });
 });

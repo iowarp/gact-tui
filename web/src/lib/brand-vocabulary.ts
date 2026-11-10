@@ -35,15 +35,3 @@ export const PROTOCOL = {
   a2ui: 'A2UI protocol',
   gact: 'GACT protocol',
 } as const;
-
-export type ProtocolKind = keyof typeof PROTOCOL;
-
-const PROTOCOL_DESCRIPTIONS: Record<ProtocolKind, string> = {
-  a2ui: 'A2UI protocol: the agent describes interactive surfaces the desktop renders.',
-  gact: 'GACT protocol: the interface the desktop uses to talk to the agent.',
-};
-
-/** A short, tooltip-length explanation of a protocol, naming it plainly. */
-export function describeProtocol(kind: ProtocolKind): string {
-  return PROTOCOL_DESCRIPTIONS[kind];
-}

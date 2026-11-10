@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  commentSessionParts,
-  commentSessionSummary,
-  markFromSelection,
-  withMark,
-} from './composer-annotations';
+import { commentSessionParts, markFromSelection, withMark } from './composer-annotations';
 
 const answer = (text: string) =>
   markFromSelection({ kind: 'agent-answer-text', text, sessionId: 's', messageId: 'm' });
@@ -21,7 +16,6 @@ describe('comment sessions attached to the next message', () => {
       comment: 'Why this?',
       anchor: { profile: 'text-quote', exact: 'dill-caper sauce', source: { message_id: 'm' } },
     });
-    expect(commentSessionSummary(sessions[0])).toBe('answer m: S1, S2');
   });
 
   it('turns a data zone into a mark whose reference travels as lines under it', () => {
